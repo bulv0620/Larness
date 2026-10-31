@@ -1,6 +1,6 @@
 # STATUS
 
-> 最后更新：2026-10-31 20:10 (+08:00)  
+> 最后更新：2026-10-31 23:45 (+08:00)
 > 当前阶段：**Spec 初始化完成，等待第一个实现任务**
 
 ## 里程碑
@@ -27,12 +27,15 @@
 - 技术栈：`docs/architecture/stack.md`
 - 决策记录：`docs/adr/DECISIONS.md`
 - 任务顺序与门禁：`specs/ROADMAP.md`
+- **可信设备凭据：Passkey / WebAuthn（ADR-021）；不再签发长期设备 Token**
 
 ## 待人类确认（不阻塞 D0）
 
 | 问题 | 默认方案 | 截止 |
 |---|---|---|
-| 设备凭据是否在 V1 引入 WebAuthn | M0 使用 opaque token，WebAuthn 作为 P1 | M4 公网验收前 |
+| 通过 `127.0.0.1` / 局域网 IP 访问时 Passkey 不可用 | 仅支持 `localhost` 或 HTTPS 域名；IP 访问提示改用 localhost / 域名 | M0-6 |
+| 所有 Passkey 丢失且 TUI 不可用时如何恢复 | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码为 P1 | M4 |
+| 是否允许可同步 Passkey | 允许，展示 backup 标志，不承诺物理设备绑定 | M0-6 |
 | 预览独立来源方案 | 开发用 `*.preview.localhost`，生产要求独立域 | M3 开始前 |
 | PM2 交付方式 | 随包依赖 + 可选外部安装 | M3 开始前 |
 | 仓库许可证 | 未定，暂不添加 LICENSE | 公开发布前 |
@@ -44,3 +47,4 @@
 | 日期 | 变更 |
 |---|---|
 | 2026-10-31 | 初始化 spec 工程：宪法、Agent 手册、架构/契约、路线图、S0–M1 详细 spec、M2–M5 草案 |
+| 2026-10-31 | 改用 Passkey / WebAuthn 作为 V1 可信凭据（ADR-021）；移除长期设备 Token / refresh；M0 拆为 9 个任务 |

@@ -1,6 +1,6 @@
 # 本机 IPC 契约（TUI ↔ Server）
 
-> 状态：M0 基线。本机受 OS 权限保护的通道，不监听 TCP、不经公网、不经过 Fastify。  
+> 状态：M0 基线。本机受 OS 权限保护的通道，不监听 TCP、不经公网、不经过 Fastify。
 > 客户端：`node app.js tui`、`node app.js status`、测试用 IPC 客户端。
 
 ## 1. 传输与权限
@@ -66,13 +66,13 @@
 | `system.status` | — | 见下 | 状态快照 |
 | `system.doctor` | — | `checks[]` | 自检 |
 | `init.status` | — | `initialized, requiredFields` | 初始化状态 |
-| `init.apply` | `adminPassword, host, port, publicUrl?, channel?` | `ok, restartRequired` | 仅未初始化；写配置与密码哈希 |
-| `pairing.list` | `status?` | `requests[]` | 默认 pending |
-| `pairing.approve` | `requestId, decision: allow_once\|trust` | `code, expiresAt` | 生成一次性码 |
+| `init.apply` | `adminPassword, host, port, publicUrl?, channel?` | `ok, origin, rpId, restartRequired` | 仅未初始化；写配置与密码哈希；推导 canonical origin / RP ID |
+| `pairing.list` | `status?` | `requests[]` | 默认 pending；含 shortCode / Origin / UA / 时间 |
+| `pairing.approve` | `requestId, decision: allow_once\|trust` | `code, expiresAt` | 生成一次性码；`trust` 仅在 WebAuthn 配置有效且申请 Origin 为 canonical 时可用，且需浏览器注册 Passkey |
 | `pairing.deny` | `requestId` | `ok` | 拒绝 |
-| `devices.list` | — | `devices[]` | 含最后活跃、到期、状态 |
-| `devices.revoke` | `deviceId` | `ok` | 事务作废会话 |
-| `sessions.list` | — | `sessions[]` | 浏览器会话 |
+| `devices.list` | — | `devices[]` | 含 credential、backup 标志、最后使用、状态 |
+| `devices.revoke` | `deviceId` | `ok` | 事务作废 credential + 设备 + 会话 + WS |
+| `sessions.list` | — | `sessions[]` | 浏览器会话（kind: once / passkey） |
 | `sessions.revoke` | `sessionId` | `ok` | 撤销单个会话 |
 | `logs.tail` | `lines ≤ 500` | `lines[]` | 脱敏后的最近日志 |
 | `audit.tail` | `limit ≤ 200` | `items[]` | 最近审计 |
@@ -90,6 +90,7 @@
   "ipc": { "ok": true, "clients": 1 },
   "sessions": { "online": 2, "pendingPairings": 1 },
   "publicUrl": "https://harness.example.com",
+  "webauthn": { "enabled": true, "rpId": "harness.example.com", "origin": "https://harness.example.com" },
   "warnings": []
 }
 ```
@@ -98,9 +99,11 @@
 
 | event | data | 触发 |
 |---|---|---|
-| `pairing.requested` | `requestId, shortCode, createdAt, clientLabel, ip, userAgent` | 新申请 |
+| `pairing.requested` | `requestId, shortCode, createdAt, clientLabel, origin, ip, userAgent` | 新申请 |
 | `pairing.decided` | `requestId, status, codeExpiresAt?` | 批准 / 拒绝 |
-| `pairing.redeemed` | `requestId, sessionId` | 兑换成功 |
+| `pairing.redeemed` | `requestId, sessionId?` | allow_once 兑换成功；trust 的会话在注册后产生 |
+| `pairing.enrollment` | `requestId, expiresAt` | trust 兑换后进入 Passkey 注册窗口 |
+| `pairing.enrolled` | `requestId, deviceId, credentialId` | Passkey 注册完成 |
 | `device.revoked` | `deviceId` | 设备撤销 |
 | `session.revoked` | `sessionId, reason` | 会话撤销 |
 | `server.status` | 状态摘要 | 连接数 / 待审批变化 |

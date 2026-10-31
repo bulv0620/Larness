@@ -18,7 +18,7 @@
 关键路径：
 
 ```text
-D0-1 → … → D0-9 → M0-1 → … → M0-8 → M1-1 → … → M1-8
+D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-8
 → M2-1 → … → M2-8 → M3-1 → … → M3-6 → M4-1 → … → M4-4
 → M5-1 → … → M5-5
 ```
@@ -41,18 +41,19 @@ D0-1 → … → D0-9 → M0-1 → … → M0-8 → M1-1 → … → M1-8
 
 ## 3. M0 工程底座与可信启动
 
-目标：`node app.js` 可启动；本机 TUI 初始化；浏览器经 TUI 配对后进入唯一工作空间；所有业务接口默认拒绝。
+目标：`node app.js` 可启动；本机 TUI 初始化；浏览器经 TUI 配对准入；`允许本次` 得短期会话，`始终允许` 必须注册 Passkey；所有业务接口默认拒绝。
 
 | ID | 任务 | 主要产出 | 依赖 | 状态 |
 |---|---|---|---|---|
 | M0-1 | Server 与 workspace 扩展 | `apps/server`、`packages/{shared,agent,resources}` 占位、Fastify、统一脚本、CI、`/api/health` | D0-9 | `todo` |
-| M0-2 | 配置、数据目录与日志 | 数据目录解析、`config.json` + Zod、pino、`doctor` / `status`、端口与权限检查 | M0-1 | `todo` |
-| M0-3 | SQLite、迁移与审计 | Drizzle schema、迁移器、WAL / 外键、`audit_logs`、repository 基类 | M0-2 | `todo` |
+| M0-2 | 配置、数据目录与日志 | 数据目录解析、`config.json` + Zod、canonical origin / RP ID 推导、pino、`doctor` / `status` | M0-1 | `todo` |
+| M0-3 | SQLite、迁移与审计 | Drizzle schema、迁移器、WAL / 外键、审计、Passkey 表、repository 基类 | M0-2 | `todo` |
 | M0-4 | 本机 IPC 与 TUI 初始化 | UDS / Named Pipe、JSON 协议、init 流程、管理员凭据、TUI 骨架 | M0-3 | `todo` |
-| M0-5 | 设备配对与会话 | 配对状态机、TUI 审批、一次性码、会话 / 设备凭据、撤销 | M0-4 | `todo` |
-| M0-6 | 鉴权与传输安全 | REST / WS 鉴权、Origin / CSRF、限流、错误码、失败关闭用例 | M0-5 | `todo` |
-| M0-7 | Web 认证集成 | 配对页、路由守卫、会话 / CSRF、登出、设备撤销后的跳转 | M0-6 | `todo` |
-| M0-8 | 稳定入口与 M0 验收 | `app.js`、静态托管、优雅关闭、构建、M0 门禁测试 | M0-7 | `todo` |
+| M0-5 | 配对申请与准入 | 配对状态机、TUI 审批、一次性码、allow_once 会话、trust enrollment | M0-4 | `todo` |
+| M0-6 | Passkey 注册与登录 | WebAuthn options / verify、challenge、设备 / credential、TUI 撤销 | M0-5 | `todo` |
+| M0-7 | 鉴权与传输安全 | Session / CSRF / Origin、限流、WS 鉴权、错误码、失败关闭用例 | M0-6 | `todo` |
+| M0-8 | Web 认证集成 | `/login`、`/pair`、Passkey 注册 / 登录、路由守卫、登出、撤销跳转 | M0-7 | `todo` |
+| M0-9 | 稳定入口与 M0 验收 | `app.js`、静态托管、优雅关闭、构建、M0 门禁测试 | M0-8 | `todo` |
 
 ## 4. M1 项目、会话与最小 Agent
 
@@ -65,7 +66,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-8 → M1-1 → … → M1-8
 | M1-3 | Provider 适配与 FakeProvider | ProviderAdapter、能力声明、FakeProvider、DeepSeek 适配 | G0 | `todo` |
 | M1-4 | 工具注册与审批引擎 | ToolRegistry、list / read / search / patch、L0–L2 判定、审计 | M1-1, M1-2 | `todo` |
 | M1-5 | Turn Runner 与状态机 | QUEUED→…→COMPLETED、预算、取消、并发限制、事件写入 | M1-2, M1-3, M1-4 | `todo` |
-| M1-6 | 实时对话 UI | Query + WS、乐观 / 重放、工具卡片、审批卡片、错误态 | M1-5, M0-7 | `todo` |
+| M1-6 | 实时对话 UI | Query + WS、乐观 / 重放、工具卡片、审批卡片、错误态 | M1-5, M0-8 | `todo` |
 | M1-7 | 模型 Profile 与 SecretStore | 凭据加密、模型配置、下一轮切换、密钥脱敏 | M1-3 | `todo` |
 | M1-8 | M1 验收与 E2E | 项目 → 任务 → 刷新恢复 → 切模型 → 取消；G1 门禁 | M1-6, M1-7 | `todo` |
 
@@ -127,7 +128,9 @@ D0-1 → … → D0-9 → M0-1 → … → M0-8 → M1-1 → … → M1-8
 - 未初始化时业务 API 不开放；初始化只经本机通道；
 - 未授权客户端只能访问配对页；REST / WS / 静态资源均无法读取数据；
 - 配对码绑定申请、限时、限次、一次消费；并发兑换只有一个成功；
-- `允许本次` 过期不可重用；`始终允许` 撤销后立即断开；
+- `允许本次` 过期不可重用；`始终允许` 必须完成 Passkey 注册，未完成不创建设备 / 会话；
+- Passkey 登录、撤销、challenge 重放 / 过期、错误 Origin、IP 来源均有测试；
+- 不签发长期设备 Token / refresh token；
 - TUI 关闭、页面刷新、断网不影响后台 Agent / 服务；
 - TLS / Cookie / CSRF / Origin / WS 鉴权安全用例通过。
 

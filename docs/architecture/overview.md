@@ -1,6 +1,6 @@
 # 系统架构总览
 
-> 状态：已冻结（v1.0）· 来源：`larness.md` 第 10–20、33–41 章  
+> 状态：已冻结（v1.0）· 来源：`larness.md` 第 10–20、33–41 章
 > 本文只描述跨里程碑的稳定结构；具体功能见 `specs/`。
 
 ## 1. 定位
@@ -60,7 +60,7 @@ Launcher / Updater 的完整实现属于 M5；M0 只要求 `node app.js` 能启�
 
 | 模块 | 核心职责 | 不负责 |
 |---|---|---|
-| AuthManager | 初始化、设备配对、浏览器会话、设备撤销、CSRF / Origin 校验 | Agent 工具授权决策 |
+| AuthManager | 初始化、设备配对、Passkey 注册 / 认证、浏览器会话、设备撤销、CSRF / Origin 校验 | Agent 工具授权决策 |
 | ControlTUI / LocalIpc | 本机初始化、配对审批、设备管理、状态与日志 | 公网入口 |
 | ProjectManager | 目录映射、元数据、路径授权、Git 仓库检测 | PTY 生命周期 |
 | SessionManager | Session / Turn 状态、消息索引、事件序号 | 以厂商消息格式作为唯一历史 |
@@ -99,7 +99,7 @@ node app.js tui
 
 未初始化时禁止通过 Web 创建管理员；初始化只能来自本机受 OS 权限保护的通道。
 
-### 5.2 设备配对
+### 5.2 设备配对与 Passkey 登录
 
 ```text
 浏览器 POST /api/pairing/requests
@@ -107,12 +107,26 @@ node app.js tui
   → TUI 显示编号 / 来源 / 时间
   → 操作者选择 拒绝 / 允许本次 / 始终允许
   → 批准后生成一次性高熵配对码，只在 TUI 显示
-  → 浏览器提交配对码
-  → 服务端原子消费，签发短期会话（始终允许时另发设备凭据）
+  → 浏览器提交配对码（原子消费）
+  ├─ 允许本次：签发短期会话，不注册 Passkey
+  └─ 始终允许：返回 passkey_required + 5 分钟 enrollment Cookie
+       → 浏览器注册 Passkey（WebAuthn create）
+       → 服务端验证并创建设备 / credential / 会话
   → 浏览器进入唯一 Workspace
 ```
 
-角色与安全细节见 [security.md](security.md) 与 [010-foundation spec](../../specs/010-foundation/spec.md)。
+后续登录：
+
+```text
+未认证浏览器 → GET /api/webauthn/authentication/options
+  → 浏览器 WebAuthn get（Face ID / 指纹 / PIN）
+  → POST /api/webauthn/authentication/verify
+  → 服务端验证签名 / challenge / origin → 签发短期会话
+```
+
+不签发长期设备 Token，也不使用 refresh token；会话过期后重新用 Passkey 认证。RP ID / Origin 只支持 `localhost` 或 HTTPS 域名，IP 地址不作为 Passkey 来源。
+
+角色与安全细节见 [security.md](security.md)、[ADR-021](../adr/ADR-021-passkey-v1.md) 与 [010-foundation spec](../../specs/010-foundation/spec.md)。
 
 ### 5.3 Agent Turn
 
@@ -191,7 +205,7 @@ packages/
   resources/    # File / Terminal / Command / Git / Service 抽象
   ui/           # 通用 UI 原语（Radix + Tailwind）
 scripts/        # 构建、发布、E2E 辅助
-app.js          # 稳定入口（M0-8 创建）
+app.js          # 稳定入口（M0-9 创建）
 ```
 
 约定：Server 不依赖 React；所有 Host / OS 差异收敛到 `platform/` 与 Adapter；DTO 与事件类型只从 `packages/shared` 导出。

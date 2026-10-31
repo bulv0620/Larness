@@ -1,6 +1,6 @@
 # 任务：M1 项目、会话与最小 Agent
 
-> 规则：一个任务一个提交；开始前更新 `STATUS.md`，完成后勾选本表并同步 `ROADMAP.md`。  
+> 规则：一个任务一个提交；开始前更新 `STATUS.md`，完成后勾选本表并同步 `ROADMAP.md`。
 > 涉及事件 / 工具 / 审批的变更必须同步契约与失败路径测试。
 
 ## 状态总表
@@ -12,7 +12,7 @@
 | M1-3 | Provider 适配与 FakeProvider | G0 | `todo` |
 | M1-4 | 工具注册与审批引擎 | M1-1, M1-2 | `todo` |
 | M1-5 | Turn Runner 与状态机 | M1-2, M1-3, M1-4 | `todo` |
-| M1-6 | 实时对话 UI | M1-5, M0-7 | `todo` |
+| M1-6 | 实时对话 UI | M1-5, M0-8 | `todo` |
 | M1-7 | 模型 Profile 与 SecretStore | M1-3 | `todo` |
 | M1-8 | M1 验收与 E2E | M1-6, M1-7 | `todo` |
 
@@ -100,7 +100,7 @@
 ### M1-6 实时对话 UI
 
 - 状态：`todo`
-- 依赖：M1-5, M0-7
+- 依赖：M1-5, M0-8
 - 目标：把 S0 的 Mock 对话替换为真实项目 / 会话 / 事件 / 审批。
 - 交付物：
   - 项目对话框、项目切换、新建 / 重命名会话；
@@ -108,7 +108,7 @@
   - 事件 reducer：消息、计划、工具、审批、错误、取消；
   - Composer：模型、审批策略、发送 / 停止、错误重试；
   - 审批卡片调用真实 API；空态与加载态。
-- 验收：A3、A4、A6、A8、A9 的 UI 部分；刷新无重复 / 无缺口；401 自动 refresh。
+- 验收：A3、A4、A6、A8、A9 的 UI 部分；刷新无重复 / 无缺口；401 统一跳 Passkey 登录（returnTo）。
 - 测试：reducer 纯函数、缺口补拉、乐观消息、审批状态、E2E。
 - 涉及路径：`apps/web/src/features/{projects,chat,models}/`、`apps/web/src/lib/{apiClient,eventReducer}.ts`。
 

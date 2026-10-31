@@ -26,12 +26,16 @@
 | 配对码错误 5 次 | 第 6 次 `RATE_LIMITED`，申请作废 |
 | 两设备并发兑换同一 request | 仅一个成功，另一个失败且不泄漏 |
 | `允许本次` 过期 | 会话失效，需重新配对 |
-| `始终允许` 后撤销设备 | 现有会话与 WS 立即失效 |
+| `始终允许` 后撤销设备 | credential、会话与 WS 立即失效；Passkey 登录失败 |
+| `始终允许` 未完成 Passkey 注册 | 不创建设备 / 会话，enrollment 过期后重新配对 |
+| Passkey 注册 / 登录 | 虚拟认证器成功；challenge / Origin / RP ID / UV 校验生效 |
+| challenge 过期 / 重放 | `CHALLENGE_EXPIRED`，不产生会话 |
 | 无 Cookie / 伪造 Cookie 访问 | `UNAUTHENTICATED` |
 | 错误 Origin / 缺失 CSRF | `ORIGIN_INVALID` / `CSRF_INVALID` |
-| 会话固定 / Token 重放 | 旧 Token 失效，Cookie 轮换 |
-| TUI 不可用时新设备申请 | 挂起或拒绝，不自动放行 |
-| 重启后会话 | 未过期会话仍有效；事件不丢 |
+| 会话 Token 重放 / 撤销 | 旧会话立即失效；新会话不可复用旧 Token |
+| 通过 IP / 非安全上下文访问 | Passkey 不可用，提示 allow_once / 换 localhost |
+| TUI 不可用时新设备申请 | 挂起或拒绝，不自动放行；已有 Passkey 仍可登录 |
+| 重启后会话 | 未过期会话仍有效；设备 / credential 保留 |
 
 ### M1 Agent
 

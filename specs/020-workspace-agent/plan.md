@@ -166,7 +166,7 @@ interface ProviderAdapter {
 
 ### 4.9 前端
 
-- `apiClient` 统一处理 401 → refresh → 重试一次；CSRF Token 从 session 缓存。
+- `apiClient` 统一处理 401 → 跳 `/login?returnTo=…`（Passkey 重新认证），不做 refresh；CSRF Token 从 session 缓存。
 - `useSessionEvents(sessionId)`：首次 `GET events?after=0`（限制 500），订阅 WS；收到事件按 `seq` 插入，检测缺口后补拉。
 - `eventReducer` 生成时间线项：message / plan / tool / approval / error；同 ID 更新而非重复插入。
 - Composer 发送后锁定；`stop` 调 cancel；审批按钮调用 approvals API；错误展示错误码与重试。

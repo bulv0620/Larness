@@ -21,8 +21,17 @@
 | 托管服务 | Managed Service | 由 PM2 管理的长期运行服务 |
 | 预览来源 | Preview Origin | 加载项目页面的隔离来源，不得共享管理站 Cookie |
 | 预览票据 | Preview Ticket | 绑定服务与会话的短期访问凭证 |
-| 配对码 | Pairing Code | TUI 展示的一次性高熵码，用于兑换会话 |
-| 设备凭据 | Device Credential | “始终允许”后签发的长期凭据，仅用于换取短期会话 |
+| 配对码 | Pairing Code | TUI 展示的一次性高熵码，用于兑换会话 / enrollment |
+| 可信凭据 | Trusted Credential | “始终允许”后注册的 Passkey；证明持有私钥，不是长期 Token |
+| Passkey | Passkey | 基于 WebAuthn 的无密码凭据；私钥在认证器 / 密码管理器，服务端只存公钥 |
+| WebAuthn | WebAuthn / FIDO2 | 浏览器与认证器之间的公钥认证协议 |
+| RP ID | Relying Party ID | Passkey 绑定的域名；V1 等于 canonical origin 的 hostname，IP 不可用 |
+| Canonical Origin | Canonical Origin | 工作空间唯一允许的浏览器来源，如 `http://localhost:3210` 或 HTTPS 域名 |
+| 可发现凭据 | Discoverable Credential | 认证器可自行选择、无需用户名先行的 Passkey（resident key） |
+| Enrollment | Enrollment | `始终允许` 配对码兑换后的 5 分钟注册窗口，用于创建 Passkey |
+| 认证器 | Authenticator | 生成 / 保存 Passkey 私钥的平台组件或硬件密钥 |
+| 远程证明 | Attestation | 认证器对自身型号的证明；V1 使用 `none`，不做设备白名单 |
+| 可同步标志 | Backup Eligible / State | Passkey 是否可被密码管理器同步；不等于物理设备绑定 |
 | 失败关闭 | Fail Closed | 状态不确定时拒绝，而不是放行 |
 | Spec | Spec | `specs/<slice>/spec.md`，描述做什么与验收 |
 | Slice | Slice | 一个可独立验收的功能切片 / 里程碑包 |

@@ -78,7 +78,7 @@ Agent 的启动指令示例：
 
 ## 冻结技术栈（摘要）
 
-pnpm workspace · Node.js ≥ 20.19 · TypeScript strict · React + Vite · Tailwind CSS · Zustand + TanStack Query · Fastify 5 · Zod · SQLite（better-sqlite3 + Drizzle）· WebSocket · node-pty + xterm.js · Monaco · PM2 · Vitest + Playwright · Biome。
+pnpm workspace · Node.js ≥ 20.19 · TypeScript strict · React + Vite · Tailwind CSS · Zustand + TanStack Query · Fastify 5 · Zod · SQLite（better-sqlite3 + Drizzle）· Passkey / WebAuthn · WebSocket · node-pty + xterm.js · Monaco · PM2 · Vitest + Playwright · Biome。
 
 完整说明与版本策略见 [docs/architecture/stack.md](docs/architecture/stack.md)。
 

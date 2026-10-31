@@ -1,6 +1,6 @@
 # 架构决策记录（ADR）
 
-> 已冻结决策不可静默修改。需要变更时新增 ADR，说明背景、替代方案、风险、迁移与回滚，经人类批准后生效。  
+> 已冻结决策不可静默修改。需要变更时新增 ADR，说明背景、替代方案、风险、迁移与回滚，经人类批准后生效。
 > 格式参考文末模板；新 ADR 文件放在本目录，命名 `ADR-0xx-<slug>.md`，并更新本索引。
 
 ## 1. 产品与边界（冻结）
@@ -27,11 +27,12 @@
 | ADR-013 | 轻量自定义 spec 工作流 | `specs/<slice>/{spec,plan,tasks}.md` + 根宪法 + 模板；不引入 spec-kit 工具链 |
 | ADR-014 | pnpm workspace + TypeScript strict + Fastify 5 + React/Vite | 详见 [stack.md](../architecture/stack.md)；单体优先 |
 | ADR-015 | SQLite 使用 better-sqlite3 + Drizzle ORM | 同步 API 简单、迁移可审查；不引入 Prisma / TypeORM |
-| ADR-016 | V1 设备凭据使用 opaque token，WebAuthn 作为 P1 | 先完成可用的安全基线；公网暴露前重新评估，见 Q-001 |
+| ADR-016 | V1 设备凭据使用 opaque token，WebAuthn 作为 P1 | **已由 ADR-021 替代**（2026-10-31）；保留原文作为历史 |
 | ADR-017 | 视觉 Demo 使用 MockGateway，不造假后端 | 同一客户端接口，M1 替换为真实 API；禁止把 mock 当完成证据 |
 | ADR-018 | 事件序号按 Session 递增，而非按 Turn | UI 重放与排序更简单；`turnId` 仍记录在事件上；与源文档的差异在此登记 |
 | ADR-019 | ID / 时间 / 错误码统一约定 | `<prefix>_<uuid>`、Unix ms、稳定错误码；见 `docs/contracts/rest-api.md` |
 | ADR-020 | 文档与 UI 中文优先，代码标识符英文 | 降低沟通成本；字符串集中管理，后续可国际化 |
+| ADR-021 | V1 使用 Passkey / WebAuthn 作为可信凭据，不签发长期设备 Token | 见 [ADR-021](ADR-021-passkey-v1.md)；`allow_once` 仍保留为临时访问 |
 
 ## 3. 变更流程
 

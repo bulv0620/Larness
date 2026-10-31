@@ -1,6 +1,6 @@
 # 冻结技术栈
 
-> 状态：已冻结（v1.0，2026-10-31）  
+> 状态：已冻结（v1.0，2026-10-31）
 > 变更规则：新增核心依赖或替换下表中的库，必须先写 ADR，说明收益、迁移与风险；不得在任务中“顺手换库”。
 
 ## 1. 原则
@@ -36,6 +36,7 @@
 | 数据库 | SQLite + `better-sqlite3` + Drizzle ORM | WAL、foreign_keys、busy_timeout；SQL 迁移文件 |
 | 迁移 | drizzle-kit 生成 + 启动时 migrator | 迁移文件进版本库；启动前备份 |
 | 密码哈希 | `@node-rs/argon2`（Argon2id） | 预编译二进制；失败时明确报错，不回退弱哈希 |
+| Passkey / WebAuthn | `@simplewebauthn/server` | 注册 / 认证 ceremony 与验证；attestation `none`、UV required、resident key required |
 | 日志 | pino + 文件轮转 | JSON 行；开发用 pino-pretty；秘密脱敏 |
 | WebSocket | `@fastify/websocket`（ws） | 握手鉴权、Origin 校验、事件序号 |
 | 本机 IPC | Unix Domain Socket / Windows Named Pipe | 换行分隔 JSON；0600 权限 + 0600 Token 握手；可用平台追加 peer uid |
@@ -71,6 +72,7 @@
 | 编辑器 | `@monaco-editor/react` | 按需加载；只读预览与编辑 |
 | 终端 | `@xterm/xterm` + fit addon | WebGL 可选，默认 canvas |
 | 通知 | sonner | 轻量 toast |
+| Passkey 客户端 | `@simplewebauthn/browser` | `startRegistration` / `startAuthentication`；不支持时明确降级 |
 | 字体 | 系统字体栈 | `-apple-system` / `ui-monospace`；不加载 Web 字体 |
 
 ## 6. Workspace 布局
@@ -87,7 +89,7 @@ packages/
   resources/                 # @harness/resources
   ui/                        # @harness/ui
 scripts/
-app.js                       # M0-8 创建
+app.js                       # M0-9 创建
 ```
 
 - 第一阶段（D0）只创建 `apps/web`、`packages/shared`、`packages/ui` 与根配置；`apps/server` 等在 M0-1 创建。

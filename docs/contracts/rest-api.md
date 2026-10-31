@@ -1,15 +1,15 @@
 # REST API 契约
 
-> 状态：M0 已冻结；M1 为设计基线，实现时可补充字段但不得破坏既有语义。  
-> Base URL：`http://127.0.0.1:3210`（默认）；所有业务接口前缀 `/api`。
+> 状态：M0 已冻结（Passkey / WebAuthn）；M1 为设计基线，实现时可补充字段但不得破坏既有语义。
+> Base URL：默认监听 `127.0.0.1:3210`；浏览器 canonical origin 为 `http://localhost:3210`（Passkey 需要）或 HTTPS 域名；Vite 开发（5173）需把 origin 配置为 `http://localhost:5173`。所有业务接口前缀 `/api`。
 
 ## 1. 通用约定
 
 | 项 | 约定 |
 |---|---|
 | 编码 | UTF-8；请求 / 响应 `application/json`（文件下载除外） |
-| 认证 | `harness_session` HttpOnly Cookie；公开接口仅健康、bootstrap、配对 |
-| CSRF | 已认证的变更请求带 `x-csrf-token`；公开配对接口校验 Origin |
+| 认证 | `harness_session` HttpOnly Cookie；公开接口仅健康、bootstrap、配对、Passkey options / verify |
+| CSRF | 已认证的变更请求带 `x-csrf-token`；公开配对 / Passkey 接口校验 Origin |
 | 请求 ID | 客户端可传 `x-request-id`，否则服务端生成；响应回显 |
 | 幂等 | 变更接口支持 `Idempotency-Key`；Turn、服务动作、部署必须支持 |
 | 时间 | 所有时间戳为 Unix 毫秒整数（UTC） |
@@ -37,6 +37,11 @@
 | `PAIRING_DENIED` | 403 | 本机拒绝配对 |
 | `PAIRING_EXPIRED` | 410 | 配对申请或配对码过期 |
 | `CODE_INVALID` | 400 | 配对码错误 |
+| `ENROLLMENT_EXPIRED` | 410 | Passkey 注册 enrollment 缺失 / 过期 |
+| `CHALLENGE_EXPIRED` | 410 | WebAuthn challenge 过期 / 已使用 |
+| `PASSKEY_REGISTRATION_FAILED` | 400 | 注册验证失败（签名 / UV / 重复凭据等） |
+| `PASSKEY_AUTH_FAILED` | 401 | 认证失败（统一错误，不泄漏原因） |
+| `WEBAUTHN_NOT_CONFIGURED` | 409 | WebAuthn 配置无效（如 RP ID 为 IP、缺少 canonical origin） |
 | `RATE_LIMITED` | 429 | 触发限流 |
 | `PATH_OUTSIDE_PROJECT` | 403 | 路径越界 |
 | `APPROVAL_INVALID` | 409 | 审批过期 / 被撤销 / 参数不一致 |
@@ -62,7 +67,13 @@
 {
   "app": { "name": "Harness", "version": "0.1.0" },
   "initialized": true,
-  "auth": { "authenticated": false, "pairingEnabled": true },
+  "auth": {
+    "authenticated": false,
+    "pairingEnabled": true,
+    "passkeyEnabled": true,
+    "passkeyOrigin": "http://localhost:3210",
+    "passkeyRegistered": true
+  },
   "features": { "preview": false },
   "serverTime": 1761900000000
 }
@@ -70,7 +81,9 @@
 
 规则：
 
-- 未初始化时 `initialized=false`，`auth.pairingEnabled=false`，不返回数据目录、主机名、设备数量。
+- 未初始化时 `initialized=false`，`auth.pairingEnabled=false`、`auth.passkeyEnabled=false`、`auth.passkeyRegistered=false`，不返回数据目录、主机名、设备数量。
+- `passkeyEnabled` 表示 WebAuthn 配置有效（非 IP、HTTPS 或 localhost）；`passkeyOrigin` 是唯一允许的 Passkey 来源；Web 端必须用 `window.location.origin === passkeyOrigin` 判断当前地址是否可用。通过 `127.0.0.1` 访问时 origin 不匹配，Passkey 不可用，但 `allow_once` 配对仍可用（loopback Origin 例外）。
+- `passkeyRegistered` 只表示“是否已存在有效可信凭据”，不返回数量与标签。
 - 已认证时 `authenticated=true`，但不在此返回会话详情。
 
 ## 4. 配对（M0）
@@ -95,6 +108,7 @@
 ```
 
 - `shortCode` 仅用于与 TUI 核对，不是凭据；`pollToken` 只存于浏览器内存。
+- 服务端记录请求 `Origin`（不信任 body），仅 canonical Origin 的申请可选择“始终允许”。
 - 速率：每 IP 10 次 / 分钟。
 
 ### GET `/api/pairing/requests/:requestId`
@@ -105,7 +119,7 @@
 { "status": "pending", "expiresAt": 1761900600000 }
 ```
 
-状态：`pending | approved | denied | expired | redeemed`。`approved` 时额外返回 `decision: "allow_once" | "trust"`，**不返回配对码**。浏览器看到 `approved` 后显示配对码输入框。
+状态：`pending | approved | enrollment_pending | denied | expired | redeemed`。`approved` 时额外返回 `decision: "allow_once" | "trust"`，**不返回配对码**。浏览器看到 `approved` 后显示配对码输入框。
 
 ### POST `/api/pairing/redeem`
 
@@ -113,10 +127,13 @@
 { "requestId": "pair_…", "code": "7K3M-9Q2X" }
 ```
 
-成功 `200` 并 `Set-Cookie`：
+配对码原子消费；同一码不可再次使用。
+
+**`allow_once`**：成功 `200`，`Set-Cookie: harness_session`：
 
 ```json
 {
+  "status": "session",
   "clientSessionId": "bs_…",
   "kind": "once",
   "deviceId": null,
@@ -125,9 +142,21 @@
 }
 ```
 
-失败：`CODE_INVALID`（剩余尝试次数在 `details.attemptsLeft`）、`PAIRING_DENIED`、`PAIRING_EXPIRED`、`RATE_LIMITED`。成功兑换后申请进入 `redeemed`，同一码不可再次使用。
+**`trust`**：成功 `200`，**不签发会话**，`Set-Cookie: harness_enrollment`（HttpOnly、Path=/api/webauthn/registration、5 分钟）：
 
-## 5. 认证会话（M0）
+```json
+{
+  "status": "passkey_required",
+  "requestId": "pair_…",
+  "enrollmentExpiresAt": 1761900300000
+}
+```
+
+申请进入 `enrollment_pending`；完成 Passkey 注册验证后才创建设备、签发会话并标记 `redeemed`。注册失败 / 超时可重试，直到 enrollment 过期；过期需重新配对。
+
+失败：`CODE_INVALID`（剩余尝试次数在 `details.attemptsLeft`）、`PAIRING_DENIED`、`PAIRING_EXPIRED`、`RATE_LIMITED`；`trust` 在 WebAuthn 配置无效或申请 Origin 非 canonical 时返回 `WEBAUTHN_NOT_CONFIGURED` / `ORIGIN_INVALID`（TUI 应已隐藏该选项）。
+
+## 5. 认证会话与 Passkey（M0）
 
 ### GET `/api/auth/session`
 
@@ -137,28 +166,81 @@
 {
   "clientSessionId": "bs_…",
   "deviceId": "dev_…",
-  "kind": "trusted",
+  "kind": "passkey",
   "createdAt": 1761900000000,
   "expiresAt": 1761943200000,
   "csrfToken": "…",
-  "capabilities": ["workspace.read", "workspace.write"]
+  "capabilities": ["workspace.read", "workspace.write"],
+  "passkey": { "backupEligible": true, "backupState": true }
 }
 ```
 
-未认证返回 `401 UNAUTHENTICATED`。`capabilities` 为粗粒度能力提示，最终授权仍在每个接口。
+- `kind`：`once`（允许本次）或 `passkey`（可信设备）。
+- `once` 会话 `deviceId=null`，无 `passkey` 字段；不可升级为可信设备。
+- 未认证返回 `401 UNAUTHENTICATED`。`capabilities` 为粗粒度提示，最终授权仍在每个接口。
+- **不存在 `/api/auth/refresh`**；会话过期后重新走 Passkey 认证。
 
-### POST `/api/auth/refresh`
+### POST `/api/webauthn/registration/options`
 
-使用 `harness_device` 设备凭据换取新的短期会话（`允许本次` 的会话没有设备凭据，不能刷新）。
+- 需要 `harness_enrollment` Cookie（`trust` 配对兑换后签发，5 分钟），不接受普通会话代替。
+- 校验 Origin；生成一次性 challenge（5 分钟），返回：
 
-- 请求头必须带合法 `Origin`；不要求 CSRF（尚无会话）。
-- 成功：轮换设备凭据、撤销旧会话、`Set-Cookie` 新的 `harness_session` 与 `harness_device`，返回与 `GET /api/auth/session` 相同结构。
-- 失败：`UNAUTHENTICATED`（凭据缺失 / 过期 / 已撤销），清 Cookie。
-- 速率：每设备凭据 10 次 / 分钟。
+```json
+{
+  "challengeId": "chl_…",
+  "options": {
+    "rp": { "id": "localhost", "name": "Harness" },
+    "user": { "id": "…", "name": "operator", "displayName": "Harness Operator" },
+    "challenge": "…",
+    "pubKeyCredParams": [{ "type": "public-key", "alg": -7 }, { "type": "public-key", "alg": -257 }],
+    "timeout": 60000,
+    "attestation": "none",
+    "authenticatorSelection": {
+      "residentKey": "required",
+      "userVerification": "required"
+    },
+    "excludeCredentials": [{ "id": "…", "type": "public-key" }]
+  }
+}
+```
+
+- `options` 为 SimpleWebAuthn 的 `PublicKeyCredentialCreationOptionsJSON` 子集；完整字段以库输出为准。
+- 失败：`ENROLLMENT_EXPIRED`、`WEBAUTHN_NOT_CONFIGURED`、`ORIGIN_INVALID`、`RATE_LIMITED`。
+
+### POST `/api/webauthn/registration/verify`
+
+```json
+{ "challengeId": "chl_…", "response": { /* RegistrationResponseJSON */ } }
+```
+
+- 需要同一个 enrollment Cookie；校验 challenge、Origin、RP ID、UV，attestation `none`。
+- 成功：创建 `trusted_devices` + `webauthn_credentials`，配对申请标记 `redeemed`，清 enrollment Cookie，签发 `harness_session`，返回与 `GET /api/auth/session` 相同结构（`201`）。
+- 重复 credential / 验证失败：`PASSKEY_REGISTRATION_FAILED`；challenge 过期：`CHALLENGE_EXPIRED`。浏览器不支持 WebAuthn 时由 Web 端阻止并提示，不发起验证。
+
+### POST `/api/webauthn/authentication/options`
+
+公开接口（无需会话），但校验 Origin 与限流：
+
+```json
+{ "challengeId": "chl_…", "options": { "challenge": "…", "rpId": "localhost", "allowCredentials": [], "userVerification": "required", "timeout": 60000 } }
+```
+
+- `allowCredentials` 为空，使用 discoverable credential；不暴露账号是否存在。
+- 当前来源不是 canonical origin：`ORIGIN_INVALID`；RP ID / Origin 配置无效：`WEBAUTHN_NOT_CONFIGURED`。
+
+### POST `/api/webauthn/authentication/verify`
+
+```json
+{ "challengeId": "chl_…", "response": { /* AuthenticationResponseJSON */ } }
+```
+
+- 校验 challenge、Origin、RP ID、UV、签名、credential 与设备状态；更新计数器与最后使用时间。
+- 成功：签发新的 `harness_session`，返回与 `GET /api/auth/session` 相同结构（`200`）。
+- 失败统一返回 `401 PASSKEY_AUTH_FAILED`，不区分“credential 不存在 / 已撤销 / 签名错误”；challenge 过期返回 `CHALLENGE_EXPIRED`。
 
 ### POST `/api/auth/logout`
 
-撤销当前会话，清 Cookie，返回 `204`。需 CSRF。设备凭据保留（用户可在 TUI 撤销设备）。
+撤销当前会话，清 Cookie，返回 `204`。需 CSRF。Passkey credential 与设备保留；撤销设备只能通过 TUI。
 
 ### GET `/api/system/info`（已认证）
 

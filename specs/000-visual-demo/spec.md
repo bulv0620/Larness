@@ -11,7 +11,7 @@ updated: 2026-10-31
 
 # S0 视觉 Demo
 
-> 源设计：`larness.md` 第 3、7.1、20 章；本切片是**第 0 步**，先建立可交互的视觉与交互基线。  
+> 源设计：`larness.md` 第 3、7.1、20 章；本切片是**第 0 步**，先建立可交互的视觉与交互基线。
 > 重要：Demo 的数据全部来自 Mock，不代表任何后端能力已完成；禁止用 Demo 冒充真实功能。
 
 ## 1. 背景与问题
@@ -282,7 +282,7 @@ export interface Gateway {
 - 浏览器窗口占位使用 `about:blank` 或纯静态占位，不加载真实 `localhost`，不绕过 iframe 安全属性。
 - 不使用 `dangerouslySetInnerHTML` 渲染 Mock 内容；Markdown 渲染如启用必须 sanitize。
 - 不引入第三方统计 / 遥测 / 外部字体 / CDN。
-- 本切片无鉴权；路由守卫在 M0-7 接入。
+- 本切片无鉴权；路由守卫在 M0-8 接入。
 
 ## 10. 失败、边界与恢复
 

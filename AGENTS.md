@@ -68,10 +68,10 @@
 
 ```bash
 pnpm install
-pnpm dev              # 并行启动 web + server（M0-8 后可用）
+pnpm dev              # 并行启动 web + server（M0-9 后可用）
 pnpm check            # biome + typecheck + unit/integration tests
 pnpm build            # web + server 构建
-pnpm test:e2e         # Playwright（D0-9 / M1-8 起）
+pnpm test:e2e         # Playwright（D0-9 / M0-8 / M1-8 起）
 pnpm --filter @harness/web dev
 ```
 

@@ -1,6 +1,6 @@
 # 安全模型
 
-> 状态：已冻结（v1.0）· 配套：[CONSTITUTION.md](../../CONSTITUTION.md)、[REST 契约](../contracts/rest-api.md)、[M0 spec](../../specs/010-foundation/spec.md)
+> 状态：已冻结（v1.0）· 配套：[CONSTITUTION.md](../../CONSTITUTION.md)、[REST 契约](../contracts/rest-api.md)、[ADR-021](../adr/ADR-021-passkey-v1.md)、[M0 spec](../../specs/010-foundation/spec.md)
 
 ## 1. 身份与信任边界
 
@@ -23,57 +23,76 @@
 - 管理员密码使用 Argon2id 哈希；不得明文落盘。
 - Web 端不存在“首次访问创建管理员”的路径。
 
-### 2.2 设备配对状态机
+### 2.2 设备配对与 Passkey 注册
 
 ```text
-REQUESTED → (TUI) APPROVED_ONCE | APPROVED_TRUST → CODE_ISSUED
-          → REDEEMED → ACTIVE
-     └── DENIED / EXPIRED
+REQUESTED → (TUI) APPROVED_ONCE | APPROVED_TRUST
+  allow_once → CODE_ISSUED → REDEEMED → SESSION_ONLY
+  trust      → CODE_ISSUED → REDEEMED → ENROLLMENT_PENDING
+             → PASSKEY_REGISTERED → ACTIVE
+  └── DENIED / EXPIRED
 ACTIVE → REVOKED
 ```
 
-落库时 `CODE_ISSUED` 表示为 `status=approved` 且 `code_hash` 非空；浏览器轮询看到 `approved` 后输入配对码。
+落库时 `CODE_ISSUED` 表示为 `status=approved` 且 `code_hash` 非空；`ENROLLMENT_PENDING` 表示为 `status=enrollment_pending`。浏览器轮询看到 `approved` 后输入配对码。
 
 - 申请：`requestId`（服务端随机）、6 位短编号、`pollToken`（仅浏览器持有）；TTL 10 分钟。
-- 审批：只在本机 TUI 进行；TUI 显示短编号、时间、来源、User-Agent。
+- 审批：只在本机 TUI 进行；TUI 显示短编号、时间、Origin、User-Agent；IP / UA 只用于辨认，不是身份。非 canonical Origin 的申请不能选择“始终允许”。
 - 配对码：批准后生成 ≥ 50 bit 随机码，仅 TUI 展示；TTL 5 分钟；最多 5 次尝试；原子消费。
-- `允许本次`：只签发短期会话；`始终允许`：额外签发长期设备凭据。
-- 设备凭据只能换取短期会话，不直接作为长期访问 Cookie。
-- TUI 撤销设备时，事务性作废其会话并断开关联 WebSocket。
+- `允许本次`：兑换后只签发短期会话，不注册 Passkey，不产生设备记录。
+- `始终允许`：仅在 WebAuthn 配置有效时提供；兑换后不签发会话，只返回 5 分钟 enrollment Cookie；完成 Passkey 注册验证后才创建设备 / credential / 会话。
+- 不签发长期设备 Token / Cookie；不存在 refresh token。
+- TUI 撤销设备时，事务性作废 credential、设备与会话，并断开关联 WebSocket。
 
-### 2.3 会话与 Cookie
+### 2.3 会话、Cookie 与 Passkey 登录
 
 | Cookie | 内容 | 作用域 | 属性 |
 |---|---|---|---|
-| `harness_session` | 32 字节随机 Token | 管理站点 | HttpOnly、SameSite=Lax、Secure（HTTPS 时）、Path=/ |
-| `harness_device` | 32 字节随机 Token | 管理站点 | HttpOnly、SameSite=Lax、Secure、Path=/api/auth |
+| `harness_session` | 32 字节随机 Token | 管理站点 | HttpOnly、SameSite=Lax、Secure（HTTPS 时）、Path=/、Max-Age ≤ 12h |
+| `harness_enrollment` | 32 字节随机 Token | `/api/webauthn/registration` | HttpOnly、SameSite=Lax、Secure（HTTPS 时）、Path=/api/webauthn/registration、Max-Age 5min |
 
 - 数据库只存 Token 的 SHA-256；比较使用恒定时间。
-- 会话：绝对有效期 12 小时、空闲 30 分钟（可配置）；设备凭据：180 天，使用即轮换。
-- 退出登录撤销当前会话；撤销设备撤销其全部会话与设备凭据。
+- 会话：绝对 12 小时、空闲 30 分钟（可配置）；过期后通过 Passkey assertion 重新认证，不使用 refresh token。
+- 退出登录撤销当前会话；设备撤销撤销其 credential、全部会话与 WS。
+- Passkey 私钥永不离开认证器 / 密码管理器；服务端只存公钥、credential ID、计数器与备份标志。
 
-### 2.4 CSRF 与 Origin
+### 2.4 WebAuthn 安全约束
 
-- 所有非 GET / HEAD 请求必须携带 `Origin`（或 `Referer` 回退），并与允许来源精确匹配（协议 + 主机 + 端口）。
+- **RP ID / Origin canonical**：一个工作空间只支持一个来源；开发 `http://localhost:<port>`，生产 HTTPS 域名。RP ID 必须等于 origin hostname；IP 地址不能作为 RP ID，通过 `127.0.0.1` / 局域网 IP 访问时 Passkey 不可用，`allow_once` 仍可用。
+- 注册：`residentKey: required`、`userVerification: required`、`attestation: none`；验证 origin、RP ID、UV、challenge；`excludeCredentials` 防止重复注册。
+- 认证：`allowCredentials` 为空（discoverable credential），`userVerification: required`；服务端按返回的 credential ID 查找，验证签名、challenge、origin、RP ID、计数器。
+- Challenge：32 字节随机，TTL 5 分钟，一次性消费，绑定 ceremony 类型与 pairing request / device。
+- 失败统一返回 `PASSKEY_AUTH_FAILED` / `PASSKEY_REGISTRATION_FAILED`，不泄漏 credential 是否存在。
+- 计数器：同步型 Passkey 常为 0；允许 0，异常回退只审计不硬拒绝，避免误锁。
+- 可同步 Passkey 的 `backupEligible` / `backupState` 必须存储并在 TUI 展示；不得宣称物理设备绑定。
+- Enrollment Cookie 仅允许一次成功注册、绑定 pairing request；失败可重试，验证成功即清除，过期后重新配对。
+
+### 2.5 CSRF 与 Origin
+
+- 所有非 GET / HEAD 请求必须携带 `Origin`（或 `Referer` 回退），并与 canonical origin 精确匹配（协议 + 主机 + 端口）。
 - 已认证的变更请求还必须携带 `x-csrf-token`，值来自 `GET /api/auth/session`；服务端与会话绑定校验。
-- 允许来源：`http://127.0.0.1:<port>`、`http://localhost:<port>`、配置的 `publicUrl`；不信任 `X-Forwarded-*`，除非来源 IP 在 `trustedProxies`。
-- 配对申请与兑换是公开接口，但仍校验 Origin / 速率，不豁免 CSRF 之外的鉴权。
+- Passkey 注册 / 认证端点无会话（或仅 enrollment Cookie），不要求 CSRF Token，但必须校验 Origin；enrollment Cookie 为 SameSite=Lax。
+- 允许来源：canonical `origin`；非 WebAuthn API 额外允许 loopback 来源 `http://localhost:<port>`、`http://127.0.0.1:<port>`、`http://[::1]:<port>`；WebAuthn options / verify 仍只接受 canonical。不信任 `X-Forwarded-*`，除非来源 IP 在 `trustedProxies`。
+- 配对申请 / 兑换、Passkey options / verify 都是公开接口，但仍限流并校验 Origin。
 
-### 2.5 WebSocket
+### 2.6 WebSocket
 
 - 升级请求校验会话 Cookie、Origin、Host；失败直接 401，不进入协议。
 - 不接受 URL 中的 Token；不在日志中记录 Cookie。
 - 订阅每个 topic 时再次校验资源授权（会话 / 项目 / 服务）。
 - 撤销会话或设备后，服务端主动关闭关联连接（1008）。
 
-### 2.6 速率限制
+### 2.7 速率限制
 
 | 接口 | 限制 |
 |---|---|
 | `POST /api/pairing/requests` | 每 IP 10 次 / 分钟，每 IP 30 次 / 小时 |
 | `GET /api/pairing/requests/:id` | 每 pollToken 60 次 / 分钟 |
 | `POST /api/pairing/redeem` | 每 IP 10 次 / 分钟；每 request 5 次尝试 |
-| 登录 / 恢复（后续） | 每 IP 5 次 / 分钟，指数退避 |
+| `POST /api/webauthn/registration/options` | 每 enrollment 10 次 / 分钟 |
+| `POST /api/webauthn/registration/verify` | 每 enrollment 10 次 / 分钟 |
+| `POST /api/webauthn/authentication/options` | 每 IP 10 次 / 分钟 |
+| `POST /api/webauthn/authentication/verify` | 每 IP 10 次 / 分钟 |
 | 其他已认证 API | 每会话 600 次 / 分钟（可配置） |
 
 限流状态可存内存（单进程）；重启后允许重置，但必须写审计。
@@ -115,7 +134,7 @@ ACTIVE → REVOKED
 
 ## 7. 审计
 
-必须记录：初始化、配置变更、配对申请 / 批准 / 拒绝 / 兑换、登录 / 登出、设备撤销、权限审批与拒绝、文件写入、命令执行、服务启停 / 部署、代理拒绝、更新操作、TUI 管理动作。
+必须记录：初始化、配置变更、配对申请 / 批准 / 拒绝 / 兑换、Passkey 注册 / 登录 / 失败、登录 / 登出、设备撤销、权限审批与拒绝、文件写入、命令执行、服务启停 / 部署、代理拒绝、更新操作、TUI 管理动作。
 
 字段：`id`、`client_session_id`、`session_id`、`action`、`resource_type`、`resource_id`、`decision`、`details_json`（脱敏）、`created_at`。审计只追加，不提供普通删除接口。
 
@@ -128,6 +147,11 @@ ACTIVE → REVOKED
 | Origin 不匹配 | 拒绝 | `ORIGIN_INVALID` |
 | CSRF 缺失 / 不匹配 | 拒绝 | `CSRF_INVALID` |
 | 配对码错误 / 过期 / 超次 | 拒绝，记录尝试 | `CODE_INVALID` / `PAIRING_EXPIRED` / `RATE_LIMITED` |
+| enrollment Cookie 缺失 / 过期 | 拒绝，要求重新配对 | `ENROLLMENT_EXPIRED` / `UNAUTHENTICATED` |
+| WebAuthn challenge 过期 / 重放 / 不匹配 | 拒绝并作废 challenge | `CHALLENGE_EXPIRED` / `PASSKEY_AUTH_FAILED` |
+| 浏览器不支持 WebAuthn | Web 端提示，不发起注册；trust 不可用，allow_once 可用 | 客户端 `PASSKEY_UNSUPPORTED` |
+| Passkey 验证失败（签名 / UV / RP ID / Origin） | 拒绝，统一错误，不泄漏原因 | `PASSKEY_AUTH_FAILED` / `PASSKEY_REGISTRATION_FAILED` / `ORIGIN_INVALID` |
+| WebAuthn 配置无效（RP ID 为 IP 等） | 拒绝注册 / 认证 | `WEBAUTHN_NOT_CONFIGURED` |
 | 路径越界 / 符号链接逃逸 | 拒绝 | `PATH_OUTSIDE_PROJECT` |
 | 文件版本冲突 | 拒绝并返回当前版本 | `VERSION_CONFLICT` |
 | 锁被占用 / 过期不明 | 拒绝或排队，不并发执行 | `RESOURCE_LOCKED` |
@@ -139,7 +163,10 @@ ACTIVE → REVOKED
 ## 9. 明确不保证
 
 - 不保证隔离恶意项目脚本、npm lifecycle、任意 Shell 对主机文件的访问；
-- 不保证物理设备不可复制；Passkey 也可能同步；
+- 不保证物理设备不可复制；Passkey 可能通过 iCloud / Google 等同步到其他设备，只能称“可信凭据 / 浏览器授权”；
+- 不保证所有浏览器 / 平台支持 WebAuthn；不支持时只能 `允许本次`；
+- 不保证 `127.0.0.1` 或局域网 IP 可使用 Passkey（RP ID 不支持 IP）；
+- 不保证 TUI 不可用时能恢复访问；V1 没有 Web 侧的“忘记 Passkey”流程；
 - 不保证反向代理配置正确、TLS 终止安全由部署者负责；
 - 不保证第三方网页可被 iframe 嵌入；
 - 不保证 Harness 崩溃后 PTY / 子进程 / 未完成 Turn 原状态恢复。
@@ -147,6 +174,7 @@ ACTIVE → REVOKED
 ## 10. 安全测试要求
 
 - 认证绕过、配对竞态 / 重放、会话固定、CSRF、Origin、限流、WebSocket 未授权订阅；
+- Passkey 注册 / 认证：challenge 过期与重放、错误 Origin / RP ID、UV 不足、重复 credential、撤销后 assertion、enrollment 过期、IP 来源不可用；
 - 路径穿越、符号链接、大小写 / Unicode 归一化、Windows 路径；
 - 秘密泄漏扫描（日志、事件、API 响应、错误、快照）；
 - 代理 SSRF、未登记端口、重定向、Host 注入、管理端口访问；

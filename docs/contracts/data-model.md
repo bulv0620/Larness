@@ -1,6 +1,6 @@
 # 数据模型与迁移
 
-> 状态：M0 表已冻结；M1–M5 为目标结构，字段可在对应 spec 中细化。  
+> 状态：M0 表已冻结；M1–M5 为目标结构，字段可在对应 spec 中细化。
 > 实现：SQLite + Drizzle ORM；迁移由 drizzle-kit 生成，启动时执行。
 
 ## 1. 约定
@@ -37,42 +37,70 @@ CREATE TABLE auth_settings (
 );
 
 CREATE TABLE device_requests (
-  id              TEXT PRIMARY KEY,        -- pair_…
-  short_code      TEXT NOT NULL UNIQUE,    -- 6 位，供 TUI 核对
-  status          TEXT NOT NULL,           -- pending|approved|denied|expired|redeemed
-  decision        TEXT,                    -- allow_once|trust
-  client_label    TEXT,
-  user_agent      TEXT,
-  ip              TEXT,
-  poll_token_hash TEXT NOT NULL,           -- SHA-256
-  code_hash       TEXT,                    -- SHA-256(配对码)
-  code_expires_at INTEGER,
-  attempts        INTEGER NOT NULL DEFAULT 0,
-  created_at      INTEGER NOT NULL,
-  expires_at      INTEGER NOT NULL,
-  decided_at      INTEGER,
-  redeemed_at     INTEGER
+  id                    TEXT PRIMARY KEY,      -- pair_…
+  short_code            TEXT NOT NULL UNIQUE,  -- 6 位，供 TUI 核对
+  status                TEXT NOT NULL,         -- pending|approved|denied|expired|enrollment_pending|redeemed
+  decision              TEXT,                  -- allow_once|trust
+  client_label          TEXT,
+  user_agent            TEXT,
+  ip                    TEXT,
+  client_origin         TEXT,                  -- 申请时的 Origin，用于判断能否注册 Passkey
+  poll_token_hash       TEXT NOT NULL,         -- SHA-256
+  code_hash             TEXT,                  -- SHA-256(配对码)
+  code_expires_at       INTEGER,
+  attempts              INTEGER NOT NULL DEFAULT 0,
+  enrollment_token_hash TEXT,                  -- SHA-256(enrollment Cookie)
+  enrollment_expires_at INTEGER,
+  created_at            INTEGER NOT NULL,
+  expires_at            INTEGER NOT NULL,
+  decided_at            INTEGER,
+  redeemed_at           INTEGER
 );
 CREATE INDEX idx_device_requests_status ON device_requests(status, expires_at);
 
 CREATE TABLE trusted_devices (
-  id                  TEXT PRIMARY KEY,      -- dev_…
-  label               TEXT NOT NULL,
-  token_hash          TEXT NOT NULL UNIQUE,  -- SHA-256(设备凭据)
-  previous_token_hash TEXT,                  -- 轮换宽限（60s）
-  previous_valid_until INTEGER,
-  user_agent          TEXT,
-  created_at          INTEGER NOT NULL,
-  last_seen_at        INTEGER,
-  expires_at          INTEGER NOT NULL,
-  revoked_at          INTEGER
+  id                   TEXT PRIMARY KEY,       -- dev_…
+  label                TEXT NOT NULL,
+  created_by_request_id TEXT REFERENCES device_requests(id),
+  user_agent           TEXT,
+  created_at           INTEGER NOT NULL,
+  last_seen_at         INTEGER,
+  revoked_at           INTEGER
 );
 
+CREATE TABLE webauthn_credentials (
+  id              TEXT PRIMARY KEY,            -- cred_…
+  device_id       TEXT NOT NULL REFERENCES trusted_devices(id),
+  credential_id   TEXT NOT NULL UNIQUE,        -- base64url
+  public_key      TEXT NOT NULL,               -- base64url (COSE)
+  counter         INTEGER NOT NULL DEFAULT 0,
+  transports_json TEXT NOT NULL DEFAULT '[]',
+  aaguid          TEXT,
+  backup_eligible INTEGER NOT NULL DEFAULT 0,
+  backup_state    INTEGER NOT NULL DEFAULT 0,
+  created_at      INTEGER NOT NULL,
+  last_used_at    INTEGER,
+  revoked_at      INTEGER
+);
+CREATE INDEX idx_webauthn_credentials_device ON webauthn_credentials(device_id);
+
+CREATE TABLE webauthn_challenges (
+  id          TEXT PRIMARY KEY,                -- chl_…
+  type        TEXT NOT NULL,                   -- registration|authentication
+  challenge   TEXT NOT NULL,                   -- base64url
+  request_id  TEXT REFERENCES device_requests(id),
+  device_id   TEXT REFERENCES trusted_devices(id),
+  created_at  INTEGER NOT NULL,
+  expires_at  INTEGER NOT NULL,
+  consumed_at INTEGER
+);
+CREATE INDEX idx_webauthn_challenges_expiry ON webauthn_challenges(expires_at);
+
 CREATE TABLE browser_sessions (
-  id            TEXT PRIMARY KEY,          -- bs_…
-  device_id     TEXT REFERENCES trusted_devices(id),
-  token_hash    TEXT NOT NULL UNIQUE,      -- SHA-256(会话 Token)
-  kind          TEXT NOT NULL,             -- once|trusted
+  id            TEXT PRIMARY KEY,              -- bs_…
+  device_id     TEXT REFERENCES trusted_devices(id), -- allow_once 为 NULL
+  token_hash    TEXT NOT NULL UNIQUE,          -- SHA-256(会话 Token)
+  kind          TEXT NOT NULL,                 -- once|passkey
   ip            TEXT,
   user_agent    TEXT,
   created_at    INTEGER NOT NULL,
@@ -98,6 +126,8 @@ CREATE INDEX idx_audit_action ON audit_logs(action, created_at);
 ```
 
 `app_meta` 在 M0 同时承担初始化标记与实例 ID；不把配置写入数据库（配置在 `config.json`，秘密在 SecretStore）。
+
+Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由定时任务清理，过期挑战不可复用。`trusted_devices` 不再保存任何长期 Token。
 
 ## 3. M1 表（工作区与 Agent）
 
