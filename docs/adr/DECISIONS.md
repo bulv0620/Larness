@@ -1,0 +1,66 @@
+# 架构决策记录（ADR）
+
+> 已冻结决策不可静默修改。需要变更时新增 ADR，说明背景、替代方案、风险、迁移与回滚，经人类批准后生效。  
+> 格式参考文末模板；新 ADR 文件放在本目录，命名 `ADR-0xx-<slug>.md`，并更新本索引。
+
+## 1. 产品与边界（冻结）
+
+| ID | 决策 | 理由 / 后果 |
+|---|---|---|
+| ADR-001 | 单实例、单工作空间、多授权客户端 | 不做多租户；所有客户端共享业务数据，仅视图状态独立 |
+| ADR-002 | 可信开发机模式：项目内常规操作允许，越界与敏感操作审批 | 不声称沙箱；恶意 Shell 仍是残余风险 |
+| ADR-003 | 同项目写任务串行，跨项目可并发 | 同会话单 Turn；资源级锁协调共享目标 |
+| ADR-004 | 临时 PTY 不跨 Harness 重启恢复 | 重启后标记中断；PM2 服务独立持久化 |
+| ADR-005 | 统一构建 → 审批 → PM2 部署 → 健康检查 → 记录 | 生产变更不可绕过审批与审计 |
+| ADR-006 | 设备准入只经本机 TUI 或预置离线恢复码 | Web 设备不能批准新设备；TUI 不可用则拒绝 |
+| ADR-007 | 自动检查更新，手动安装，等待任务安全点 | 外部 Updater 执行，不强杀执行中的任务 |
+| ADR-008 | DeepSeek / GLM 优先，每 Turn 固定模型 | 多 Key Profile；切模型只影响下一轮 |
+| ADR-009 | 所有代码与服务运行在 Harness 本机 | 不设计 SSH / Docker / 远程节点 |
+| ADR-010 | 三栏 Chat-first + 顶部入口 + 全局悬浮多 Tab | 右栏四分区可同时展开；无底部 Dock |
+| ADR-011 | 内嵌预览仅限本机已登记 Web 服务 | 地址栏可输 `localhost:5173`；不做 Electron 窗口远控 |
+| ADR-012 | 开发服务 Native、长期服务 PM2 | Harness 自身由 OS 服务管理器 / Launcher 守护 |
+
+## 2. 实现决策（本仓库冻结）
+
+| ID | 决策 | 说明 |
+|---|---|---|
+| ADR-013 | 轻量自定义 spec 工作流 | `specs/<slice>/{spec,plan,tasks}.md` + 根宪法 + 模板；不引入 spec-kit 工具链 |
+| ADR-014 | pnpm workspace + TypeScript strict + Fastify 5 + React/Vite | 详见 [stack.md](../architecture/stack.md)；单体优先 |
+| ADR-015 | SQLite 使用 better-sqlite3 + Drizzle ORM | 同步 API 简单、迁移可审查；不引入 Prisma / TypeORM |
+| ADR-016 | V1 设备凭据使用 opaque token，WebAuthn 作为 P1 | 先完成可用的安全基线；公网暴露前重新评估，见 Q-001 |
+| ADR-017 | 视觉 Demo 使用 MockGateway，不造假后端 | 同一客户端接口，M1 替换为真实 API；禁止把 mock 当完成证据 |
+| ADR-018 | 事件序号按 Session 递增，而非按 Turn | UI 重放与排序更简单；`turnId` 仍记录在事件上；与源文档的差异在此登记 |
+| ADR-019 | ID / 时间 / 错误码统一约定 | `<prefix>_<uuid>`、Unix ms、稳定错误码；见 `docs/contracts/rest-api.md` |
+| ADR-020 | 文档与 UI 中文优先，代码标识符英文 | 降低沟通成本；字符串集中管理，后续可国际化 |
+
+## 3. 变更流程
+
+1. 复制模板生成新 ADR，状态 `proposed`。
+2. 描述：背景、当前决策、问题、备选方案、影响面（PRD / API / DB / 安全 / 迁移）、验证方式、回滚。
+3. 更新本文件索引，并在 `STATUS.md` 标记“等待决策”。
+4. 人类批准后改为 `accepted`；同步修改宪法 / spec / 契约 / 代码。
+5. 被替代的 ADR 标记 `superseded by ADR-0xx`，保留原文。
+
+## 4. 模板
+
+```md
+# ADR-0xx: <标题>
+
+- 状态：proposed | accepted | superseded by ADR-0yy
+- 日期：YYYY-MM-DD
+- 决策者：<人类负责人>
+- 关联：<spec / issue / PR>
+
+## 背景
+## 决策
+## 备选方案
+## 影响
+- 产品 / UI：
+- API / 契约：
+- 数据 / 迁移：
+- 安全 / 权限：
+- 兼容性：
+
+## 验证与回滚
+## 后续
+```

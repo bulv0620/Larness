@@ -1,0 +1,43 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# builds
+dist/
+build/
+out/
+.turbo/
+.vite/
+*.tsbuildinfo
+
+# tests
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# runtime data (never commit)
+/data/
+/.harness/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+/logs/
+*.log
+
+# secrets
+.env
+.env.*
+!.env.example
+/secrets/
+*.pem
+*.key
+*.p12
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
