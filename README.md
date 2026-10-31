@@ -6,8 +6,9 @@
 - 以对话驱动 Agent 读写项目、运行命令、管理终端 / 服务 / Git；
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
-> **当前状态：Spec 工程已初始化，尚未开始实现代码。**
-> 第一个开发任务是 [S0 视觉 Demo](specs/000-visual-demo/spec.md)，从 `D0-1` 开始。
+> **当前状态：S0 视觉 Demo 已实现（`D0-1`–`D0-8`），等待 `D0-9` 人类视觉验收。**
+> 启动 Demo：`pnpm install && pnpm dev` → <http://localhost:5173>。
+> 验收记录与截图：[specs/000-visual-demo/acceptance.md](specs/000-visual-demo/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
 
 ## 文档地图
@@ -31,6 +32,19 @@
 | [docs/open-questions.md](docs/open-questions.md) | 尚未冻结的边界问题与默认方案 |
 | [docs/glossary.md](docs/glossary.md) | 术语表 |
 
+## 快速开始（当前 S0 Demo）
+
+```bash
+pnpm install
+pnpm dev            # http://localhost:5173
+pnpm check          # Biome + 类型 + 单元测试
+pnpm build
+pnpm test:e2e
+pnpm demo:shots     # 重新生成验收截图
+```
+
+Demo 数据来自 `MockGateway`；终端、浏览器预览、文件编辑均为静态 / 只读 Mock。
+
 ## 如何使用本仓库
 
 人类：
@@ -42,10 +56,9 @@
 Agent 的启动指令示例：
 
 ```text
-请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md，
-再阅读 specs/000-visual-demo/{spec,plan,tasks}.md。
-本次只执行任务 D0-1：完成实现、测试与验收，
-更新 tasks.md 与 STATUS.md 后提交；遇到 spec 未覆盖的边界先停下问我。
+请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md。
+当前 S0 已实现，先由人类完成 D0-9 视觉验收；
+通过后再按 specs/010-foundation/{spec,plan,tasks}.md 执行 M0-1。
 ```
 
 ## 当前仓库结构
@@ -54,9 +67,16 @@ Agent 的启动指令示例：
 .
 ├── larness.md                  # 源设计（v3.0，冻结）
 ├── README.md / AGENTS.md / CONSTITUTION.md / STATUS.md
+├── apps/
+│   └── web/                    # React + Vite 视觉 Demo
+├── packages/
+│   ├── ui/                     # Button / Dropdown / Tooltip / Tabs 等原语
+│   └── shared/                 # 领域类型、事件、Gateway 契约
+├── e2e/                        # Playwright 验收用例
+├── scripts/                    # 截图等开发脚本
 ├── docs/
 │   ├── architecture/           # 拓扑、技术栈、安全基线
-│   ├── contracts/              # REST / WS / 数据模型
+│   ├── contracts/              # REST / WS / IPC / 数据模型
 │   ├── adr/                    # 冻结决策与新增 ADR 流程
 │   ├── process/                # 工作流、测试策略
 │   ├── open-questions.md
@@ -65,7 +85,7 @@ Agent 的启动指令示例：
     ├── ROADMAP.md              # 全部里程碑与任务
     ├── README.md               # spec 编写规则
     ├── _templates/             # spec / plan / tasks 模板
-    ├── 000-visual-demo/        # S0 视觉 Demo（第 0 步，待实现）
+    ├── 000-visual-demo/        # S0 视觉 Demo（已实现，待验收）
     ├── 010-foundation/         # M0 可信启动与认证
     ├── 020-workspace-agent/    # M1 项目 / 会话 / 最小 Agent
     ├── 030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（草案）
@@ -74,7 +94,7 @@ Agent 的启动指令示例：
     └── 060-extension/          # M5 多模型 / 自动化 / 更新（草案）
 ```
 
-代码目录将在 `D0-1` 与 `M0-1` 中按 [docs/architecture/stack.md](docs/architecture/stack.md) 创建；当前不存在 `apps/` 或 `packages/`。
+当前代码只有 `apps/web`、`packages/ui`、`packages/shared`；Server 与数据库在 M0-1 开始创建。
 
 ## 冻结技术栈（摘要）
 

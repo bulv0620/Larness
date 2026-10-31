@@ -17,8 +17,8 @@
 
 ## 2. 当前阶段
 
-- Spec 工程已初始化，**尚无业务代码**。
-- 下一个可执行任务：`D0-1`（见 `specs/000-visual-demo/tasks.md`）。
+- **S0 视觉 Demo 已实现**：`D0-1`–`D0-8` 完成，`D0-9` 等待人类视觉验收。
+- 下一个可执行任务：`D0-9`（人工验收，见 `specs/000-visual-demo/acceptance.md`）；通过后开始 `M0-1`。
 - 在 `D0-9` 验收通过前，不开始 `010-foundation` 的后端实现；如需并行，必须先问人类。
 
 ## 3. 工作循环（必须按顺序）
@@ -68,14 +68,14 @@
 
 ```bash
 pnpm install
-pnpm dev              # 并行启动 web + server（M0-9 后可用）
-pnpm check            # biome + typecheck + unit/integration tests
-pnpm build            # web + server 构建
-pnpm test:e2e         # Playwright（D0-9 / M0-8 / M1-8 起）
+pnpm dev              # 当前仅启动 web（M0-9 后加入 server）
+pnpm check            # biome + typecheck + unit tests
+pnpm build            # web 构建（M0-9 后加入 server）
+pnpm test:e2e         # Playwright（Chromium）
 pnpm --filter @harness/web dev
 ```
 
-D0-1 创建根 `package.json` 时优先落地 `dev` / `check` / `build` / `test` 脚本；M0-1 再补齐 server 与 CI。
+根脚本已落地；M0-1 再补齐 server、CI 与跨包构建。
 
 ## 8. 提交与分支
 

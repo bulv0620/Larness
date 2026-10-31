@@ -2,7 +2,7 @@
 id: 000-visual-demo
 title: S0 视觉 Demo
 milestone: S0
-status: ready
+status: active
 depends_on: []
 owners: [human]
 created: 2026-10-31

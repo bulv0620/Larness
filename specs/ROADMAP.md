@@ -7,7 +7,7 @@
 
 | 阶段 | 名称 | spec | 状态 | 门禁 |
 |---|---|---|---|---|
-| S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `ready` | G-S0 |
+| S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `active` | G-S0 |
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `ready` | G0 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `ready` | G1 |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `draft` | G2 |
@@ -29,15 +29,15 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-8
 
 | ID | 任务 | 主要产出 | 依赖 | 状态 |
 |---|---|---|---|---|
-| D0-1 | Web 工作区脚手架 | pnpm workspace、`apps/web`、`packages/ui`、`packages/shared`、Tailwind、Biome、Vitest、Playwright、MockGateway 骨架 | — | `todo` |
-| D0-2 | 应用外壳与三栏布局 | AppShell、TopBar、左侧栏、中央会话区、右侧资源栏骨架、窗口层挂载点 | D0-1 | `todo` |
-| D0-3 | 主题与视觉系统 | 语义 token、浅 / 深 / 跟随系统、字体层级、图标、菜单层级 | D0-2 | `todo` |
-| D0-4 | 对话时间线与输入区 | 消息、计划、工具卡片、产物卡片、审批卡片、Composer（上下文 / 模型 / 审批策略） | D0-2 | `todo` |
-| D0-5 | 右侧资源分区 | 文件 / 服务 / 终端 / Git 四分区，独立折叠、滚动、拖分隔线、双击均分、键盘调整 | D0-2 | `todo` |
-| D0-6 | 窗口层 | WindowManager、拖动 / 缩放 / 层级 / 置顶 / 最小化 / 最大化 / 关闭、顶部入口恢复 | D0-2 | `todo` |
-| D0-7 | 资源窗口内容 | 文件（Monaco 只读）、终端（fake 输出）、服务（状态 / 日志）、浏览器（iframe 占位）、Git Diff | D0-6 | `todo` |
-| D0-8 | 响应式、键盘与可访问性 | 窄屏降级、Ctrl+K / Ctrl+B / Esc、焦点可见、ARIA、无遮挡菜单 | D0-3 ~ D0-7 | `todo` |
-| D0-9 | Demo 验收与视觉基线 | Playwright 冒烟与截图、验收清单、人类验收记录 | D0-8 | `todo` |
+| D0-1 | Web 工作区脚手架 | pnpm workspace、`apps/web`、`packages/ui`、`packages/shared`、Tailwind、Biome、Vitest、Playwright、MockGateway 骨架 | — | `done` |
+| D0-2 | 应用外壳与三栏布局 | AppShell、TopBar、左侧栏、中央会话区、右侧资源栏骨架、窗口层挂载点 | D0-1 | `done` |
+| D0-3 | 主题与视觉系统 | 语义 token、浅 / 深 / 跟随系统、字体层级、图标、菜单层级 | D0-2 | `done` |
+| D0-4 | 对话时间线与输入区 | 消息、计划、工具卡片、产物卡片、审批卡片、Composer（上下文 / 模型 / 审批策略） | D0-2 | `done` |
+| D0-5 | 右侧资源分区 | 文件 / 服务 / 终端 / Git 四分区，独立折叠、滚动、拖分隔线、双击均分、键盘调整 | D0-2 | `done` |
+| D0-6 | 窗口层 | WindowManager、拖动 / 缩放 / 层级 / 置顶 / 最小化 / 最大化 / 关闭、顶部入口恢复 | D0-2 | `done` |
+| D0-7 | 资源窗口内容 | 文件（Monaco 只读）、终端（fake 输出）、服务（状态 / 日志）、浏览器（iframe 占位）、Git Diff | D0-6 | `done` |
+| D0-8 | 响应式、键盘与可访问性 | 窄屏降级、Ctrl+K / Ctrl+B / Esc、焦点可见、ARIA、无遮挡菜单 | D0-3 ~ D0-7 | `done` |
+| D0-9 | Demo 验收与视觉基线 | Playwright 冒烟与截图、验收清单、人类验收记录 | D0-8 | `review` |
 
 ## 3. M0 工程底座与可信启动
 
