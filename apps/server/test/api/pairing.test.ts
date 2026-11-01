@@ -144,7 +144,8 @@ describe("pairing REST API", () => {
           method: "GET",
           url: "/api/auth/refresh",
         });
-        expect(refresh.statusCode).toBe(404);
+        expect(refresh.statusCode).toBe(401);
+        expect(refresh.json()).toMatchObject({ error: { code: "UNAUTHENTICATED" } });
 
         started.running.sqlite.prepare("UPDATE browser_sessions SET expires_at = ?").run(1);
         const expiredSession = await started.running.app.inject({

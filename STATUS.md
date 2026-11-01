@@ -1,14 +1,14 @@
 # STATUS
 
-> 最后更新：2026-11-01 15:07 (+08:00)
-> 当前阶段：**M0 进行中；M0-6 完成，下一步 M0-7**
+> 最后更新：2026-11-01 15:14 (+08:00)
+> 当前阶段：**M0 进行中；M0-7 完成，下一步 M0-8**
 
 ## 里程碑
 
 | 阶段 | 名称 | 状态 | 说明 |
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
-| M0 | 工程底座与可信启动 | `in_progress` | M0-1 ~ M0-6 完成；M0-7 可开始 |
+| M0 | 工程底座与可信启动 | `in_progress` | M0-1 ~ M0-7 完成；M0-8 可开始 |
 | M1 | 项目、会话与最小 Agent | `ready` | spec 已细化，进入前需复核 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
@@ -18,6 +18,10 @@
 ## 当前工作
 
 - 进行中：无
+- 刚完成：`M0-7` — 鉴权与传输安全（分支 `task/m0-7-security`）
+  - 全局守卫：会话解析、CSRF、Origin / Host、默认拒绝、安全响应头、`/api/bootstrap`、登出；
+  - 限流（配对申请 / 轮询 / 兑换、WebAuthn、会话）+ 审计；WebSocket 握手鉴权、`system` 订阅、心跳、撤销 1 秒内 1008 关闭；IPC `sessions.list/revoke`；
+  - 154 项 server 测试；未认证业务 API 401、未初始化 409、限流 429。
 - 刚完成：`M0-6` — Passkey 注册与登录（分支 `task/m0-6-passkey`）
   - SimpleWebAuthn 注册 / 认证 options / verify、challenge 一次性消费、设备 + credential + 会话、TUI 设备列表 / 撤销；
   - 备份标志、counter（0 / 回退仅审计）、AAGUID / transports 入库；注册失败不产生设备 / 会话；
@@ -37,7 +41,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：`M0-7` — 鉴权与传输安全
+- 下一个任务：`M0-8` — Web 认证集成
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -89,3 +93,4 @@
 | 2026-11-01 | 完成 M0-4：本机 IPC（UDS / Named Pipe、Token、NDJSON、限额）、初始化方法（Argon2id、config 0600、审计、并发唯一成功）、TUI 向导 / 仪表盘、status 优先 IPC；server 96 项测试通过 |
 | 2026-11-01 | 完成 M0-5：配对状态机、一次性码与限次、allow_once 会话、trust enrollment、REST 配对接口、会话 / CSRF 基线与 TUI 审批；server 125 项测试通过 |
 | 2026-11-01 | 完成 M0-6：SimpleWebAuthn 注册 / 登录、challenge 生命周期、设备与 credential、备份标志 / counter、TUI 设备撤销；server 143 项测试通过 |
+| 2026-11-01 | 完成 M0-7：全局会话 / CSRF / Origin / Host 守卫、限流与审计、bootstrap / logout、WebSocket 鉴权 / 订阅 / 撤销即断、IPC sessions；server 154 项测试通过 |

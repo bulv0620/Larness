@@ -130,6 +130,15 @@ describe("WebAuthn REST API", () => {
         expect(reuseEnrollment.statusCode).toBe(410);
         expect(reuseEnrollment.json()).toMatchObject({ error: { code: "ENROLLMENT_EXPIRED" } });
 
+        const bootstrap = await started.running.app.inject({
+          method: "GET",
+          url: "/api/bootstrap",
+        });
+        expect(bootstrap.json()).toMatchObject({
+          initialized: true,
+          auth: { passkeyRegistered: true },
+        });
+
         const sessionToken = cookieValue(registrationCookie, "larness_session");
         const sessionResponse = await started.running.app.inject({
           method: "GET",

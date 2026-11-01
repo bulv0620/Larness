@@ -14,7 +14,7 @@
 | M0-4 | 本机 IPC 与 TUI 初始化 | M0-3 | `done` |
 | M0-5 | 配对申请与准入 | M0-4 | `done` |
 | M0-6 | Passkey 注册与登录 | M0-5 | `done` |
-| M0-7 | 鉴权与传输安全 | M0-6 | `todo` |
+| M0-7 | 鉴权与传输安全 | M0-6 | `done` |
 | M0-8 | Web 认证集成 | M0-7 | `todo` |
 | M0-9 | 稳定入口与 M0 验收 | M0-8 | `todo` |
 
@@ -179,7 +179,7 @@
 
 ### M0-7 鉴权与传输安全
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：M0-6
 - 目标：把所有 REST / WS 面收口到统一鉴权与失败关闭。
 - 交付物：
@@ -195,6 +195,15 @@
   - 限流触发 429 并审计。
 - 测试：认证矩阵、CSRF / Origin、限流、WS 握手、错误码一致性、IP 来源。
 - 涉及路径：`apps/server/src/{auth,ws,api,security}/`。
+- 完成记录：
+  - 全局 `onRequest` 守卫：`/api` 默认拒绝；公开仅 health / bootstrap / pairing / WebAuthn options / verify；未初始化 409、未认证 401、已认证未知路由 404；Origin 精确 canonical + 同端口 loopback；Host 校验；安全响应头（nosniff / no-referrer / DENY / API CSP）；
+  - CSRF：已认证变更请求必须带 `x-csrf-token`；`/api/auth/logout` 撤销会话、清 Cookie、审计、通知 WS；
+  - 限流：配对申请 10/min/IP、轮询 60/min/token、兑换 10/min/IP、WebAuthn 10/min/IP、已认证 600/min/session；429 + `security.rate_limited` 审计；
+  - WebSocket：Cookie + Origin 握手、`hello`、`system` 订阅、未知主题 FORBIDDEN、25s ping / 60s 超时、8MiB 背压；会话 / 设备撤销后 1008 关闭（<1s）；IPC `sessions.list/revoke`；
+  - `/api/bootstrap` 返回 initialized / authenticated / pairingEnabled / passkeyEnabled / passkeyOrigin / passkeyRegistered；
+  - 测试 154 项：新增 guard 5、rate limiter 2、WS 4、bootstrap / logout 覆盖于 guard；未认证 / 未初始化 / CSRF / Origin / Host / 限流 / 会话撤销断连均有断言；
+  - 手工证据：构建产物 bootstrap 200 + 安全头，未认证 WS 升级 401；真实 WS 会话撤销 / 设备撤销 1008；
+  - 偏差：WS 目前只开放 `system` 主题（M1 增加 agent 等）；限流为单进程内存态，重启清零（M0 接受，后续可持久化）；未在 30 秒内未订阅时主动断开（可选项）；静态资源 CSP 与 SPA 托管在 M0-9。
 
 ### M0-8 Web 认证集成
 

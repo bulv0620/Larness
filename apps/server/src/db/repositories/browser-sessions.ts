@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import type { DbExecutor } from "../client.js";
 import { newId } from "../ids.js";
 import { type BrowserSessionRow, browserSessions, type SessionKind } from "../schema.js";
@@ -39,6 +39,10 @@ export function getSessionByTokenHash(db: DbExecutor, tokenHash: string): Browse
   return (
     db.select().from(browserSessions).where(eq(browserSessions.tokenHash, tokenHash)).get() ?? null
   );
+}
+
+export function listAllSessions(db: DbExecutor): BrowserSessionRow[] {
+  return db.select().from(browserSessions).orderBy(desc(browserSessions.createdAt)).all();
 }
 
 export function listSessionsByDevice(db: DbExecutor, deviceId: string): BrowserSessionRow[] {

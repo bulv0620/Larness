@@ -1,9 +1,11 @@
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import type { z } from "zod";
 import type { Database } from "../db/client.js";
-import { listRecentAudit } from "../db/repositories/audit.js";
+import { appendAudit, listRecentAudit } from "../db/repositories/audit.js";
 import { getAuthSettings } from "../db/repositories/auth-settings.js";
+import { listAllSessions, revokeSession } from "../db/repositories/browser-sessions.js";
 import { countOnlineSessions, countPendingPairings } from "../db/stats.js";
+import { immediateTransaction } from "../db/transaction.js";
 import { runDoctor } from "../doctor.js";
 import { applyInit, InitError } from "../init/service.js";
 import {
@@ -13,6 +15,7 @@ import {
   PairingError,
   type PairingErrorCode,
 } from "../pairing/service.js";
+import { emitSessionRevoked } from "../security/session-events.js";
 import { collectStatus } from "../status.js";
 import { DeviceAdminError, listDevices, revokeDevice } from "../webauthn/service.js";
 import { readNewestLogLines } from "./logs.js";
@@ -26,6 +29,7 @@ import {
   PairingApproveParamsSchema,
   PairingDenyParamsSchema,
   PairingListParamsSchema,
+  SessionRevokeParamsSchema,
   ShutdownParamsSchema,
 } from "./protocol.js";
 import type { IpcHandler } from "./server.js";
@@ -234,6 +238,44 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
           }
           throw error;
         }
+      }
+
+      case "sessions.list": {
+        return {
+          sessions: listAllSessions(deps.db).map((session) => ({
+            id: session.id,
+            deviceId: session.deviceId,
+            kind: session.kind,
+            createdAt: session.createdAt,
+            lastSeenAt: session.lastSeenAt,
+            expiresAt: session.expiresAt,
+            revokedAt: session.revokedAt,
+          })),
+        };
+      }
+
+      case "sessions.revoke": {
+        const params = parseParams(SessionRevokeParamsSchema, request.params);
+        const revoked = immediateTransaction(deps.db, (tx) => {
+          const changed = revokeSession(tx, params.sessionId, now());
+
+          if (!changed) {
+            throw new IpcError("NOT_FOUND", "session not found or already revoked");
+          }
+
+          appendAudit(tx, {
+            action: "session.revoked",
+            decision: "allow",
+            resourceType: "session",
+            resourceId: params.sessionId,
+            now: now(),
+          });
+
+          return true;
+        });
+
+        emitSessionRevoked(params.sessionId, "tui");
+        return { ok: revoked };
       }
 
       case "logs.tail": {

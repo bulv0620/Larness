@@ -2,12 +2,16 @@ import cookie from "@fastify/cookie";
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { registerAuthRoutes } from "./api/auth.js";
+import { registerBootstrapRoutes } from "./api/bootstrap.js";
 import { registerHealthRoute } from "./api/health.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
 import type { Database } from "./db/client.js";
 import { registerErrorHandler } from "./errors.js";
 import { resolveRequestId } from "./request-id.js";
+import { installSecurityGuard } from "./security/guard.js";
+import { RateLimiter } from "./security/rate-limit.js";
+import { registerWsRoutes } from "./ws/server.js";
 
 export interface AppServices {
   db: Database;
@@ -47,9 +51,18 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   registerHealthRoute(app, startedAt);
 
   if (options.services) {
+    installSecurityGuard(app, {
+      ...options.services,
+      limiter: new RateLimiter(),
+    });
+    registerBootstrapRoutes(app, options.services);
+  }
+
+  if (options.services) {
     registerAuthRoutes(app, options.services);
     registerPairingRoutes(app, options.services);
     registerWebAuthnRoutes(app, options.services);
+    registerWsRoutes(app, options.services);
   }
 
   return app;

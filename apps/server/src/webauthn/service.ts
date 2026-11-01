@@ -45,6 +45,7 @@ import {
 } from "../db/repositories/webauthn-credentials.js";
 import type { DeviceRequestRow, TrustedDeviceRow, WebAuthnCredentialRow } from "../db/schema.js";
 import { immediateTransaction } from "../db/transaction.js";
+import { emitDeviceRevoked } from "../security/session-events.js";
 import { assertCanonicalOrigin, assertWebAuthnConfigured, WebAuthnError } from "./rp.js";
 
 export const CHALLENGE_TTL_MS = 5 * 60_000;
@@ -547,7 +548,7 @@ export function revokeDevice(
 ): { revokedCredentials: number; revokedSessions: number } {
   const now = nowOf(options);
 
-  return immediateTransaction(options.db, (tx: DbExecutor) => {
+  const result = immediateTransaction(options.db, (tx: DbExecutor) => {
     const device = getTrustedDevice(tx, input.deviceId);
 
     if (device === null) {
@@ -569,4 +570,7 @@ export function revokeDevice(
 
     return { revokedCredentials, revokedSessions };
   });
+
+  emitDeviceRevoked(input.deviceId, "revoked");
+  return result;
 }
