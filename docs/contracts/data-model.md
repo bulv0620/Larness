@@ -166,6 +166,8 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 
 完整字段在对应 milestone spec 中冻结；不得在实现时静默增加跨里程碑的大表。
 
+`BrowserTab`、`Window`、`WindowTab`、`ProjectFilter` 是**客户端视图状态**，不落服务端数据库；其身份、来源与筛选规则见 [resource-views.md](resource-views.md)。
+
 ## 5. 迁移规则
 
 1. 每个任务最多引入一个迁移（可包含多张相关表）。

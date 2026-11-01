@@ -156,6 +156,7 @@ Agent 工具 ──ToolRegistry──► 同一 ResourceManager
 - 关闭 / 隐藏窗口只改变客户端视图；`terminate` 才是终止资源。
 - 同一 Terminal 可被多个客户端观看，交互输入需租约。
 - 服务与终端由 Harness 拥有，可带 `projectId`，Session 只是创建来源。
+- Tab 身份、来源、项目筛选、分组与去重规则见 [resource-views.md](../contracts/resource-views.md)。
 
 ### 5.5 预览
 

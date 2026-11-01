@@ -132,7 +132,7 @@
 - 目标：让五类窗口有可信的 Mock 内容，验证多 Tab 与窗口内布局。
 - 交付物：
   - `FileWindow`：文件树 + Monaco 只读 + 多 Tab；同一文件复用 Tab；
-  - `TerminalWindow`：xterm.js + 定时伪造输出 + 多 Tab + 项目筛选占位；
+  - `TerminalWindow`：xterm.js + 定时伪造输出 + 多 Tab；项目筛选 / 来源标签在 M2 按 `resource-views` 契约实现；
   - `ServiceWindow`：状态、端口、启动方式、日志滚动、启停按钮（仅 Mock）；
   - `BrowserWindow`：地址栏、刷新、外部打开占位、静态占位页（不加载真实 localhost）；
   - `DiffWindow`：文件列表 + 静态 diff 高亮。

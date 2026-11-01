@@ -38,6 +38,7 @@
 - 三栏 Chat-first、顶部入口、无 Dock、右栏四分区可调高。
 - TUI 初始化与设备审批；Web 不能自我注册。
 - Passkey 作为 V1 可信凭据；`允许本次` 仅短期会话。
+- 全局资源 Tab 的身份、来源、分组、项目筛选与去重按 [resource-views 契约](contracts/resource-views.md) 执行。
 - DeepSeek / GLM 优先，每 Turn 固定模型。
 - 预览只代理已登记本机服务；同源 iframe 不可接受。
 - V1 不承诺 OS 级沙箱。

@@ -14,6 +14,9 @@
 | 审批 | Approval | 对 L2 / L3 能力的人工授权，绑定参数、范围、有效期 |
 | 资源 | Resource | 后端拥有的对象：Terminal、Service、Turn、Deployment |
 | 视图 | View | 客户端窗口 / Tab；关闭视图不终止资源 |
+| Tab 归属 | Tab Origin | Tab 记录的资源所属项目与来源，用于分组/筛选，不用于授权 |
+| 项目筛选 | Project Filter | 窗口内的 全部 / 指定项目 / 全局 视图筛选；只隐藏 Tab，不停止资源 |
+| 视图键 | viewKey | 去重键：terminal ID、service ID、file realpath、browser service+URL、diff project+path |
 | 窗口层 | Window Layer | 悬浮窗口容器，管理拖动、缩放、层级、最大化、隐藏 |
 | 租约 | Lease | 终端交互输入等短时独占权，带过期与接管 |
 | 栅栏令牌 | Fencing Token | 锁的单调递增标识，防止过期持有者继续写入 |

@@ -26,6 +26,7 @@
 | [docs/contracts/rest-api.md](docs/contracts/rest-api.md) | REST 约定与接口清单 |
 | [docs/contracts/ws-events.md](docs/contracts/ws-events.md) | WebSocket 包络、序号与重放 |
 | [docs/contracts/ipc.md](docs/contracts/ipc.md) | 本机 TUI ↔ Server 的 IPC 协议 |
+| [docs/contracts/resource-views.md](docs/contracts/resource-views.md) | 全局资源、Tab 归属、项目筛选与去重 |
 | [docs/contracts/data-model.md](docs/contracts/data-model.md) | SQLite 表结构、迁移与保留策略 |
 | [docs/process/workflow.md](docs/process/workflow.md) | Spec 生命周期、评审门、提交约定 |
 | [docs/process/testing.md](docs/process/testing.md) | 测试分层与安全用例要求 |

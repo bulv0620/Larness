@@ -39,12 +39,26 @@ updated: 2026-10-31
 | M2-3 | CommandRunner | spawn 数组参数、超时、输出截断、取消、env 白名单、`run_command` 工具 |
 | M2-4 | TerminalManager | node-pty、xterm、环形缓冲、多客户端、输入租约、显式终止 |
 | M2-5 | GitManager | status / diff / log / branch / add / commit / pull / push（审批 + 锁） |
-| M2-6 | 窗口接入 | 顶部入口、多 Tab、项目筛选、隐藏恢复、布局持久化 |
+| M2-6 | 窗口接入 | 顶部入口、来源/项目筛选、分组 Tab、隐藏恢复、布局持久化 |
 | M2-7 | 锁与并发 | `resource_locks`、fencing、固定顺序、冲突 UI |
 | M2-8 | M2 验收 | G2 门禁、E2E、平台冒烟 |
 
-## 4. 预验收场景（需补全）
+## 4. 资源视图与 Tab 归属
 
+M2 必须按 [docs/contracts/resource-views.md](../../docs/contracts/resource-views.md) 实现：
+
+- 终端 / 服务 / 文件 / 浏览器是全局资源；Tab 带 `projectId + origin`，来源只用于展示与筛选。
+- 同一资源默认复用 Tab；按项目分组，组内创建顺序；新 Tab 插入所属组末尾。
+- 顶部入口恢复上次筛选与激活 Tab；从项目内具体入口打开时自动筛选到该项目；切项目不影响已开窗口。
+- 筛选只隐藏 Tab，不停止资源；关闭 Tab 不终止 PTY/服务；终止资源是独立确认操作。
+- 多客户端共享资源状态，但 Tab / 筛选 / 窗口布局各自独立。
+
+## 5. 预验收场景（需补全）
+
+- 从项目 A 右栏打开终端 → 窗口自动筛选 A；切换项目 B 后窗口筛选不变。
+- 顶部入口恢复上次筛选与激活 Tab；无历史时显示全部项目。
+- 同一终端从右栏、顶部、会话重复打开只聚焦已有 Tab；同项目新终端插入 A 组末尾。
+- 浏览器同一 service + URL 再次打开聚焦已有 Tab；不同 URL 新建 Tab。
 - 打开文件树 → Monaco 编辑 → 保存 → 外部修改 → 再次保存提示冲突，不静默覆盖。
 - Agent 运行 `pnpm test`：输出流式展示、可取消、超时终止；不创建终端 Tab。
 - 两个浏览器观看同一终端；一方输入时另一方只读；租约到期可接管；隐藏窗口不重建 PTY。
@@ -52,7 +66,7 @@ updated: 2026-10-31
 - Git push 未审批被拒绝；审批后参数不可篡改；Diff 窗口内容与工作区一致。
 - 关闭 / 隐藏窗口不终止 PTY / 命令；显式终止才停止。
 
-## 5. 待决策
+## 6. 待决策
 
 - node-pty 打包与 ABI（M2 前 PoC）；失败退路：仅 CommandRunner + 受限终端。
 - Windows 终端 / 进程树 / 路径行为（M5 PoC）。
@@ -60,7 +74,7 @@ updated: 2026-10-31
 - 终端回放缓冲大小、落盘策略与保留期。
 - Git 写操作的具体审批范围（push / reset / force 必须逐次）。
 
-## 6. 进入 M2 前必须完成
+## 7. 进入 M2 前必须完成
 
 - [ ] 补全本 spec 的验收场景（≥ 10 条，覆盖失败与权限）；
 - [ ] 冻结 `docs/contracts/rest-api.md` 中 terminals / files / git 接口；

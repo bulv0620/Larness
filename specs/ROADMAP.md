@@ -79,7 +79,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-8
 | M2-3 | CommandRunner：超时、输出上限、取消、环境白名单 | G1 | `todo` |
 | M2-4 | TerminalManager：PTY、xterm、多客户端观察、输入租约 | M2-3 | `todo` |
 | M2-5 | GitManager：status / diff / add / commit / branch / push 审批 | M2-3 | `todo` |
-| M2-6 | 真实资源接入窗口层：顶部入口、恢复、多 Tab、布局持久化 | M2-2, M2-4 | `todo` |
+| M2-6 | 真实资源接入窗口层：顶部入口、来源/项目筛选、分组 Tab、恢复、布局持久化 | M2-2, M2-4 | `todo` |
 | M2-7 | 项目锁、fencing、并发与冲突用例 | M2-1, M2-4, M2-5 | `todo` |
 | M2-8 | M2 验收与门禁 | M2-6, M2-7 | `todo` |
 
