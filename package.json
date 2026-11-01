@@ -20,7 +20,8 @@
     "test:e2e": "playwright test",
     "format": "biome format --write .",
     "demo:shots": "node scripts/capture-demo.mjs",
-    "tui": "pnpm --filter @larness/server run tui"
+    "tui": "pnpm --filter @larness/server run tui",
+    "test:e2e:auth": "playwright test -c playwright.auth.config.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.4",

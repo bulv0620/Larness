@@ -13,6 +13,7 @@ export default defineConfig({
   },
   webServer: {
     command: "pnpm --filter @larness/web dev",
+    env: { VITE_USE_MOCKS: "1" },
     url: "http://localhost:5173",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
