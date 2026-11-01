@@ -26,6 +26,7 @@ export type TurnStatus =
   | "INTERRUPTED";
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ResourceLockType = "project" | "service" | "file" | "git" | "global-maintenance";
+export type ModelProviderId = "deepseek" | "openai-compatible";
 
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
@@ -153,6 +154,45 @@ export const resourceLocks = sqliteTable(
   ],
 );
 
+export const secrets = sqliteTable("secrets", {
+  id: text("id").primaryKey(),
+  ciphertext: text("ciphertext").notNull(),
+  nonce: text("nonce").notNull(),
+  tag: text("tag").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+
+export const credentialProfiles = sqliteTable(
+  "credential_profiles",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").$type<ModelProviderId>().notNull(),
+    label: text("label").notNull(),
+    secretRef: text("secret_ref")
+      .notNull()
+      .references(() => secrets.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("idx_credential_profiles_provider").on(table.provider)],
+);
+
+export const modelProfiles = sqliteTable(
+  "model_profiles",
+  {
+    id: text("id").primaryKey(),
+    label: text("label").notNull(),
+    provider: text("provider").$type<ModelProviderId>().notNull(),
+    model: text("model").notNull(),
+    credentialProfileId: text("credential_profile_id").references(() => credentialProfiles.id, {
+      onDelete: "set null",
+    }),
+    endpoint: text("endpoint"),
+    capabilitiesJson: text("capabilities_json").notNull().default("{}"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("idx_model_profiles_provider").on(table.provider)],
+);
+
 export const authSettings = sqliteTable(
   "auth_settings",
   {
@@ -272,6 +312,9 @@ export const auditLogs = sqliteTable(
 );
 
 export type ProjectRow = typeof projects.$inferSelect;
+export type SecretRow = typeof secrets.$inferSelect;
+export type CredentialProfileRow = typeof credentialProfiles.$inferSelect;
+export type ModelProfileRow = typeof modelProfiles.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
 export type TurnRow = typeof turns.$inferSelect;
 export type AgentEventRow = typeof agentEvents.$inferSelect;

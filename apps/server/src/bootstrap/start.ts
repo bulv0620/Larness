@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDeepSeekProvider, createFileToolRegistry } from "@larness/agent";
+import { createDeepSeekProvider, createFileToolRegistry, ProviderError } from "@larness/agent";
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import type { DestinationStream, Logger } from "pino";
@@ -17,8 +17,10 @@ import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
-import { defaultModelProfile, findModelProfile } from "../modules/models/profiles.js";
+import { ensureDefaultModelProfiles } from "../modules/models/repository.js";
+import { ModelError, resolveModel } from "../modules/models/service.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
+import { SecretStore } from "../security/secretStore.js";
 import { SERVER_VERSION } from "../version.js";
 import { publishAgentEvent } from "../ws/publisher.js";
 import { type LoadedConfig, loadConfig } from "./config.js";
@@ -52,24 +54,35 @@ export interface RunningServer {
   turnQueue: TurnQueue | null;
 }
 
-function defaultProviderResolver(env: NodeJS.ProcessEnv): ProviderResolver {
+function createDefaultProviderResolver(db: Database, secretStore: SecretStore): ProviderResolver {
   return (session, turn) => {
-    const profile =
-      findModelProfile(turn.modelProfileId ?? session.modelProfileId) ?? defaultModelProfile();
+    let resolved: ReturnType<typeof resolveModel>;
 
-    if (profile.provider !== "deepseek") {
-      throw new Error("fake provider requires an explicit provider resolver");
+    try {
+      resolved = resolveModel({ db, secretStore }, turn.modelProfileId ?? session.modelProfileId);
+    } catch (error) {
+      if (error instanceof ModelError) {
+        throw new ProviderError("PROVIDER_AUTH_FAILED", error.message);
+      }
+
+      throw error;
     }
 
-    const apiKey = env.DEEPSEEK_API_KEY?.trim();
+    if (resolved === null) {
+      throw new ProviderError("PROVIDER_AUTH_FAILED", "model profile not found");
+    }
+
+    const profile = resolved.profile;
+
+    if (profile.provider !== "deepseek") {
+      throw new ProviderError("PROVIDER_UNKNOWN", "unsupported model provider");
+    }
 
     return {
       adapter: createDeepSeekProvider(),
       model: profile.model,
-      ...(apiKey === undefined || apiKey.length === 0 ? {} : { apiKey }),
-      ...(profile.endpoint === null || profile.endpoint === undefined
-        ? {}
-        : { endpoint: profile.endpoint }),
+      ...(resolved.apiKey === null ? {} : { apiKey: resolved.apiKey }),
+      ...(profile.endpoint === null ? {} : { endpoint: profile.endpoint }),
     };
   };
 }
@@ -123,6 +136,9 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       logger.warn({ repairedTurns }, "marked interrupted turns");
     }
 
+    const secretStore = await SecretStore.open(dataDir);
+    ensureDefaultModelProfiles(opened.db);
+
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger });
     cleanup = cleanupScheduler;
 
@@ -147,7 +163,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       const runner = new TurnRunner({
         db: opened.db,
         registry: createFileToolRegistry(),
-        resolveProvider: options.providerResolver ?? defaultProviderResolver(env),
+        resolveProvider:
+          options.providerResolver ?? createDefaultProviderResolver(opened.db, secretStore),
         publish: publishAgentEvent,
       });
       turnQueue = new TurnQueue({
@@ -166,6 +183,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         config: loaded.config,
         webAuthn: loaded.webAuthn,
         csrfKey,
+        secretStore,
         ...(turnQueue === null
           ? {}
           : {

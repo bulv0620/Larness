@@ -5,6 +5,7 @@ import { registerApprovalRoutes } from "./api/approvals.js";
 import { registerAuthRoutes } from "./api/auth.js";
 import { registerBootstrapRoutes } from "./api/bootstrap.js";
 import { registerHealthRoute } from "./api/health.js";
+import { registerModelRoutes } from "./api/models.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerProjectRoutes } from "./api/projects.js";
 import { registerSessionRoutes, type TurnControls } from "./api/sessions.js";
@@ -15,6 +16,7 @@ import { registerErrorHandler } from "./errors.js";
 import { resolveRequestId } from "./request-id.js";
 import { installSecurityGuard } from "./security/guard.js";
 import { RateLimiter } from "./security/rate-limit.js";
+import type { SecretStore } from "./security/secretStore.js";
 import { registerWsRoutes } from "./ws/server.js";
 
 export interface AppServices {
@@ -23,6 +25,7 @@ export interface AppServices {
   config: AppConfig;
   webAuthn: WebAuthnRuntime;
   csrfKey: Buffer;
+  secretStore?: SecretStore;
   turnControls?: TurnControls;
 }
 
@@ -69,6 +72,12 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
 
   if (options.services) {
     registerAuthRoutes(app, options.services);
+    if (options.services.secretStore !== undefined) {
+      registerModelRoutes(app, {
+        db: options.services.db,
+        secretStore: options.services.secretStore,
+      });
+    }
     registerApprovalRoutes(app, { db: options.services.db });
     registerProjectRoutes(app, { db: options.services.db });
     registerSessionRoutes(app, {

@@ -6,6 +6,7 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { SessionRow, SessionStatus } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { getProjectById } from "../projects/repository.js";
+import { parseProjectSettings } from "../projects/service.js";
 import { SessionError } from "./errors.js";
 import {
   createSessionRow,
@@ -175,6 +176,7 @@ function insertSession(
     projectId: string | null;
     workspacePath: string;
     title: string;
+    modelProfileId: string | null;
     now: number;
     clientSessionId?: string;
   },
@@ -185,7 +187,7 @@ function insertSession(
       projectId: input.projectId,
       workspacePath: input.workspacePath,
       title: input.title,
-      modelProfileId: null,
+      modelProfileId: input.modelProfileId,
       approvalPolicyId: "standard",
       now: input.now,
     });
@@ -210,6 +212,7 @@ export async function createSession(
   const title = normalizeTitle(input.title);
   const now = options.now?.() ?? Date.now();
   let projectId: string | null = null;
+  let modelProfileId: string | null = null;
   let workspacePath: string;
 
   if (input.projectId !== undefined) {
@@ -221,6 +224,7 @@ export async function createSession(
 
     projectId = project.id;
     workspacePath = project.realPath;
+    modelProfileId = parseProjectSettings(project.settingsJson).defaultModelProfileId;
   } else {
     const id = newId("ses");
     workspacePath = await createStandaloneWorkspace(options.dataDir, id);
@@ -231,6 +235,7 @@ export async function createSession(
         projectId: null,
         workspacePath,
         title,
+        modelProfileId: null,
         now,
         clientSessionId: input.clientSessionId,
       });
@@ -249,6 +254,7 @@ export async function createSession(
     projectId,
     workspacePath,
     title,
+    modelProfileId,
     now,
     clientSessionId: input.clientSessionId,
   });
@@ -281,6 +287,19 @@ export function updateSession(
 
     if (updated === null) {
       throw new SessionError("NOT_FOUND", "session not found");
+    }
+
+    if (modelProfileId !== undefined && modelProfileId !== current.modelProfileId) {
+      appendAudit(tx, {
+        action: "model.changed",
+        decision: "allow",
+        clientSessionId: input.clientSessionId,
+        sessionId: updated.id,
+        resourceType: "session",
+        resourceId: updated.id,
+        details: { from: current.modelProfileId, to: modelProfileId },
+        now,
+      });
     }
 
     return updated;

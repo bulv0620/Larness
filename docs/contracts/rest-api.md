@@ -382,6 +382,34 @@ Turn 创建成功返回 `202`：
 
 `POST /api/approvals/:id` 接受 `{ "decision": "approve" | "reject" }`；仅 `pending` 可决策，重复决策 / 超时返回 `409 APPROVAL_INVALID`。过期审批在读取或清理时置为 `expired`，默认拒绝。执行前必须用同一参数重新计算哈希并与 `paramsHash` 比较，不一致拒绝并审计。
 
+`GET /api/models` 返回不含密钥的模型 Profile：
+
+```json
+{
+  "models": [
+    {
+      "id": "deepseek-default",
+      "label": "DeepSeek Chat",
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "credentialProfileId": null,
+      "credentialLabel": null,
+      "endpoint": null,
+      "capabilities": { "streaming": true, "toolCalls": true, "vision": false, "reasoning": false, "maxContextTokens": 128000 },
+      "createdAt": 1790000000000
+    }
+  ]
+}
+```
+
+凭据接口只返回元数据与掩码，`apiKey` 只写不读：
+
+```json
+{ "credentials": [{ "id": "cred_…", "provider": "deepseek", "label": "DeepSeek", "secretRef": "sec_…", "masked": "••••••", "createdAt": 1790000000000 }] }
+```
+
+`POST /api/credentials` 接受 `{ provider, label, apiKey }`；`DELETE /api/credentials/:id` 在被模型 Profile 引用时返回 `409 CONFLICT`。密钥使用本机 AES-256-GCM 加密存储，主密钥权限 0600。
+
 ## 8. 资源接口（M2–M5 摘要）
 
 | 方法 | 路径 | 里程碑 |

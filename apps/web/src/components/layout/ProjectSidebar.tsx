@@ -17,6 +17,7 @@ import {
 import { useMemo, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
 import { useLogout } from "@/features/auth/useAuth";
+import { ModelSettingsDialog } from "@/features/models/ModelSettingsDialog";
 import { ProjectDialog } from "@/features/projects/ProjectDialog";
 import { USE_MOCKS } from "@/lib/env";
 import { relativeTime } from "@/lib/format";
@@ -39,6 +40,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const focusComposer = useNavigationStore((state) => state.focusComposer);
   const [query, setQuery] = useState("");
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const sessions = useMemo(
     () => [...(USE_MOCKS ? extra : []), ...data.sessions].sort((a, b) => b.updatedAt - a.updatedAt),
@@ -256,7 +258,11 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
       <div className="shrink-0 border-t border-line px-2 py-2">
         <BottomItem icon={Zap} label="自动化任务" />
-        <BottomItem icon={Settings} label="设置与模型" />
+        <BottomItem
+          icon={Settings}
+          label="设置与模型"
+          onClick={USE_MOCKS ? undefined : () => setSettingsOpen(true)}
+        />
         <BottomItem icon={Boxes} label="工作空间" />
         <div className="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-black/[.035] dark:hover:bg-white/[.05]">
           <div className="relative flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#ffd60a] to-[#ff9f0a] text-[10px] font-semibold text-[#1d1d1f]">
@@ -285,6 +291,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <ProjectDialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen} />
+      {!USE_MOCKS ? (
+        <ModelSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      ) : null}
     </aside>
   );
 }
@@ -317,11 +326,21 @@ function SessionRow({
   );
 }
 
-function BottomItem({ icon: Icon, label }: { icon: typeof Zap; label: string }) {
+function BottomItem({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof Zap;
+  label: string;
+  onClick?: () => void;
+}) {
   return (
     <button
       type="button"
-      className="flex h-7 w-full items-center gap-2 rounded-lg px-2 text-[11.5px] text-ink-2 transition-colors hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"
+      onClick={onClick}
+      disabled={onClick === undefined}
+      className="flex h-7 w-full items-center gap-2 rounded-lg px-2 text-[11.5px] text-ink-2 transition-colors hover:bg-black/[.035] hover:text-ink disabled:cursor-default disabled:opacity-60 dark:hover:bg-white/[.05]"
     >
       <Icon size={13.5} strokeWidth={1.75} className="text-ink-3" />
       <span>{label}</span>

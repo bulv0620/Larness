@@ -13,7 +13,7 @@
 | M1-4 | 工具注册与审批引擎 | M1-1, M1-2 | `done` |
 | M1-5 | Turn Runner 与状态机 | M1-2, M1-3, M1-4 | `done` |
 | M1-6 | 实时对话 UI | M1-5, M0-8 | `done` |
-| M1-7 | 模型 Profile 与 SecretStore | M1-3 | `todo` |
+| M1-7 | 模型 Profile 与 SecretStore | M1-3 | `done` |
 | M1-8 | M1 验收与 E2E | M1-6, M1-7 | `todo` |
 
 ## 任务卡
@@ -160,7 +160,7 @@
 
 ### M1-7 模型 Profile 与 SecretStore
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：M1-3
 - 目标：让用户安全配置多个 Provider / Key，并按下一 Turn 切换模型。
 - 交付物：
@@ -172,6 +172,14 @@
 - 验收：A9、A10；密钥不出现在响应 / 日志 / 事件；主密钥 0600；缺失密钥时 Turn 失败可读。
 - 测试：加解密、错密钥、权限、脱敏、模型切换快照、删除被引用凭据的拒绝。
 - 涉及路径：`apps/server/src/modules/models/`、`apps/server/src/security/secretStore.ts`、`apps/web/src/features/models/`。
+- 完成记录：
+  - `0004_models`：`secrets` / `credential_profiles` / `model_profiles`；启动幂等 seed `deepseek-default`；
+  - `SecretStore`：AES-256-GCM、随机 nonce、主密钥 0600、错密钥 / 篡改 fail closed；
+  - 模型 / 凭据 API：密钥只写不读、响应掩码、引用中的凭据删除 409；审计 credential / model 操作；
+  - 解析：Turn 使用模型 Profile + provider 最新凭据；缺失 / 解密失败 → `PROVIDER_AUTH_FAILED`；Turn 记录 provider / model 快照；
+  - 会话模型切换审计 `model.changed`；项目默认模型用于新会话；设置界面添加 / 删除 Key、选择模型；
+  - 测试：agent 32、server 236、web 23；A9 / A10 覆盖；`pnpm check` / `build`、demo E2E 15、认证 E2E 1 通过；
+  - 偏差：`POST /api/models/:id/test` 可选项未实现；真实 DeepSeek 冒烟留在 M1-8。
 
 ### M1-8 M1 验收与 E2E
 

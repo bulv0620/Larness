@@ -65,7 +65,7 @@ export function Composer() {
   };
 
   const submit = () => {
-    if (!hasSession) return;
+    if (!hasSession || model === undefined) return;
     if (isStreaming) {
       stop();
       return;
@@ -191,11 +191,11 @@ export function Composer() {
           <button
             type="button"
             onClick={submit}
-            disabled={!draft.trim() || !hasSession}
+            disabled={!draft.trim() || !hasSession || model === undefined}
             aria-label="发送消息"
             className={cn(
               "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-all",
-              draft.trim() && hasSession
+              draft.trim() && hasSession && model !== undefined
                 ? "bg-accent text-white shadow-[0_2px_8px_rgba(10,132,255,.3)] hover:brightness-110 active:scale-95"
                 : "bg-black/[.06] text-ink-3 dark:bg-white/[.08]",
             )}

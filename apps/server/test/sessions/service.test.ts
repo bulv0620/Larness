@@ -77,6 +77,28 @@ describe("session service", () => {
     });
   });
 
+  it("uses the project default model for new sessions", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const project = await addProject(opened.db, dir);
+        const { updateProject } = await import("../../src/modules/projects/service.js");
+        updateProject(
+          { db: opened.db, now: () => 2_000 },
+          { id: project.id, settings: { defaultModelProfileId: "deepseek-default" } },
+        );
+        const session = await createSession(
+          { db: opened.db, dataDir: dir, now: () => 3_000 },
+          { projectId: project.id },
+        );
+        expect(session.modelProfileId).toBe("deepseek-default");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("rejects unknown projects and invalid titles", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
@@ -141,6 +163,11 @@ describe("session service", () => {
         expect(updated.modelProfileId).toBe("mdl_deepseek");
         expect(updated.approvalPolicyId).toBe("strict");
         expect(updated.updatedAt).toBe(2_000);
+        const modelAudit = listRecentAudit(opened.db).find((row) => row.action === "model.changed");
+        expect(modelAudit).toBeDefined();
+        expect(JSON.parse(modelAudit?.detailsJson ?? "{}")).toMatchObject({
+          to: "mdl_deepseek",
+        });
       } finally {
         opened.close();
       }

@@ -66,15 +66,32 @@ export interface WorkspaceData {
   models: ModelProfile[];
 }
 
-export const WEB_MODEL_PROFILES: ModelProfile[] = [
-  {
-    id: "deepseek-default",
-    label: "DeepSeek Chat",
-    provider: "deepseek",
-    model: "deepseek-chat",
-    detail: "128K 上下文 · 工具调用",
-  },
-];
+export interface ApiModelProfile {
+  id: string;
+  label: string;
+  provider: "deepseek" | "openai-compatible";
+  model: string;
+  credentialProfileId: string | null;
+  credentialLabel: string | null;
+  endpoint: string | null;
+  capabilities: {
+    streaming: boolean;
+    toolCalls: boolean;
+    vision: boolean;
+    reasoning: boolean;
+    maxContextTokens: number;
+  };
+  createdAt: number;
+}
+
+export interface ApiCredential {
+  id: string;
+  provider: "deepseek" | "openai-compatible";
+  label: string;
+  secretRef: string;
+  masked: string;
+  createdAt: number;
+}
 
 export async function listProjects(): Promise<ApiProject[]> {
   const response = await apiFetch<{ projects: ApiProject[] }>("/api/projects");
@@ -94,6 +111,50 @@ export async function createProject(input: {
 
 export async function deleteProject(id: string): Promise<void> {
   await apiFetch(`/api/projects/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    csrf: true,
+  });
+}
+
+export async function getProject(id: string): Promise<ApiProject> {
+  return apiFetch<ApiProject>(`/api/projects/${encodeURIComponent(id)}`);
+}
+
+export async function updateProject(
+  id: string,
+  input: { name?: string; settings?: { defaultModelProfileId?: string | null } },
+): Promise<void> {
+  await apiFetch(`/api/projects/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: input,
+    csrf: true,
+  });
+}
+
+export async function listModels(): Promise<ApiModelProfile[]> {
+  const response = await apiFetch<{ models: ApiModelProfile[] }>("/api/models");
+  return response.models;
+}
+
+export async function listCredentials(): Promise<ApiCredential[]> {
+  const response = await apiFetch<{ credentials: ApiCredential[] }>("/api/credentials");
+  return response.credentials;
+}
+
+export async function createCredential(input: {
+  provider: "deepseek" | "openai-compatible";
+  label: string;
+  apiKey: string;
+}): Promise<ApiCredential> {
+  return apiFetch<ApiCredential>("/api/credentials", {
+    method: "POST",
+    body: input,
+    csrf: true,
+  });
+}
+
+export async function deleteCredential(id: string): Promise<void> {
+  await apiFetch(`/api/credentials/${encodeURIComponent(id)}`, {
     method: "DELETE",
     csrf: true,
   });
@@ -208,6 +269,16 @@ export function toProjectView(project: ApiProject) {
     branch: null,
     git: project.gitDetected,
     accent: accents[index % accents.length] ?? accents[0],
+  };
+}
+
+export function toModelProfileView(model: ApiModelProfile): ModelProfile {
+  return {
+    id: model.id,
+    label: model.label,
+    provider: model.provider === "openai-compatible" ? "openai-compatible" : "deepseek",
+    model: model.model,
+    detail: `${Math.round(model.capabilities.maxContextTokens / 1000)}K 上下文 · 工具调用`,
   };
 }
 

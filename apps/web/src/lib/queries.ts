@@ -2,11 +2,12 @@ import type { GatewaySnapshot } from "@larness/shared";
 import { QueryClient, useQuery } from "@tanstack/react-query";
 import { USE_MOCKS } from "@/lib/env";
 import {
+  listModels,
   listProjects,
   listSessions,
+  toModelProfileView,
   toProjectView,
   toSessionView,
-  WEB_MODEL_PROFILES,
 } from "@/lib/workspaceApi";
 import { snapshot } from "@/mocks/fixtures";
 
@@ -23,7 +24,7 @@ export const queryClient = new QueryClient({
 const EMPTY_SNAPSHOT: GatewaySnapshot = {
   projects: [],
   sessions: [],
-  models: WEB_MODEL_PROFILES,
+  models: [],
   host: { cpuPercent: 0, memoryUsedGb: 0, memoryTotalGb: 0 },
   services: [],
   terminals: [],
@@ -31,12 +32,17 @@ const EMPTY_SNAPSHOT: GatewaySnapshot = {
 };
 
 async function loadWorkspace(): Promise<GatewaySnapshot> {
-  const [projects, sessions] = await Promise.all([listProjects(), listSessions()]);
+  const [projects, sessions, models] = await Promise.all([
+    listProjects(),
+    listSessions(),
+    listModels(),
+  ]);
 
   return {
     ...EMPTY_SNAPSHOT,
     projects: projects.map(toProjectView),
     sessions: sessions.map(toSessionView),
+    models: models.map(toModelProfileView),
   };
 }
 

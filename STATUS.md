@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-01 18:50 (+08:00)
-> 当前阶段：**M1 进行中；M1-6 完成，下一步 M1-7**
+> 最后更新：2026-11-01 19:00 (+08:00)
+> 当前阶段：**M1 进行中；M1-7 完成，下一步 M1-8**
 
 ## 里程碑
 
@@ -9,7 +9,7 @@
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
-| M1 | 项目、会话与最小 Agent | `in_progress` | M1-6 完成；下一步 M1-7 |
+| M1 | 项目、会话与最小 Agent | `in_progress` | M1-7 完成；下一步 M1-8 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
@@ -17,6 +17,14 @@
 
 ## 当前工作
 
+- 刚完成：`M1-7` — 模型 Profile 与 SecretStore（分支 `task/m1-7-secrets`）
+  - `0004_models` 迁移：`secrets` / `credential_profiles` / `model_profiles`；启动时幂等 seed `deepseek-default`；
+  - SecretStore：AES-256-GCM、随机 nonce、主密钥 `secrets/master.key`（0600）、错误密钥 / 篡改 fail closed；
+  - API：`GET/POST /api/models`、`GET/POST/DELETE /api/credentials`；密钥只写不读，响应仅掩码与 secretRef；引用中的凭据拒绝删除；
+  - 解析：Turn 按 `modelProfileId` 解析模型与最新 provider 凭据，缺失 / 解密失败返回 `PROVIDER_AUTH_FAILED`；Turn 记录 provider / model 快照；
+  - 会话切换模型审计 `model.changed`；项目默认模型用于新会话；设置界面支持添加 / 删除 Key、查看掩码、选择当前会话或项目默认模型；
+  - 验收：A9、A10；agent 32 / server 236 / web 23 测试，`pnpm check` / `build`、demo E2E 15、认证 E2E 1 通过；
+  - 偏差：`POST /api/models/:id/test` 未实现（契约标记可选）；真实 DeepSeek 冒烟仍在 M1-8。
 - 刚完成：`M1-6` — 实时对话 UI（分支 `task/m1-6-chat-ui`）
   - 真实工作区数据：项目 / 会话来自 API，模型列表暂用内置 DeepSeek Profile（M1-7 改为 `/api/models`）；
   - 项目管理：添加项目对话框、项目内新建会话、新建 / 重命名 / 归档会话；
@@ -95,7 +103,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：`M1-7` — 模型 Profile 与 SecretStore
+- 下一个任务：`M1-8` — M1 验收与 E2E
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -162,3 +170,4 @@
 | 2026-11-01 | M1-4 完成：文件工具 / 版本校验 / 输出上限；ToolRegistry 与审批策略；审批服务与 API、超时与篡改检测；ProjectWriteLock；ToolExecutor 审计；agent 32 / server 210 / web 18 测试 |
 | 2026-11-01 | M1-5 完成：TurnQueue / TurnRunner 状态机、上下文与预算、审批挂起恢复、取消、项目写锁、agent WS 广播；创建 Turn 自动入队；agent 32 / server 227 / web 18 测试 |
 | 2026-11-01 | M1-6 完成：真实项目 / 会话 / 事件 / 审批 UI；项目与重命名对话框、新建 / 归档会话、WS 补拉 reducer、Composer 发送 / 停止、真实审批；web 23 / server 227 / agent 32 测试；demo 与认证 E2E 通过 |
+| 2026-11-01 | M1-7 完成：`0004_models`、AES-256-GCM SecretStore、模型 / 凭据 API 与设置界面、默认模型、密钥脱敏与删除引用保护；agent 32 / server 236 / web 23 测试 |

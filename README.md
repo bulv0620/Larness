@@ -71,7 +71,7 @@ Larness 初始化          # 首次运行进入向导
 
 数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 默认使用真实本机 API（`/login`、`/pair`、工作台空态）。仅做 S0 Mock Demo 时使用 `VITE_USE_MOCKS=1 pnpm --filter @larness/web dev`，不是产品入口。
 
-M1 阶段真实模型 Key 暂从 `DEEPSEEK_API_KEY` 环境变量读取；M1-7 引入 SecretStore 后改由设置界面管理，不再依赖环境变量。
+真实模型 Key 在左侧“设置与模型”中添加，使用 AES-256-GCM 加密保存在数据目录的 `secrets/`；主密钥为 `secrets/master.key`（权限 0600），接口、日志与事件只返回掩码。
 
 构建后运行完整产品：
 

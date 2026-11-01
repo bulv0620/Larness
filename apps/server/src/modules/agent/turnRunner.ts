@@ -4,6 +4,7 @@ import {
   decideToolAccess,
   type ModelMessage,
   type ProviderAdapter,
+  ProviderError,
   type ProviderFinishReason,
   type ProviderUsage,
   type ToolCallRequest,
@@ -283,6 +284,12 @@ export class TurnRunner {
       }
 
       const resolved = await this.#options.resolveProvider(session, turn);
+      immediateTransaction(this.#options.db, (tx) => {
+        updateTurnRow(tx, turn.id, {
+          provider: resolved.adapter.id,
+          model: resolved.model,
+        });
+      });
       const context = assembleContext(
         {
           db: this.#options.db,
@@ -602,6 +609,14 @@ export class TurnRunner {
         getTurnById(this.#options.db, turnId)?.status === "CANCELLING"
       ) {
         return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+      }
+
+      if (error instanceof ProviderError) {
+        return finalize("FAILED", {
+          eventType: "turn.failed",
+          errorCode: error.code,
+          message: error.message,
+        });
       }
 
       const message = error instanceof Error ? error.message : String(error);

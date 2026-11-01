@@ -536,6 +536,10 @@ describe("TurnRunner", () => {
         });
 
         expect((await runner.run(first.turnId)).status).toBe("COMPLETED");
+        const snapshot = opened.sqlite
+          .prepare("SELECT provider, model FROM turns WHERE id = ?")
+          .get(first.turnId) as { provider: string; model: string };
+        expect(snapshot).toMatchObject({ provider: "fake", model: "model-a" });
         const second = createTurn(sessionOptions, { sessionId: session.id, text: "second" });
         expect((await runner.run(second.turnId)).status).toBe("COMPLETED");
         expect(models).toEqual(["model-a", "model-b"]);
