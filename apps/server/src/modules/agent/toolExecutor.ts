@@ -31,6 +31,7 @@ export interface ExecuteToolInput {
   ignore?: string[];
   approvalId?: string;
   clientSessionId?: string;
+  approvalTtlMs?: number;
 }
 
 export type ToolExecutionOutcome =
@@ -138,6 +139,7 @@ export async function executeTool(
         },
         params: input.args,
         clientSessionId: input.clientSessionId,
+        ...(input.approvalTtlMs === undefined ? {} : { ttlMs: input.approvalTtlMs }),
       },
     );
 

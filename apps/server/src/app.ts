@@ -7,7 +7,7 @@ import { registerBootstrapRoutes } from "./api/bootstrap.js";
 import { registerHealthRoute } from "./api/health.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerProjectRoutes } from "./api/projects.js";
-import { registerSessionRoutes } from "./api/sessions.js";
+import { registerSessionRoutes, type TurnControls } from "./api/sessions.js";
 import { registerStaticRoutes } from "./api/static.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
 import type { Database } from "./db/client.js";
@@ -23,6 +23,7 @@ export interface AppServices {
   config: AppConfig;
   webAuthn: WebAuthnRuntime;
   csrfKey: Buffer;
+  turnControls?: TurnControls;
 }
 
 export interface CreateAppOptions {
@@ -73,6 +74,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerSessionRoutes(app, {
       db: options.services.db,
       dataDir: options.services.dataDir,
+      ...(options.services.turnControls === undefined
+        ? {}
+        : { turnControls: options.services.turnControls }),
     });
     registerPairingRoutes(app, options.services);
     registerWebAuthnRoutes(app, options.services);

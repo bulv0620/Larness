@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-01 18:30 (+08:00)
-> 当前阶段：**M1 进行中；M1-4 完成，下一步 M1-5**
+> 最后更新：2026-11-01 18:40 (+08:00)
+> 当前阶段：**M1 进行中；M1-5 完成，下一步 M1-6**
 
 ## 里程碑
 
@@ -9,7 +9,7 @@
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
-| M1 | 项目、会话与最小 Agent | `in_progress` | M1-4 完成；下一步 M1-5；项目写锁已实现，Runner 接线在 M1-5 |
+| M1 | 项目、会话与最小 Agent | `in_progress` | M1-5 完成；下一步 M1-6 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
@@ -17,6 +17,15 @@
 
 ## 当前工作
 
+- 刚完成：`M1-5` — Turn Runner 与状态机（分支 `task/m1-5-runner`）
+  - `TurnQueue`：全局并发 2、同会话串行、排队 / 取消 / 关闭时等待在途 Turn；
+  - `TurnRunner`：QUEUED → PREPARING → RUNNING → WAITING_APPROVAL → COMPLETED / FAILED / CANCELLED；上下文构建、Provider 单步循环、工具事件、usage 与审计；
+  - 预算：30 步 / 50 工具 / 10 分钟 / 上下文 80%（可注入覆盖）；
+  - 审批挂起与恢复：批准后按参数哈希执行，拒绝 / 超时结果回传模型；项目写锁在写工具前获取 / 续租 / 释放；
+  - 事件：`turn.status` / `assistant.message` / `tool.*` / `file.changed` / `tool.approval.*` / `turn.completed|failed|cancelled` 先落库后广播；WS 新增 `agent:<sessionId>` 订阅；
+  - API：创建 Turn 自动入队，取消通过队列 abort Runner；生产入口默认启用 Runner，真实 Key 暂用 `DEEPSEEK_API_KEY`（M1-7 移除）；
+  - 验收：A3、A4（后端）、A5、A6、A9、A12；agent 32 / server 227 / web 18 测试，`pnpm check` 通过；
+  - 偏差：`assistant.delta` 尚未广播（M1-6 实时 UI 时补），真实 DeepSeek 冒烟仍在 M1-8。
 - 刚完成：`M1-4` — 工具注册与审批引擎（分支 `task/m1-4-tools`）
   - `packages/resources` 文件服务：`list_files` / `read_file` / `search_code` / `apply_patch`，realpath 根内校验、SHA-256 版本、行范围、1 MiB / 2000 行上限、二进制 / 超大 / 符号链接逃逸拒绝；
   - `packages/agent`：`ToolRegistry` + Zod schema + L0/L1 风险 + 结果规范化；`standard` / `strict` / `readonly` 审批策略映射；
@@ -77,7 +86,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：`M1-5` — Turn Runner 与状态机
+- 下一个任务：`M1-6` — 实时对话 UI
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -142,3 +151,4 @@
 | 2026-11-01 | M1-2 完成：`0003_workspace` 五表 / repository；会话 workspace / 列表 / 重命名 / 归档；Turn 幂等创建、活跃校验、取消骨架；事务内 seq 与事件分页；启动 INTERRUPTED 修复；资源锁 fencing；server 200 项测试 |
 | 2026-11-01 | M1-3 完成：ProviderAdapter / FakeProvider / DeepSeek 适配与错误分类；内置模型 Profile；共享 Provider 错误码；agent 15 / server 202 / web 18 测试；真实 DeepSeek 冒烟待 M1-8 |
 | 2026-11-01 | M1-4 完成：文件工具 / 版本校验 / 输出上限；ToolRegistry 与审批策略；审批服务与 API、超时与篡改检测；ProjectWriteLock；ToolExecutor 审计；agent 32 / server 210 / web 18 测试 |
+| 2026-11-01 | M1-5 完成：TurnQueue / TurnRunner 状态机、上下文与预算、审批挂起恢复、取消、项目写锁、agent WS 广播；创建 Turn 自动入队；agent 32 / server 227 / web 18 测试 |

@@ -1,5 +1,6 @@
 import { startServer } from "../../src/bootstrap/start.js";
 import { connectIpc } from "../../src/ipc/client.js";
+import type { ProviderResolver } from "../../src/modules/agent/turnRunner.js";
 import { createLogSink, getFreePort } from "../helpers.js";
 
 const PASSWORD = "correct horse battery staple";
@@ -21,12 +22,19 @@ export interface AuthorizedServer {
   csrf: string;
 }
 
-export async function startAuthorizedServer(dir: string): Promise<AuthorizedServer> {
+export async function startAuthorizedServer(
+  dir: string,
+  options: { turnRunner?: boolean; providerResolver?: ProviderResolver } = {},
+): Promise<AuthorizedServer> {
   const port = await getFreePort();
   const origin = `http://localhost:${port}`;
   const running = await startServer({
     env: { LARNESS_DATA_DIR: dir, LARNESS_PORT: String(port) },
     logDestination: createLogSink().stream,
+    turnRunner: options.turnRunner ?? false,
+    ...(options.providerResolver === undefined
+      ? {}
+      : { providerResolver: options.providerResolver }),
   });
   const client = await connectIpc({ dataDir: dir, client: "tui" });
 

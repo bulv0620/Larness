@@ -1,11 +1,15 @@
 import websocket from "@fastify/websocket";
-import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
+import type { AppConfig, ServerEvent, WebAuthnRuntime } from "@larness/shared";
+import { eq, max } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { WebSocket } from "ws";
 import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
 import type { Database } from "../db/client.js";
+import { agentEvents } from "../db/schema.js";
+import { getSessionById } from "../modules/sessions/repository.js";
 import { sessionEvents } from "../security/session-events.js";
 import { transportAllowed } from "../security/transport.js";
+import { agentEventBus } from "./publisher.js";
 
 const PROTOCOL_VERSION = 1;
 const HEARTBEAT_MS = 25_000;
@@ -168,6 +172,13 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
         sessionEvents.on("session.revoked", onSessionRevoked);
         sessionEvents.on("device.revoked", onDeviceRevoked);
 
+        const onAgentEvent = (event: ServerEvent): void => {
+          if (subscriptions.has(`agent:${event.streamId}`)) {
+            send(socket, event);
+          }
+        };
+        agentEventBus.on("event", onAgentEvent);
+
         socket.on("message", (raw: Buffer) => {
           if (!sessionActive()) {
             socket.close(1008, "session expired");
@@ -205,16 +216,19 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
               return;
             }
 
-            const topics: string[] = [];
+            const accepted: Array<{
+              topic: "system" | "agent";
+              resourceId: string;
+              key: string;
+              currentSequence: number;
+            }> = [];
 
             for (const entry of requested) {
               if (
                 typeof entry !== "object" ||
                 entry === null ||
                 !("topic" in entry) ||
-                !("resourceId" in entry) ||
-                entry.topic !== "system" ||
-                entry.resourceId !== "system"
+                !("resourceId" in entry)
               ) {
                 send(socket, {
                   kind: "error",
@@ -225,10 +239,49 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
                 return;
               }
 
-              topics.push("system");
+              if (entry.topic === "system" && entry.resourceId === "system") {
+                accepted.push({
+                  topic: "system",
+                  resourceId: "system",
+                  key: "system",
+                  currentSequence: 0,
+                });
+                continue;
+              }
+
+              if (
+                entry.topic === "agent" &&
+                typeof entry.resourceId === "string" &&
+                getSessionById(deps.db, entry.resourceId) !== null
+              ) {
+                const last = deps.db
+                  .select({ sequence: max(agentEvents.seq) })
+                  .from(agentEvents)
+                  .where(eq(agentEvents.sessionId, entry.resourceId))
+                  .get();
+
+                accepted.push({
+                  topic: "agent",
+                  resourceId: entry.resourceId,
+                  key: `agent:${entry.resourceId}`,
+                  currentSequence: last?.sequence ?? 0,
+                });
+                continue;
+              }
+
+              send(socket, {
+                kind: "error",
+                code: "FORBIDDEN",
+                message: "subscription denied",
+                requestId: request.id,
+              });
+              return;
             }
 
-            if (new Set([...subscriptions, ...topics]).size > MAX_SUBSCRIPTIONS) {
+            if (
+              new Set([...subscriptions, ...accepted.map((entry) => entry.key)]).size >
+              MAX_SUBSCRIPTIONS
+            ) {
               send(socket, {
                 kind: "error",
                 code: "RATE_LIMITED",
@@ -237,15 +290,14 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
               return;
             }
 
-            for (const topic of topics) {
-              subscriptions.add(topic);
+            for (const entry of accepted) {
+              subscriptions.add(entry.key);
+              send(socket, {
+                kind: "subscribed",
+                subscription: { topic: entry.topic, resourceId: entry.resourceId },
+                currentSequence: entry.currentSequence,
+              });
             }
-
-            send(socket, {
-              kind: "subscribed",
-              subscription: { topic: "system", resourceId: "system" },
-              currentSequence: 0,
-            });
             return;
           }
 
@@ -272,6 +324,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           socket.off("pong", onPong);
           sessionEvents.off("session.revoked", onSessionRevoked);
           sessionEvents.off("device.revoked", onDeviceRevoked);
+          agentEventBus.off("event", onAgentEvent);
           subscriptions.clear();
         });
       },

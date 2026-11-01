@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createDeepSeekProvider, createFileToolRegistry } from "@larness/agent";
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import type { DestinationStream, Logger } from "pino";
@@ -13,9 +14,13 @@ import { appendAudit } from "../db/repositories/audit.js";
 import { ensureInstanceId } from "../db/repositories/meta.js";
 import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
+import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
+import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
+import { defaultModelProfile, findModelProfile } from "../modules/models/profiles.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import { SERVER_VERSION } from "../version.js";
+import { publishAgentEvent } from "../ws/publisher.js";
 import { type LoadedConfig, loadConfig } from "./config.js";
 import { acquireInstanceLock, type InstanceLock, releaseInstanceLock } from "./lock.js";
 import { createLogger, flushLogger } from "./logger.js";
@@ -27,6 +32,8 @@ export interface StartServerOptions {
   shutdownTimeoutMs?: number;
   onShutdownTimeout?: () => void;
   version?: string;
+  turnRunner?: boolean;
+  providerResolver?: ProviderResolver;
 }
 
 export interface RunningServer {
@@ -42,6 +49,29 @@ export interface RunningServer {
   lock: InstanceLock;
   logger: Logger;
   shutdown: Shutdown;
+  turnQueue: TurnQueue | null;
+}
+
+function defaultProviderResolver(env: NodeJS.ProcessEnv): ProviderResolver {
+  return (session, turn) => {
+    const profile =
+      findModelProfile(turn.modelProfileId ?? session.modelProfileId) ?? defaultModelProfile();
+
+    if (profile.provider !== "deepseek") {
+      throw new Error("fake provider requires an explicit provider resolver");
+    }
+
+    const apiKey = env.DEEPSEEK_API_KEY?.trim();
+
+    return {
+      adapter: createDeepSeekProvider(),
+      model: profile.model,
+      ...(apiKey === undefined || apiKey.length === 0 ? {} : { apiKey }),
+      ...(profile.endpoint === null || profile.endpoint === undefined
+        ? {}
+        : { endpoint: profile.endpoint }),
+    };
+  };
 }
 
 export async function startServer(options: StartServerOptions = {}): Promise<RunningServer> {
@@ -73,6 +103,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   let cleanup: CleanupScheduler | null = null;
   let ipc: IpcServer | null = null;
   let app: FastifyInstance | null = null;
+  let turnQueue: TurnQueue | null = null;
   let requestShutdown: ((reason: string) => void) | null = null;
 
   try {
@@ -112,6 +143,21 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     });
     ipc = ipcServer;
 
+    if (options.turnRunner !== false) {
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry: createFileToolRegistry(),
+        resolveProvider: options.providerResolver ?? defaultProviderResolver(env),
+        publish: publishAgentEvent,
+      });
+      turnQueue = new TurnQueue({
+        runner,
+        onError: (error, turnId) => {
+          logger.error({ err: error, turnId }, "turn runner failed");
+        },
+      });
+    }
+
     app = createApp({
       logger,
       services: {
@@ -120,6 +166,15 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         config: loaded.config,
         webAuthn: loaded.webAuthn,
         csrfKey,
+        ...(turnQueue === null
+          ? {}
+          : {
+              turnControls: {
+                enqueue: (turnId: string, sessionId: string) =>
+                  turnQueue?.enqueue(turnId, sessionId),
+                cancel: (turnId: string) => turnQueue?.cancel(turnId) ?? false,
+              },
+            }),
       },
       webDistDir,
     });
@@ -166,6 +221,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         }
 
         await ipcServer.close();
+        await turnQueue?.stop();
         cleanupScheduler.stop();
         opened.close();
       },
@@ -188,6 +244,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       lock,
       logger,
       shutdown,
+      turnQueue,
     };
   } catch (error) {
     logger.error({ err: error }, "server failed to start");

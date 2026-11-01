@@ -11,7 +11,7 @@
 | M1-2 | 会话、Turn 与事件存储 | M1-1 | `done` |
 | M1-3 | Provider 适配与 FakeProvider | G0 | `done` |
 | M1-4 | 工具注册与审批引擎 | M1-1, M1-2 | `done` |
-| M1-5 | Turn Runner 与状态机 | M1-2, M1-3, M1-4 | `todo` |
+| M1-5 | Turn Runner 与状态机 | M1-2, M1-3, M1-4 | `done` |
 | M1-6 | 实时对话 UI | M1-5, M0-8 | `todo` |
 | M1-7 | 模型 Profile 与 SecretStore | M1-3 | `todo` |
 | M1-8 | M1 验收与 E2E | M1-6, M1-7 | `todo` |
@@ -114,7 +114,7 @@
 
 ### M1-5 Turn Runner 与状态机
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：M1-2, M1-3, M1-4
 - 目标：把 Provider 与工具串成可持久化、可取消、有预算的执行循环。
 - 交付物：
@@ -127,6 +127,14 @@
 - 验收：A3、A4、A5、A6、A9、A12；同一会话永不并行；取消后无新工具调用。
 - 测试：状态迁移、预算耗尽、审批恢复、取消竞态、Provider 中途失败、重启修复。
 - 涉及路径：`apps/server/src/modules/agent/{turnRunner,queue,contextAssembler}.ts`、`apps/server/src/ws/publisher.ts`。
+- 完成记录：
+  - `TurnQueue`：全局并发（默认 2）、同会话串行、排队 / 取消 / 关闭等待在途任务；
+  - `TurnRunner`：状态机、上下文构建（安全策略 / 项目指令 / 历史 / 当前输入）、Provider 单步循环、工具调用、usage 与审计；
+  - 预算：30 步 / 50 工具 / 10 分钟 / 上下文 80%，可注入覆盖；
+  - 审批挂起 / 恢复：工具事件、按参数哈希执行、拒绝 / 超时结果回传模型；项目写锁在写工具前获取 / 续租 / 释放；
+  - `turn.*` / `tool.*` / `file.changed` 事件先落库后广播；WS 支持 `agent:<sessionId>` 订阅；创建 Turn 自动入队；
+  - 测试：agent 32 项、server 227 项、web 18 项；覆盖 A3、A4（后端）、A5、A6、A9、A12、预算、审批超时、取消竞态、Provider 失败；
+  - 偏差：`assistant.delta` 广播与真实 DeepSeek 冒烟分别留到 M1-6 / M1-8。
 
 ### M1-6 实时对话 UI
 

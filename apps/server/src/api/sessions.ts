@@ -47,10 +47,16 @@ const ListEventsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
 
+export interface TurnControls {
+  enqueue(turnId: string, sessionId: string): void;
+  cancel(turnId: string): boolean;
+}
+
 export interface SessionApiDeps {
   db: Database;
   dataDir: string;
   now?: () => number;
+  turnControls?: TurnControls;
 }
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -175,6 +181,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
         idempotencyKey,
         clientSessionId: request.clientSession?.id,
       });
+      deps.turnControls?.enqueue(turn.turnId, turn.sessionId);
       return reply.code(202).send(turn);
     } catch (error) {
       throwSession(error);
@@ -185,10 +192,12 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
     const id = parse(SessionIdSchema, request.params.id);
 
     try {
-      return cancelTurn(options, {
+      const result = cancelTurn(options, {
         turnId: id,
         clientSessionId: request.clientSession?.id,
       });
+      deps.turnControls?.cancel(result.turnId);
+      return result;
     } catch (error) {
       throwSession(error);
     }

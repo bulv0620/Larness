@@ -5,6 +5,8 @@ import { startServer } from "../../src/bootstrap/start.js";
 import { touchSession } from "../../src/db/repositories/browser-sessions.js";
 import { createTrustedDevice } from "../../src/db/repositories/trusted-devices.js";
 import { connectIpc } from "../../src/ipc/client.js";
+import { createSession } from "../../src/modules/sessions/service.js";
+import { publishAgentEvent } from "../../src/ws/publisher.js";
 import { createLogSink, getFreePort, withTempDir } from "../helpers.js";
 
 const PASSWORD = "correct horse battery staple";
@@ -188,6 +190,62 @@ describe("WebSocket security", () => {
         connected.socket.close();
         await connected.closed;
       } finally {
+        started.client.close();
+        await started.running.shutdown("test");
+      }
+    });
+  });
+
+  it("subscribes to an agent session and receives published events", async () => {
+    await withTempDir(async (dir) => {
+      const started = await startInitialized(dir);
+      const issued = issueSession(started.running.db, {
+        kind: "once",
+        now: Date.now(),
+        ttlMinutes: 60,
+      });
+      const session = await createSession({ db: started.running.db, dataDir: dir }, {});
+      const connected = await connect(started.port, {
+        cookie: `larness_session=${issued.token}`,
+        origin: started.origin,
+      });
+
+      try {
+        await connected.nextMessage();
+        connected.socket.send(
+          JSON.stringify({
+            type: "subscribe",
+            subscriptions: [{ topic: "agent", resourceId: session.id }],
+          }),
+        );
+        expect(await connected.nextMessage()).toMatchObject({
+          kind: "subscribed",
+          subscription: { topic: "agent", resourceId: session.id },
+          currentSequence: 0,
+        });
+
+        publishAgentEvent({
+          kind: "event",
+          eventId: "evt_test",
+          protocolVersion: 1,
+          topic: "agent",
+          streamId: session.id,
+          sessionId: session.id,
+          sequence: 1,
+          timestamp: Date.now(),
+          type: "turn.status",
+          payload: { turnId: "trn_1", status: "RUNNING" },
+        });
+
+        expect(await connected.nextMessage()).toMatchObject({
+          kind: "event",
+          eventId: "evt_test",
+          type: "turn.status",
+          sequence: 1,
+        });
+      } finally {
+        connected.socket.close();
+        await connected.closed;
         started.client.close();
         await started.running.shutdown("test");
       }
