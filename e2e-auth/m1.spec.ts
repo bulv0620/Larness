@@ -48,7 +48,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
   await page.setViewportSize({ width: 1440, height: 900 });
   const projectDir = mkdtempSync(path.join(tmpdir(), "larness-m1-e2e-"));
   const noteFile = path.join(projectDir, "note.txt");
-  const projectName = path.basename(projectDir);
+  let projectName = path.basename(projectDir);
   writeFileSync(noteFile, "seed\n");
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -87,6 +87,15 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await projectDialog.getByRole("button", { name: "添加项目" }).click();
     await expect(page.getByText(projectName).first()).toBeVisible({ timeout: 10_000 });
 
+    await page.getByText(projectName).first().click({ button: "right" });
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.getByRole("menuitem", { name: "重命名项目" }).click();
+    const projectRename = page.getByRole("dialog");
+    await projectRename.getByLabel("项目名称").fill("E2E Renamed Project");
+    await projectRename.getByRole("button", { name: "保存" }).click();
+    await expect(page.getByText("E2E Renamed Project").first()).toBeVisible({ timeout: 10_000 });
+    projectName = "E2E Renamed Project";
+
     await page.getByRole("button", { name: `在 ${projectName} 中新建会话` }).click();
     const composer = page.getByLabel("对话输入");
     await expect(composer).toBeVisible({ timeout: 10_000 });
@@ -96,6 +105,18 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByText("项目文件已列出。")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("list_files").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "list" })).toBeVisible();
+
+    const sidebar = page.getByLabel("项目与会话导航");
+    await sidebar
+      .getByRole("button", { name: "list", exact: true })
+      .first()
+      .click({ button: "right" });
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.getByRole("menuitem", { name: "重命名会话" }).click();
+    const sessionRename = page.getByRole("dialog");
+    await sessionRename.getByLabel("会话标题").fill("Renamed chat");
+    await sessionRename.getByRole("button", { name: "保存" }).click();
+    await expect(sidebar.getByText("Renamed chat").first()).toBeVisible({ timeout: 10_000 });
 
     await page.locator('button:has-text("标准审批")').first().click();
     await page.getByRole("menuitemradio", { name: /严格审批/ }).click();

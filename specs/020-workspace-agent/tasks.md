@@ -19,6 +19,7 @@
 | M1-10 | 流式对话与 Markdown | M1-6, M1-7 | `review` |
 | M1-11 | 工作区布局与工具分组 | M1-6, M1-7 | `review` |
 | M1-12 | 自动会话标题 | M1-2 | `review` |
+| M1-13 | 侧栏右键操作 | M1-2, M1-9 | `review` |
 
 ## 任务卡
 
@@ -275,3 +276,18 @@
 - 测试：turn service 单元测试；M1 E2E 标题断言。
 - 涉及路径：`apps/server/src/modules/sessions/turns.ts`、`apps/web/src/stores/timelineStore.ts`。
 - 完成记录：标题派生与 E2E 通过；手动标题保留。
+
+### M1-13 侧栏右键操作
+
+- 状态：`review`（2026-11-01）
+- 依赖：M1-2, M1-9
+- 目标：项目与会话支持右键重命名 / 归档或移除，不再只能进会话 header 操作。
+- 交付物：
+  - 项目行右键：重命名项目、移除项目（只移除登记，不删除源码；会话转为独立会话）；
+  - 会话行 / 最近会话右键：重命名会话、归档会话（隐藏，不删工作目录）；
+  - 操作确认对话框与错误提示；归档当前会话后回到最近会话；
+  - 右键菜单点击外部 / Esc 关闭。
+- 验收：项目重命名即时生效；会话重命名即时生效；归档后从列表隐藏；移除项目后源码保留。
+- 测试：M1 E2E 右键重命名项目 / 会话；API 现有 PATCH / DELETE 测试。
+- 涉及路径：`apps/web/src/components/layout/ProjectSidebar.tsx`、`apps/web/src/features/projects/RenameProjectDialog.tsx`。
+- 完成记录：右键菜单、项目 / 会话重命名、会话归档、项目移除确认；E2E 通过。

@@ -47,6 +47,7 @@ export function RenameSessionDialog({
         <input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
+          aria-label="会话标题"
           autoFocus
           className="mt-4 h-9 w-full rounded-lg border border-line bg-surface-2 px-2.5 text-[12px] text-ink outline-none focus:border-accent/40"
         />
