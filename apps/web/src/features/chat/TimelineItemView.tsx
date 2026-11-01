@@ -57,7 +57,7 @@ function MessageBubble({ item }: { item: MessageItem }) {
     <div className={cn("flex gap-2.5", assistant ? "justify-start" : "justify-end")}>
       {assistant ? (
         <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[8px] bg-gradient-to-br from-[#3d9bff] to-[#0066d6] text-[10px] font-bold text-white shadow-sm">
-          H
+          L
         </div>
       ) : null}
       <div
