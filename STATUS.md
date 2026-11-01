@@ -22,7 +22,8 @@
   - 已完成：`app.js` status / doctor / version、静态托管 + SPA 回退 + 缓存 / CSP、四入口构建、关闭审计、IPC 契约校准、[G0 验收记录](specs/010-foundation/acceptance.md)；
   - 安全修复：远程 HTTP 强制拒绝（`HTTPS_REQUIRED`）、Fastify `trustProxy` 仅信任 `trustedProxies`、WS 过期重校验、会话活跃时间节流更新（排除轮询）、TUI IPC 5 分钟保活 + 断线重连；
   - 验证：server 170 项、web 18 项；开发/生产启动页与关闭清理手工冒烟通过；
-  - 待人工：真实 Touch ID / Safari、TUI 交互初始化 / 审批 / 撤销走查、安全评审、CI 远端结果。
+  - macOS 人工验收：已通过（真实 Touch ID / Safari、TUI 初始化 / 审批 / 撤销、安全评审）。
+  - 待确认：G0 是否按 macOS-only 关闭；CI 远端与 Linux/Windows 范围仍待确认。
   - M1 前置：项目写锁与 M1 `apply_patch` 的规划冲突需在 M1 开工前解决。
 - 刚完成：`M0-8` — Web 认证集成（分支 `task/m0-8-web-auth`）
   - `/login`、`/pair`、`useSession` / `RequireAuth`、登出、空态工作台；Passkey options 预取与用户手势调用；

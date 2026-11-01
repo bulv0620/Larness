@@ -1,6 +1,6 @@
 # M0 验收记录（G0）
 
-> 状态：**自动化检查通过；人工安全评审与真机验收待完成。**
+> 状态：**自动化检查通过；macOS 人工验收通过（2026-11-01）；CI 远端与 Linux/Windows 范围待确认，G0 尚未关闭。**
 > 日期：2026-11-01 · 平台：macOS（Darwin 27，arm64，Node 20.19.3）
 > 对应门禁：[ROADMAP G0](../../specs/ROADMAP.md)、[spec 完成定义](spec.md#14-完成定义)
 
@@ -58,9 +58,9 @@
 
 ## 4. 人工待办（G0 关闭前）
 
-- [ ] 真实 macOS Touch ID / Safari 的 Passkey 注册、登录、撤销手工冒烟；
-- [ ] 安全评审：初始化、配对、Passkey、撤销、失败关闭矩阵与日志脱敏；
-- [ ] TUI 交互式初始化 / 配对审批 / 设备撤销的人工走查（启动页与关闭清理已冒烟）；
+- [x] 真实 macOS Touch ID / Safari 的 Passkey 注册、登录、撤销手工冒烟；
+- [x] 安全评审：初始化、配对、Passkey、撤销、失败关闭矩阵与日志脱敏；
+- [x] TUI 交互式初始化 / 配对审批 / 设备撤销的人工走查（启动页与关闭清理已冒烟）；
 - [ ] CI 在 Ubuntu 与 macOS 的真实运行结果（已配置 Playwright，仓库暂无 remote，首次 push 后待确认）；
 - [ ] Windows / Linux PoC 支持范围记录。
 
