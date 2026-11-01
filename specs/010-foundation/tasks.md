@@ -8,7 +8,7 @@
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M0-1 | Server 与 workspace 扩展 | D0-9 | `todo` |
+| M0-1 | Server 与 workspace 扩展 | D0-9 | `done` |
 | M0-2 | 配置、数据目录、日志与诊断 | M0-1 | `todo` |
 | M0-3 | SQLite、迁移与审计 | M0-2 | `todo` |
 | M0-4 | 本机 IPC 与 TUI 初始化 | M0-3 | `todo` |
@@ -22,7 +22,7 @@
 
 ### M0-1 Server 与 workspace 扩展
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：D0-9
 - 目标：在现有前端 workspace 中加入 Server、共享契约与工程化检查，跑通最小 API。
 - 交付物：
@@ -38,6 +38,12 @@
   - CI 在 Ubuntu 通过，macOS 至少通过构建与测试。
 - 测试：health 集成测试；未知路由 404 契约；错误响应不含堆栈。
 - 涉及路径：`apps/server/`、`packages/*/src/index.ts`、根脚本、`.github/workflows/ci.yml`。
+- 完成记录：
+  - `pnpm check` 通过：Biome、6 个 workspace 的 typecheck、web 10 项 + server 6 项测试；
+  - `pnpm build` 通过：server 经 tsdown 输出 `apps/server/dist/index.js`（内联 `@larness/shared`），web 经 Vite 构建；
+  - `pnpm dev` 同时启动 Vite 5173 与 Server 3210；`GET /api/health` 返回 `{status:"ok",uptimeMs}`，未知路由返回契约 404；
+  - 偏差：任务卡中的“临时目录 / 测试用配置工厂”延后到 M0-2 首次出现数据目录与配置时落地，M0-1 不引入未使用代码；
+  - 待确认：CI 工作流已加入并通过 YAML 解析；仓库暂无 remote，Ubuntu / macOS 结果在首次 push 后确认。
 
 ### M0-2 配置、数据目录、日志与诊断
 

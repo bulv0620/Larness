@@ -8,7 +8,7 @@
 | 阶段 | 名称 | spec | 状态 | 门禁 |
 |---|---|---|---|---|
 | S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
-| M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `ready` | G0 |
+| M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `in_progress` | G0 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `ready` | G1 |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `draft` | G2 |
 | M3 | 本机服务与 Preview | [040](040-services-preview/spec.md) | `draft` | G3 |
@@ -45,7 +45,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-8
 
 | ID | 任务 | 主要产出 | 依赖 | 状态 |
 |---|---|---|---|---|
-| M0-1 | Server 与 workspace 扩展 | `apps/server`、`packages/{shared,agent,resources}` 占位、Fastify、统一脚本、CI、`/api/health` | D0-9 | `todo` |
+| M0-1 | Server 与 workspace 扩展 | `apps/server`、`packages/{shared,agent,resources}` 占位、Fastify、统一脚本、CI、`/api/health` | D0-9 | `done` |
 | M0-2 | 配置、数据目录与日志 | 数据目录解析、`config.json` + Zod、canonical origin / RP ID 推导、pino、`doctor` / `status` | M0-1 | `todo` |
 | M0-3 | SQLite、迁移与审计 | Drizzle schema、迁移器、WAL / 外键、审计、Passkey 表、repository 基类 | M0-2 | `todo` |
 | M0-4 | 本机 IPC 与 TUI 初始化 | UDS / Named Pipe、JSON 协议、init 流程、管理员凭据、TUI 骨架 | M0-3 | `todo` |

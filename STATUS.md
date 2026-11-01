@@ -1,14 +1,14 @@
 # STATUS
 
-> 最后更新：2026-11-01 11:05 (+08:00)
-> 当前阶段：**S0 视觉 Demo 已验收（G-S0 通过），下一步 M0-1**
+> 最后更新：2026-11-01 12:50 (+08:00)
+> 当前阶段：**M0 进行中；M0-1 完成，下一步 M0-2**
 
 ## 里程碑
 
 | 阶段 | 名称 | 状态 | 说明 |
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
-| M0 | 工程底座与可信启动 | `ready` | 依赖 S0 验收；spec 已细化 |
+| M0 | 工程底座与可信启动 | `in_progress` | M0-1 完成；M0-2 可开始 |
 | M1 | 项目、会话与最小 Agent | `ready` | spec 已细化，进入前需复核 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
@@ -18,8 +18,12 @@
 ## 当前工作
 
 - 进行中：无
-- 下一个任务：`M0-1` — Server 与 workspace 扩展（`010-foundation` 已解锁）
+- 刚完成：`M0-1` — Server 与 workspace 扩展（分支 `task/m0-1-server-workspace`）
+  - `apps/server`（Fastify 5、`createApp()`、`/api/health`、请求 ID、契约错误处理器）、`packages/{agent,resources}` 占位、shared config/errors 基础类型；
+  - 根脚本 `dev`（web + server）/ `check` / `build`、`.github/workflows/ci.yml`、6 项 server 集成测试。
+- 下一个任务：`M0-2` — 配置、数据目录、日志与诊断
 - 阻塞项：无
+- 待确认：CI 首次 push 结果（仓库暂无 remote）；M0-1 的临时目录 / 配置工厂测试工具按计划延后到 M0-2。
 
 ## 已冻结
 
@@ -63,3 +67,4 @@
 | 2026-11-01 | 恢复分隔线蓝色 hover；把侧栏拖拽手柄从 6px 透明条改为 1px 线 + 透明扩大点击区，消除线左侧异色窄带 |
 | 2026-11-01 | 人类视觉验收通过，D0-9 / S0 关闭，G-S0 通过；M0-1 成为下一个可执行任务 |
 | 2026-11-01 | 产品名与命名空间全量统一为 Larness：包名、Cookie、环境变量、数据目录、Socket、DB、localStorage、UI、Mock、测试与截图（ADR-022） |
+| 2026-11-01 | 完成 M0-1：新增 `apps/server`（Fastify 5、`createApp()`、`/api/health`、请求 ID、契约错误处理）、`packages/{agent,resources}` 占位、shared config/errors 类型、根 `dev`/`build` 脚本与 CI；server 6 项测试通过 |

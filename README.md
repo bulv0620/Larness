@@ -6,8 +6,8 @@
 - 以对话驱动 Agent 读写项目、运行命令、管理终端 / 服务 / Git；
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
-> **当前状态：S0 视觉 Demo 已验收（G-S0 通过，`D0-9` done）；下一个任务 M0-1。**
-> 启动 Demo：`pnpm install && pnpm dev` → <http://localhost:5173>。
+> **当前状态：S0 视觉 Demo 已验收（G-S0 通过）；M0-1 完成，下一个任务 M0-2。**
+> 启动开发环境：`pnpm install && pnpm dev` → Web <http://localhost:5173>，Server <http://127.0.0.1:3210/api/health>。
 > 验收记录与截图：[specs/000-visual-demo/acceptance.md](specs/000-visual-demo/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
 
@@ -33,18 +33,18 @@
 | [docs/open-questions.md](docs/open-questions.md) | 尚未冻结的边界问题与默认方案 |
 | [docs/glossary.md](docs/glossary.md) | 术语表 |
 
-## 快速开始（当前 S0 Demo）
+## 快速开始（S0 已验收，M0 进行中）
 
 ```bash
 pnpm install
-pnpm dev            # http://localhost:5173
+pnpm dev            # Web http://localhost:5173 + Server http://127.0.0.1:3210
 pnpm check          # Biome + 类型 + 单元测试
 pnpm build
 pnpm test:e2e
 pnpm demo:shots     # 重新生成验收截图
 ```
 
-Demo 数据来自 `MockGateway`；终端、浏览器预览、文件编辑均为静态 / 只读 Mock。
+Web 数据仍来自 `MockGateway`；Server 目前只提供 `GET /api/health` 与契约错误处理，认证与数据层随 M0 后续任务补齐。
 
 ## 如何使用本仓库
 
@@ -58,7 +58,7 @@ Agent 的启动指令示例：
 
 ```text
 请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md。
-S0 已验收；按 specs/010-foundation/{spec,plan,tasks}.md 执行 M0-1。
+S0 已验收，M0-1 完成；按 specs/010-foundation/{spec,plan,tasks}.md 执行 M0-2。
 ```
 
 ## 当前仓库结构
@@ -68,10 +68,13 @@ S0 已验收；按 specs/010-foundation/{spec,plan,tasks}.md 执行 M0-1。
 ├── larness.md                  # 源设计（v3.0，冻结）
 ├── README.md / AGENTS.md / CONSTITUTION.md / STATUS.md
 ├── apps/
+│   ├── server/                 # Fastify 5 Server（M0-1：health / 错误契约 / 请求 ID）
 │   └── web/                    # React + Vite 视觉 Demo
 ├── packages/
+│   ├── agent/                  # Agent 运行时占位（M1）
+│   ├── resources/              # 文件 / 终端 / Git / 服务占位（M2）
 │   ├── ui/                     # Button / Dropdown / Tooltip / Tabs 等原语
-│   └── shared/                 # 领域类型、事件、Gateway 契约
+│   └── shared/                 # 领域类型、事件、错误码、配置与 Gateway 契约
 ├── e2e/                        # Playwright 验收用例
 ├── scripts/                    # 截图等开发脚本
 ├── docs/
@@ -94,7 +97,7 @@ S0 已验收；按 specs/010-foundation/{spec,plan,tasks}.md 执行 M0-1。
     └── 060-extension/          # M5 多模型 / 自动化 / 更新（草案）
 ```
 
-当前代码只有 `apps/web`、`packages/ui`、`packages/shared`；Server 与数据库在 M0-1 开始创建。
+当前代码包含 `apps/web`、`apps/server`、`packages/{shared,ui,agent,resources}`；数据库、认证与 IPC 随 M0 后续任务创建。
 
 ## 冻结技术栈（摘要）
 

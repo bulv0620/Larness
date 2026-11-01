@@ -92,7 +92,7 @@ scripts/
 app.js                       # M0-9 创建
 ```
 
-- 第一阶段（D0）只创建 `apps/web`、`packages/shared`、`packages/ui` 与根配置；`apps/server` 等在 M0-1 创建。
+- 第一阶段（D0）创建 `apps/web`、`packages/shared`、`packages/ui` 与根配置；`apps/server`、`packages/{agent,resources}` 已在 M0-1 创建。
 - 包之间用 `workspace:*` 引用；内部包不单独发布。
 - `packages/shared` 不依赖 Node 或 React，可在两端使用。
 
