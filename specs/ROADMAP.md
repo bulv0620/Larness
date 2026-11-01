@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
-| M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `review` | 自动化通过；G1 待人类验收 |
+| M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `draft` | G2 |
 | M3 | 本机服务与 Preview | [040](040-services-preview/spec.md) | `draft` | G3 |
 | M4 | 部署闭环与权限加固 | [050](050-deploy/spec.md) | `draft` | G4 |
@@ -68,14 +68,14 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M1-5 | Turn Runner 与状态机 | QUEUED→…→COMPLETED、预算、取消、项目锁续租、事件写入 | M1-2, M1-3, M1-4 | `done` |
 | M1-6 | 实时对话 UI | Query + WS、乐观 / 重放、工具卡片、审批卡片、错误态 | M1-5, M0-8 | `done` |
 | M1-7 | 模型 Profile 与 SecretStore | 凭据加密、模型配置、下一轮切换、密钥脱敏 | M1-3 | `done` |
-| M1-8 | M1 验收与 E2E | 项目 → 任务 → 刷新恢复 → 切模型 → 取消；G1 门禁 | M1-6, M1-7 | `review` |
-| M1-9 | 项目目录选择器 | 本机只读目录浏览 API + 项目对话框目录树 | M1-1 | `review` |
-| M1-10 | 流式对话与 Markdown | assistant.delta 广播、进行中状态、GFM 渲染 | M1-6, M1-7 | `review` |
-| M1-11 | 工作区布局与工具分组 | header 品牌、侧栏重排、工具折叠、资源栏折叠、上下文用量 | M1-6, M1-7 | `review` |
-| M1-12 | 自动会话标题 | 首条消息生成标题，保留手动重命名 | M1-2 | `review` |
-| M1-13 | 侧栏右键操作 | 项目 / 会话右键重命名、归档 / 移除 | M1-2, M1-9 | `review` |
-| M1-14 | 仅展示最终答复 | 中间助手段落折叠隐藏，只保留每 Turn 最终文本 | M1-6, M1-10 | `review` |
-| M1-15 | 草稿会话 | 新建先显示本地草稿，首条消息后才创建后端会话 | M1-2, M1-6 | `review` |
+| M1-8 | M1 验收与 E2E | 项目 → 任务 → 刷新恢复 → 切模型 → 取消；G1 门禁 | M1-6, M1-7 | `done` |
+| M1-9 | 项目目录选择器 | 本机只读目录浏览 API + 项目对话框目录树 | M1-1 | `done` |
+| M1-10 | 流式对话与 Markdown | assistant.delta 广播、进行中状态、GFM 渲染 | M1-6, M1-7 | `done` |
+| M1-11 | 工作区布局与工具分组 | header 品牌、侧栏重排、工具折叠、资源栏折叠、上下文用量 | M1-6, M1-7 | `done` |
+| M1-12 | 自动会话标题 | 首条消息生成标题，保留手动重命名 | M1-2 | `done` |
+| M1-13 | 侧栏右键操作 | 项目 / 会话右键重命名、归档 / 移除 | M1-2, M1-9 | `done` |
+| M1-14 | 仅展示最终答复 | 中间助手段落折叠隐藏，只保留每 Turn 最终文本 | M1-6, M1-10 | `done` |
+| M1-15 | 草稿会话 | 新建先显示本地草稿，首条消息后才创建后端会话 | M1-2, M1-6 | `done` |
 
 ## 5. M2 开发资源与窗口层（草案）
 
@@ -153,7 +153,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 - 取消后不再产生新工具调用；
 - 切模型只影响下一 Turn。
 
-**状态：自动化通过，待人类验收（2026-11-01）。** 清单与签字见 [M1 acceptance](../specs/020-workspace-agent/acceptance.md)。
+**状态：通过（2026-11-01，人类验收）。** 记录见 [M1 acceptance](../specs/020-workspace-agent/acceptance.md)。
 
 ### G2 开发资源
 

@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-01 19:15 (+08:00)
-> 当前阶段：**M1 自动化验收通过；G1 待人类验收（workflow G1–G4）**
+> 最后更新：2026-11-01 23:10 (+08:00)
+> 当前阶段：**M1 完成，G1 通过（2026-11-01 人类验收）；下一步补全 M2 spec**
 
 ## 里程碑
 
@@ -9,7 +9,7 @@
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
-| M1 | 项目、会话与最小 Agent | `review` | 自动化通过；G1 待人类验收 |
+| M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
@@ -17,134 +17,13 @@
 
 ## 当前工作
 
-- 待人工验收：`M1-15` — 草稿会话
-  - 新建先显示本地“新会话 / 草稿”，同项目重复新建复用；切到真实会话或换项目即消失；
-  - 首条消息发送后才创建后端 Session + Turn；未发送不落库；草稿不持久化；
-  - `pnpm check`（agent 32 / server 239 / web 26）、`build`、auth + M1 E2E 2/2 通过。
-- 待人工验收：`M1-14` — 仅展示最终答复
-  - 每个 Turn 只显示最后一条 assistant 消息；中间 preamble 不再作为独立气泡；
-  - 工具调用折叠组保留，可展开查看细节；
-  - `pnpm check`（agent 32 / server 239 / web 26）、`build`、auth + M1 E2E 2/2 通过。
-- 待人工验收：`M1-13` — 侧栏右键操作
-  - 项目右键：重命名 / 移除（仅登记，不删源码）；会话右键：重命名 / 归档；
-  - 归档 / 移除带确认，归档当前会话后回到最近会话；
-  - `pnpm check`、`build`、auth + M1 E2E 2/2 通过。
-- 待人工验收：`M1-12` — 自动会话标题
-  - 默认标题会话在首条消息后自动命名（压缩空白、48 字符截断），手动标题不覆盖；
-  - 前端在创建 Turn 后刷新工作区，侧栏 / 标题即时更新；
-  - `pnpm check`、`build`、E2E 通过。
-- 待人工验收：`M1-11` — 工作区布局与工具分组
-  - 连续工具折叠为“执行了 N 个工具”，展开看参数 / 结果；
-  - 资源栏折叠恢复，header 与会话 header 均可折叠 / 展开；
-  - 品牌移到 header 最左，侧栏顶部改为“新建会话”；
-  - 移除“本机工作空间”“可信设备 · Passkey”“窗口布局…”“Agent 可能…”提示；底部显示上下文 token 占用；
-  - `pnpm check`（agent 32 / server 238 / web 26）、`build`、auth + M1 E2E 2/2 通过。
-- 待人工验收：`M1-10` — 流式对话与 Markdown
-  - `assistant.delta` 广播（不占 sequence）；流式文本、进行中条（思考 / 工具 / 审批 + 计时）；
-  - GFM Markdown：标题、表格、列表、代码块、链接；
-  - `pnpm check`（agent 32 / server 238 / web 26）、`build`、M1 E2E 通过；
-  - 人工验收时确认流式观感、表格 / 标题渲染与刷新恢复。
-- 待人工验收：`M1-9` — 项目目录选择器
-  - `GET /api/fs/directories`：loopback + 已认证、仅目录、跳过符号链接、最多 500 项；
-  - 项目对话框目录树（主目录 / 上一级 / 刷新 / 选择当前目录），保留手动路径；
-  - 验证：server API 测试、web `ProjectDialog` 组件测试、`pnpm check` / `build` 通过；M1 E2E 使用手动路径回退；
-  - 人工验收时重点确认目录树实际可用。
-- 待人类验收：`M1-8` — M1 验收与 E2E（分支 `task/m1-8-acceptance`）
-  - 新增 M1 全链路 E2E：配对 → 添加项目 → 新建会话 → 工具 → 严格审批 → 补丁 → 刷新恢复 → 切模型 → 添加 Key（掩码）→ 停止；
-  - E2E Server 注入 FakeProvider；TurnQueue / 工具 / 审批 / SQLite / 事件 / WS 均为真实实现；
-  - 自动化：`pnpm check`（agent 33 / server 236 / web 23）、`pnpm build`、demo E2E 15、认证 + M1 E2E 2、生产 E2E 2 全部通过；
-  - 真实 DeepSeek live smoke 通过：`deepseek-chat` 流式工具调用，6 文件 / 33 测试，654 ms，无 Key 明文；
-  - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)；A1–A14 自动化通过；
-  - **G1 仍需人类验收**：按 `docs/process/workflow.md`，真实 UI / Key / 视觉 / 交互清单见 acceptance 第 7 节；签字前 M1 保持 `review`。
-- 刚完成：`M1-7` — 模型 Profile 与 SecretStore（分支 `task/m1-7-secrets`）
-  - `0004_models` 迁移：`secrets` / `credential_profiles` / `model_profiles`；启动时幂等 seed `deepseek-default`；
-  - SecretStore：AES-256-GCM、随机 nonce、主密钥 `secrets/master.key`（0600）、错误密钥 / 篡改 fail closed；
-  - API：`GET/POST /api/models`、`GET/POST/DELETE /api/credentials`；密钥只写不读，响应仅掩码与 secretRef；引用中的凭据拒绝删除；
-  - 解析：Turn 按 `modelProfileId` 解析模型与最新 provider 凭据，缺失 / 解密失败返回 `PROVIDER_AUTH_FAILED`；Turn 记录 provider / model 快照；
-  - 会话切换模型审计 `model.changed`；项目默认模型用于新会话；设置界面支持添加 / 删除 Key、查看掩码、选择当前会话或项目默认模型；
-  - 验收：A9、A10；agent 32 / server 236 / web 23 测试，`pnpm check` / `build`、demo E2E 15、认证 E2E 1 通过；
-  - 偏差：`POST /api/models/:id/test` 未实现（契约标记可选）；真实 DeepSeek 冒烟仍在 M1-8。
-- 刚完成：`M1-6` — 实时对话 UI（分支 `task/m1-6-chat-ui`）
-  - 真实工作区数据：项目 / 会话来自 API，模型列表暂用内置 DeepSeek Profile（M1-7 改为 `/api/models`）；
-  - 项目管理：添加项目对话框、项目内新建会话、新建 / 重命名 / 归档会话；
-  - `useSessionEvents`：首屏 REST 事件 + `agent:<sessionId>` WS 订阅 + 事件去重 / 缺口补拉 / 断线重连；
-  - 事件 reducer：消息、工具卡片、文件变更、审批、错误、取消；纯函数测试覆盖；
-  - Composer：模型 / 审批策略在发送前 PATCH 到会话，发送 Turn、停止、失败重试；审批卡片调用真实 `/api/approvals/:id`；
-  - 认证：工作区会话撤销监控、退出登录、401 统一回登录；
-  - 验证：web 23 项（新增 5 项 reducer）、server 227 项、agent 32 项；`pnpm check` / `build`、demo E2E 15 项、真实认证 E2E 1 项通过；
-  - 偏差：真实 Agent 全链路 E2E 留在 M1-8；`assistant.delta` 已在 M1-10 补上。
-- 刚完成：`M1-5` — Turn Runner 与状态机（分支 `task/m1-5-runner`）
-  - `TurnQueue`：全局并发 2、同会话串行、排队 / 取消 / 关闭时等待在途 Turn；
-  - `TurnRunner`：QUEUED → PREPARING → RUNNING → WAITING_APPROVAL → COMPLETED / FAILED / CANCELLED；上下文构建、Provider 单步循环、工具事件、usage 与审计；
-  - 预算：30 步 / 50 工具 / 10 分钟 / 上下文 80%（可注入覆盖）；
-  - 审批挂起与恢复：批准后按参数哈希执行，拒绝 / 超时结果回传模型；项目写锁在写工具前获取 / 续租 / 释放；
-  - 事件：`turn.status` / `assistant.message` / `tool.*` / `file.changed` / `tool.approval.*` / `turn.completed|failed|cancelled` 先落库后广播；WS 新增 `agent:<sessionId>` 订阅；
-  - API：创建 Turn 自动入队，取消通过队列 abort Runner；生产入口默认启用 Runner，真实 Key 暂用 `DEEPSEEK_API_KEY`（M1-7 移除）；
-  - 验收：A3、A4（后端）、A5、A6、A9、A12；agent 32 / server 227 / web 18 测试，`pnpm check` 通过；
-  - 偏差：`assistant.delta` 已在 M1-10 补上；真实 DeepSeek 冒烟在 M1-8。
-- 刚完成：`M1-4` — 工具注册与审批引擎（分支 `task/m1-4-tools`）
-  - `packages/resources` 文件服务：`list_files` / `read_file` / `search_code` / `apply_patch`，realpath 根内校验、SHA-256 版本、行范围、1 MiB / 2000 行上限、二进制 / 超大 / 符号链接逃逸拒绝；
-  - `packages/agent`：`ToolRegistry` + Zod schema + L0/L1 风险 + 结果规范化；`standard` / `strict` / `readonly` 审批策略映射；
-  - 审批：规范化参数哈希、pending / approved / denied / expired、超时拒绝、参数篡改检测、`GET/POST /api/approvals/:id`、清理任务自动过期与审计；
-  - `ProjectWriteLock`：project 资源锁、TTL / fencing / 续租 / 释放，旧 token 拒绝；写 Turn 接线留给 M1-5；
-  - `ToolExecutor`：策略拦截、审批请求 / 校验、`tool.requested` / `tool.completed` / `tool.denied` 审计；路径越界记录拒绝；
-  - 验收：A7、A8；agent 32 项 + server 210 项 + web 18 项测试，`pnpm check` 通过。
-- 刚完成：`M1-3` — Provider 适配与 FakeProvider（分支 `task/m1-3-provider`）
-  - `packages/agent`：`ProviderAdapter` / `ProviderChunk` / 能力声明 / 稳定错误分类；`FakeProvider` 支持脚本化文本、工具调用、错误、延迟与 abort；
-  - `DeepSeekProvider`：基于 AI SDK 的流式文本 + 工具调用映射，消息 / 工具 schema 转换，Key 按调用注入，超时与 401 / 429 / 上下文超限 / 内容过滤分类，不泄漏上游原文；
-  - 模型 Profile：内置 `deepseek-chat` 与 Fake 默认 Profile（无密钥，M1-7 换为持久化 repository）；
-  - 共享错误码新增 `PROVIDER_AUTH_FAILED` / `PROVIDER_RATE_LIMITED` / `PROVIDER_CONTEXT_LIMIT` / `PROVIDER_CONTENT_FILTERED` / `PROVIDER_UNKNOWN` 并同步契约；
-  - 契约测试确认 FakeProvider 与 AI SDK 映射对同一脚本产出一致；真实 DeepSeek 冒烟测试由 `LARNESS_DEEPSEEK_SMOKE=1` + `DEEPSEEK_API_KEY` 门控，无 Key 时跳过（记录移入 M1-8）；
-  - 验收：A3 的模型部分、A11（分类）；agent 15 项 + server 202 项 + web 18 项测试，`pnpm check` 通过。
-- 刚完成：`M1-2` — 会话、Turn 与事件存储（分支 `task/m1-2-sessions`）
-  - `0003_workspace` 迁移：`sessions` / `turns` / `agent_events` / `approvals` / `resource_locks`，含 `UNIQUE(session_id, seq)`、`UNIQUE(session_id, idempotency_key)`、资源锁唯一约束与外键；
-  - 会话：独立会话创建空 workspace、项目会话复用 `realPath`、列表 / 项目筛选 / limit、详情含活跃 Turn、重命名 / 下一轮模型、归档（不删源码，活跃 Turn 409）；
-  - Turn：事务内幂等创建与活跃校验、`user.message` + `turn.created` 事件、取消骨架（`CANCELLING`）；审计 `turn.started` / `turn.cancelled`；
-  - 事件：事务内 Session 级 `seq`、`GET /events?after=&limit=` 增量分页（`nextSeq` / `hasMore`）、`ServerEvent` 包络；
-  - 启动修复：所有无法证明存活的活跃 Turn → `INTERRUPTED` 并写 `turn.interrupted`，重启集成测试覆盖；
-  - 资源锁：获取 / 续租 / 释放 / 过期回收与 fencing token，软释放保持 token 单调；
-  - 验收：A2、A4（后端）、A5、A12、A13；server 200 项测试（新增 23 项），`pnpm check` 通过。
-- 刚完成：`M1-1` — 项目登记与路径授权
-  - `0002_projects` 迁移、projects repository / API、pathGuard、Git 检测、项目设置、删除仅解除关联、审计；
-  - server 176 项测试；项目写锁规划已从 M2-7 提前到 M1-4/M1-5。
-- 刚完成：`M0-9` — 稳定入口与 M0 验收（分支 `task/m0-9-entry`，状态 `done`）
-  - 已完成：TUI 受管前台入口（[ADR-023](docs/adr/ADR-023-tui-as-managed-entry.md)）——`pnpm dev` / `node app.js` 启动 Server（开发另起 Vite）并进入 TUI；启动页显示数据目录 / Server / Web / IPC 检查；关闭 TUI 优雅停止全部；`l` 查看 Server 日志与 Vite 输出；
-  - 已完成：`app.js` status / doctor / version、静态托管 + SPA 回退 + 缓存 / CSP、四入口构建、关闭审计、IPC 契约校准、[G0 验收记录](specs/010-foundation/acceptance.md)；
-  - 安全修复：远程 HTTP 强制拒绝（`HTTPS_REQUIRED`）、Fastify `trustProxy` 仅信任 `trustedProxies`、WS 过期重校验、会话活跃时间节流更新（排除轮询）、TUI IPC 5 分钟保活 + 断线重连；
-  - 验证：server 170 项、web 18 项；开发/生产启动页与关闭清理手工冒烟通过；
-  - macOS 人工验收：已通过（真实 Touch ID / Safari、TUI 初始化 / 审批 / 撤销、安全评审）；
-  - G0 按 macOS 范围关闭；Linux / Windows / CI 首次远端结果列为后续平台验证，不阻塞 M1；
-  - M1 前置：项目写锁与 M1 `apply_patch` 的规划冲突需在 M1 开工前解决。
-- 刚完成：`M0-8` — Web 认证集成（分支 `task/m0-8-web-auth`）
-  - `/login`、`/pair`、`useSession` / `RequireAuth`、登出、空态工作台；Passkey options 预取与用户手势调用；
-  - Vite `/api` + `/ws` 代理；默认真实认证，`VITE_USE_MOCKS=1` 保留 S0 Demo；
-  - 17 项 Web 测试；Playwright 虚拟认证器完成 配对 → 注册 → 登录 → 撤销跳转 全流程。
-- 刚完成：`M0-7` — 鉴权与传输安全（分支 `task/m0-7-security`，已合入 main）
-  - 全局守卫：会话解析、CSRF、Origin / Host、默认拒绝、安全响应头、`/api/bootstrap`、登出；
-  - 限流（配对申请 / 轮询 / 兑换、WebAuthn、会话）+ 审计；WebSocket 握手鉴权、`system` 订阅、心跳、撤销 1 秒内 1008 关闭；IPC `sessions.list/revoke`；
-  - 154 项 server 测试；未认证业务 API 401、未初始化 409、限流 429。
-- 刚完成：`M0-6` — Passkey 注册与登录（分支 `task/m0-6-passkey`）
-  - SimpleWebAuthn 注册 / 认证 options / verify、challenge 一次性消费、设备 + credential + 会话、TUI 设备列表 / 撤销；
-  - 备份标志、counter（0 / 回退仅审计）、AAGUID / transports 入库；注册失败不产生设备 / 会话；
-  - 143 项 server 测试；软件认证器覆盖注册 / 登录 / 重放 / 重复 credential / 撤销。
-- 刚完成：`M0-5` — 配对申请与准入（分支 `task/m0-5-pairing`，已合入 main）
-  - 配对状态机、10 字符 Crockford 配对码、5 次尝试 / 5 分钟 TTL / 原子兑换、allow_once 会话与 trust enrollment；
-  - REST 配对接口（申请 / 轮询 / 兑换）、`/api/auth/session`、会话 / CSRF 基础、TUI 待审批列表与审批（含一次性码展示）；
-  - 125 项 server 测试；并发兑换仅一个成功，错误 5 次后限流作废。
-- 刚完成：`M0-4` — 本机 IPC 与 TUI 初始化（分支 `task/m0-4-ipc-tui`，已合入 main）
-  - UDS / Named Pipe、0600 socket + Token 定时比较握手、NDJSON / Zod、1 MiB 帧 / 30 分钟空闲 / 8 连接；
-  - `system.status` / `system.doctor` / `init.status` / `init.apply` / `logs.tail` / `audit.tail` / `server.shutdown`；Argon2id 管理员凭据；config 0600 原子写入 + 审计；TUI 初始化向导 / 仪表盘 / 日志 / 关闭确认；status CLI 优先 IPC；
-  - 96 项 server 测试；初始化并发仅一个成功，Web 无初始化接口。
-- 刚完成：`M0-3` — SQLite、迁移与审计（分支 `task/m0-3-sqlite-migrations`，已合入 main）
-  - Drizzle 八张 M0 表 + `0001_auth` 迁移、启动 migrator、WAL / 外键 / busy_timeout / synchronous；
-  - 八组 repository、审计脱敏与 fail-closed、`BEGIN IMMEDIATE` 事务辅助、过期清理调度、`VACUUM INTO` 备份；
-  - `status` / `doctor` 接入 DB 完整性、schemaVersion 与迁移进度；62 项 server 测试。
-- 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
-  - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
-  - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：完成 M1 人工验收并签字；随后补全 M2 spec（当前 `draft`）
-- 阻塞项：无
-- 待确认：CI 首次 push 结果（仓库暂无 remote）。
+- 已完成：`M1` — 项目、会话与最小 Agent（M1-1 ~ M1-15）
+  - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
+  - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
+  - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
+- 下一步：补全 `M2` spec（当前 `draft`），经 G-Spec 确认后开始 M2-1（FileManager）。
+- 阻塞项：无。
+- 待确认：M2 spec 范围（文件树 / Monaco / CommandRunner / PTY / Git / 锁扩展）与 G-Spec 评审时间。
 
 ## 已冻结
 
@@ -219,3 +98,4 @@
 | 2026-11-01 | M1-13 侧栏右键操作：项目 / 会话重命名、会话归档、项目移除确认；E2E 通过；待人工验收 |
 | 2026-11-01 | M1-14 仅展示最终答复：每 Turn 只保留最后一条 assistant 消息，工具组分折叠保留；E2E 通过；待人工验收 |
 | 2026-11-01 | M1-15 草稿会话：同项目复用、切走消失、首条消息后创建；E2E 通过；待人工验收 |
+| 2026-11-01 | M1-8 ~ M1-15 人类验收通过；G1 关闭，M1 完成 |
