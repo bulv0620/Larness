@@ -1,6 +1,8 @@
+import path from "node:path";
 import type { WebAuthnRuntime } from "@larness/shared";
 import { loadConfig } from "./bootstrap/config.js";
 import { inspectInstanceLock } from "./bootstrap/lock.js";
+import { inspectDatabase } from "./db/inspect.js";
 import { resolveDataDir } from "./platform/paths.js";
 import { SERVER_VERSION } from "./version.js";
 
@@ -36,6 +38,7 @@ export async function collectStatus(options: CollectStatusOptions = {}): Promise
   const now = options.now ?? Date.now;
   const loaded = await loadConfig({ dataDir, env });
   const lock = await inspectInstanceLock(dataDir);
+  const database = inspectDatabase(path.join(dataDir, "larness.db"));
   const running = lock?.alive === true;
   const record = lock?.record ?? null;
   const warnings: string[] = [];
@@ -56,7 +59,12 @@ export async function collectStatus(options: CollectStatusOptions = {}): Promise
     warnings.push("server is not running");
   }
 
-  warnings.push("database is not available until M0-3");
+  if (database === null) {
+    warnings.push("database is not initialized; start the server to run migrations");
+  } else if (!database.ok) {
+    warnings.push(`database check failed: ${database.detail}`);
+  }
+
   warnings.push("local IPC is not available until M0-4");
 
   return {
@@ -69,7 +77,7 @@ export async function collectStatus(options: CollectStatusOptions = {}): Promise
       host: loaded.config.server.host,
       port: loaded.config.server.port,
     },
-    db: null,
+    db: database,
     ipc: null,
     sessions: { online: 0, pendingPairings: 0 },
     publicUrl: loaded.config.server.publicUrl,

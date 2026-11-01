@@ -4,6 +4,8 @@ import { createServer } from "node:net";
 import path from "node:path";
 import { type LoadedConfig, loadConfig } from "./bootstrap/config.js";
 import { inspectInstanceLock } from "./bootstrap/lock.js";
+import { inspectDatabase } from "./db/inspect.js";
+import { expectedMigrationCount } from "./db/migrate.js";
 import { DATA_SUBDIRS, resolveDataDir } from "./platform/paths.js";
 import { SERVER_VERSION } from "./version.js";
 
@@ -191,8 +193,32 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     }
   }
 
-  add("database", "SQLite", "skip", "not available until M0-3");
-  add("migrations", "数据库迁移", "skip", "not available until M0-3");
+  const database = inspectDatabase(path.join(dataDir, "larness.db"));
+
+  if (database === null) {
+    add("database", "SQLite", "warn", "not initialized; start the server to run migrations");
+    add("migrations", "数据库迁移", "warn", "no database yet");
+  } else {
+    add(
+      "database",
+      "SQLite",
+      database.ok ? "ok" : "fail",
+      `${database.detail} (schema version ${database.schemaVersion})`,
+    );
+
+    const expected = expectedMigrationCount();
+    const pending = Math.max(0, expected - database.schemaVersion);
+
+    add(
+      "migrations",
+      "数据库迁移",
+      pending === 0 ? "ok" : "fail",
+      pending === 0
+        ? `applied ${database.schemaVersion} of ${expected}`
+        : `${pending} pending of ${expected}`,
+    );
+  }
+
   add("clock", "时钟偏移", "skip", "requires a trusted time reference (M0-4 IPC)");
 
   return { version: SERVER_VERSION, dataDir, checks };

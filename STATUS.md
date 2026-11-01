@@ -1,14 +1,14 @@
 # STATUS
 
-> 最后更新：2026-11-01 13:08 (+08:00)
-> 当前阶段：**M0 进行中；M0-2 完成，下一步 M0-3**
+> 最后更新：2026-11-01 13:30 (+08:00)
+> 当前阶段：**M0 进行中；M0-3 完成，下一步 M0-4**
 
 ## 里程碑
 
 | 阶段 | 名称 | 状态 | 说明 |
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
-| M0 | 工程底座与可信启动 | `in_progress` | M0-1、M0-2 完成；M0-3 可开始 |
+| M0 | 工程底座与可信启动 | `in_progress` | M0-1 ~ M0-3 完成；M0-4 可开始 |
 | M1 | 项目、会话与最小 Agent | `ready` | spec 已细化，进入前需复核 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
@@ -18,11 +18,14 @@
 ## 当前工作
 
 - 进行中：无
-- 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`）
+- 刚完成：`M0-3` — SQLite、迁移与审计（分支 `task/m0-3-sqlite-migrations`）
+  - Drizzle 八张 M0 表 + `0001_auth` 迁移、启动 migrator、WAL / 外键 / busy_timeout / synchronous；
+  - 八组 repository、审计脱敏与 fail-closed、`BEGIN IMMEDIATE` 事务辅助、过期清理调度、`VACUUM INTO` 备份；
+  - `status` / `doctor` 接入 DB 完整性、schemaVersion 与迁移进度；62 项 server 测试。
+- 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
-  - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`；
-  - 43 项 server 测试；端口占用 / 非法配置 / 目录不可写 / 第二实例均非 0 退出。
-- 下一个任务：`M0-3` — SQLite、迁移与审计
+  - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
+- 下一个任务：`M0-4` — 本机 IPC 与 TUI 初始化
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -70,3 +73,4 @@
 | 2026-11-01 | 产品名与命名空间全量统一为 Larness：包名、Cookie、环境变量、数据目录、Socket、DB、localStorage、UI、Mock、测试与截图（ADR-022） |
 | 2026-11-01 | 完成 M0-1：新增 `apps/server`（Fastify 5、`createApp()`、`/api/health`、请求 ID、契约错误处理）、`packages/{agent,resources}` 占位、shared config/errors 类型、根 `dev`/`build` 脚本与 CI；server 6 项测试通过 |
 | 2026-11-01 | 完成 M0-2：数据目录与权限、Zod 配置 + 环境变量覆盖、canonical origin / RP ID 推导、pino 轮转脱敏日志、单实例锁、`status` / `doctor`、幂等关闭；server 43 项测试通过 |
+| 2026-11-01 | 完成 M0-3：Drizzle 八表 + `0001_auth`、启动迁移、WAL / 外键、repository、审计脱敏与 fail-closed、清理调度、备份、`status` / `doctor` DB 检查；server 62 项测试通过 |

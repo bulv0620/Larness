@@ -16,6 +16,7 @@ export interface CreateShutdownOptions {
   logger: ShutdownLogger;
   timeoutMs?: number;
   onTimeout?: () => void;
+  onClose?: () => Promise<void> | void;
 }
 
 export type Shutdown = (reason?: string) => Promise<void>;
@@ -35,12 +36,26 @@ export function createShutdown(options: CreateShutdownOptions): Shutdown {
       }
     }, timeoutMs);
 
+    let failure: unknown = null;
+
     try {
       await options.app.close();
-    } finally {
-      clearTimeout(timer);
-      await releaseInstanceLock(options.lock);
-      await flushLogger(options.logger);
+    } catch (error) {
+      failure = error;
+    }
+
+    try {
+      await options.onClose?.();
+    } catch (error) {
+      failure ??= error;
+    }
+
+    clearTimeout(timer);
+    await releaseInstanceLock(options.lock);
+    await flushLogger(options.logger);
+
+    if (failure !== null) {
+      throw failure;
     }
   };
 

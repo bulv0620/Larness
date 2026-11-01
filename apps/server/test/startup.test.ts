@@ -1,4 +1,5 @@
-import { chmod, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -28,6 +29,8 @@ describe("startServer", () => {
         const response = await running.app.inject({ method: "GET", url: "/api/health" });
         expect(response.statusCode).toBe(200);
         expect(running.webAuthn.origin).toBe(`http://localhost:${port}`);
+        expect(running.schemaVersion).toBe(1);
+        expect(existsSync(running.dbPath)).toBe(true);
 
         const status = await collectStatus({ dataDir: dir, env: envFor(dir, port) });
         expect(status.running).toBe(true);
@@ -110,6 +113,19 @@ describe("startServer", () => {
       } finally {
         await chmod(root, 0o700);
       }
+    });
+  });
+
+  it("refuses to start when the database file is corrupt", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(dir, { recursive: true, mode: 0o700 });
+      await writeFile(path.join(dir, "larness.db"), "not a database", { mode: 0o600 });
+
+      await expect(
+        startServer({ env: envFor(dir, 3299), logDestination: createLogSink().stream }),
+      ).rejects.toThrow();
+
+      expect(await inspectInstanceLock(dir)).toBeNull();
     });
   });
 });

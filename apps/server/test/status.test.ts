@@ -39,6 +39,7 @@ describe("collectStatus", () => {
         expect(status.running).toBe(true);
         expect(status.pid).toBe(process.pid);
         expect(status.uptimeMs).toBeGreaterThanOrEqual(0);
+        expect(status.db).toMatchObject({ ok: true, schemaVersion: 1 });
       } finally {
         await running.shutdown("test");
       }
@@ -75,6 +76,22 @@ describe("runDoctor", () => {
         ]),
       );
       expect(report.checks.some((check) => check.status === "fail")).toBe(false);
+    });
+  });
+
+  it("reports database and migration health after the first start", async () => {
+    await withTempDir(async (dir) => {
+      const port = await getFreePort();
+      const env = { LARNESS_DATA_DIR: dir, LARNESS_PORT: String(port) };
+      const running = await startServer({ env, logDestination: createLogSink().stream });
+
+      try {
+        const report = await runDoctor({ dataDir: dir, env });
+        expect(report.checks.find((check) => check.id === "database")?.status).toBe("ok");
+        expect(report.checks.find((check) => check.id === "migrations")?.status).toBe("ok");
+      } finally {
+        await running.shutdown("test");
+      }
     });
   });
 

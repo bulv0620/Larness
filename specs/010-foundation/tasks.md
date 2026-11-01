@@ -10,7 +10,7 @@
 |---|---|---|---|
 | M0-1 | Server 与 workspace 扩展 | D0-9 | `done` |
 | M0-2 | 配置、数据目录、日志与诊断 | M0-1 | `done` |
-| M0-3 | SQLite、迁移与审计 | M0-2 | `todo` |
+| M0-3 | SQLite、迁移与审计 | M0-2 | `done` |
 | M0-4 | 本机 IPC 与 TUI 初始化 | M0-3 | `todo` |
 | M0-5 | 配对申请与准入 | M0-4 | `todo` |
 | M0-6 | Passkey 注册与登录 | M0-5 | `todo` |
@@ -75,7 +75,7 @@
 
 ### M0-3 SQLite、迁移与审计
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：M0-2
 - 目标：建立可信的数据层，保证初始化、配对、Passkey、会话、审计可持久化。
 - 交付物：
@@ -91,6 +91,14 @@
   - `trusted_devices` 不存在长期 Token 列。
 - 测试：迁移、约束、repository、清理任务、事务回滚。
 - 涉及路径：`apps/server/src/db/`、`drizzle/`、`apps/server/test/db/`。
+- 完成记录：
+  - Drizzle schema + `drizzle/0001_auth.sql`（drizzle-kit 生成，八表、外键、唯一索引、`auth_settings` 单行 CHECK）；启动时 `migrate()`，WAL / `foreign_keys=ON` / `busy_timeout=5000` / `synchronous=NORMAL`；
+  - repository：meta（含实例 ID）、authSettings、deviceRequests、trustedDevices、webauthnCredentials、webauthnChallenges（原子消费）、browserSessions、audit（详情脱敏、只追加）；`BEGIN IMMEDIATE` 事务辅助；`VACUUM INTO` 备份；
+  - 清理调度：启动即清理 + 每 10 分钟（unref），删除过期 challenge / session / 未完成 request；
+  - `status.db` 返回 `{ok, schemaVersion, detail}`（只读 quick_check）；`doctor` 增加 DB 完整性与迁移进度；
+  - 测试 62 项：migrations 8、repositories 8、cleanup 1、startup 6、status 6、其余 33；覆盖空库 / 幂等 / 无效迁移目录 / 唯一与 FK 约束 / 无 token 列 / 审计 fail-closed / 事务回滚 / 备份；
+  - 手工证据：DB 与 WAL 文件 0600、`status.db.schemaVersion=1`、`doctor` database/migrations ok、重启幂等、SIGTERM 后 WAL checkpoint 并释放锁、损坏 DB 启动失败且不监听；
+  - 偏差：`status.ipc` 仍为 `null`（M0-4）；`initialized` 仍以 `config.json` 为代理（M0-4 改用 `app_meta`）；审计 180 天保留策略与清除任务待后续里程碑；依赖 `better-sqlite3@^11`（v12+ 预编译不覆盖当前 Node 20 / macOS，v13 要求 Node 22）。
 
 ### M0-4 本机 IPC 与 TUI 初始化
 

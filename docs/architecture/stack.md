@@ -33,7 +33,7 @@
 |---|---|---|
 | HTTP | Fastify 5 | 插件：`@fastify/cookie`、`@fastify/static`、`@fastify/websocket`、`@fastify/rate-limit` |
 | 校验 | Zod | 请求 / 响应 / 配置 / IPC / 工具参数统一 |
-| 数据库 | SQLite + `better-sqlite3` + Drizzle ORM | WAL、foreign_keys、busy_timeout；SQL 迁移文件 |
+| 数据库 | SQLite + `better-sqlite3` + Drizzle ORM | WAL、foreign_keys、busy_timeout；SQL 迁移文件；Node 20 使用 `better-sqlite3@^11`（12+ 预编译未覆盖、13 要求 Node 22） |
 | 迁移 | drizzle-kit 生成 + 启动时 migrator | 迁移文件进版本库；启动前备份 |
 | 密码哈希 | `@node-rs/argon2`（Argon2id） | 预编译二进制；失败时明确报错，不回退弱哈希 |
 | Passkey / WebAuthn | `@simplewebauthn/server` | 注册 / 认证 ceremony 与验证；attestation `none`、UV required、resident key required |
