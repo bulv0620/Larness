@@ -13,11 +13,21 @@ import {
   isActiveTurnStatus,
   newTurnId,
   touchSessionRow,
+  updateSessionRow,
   updateTurnRow,
 } from "./repository.js";
 
 const MAX_INPUT_LENGTH = 100_000;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+const DEFAULT_SESSION_TITLE = "New session";
+const MAX_GENERATED_TITLE_LENGTH = 48;
+
+export function deriveSessionTitle(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  return normalized.length <= MAX_GENERATED_TITLE_LENGTH
+    ? normalized
+    : `${normalized.slice(0, MAX_GENERATED_TITLE_LENGTH - 1).trimEnd()}…`;
+}
 
 export interface TurnDto {
   id: string;
@@ -175,6 +185,14 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
     if (active !== null) {
       throw new SessionError("TURN_IN_PROGRESS", "session already has an active turn", {
         turnId: active.id,
+      });
+    }
+
+    if (session.title === DEFAULT_SESSION_TITLE) {
+      updateSessionRow(tx, session.id, {
+        title: deriveSessionTitle(validated.text),
+        updatedAt: now,
+        lastActivityAt: now,
       });
     }
 

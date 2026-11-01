@@ -14,6 +14,7 @@ import {
   eventTurnId,
   isTerminalTurnEvent,
 } from "@/lib/eventReducer";
+import { queryClient } from "@/lib/queries";
 import { appendAssistantMessage, applyTurnEvent } from "@/lib/timeline";
 import {
   cancelTurn,
@@ -417,6 +418,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         crypto.randomUUID(),
       );
       set({ activeTurnId: created.turnId });
+      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
       await get().syncEvents();
     } catch (error) {
       const message = error instanceof Error ? error.message : "发送失败";

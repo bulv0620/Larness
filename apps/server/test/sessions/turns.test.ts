@@ -279,4 +279,35 @@ describe("turn service", () => {
       }
     });
   });
+
+  it("names a new session from the first user message", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const options = { db: opened.db, dataDir: dir, now: () => 1_000 };
+        const session = await createSession(options, {});
+        expect(getSessionDetail(options, session.id).title).toBe("New session");
+
+        createTurn(options, {
+          sessionId: session.id,
+          text: "  Build a   small FTP server\nwith a status endpoint  ",
+        });
+        expect(getSessionDetail(options, session.id).title).toBe(
+          "Build a small FTP server with a status endpoint",
+        );
+
+        const renamed = await createSession(options, { title: "Keep me" });
+        createTurn(options, { sessionId: renamed.id, text: "first turn" });
+        expect(getSessionDetail(options, renamed.id).title).toBe("Keep me");
+
+        const long = await createSession(options, {});
+        createTurn(options, { sessionId: long.id, text: "x".repeat(80) });
+        expect(getSessionDetail(options, long.id).title).toHaveLength(48);
+        expect(getSessionDetail(options, long.id).title.endsWith("…")).toBe(true);
+      } finally {
+        opened.close();
+      }
+    });
+  });
 });

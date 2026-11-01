@@ -18,6 +18,7 @@
 | M1-9 | 项目目录选择器 | M1-1 | `review` |
 | M1-10 | 流式对话与 Markdown | M1-6, M1-7 | `review` |
 | M1-11 | 工作区布局与工具分组 | M1-6, M1-7 | `review` |
+| M1-12 | 自动会话标题 | M1-2 | `review` |
 
 ## 任务卡
 
@@ -260,3 +261,17 @@
 - 测试：`pnpm check`、`pnpm build`、M1 E2E（资源栏折叠、进行中状态、完整对话）。
 - 涉及路径：`apps/web/src/features/chat/`、`apps/web/src/components/layout/`、`apps/web/src/stores/`。
 - 完成记录：工具分组、品牌迁移、提示清理、资源栏折叠、上下文用量；agent 32 / server 238 / web 26 测试通过，auth + M1 E2E 2/2 通过。
+
+### M1-12 自动会话标题
+
+- 状态：`review`（2026-11-01）
+- 依赖：M1-2
+- 目标：首条消息自动生成可读会话标题，减少手动重命名。
+- 交付物：
+  - 默认标题 `New session` 的会话在首条 Turn 创建时，取首条用户消息压缩空白并截断为 48 字符；
+  - 手动命名的会话不被覆盖；
+  - 前端在 Turn 创建后刷新工作区，侧栏与标题即时更新。
+- 验收：首条消息后标题变化；长消息带省略号；手动标题保留；刷新后标题保持。
+- 测试：turn service 单元测试；M1 E2E 标题断言。
+- 涉及路径：`apps/server/src/modules/sessions/turns.ts`、`apps/web/src/stores/timelineStore.ts`。
+- 完成记录：标题派生与 E2E 通过；手动标题保留。
