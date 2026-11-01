@@ -62,6 +62,18 @@ test.describe("Harness S0 视觉 Demo", () => {
     await expect(page.getByText("web-dev", { exact: true })).toBeVisible();
   });
 
+  test("上下文菜单与文件树折叠可用", async ({ page }) => {
+    await page.getByRole("button", { name: "添加上下文" }).click();
+    await page.getByRole("menuitem", { name: "@README.md" }).click();
+    await expect(page.getByLabel("对话输入")).toHaveValue(/@README\.md/);
+
+    const tree = page.getByLabel("项目资源", { exact: true });
+    await tree.getByText("apps", { exact: true }).click();
+    await expect(tree.getByText("AppShell.tsx", { exact: true })).toHaveCount(0);
+    await tree.getByText("apps", { exact: true }).click();
+    await expect(tree.getByText("AppShell.tsx", { exact: true })).toBeVisible();
+  });
+
   test("主题切换并持久化", async ({ page }) => {
     await page.getByRole("button", { name: "外观与主题" }).click();
     await page.getByRole("menuitemradio", { name: /深色/ }).click();

@@ -1,5 +1,6 @@
 import { cn } from "@harness/ui";
-import { ChevronDown, FileCode2, FileText, Folder } from "lucide-react";
+import { ChevronDown, ChevronRight, FileCode2, FileText, Folder } from "lucide-react";
+import { useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { fileTree } from "@/mocks/fixtures";
 import { useWindowStore } from "@/stores/windowStore";
@@ -11,6 +12,20 @@ function iconFor(path: string) {
 
 export function FileTreePanel({ projectId }: { projectId: string | null }) {
   const open = useWindowStore((state) => state.open);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+
+  const toggleDirectory = (path: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  };
+
+  const visible = fileTree.filter(
+    (node) => ![...collapsed].some((directory) => node.path.startsWith(`${directory}/`)),
+  );
 
   if (projectId !== "prj_harness") {
     return (
@@ -25,7 +40,7 @@ export function FileTreePanel({ projectId }: { projectId: string | null }) {
 
   return (
     <div className="space-y-px px-1.5">
-      {fileTree.map((node) => {
+      {visible.map((node) => {
         const Icon = node.type === "directory" ? Folder : iconFor(node.path);
         return (
           <button
@@ -34,6 +49,8 @@ export function FileTreePanel({ projectId }: { projectId: string | null }) {
             onClick={() => {
               if (node.type === "file") {
                 open({ kind: "files", resourceId: node.path, title: node.name });
+              } else {
+                toggleDirectory(node.path);
               }
             }}
             className={cn(
@@ -45,7 +62,11 @@ export function FileTreePanel({ projectId }: { projectId: string | null }) {
             style={{ paddingLeft: 6 + node.depth * 12 }}
           >
             {node.type === "directory" ? (
-              <ChevronDown size={11} className="shrink-0 text-ink-3" />
+              collapsed.has(node.path) ? (
+                <ChevronRight size={11} className="shrink-0 text-ink-3" />
+              ) : (
+                <ChevronDown size={11} className="shrink-0 text-ink-3" />
+              )
             ) : (
               <span className="w-[11px] shrink-0" />
             )}

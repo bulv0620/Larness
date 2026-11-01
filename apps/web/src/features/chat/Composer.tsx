@@ -2,11 +2,11 @@ import {
   cn,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-  Hint,
   IconButton,
 } from "@harness/ui";
 import { ArrowUp, ChevronDown, Plus, Shield, Sparkles, Square } from "lucide-react";
@@ -51,6 +51,12 @@ export function Composer() {
     element.style.height = `${Math.min(180, Math.max(24, element.scrollHeight))}px`;
   }, [draft]);
 
+  const appendContext = (token: string) => {
+    const separator = draft && !draft.endsWith(" ") ? " " : "";
+    setDraft(`${draft}${separator}${token} `);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
   const submit = () => {
     if (isStreaming) {
       stop();
@@ -82,11 +88,25 @@ export function Composer() {
         className="block max-h-[180px] min-h-[26px] w-full resize-none bg-transparent px-3.5 pt-3 text-[12.5px] leading-[1.6] text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
       />
       <div className="flex items-center gap-0.5 px-2 pb-2 pt-1">
-        <Hint label="添加上下文">
-          <IconButton label="添加上下文" className="h-7 w-7">
-            <Plus size={15} />
-          </IconButton>
-        </Hint>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <IconButton label="添加上下文" className="h-7 w-7">
+              <Plus size={15} />
+            </IconButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[220px]">
+            <DropdownMenuLabel>添加上下文</DropdownMenuLabel>
+            {["@README.md", "@package.json", "@apps/web/src/app/AppShell.tsx"].map((token) => (
+              <DropdownMenuItem
+                key={token}
+                onSelect={() => appendContext(token)}
+                className="font-mono text-[10.5px]"
+              >
+                {token}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

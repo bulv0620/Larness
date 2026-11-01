@@ -107,13 +107,6 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto px-1.5 pb-2">
         <div className="flex items-center px-2 pb-1 text-[10px] font-semibold uppercase tracking-[.08em] text-ink-3">
           项目
-          <button
-            type="button"
-            aria-label="添加项目"
-            className="ml-auto rounded p-0.5 text-ink-3 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]"
-          >
-            <Plus size={12} />
-          </button>
         </div>
 
         {visibleProjects.map((project) => {

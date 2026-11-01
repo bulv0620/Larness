@@ -1,5 +1,5 @@
-import { cn, IconButton } from "@harness/ui";
-import { Files, GitBranch, MoreHorizontal, Plus, Server, SquareTerminal } from "lucide-react";
+import { cn } from "@harness/ui";
+import { Files, GitBranch, Server, SquareTerminal } from "lucide-react";
 import { Fragment, useState } from "react";
 import { FileTreePanel } from "@/components/sections/FileTreePanel";
 import { GitPanel } from "@/components/sections/GitPanel";
@@ -81,17 +81,9 @@ export function ProjectResourceSidebar() {
         <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-3">
           项目资源
         </span>
-        <span className="max-w-[110px] truncate rounded-full bg-black/[.045] px-1.5 py-[1px] text-[9.5px] font-medium text-ink-3 dark:bg-white/[.06]">
+        <span className="ml-auto max-w-[140px] truncate rounded-full bg-black/[.045] px-1.5 py-[1px] text-[9.5px] font-medium text-ink-3 dark:bg-white/[.06]">
           {project?.name ?? "未选择项目"}
         </span>
-        <div className="ml-auto flex items-center">
-          <IconButton label="新建资源" className="h-6 w-6">
-            <Plus size={13} />
-          </IconButton>
-          <IconButton label="资源操作" className="h-6 w-6">
-            <MoreHorizontal size={14} />
-          </IconButton>
-        </div>
       </div>
 
       <div
