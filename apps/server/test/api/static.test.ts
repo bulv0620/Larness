@@ -5,10 +5,11 @@ import { deriveWebAuthn } from "@larness/shared";
 import { afterEach, describe, expect, it } from "vitest";
 import { APP_CSP } from "../../src/api/static.js";
 import { createApp } from "../../src/app.js";
+import { startServer } from "../../src/bootstrap/start.js";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { createAuthSettings } from "../../src/db/repositories/auth-settings.js";
-import { testConfig, withTempDir } from "../helpers.js";
+import { createLogSink, getFreePort, testConfig, withTempDir } from "../helpers.js";
 
 const apps: Array<ReturnType<typeof createApp>> = [];
 
@@ -49,6 +50,32 @@ async function createStaticApp(dir: string) {
 }
 
 describe("static hosting", () => {
+  it("disables the SPA when LARNESS_SERVE_WEB=0", async () => {
+    await withTempDir(async (dir) => {
+      const webDir = path.join(dir, "web");
+      await mkdir(webDir, { recursive: true });
+      await writeFile(path.join(webDir, "index.html"), "<div>should not be served</div>");
+      const port = await getFreePort();
+      const running = await startServer({
+        env: {
+          LARNESS_DATA_DIR: dir,
+          LARNESS_PORT: String(port),
+          LARNESS_WEB_DIST: webDir,
+          LARNESS_SERVE_WEB: "0",
+        },
+        logDestination: createLogSink().stream,
+      });
+
+      try {
+        const index = await running.app.inject({ method: "GET", url: "/" });
+        expect(index.statusCode).toBe(404);
+        expect(index.body).not.toContain("should not be served");
+      } finally {
+        await running.shutdown("test");
+      }
+    });
+  });
+
   it("serves the SPA shell, hashed assets and security headers", async () => {
     await withTempDir(async (dir) => {
       const { app, opened } = await createStaticApp(dir);

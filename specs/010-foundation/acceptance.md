@@ -8,14 +8,14 @@
 
 | 命令 | 结果 |
 |---|---|
-| `pnpm check` | 通过：Biome 216 文件、6 个 workspace typecheck、server 169 项测试、web 18 项测试 |
+| `pnpm check` | 通过：Biome 216 文件、6 个 workspace typecheck、server 170 项测试、web 18 项测试 |
 | `pnpm build` | 通过：server `tsdown` 输出 `dist/{index,status,doctor,tui}.js`，web `vite build` |
 | `pnpm test:e2e` | 15/15 通过（S0 Mock Demo，`VITE_USE_MOCKS=1`） |
 | `pnpm test:e2e:auth` | 1/1 通过（Vite 5173 + server 3210，虚拟认证器） |
 | `pnpm test:e2e:prod` | 1/1 通过（Server 3210 静态托管，虚拟认证器） |
 | CI Playwright | 已配置 Ubuntu / macOS 的 `test:e2e`、`test:e2e:auth`、`test:e2e:prod`；远端首次运行待 push |
 | `node app.js --version` / `--help` | 通过 |
-| `pnpm dev` | 通过：启动页显示 Server `http://localhost:3210` / Web `http://localhost:5173` / IPC；SIGTERM 后端口与子进程全部清理 |
+| `pnpm dev` | 通过：启动页显示 Server `http://localhost:3210` / Web `http://localhost:5173` / IPC；3210 不提供前端（仅 API/WS）；SIGTERM 后端口与子进程全部清理 |
 | `node app.js`（构建后） | 通过：启动 Server + 静态 Web 并进入 TUI；关闭后端口清理；`/assets/*` 长缓存，`/api/health` 200 |
 | `node app.js status` / `doctor` | 通过：status 输出运行态，doctor 退出码 0 |
 

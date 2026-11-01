@@ -221,6 +221,7 @@ export async function startManagedRuntime(
     ...process.env,
     LARNESS_LOG_STDERR: "0",
     LARNESS_TUI_CHILD: "1",
+    ...(options.dev ? { LARNESS_SERVE_WEB: "0" } : {}),
   };
 
   if (options.dev && firstRun && process.env.LARNESS_PUBLIC_URL === undefined) {

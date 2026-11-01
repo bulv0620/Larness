@@ -37,7 +37,7 @@
 
 ```bash
 pnpm install
-pnpm dev            # 启动 Server(3210) + Vite(5173)，然后直接进入 TUI
+pnpm dev            # 启动 Server(3210，仅 API/WS) + Vite(5173，前端)，然后进入 TUI
 pnpm check          # Biome + 类型 + 单元测试
 pnpm build
 pnpm test:e2e       # S0 Mock Demo E2E
@@ -65,6 +65,7 @@ Larness 初始化          # 首次运行进入向导
 - 已有初始化数据时直接进入仪表盘；`l` 查看 Server 日志与 Vite 输出。
 - `status` / `doctor` 仍可在 TUI 运行时从另一个终端执行：`node app.js status`、`node app.js doctor`。
 - 开发与生产请使用不同的 `LARNESS_DATA_DIR`，避免 canonical origin 混用。
+- 开发模式下 3210 只提供 API / WS，前端只在 5173；构建后的生产模式才由 3210 同时托管前端。
 - 常见错误：开发时用 5173 初始化，之后直接 `node app.js`，数据目录里的 `publicUrl` 仍是 5173，而生产静态 Web 在 3210。TUI 会拒绝启动并提示 origin 不一致。解决方式：用独立的生产数据目录（初始化时 publicUrl 留空），或设置 `LARNESS_PORT=5173` 让生产 Web 也监听 5173。
 - 远程访问必须使用 HTTPS；反向代理需配置 `server.trustedProxies`，非 loopback 的明文 HTTP / WS 会返回 `HTTPS_REQUIRED`。
 

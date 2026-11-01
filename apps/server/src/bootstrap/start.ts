@@ -51,18 +51,19 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   await ensureDataDirs(dataDir);
 
   const serverRoot = findServerRoot(fileURLToPath(new URL(".", import.meta.url)));
-  const webDistCandidate =
-    process.env.LARNESS_WEB_DIST ?? path.resolve(serverRoot, "../../apps/web/dist");
-  const webDistDir = existsSync(path.join(webDistCandidate, "index.html"))
-    ? webDistCandidate
-    : undefined;
+  const serveWeb = env.LARNESS_SERVE_WEB !== "0";
+  const webDistCandidate = env.LARNESS_WEB_DIST ?? path.resolve(serverRoot, "../../apps/web/dist");
+  const webDistDir =
+    serveWeb && existsSync(path.join(webDistCandidate, "index.html"))
+      ? webDistCandidate
+      : undefined;
 
   const loaded: LoadedConfig = await loadConfig({ dataDir, env });
   const logger = createLogger({
     dataDir,
     level: loaded.config.logging.level,
     retentionDays: loaded.config.logging.retentionDays,
-    stderr: process.env.LARNESS_LOG_STDERR !== "0",
+    stderr: env.LARNESS_LOG_STDERR !== "0",
     destination: options.logDestination,
   });
 
