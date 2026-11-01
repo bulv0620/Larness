@@ -98,7 +98,14 @@ test.describe("Harness S0 视觉 Demo", () => {
 
     const filter = page.getByLabel("项目筛选");
     await expect(filter).toHaveValue("project:prj_docs");
-    await expect(page.getByTitle("docs-site · pnpm docs:dev")).toBeVisible();
+    const docsTab = page.getByTitle("docs-site · pnpm docs:dev");
+    await expect(docsTab).toBeVisible();
+
+    const filterBox = await filter.boundingBox();
+    const tabBox = await docsTab.boundingBox();
+    expect(filterBox).not.toBeNull();
+    expect(tabBox).not.toBeNull();
+    expect(Math.abs((filterBox?.y ?? 0) - (tabBox?.y ?? 0))).toBeLessThan(20);
 
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(filter).toHaveValue("all");

@@ -133,7 +133,7 @@
 - 交付物：
   - `FileWindow`：文件树 + Monaco 只读 + 多 Tab；同一文件复用 Tab；
   - `TerminalWindow`：xterm.js + 定时伪造输出 + 多 Tab；
-  - `WindowFilterBar`：文件 / 服务 / 终端 / 浏览器窗口的项目筛选，Tab 按项目分组并显示来源色点；
+  - `WindowTabs` 同排内联项目筛选：下拉最左、Tab 横向滚动、计数最右；Tab 按项目分组并显示来源色点；
   - `ServiceWindow`：状态、端口、启动方式、日志滚动、启停按钮（仅 Mock）；
   - `BrowserWindow`：地址栏、刷新、外部打开占位、静态占位页（不加载真实 localhost）；
   - `DiffWindow`：文件列表 + 静态 diff 高亮。

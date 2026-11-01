@@ -3,7 +3,6 @@ import { Maximize2, Minimize2, Minus, Pin, PinOff, X } from "lucide-react";
 import { Rnd } from "react-rnd";
 import { useWindowTitle } from "@/components/windows/useWindowTitle";
 import { WindowContent } from "@/components/windows/WindowContent";
-import { WindowFilterBar } from "@/components/windows/WindowFilterBar";
 import { WindowTabs } from "@/components/windows/WindowTabs";
 import { useSnapshot } from "@/lib/queries";
 import { filterTabs } from "@/lib/windowFilters";
@@ -116,7 +115,6 @@ export function WindowFrame({ window: win }: { window: ManagedWindow }) {
       </div>
 
       <WindowTabs window={win} />
-      {win.tabs[0]?.kind !== "git-diff" ? <WindowFilterBar window={win} /> : null}
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab ? (
           <WindowContent tab={activeTab} />
