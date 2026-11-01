@@ -21,6 +21,7 @@
 | M1-12 | 自动会话标题 | M1-2 | `review` |
 | M1-13 | 侧栏右键操作 | M1-2, M1-9 | `review` |
 | M1-14 | 仅展示最终答复 | M1-6, M1-10 | `review` |
+| M1-15 | 草稿会话 | M1-2, M1-6 | `review` |
 
 ## 任务卡
 
@@ -306,3 +307,18 @@
 - 测试：M1 E2E 注入中间文本并断言不可见。
 - 涉及路径：`packages/shared/src/events.ts`、`apps/web/src/lib/eventReducer.ts`、`apps/web/src/features/chat/Timeline.tsx`。
 - 完成记录：Turn 级最终消息过滤与 E2E 通过。
+
+### M1-15 草稿会话
+
+- 状态：`review`（2026-11-01）
+- 依赖：M1-2, M1-6
+- 目标：避免“点一次新建就落库一个空会话”，只在首条消息发送后创建后端会话。
+- 交付物：
+  - 本地 `draftSession`：同一项目重复点新建复用同一个草稿；切换真实会话或到其他项目新建时草稿消失；
+  - 草稿在侧栏显示“新会话 / 草稿”标记，不写入数据库；
+  - 首条消息发送时创建 Session + Turn，再切换到真实会话；失败保留草稿并显示错误；
+  - 草稿不持久化，刷新后回到已有会话。
+- 验收：连续点新建只有一条草稿；切走/换项目草稿消失；首条消息后真实会话出现；未发送不产生后端会话。
+- 测试：M1 E2E 草稿复用 / 发送后消失 / 切回其他聊天消失。
+- 涉及路径：`apps/web/src/stores/navigationStore.ts`、`apps/web/src/stores/timelineStore.ts`、`apps/web/src/lib/useNewSession.ts`、`apps/web/src/components/layout/ProjectSidebar.tsx`。
+- 完成记录：草稿状态、延迟创建与 E2E 通过。

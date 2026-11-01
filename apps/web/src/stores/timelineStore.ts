@@ -18,6 +18,7 @@ import { queryClient } from "@/lib/queries";
 import { appendAssistantMessage, applyTurnEvent } from "@/lib/timeline";
 import {
   cancelTurn,
+  createSession,
   createTurn,
   decideApproval,
   fetchAllEvents,
@@ -26,6 +27,7 @@ import {
 } from "@/lib/workspaceApi";
 import { gateway } from "@/mocks/gateway";
 import { useComposerStore } from "@/stores/composerStore";
+import { useNavigationStore } from "@/stores/navigationStore";
 
 let mockController: AbortController | null = null;
 let socket: WebSocket | null = null;
@@ -278,6 +280,11 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       return;
     }
 
+    if (sessionId.startsWith("draft_")) {
+      set({ loading: false });
+      return;
+    }
+
     if (USE_MOCKS) {
       try {
         const items = await gateway.timeline(sessionId);
@@ -395,6 +402,38 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }
 
     const composer = useComposerStore.getState();
+    const draft = useNavigationStore.getState().draftSession;
+
+    if (draft !== null && draft.id === sessionId) {
+      set({ isStreaming: true, turnStartedAt: Date.now() });
+
+      try {
+        const real = await createSession(
+          draft.projectId === null ? {} : { projectId: draft.projectId },
+        );
+        await updateSession(real.id, {
+          modelProfileId: composer.modelId,
+          approvalPolicyId: composer.policy,
+        });
+        await createTurn(
+          real.id,
+          { input: trimmed, modelProfileId: composer.modelId },
+          crypto.randomUUID(),
+        );
+        await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+        useNavigationStore.getState().commitDraft(real.id, real.projectId);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "发送失败";
+        set((state) => ({
+          isStreaming: false,
+          turnStartedAt: null,
+          items: [...state.items, errorItem(`发送失败：${message}`)],
+        }));
+      }
+
+      return;
+    }
+
     const optimistic: TimelineItem = {
       id: `optimistic_user_${Date.now()}`,
       kind: "message",

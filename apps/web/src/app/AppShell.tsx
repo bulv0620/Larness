@@ -15,6 +15,7 @@ import { useWindowStore } from "@/stores/windowStore";
 export function AppShell() {
   const { data } = useSnapshot();
   const sessionId = useNavigationStore((state) => state.sessionId);
+  const draftSession = useNavigationStore((state) => state.draftSession);
   const selectSession = useNavigationStore((state) => state.selectSession);
   const sidebarCollapsed = useNavigationStore((state) => state.sidebarCollapsed);
   const sidebarWidth = useNavigationStore((state) => state.sidebarWidth);
@@ -42,6 +43,7 @@ export function AppShell() {
 
   useEffect(() => {
     if (USE_MOCKS) return;
+    if (draftSession !== null && draftSession.id === sessionId) return;
 
     if (data.sessions.length === 0) {
       if (sessionId !== "") {
@@ -54,7 +56,7 @@ export function AppShell() {
       const latest = [...data.sessions].sort((left, right) => right.updatedAt - left.updatedAt)[0];
       if (latest) selectSession(latest.id, latest.projectId);
     }
-  }, [data.projects, data.sessions, selectSession, sessionId]);
+  }, [data.projects, data.sessions, draftSession, selectSession, sessionId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

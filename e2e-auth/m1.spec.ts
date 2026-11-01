@@ -99,6 +99,9 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await page.getByRole("button", { name: `在 ${projectName} 中新建会话` }).click();
     const composer = page.getByLabel("对话输入");
     await expect(composer).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("草稿")).toHaveCount(1);
+    await page.getByText("新建会话", { exact: true }).first().click();
+    await expect(page.getByText("草稿")).toHaveCount(1);
 
     await composer.fill("list");
     await page.getByRole("button", { name: "发送消息" }).click();
@@ -106,6 +109,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByText("我先看一下。")).toHaveCount(0);
     await expect(page.getByText("list_files").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "list" })).toBeVisible();
+    await expect(page.getByText("草稿")).toHaveCount(0);
 
     const sidebar = page.getByLabel("项目与会话导航");
     await sidebar
@@ -159,6 +163,11 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByText("Agent 正在思考")).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "停止执行" }).click({ timeout: 10_000 });
     await expect(page.getByText("已停止当前执行。")).toBeVisible({ timeout: 20_000 });
+
+    await page.getByText("新建会话", { exact: true }).first().click();
+    await expect(page.getByText("草稿")).toHaveCount(1);
+    await sidebar.getByRole("button", { name: "Renamed chat", exact: true }).first().click();
+    await expect(page.getByText("草稿")).toHaveCount(0);
 
     expect(pageErrors).toEqual([]);
   } finally {

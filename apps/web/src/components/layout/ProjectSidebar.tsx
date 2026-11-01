@@ -36,7 +36,7 @@ import { USE_MOCKS } from "@/lib/env";
 import { relativeTime } from "@/lib/format";
 import { useSnapshot } from "@/lib/queries";
 import { useNewSession } from "@/lib/useNewSession";
-import { archiveSession, createSession, deleteProject } from "@/lib/workspaceApi";
+import { archiveSession, deleteProject } from "@/lib/workspaceApi";
 import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
@@ -54,8 +54,16 @@ type SidebarDialog =
 
 export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const { data } = useSnapshot();
-  const { projectId, sessionId, sidebarWidth, expandedProjects, toggleProject, selectSession } =
-    useNavigationStore();
+  const {
+    projectId,
+    sessionId,
+    draftSession,
+    sidebarWidth,
+    expandedProjects,
+    toggleProject,
+    selectSession,
+    startDraft,
+  } = useNavigationStore();
   const extra = useLocalSessionsStore((state) => state.extra);
   const isStreaming = useTimelineStore((state) => state.isStreaming);
   const newSession = useNewSession();
@@ -102,16 +110,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     [extra, data.sessions],
   );
 
-  const newProjectSession = async (projectId: string): Promise<void> => {
-    try {
-      const session = await createSession({ projectId });
-      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
-      selectSession(session.id, session.projectId);
-      focusComposer();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "新建会话失败";
-      window.dispatchEvent(new CustomEvent("larness:workspace-error", { detail: message }));
-    }
+  const newProjectSession = (projectId: string): void => {
+    startDraft(projectId);
+    focusComposer();
   };
 
   const normalized = query.trim().toLowerCase();
@@ -224,7 +225,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                   <button
                     type="button"
                     aria-label={`在 ${project.name} 中新建会话`}
-                    onClick={() => void newProjectSession(project.id)}
+                    onClick={() => newProjectSession(project.id)}
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 hover:bg-black/[.06] hover:text-ink dark:hover:bg-white/[.08]"
                   >
                     <Plus size={11} />
@@ -234,6 +235,15 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
               {expanded ? (
                 <div className="ml-[13px] border-l border-line/70 pl-1">
+                  {draftSession?.projectId === project.id ? (
+                    <SessionRow
+                      title="新会话"
+                      draft
+                      active={draftSession.id === sessionId}
+                      running={false}
+                      onClick={() => startDraft(project.id)}
+                    />
+                  ) : null}
                   {project.sessions.length ? (
                     project.sessions.map((session) => (
                       <SessionRow
@@ -247,7 +257,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                         }
                       />
                     ))
-                  ) : (
+                  ) : draftSession?.projectId === project.id ? null : (
                     <div className="px-2 py-1 text-[10.5px] text-ink-3">暂无会话</div>
                   )}
                 </div>
@@ -268,6 +278,15 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
             {recent.length}
           </span>
         </div>
+        {draftSession?.projectId === null ? (
+          <SessionRow
+            title="新会话"
+            draft
+            active={draftSession.id === sessionId}
+            running={false}
+            onClick={() => startDraft(null)}
+          />
+        ) : null}
         {recent.map((session) => {
           const project = data.projects.find((item) => item.id === session.projectId);
           return (
@@ -434,14 +453,16 @@ function SessionRow({
   title,
   active,
   running,
+  draft = false,
   onClick,
   onContextMenu,
 }: {
   title: string;
   active: boolean;
   running: boolean;
+  draft?: boolean;
   onClick: () => void;
-  onContextMenu: (event: React.MouseEvent) => void;
+  onContextMenu?: (event: React.MouseEvent) => void;
 }) {
   return (
     <button
@@ -457,6 +478,11 @@ function SessionRow({
     >
       <StatusDot tone={running ? "running" : active ? "info" : "idle"} pulse={running} />
       <span className="min-w-0 flex-1 truncate">{title}</span>
+      {draft ? (
+        <span className="shrink-0 rounded bg-black/[.045] px-1 py-[1px] text-[8.5px] text-ink-3 dark:bg-white/[.07]">
+          草稿
+        </span>
+      ) : null}
     </button>
   );
 }
