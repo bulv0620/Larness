@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BootstrapData, SessionData } from "@/lib/api";
@@ -76,6 +76,7 @@ function mockFetch(handler: (url: string) => Response): void {
 
 beforeEach(() => {
   vi.unstubAllGlobals();
+  window.sessionStorage.clear();
   mockFetch((url) => {
     if (url.endsWith("/api/bootstrap")) {
       return jsonResponse(bootstrap());
@@ -186,6 +187,59 @@ describe("login and pair pages", () => {
 
     expect(await screen.findByText(/当前浏览器不支持 WebAuthn/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "使用配对码" })).toHaveAttribute("href", "/pair");
+  });
+
+  it("reuses a stored pairing request after a page refresh", async () => {
+    window.sessionStorage.setItem(
+      "larness.pairing.request",
+      JSON.stringify({
+        requestId: "req_reused",
+        shortCode: "654321",
+        pollToken: "poll-token",
+        expiresAt: Date.now() + 60_000,
+      }),
+    );
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = String(input);
+
+      if (url.endsWith("/api/auth/session")) {
+        return unauthorised();
+      }
+
+      if (url.endsWith("/api/pairing/requests/req_reused")) {
+        return jsonResponse({
+          status: "pending",
+          decision: null,
+          expiresAt: Date.now() + 60_000,
+        });
+      }
+
+      throw new Error(`unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/pair"]}>
+          <Routes>
+            <Route path="/pair" element={<PairPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("654321")).toBeInTheDocument();
+
+    await waitFor(() => {
+      const creates = fetchMock.mock.calls.filter(
+        ([url, init]) =>
+          String(url).endsWith("/api/pairing/requests") &&
+          (init as RequestInit | undefined)?.method === "POST",
+      );
+      expect(creates).toHaveLength(0);
+    });
   });
 
   it("shows the initialization guidance when pairing is unavailable", async () => {

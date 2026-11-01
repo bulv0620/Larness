@@ -226,10 +226,10 @@
 - 测试：组件状态机、路由守卫、Playwright 虚拟认证器 E2E（配对 / 登录 / 登出 / 撤销）。
 - 涉及路径：`apps/web/src/features/auth/`、`apps/web/src/lib/webauthn.ts`、`apps/web/src/app/routes.tsx`。
 - 完成记录：
-  - 默认真实模式：`/` 按 bootstrap 决定 `/login` 或 `/pair`；`/login` 预取 authentication options、点击直接 `startAuthentication`、处理取消 / 过期 / 失败 / IP 来源 / 不支持浏览器；`/pair` 自动申请、短编号、轮询、配对码、allow_once 会话、trust 注册（预取 options + 用户手势）、过期与错误提示；
+  - 默认真实模式：`/` 按 bootstrap 决定 `/login` 或 `/pair`；`/login` 预取 authentication options、点击直接 `startAuthentication`、处理取消 / 过期 / 失败 / IP 来源 / 不支持浏览器；`/pair` 自动申请、短编号、轮询、配对码、allow_once 会话、trust 注册（预取 options + 用户手势）、过期与错误提示；刷新时复用 sessionStorage 中未过期的申请，并可恢复 approved / enrollment 阶段；
   - `useSession` / `RequireAuth` / `HomeRoute`；401 统一跳登录并带 `returnTo`；登出、当前会话类型 / 到期 / backup 展示；WS 断开（设备撤销）后跳登录；空态工作台；
   - Vite `/api` / `/ws` 代理到 3210；`VITE_USE_MOCKS=1` 保留 S0 Mock Demo 与既有 15 项 E2E；
-  - 测试：web 17 项（路由状态机、RequireAuth、unsupported / NOT_INITIALIZED、既有主题 / 几何 / 时间线）；Playwright 虚拟认证器 E2E 1 项（trust 配对 → 注册 → 工作台 → 登出 → Passkey 登录 → 撤销 → /login），断言无 pageerror、无 localStorage Token；
+  - 测试：web 18 项（路由状态机、RequireAuth、unsupported / NOT_INITIALIZED、配对申请刷新复用、既有主题 / 几何 / 时间线）；Playwright 虚拟认证器 E2E 1 项（trust 配对 → 注册 → 工作台 → 登出 → Passkey 登录 → 撤销 → /login），断言无 pageerror、无 localStorage Token；
   - 手工验证命令：`pnpm test:e2e`（mock）与 `pnpm test:e2e:auth`（真实 server + Vite，端口 3210 / 5173）；
   - 偏差：生产静态托管与 3210 生产 origin 的浏览器验证在 M0-9；真实 Touch ID / Safari 冒烟在 M0-9；allow_once 的浏览器 E2E 未单列（服务端 A4 已覆盖，trust 注册链路已 E2E）；Mock 模式仅用于 Demo 与既有视觉测试。
 

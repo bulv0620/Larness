@@ -24,6 +24,52 @@ interface RegistrationOptions {
 
 type Stage = "creating" | "waiting" | "code" | "enrollment" | "error";
 
+const PAIRING_STORAGE_KEY = "larness.pairing.request";
+
+function clearStoredRequest(): void {
+  try {
+    window.sessionStorage.removeItem(PAIRING_STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable in hardened/private browser contexts.
+  }
+}
+
+function readStoredRequest(): PairingCreated | null {
+  try {
+    const raw = window.sessionStorage.getItem(PAIRING_STORAGE_KEY);
+
+    if (raw === null) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<PairingCreated>;
+    const valid =
+      typeof parsed.requestId === "string" &&
+      typeof parsed.shortCode === "string" &&
+      typeof parsed.pollToken === "string" &&
+      typeof parsed.expiresAt === "number" &&
+      parsed.expiresAt > Date.now() + 1_000;
+
+    if (!valid) {
+      clearStoredRequest();
+      return null;
+    }
+
+    return parsed as PairingCreated;
+  } catch {
+    clearStoredRequest();
+    return null;
+  }
+}
+
+function storeRequest(request: PairingCreated): void {
+  try {
+    window.sessionStorage.setItem(PAIRING_STORAGE_KEY, JSON.stringify(request));
+  } catch {
+    // Pairing still works without refresh reuse.
+  }
+}
+
 function errorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === "NOT_INITIALIZED") {
@@ -78,7 +124,14 @@ export function PairPage() {
 
   const support = browserSupportsWebAuthn();
 
+  useEffect(() => {
+    if (session.data) {
+      clearStoredRequest();
+    }
+  }, [session.data]);
+
   const createRequest = useCallback(async (): Promise<void> => {
+    clearStoredRequest();
     setStage("creating");
     setError(null);
     setRequest(null);
@@ -92,6 +145,7 @@ export function PairPage() {
         method: "POST",
         body: { clientLabel: navigator.userAgent.slice(0, 100) },
       });
+      storeRequest(created);
       setRequest(created);
       setStage("waiting");
     } catch (requestError) {
@@ -105,6 +159,14 @@ export function PairPage() {
       return;
     }
     started.current = true;
+    const stored = readStoredRequest();
+
+    if (stored !== null) {
+      setRequest(stored);
+      setStage("waiting");
+      return;
+    }
+
     void createRequest();
   }, [createRequest]);
 
@@ -129,19 +191,28 @@ export function PairPage() {
           if (status.status === "approved") {
             setDecision(status.decision);
             setStage("code");
+          } else if (status.status === "enrollment_pending") {
+            setDecision("trust");
+            setStage("enrollment");
           } else if (status.status === "denied") {
+            clearStoredRequest();
             setError("本机已拒绝本次配对申请");
             setStage("error");
           } else if (status.status === "expired") {
+            clearStoredRequest();
             setError("配对申请已过期，请重新申请");
             setStage("error");
           } else if (status.status === "redeemed") {
+            clearStoredRequest();
             await queryClient.invalidateQueries({ queryKey: ["session"] });
             setStage("error");
             setError("该申请已完成配对，请返回工作台");
           }
         } catch (pollError) {
           if (!cancelled) {
+            if (pollError instanceof ApiError && pollError.code === "NOT_FOUND") {
+              clearStoredRequest();
+            }
             setError(errorMessage(pollError));
             setStage("error");
           }
@@ -198,6 +269,7 @@ export function PairPage() {
       );
 
       if (result.status === "session") {
+        clearStoredRequest();
         await queryClient.invalidateQueries({ queryKey: ["session"] });
         await queryClient.invalidateQueries({ queryKey: ["bootstrap"] });
         setStage("error");
@@ -231,6 +303,7 @@ export function PairPage() {
         method: "POST",
         body: { challengeId: registration.challengeId, response },
       });
+      clearStoredRequest();
       await queryClient.invalidateQueries({ queryKey: ["session"] });
       await queryClient.invalidateQueries({ queryKey: ["bootstrap"] });
       setError("Passkey 已创建，正在进入工作台…");
@@ -324,11 +397,14 @@ export function PairPage() {
           </form>
         ) : null}
 
-        {stage === "enrollment" && enrollment ? (
+        {stage === "enrollment" ? (
           <div className="mt-6">
             <p className="text-sm text-ink-2">
               配对码已兑换。必须在窗口过期前创建 Passkey，之后才能进入工作台。
             </p>
+            {enrollment === null ? (
+              <p className="mt-2 text-xs text-ink-3">已恢复同一配对申请的注册窗口。</p>
+            ) : null}
 
             {!support ? (
               <p className="mt-3 rounded-md bg-surface-2 p-3 text-sm text-ink-2">

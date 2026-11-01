@@ -8,7 +8,7 @@
 
 | 命令 | 结果 |
 |---|---|
-| `pnpm check` | 通过：Biome 215 文件、6 个 workspace typecheck、server 164 项测试、web 17 项测试 |
+| `pnpm check` | 通过：Biome 215 文件、6 个 workspace typecheck、server 164 项测试、web 18 项测试 |
 | `pnpm build` | 通过：server `tsdown` 输出 `dist/{index,status,doctor,tui}.js`，web `vite build` |
 | `pnpm test:e2e` | 15/15 通过（S0 Mock Demo，`VITE_USE_MOCKS=1`） |
 | `pnpm test:e2e:auth` | 1/1 通过（Vite 5173 + server 3210，虚拟认证器） |
