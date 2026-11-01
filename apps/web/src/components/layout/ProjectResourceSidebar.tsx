@@ -1,5 +1,5 @@
-import { cn, IconButton } from "@larness/ui";
-import { Files, GitBranch, PanelRightClose, Server, SquareTerminal } from "lucide-react";
+import { cn } from "@larness/ui";
+import { Files, GitBranch, Server, SquareTerminal } from "lucide-react";
 import { Fragment, useState } from "react";
 import { FileTreePanel } from "@/components/sections/FileTreePanel";
 import { GitPanel } from "@/components/sections/GitPanel";
@@ -31,7 +31,6 @@ export function ProjectResourceSidebar() {
   const { data } = useSnapshot();
   const projectId = useNavigationStore((state) => state.projectId);
   const resourceWidth = useNavigationStore((state) => state.resourceWidth);
-  const toggleResource = useNavigationStore((state) => state.toggleResource);
   const project = data.projects.find((item) => item.id === projectId) ?? null;
   const projectServices = data.services.filter((service) => service.projectId === projectId);
   const projectTerminals = data.terminals.filter((terminal) => terminal.projectId === projectId);
@@ -91,9 +90,6 @@ export function ProjectResourceSidebar() {
         <span className="ml-auto max-w-[140px] truncate rounded-full bg-black/[.045] px-1.5 py-[1px] text-[9.5px] font-medium text-ink-3 dark:bg-white/[.06]">
           {project?.name ?? "未选择项目"}
         </span>
-        <IconButton label="折叠项目资源" className="h-6 w-6" onClick={toggleResource}>
-          <PanelRightClose size={13} />
-        </IconButton>
       </div>
 
       <div

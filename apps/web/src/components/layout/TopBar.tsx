@@ -93,13 +93,6 @@ export function TopBar() {
 
   return (
     <header className="relative z-50 flex h-12 shrink-0 items-center gap-2 border-b border-line bg-surface/70 px-2.5 backdrop-blur-xl">
-      <IconButton
-        label={mobile ? "打开导航" : "切换侧栏"}
-        onClick={() => (mobile ? setMobileSidebar(true) : toggleSidebar())}
-      >
-        <PanelLeft size={15} />
-      </IconButton>
-
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-gradient-to-br from-[#3d9bff] to-[#0066d6] text-[11px] font-bold text-white shadow-sm">
           L
@@ -108,8 +101,16 @@ export function TopBar() {
         <span className="shrink-0 rounded-full border border-line bg-surface-2 px-1.5 py-[1px] font-mono text-[9px] text-ink-3">
           v0.1
         </span>
-        <span className="mx-0.5 h-3.5 w-px shrink-0 bg-line" />
       </div>
+
+      <IconButton
+        label={mobile ? "打开导航" : "切换侧栏"}
+        onClick={() => (mobile ? setMobileSidebar(true) : toggleSidebar())}
+      >
+        <PanelLeft size={15} />
+      </IconButton>
+
+      <span className="mx-0.5 h-3.5 w-px shrink-0 bg-line" />
 
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="truncate text-[12.5px] font-semibold tracking-[-.01em]">
