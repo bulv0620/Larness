@@ -292,6 +292,7 @@ export function toModelProfileView(model: ApiModelProfile): ModelProfile {
     provider: model.provider === "openai-compatible" ? "openai-compatible" : "deepseek",
     model: model.model,
     detail: `${Math.round(model.capabilities.maxContextTokens / 1000)}K 上下文 · 工具调用`,
+    maxContextTokens: model.capabilities.maxContextTokens,
   };
 }
 

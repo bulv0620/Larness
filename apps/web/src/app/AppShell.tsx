@@ -19,6 +19,7 @@ export function AppShell() {
   const sidebarCollapsed = useNavigationStore((state) => state.sidebarCollapsed);
   const sidebarWidth = useNavigationStore((state) => state.sidebarWidth);
   const resourceWidth = useNavigationStore((state) => state.resourceWidth);
+  const resourceCollapsed = useNavigationStore((state) => state.resourceCollapsed);
   const setSidebarWidth = useNavigationStore((state) => state.setSidebarWidth);
   const setResourceWidth = useNavigationStore((state) => state.setResourceWidth);
   const mobileSidebarOpen = useNavigationStore((state) => state.mobileSidebarOpen);
@@ -108,17 +109,21 @@ export function AppShell() {
           />
         ) : null}
         <ConversationWorkspace />
-        <SidebarResizeHandle
-          side="right"
-          label="调整资源侧栏宽度"
-          value={resourceWidth}
-          min={280}
-          max={460}
-          defaultValue={340}
-          onChange={setResourceWidth}
-          className="hidden xl:block"
-        />
-        <ProjectResourceSidebar />
+        {!resourceCollapsed ? (
+          <>
+            <SidebarResizeHandle
+              side="right"
+              label="调整资源侧栏宽度"
+              value={resourceWidth}
+              min={280}
+              max={460}
+              defaultValue={340}
+              onChange={setResourceWidth}
+              className="hidden xl:block"
+            />
+            <ProjectResourceSidebar />
+          </>
+        ) : null}
         <WindowLayer />
       </div>
 

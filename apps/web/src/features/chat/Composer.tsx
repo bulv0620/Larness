@@ -173,10 +173,6 @@ export function Composer() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="ml-auto hidden font-mono text-[9.5px] text-ink-3 sm:inline">
-          ~ 18k ctx
-        </span>
-
         {isStreaming ? (
           <button
             type="button"

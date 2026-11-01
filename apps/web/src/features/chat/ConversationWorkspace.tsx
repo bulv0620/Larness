@@ -17,6 +17,7 @@ import { Timeline } from "@/features/chat/Timeline";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { archiveSession } from "@/lib/workspaceApi";
+import { useComposerStore } from "@/stores/composerStore";
 import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
@@ -26,6 +27,10 @@ export function ConversationWorkspace() {
   const { projectId, sessionId } = useNavigationStore();
   const extra = useLocalSessionsStore((state) => state.extra);
   const isStreaming = useTimelineStore((state) => state.isStreaming);
+  const contextTokens = useTimelineStore((state) => state.contextTokens);
+  const modelId = useComposerStore((state) => state.modelId);
+  const resourceCollapsed = useNavigationStore((state) => state.resourceCollapsed);
+  const toggleResource = useNavigationStore((state) => state.toggleResource);
   const queryClient = useQueryClient();
   const [renameOpen, setRenameOpen] = useState(false);
 
@@ -33,6 +38,12 @@ export function ConversationWorkspace() {
     (item) => item.id === sessionId,
   );
   const project = data.projects.find((item) => item.id === projectId) ?? null;
+  const model = data.models.find((item) => item.id === modelId) ?? data.models[0];
+  const maxContextTokens = model?.maxContextTokens ?? 128_000;
+  const contextPercent = Math.min(
+    100,
+    Math.round((contextTokens / Math.max(1, maxContextTokens)) * 100),
+  );
   const running = isStreaming || session?.status === "running";
 
   const archive = async (): Promise<void> => {
@@ -71,7 +82,11 @@ export function ConversationWorkspace() {
           {project?.rootPath ?? "独立会话工作目录"}
         </span>
         <div className="ml-auto flex items-center gap-0.5">
-          <IconButton label="会话操作">
+          <IconButton
+            label={resourceCollapsed ? "展开项目资源" : "折叠项目资源"}
+            className="hidden xl:inline-flex"
+            onClick={toggleResource}
+          >
             <PanelRight size={14} />
           </IconButton>
           <DropdownMenu>
@@ -120,8 +135,20 @@ export function ConversationWorkspace() {
             <span className="font-mono">{project?.branch ?? "workspace"}</span>
           </div>
           <Composer />
-          <div className="mt-2 flex items-center px-1 text-[9.5px] text-ink-3">
-            <span>Agent 可能执行工具与命令，请在批准前确认影响。</span>
+          <div className="mt-2 flex items-center gap-2 px-1 text-[9.5px] text-ink-3">
+            <span className="flex items-center gap-1.5">
+              <span>上下文</span>
+              <span className="font-mono text-ink-2">
+                {contextTokens > 0 ? formatTokens(contextTokens) : "—"} /{" "}
+                {formatTokens(maxContextTokens)}
+              </span>
+              <span className="h-1 w-14 overflow-hidden rounded-full bg-black/[.07] dark:bg-white/[.1]">
+                <span
+                  className="block h-full rounded-full bg-accent/70 transition-[width] duration-500"
+                  style={{ width: `${contextPercent}%` }}
+                />
+              </span>
+            </span>
             <span className="ml-auto hidden items-center gap-1 sm:flex">
               <span className="font-mono">Enter</span> 发送
               <span className="mx-1 text-ink-3/50">·</span>
@@ -132,4 +159,11 @@ export function ConversationWorkspace() {
       </div>
     </main>
   );
+}
+
+function formatTokens(value: number): string {
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}k`;
+  }
+  return String(value);
 }

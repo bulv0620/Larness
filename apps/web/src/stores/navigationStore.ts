@@ -7,6 +7,7 @@ interface NavigationState {
   sidebarWidth: number;
   resourceWidth: number;
   sidebarCollapsed: boolean;
+  resourceCollapsed: boolean;
   mobileSidebarOpen: boolean;
   expandedProjects: Record<string, boolean>;
   focusComposerNonce: number;
@@ -14,6 +15,7 @@ interface NavigationState {
   setSidebarWidth: (width: number) => void;
   setResourceWidth: (width: number) => void;
   toggleSidebar: () => void;
+  toggleResource: () => void;
   setMobileSidebar: (open: boolean) => void;
   toggleProject: (projectId: string) => void;
   focusComposer: () => void;
@@ -27,6 +29,7 @@ export const useNavigationStore = create<NavigationState>()(
       sidebarWidth: 268,
       resourceWidth: 340,
       sidebarCollapsed: false,
+      resourceCollapsed: false,
       mobileSidebarOpen: false,
       expandedProjects: { prj_larness: true, prj_docs: true },
       focusComposerNonce: 0,
@@ -39,6 +42,8 @@ export const useNavigationStore = create<NavigationState>()(
       setResourceWidth: (resourceWidth) => set({ resourceWidth }),
 
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+      toggleResource: () => set((state) => ({ resourceCollapsed: !state.resourceCollapsed })),
 
       setMobileSidebar: (open) => set({ mobileSidebarOpen: open }),
 
@@ -61,6 +66,7 @@ export const useNavigationStore = create<NavigationState>()(
         sidebarWidth: state.sidebarWidth,
         resourceWidth: state.resourceWidth,
         sidebarCollapsed: state.sidebarCollapsed,
+        resourceCollapsed: state.resourceCollapsed,
         expandedProjects: state.expandedProjects,
       }),
     },

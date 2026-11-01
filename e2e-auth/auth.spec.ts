@@ -83,7 +83,6 @@ test("pair, register a passkey, log in, and get logged out after revocation", as
 
   await expect(page).toHaveURL(/\/$/, { timeout: 15_000 });
   await expect(page.getByTestId("workspace-home")).toBeVisible();
-  await expect(page.getByText("可信设备 · Passkey").first()).toBeVisible();
 
   await page.getByTestId("logout-button").click();
   await expect(page).toHaveURL(/\/login(\?|$)/, { timeout: 10_000 });

@@ -63,6 +63,7 @@ interface TimelineState {
   isStreaming: boolean;
   activeTurnId: string | null;
   turnStartedAt: number | null;
+  contextTokens: number;
   lastSeq: number;
   load: (sessionId: string) => Promise<void>;
   disconnect: () => void;
@@ -70,6 +71,25 @@ interface TimelineState {
   send: (text: string) => Promise<void>;
   stop: () => void;
   resolveApproval: (approvalId: string, decision: "approve" | "reject") => Promise<void>;
+}
+
+function contextTokensFromEvents(events: ServerEvent[]): number {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event?.type !== "turn.completed") continue;
+    const usage =
+      typeof event.payload === "object" && event.payload !== null
+        ? (event.payload as Record<string, unknown>).usage
+        : null;
+
+    if (typeof usage === "object" && usage !== null) {
+      const record = usage as Record<string, unknown>;
+      if (typeof record.inputTokens === "number") return record.inputTokens;
+      if (typeof record.totalTokens === "number") return record.totalTokens;
+    }
+  }
+
+  return 0;
 }
 
 function applyDeltaToState(event: AssistantDeltaEvent): void {
@@ -127,6 +147,16 @@ function applyEventToState(event: ServerEvent): void {
 
   const terminal = isTerminalTurnEvent(event);
   const nextItems = applyServerEvent(state.items, event);
+  const usage =
+    event.type === "turn.completed" && typeof payload.usage === "object" && payload.usage !== null
+      ? (payload.usage as Record<string, unknown>)
+      : null;
+  const contextTokens =
+    typeof usage?.inputTokens === "number"
+      ? usage.inputTokens
+      : typeof usage?.totalTokens === "number"
+        ? usage.totalTokens
+        : state.contextTokens;
 
   useTimelineStore.setState({
     items: terminal
@@ -135,6 +165,7 @@ function applyEventToState(event: ServerEvent): void {
     lastSeq: event.sequence,
     activeTurnId: terminal ? null : activeTurnId,
     isStreaming: nextStreaming,
+    contextTokens,
     turnStartedAt:
       terminal || nextStreaming
         ? terminal
@@ -221,6 +252,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   isStreaming: false,
   activeTurnId: null,
   turnStartedAt: null,
+  contextTokens: 0,
   lastSeq: 0,
 
   load: async (sessionId) => {
@@ -235,6 +267,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       isStreaming: false,
       activeTurnId: null,
       turnStartedAt: null,
+      contextTokens: 0,
       lastSeq: 0,
     });
 
@@ -270,6 +303,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         isStreaming: detail.activeTurn !== null,
         activeTurnId: detail.activeTurn?.id ?? null,
         turnStartedAt: detail.activeTurn?.createdAt ?? null,
+        contextTokens: contextTokensFromEvents(events),
       });
       connectSocket(sessionId);
     } catch (error) {

@@ -45,6 +45,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     )
     .toBe(true);
 
+  await page.setViewportSize({ width: 1440, height: 900 });
   const projectDir = mkdtempSync(path.join(tmpdir(), "larness-m1-e2e-"));
   const noteFile = path.join(projectDir, "note.txt");
   const projectName = path.basename(projectDir);
@@ -65,6 +66,20 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await page.getByLabel("配对码").fill(approved.code ?? "");
     await page.getByRole("button", { name: "兑换配对码" }).click();
     await expect(page.getByTestId("workspace-home")).toBeVisible({ timeout: 15_000 });
+
+    const resources = page.getByRole("complementary", { name: "项目资源" });
+    await expect(resources).toBeVisible();
+    const fileSection = resources.getByRole("button", { name: /^文件/ }).first();
+    await expect(fileSection).toHaveAttribute("aria-expanded", "true");
+    await fileSection.click();
+    await expect(fileSection).toHaveAttribute("aria-expanded", "false");
+    await fileSection.click();
+    await expect(fileSection).toHaveAttribute("aria-expanded", "true");
+
+    await page.getByRole("main").getByRole("button", { name: "折叠项目资源" }).click();
+    await expect(resources).toHaveCount(0);
+    await page.getByRole("main").getByRole("button", { name: "展开项目资源" }).click();
+    await expect(page.getByRole("complementary", { name: "项目资源" })).toBeVisible();
 
     await page.getByRole("button", { name: "添加项目" }).click();
     const projectDialog = page.getByRole("dialog");
@@ -97,6 +112,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByTestId("workspace-home")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("补丁已应用。")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("button", { name: "批准执行" })).toHaveCount(0);
+    await expect(page.getByText(/\/ 128k/)).toBeVisible();
 
     await page.getByRole("button", { name: "设置与模型" }).click();
     const settings = page.getByRole("dialog");

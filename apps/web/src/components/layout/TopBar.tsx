@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/app/ThemeProvider";
 import { StatusDot } from "@/components/common/StatusDot";
-import { useSession } from "@/features/auth/useAuth";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useLiveHost } from "@/lib/useLiveHost";
@@ -80,7 +79,6 @@ const launchers: Array<{
 
 export function TopBar() {
   const { data } = useSnapshot();
-  const session = useSession(!USE_MOCKS);
   const { theme, resolved, setTheme } = useTheme();
   const { projectId, toggleSidebar, setMobileSidebar } = useNavigationStore();
   const mobile = useMediaQuery("(max-width: 767px)");
@@ -102,6 +100,17 @@ export function TopBar() {
         <PanelLeft size={15} />
       </IconButton>
 
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] bg-gradient-to-br from-[#3d9bff] to-[#0066d6] text-[11px] font-bold text-white shadow-sm">
+          L
+        </div>
+        <span className="shrink-0 text-[12.5px] font-semibold tracking-[-.01em]">Larness</span>
+        <span className="shrink-0 rounded-full border border-line bg-surface-2 px-1.5 py-[1px] font-mono text-[9px] text-ink-3">
+          v0.1
+        </span>
+        <span className="mx-0.5 h-3.5 w-px shrink-0 bg-line" />
+      </div>
+
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="truncate text-[12.5px] font-semibold tracking-[-.01em]">
           {project?.name ?? "独立会话"}
@@ -115,11 +124,6 @@ export function TopBar() {
           <span className="ml-1 hidden items-center gap-1 rounded-full border border-line bg-surface-2 px-2 py-[2px] font-mono text-[10px] text-ink-2 md:flex">
             <span className="h-1.5 w-1.5 rounded-full bg-accent/70" />
             {project.branch}
-          </span>
-        ) : null}
-        {session.data ? (
-          <span className="ml-1 hidden rounded-full bg-surface-2 px-2 py-[2px] text-[10px] text-ink-2 sm:inline">
-            {session.data.kind === "passkey" ? "可信设备 · Passkey" : "允许本次会话"}
           </span>
         ) : null}
       </div>
@@ -203,8 +207,6 @@ export function TopBar() {
                 <Monitor size={13} /> 跟随系统
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <div className="px-2.5 py-1.5 text-[11px] text-ink-3">窗口布局会按浏览器保存</div>
           </DropdownMenuContent>
         </DropdownMenu>
 

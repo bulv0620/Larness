@@ -1,6 +1,15 @@
 import type { ApprovalItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
-import { Loader2, MessageSquareText, ShieldAlert, Sparkles } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  MessageSquareText,
+  ShieldAlert,
+  Sparkles,
+  Wrench,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TimelineItemView } from "@/features/chat/TimelineItemView";
@@ -13,6 +22,82 @@ const suggestions = [
   "检查当前端口，启动 dev server 并在浏览器预览。",
   "总结最近的 Git 改动，生成一段发布说明。",
 ];
+
+function TimelineItems({ items }: { items: TimelineItem[] }) {
+  const nodes: React.ReactNode[] = [];
+  let tools: ToolItem[] = [];
+
+  const flush = () => {
+    if (tools.length === 1) {
+      const tool = tools[0];
+      if (tool) nodes.push(<TimelineItemView key={tool.id} item={tool} />);
+    } else if (tools.length > 1) {
+      nodes.push(<ToolGroup key={`tools_${tools[0]?.id ?? "group"}`} tools={tools} />);
+    }
+    tools = [];
+  };
+
+  for (const item of items) {
+    if (item.kind === "tool") {
+      tools.push(item);
+      continue;
+    }
+    flush();
+    nodes.push(<TimelineItemView key={item.id} item={item} />);
+  }
+  flush();
+
+  return <>{nodes}</>;
+}
+
+function ToolGroup({ tools }: { tools: ToolItem[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const running = tools.some((tool) => tool.status === "running");
+  const failed = tools.some((tool) => tool.status === "error");
+  const names = [...new Set(tools.map((tool) => tool.name))];
+  const summary =
+    names.length <= 2 ? names.join(" · ") : `${names.slice(0, 2).join(" · ")} +${names.length - 2}`;
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-line bg-surface-2/55">
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left"
+      >
+        <span className="flex h-5 w-5 items-center justify-center rounded-md border border-line bg-surface">
+          <Wrench
+            size={11.5}
+            className={running ? "text-accent" : failed ? "text-danger" : "text-ink-3"}
+          />
+        </span>
+        <span className="text-[11.5px] font-medium text-ink">
+          {running ? `正在执行 ${tools.length} 个工具` : `执行了 ${tools.length} 个工具`}
+        </span>
+        <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-ink-3">{summary}</span>
+        {running ? (
+          <Loader2 size={12} className="shrink-0 animate-spin text-accent" />
+        ) : failed ? (
+          <XCircle size={12} className="shrink-0 text-danger" />
+        ) : (
+          <Check size={12} className="shrink-0 text-success" />
+        )}
+        <ChevronDown
+          size={12}
+          className={cn("shrink-0 text-ink-3 transition-transform", expanded && "rotate-180")}
+        />
+      </button>
+      {expanded ? (
+        <div className="space-y-1.5 border-t border-line/80 p-1.5">
+          {tools.map((tool) => (
+            <TimelineItemView key={tool.id} item={tool} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function TurnActivity() {
   const items = useTimelineStore((state) => state.items);
@@ -154,9 +239,7 @@ export function Timeline() {
       aria-label="会话时间线"
     >
       <div className="mx-auto flex w-full max-w-[880px] flex-col gap-3 pb-6">
-        {items.map((item: TimelineItem) => (
-          <TimelineItemView key={item.id} item={item} />
-        ))}
+        <TimelineItems items={items} />
         <TurnActivity />
         <div className={cn("h-1 shrink-0")} />
       </div>

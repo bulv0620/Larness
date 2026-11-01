@@ -21,6 +21,7 @@ export interface ModelProfile {
   provider: "deepseek" | "glm" | "openai-compatible";
   model: string;
   detail: string;
+  maxContextTokens?: number;
 }
 
 export interface ServiceInfo {

@@ -80,6 +80,7 @@ export const models = [
     provider: "deepseek" as const,
     model: "deepseek-chat",
     detail: "128K 上下文 · 工具调用",
+    maxContextTokens: 128_000,
   },
   {
     id: "mdl_deepseek_reasoner",
@@ -87,6 +88,7 @@ export const models = [
     provider: "deepseek" as const,
     model: "deepseek-reasoner",
     detail: "推理模式 · 64K 上下文",
+    maxContextTokens: 64_000,
   },
   {
     id: "mdl_glm",
@@ -94,6 +96,7 @@ export const models = [
     provider: "glm" as const,
     model: "glm-4.6",
     detail: "200K 上下文 · 工具调用",
+    maxContextTokens: 200_000,
   },
 ];
 

@@ -17,6 +17,7 @@
 | M1-8 | M1 验收与 E2E | M1-6, M1-7 | `review` |
 | M1-9 | 项目目录选择器 | M1-1 | `review` |
 | M1-10 | 流式对话与 Markdown | M1-6, M1-7 | `review` |
+| M1-11 | 工作区布局与工具分组 | M1-6, M1-7 | `review` |
 
 ## 任务卡
 
@@ -243,3 +244,19 @@
   - `TurnActivity` 显示等待审批 / 工具执行 / 思考与耗时；
   - `MarkdownText` 使用 `react-markdown` + `remark-gfm`，安全转义 HTML；
   - `pnpm check`（agent 32 / server 238 / web 26）、`pnpm build`、auth + M1 E2E 2 通过。
+
+### M1-11 工作区布局与工具分组
+
+- 状态：`review`（2026-11-01）
+- 依赖：M1-6, M1-7
+- 目标：降低工具噪声、修正资源栏折叠、把工作区品牌移到 header，并移除低价值提示文本。
+- 交付物：
+  - 连续工具调用折叠为“执行了 N 个工具”分组，展开查看每个工具参数 / 结果；
+  - 资源栏折叠状态持久化，header 与会话 header 均可折叠 / 展开；
+  - `Larness / v0.1` 品牌从侧栏移到 header 最左，侧栏第一个元素为“新建会话”；
+  - 移除“本机工作空间”“可信设备 · Passkey”“窗口布局会按浏览器保存”“Agent 可能执行工具与命令…”；
+  - 底部改为上下文 token 占用（实际 input tokens / 模型上下文窗口）。
+- 验收：工具分组可展开；资源栏折叠恢复；header / 侧栏布局正确；无残留提示；上下文用量显示。
+- 测试：`pnpm check`、`pnpm build`、M1 E2E（资源栏折叠、进行中状态、完整对话）。
+- 涉及路径：`apps/web/src/features/chat/`、`apps/web/src/components/layout/`、`apps/web/src/stores/`。
+- 完成记录：工具分组、品牌迁移、提示清理、资源栏折叠、上下文用量；agent 32 / server 238 / web 26 测试通过，auth + M1 E2E 2/2 通过。
