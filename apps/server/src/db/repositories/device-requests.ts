@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import type { DbExecutor } from "../client.js";
 import { newId } from "../ids.js";
 import { type DeviceRequestRow, type DeviceRequestStatus, deviceRequests } from "../schema.js";
@@ -56,6 +56,22 @@ export function getDeviceRequestByShortCode(
   return (
     db.select().from(deviceRequests).where(eq(deviceRequests.shortCode, shortCode)).get() ?? null
   );
+}
+
+export function listDeviceRequests(
+  db: DbExecutor,
+  status?: DeviceRequestRow["status"],
+): DeviceRequestRow[] {
+  if (status === undefined) {
+    return db.select().from(deviceRequests).orderBy(desc(deviceRequests.createdAt)).all();
+  }
+
+  return db
+    .select()
+    .from(deviceRequests)
+    .where(eq(deviceRequests.status, status))
+    .orderBy(desc(deviceRequests.createdAt))
+    .all();
 }
 
 export type DeviceRequestPatch = Partial<Omit<DeviceRequestRow, "id" | "shortCode" | "createdAt">>;

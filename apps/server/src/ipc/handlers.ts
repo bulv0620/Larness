@@ -6,13 +6,24 @@ import { getAuthSettings } from "../db/repositories/auth-settings.js";
 import { countOnlineSessions, countPendingPairings } from "../db/stats.js";
 import { runDoctor } from "../doctor.js";
 import { applyInit, InitError } from "../init/service.js";
+import {
+  approvePairingRequest,
+  denyPairingRequest,
+  listPairingRequests,
+  PairingError,
+  type PairingErrorCode,
+} from "../pairing/service.js";
 import { collectStatus } from "../status.js";
 import { readNewestLogLines } from "./logs.js";
 import {
   AuditTailParamsSchema,
   InitApplyParamsSchema,
   IpcError,
+  type IpcErrorCode,
   LogsTailParamsSchema,
+  PairingApproveParamsSchema,
+  PairingDenyParamsSchema,
+  PairingListParamsSchema,
   ShutdownParamsSchema,
 } from "./protocol.js";
 import type { IpcHandler } from "./server.js";
@@ -22,6 +33,7 @@ export interface IpcHandlerDeps {
   dataDir: string;
   config: AppConfig;
   webAuthn: WebAuthnRuntime;
+  csrfKey: Buffer;
   requestShutdown: (reason: string) => void;
   now?: () => number;
 }
@@ -37,6 +49,26 @@ function parseParams<T>(schema: z.ZodType<T>, params: unknown): T {
   }
 
   return parsed.data;
+}
+
+const PAIRING_IPC_ERRORS: Record<PairingErrorCode, IpcErrorCode> = {
+  NOT_INITIALIZED: "NOT_INITIALIZED",
+  NOT_FOUND: "NOT_FOUND",
+  CONFLICT: "CONFLICT",
+  PAIRING_DENIED: "FORBIDDEN",
+  PAIRING_EXPIRED: "FORBIDDEN",
+  CODE_INVALID: "VALIDATION_ERROR",
+  RATE_LIMITED: "RATE_LIMITED",
+  WEBAUTHN_NOT_CONFIGURED: "FORBIDDEN",
+  ORIGIN_INVALID: "FORBIDDEN",
+};
+
+function mapPairingError(error: unknown): unknown {
+  if (error instanceof PairingError) {
+    return new IpcError(PAIRING_IPC_ERRORS[error.code], error.message);
+  }
+
+  return error;
 }
 
 function parseDetails(value: string): unknown {
@@ -112,6 +144,55 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
             throw new IpcError(error.code, error.message);
           }
           throw error;
+        }
+      }
+
+      case "pairing.list": {
+        const params = parseParams(PairingListParamsSchema, request.params);
+        const requests = listPairingRequests(deps, { status: params.status, now: now() }).map(
+          (row) => ({
+            requestId: row.id,
+            shortCode: row.shortCode,
+            status: row.status,
+            decision: row.decision,
+            clientLabel: row.clientLabel,
+            clientOrigin: row.clientOrigin,
+            userAgent: row.userAgent,
+            createdAt: row.createdAt,
+            expiresAt: row.expiresAt,
+            trustAvailable:
+              row.status === "pending" &&
+              deps.webAuthn.enabled &&
+              row.clientOrigin === deps.webAuthn.origin,
+          }),
+        );
+
+        return { requests };
+      }
+
+      case "pairing.approve": {
+        const params = parseParams(PairingApproveParamsSchema, request.params);
+
+        try {
+          const result = approvePairingRequest(deps, {
+            requestId: params.requestId,
+            decision: params.decision,
+            now: now(),
+          });
+          return { code: result.code, expiresAt: result.expiresAt };
+        } catch (error) {
+          throw mapPairingError(error);
+        }
+      }
+
+      case "pairing.deny": {
+        const params = parseParams(PairingDenyParamsSchema, request.params);
+
+        try {
+          denyPairingRequest(deps, { requestId: params.requestId, now: now() });
+          return { ok: true };
+        } catch (error) {
+          throw mapPairingError(error);
         }
       }
 

@@ -12,7 +12,7 @@
 | M0-2 | 配置、数据目录、日志与诊断 | M0-1 | `done` |
 | M0-3 | SQLite、迁移与审计 | M0-2 | `done` |
 | M0-4 | 本机 IPC 与 TUI 初始化 | M0-3 | `done` |
-| M0-5 | 配对申请与准入 | M0-4 | `todo` |
+| M0-5 | 配对申请与准入 | M0-4 | `done` |
 | M0-6 | Passkey 注册与登录 | M0-5 | `todo` |
 | M0-7 | 鉴权与传输安全 | M0-6 | `todo` |
 | M0-8 | Web 认证集成 | M0-7 | `todo` |
@@ -120,7 +120,7 @@
 
 ### M0-5 配对申请与准入
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：M0-4
 - 目标：实现配对状态机、TUI 审批、`allow_once` 会话与 `trust` enrollment。
 - 交付物：
@@ -137,6 +137,14 @@
   - 码错误 5 次后作废。
 - 测试：状态机、并发、过期、码规范化、enrollment 绑定 / 重放、allow_once 无设备。
 - 涉及路径：`apps/server/src/{pairing,auth}/`、`apps/server/src/tui/`、`drizzle/`。
+- 完成记录：
+  - 配对状态机：申请（10 分钟 TTL、6 位短编号、pollToken 哈希、Origin / UA / IP）、TUI 批准 / 拒绝、一次性码（10 字符 Crockford Base32 ≈50 bit、5 分钟 TTL、5 次尝试、SHA-256 存储）、原子兑换；
+  - REST：`POST /api/pairing/requests`、`GET /api/pairing/requests/:id`、`POST /api/pairing/redeem`；`allow_once` 设置 `larness_session`（HttpOnly / SameSite=Lax / Path=/，kind=once，deviceId=null），`trust` 设置 5 分钟 `larness_enrollment`（Path=/api/webauthn/registration）并进入 `enrollment_pending`；
+  - 会话 / CSRF 基础：会话 Token 哈希存储、绝对 / 空闲过期校验、HMAC CSRF Token、`GET /api/auth/session`（过期返回 401，无 refresh）；
+  - TUI：待审批列表（Origin / UA / 短编号 / 是否可用 trust）、批准（允许本次 / 始终允许）、拒绝、一次性码展示；非 canonical 来源隐藏始终允许；
+  - 测试 125 项：pairing code 4、service 12、REST 6、TUI 4、auth / session 3、其余沿用；覆盖状态机、并发兑换、码错误 5 次 / 第 6 次限流、过期、信任限制、enrollment 哈希 / 无会话 / 无设备、审计无明文码、A8 会话过期；
+  - 手工证据：真实 HTTP + IPC 完成 申请 → TUI 批准 → 兑换，Set-Cookie 属性正确，`/api/auth/session` 200；DB 中 request=redeemed、session kind=once and device_id=NULL、devices=0，审计含 requested / approved / redeemed；重复兑换 409；
+  - 偏差：`/api/pairing/requests` 的每 IP 10/min 限流与全站 Origin / CSRF 中间件留待 M0-7；A5 的 Passkey 注册完成属于 M0-6；enrollment 目前只签发 Cookie 与哈希，注册验证 / 设备创建在 M0-6 实现；IPC 配对事件推送未实现（TUI 轮询），可随 M0-6 补齐。
 
 ### M0-6 Passkey 注册与登录
 

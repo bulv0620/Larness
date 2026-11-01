@@ -1,11 +1,24 @@
+import cookie from "@fastify/cookie";
+import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
+import { registerAuthRoutes } from "./api/auth.js";
 import { registerHealthRoute } from "./api/health.js";
+import { registerPairingRoutes } from "./api/pairing.js";
+import type { Database } from "./db/client.js";
 import { registerErrorHandler } from "./errors.js";
 import { resolveRequestId } from "./request-id.js";
+
+export interface AppServices {
+  db: Database;
+  config: AppConfig;
+  webAuthn: WebAuthnRuntime;
+  csrfKey: Buffer;
+}
 
 export interface CreateAppOptions {
   startedAt?: number;
   logger?: FastifyBaseLogger;
+  services?: AppServices;
 }
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
@@ -27,8 +40,15 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     return payload;
   });
 
+  app.register(cookie);
+
   registerErrorHandler(app);
   registerHealthRoute(app, startedAt);
+
+  if (options.services) {
+    registerAuthRoutes(app, options.services);
+    registerPairingRoutes(app, options.services);
+  }
 
   return app;
 }

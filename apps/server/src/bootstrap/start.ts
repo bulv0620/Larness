@@ -3,6 +3,7 @@ import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import type { DestinationStream, Logger } from "pino";
 import { createApp } from "../app.js";
+import { loadOrCreateCsrfKey } from "../auth/csrf.js";
 import { type CleanupScheduler, startCleanupScheduler } from "../db/cleanup.js";
 import { type Database, type OpenedDatabase, openDatabase } from "../db/client.js";
 import { appliedMigrationCount, runMigrations } from "../db/migrate.js";
@@ -75,6 +76,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger });
     cleanup = cleanupScheduler;
 
+    const csrfKey = await loadOrCreateCsrfKey(dataDir);
+
     const ipcServer = await startIpcServer({
       dataDir,
       version,
@@ -84,12 +87,21 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         dataDir,
         config: loaded.config,
         webAuthn: loaded.webAuthn,
+        csrfKey,
         requestShutdown: (reason) => requestShutdown?.(reason),
       }),
     });
     ipc = ipcServer;
 
-    app = createApp({ logger });
+    app = createApp({
+      logger,
+      services: {
+        db: opened.db,
+        config: loaded.config,
+        webAuthn: loaded.webAuthn,
+        csrfKey,
+      },
+    });
 
     await app.listen({
       host: loaded.config.server.host,

@@ -1,6 +1,7 @@
 import type { IpcClient } from "../ipc/client.js";
 import type { StatusReport } from "../status.js";
 import { type AuditTailItem, formatAudit, formatStatus } from "./format.js";
+import { runPairingView } from "./pairing.js";
 
 export interface DashboardDeps {
   client: Pick<IpcClient, "request">;
@@ -18,12 +19,17 @@ export async function runDashboard(deps: DashboardDeps): Promise<void> {
     deps.out(formatStatus(status));
     deps.out(formatAudit(audit.items));
 
-    const answer = (await deps.ask("Enter 刷新 / l 日志 / q 退出 / s 关闭 server: "))
+    const answer = (await deps.ask("Enter 刷新 / p 配对 / l 日志 / q 退出 / s 关闭 server: "))
       .trim()
       .toLowerCase();
 
     if (answer === "q") {
       return;
+    }
+
+    if (answer === "p") {
+      await runPairingView({ client: deps.client, out: deps.out, ask: deps.ask });
+      continue;
     }
 
     if (answer === "l") {

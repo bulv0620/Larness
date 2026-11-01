@@ -69,6 +69,23 @@ export const AuditTailParamsSchema = z
 
 export const ShutdownParamsSchema = z.object({ confirm: z.literal(true) }).strict();
 
+export const PairingListParamsSchema = z
+  .object({
+    status: z
+      .enum(["pending", "approved", "denied", "expired", "enrollment_pending", "redeemed"])
+      .optional(),
+  })
+  .strict();
+
+export const PairingApproveParamsSchema = z
+  .object({
+    requestId: z.string().min(1).max(128),
+    decision: z.enum(["allow_once", "trust"]),
+  })
+  .strict();
+
+export const PairingDenyParamsSchema = z.object({ requestId: z.string().min(1).max(128) }).strict();
+
 export type IpcResponse =
   | { id: string; ok: true; result: unknown }
   | { id: string; ok: false; error: { code: IpcErrorCode; message: string } };

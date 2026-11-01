@@ -5,6 +5,7 @@ import { formatAudit, formatStatus } from "../../src/tui/format.js";
 import type { InitPrompts } from "../../src/tui/init-flow.js";
 import { runInitWizard } from "../../src/tui/init-flow.js";
 import { buildInitRequest, TuiError } from "../../src/tui/init-wizard.js";
+import { formatPairingRequests, type PairingItem, runPairingView } from "../../src/tui/pairing.js";
 
 const PASSWORD = "correct horse battery staple";
 
@@ -144,6 +145,110 @@ describe("TUI init wizard", () => {
       /取消/,
     );
     expect(apply).not.toHaveBeenCalled();
+  });
+});
+
+describe("TUI pairing view", () => {
+  const item: PairingItem = {
+    requestId: "pair_1",
+    shortCode: "123456",
+    status: "pending",
+    decision: null,
+    clientLabel: "Chrome",
+    clientOrigin: "http://localhost:3210",
+    userAgent: "test-agent",
+    createdAt: 0,
+    expiresAt: 600_000,
+    trustAvailable: true,
+  };
+
+  it("formats pending requests with origin and trust availability", () => {
+    const text = formatPairingRequests([item, { ...item, trustAvailable: false }]);
+    expect(text).toContain("123456");
+    expect(text).toContain("http://localhost:3210");
+    expect(text).toContain("可用");
+    expect(text).toContain("不可用");
+    expect(formatPairingRequests([])).toContain("无");
+  });
+
+  it("approves a request and shows the one-time code", async () => {
+    const output: string[] = [];
+    const answers = ["123456", "a", "y"];
+    let approvals = 0;
+
+    const client = {
+      request: async (method: string) => {
+        if (method === "pairing.list") {
+          return { requests: [item] };
+        }
+        if (method === "pairing.approve") {
+          approvals += 1;
+          return { code: "abcde12345", expiresAt: 0 };
+        }
+        return { ok: true };
+      },
+    };
+
+    await runPairingView({
+      client,
+      out: (text) => output.push(text),
+      ask: async () => answers.shift() ?? "",
+    });
+
+    expect(approvals).toBe(1);
+    expect(output.join("\n")).toContain("ABCDE-12345");
+  });
+
+  it("refuses trust for non-canonical requests", async () => {
+    const output: string[] = [];
+    const answers = ["123456", "t"];
+    let approvals = 0;
+
+    const client = {
+      request: async (method: string) => {
+        if (method === "pairing.list") {
+          return { requests: [{ ...item, trustAvailable: false }] };
+        }
+        approvals += 1;
+        return { ok: true };
+      },
+    };
+
+    await runPairingView({
+      client,
+      out: (text) => output.push(text),
+      ask: async () => answers.shift() ?? "",
+    });
+
+    expect(approvals).toBe(0);
+    expect(output.join("\n")).toContain("不支持始终允许");
+  });
+
+  it("denies a request after confirmation", async () => {
+    const output: string[] = [];
+    const answers = ["123456", "d", "y"];
+    let denied = 0;
+
+    const client = {
+      request: async (method: string) => {
+        if (method === "pairing.list") {
+          return { requests: [item] };
+        }
+        if (method === "pairing.deny") {
+          denied += 1;
+        }
+        return { ok: true };
+      },
+    };
+
+    await runPairingView({
+      client,
+      out: (text) => output.push(text),
+      ask: async () => answers.shift() ?? "",
+    });
+
+    expect(denied).toBe(1);
+    expect(output.join("\n")).toContain("已拒绝");
   });
 });
 
