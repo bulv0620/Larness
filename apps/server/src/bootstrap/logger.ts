@@ -8,6 +8,7 @@ export interface CreateLoggerOptions {
   level: LogLevel;
   retentionDays: number;
   destination?: DestinationStream;
+  stderr?: boolean;
 }
 
 export function createLogger(options: CreateLoggerOptions): Logger {
@@ -22,22 +23,24 @@ export function createLogger(options: CreateLoggerOptions): Logger {
   }
 
   const logFile = path.join(options.dataDir, "logs", "larness.log");
-  const transport = pino.transport({
-    targets: [
-      { target: "pino/file", options: { destination: 2 } },
-      {
-        target: "pino-roll",
-        options: {
-          file: logFile,
-          frequency: "daily",
-          size: "100m",
-          mkdir: true,
-          mode: 0o600,
-          limit: { count: options.retentionDays },
-        },
-      },
-    ],
-  });
+  const rollTarget: import("pino").TransportTargetOptions = {
+    target: "pino-roll",
+    options: {
+      file: logFile,
+      frequency: "daily" as const,
+      size: "100m",
+      mkdir: true,
+      mode: 0o600,
+      limit: { count: options.retentionDays },
+    },
+  };
+
+  const transport =
+    options.stderr === false
+      ? pino.transport({ targets: [rollTarget] })
+      : pino.transport({
+          targets: [{ target: "pino/file", options: { destination: 2 } }, rollTarget],
+        });
 
   return pino(base, transport);
 }

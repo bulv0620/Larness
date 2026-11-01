@@ -219,7 +219,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     );
   }
 
-  add("clock", "时钟偏移", "skip", "requires a trusted time reference (M0-4 IPC)");
+  add("clock", "时钟偏移", "skip", "requires a trusted time reference (not implemented)");
 
   return { version: SERVER_VERSION, dataDir, checks };
 }

@@ -7,7 +7,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = path.dirname(fileURLToPath(import.meta.url));
 
 const commands = {
-  server: { dist: "apps/server/dist/index.js", source: "apps/server/src/index.ts" },
   tui: { dist: "apps/server/dist/tui.js", source: "apps/server/src/tui/main.ts" },
   status: { dist: "apps/server/dist/status.js", source: "apps/server/src/cli/status.ts" },
   doctor: { dist: "apps/server/dist/doctor.js", source: "apps/server/src/cli/doctor.ts" },
@@ -26,20 +25,54 @@ function help() {
   console.log(`Larness ${version()}
 
 Usage:
-  node app.js                 Start the server (default)
-  node app.js server          Start the server
-  node app.js tui             Open the local TUI over IPC
+  node app.js                 Start Server + Web and enter the TUI
+  node app.js tui             Same as above
   node app.js status          Print a read-only status snapshot
   node app.js doctor          Run local diagnostics (non-zero on failure)
   node app.js --version       Print the version
   node app.js --help          Show this help
 
+Closing the TUI stops the Server and Web processes (ADR-023).
 Environment:
   LARNESS_DATA_DIR, LARNESS_HOST, LARNESS_PORT, LARNESS_PUBLIC_URL,
   LARNESS_LOG_LEVEL, LARNESS_WEB_DIST`);
 }
 
-function runCommand(name) {
+function runTui() {
+  const distPath = path.join(root, commands.tui.dist);
+  const useDist = existsSync(distPath);
+
+  process.env.LARNESS_TUI_MANAGED = "1";
+  process.env.LARNESS_TUI_DEV = useDist ? "0" : "1";
+
+  if (useDist) {
+    import(pathToFileURL(distPath).href).catch((error) => {
+      console.error(`[larness] tui failed: ${error instanceof Error ? error.message : error}`);
+      process.exitCode = 1;
+    });
+    return;
+  }
+
+  const sourcePath = path.join(root, commands.tui.source);
+  const result = spawnSync(
+    "pnpm",
+    ["--filter", "@larness/server", "exec", "tsx", sourcePath, "--managed", "--dev"],
+    { cwd: root, stdio: "inherit", env: process.env },
+  );
+
+  if (result.error) {
+    console.error(`[larness] cannot run tui: ${result.error.message}`);
+    console.error(
+      "Build first with `pnpm build`, or ensure pnpm/tsx are available for development.",
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  process.exitCode = result.status ?? 1;
+}
+
+function runReadOnly(name) {
   const command = commands[name];
   const distPath = path.join(root, command.dist);
 
@@ -55,13 +88,11 @@ function runCommand(name) {
   const result = spawnSync("pnpm", ["--filter", "@larness/server", "exec", "tsx", sourcePath], {
     cwd: root,
     stdio: "inherit",
+    env: process.env,
   });
 
   if (result.error) {
     console.error(`[larness] cannot run ${name}: ${result.error.message}`);
-    console.error(
-      "Build first with `pnpm build`, or ensure pnpm/tsx are available for development.",
-    );
     process.exitCode = 1;
     return;
   }
@@ -71,14 +102,14 @@ function runCommand(name) {
 
 const [first, ...rest] = process.argv.slice(2);
 
-if (first === undefined || first === "server") {
-  runCommand("server");
+if (first === undefined || first === "tui" || first === "start") {
+  runTui();
 } else if (first === "--version" || first === "-v") {
   console.log(version());
 } else if (first === "--help" || first === "-h" || first === "help") {
   help();
-} else if (first in commands && rest.length === 0) {
-  runCommand(first);
+} else if ((first === "status" || first === "doctor") && rest.length === 0) {
+  runReadOnly(first);
 } else {
   console.error(`[larness] unknown command: ${first}`);
   help();

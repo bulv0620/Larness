@@ -54,7 +54,7 @@ Stable Launcher / Updater ── controls ── Server process
 | User Services | 项目开发进程、PM2 长期服务 | 依赖 Larness 存活 |
 | Updater | 下载、验签、切换版本、健康检查、回滚 | 在 Server 内自更新 |
 
-Launcher / Updater 的完整实现属于 M5；M0 只要求 `node app.js` 能启动已构建的 Server，并转发 `tui` / `status` 子命令。
+Launcher / Updater 的完整实现属于 M5；M0-9 后 `node app.js` 以 TUI 为受管前台入口，启动 Server + Web 并在关闭 TUI 时停止全部（ADR-023）；`status` / `doctor` 仍为只读子命令。
 
 ## 4. 服务端模块
 

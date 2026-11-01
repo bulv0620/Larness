@@ -34,6 +34,7 @@
 | ADR-020 | 文档与 UI 中文优先，代码标识符英文 | 降低沟通成本；字符串集中管理，后续可国际化 |
 | ADR-021 | V1 使用 Passkey / WebAuthn 作为可信凭据，不签发长期设备 Token | 见 [ADR-021](ADR-021-passkey-v1.md)；`allow_once` 仍保留为临时访问 |
 | ADR-022 | 产品名与内部命名空间统一为 Larness | 见 [ADR-022](ADR-022-product-name-larness.md)；M0 前完成，无兼容别名 |
+| ADR-023 | TUI 作为受管前台入口，关闭即停止全部，不提供 headless | 见 [ADR-023](ADR-023-tui-as-managed-entry.md)；替代 R-23 的常驻语义 |
 
 ## 3. 变更流程
 

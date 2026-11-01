@@ -65,8 +65,6 @@ export async function collectStatus(options: CollectStatusOptions = {}): Promise
     warnings.push(`database check failed: ${database.detail}`);
   }
 
-  warnings.push("local IPC is not available until M0-4");
-
   return {
     version: SERVER_VERSION,
     initialized: database?.initialized ?? false,

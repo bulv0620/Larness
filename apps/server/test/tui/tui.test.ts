@@ -353,10 +353,15 @@ describe("TUI formatting and dashboard", () => {
       client,
       out: (text) => output.push(text),
       ask: async () => answers.shift() ?? "q",
+      header: "Server http://localhost:3210 · Web http://localhost:5173",
+      localLogs: () => ["[web] web-line-1"],
+      managed: true,
     });
 
     expect(output.join("\n")).toContain("Larness");
+    expect(output.join("\n")).toContain("Server http://localhost:3210");
     expect(output.join("\n")).toContain("最近审计");
     expect(output.join("\n")).toContain("log-line-1");
+    expect(output.join("\n")).toContain("web-line-1");
   });
 });

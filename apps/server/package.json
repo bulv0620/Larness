@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate --name auth",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "tui": "tsx src/tui/main.ts"
+    "tui": "tsx src/tui/main.ts --managed --dev",
+    "tui:dev": "tsx src/tui/main.ts --managed --dev"
   },
   "dependencies": {
     "@larness/shared": "workspace:*",

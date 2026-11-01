@@ -18,8 +18,8 @@
 ## 2. 当前阶段
 
 - **S0 视觉 Demo 已验收**：`D0-1`–`D0-9` 全部完成，G-S0 于 2026-11-01 通过。
-- 下一个可执行任务：`M0-1`（Server 与 workspace 扩展，见 `specs/010-foundation/plan.md` / `tasks.md`）。
-- `010-foundation` 已解锁；按任务顺序一次只做一个，开始前先在 `STATUS.md` 登记。
+- **M0-1 ~ M0-9 实现完成**：G0 自动化通过，人工安全评审 / 真机验收待完成；下一个动作是 G0 人工验收。
+- TUI 是受管前台入口（ADR-023）：`pnpm dev` / `node app.js` 启动 Server + Web 并进入 TUI；关闭即停止全部，不提供 headless 产品入口。
 
 ## 3. 工作循环（必须按顺序）
 
@@ -68,10 +68,12 @@
 
 ```bash
 pnpm install
-pnpm dev              # 当前仅启动 web（M0-9 后加入 server）
+pnpm dev              # Server + Vite + TUI；关闭 TUI 停止全部
 pnpm check            # biome + typecheck + unit tests
-pnpm build            # web 构建（M0-9 后加入 server）
-pnpm test:e2e         # Playwright（Chromium）
+pnpm build            # server（四入口）+ web 构建
+pnpm test:e2e         # Playwright（Chromium，Mock）
+pnpm test:e2e:auth    # 真实 server + 虚拟认证器
+pnpm test:e2e:prod    # 需先 pnpm build
 pnpm --filter @larness/web dev
 ```
 

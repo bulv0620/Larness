@@ -7,7 +7,7 @@
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
 > **当前状态：S0 视觉 Demo 已验收（G-S0 通过）；M0-1 ~ M0-9 实现完成，G0 自动化通过，等待人工安全评审与真机验收。**
-> 启动开发环境：`pnpm install && pnpm dev` → Web <http://localhost:5173>，Server <http://127.0.0.1:3210/api/health>。
+> 启动开发环境：`pnpm install && pnpm dev` → Server <http://127.0.0.1:3210/api/health> + Web <http://localhost:5173>，并直接进入 TUI。
 > 验收记录与截图：[specs/000-visual-demo/acceptance.md](specs/000-visual-demo/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
 
@@ -37,10 +37,7 @@
 
 ```bash
 pnpm install
-pnpm dev            # Web http://localhost:5173 + Server http://127.0.0.1:3210
-pnpm run status     # 只读状态 JSON（running / listen / db.schemaVersion / webauthn …）
-pnpm run doctor     # 数据目录 / 配置 / 端口 / DB / Node 自检，失败退出非 0
-pnpm run tui        # 本机 TUI：初始化向导 / 仪表盘（需 server 已启动）
+pnpm dev            # 启动 Server(3210) + Vite(5173)，然后直接进入 TUI
 pnpm check          # Biome + 类型 + 单元测试
 pnpm build
 pnpm test:e2e       # S0 Mock Demo E2E
@@ -49,19 +46,38 @@ pnpm test:e2e:prod  # 构建后由 Server 3210 托管 Web 的生产形态 E2E
 pnpm demo:shots     # 重新生成验收截图
 ```
 
-数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 默认使用真实本机 API（`/login`、`/pair`、工作台空态）；`VITE_USE_MOCKS=1` 时保留 S0 Mock Demo。开发时 Web 跑在 5173，需让 server 的 canonical origin 为 `http://localhost:5173`（初始化时填写该 publicUrl，或启动 server 时设置 `LARNESS_PUBLIC_URL`）。
+`pnpm dev` 的体验（ADR-023）：
 
-构建后可直接运行完整产品：
+```text
+Larness
+✓ 数据目录 /path/to/data
+✓ Server  http://localhost:3210
+✓ Web     http://localhost:5173
+✓ IPC     /path/to/data/ipc
+
+Larness 初始化          # 首次运行进入向导
+...
+? Enter 刷新 / p 配对 / d 设备 / l 日志 / q 退出（停止服务） / s 关闭 server:
+```
+
+- **TUI 是唯一前台入口**：Server / Vite 由 TUI supervisor 拉起；关闭 TUI（`q`、Ctrl-C、SIGTERM）会优雅停止全部，不留后台进程。
+- 首次运行按向导初始化；开发模式 `publicUrl` 默认 `http://localhost:5173`，直接接受即可让 Passkey 正常工作。
+- 已有初始化数据时直接进入仪表盘；`l` 查看 Server 日志与 Vite 输出。
+- `status` / `doctor` 仍可在 TUI 运行时从另一个终端执行：`node app.js status`、`node app.js doctor`。
+- 开发与生产请使用不同的 `LARNESS_DATA_DIR`，避免 canonical origin 混用。
+
+数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 默认使用真实本机 API（`/login`、`/pair`、工作台空态）。仅做 S0 Mock Demo 时使用 `VITE_USE_MOCKS=1 pnpm --filter @larness/web dev`，不是产品入口。
+
+构建后运行完整产品：
 
 ```bash
 pnpm build
-node app.js            # Server 3210，同时托管 apps/web/dist
-node app.js tui        # 本机初始化 / 管理
-node app.js status     # 只读状态
+node app.js            # 启动 Server + 静态 Web，并进入 TUI
+node app.js status     # 只读状态（TUI 运行时可另开终端）
 node app.js doctor     # 自检
 ```
 
-生产形态的认证 E2E：`pnpm test:e2e:prod`（需先 `pnpm build`）。
+生产启动页显示 `Server http://localhost:3210` / `Web http://localhost:3210`；关闭 TUI 同样停止全部。生产形态认证 E2E：`pnpm test:e2e:prod`（需先 `pnpm build`）。
 
 ## 如何使用本仓库
 
@@ -83,7 +99,7 @@ S0 已验收，M0-1 ~ M0-9 实现完成；G0 人工验收见 specs/010-foundatio
 ```text
 .
 ├── larness.md                  # 源设计（v3.0，冻结）
-├── app.js                      # 稳定入口：server / tui / status / doctor
+├── app.js                      # 稳定入口：启动 Server + Web 并进入 TUI；status / doctor
 ├── README.md / AGENTS.md / CONSTITUTION.md / STATUS.md
 ├── apps/
 │   ├── server/                 # Fastify 5 Server（M0-1：health / 错误契约 / 请求 ID）

@@ -1,6 +1,6 @@
 # STATUS
 
-> 最后更新：2026-11-01 15:44 (+08:00)
+> 最后更新：2026-11-01 16:38 (+08:00)
 > 当前阶段：**M0-9 实现完成；G0 自动化通过，等待人工安全评审与真机验收**
 
 ## 里程碑
@@ -18,8 +18,10 @@
 ## 当前工作
 
 - 进行中：`M0-9` — 稳定入口与 M0 验收（分支 `task/m0-9-entry`，状态 `review`）
-  - 已完成：根 `app.js`（server / tui / status / doctor / version，构建产物与开发源码两条路径）、静态托管 + SPA 回退 + 缓存 / CSP、四入口构建、关闭审计、IPC 契约校准、[G0 验收记录](specs/010-foundation/acceptance.md)；
-  - 待人工：真实 Touch ID / Safari、TUI 交互走查、安全评审、CI 远端结果。
+  - 已完成：TUI 受管前台入口（[ADR-023](docs/adr/ADR-023-tui-as-managed-entry.md)）——`pnpm dev` / `node app.js` 启动 Server（开发另起 Vite）并进入 TUI；启动页显示数据目录 / Server / Web / IPC 检查；关闭 TUI 优雅停止全部；`l` 查看 Server 日志与 Vite 输出；
+  - 已完成：`app.js` status / doctor / version、静态托管 + SPA 回退 + 缓存 / CSP、四入口构建、关闭审计、IPC 契约校准、[G0 验收记录](specs/010-foundation/acceptance.md)；
+  - 验证：server 161 项、web 17 项；开发/生产启动页与关闭清理手工冒烟通过；
+  - 待人工：真实 Touch ID / Safari、TUI 交互初始化 / 审批 / 撤销走查、安全评审、CI 远端结果。
 - 刚完成：`M0-8` — Web 认证集成（分支 `task/m0-8-web-auth`）
   - `/login`、`/pair`、`useSession` / `RequireAuth`、登出、空态工作台；Passkey options 预取与用户手势调用；
   - Vite `/api` + `/ws` 代理；默认真实认证，`VITE_USE_MOCKS=1` 保留 S0 Demo；
@@ -102,3 +104,4 @@
 | 2026-11-01 | 完成 M0-7：全局会话 / CSRF / Origin / Host 守卫、限流与审计、bootstrap / logout、WebSocket 鉴权 / 订阅 / 撤销即断、IPC sessions；server 154 项测试通过 |
 | 2026-11-01 | 完成 M0-8：`/login`、`/pair`、路由守卫、登出、空态工作台、Vite 代理；虚拟认证器 E2E 通过；web 17 项测试、demo E2E 15 项保留 |
 | 2026-11-01 | M0-9 实现完成：`app.js`、生产静态托管 / SPA 回退、四入口构建、关闭审计、IPC 契约校准；G0 自动化通过，人工验收待完成 |
+| 2026-11-01 | ADR-023：TUI 改为受管前台入口，`pnpm dev` / `node app.js` 自动启动 Server + Web 并进入 TUI；关闭 TUI 停止全部，不提供 headless；server 测试增至 161 项 |

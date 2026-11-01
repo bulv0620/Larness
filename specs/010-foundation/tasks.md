@@ -239,7 +239,7 @@
 - 依赖：M0-8
 - 目标：交付 `node app.js` 可运行的最小产品，并完成 G0 门禁。
 - 交付物：
-  - 根 `app.js`：server / tui / status / doctor / `--version`；开发与发布两种解析路径；
+  - 根 `app.js`：默认 server + web + TUI；status / doctor / `--version`；开发与发布两种解析路径；
   - 生产静态托管、SPA 回退、缓存头；
   - 构建流水线：web `vite build`、server `tsdown`；
   - 优雅关闭全链路（HTTP / WS / IPC / DB / 锁）；

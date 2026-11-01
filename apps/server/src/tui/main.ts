@@ -5,16 +5,25 @@ import { connectIpc } from "../ipc/client.js";
 import { resolveDataDir } from "../platform/paths.js";
 import { runDashboard } from "./dashboard.js";
 import { runInitWizard } from "./init-flow.js";
+import { type ManagedRuntime, startManagedRuntime } from "./supervisor.js";
 
-async function main(): Promise<void> {
-  const dataDir = resolveDataDir();
-  const client = await connectIpc({ dataDir, client: "tui" }).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`${pc.red("无法连接本机 IPC")}: ${message}`);
-    console.error("请先启动 server（pnpm dev:server 或 pnpm dev）。");
-    process.exitCode = 1;
-    return null;
-  });
+const WEB_DEV_URL = "http://localhost:5173";
+
+interface AttachedOptions {
+  dataDir: string;
+  runtime?: ManagedRuntime;
+}
+
+async function runAttached(options: AttachedOptions): Promise<void> {
+  const client = await connectIpc({ dataDir: options.dataDir, client: "tui" }).catch(
+    (error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`${pc.red("无法连接本机 IPC")}: ${message}`);
+      console.error("请通过 pnpm dev 或 node app.js 启动；TUI 会自动拉起 Server。");
+      process.exitCode = 1;
+      return null;
+    },
+  );
 
   if (client === null) {
     return;
@@ -30,12 +39,23 @@ async function main(): Promise<void> {
         {
           password: () => password({ message: "管理员密码（至少 12 位）", mask: "*" }),
           confirmPassword: () => password({ message: "再次输入管理员密码", mask: "*" }),
-          host: () => input({ message: "监听地址", default: "127.0.0.1" }),
-          port: () => input({ message: "端口", default: "3210" }),
+          host: () =>
+            input({
+              message: "监听地址",
+              default: options.runtime?.config.config.server.host ?? "127.0.0.1",
+            }),
+          port: () =>
+            input({
+              message: "端口",
+              default: String(options.runtime?.config.config.server.port ?? 3210),
+            }),
           publicUrl: () =>
             input({
-              message: "公网 URL（可选；留空则使用 http://localhost:<port>）",
-              default: "",
+              message:
+                options.runtime?.dev === true
+                  ? "公网 URL（开发默认 http://localhost:5173）"
+                  : "公网 URL（可选；留空则使用 http://localhost:<port>）",
+              default: options.runtime?.dev === true ? WEB_DEV_URL : "",
             }),
           channel: () =>
             select({
@@ -57,17 +77,68 @@ async function main(): Promise<void> {
       console.log(`RP ID: ${result.rpId}`);
 
       if (result.restartRequired) {
-        console.log(pc.yellow("监听地址 / publicUrl / 更新通道已变化，请重启 server。"));
+        console.log(pc.yellow("监听地址 / publicUrl / 更新通道已变化，请退出 TUI 后重新运行。"));
       }
-    } else {
-      await runDashboard({
-        client,
-        out: (text) => console.log(text),
-        ask: (message) => input({ message }),
-      });
     }
+
+    await runDashboard({
+      client,
+      out: (text) => console.log(text),
+      ask: (message) => input({ message }),
+      header:
+        options.runtime === undefined
+          ? undefined
+          : `Server ${options.runtime.serverUrl}  ·  Web ${options.runtime.webUrl}`,
+      localLogs: options.runtime?.logs,
+      managed: options.runtime !== undefined,
+    });
   } finally {
     client.close();
+  }
+}
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  const managed = args.includes("--managed") || process.env.LARNESS_TUI_MANAGED === "1";
+  const dev = args.includes("--dev") || process.env.LARNESS_TUI_DEV === "1";
+  const dataDir = resolveDataDir();
+  let runtime: ManagedRuntime | null = null;
+  let stopping = false;
+
+  const shutdown = async (label: string): Promise<void> => {
+    if (stopping) {
+      return;
+    }
+    stopping = true;
+    console.log(pc.yellow(`\n${label}，正在停止 Server 与 Web…`));
+    await runtime?.stop();
+    console.log(pc.green("✓ 已停止 Server 与 Web"));
+  };
+
+  const onSignal = (signal: "SIGINT" | "SIGTERM" | "SIGHUP"): void => {
+    if (stopping) {
+      return;
+    }
+
+    void shutdown(signal).finally(() => process.exit(0));
+  };
+
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
+    process.on(signal, () => onSignal(signal));
+  }
+
+  try {
+    if (managed) {
+      runtime = await startManagedRuntime({ dev });
+    }
+
+    await runAttached({ dataDir: runtime?.dataDir ?? dataDir, runtime: runtime ?? undefined });
+  } finally {
+    await runtime?.stop();
+
+    if (runtime !== null) {
+      console.log(pc.green("✓ 已停止 Server 与 Web"));
+    }
   }
 }
 

@@ -134,7 +134,7 @@ node app.js tui
 
 | ID | 需求 |
 |---|---|
-| R-1 | `node app.js` 启动 Server；`tui` 连接 TUI；`status` 输出只读 JSON；`doctor` 自检；`--version` / `--help` 可用。 |
+| R-1 | `pnpm dev` / `node app.js` 启动 Server 与 Web 并进入 TUI；`status` 输出只读 JSON；`doctor` 自检；`--version` / `--help` 可用。TUI 关闭即停止全部（ADR-023）。 |
 | R-2 | 同一数据目录只允许一个 Server；第二个实例 3 秒内以非 0 退出并说明原因。 |
 | R-3 | SIGINT / SIGTERM：停止接收新请求、关 WS、释放 IPC / 锁、关 DB；10 秒超时强制退出。 |
 | R-4 | 端口占用、目录不可写、迁移失败、配置非法：非 0 退出并输出可操作提示；不得半启动。 |
@@ -181,7 +181,7 @@ Canonical origin / RP ID 规则：
 | ID | 需求 |
 |---|---|
 | R-11 | pino 结构化日志：`level`、`time`、`msg`、`requestId`、`clientSessionId`、`action`；秘密脱敏。 |
-| R-12 | 文件日志按天 / 大小轮转，保留 `retentionDays`；同时输出 stderr。 |
+| R-12 | 文件日志按天 / 大小轮转，保留 `retentionDays`；非 TUI 模式同时输出 stderr，TUI 模式由 supervisor 捕获并在日志模块展示。 |
 | R-13 | `status` 与 TUI 显示：版本、初始化、监听、DB、IPC、在线会话数、待审批数、磁盘可写。 |
 | R-14 | `doctor` 检查：Node 版本、数据目录权限、端口、DB 完整性、迁移版本、时钟偏移（>5 分钟告警）、canonical origin、RP ID、HTTPS 配置。 |
 
@@ -202,7 +202,7 @@ Canonical origin / RP ID 规则：
 | R-20 | NDJSON；请求 / 响应带 `id`；事件带 `event`；单帧 ≤ 1 MiB；空闲 30 分钟断开。 |
 | R-21 | 方法：`system.status`、`system.doctor`、`init.status`、`init.apply`、`pairing.list/approve/deny`、`devices.list/revoke`、`sessions.list/revoke`、`logs.tail`、`audit.tail`、`server.shutdown`。 |
 | R-22 | IPC 不监听 TCP；所有方法服务端再次校验状态与参数；TUI 不通过公网路由。 |
-| R-23 | TUI 断开不影响 Server；无 TUI 时新申请挂起至过期；已有 Passkey 仍可登录。 |
+| R-23 | TUI 是受管前台入口；正常退出会优雅停止 Server 与 Web；无 headless 产品模式。异常断开尽力清理但可能残留子进程（ADR-023）。 |
 | R-24 | TUI 设备列表显示：标签、凭据类型、`backupEligible/backupState`、创建时间、最后使用、状态；待审批列表显示 Origin，非 canonical 来源只提供 allow_once；撤销需二次确认。 |
 
 ### 5.6 配对与 enrollment（MUST）

@@ -62,6 +62,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     dataDir,
     level: loaded.config.logging.level,
     retentionDays: loaded.config.logging.retentionDays,
+    stderr: process.env.LARNESS_LOG_STDERR !== "0",
     destination: options.logDestination,
   });
 
