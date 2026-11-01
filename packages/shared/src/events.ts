@@ -15,6 +15,18 @@ export interface ServerEvent<T = unknown> {
   payload: T;
 }
 
+export interface AssistantDeltaEvent {
+  kind: "assistant.delta";
+  protocolVersion: 1;
+  topic: "agent";
+  streamId: string;
+  sessionId: string;
+  turnId: string;
+  messageId: string;
+  text: string;
+  timestamp: number;
+}
+
 export interface MessageItem {
   id: string;
   kind: "message";

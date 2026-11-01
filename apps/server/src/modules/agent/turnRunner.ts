@@ -11,7 +11,7 @@ import {
   type ToolRegistry,
   type ToolSchema,
 } from "@larness/agent";
-import type { ServerEvent } from "@larness/shared";
+import type { AssistantDeltaEvent, ServerEvent } from "@larness/shared";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
@@ -60,7 +60,7 @@ export interface TurnRunnerOptions {
   db: Database;
   registry: ToolRegistry;
   resolveProvider: ProviderResolver;
-  publish?: (event: ServerEvent) => void;
+  publish?: (event: ServerEvent | AssistantDeltaEvent) => void;
   now?: () => number;
   budget?: Partial<TurnBudget>;
   approvalPollMs?: number;
@@ -331,6 +331,7 @@ export class TurnRunner {
         }
 
         steps += 1;
+        const assistantMessageId = newId("msg");
         let text = "";
         const toolRequests: ToolCallRequest[] = [];
         let finishReason: ProviderFinishReason = "other";
@@ -347,6 +348,17 @@ export class TurnRunner {
         })) {
           if (chunk.type === "text-delta") {
             text += chunk.text;
+            this.#publishDelta(turn, session, {
+              kind: "assistant.delta",
+              protocolVersion: 1,
+              topic: "agent",
+              streamId: turn.sessionId,
+              sessionId: turn.sessionId,
+              turnId: turn.id,
+              messageId: assistantMessageId,
+              text: chunk.text,
+              timestamp: this.#now(),
+            });
             continue;
           }
 
@@ -391,7 +403,7 @@ export class TurnRunner {
         if (text.length > 0) {
           this.#emit(turn, session, "assistant.message", {
             turnId: turn.id,
-            messageId: newId("msg"),
+            messageId: assistantMessageId,
             text,
           });
         }
@@ -796,6 +808,18 @@ export class TurnRunner {
       status,
       ...(options.errorCode === undefined ? {} : { errorCode: options.errorCode }),
     };
+  }
+
+  #publishDelta(turn: TurnRow, session: SessionRow, event: AssistantDeltaEvent): void {
+    if (session.id !== turn.sessionId) {
+      return;
+    }
+
+    try {
+      (this.#options.publish ?? publishAgentEvent)(event);
+    } catch {
+      // Streaming deltas are best effort; the final message is persisted.
+    }
   }
 
   #publish(eventRow: ReturnType<typeof appendAgentEvent> | null, session: SessionRow): void {

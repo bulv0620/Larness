@@ -88,7 +88,7 @@ interface ServerEvent<T = unknown> {
 | `turn.created` | `turnId, status` | 是 |
 | `turn.status` | `turnId, status, reason?` | 是 |
 | `plan.updated` | `turnId, steps[]` | 是（M1 可选） |
-| `assistant.delta` | `turnId, text` | 否（仅广播，完成时落最终消息） |
+| `assistant.delta` | `turnId, messageId, text` | 否（仅广播，完成时落最终消息） |
 | `assistant.message` | `turnId, messageId, text` | 是 |
 | `tool.requested` | `toolCallId, name, argsSummary` | 是 |
 | `tool.approval.required` | `toolCallId, approvalId, summary, scope, expiresAt` | 是 |
@@ -103,7 +103,7 @@ interface ServerEvent<T = unknown> {
 | `turn.cancelled` | `turnId, reason` | 是 |
 | `turn.interrupted` | `turnId, reason` | 是 |
 
-`assistant.delta` 可按 50 ms / 16 KiB 聚合；`turn.*`、审批与工具状态不得仅存在内存。
+`assistant.delta` 可使用独立信封 `{ kind: "assistant.delta", topic: "agent", streamId, sessionId, turnId, messageId, text, timestamp }`，不占用持久化 `sequence`，刷新后不重放；最终 `assistant.message` 使用相同 `messageId` 覆盖完整文本。可按 50 ms / 16 KiB 聚合；`turn.*`、审批与工具状态不得仅存在内存。
 
 ### 4.2 `terminal`（streamId = terminalId）
 

@@ -17,6 +17,11 @@
 
 ## 当前工作
 
+- 待人工验收：`M1-10` — 流式对话与 Markdown
+  - `assistant.delta` 广播（不占 sequence）；流式文本、进行中条（思考 / 工具 / 审批 + 计时）；
+  - GFM Markdown：标题、表格、列表、代码块、链接；
+  - `pnpm check`（agent 32 / server 238 / web 26）、`build`、M1 E2E 通过；
+  - 人工验收时确认流式观感、表格 / 标题渲染与刷新恢复。
 - 待人工验收：`M1-9` — 项目目录选择器
   - `GET /api/fs/directories`：loopback + 已认证、仅目录、跳过符号链接、最多 500 项；
   - 项目对话框目录树（主目录 / 上一级 / 刷新 / 选择当前目录），保留手动路径；
@@ -45,7 +50,7 @@
   - Composer：模型 / 审批策略在发送前 PATCH 到会话，发送 Turn、停止、失败重试；审批卡片调用真实 `/api/approvals/:id`；
   - 认证：工作区会话撤销监控、退出登录、401 统一回登录；
   - 验证：web 23 项（新增 5 项 reducer）、server 227 项、agent 32 项；`pnpm check` / `build`、demo E2E 15 项、真实认证 E2E 1 项通过；
-  - 偏差：真实 Agent 全链路 E2E 留在 M1-8；`assistant.delta` 仍未广播。
+  - 偏差：真实 Agent 全链路 E2E 留在 M1-8；`assistant.delta` 已在 M1-10 补上。
 - 刚完成：`M1-5` — Turn Runner 与状态机（分支 `task/m1-5-runner`）
   - `TurnQueue`：全局并发 2、同会话串行、排队 / 取消 / 关闭时等待在途 Turn；
   - `TurnRunner`：QUEUED → PREPARING → RUNNING → WAITING_APPROVAL → COMPLETED / FAILED / CANCELLED；上下文构建、Provider 单步循环、工具事件、usage 与审计；
@@ -54,7 +59,7 @@
   - 事件：`turn.status` / `assistant.message` / `tool.*` / `file.changed` / `tool.approval.*` / `turn.completed|failed|cancelled` 先落库后广播；WS 新增 `agent:<sessionId>` 订阅；
   - API：创建 Turn 自动入队，取消通过队列 abort Runner；生产入口默认启用 Runner，真实 Key 暂用 `DEEPSEEK_API_KEY`（M1-7 移除）；
   - 验收：A3、A4（后端）、A5、A6、A9、A12；agent 32 / server 227 / web 18 测试，`pnpm check` 通过；
-  - 偏差：`assistant.delta` 尚未广播（M1-6 实时 UI 时补），真实 DeepSeek 冒烟仍在 M1-8。
+  - 偏差：`assistant.delta` 已在 M1-10 补上；真实 DeepSeek 冒烟在 M1-8。
 - 刚完成：`M1-4` — 工具注册与审批引擎（分支 `task/m1-4-tools`）
   - `packages/resources` 文件服务：`list_files` / `read_file` / `search_code` / `apply_patch`，realpath 根内校验、SHA-256 版本、行范围、1 MiB / 2000 行上限、二进制 / 超大 / 符号链接逃逸拒绝；
   - `packages/agent`：`ToolRegistry` + Zod schema + L0/L1 风险 + 结果规范化；`standard` / `strict` / `readonly` 审批策略映射；
@@ -186,3 +191,4 @@
 | 2026-11-01 | M1-8 自动化完成：M1 全链路 E2E（项目 / 工具 / 审批 / 刷新 / 切模型 / 停止）、验收记录；check / build / demo E2E / auth+prod E2E 全绿；真实 DeepSeek 冒烟待 Key，G1 未关闭 |
 | 2026-11-01 | M1-8 自动化通过：真实 DeepSeek live smoke 通过（33 tests / 654ms）；G1 仍需人类按 acceptance 第 7 节验收 |
 | 2026-11-01 | M1-9 目录选择器实现：本机目录浏览 API + 项目对话框目录树；server 237 / web 24 测试通过；待人工验收 |
+| 2026-11-01 | M1-10 流式对话与 Markdown：assistant.delta 广播、进行中状态、GFM 渲染；server 238 / web 26 测试通过；待人工验收 |

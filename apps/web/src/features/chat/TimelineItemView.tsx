@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { MarkdownText } from "@/features/chat/MarkdownText";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { useWindowStore } from "@/stores/windowStore";
@@ -67,39 +68,15 @@ function MessageBubble({ item }: { item: MessageItem }) {
             : "rounded-tr-md bg-accent text-white shadow-[0_2px_10px_rgba(10,132,255,.18)]",
         )}
       >
-        <div className={cn("whitespace-pre-wrap", item.streaming && "streaming-cursor")}>
-          <RichText text={item.text} />
-        </div>
+        {assistant ? (
+          <div className={cn(item.streaming && "streaming-cursor")}>
+            <MarkdownText text={item.text} />
+          </div>
+        ) : (
+          <div className="whitespace-pre-wrap">{item.text}</div>
+        )}
       </div>
     </div>
-  );
-}
-
-function RichText({ text }: { text: string }) {
-  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
-  return (
-    <>
-      {tokens.map((token, index) => {
-        if (token.startsWith("**") && token.endsWith("**")) {
-          return (
-            <strong key={`${token}_${index}`} className="font-semibold">
-              {token.slice(2, -2)}
-            </strong>
-          );
-        }
-        if (token.startsWith("`") && token.endsWith("`")) {
-          return (
-            <code
-              key={`${token}_${index}`}
-              className="rounded-[4px] bg-black/[.06] px-1 py-[1px] font-mono text-[11px] dark:bg-white/[.08]"
-            >
-              {token.slice(1, -1)}
-            </code>
-          );
-        }
-        return <span key={`${token}_${index}`}>{token}</span>;
-      })}
-    </>
   );
 }
 

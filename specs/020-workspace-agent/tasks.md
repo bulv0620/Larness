@@ -16,6 +16,7 @@
 | M1-7 | 模型 Profile 与 SecretStore | M1-3 | `done` |
 | M1-8 | M1 验收与 E2E | M1-6, M1-7 | `review` |
 | M1-9 | 项目目录选择器 | M1-1 | `review` |
+| M1-10 | 流式对话与 Markdown | M1-6, M1-7 | `review` |
 
 ## 任务卡
 
@@ -135,7 +136,7 @@
   - 审批挂起 / 恢复：工具事件、按参数哈希执行、拒绝 / 超时结果回传模型；项目写锁在写工具前获取 / 续租 / 释放；
   - `turn.*` / `tool.*` / `file.changed` 事件先落库后广播；WS 支持 `agent:<sessionId>` 订阅；创建 Turn 自动入队；
   - 测试：agent 32 项、server 227 项、web 18 项；覆盖 A3、A4（后端）、A5、A6、A9、A12、预算、审批超时、取消竞态、Provider 失败；
-  - 偏差：`assistant.delta` 广播与真实 DeepSeek 冒烟分别留到 M1-6 / M1-8。
+  - 偏差：`assistant.delta` 广播已由 M1-10 补上；真实 DeepSeek 冒烟在 M1-8。
 
 ### M1-6 实时对话 UI
 
@@ -223,3 +224,22 @@
   - 项目对话框目录树：主目录 / 上一级 / 刷新 / 选择当前目录，保留手动绝对路径；
   - 测试：server API 目录过滤与 loopback / 文件 / 相对路径 / 不存在目录；web `ProjectDialog` 组件测试；`pnpm check`（agent 32 / server 237 / web 24）与 `pnpm build` 通过；
   - M1 E2E 仍使用手动路径（临时目录在 home 之外，沙箱无法创建 home 目录）；目录树由组件测试覆盖，待人工验收第 2 步确认。
+
+### M1-10 流式对话与 Markdown
+
+- 状态：`review`（2026-11-01）
+- 依赖：M1-6, M1-7
+- 目标：让真实对话具备明确的进行中反馈，并正确渲染 Markdown 正文。
+- 交付物：
+  - `assistant.delta` 独立广播信封（不占用持久化 sequence），最终 `assistant.message` 以相同 `messageId` 覆盖；
+  - 时间线进行中条：等待审批 / 正在执行工具 / Agent 正在思考 + 计时；
+  - GFM Markdown：标题、表格、列表、引用、代码块、链接；
+  - 刷新后仍以持久化消息恢复。
+- 验收：流式文本增量显示；无事件序号缺口；刷新无重复；Markdown 表格与标题正确。
+- 测试：runner delta 测试、eventReducer 增量测试、Markdown 组件测试、M1 E2E 进行中状态。
+- 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`apps/web/src/features/chat/`、`docs/contracts/ws-events.md`。
+- 完成记录：
+  - `assistant.delta` 广播 + 客户端增量 upsert；最终消息同 id 覆盖；
+  - `TurnActivity` 显示等待审批 / 工具执行 / 思考与耗时；
+  - `MarkdownText` 使用 `react-markdown` + `remark-gfm`，安全转义 HTML；
+  - `pnpm check`（agent 32 / server 238 / web 26）、`pnpm build`、auth + M1 E2E 2 通过。

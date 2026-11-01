@@ -57,6 +57,24 @@ function toolId(event: ServerEvent, source: Payload): string {
   return stringField(source, "toolCallId") ?? `${event.eventId}_tool`;
 }
 
+export function applyAssistantDelta(
+  items: TimelineItem[],
+  delta: { messageId: string; text: string; createdAt: number },
+): TimelineItem[] {
+  const existing = items.find(
+    (item): item is MessageItem => item.kind === "message" && item.id === delta.messageId,
+  );
+
+  return upsert(items, {
+    id: delta.messageId,
+    kind: "message",
+    role: "assistant",
+    text: `${existing?.text ?? ""}${delta.text}`,
+    createdAt: existing?.createdAt ?? delta.createdAt,
+    streaming: true,
+  });
+}
+
 export function applyServerEvent(items: TimelineItem[], event: ServerEvent): TimelineItem[] {
   const data = payload(event);
   const turnId = stringField(data, "turnId") ?? event.eventId;
@@ -88,16 +106,10 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
     case "assistant.delta": {
       const delta = stringField(data, "text") ?? "";
       const messageId = stringField(data, "messageId") ?? `msg_${turnId}_assistant`;
-      const existing = items.find(
-        (item): item is MessageItem => item.kind === "message" && item.id === messageId,
-      );
-      return upsert(items, {
-        id: messageId,
-        kind: "message",
-        role: "assistant",
-        text: `${existing?.text ?? ""}${delta}`,
-        createdAt: existing?.createdAt ?? event.timestamp,
-        streaming: true,
+      return applyAssistantDelta(items, {
+        messageId,
+        text: delta,
+        createdAt: event.timestamp,
       });
     }
     case "tool.requested": {

@@ -1,5 +1,5 @@
 import websocket from "@fastify/websocket";
-import type { AppConfig, ServerEvent, WebAuthnRuntime } from "@larness/shared";
+import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import { eq, max } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { WebSocket } from "ws";
@@ -9,7 +9,7 @@ import { agentEvents } from "../db/schema.js";
 import { getSessionById } from "../modules/sessions/repository.js";
 import { sessionEvents } from "../security/session-events.js";
 import { transportAllowed } from "../security/transport.js";
-import { agentEventBus } from "./publisher.js";
+import { type AgentStreamEvent, agentEventBus } from "./publisher.js";
 
 const PROTOCOL_VERSION = 1;
 const HEARTBEAT_MS = 25_000;
@@ -172,7 +172,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
         sessionEvents.on("session.revoked", onSessionRevoked);
         sessionEvents.on("device.revoked", onDeviceRevoked);
 
-        const onAgentEvent = (event: ServerEvent): void => {
+        const onAgentEvent = (event: AgentStreamEvent): void => {
           if (subscriptions.has(`agent:${event.streamId}`)) {
             send(socket, event);
           }

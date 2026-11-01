@@ -82,7 +82,7 @@ LARNESS_DEEPSEEK_SMOKE=1 DEEPSEEK_API_KEY=... \
 
 ## 6. 已知偏差
 
-- `assistant.delta` 未广播；当前实时性以工具 / 状态事件和最终 `assistant.message` 为准。
+- `assistant.delta` 已由 M1-10 广播；刷新时不重放增量，加载最终 `assistant.message`。
 - `POST /api/models/:id/test` 可选项未实现。
 - 自动化 E2E 使用 FakeProvider；真实 DeepSeek 调用由第 5 节的 live smoke 单独覆盖。
 - AI SDK 对 messages 中的 system 内容给出注入风险警告；M1 的系统策略与项目指令仍按受控文本处理，后续可改为独立 `system` 参数。
@@ -96,7 +96,8 @@ LARNESS_DEEPSEEK_SMOKE=1 DEEPSEEK_API_KEY=... \
 - [ ] 用目录树选择器添加一个临时项目目录（并验证手动路径回退），新建项目会话；确认标题、路径、Git 状态与空态正确；
 - [ ] 在“设置与模型”添加真实 DeepSeek Key（只显示掩码），发送真实任务读取并修改临时文件；确认工具卡片、审批卡片、文件变化与 Turn 完成；
 - [ ] 刷新页面：历史与审批状态完整，无重复、无缺口，Turn 不被中断；
-- [ ] 发送一个可延迟任务并点击“停止”，确认 UI 显示已停止且不再产生工具调用；
+- [ ] 发送一个可延迟任务，确认出现“Agent 正在思考 / 正在执行工具 / 等待批准”的进行中条，再点击“停止”，确认 UI 显示已停止且不再产生工具调用；
+- [ ] 检查助手回复的 Markdown 标题、列表、表格与代码块渲染，刷新后内容不重复、不丢失；
 - [ ] 创建第二个模型 Profile（可用 `POST /api/models` 或后续设置界面）并切换；确认当前 Turn 不受影响、下一轮使用新模型；
 - [ ] 检查页面、事件、API 响应、日志与审计中无 Key 明文；`secrets/master.key` 权限为 0600；
 - [ ] 1440×900 桌面与窄屏截图检查：无遮挡、无横向溢出、审批/工具卡片可读；

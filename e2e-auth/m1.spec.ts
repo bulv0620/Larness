@@ -117,6 +117,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
 
     await composer.fill("cancel");
     await page.getByRole("button", { name: "发送消息" }).click();
+    await expect(page.getByText("Agent 正在思考")).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "停止执行" }).click({ timeout: 10_000 });
     await expect(page.getByText("已停止当前执行。")).toBeVisible({ timeout: 20_000 });
 

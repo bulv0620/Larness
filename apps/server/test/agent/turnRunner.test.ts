@@ -7,7 +7,7 @@ import {
   type ProviderChunk,
   ProviderError,
 } from "@larness/agent";
-import type { ServerEvent } from "@larness/shared";
+import type { AssistantDeltaEvent, ServerEvent } from "@larness/shared";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
@@ -83,7 +83,9 @@ describe("TurnRunner", () => {
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
-          publish: (event) => published.push(event),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
         });
 
         const result = await runner.run(turn.turnId);
@@ -122,6 +124,48 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("broadcasts ephemeral assistant deltas that share the final message id", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "stream" });
+        const provider = createFakeProvider([textStep("hello world")]);
+        const streamed: Array<ServerEvent | AssistantDeltaEvent> = [];
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          publish: (event) => streamed.push(event),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const deltas = streamed.filter(
+          (event): event is AssistantDeltaEvent => event.kind === "assistant.delta",
+        );
+        expect(deltas).toHaveLength(1);
+        expect(deltas[0]).toMatchObject({
+          sessionId: session.id,
+          turnId: turn.turnId,
+          text: "hello world",
+        });
+
+        const message = streamed.find(
+          (event): event is ServerEvent => "type" in event && event.type === "assistant.message",
+        );
+        expect(message?.payload).toMatchObject({
+          messageId: deltas[0]?.messageId,
+          text: "hello world",
+        });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("executes a standard-policy patch and records tool/file events", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
@@ -146,7 +190,9 @@ describe("TurnRunner", () => {
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
-          publish: (event) => published.push(event),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
         });
 
         const result = await runner.run(turn.turnId);
@@ -249,7 +295,9 @@ describe("TurnRunner", () => {
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
-          publish: (event) => published.push(event),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
           approvalPollMs: 5,
         });
         const running = runner.run(turn.turnId);
@@ -318,7 +366,9 @@ describe("TurnRunner", () => {
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
-          publish: (event) => published.push(event),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
           approvalPollMs: 5,
         });
         const running = runner.run(turn.turnId);
@@ -381,7 +431,9 @@ describe("TurnRunner", () => {
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
-          publish: (event) => published.push(event),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
           approvalPollMs: 5,
           approvalTtlMs: 20,
         });
@@ -413,7 +465,9 @@ describe("TurnRunner", () => {
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
-          publish: (event) => published.push(event),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
         });
 
         const running = runner.run(turn.turnId);
@@ -491,7 +545,9 @@ describe("TurnRunner", () => {
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
-          publish: (event) => published.push(event),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
           budget: { maxSteps: 1 },
         });
 

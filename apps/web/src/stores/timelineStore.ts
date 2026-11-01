@@ -1,7 +1,14 @@
-import type { ApprovalItem, ErrorItem, ServerEvent, TimelineItem } from "@larness/shared";
+import type {
+  ApprovalItem,
+  AssistantDeltaEvent,
+  ErrorItem,
+  ServerEvent,
+  TimelineItem,
+} from "@larness/shared";
 import { create } from "zustand";
 import { USE_MOCKS } from "@/lib/env";
 import {
+  applyAssistantDelta,
   applyServerEvent,
   eventsToTimeline,
   eventTurnId,
@@ -55,6 +62,7 @@ interface TimelineState {
   loading: boolean;
   isStreaming: boolean;
   activeTurnId: string | null;
+  turnStartedAt: number | null;
   lastSeq: number;
   load: (sessionId: string) => Promise<void>;
   disconnect: () => void;
@@ -62,6 +70,25 @@ interface TimelineState {
   send: (text: string) => Promise<void>;
   stop: () => void;
   resolveApproval: (approvalId: string, decision: "approve" | "reject") => Promise<void>;
+}
+
+function applyDeltaToState(event: AssistantDeltaEvent): void {
+  const state = useTimelineStore.getState();
+
+  if (event.sessionId !== state.sessionId) {
+    return;
+  }
+
+  useTimelineStore.setState({
+    items: applyAssistantDelta(state.items, {
+      messageId: event.messageId,
+      text: event.text,
+      createdAt: event.timestamp,
+    }),
+    isStreaming: true,
+    activeTurnId: state.activeTurnId ?? event.turnId,
+    turnStartedAt: state.turnStartedAt ?? event.timestamp,
+  });
 }
 
 function applyEventToState(event: ServerEvent): void {
@@ -98,11 +125,22 @@ function applyEventToState(event: ServerEvent): void {
       ? true
       : state.isStreaming;
 
+  const terminal = isTerminalTurnEvent(event);
+  const nextItems = applyServerEvent(state.items, event);
+
   useTimelineStore.setState({
-    items: applyServerEvent(state.items, event),
+    items: terminal
+      ? nextItems.map((item) => (item.kind === "message" ? { ...item, streaming: false } : item))
+      : nextItems,
     lastSeq: event.sequence,
-    activeTurnId: isTerminalTurnEvent(event) ? null : activeTurnId,
+    activeTurnId: terminal ? null : activeTurnId,
     isStreaming: nextStreaming,
+    turnStartedAt:
+      terminal || nextStreaming
+        ? terminal
+          ? null
+          : (state.turnStartedAt ?? event.timestamp)
+        : state.turnStartedAt,
   });
 }
 
@@ -149,6 +187,11 @@ function connectSocket(sessionId: string): void {
       return;
     }
 
+    if (value.kind === "assistant.delta" && value.topic === "agent") {
+      applyDeltaToState(value as unknown as AssistantDeltaEvent);
+      return;
+    }
+
     if (value.kind === "event" && value.topic === "agent") {
       applyEventToState(value as unknown as ServerEvent);
     }
@@ -177,6 +220,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   loading: false,
   isStreaming: false,
   activeTurnId: null,
+  turnStartedAt: null,
   lastSeq: 0,
 
   load: async (sessionId) => {
@@ -190,6 +234,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       loading: Boolean(sessionId),
       isStreaming: false,
       activeTurnId: null,
+      turnStartedAt: null,
       lastSeq: 0,
     });
 
@@ -224,6 +269,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         loading: false,
         isStreaming: detail.activeTurn !== null,
         activeTurnId: detail.activeTurn?.id ?? null,
+        turnStartedAt: detail.activeTurn?.createdAt ?? null,
       });
       connectSocket(sessionId);
     } catch (error) {
@@ -274,7 +320,11 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         text: trimmed,
         createdAt: Date.now(),
       };
-      set((state) => ({ items: [...state.items, userItem], isStreaming: true }));
+      set((state) => ({
+        items: [...state.items, userItem],
+        isStreaming: true,
+        turnStartedAt: Date.now(),
+      }));
       mockController = new AbortController();
       const active = mockController;
 
@@ -298,6 +348,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       } finally {
         set((state) => ({
           isStreaming: false,
+          turnStartedAt: null,
           items: state.items.map((item) =>
             item.kind === "message" ? { ...item, streaming: false } : item,
           ),
@@ -315,7 +366,11 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       text: trimmed,
       createdAt: Date.now(),
     };
-    set((state) => ({ items: [...state.items, optimistic], isStreaming: true }));
+    set((state) => ({
+      items: [...state.items, optimistic],
+      isStreaming: true,
+      turnStartedAt: Date.now(),
+    }));
 
     try {
       await updateSession(sessionId, {
@@ -333,6 +388,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       const message = error instanceof Error ? error.message : "发送失败";
       set((state) => ({
         isStreaming: false,
+        turnStartedAt: null,
         items: [
           ...state.items.filter((item) => item.id !== optimistic.id),
           errorItem(`发送失败：${message}`),

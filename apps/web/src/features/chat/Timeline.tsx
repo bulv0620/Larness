@@ -1,7 +1,7 @@
-import type { TimelineItem } from "@larness/shared";
+import type { ApprovalItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
-import { MessageSquareText, Sparkles } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Loader2, MessageSquareText, ShieldAlert, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TimelineItemView } from "@/features/chat/TimelineItemView";
 import { useComposerStore } from "@/stores/composerStore";
@@ -13,6 +13,62 @@ const suggestions = [
   "检查当前端口，启动 dev server 并在浏览器预览。",
   "总结最近的 Git 改动，生成一段发布说明。",
 ];
+
+function TurnActivity() {
+  const items = useTimelineStore((state) => state.items);
+  const isStreaming = useTimelineStore((state) => state.isStreaming);
+  const startedAt = useTimelineStore((state) => state.turnStartedAt);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!isStreaming) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [isStreaming]);
+
+  if (!isStreaming) return null;
+
+  const last = [...items].reverse();
+  const approval = last.find(
+    (item): item is ApprovalItem => item.kind === "approval" && item.status === "pending",
+  );
+  const tool = last.find(
+    (item): item is ToolItem => item.kind === "tool" && item.status === "running",
+  );
+  const label =
+    approval !== undefined
+      ? "等待你批准工具调用"
+      : tool !== undefined
+        ? `正在执行 ${tool.name}`
+        : "Agent 正在思考";
+  const elapsed = startedAt === null ? null : Math.max(0, Math.floor((now - startedAt) / 1_000));
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="mx-1 flex items-center gap-2 rounded-xl border border-accent/15 bg-accent-soft/35 px-3 py-2 text-[11px] text-ink-2"
+    >
+      {approval !== undefined ? (
+        <ShieldAlert size={12} className="shrink-0 text-warning" />
+      ) : tool !== undefined ? (
+        <Loader2 size={12} className="shrink-0 animate-spin text-accent" />
+      ) : (
+        <Sparkles size={12} className="shrink-0 animate-pulse text-accent" />
+      )}
+      <span className="font-medium">{label}</span>
+      <span className="inline-flex items-center gap-0.5 text-accent">
+        <span className="activity-dot" />
+        <span className="activity-dot [animation-delay:140ms]" />
+        <span className="activity-dot [animation-delay:280ms]" />
+      </span>
+      <span className="ml-auto font-mono text-[10px] text-ink-3">
+        {elapsed === null ? "进行中" : `${elapsed}s`}
+      </span>
+    </div>
+  );
+}
 
 export function Timeline() {
   const items = useTimelineStore((state) => state.items);
@@ -101,6 +157,7 @@ export function Timeline() {
         {items.map((item: TimelineItem) => (
           <TimelineItemView key={item.id} item={item} />
         ))}
+        <TurnActivity />
         <div className={cn("h-1 shrink-0")} />
       </div>
     </div>

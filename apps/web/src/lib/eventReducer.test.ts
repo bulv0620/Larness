@@ -1,6 +1,11 @@
 import type { ServerEvent } from "@larness/shared";
 import { describe, expect, it } from "vitest";
-import { applyServerEvent, eventsToTimeline, isTerminalTurnEvent } from "./eventReducer";
+import {
+  applyAssistantDelta,
+  applyServerEvent,
+  eventsToTimeline,
+  isTerminalTurnEvent,
+} from "./eventReducer";
 
 let sequence = 0;
 
@@ -152,5 +157,37 @@ describe("event reducer", () => {
     expect(items[2]).toMatchObject({ kind: "error", message: "已停止当前执行。" });
     expect(isTerminalTurnEvent(event("turn.completed", { turnId: "trn_1" }))).toBe(true);
     expect(isTerminalTurnEvent(event("tool.completed", {}))).toBe(false);
+  });
+
+  it("appends streaming assistant deltas into the final message id", () => {
+    let items = applyAssistantDelta([], {
+      messageId: "msg_stream",
+      text: "hello",
+      createdAt: 1_010,
+    });
+    items = applyAssistantDelta(items, {
+      messageId: "msg_stream",
+      text: " world",
+      createdAt: 1_011,
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: "msg_stream",
+      role: "assistant",
+      text: "hello world",
+      streaming: true,
+    });
+
+    items = applyServerEvent(
+      items,
+      event("assistant.message", {
+        turnId: "trn_1",
+        messageId: "msg_stream",
+        text: "hello world",
+      }),
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ id: "msg_stream", text: "hello world" });
+    expect(items[0]).not.toHaveProperty("streaming", true);
   });
 });
