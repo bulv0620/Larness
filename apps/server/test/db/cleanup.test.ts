@@ -58,7 +58,7 @@ describe("cleanupExpired", () => {
         });
 
         const result = cleanupExpired(opened.db, now);
-        expect(result).toEqual({ challenges: 1, sessions: 1, requests: 1 });
+        expect(result).toEqual({ challenges: 1, sessions: 1, requests: 1, approvals: 0 });
 
         expect(
           opened.sqlite.prepare("SELECT count(*) AS n FROM webauthn_challenges").get(),

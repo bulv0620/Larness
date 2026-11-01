@@ -1,4 +1,5 @@
 import { and, inArray, lt } from "drizzle-orm";
+import { expirePendingApprovals } from "../modules/agent/approvalService.js";
 import type { Database } from "./client.js";
 import { browserSessions, deviceRequests, webauthnChallenges } from "./schema.js";
 
@@ -6,6 +7,7 @@ export interface CleanupResult {
   challenges: number;
   sessions: number;
   requests: number;
+  approvals: number;
 }
 
 export function cleanupExpired(db: Database, now = Date.now()): CleanupResult {
@@ -29,7 +31,9 @@ export function cleanupExpired(db: Database, now = Date.now()): CleanupResult {
     )
     .run().changes;
 
-  return { challenges, sessions, requests };
+  const approvals = expirePendingApprovals({ db, now: () => now });
+
+  return { challenges, sessions, requests, approvals };
 }
 
 export interface CleanupSchedulerLogger {
@@ -54,7 +58,7 @@ export function startCleanupScheduler(
   const run = (): void => {
     try {
       const result = cleanupExpired(db, (options.now ?? Date.now)());
-      const removed = result.challenges + result.sessions + result.requests;
+      const removed = result.challenges + result.sessions + result.requests + result.approvals;
 
       if (removed > 0) {
         options.logger?.info({ ...result }, "expired rows cleaned");

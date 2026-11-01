@@ -1,6 +1,7 @@
 import cookie from "@fastify/cookie";
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
+import { registerApprovalRoutes } from "./api/approvals.js";
 import { registerAuthRoutes } from "./api/auth.js";
 import { registerBootstrapRoutes } from "./api/bootstrap.js";
 import { registerHealthRoute } from "./api/health.js";
@@ -67,6 +68,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
 
   if (options.services) {
     registerAuthRoutes(app, options.services);
+    registerApprovalRoutes(app, { db: options.services.db });
     registerProjectRoutes(app, { db: options.services.db });
     registerSessionRoutes(app, {
       db: options.services.db,

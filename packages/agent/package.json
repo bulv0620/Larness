@@ -13,11 +13,14 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "diff": "^9.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.78",
-    "ai": "^6.0.320"
+    "@larness/resources": "workspace:*",
+    "ai": "^6.0.320",
+    "zod": "^4.6.7"
   }
 }

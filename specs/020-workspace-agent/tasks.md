@@ -10,7 +10,7 @@
 | M1-1 | 项目登记与路径授权 | G0 | `done` |
 | M1-2 | 会话、Turn 与事件存储 | M1-1 | `done` |
 | M1-3 | Provider 适配与 FakeProvider | G0 | `done` |
-| M1-4 | 工具注册与审批引擎 | M1-1, M1-2 | `todo` |
+| M1-4 | 工具注册与审批引擎 | M1-1, M1-2 | `done` |
 | M1-5 | Turn Runner 与状态机 | M1-2, M1-3, M1-4 | `todo` |
 | M1-6 | 实时对话 UI | M1-5, M0-8 | `todo` |
 | M1-7 | 模型 Profile 与 SecretStore | M1-3 | `todo` |
@@ -90,7 +90,7 @@
 
 ### M1-4 工具注册与审批引擎
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：M1-1, M1-2
 - 目标：让 Agent 的文件操作受统一 schema、路径授权、审批与审计约束。
 - 交付物：
@@ -104,6 +104,13 @@
 - 验收：A7、A8；审批参数替换被拒绝；超时默认拒绝；工具输出截断。
 - 测试：schema 非法、越界、符号链接、版本冲突、审批超时、参数篡改、输出上限。
 - 涉及路径：`packages/agent/src/tools/`、`packages/resources/src/files/`、`apps/server/src/modules/agent/approvalService.ts`、`apps/server/src/api/approvals.ts`。
+- 完成记录：
+  - `packages/resources`：文件列表 / 读取 / 搜索 / 补丁，realpath 根内校验、SHA-256 版本、行范围、1 MiB / 2000 行上限，二进制 / 超大 / 符号链接逃逸拒绝；
+  - `packages/agent`：ToolRegistry（Zod schema / L0–L1 / 结果规范化）、四个文件工具、standard / strict / readonly 策略；
+  - 审批：canonical 参数哈希、pending / approved / denied / expired、超时拒绝、篡改检测、`GET/POST /api/approvals/:id`、清理任务过期与审计；
+  - `ProjectWriteLock`：project 锁 / TTL / fencing / 续租 / 释放；Runner 接线与审批事件留给 M1-5；
+  - `ToolExecutor`：审批门禁、参数校验、`tool.requested` / `tool.completed` / `tool.denied` 审计；
+  - 测试：agent 32 项、server 210 项、web 18 项；覆盖 A7、A8、版本冲突、超时、篡改、输出上限。
 
 ### M1-5 Turn Runner 与状态机
 

@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-01 18:15 (+08:00)
-> 当前阶段：**M1 进行中；M1-3 完成，下一步 M1-4**
+> 最后更新：2026-11-01 18:30 (+08:00)
+> 当前阶段：**M1 进行中；M1-4 完成，下一步 M1-5**
 
 ## 里程碑
 
@@ -9,7 +9,7 @@
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
-| M1 | 项目、会话与最小 Agent | `in_progress` | M1-3 完成；下一步 M1-4；项目写锁已纳入 M1-4/M1-5 规划 |
+| M1 | 项目、会话与最小 Agent | `in_progress` | M1-4 完成；下一步 M1-5；项目写锁已实现，Runner 接线在 M1-5 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
@@ -17,6 +17,13 @@
 
 ## 当前工作
 
+- 刚完成：`M1-4` — 工具注册与审批引擎（分支 `task/m1-4-tools`）
+  - `packages/resources` 文件服务：`list_files` / `read_file` / `search_code` / `apply_patch`，realpath 根内校验、SHA-256 版本、行范围、1 MiB / 2000 行上限、二进制 / 超大 / 符号链接逃逸拒绝；
+  - `packages/agent`：`ToolRegistry` + Zod schema + L0/L1 风险 + 结果规范化；`standard` / `strict` / `readonly` 审批策略映射；
+  - 审批：规范化参数哈希、pending / approved / denied / expired、超时拒绝、参数篡改检测、`GET/POST /api/approvals/:id`、清理任务自动过期与审计；
+  - `ProjectWriteLock`：project 资源锁、TTL / fencing / 续租 / 释放，旧 token 拒绝；写 Turn 接线留给 M1-5；
+  - `ToolExecutor`：策略拦截、审批请求 / 校验、`tool.requested` / `tool.completed` / `tool.denied` 审计；路径越界记录拒绝；
+  - 验收：A7、A8；agent 32 项 + server 210 项 + web 18 项测试，`pnpm check` 通过。
 - 刚完成：`M1-3` — Provider 适配与 FakeProvider（分支 `task/m1-3-provider`）
   - `packages/agent`：`ProviderAdapter` / `ProviderChunk` / 能力声明 / 稳定错误分类；`FakeProvider` 支持脚本化文本、工具调用、错误、延迟与 abort；
   - `DeepSeekProvider`：基于 AI SDK 的流式文本 + 工具调用映射，消息 / 工具 schema 转换，Key 按调用注入，超时与 401 / 429 / 上下文超限 / 内容过滤分类，不泄漏上游原文；
@@ -70,7 +77,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：`M1-4` — 工具注册与审批引擎
+- 下一个任务：`M1-5` — Turn Runner 与状态机
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -134,3 +141,4 @@
 | 2026-11-01 | M1-1 完成：projects 迁移 / API / pathGuard / Git 检测 / 设置 / 审计；项目写锁提前到 M1-4/M1-5；server 176 项测试 |
 | 2026-11-01 | M1-2 完成：`0003_workspace` 五表 / repository；会话 workspace / 列表 / 重命名 / 归档；Turn 幂等创建、活跃校验、取消骨架；事务内 seq 与事件分页；启动 INTERRUPTED 修复；资源锁 fencing；server 200 项测试 |
 | 2026-11-01 | M1-3 完成：ProviderAdapter / FakeProvider / DeepSeek 适配与错误分类；内置模型 Profile；共享 Provider 错误码；agent 15 / server 202 / web 18 测试；真实 DeepSeek 冒烟待 M1-8 |
+| 2026-11-01 | M1-4 完成：文件工具 / 版本校验 / 输出上限；ToolRegistry 与审批策略；审批服务与 API、超时与篡改检测；ProjectWriteLock；ToolExecutor 审计；agent 32 / server 210 / web 18 测试 |

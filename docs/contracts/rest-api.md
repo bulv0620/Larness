@@ -361,6 +361,27 @@ Turn 创建成功返回 `202`：
 
 `after` 缺省为 0；`nextSeq` 为本批最后一条事件的 `seq`，无事件时等于 `after`。
 
+`GET /api/approvals/:id` 返回审批详情（不包含完整工具参数，只包含摘要与参数哈希）：
+
+```json
+{
+  "id": "apv_…",
+  "turnId": "trn_…",
+  "toolCallId": "call_…",
+  "toolName": "apply_patch",
+  "risk": "L1",
+  "status": "pending",
+  "scope": { "summary": "patch README.md", "risk": "L1", "toolName": "apply_patch" },
+  "paramsHash": "…64 hex…",
+  "expiresAt": 1790000300000,
+  "decidedAt": null,
+  "decidedBy": null,
+  "createdAt": 1790000000000
+}
+```
+
+`POST /api/approvals/:id` 接受 `{ "decision": "approve" | "reject" }`；仅 `pending` 可决策，重复决策 / 超时返回 `409 APPROVAL_INVALID`。过期审批在读取或清理时置为 `expired`，默认拒绝。执行前必须用同一参数重新计算哈希并与 `paramsHash` 比较，不一致拒绝并审计。
+
 ## 8. 资源接口（M2–M5 摘要）
 
 | 方法 | 路径 | 里程碑 |
