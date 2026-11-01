@@ -138,6 +138,7 @@ test.describe("Harness S0 视觉 Demo", () => {
     const leftBefore = (await nav.boundingBox())?.width ?? 0;
     const leftBox = await leftHandle.boundingBox();
     expect(leftBox).not.toBeNull();
+    expect(leftBox?.width ?? 0).toBeLessThan(2);
     if (leftBox) {
       await page.mouse.move(leftBox.x + 3, leftBox.y + 300);
       await page.mouse.down();

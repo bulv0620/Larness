@@ -68,9 +68,10 @@ export function SidebarResizeHandle({
       onPointerDown={startDrag}
       onDoubleClick={() => onChange(defaultValue)}
       onKeyDown={onKeyDown}
-      className={`group relative z-30 w-1.5 shrink-0 cursor-col-resize focus-visible:outline-none ${className ?? ""}`}
+      className={`relative z-30 w-px shrink-0 cursor-col-resize bg-line transition-colors hover:bg-accent/45 focus-visible:bg-accent/60 focus-visible:outline-none ${className ?? ""}`}
     >
-      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-line transition-colors group-hover:bg-line-strong group-focus-visible:bg-ink-3/50" />
+      {/* Wider invisible hit area; the visible line stays 1px so it does not create a colored strip. */}
+      <span aria-hidden className="absolute inset-y-0 -left-2 -right-2" />
     </div>
   );
 }
