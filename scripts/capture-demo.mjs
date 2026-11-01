@@ -60,6 +60,14 @@ await shot("05-browser-dark.png", {
   },
 });
 await shot("06-narrow-1100.png", { width: 1100, height: 900 });
+await shot("07-files-tab.png", {
+  width: 1440,
+  height: 900,
+  action: async (page) => {
+    await page.getByRole("tab", { name: /^文件/ }).click();
+    await page.waitForTimeout(400);
+  },
+});
 
 console.log(JSON.stringify({ out: outDir.pathname, errors }, null, 2));
 await browser.close();
