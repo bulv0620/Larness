@@ -24,6 +24,11 @@ export const ERROR_CODES = {
   approvalInvalid: "APPROVAL_INVALID",
   previewTargetInvalid: "PREVIEW_TARGET_INVALID",
   providerUnavailable: "PROVIDER_UNAVAILABLE",
+  providerAuthFailed: "PROVIDER_AUTH_FAILED",
+  providerRateLimited: "PROVIDER_RATE_LIMITED",
+  providerContextLimit: "PROVIDER_CONTEXT_LIMIT",
+  providerContentFiltered: "PROVIDER_CONTENT_FILTERED",
+  providerUnknown: "PROVIDER_UNKNOWN",
   internal: "INTERNAL",
 } as const;
 
@@ -55,6 +60,11 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   APPROVAL_INVALID: 409,
   PREVIEW_TARGET_INVALID: 403,
   PROVIDER_UNAVAILABLE: 503,
+  PROVIDER_AUTH_FAILED: 502,
+  PROVIDER_RATE_LIMITED: 429,
+  PROVIDER_CONTEXT_LIMIT: 413,
+  PROVIDER_CONTENT_FILTERED: 422,
+  PROVIDER_UNKNOWN: 502,
   INTERNAL: 500,
 };
 

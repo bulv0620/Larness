@@ -48,6 +48,11 @@
 | `APPROVAL_INVALID` | 409 | 审批过期 / 被撤销 / 参数不一致 |
 | `PREVIEW_TARGET_INVALID` | 403 | 代理目标未登记或被禁止 |
 | `PROVIDER_UNAVAILABLE` | 503 | 模型 Provider 不可用 |
+| `PROVIDER_AUTH_FAILED` | 502 | 模型 Provider 拒绝凭据 / 未配置 Key |
+| `PROVIDER_RATE_LIMITED` | 429 | 模型 Provider 限流 |
+| `PROVIDER_CONTEXT_LIMIT` | 413 | 上下文超出模型上限 |
+| `PROVIDER_CONTENT_FILTERED` | 422 | 模型 Provider 内容过滤 |
+| `PROVIDER_UNKNOWN` | 502 | Provider 未分类错误 |
 | `INTERNAL` | 500 | 未预期错误（不返回堆栈） |
 
 ## 3. 公开接口（M0）

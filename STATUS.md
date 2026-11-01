@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-01 18:00 (+08:00)
-> 当前阶段：**M1 进行中；M1-2 完成，下一步 M1-3**
+> 最后更新：2026-11-01 18:15 (+08:00)
+> 当前阶段：**M1 进行中；M1-3 完成，下一步 M1-4**
 
 ## 里程碑
 
@@ -9,7 +9,7 @@
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
-| M1 | 项目、会话与最小 Agent | `in_progress` | M1-2 完成；下一步 M1-3；项目写锁已纳入 M1-4/M1-5 规划 |
+| M1 | 项目、会话与最小 Agent | `in_progress` | M1-3 完成；下一步 M1-4；项目写锁已纳入 M1-4/M1-5 规划 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
@@ -17,6 +17,13 @@
 
 ## 当前工作
 
+- 刚完成：`M1-3` — Provider 适配与 FakeProvider（分支 `task/m1-3-provider`）
+  - `packages/agent`：`ProviderAdapter` / `ProviderChunk` / 能力声明 / 稳定错误分类；`FakeProvider` 支持脚本化文本、工具调用、错误、延迟与 abort；
+  - `DeepSeekProvider`：基于 AI SDK 的流式文本 + 工具调用映射，消息 / 工具 schema 转换，Key 按调用注入，超时与 401 / 429 / 上下文超限 / 内容过滤分类，不泄漏上游原文；
+  - 模型 Profile：内置 `deepseek-chat` 与 Fake 默认 Profile（无密钥，M1-7 换为持久化 repository）；
+  - 共享错误码新增 `PROVIDER_AUTH_FAILED` / `PROVIDER_RATE_LIMITED` / `PROVIDER_CONTEXT_LIMIT` / `PROVIDER_CONTENT_FILTERED` / `PROVIDER_UNKNOWN` 并同步契约；
+  - 契约测试确认 FakeProvider 与 AI SDK 映射对同一脚本产出一致；真实 DeepSeek 冒烟测试由 `LARNESS_DEEPSEEK_SMOKE=1` + `DEEPSEEK_API_KEY` 门控，无 Key 时跳过（记录移入 M1-8）；
+  - 验收：A3 的模型部分、A11（分类）；agent 15 项 + server 202 项 + web 18 项测试，`pnpm check` 通过。
 - 刚完成：`M1-2` — 会话、Turn 与事件存储（分支 `task/m1-2-sessions`）
   - `0003_workspace` 迁移：`sessions` / `turns` / `agent_events` / `approvals` / `resource_locks`，含 `UNIQUE(session_id, seq)`、`UNIQUE(session_id, idempotency_key)`、资源锁唯一约束与外键；
   - 会话：独立会话创建空 workspace、项目会话复用 `realPath`、列表 / 项目筛选 / limit、详情含活跃 Turn、重命名 / 下一轮模型、归档（不删源码，活跃 Turn 409）；
@@ -63,7 +70,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：`M1-3` — Provider 适配与 FakeProvider
+- 下一个任务：`M1-4` — 工具注册与审批引擎
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -126,3 +133,4 @@
 | 2026-11-01 | M0 验收关闭：macOS 范围 G0 通过；Linux / Windows / CI 首次远端结果列为后续验证；下一步先修 M1 项目写锁规划 |
 | 2026-11-01 | M1-1 完成：projects 迁移 / API / pathGuard / Git 检测 / 设置 / 审计；项目写锁提前到 M1-4/M1-5；server 176 项测试 |
 | 2026-11-01 | M1-2 完成：`0003_workspace` 五表 / repository；会话 workspace / 列表 / 重命名 / 归档；Turn 幂等创建、活跃校验、取消骨架；事务内 seq 与事件分页；启动 INTERRUPTED 修复；资源锁 fencing；server 200 项测试 |
+| 2026-11-01 | M1-3 完成：ProviderAdapter / FakeProvider / DeepSeek 适配与错误分类；内置模型 Profile；共享 Provider 错误码；agent 15 / server 202 / web 18 测试；真实 DeepSeek 冒烟待 M1-8 |

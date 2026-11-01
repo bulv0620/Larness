@@ -63,7 +63,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-8
 |---|---|---|---|---|
 | M1-1 | 项目登记与路径授权 | projects 表 / API、realpath 校验、Git 检测、删除仅解除关联 | G0 | `done` |
 | M1-2 | 会话、Turn 与事件存储 | sessions / turns / agent_events、seq、重放 API、崩溃标记 | M1-1 | `done` |
-| M1-3 | Provider 适配与 FakeProvider | ProviderAdapter、能力声明、FakeProvider、DeepSeek 适配 | G0 | `todo` |
+| M1-3 | Provider 适配与 FakeProvider | ProviderAdapter、能力声明、FakeProvider、DeepSeek 适配 | G0 | `done` |
 | M1-4 | 工具注册与审批引擎 | ToolRegistry、list / read / search / patch、L0–L2、项目写锁、审计 | M1-1, M1-2 | `todo` |
 | M1-5 | Turn Runner 与状态机 | QUEUED→…→COMPLETED、预算、取消、项目锁续租、事件写入 | M1-2, M1-3, M1-4 | `todo` |
 | M1-6 | 实时对话 UI | Query + WS、乐观 / 重放、工具卡片、审批卡片、错误态 | M1-5, M0-8 | `todo` |

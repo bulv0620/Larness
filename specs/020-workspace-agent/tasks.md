@@ -9,7 +9,7 @@
 |---|---|---|---|
 | M1-1 | 项目登记与路径授权 | G0 | `done` |
 | M1-2 | 会话、Turn 与事件存储 | M1-1 | `done` |
-| M1-3 | Provider 适配与 FakeProvider | G0 | `todo` |
+| M1-3 | Provider 适配与 FakeProvider | G0 | `done` |
 | M1-4 | 工具注册与审批引擎 | M1-1, M1-2 | `todo` |
 | M1-5 | Turn Runner 与状态机 | M1-2, M1-3, M1-4 | `todo` |
 | M1-6 | 实时对话 UI | M1-5, M0-8 | `todo` |
@@ -67,7 +67,7 @@
 
 ### M1-3 Provider 适配与 FakeProvider
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：G0
 - 目标：建立 Provider 抽象与可重复的测试替身，并接通 DeepSeek。
 - 交付物：
@@ -79,6 +79,14 @@
 - 验收：A3 的模型部分、A11；FakeProvider 可确定性复现；真实 DeepSeek 至少一次工具调用冒烟（手动）。
 - 测试：chunk 映射、工具参数 JSON、取消、401 / 429 / 超时、上下文超限错误。
 - 涉及路径：`packages/agent/src/providers/`、`apps/server/src/modules/models/`。
+- 完成记录：
+  - `ProviderAdapter` / `ProviderChunk` / `ProviderCapabilities` / `ModelMessage` / `ToolSchema`；`ProviderError` 覆盖认证、限流、上下文超限、内容过滤、不可用、未知、取消；
+  - `FakeProvider`：脚本化文本 / 工具调用 / 错误 / 延迟，AbortSignal 取消，脚本耗尽返回 `PROVIDER_UNAVAILABLE`；
+  - `DeepSeekProvider`：AI SDK 流映射（text-delta / tool-call / finish / usage）、消息与工具 JSON Schema 转换、Key 按调用注入、默认 `deepseek-chat`、超时 120s；错误消息不回传上游原文；
+  - 模型 Profile：内置 DeepSeek / Fake 默认值，不含密钥，M1-7 替换为持久化 repository；
+  - 共享错误码与 REST 契约新增 Provider 错误；
+  - 测试：agent 15 项（另 1 项 DeepSeek live 冒烟按 `LARNESS_DEEPSEEK_SMOKE=1` + `DEEPSEEK_API_KEY` 跳过）、server 202 项、web 18 项；契约测试确认 Fake 与 AI SDK 映射一致；
+  - 偏差：真实 DeepSeek 工具调用冒烟需 Key，记录推迟到 M1-8 验收。
 
 ### M1-4 工具注册与审批引擎
 

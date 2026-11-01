@@ -18,6 +18,9 @@
   },
   "dependencies": {
     "@larness/shared": "workspace:*",
+    "@larness/agent": "workspace:*",
+    "@ai-sdk/deepseek": "^2.0.78",
+    "ai": "^6.0.320",
     "fastify": "^5.12.7",
     "env-paths": "^4.0.0",
     "pino": "^10.4.0",
