@@ -1,150 +1,418 @@
-import type { ApprovalItem, TimelineItem } from "@larness/shared";
+import type { ApprovalItem, ErrorItem, ServerEvent, TimelineItem } from "@larness/shared";
 import { create } from "zustand";
+import { USE_MOCKS } from "@/lib/env";
+import {
+  applyServerEvent,
+  eventsToTimeline,
+  eventTurnId,
+  isTerminalTurnEvent,
+} from "@/lib/eventReducer";
 import { appendAssistantMessage, applyTurnEvent } from "@/lib/timeline";
+import {
+  cancelTurn,
+  createTurn,
+  decideApproval,
+  fetchAllEvents,
+  getSession,
+  updateSession,
+} from "@/lib/workspaceApi";
 import { gateway } from "@/mocks/gateway";
+import { useComposerStore } from "@/stores/composerStore";
 
-let controller: AbortController | null = null;
+let mockController: AbortController | null = null;
+let socket: WebSocket | null = null;
+let reconnectTimer: number | null = null;
+let socketSessionId: string | null = null;
+let loadToken = 0;
+let syncing = false;
+
+function uid(prefix: string): string {
+  return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function errorItem(message: string): ErrorItem {
+  return {
+    id: `error_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    kind: "error",
+    message,
+    createdAt: Date.now(),
+  };
+}
+
+function closeSocket(): void {
+  if (reconnectTimer !== null) {
+    window.clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  socketSessionId = null;
+  socket?.close();
+  socket = null;
+}
 
 interface TimelineState {
   sessionId: string;
   items: TimelineItem[];
   loading: boolean;
   isStreaming: boolean;
+  activeTurnId: string | null;
+  lastSeq: number;
   load: (sessionId: string) => Promise<void>;
+  disconnect: () => void;
+  syncEvents: () => Promise<void>;
   send: (text: string) => Promise<void>;
   stop: () => void;
   resolveApproval: (approvalId: string, decision: "approve" | "reject") => Promise<void>;
 }
 
-function uid(prefix: string): string {
-  return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
+function applyEventToState(event: ServerEvent): void {
+  const state = useTimelineStore.getState();
+
+  if (event.sessionId !== undefined && event.sessionId !== state.sessionId) {
+    return;
+  }
+
+  if (event.sequence <= state.lastSeq) {
+    return;
+  }
+
+  if (event.sequence !== state.lastSeq + 1) {
+    void state.syncEvents();
+    return;
+  }
+
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const turnId = eventTurnId(event);
+  const status = typeof payload.status === "string" ? payload.status : null;
+  const activeTurnId =
+    event.type === "turn.created" || event.type === "turn.status"
+      ? (turnId ?? state.activeTurnId)
+      : state.activeTurnId;
+  const nextStreaming = isTerminalTurnEvent(event)
+    ? false
+    : event.type === "turn.created" ||
+        status === "QUEUED" ||
+        status === "PREPARING" ||
+        status === "RUNNING" ||
+        status === "WAITING_APPROVAL" ||
+        status === "CANCELLING"
+      ? true
+      : state.isStreaming;
+
+  useTimelineStore.setState({
+    items: applyServerEvent(state.items, event),
+    lastSeq: event.sequence,
+    activeTurnId: isTerminalTurnEvent(event) ? null : activeTurnId,
+    isStreaming: nextStreaming,
+  });
+}
+
+function connectSocket(sessionId: string): void {
+  if (USE_MOCKS || typeof window === "undefined") {
+    return;
+  }
+
+  closeSocket();
+  socketSessionId = sessionId;
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const current = new WebSocket(`${protocol}://${window.location.host}/ws`);
+  socket = current;
+
+  current.addEventListener("open", () => {
+    if (socketSessionId !== sessionId) return;
+    current.send(
+      JSON.stringify({
+        type: "subscribe",
+        subscriptions: [{ topic: "agent", resourceId: sessionId }],
+      }),
+    );
+  });
+
+  current.addEventListener("message", (raw) => {
+    if (socketSessionId !== sessionId) return;
+
+    let message: unknown;
+
+    try {
+      message = JSON.parse(String(raw.data));
+    } catch {
+      return;
+    }
+
+    if (typeof message !== "object" || message === null) return;
+    const value = message as Record<string, unknown>;
+
+    if (value.kind === "subscribed") {
+      const sequence = typeof value.currentSequence === "number" ? value.currentSequence : 0;
+      if (sequence > useTimelineStore.getState().lastSeq) {
+        void useTimelineStore.getState().syncEvents();
+      }
+      return;
+    }
+
+    if (value.kind === "event" && value.topic === "agent") {
+      applyEventToState(value as unknown as ServerEvent);
+    }
+  });
+
+  current.addEventListener("close", (event) => {
+    if (socket !== current || socketSessionId !== sessionId) return;
+    socket = null;
+
+    if (event.code === 1008) {
+      window.dispatchEvent(new Event("larness:unauthenticated"));
+      return;
+    }
+
+    reconnectTimer = window.setTimeout(() => {
+      if (socketSessionId === sessionId) connectSocket(sessionId);
+    }, 1_000);
+  });
+
+  current.addEventListener("error", () => current.close());
 }
 
 export const useTimelineStore = create<TimelineState>((set, get) => ({
-  sessionId: "ses_1",
+  sessionId: "",
   items: [],
   loading: false,
   isStreaming: false,
+  activeTurnId: null,
+  lastSeq: 0,
 
   load: async (sessionId) => {
-    controller?.abort();
-    controller = null;
-    set({ sessionId, loading: true, isStreaming: false, items: [] });
+    const token = ++loadToken;
+    closeSocket();
+    mockController?.abort();
+    mockController = null;
+    set({
+      sessionId,
+      items: [],
+      loading: Boolean(sessionId),
+      isStreaming: false,
+      activeTurnId: null,
+      lastSeq: 0,
+    });
+
+    if (!sessionId) {
+      set({ loading: false });
+      return;
+    }
+
+    if (USE_MOCKS) {
+      try {
+        const items = await gateway.timeline(sessionId);
+        if (token === loadToken && get().sessionId === sessionId) {
+          set({ items });
+        }
+      } finally {
+        if (token === loadToken) set({ loading: false });
+      }
+      return;
+    }
+
     try {
-      const items = await gateway.timeline(sessionId);
-      if (get().sessionId === sessionId) {
-        set({ items });
+      const [detail, events] = await Promise.all([
+        getSession(sessionId),
+        fetchAllEvents(sessionId, 0),
+      ]);
+
+      if (token !== loadToken || get().sessionId !== sessionId) return;
+
+      set({
+        items: eventsToTimeline(events),
+        lastSeq: events.at(-1)?.sequence ?? 0,
+        loading: false,
+        isStreaming: detail.activeTurn !== null,
+        activeTurnId: detail.activeTurn?.id ?? null,
+      });
+      connectSocket(sessionId);
+    } catch (error) {
+      if (token !== loadToken) return;
+      const message = error instanceof Error ? error.message : "加载会话失败";
+      set({ loading: false, items: [errorItem(message)] });
+    }
+  },
+
+  disconnect: () => {
+    closeSocket();
+  },
+
+  syncEvents: async () => {
+    const sessionId = get().sessionId;
+    if (!sessionId || USE_MOCKS || syncing) return;
+    syncing = true;
+
+    try {
+      const events = await fetchAllEvents(sessionId, get().lastSeq);
+      if (get().sessionId !== sessionId) return;
+
+      for (const event of events) {
+        applyEventToState(event);
       }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "事件补拉失败";
+      set((state) => ({
+        items: [...state.items, errorItem(`事件补拉失败：${message}`)],
+      }));
     } finally {
-      if (get().sessionId === sessionId) {
-        set({ loading: false });
-      }
+      syncing = false;
     }
   },
 
   send: async (text) => {
     const trimmed = text.trim();
     if (!trimmed || get().isStreaming) return;
+    const sessionId = get().sessionId;
 
-    const userItem: TimelineItem = {
-      id: uid("msg"),
+    if (!sessionId) return;
+
+    if (USE_MOCKS) {
+      const userItem: TimelineItem = {
+        id: uid("msg"),
+        kind: "message",
+        role: "user",
+        text: trimmed,
+        createdAt: Date.now(),
+      };
+      set((state) => ({ items: [...state.items, userItem], isStreaming: true }));
+      mockController = new AbortController();
+      const active = mockController;
+
+      try {
+        for await (const event of gateway.sendTurn({
+          sessionId,
+          text: trimmed,
+          signal: active.signal,
+        })) {
+          set((state) => ({ items: applyTurnEvent(state.items, event) }));
+        }
+      } catch (error) {
+        const aborted = error instanceof DOMException && error.name === "AbortError";
+        set((state) => ({
+          items: appendAssistantMessage(
+            state.items,
+            uid("msg"),
+            aborted ? "已停止当前执行。" : "执行失败：Mock Provider 连接被中断。",
+          ),
+        }));
+      } finally {
+        set((state) => ({
+          isStreaming: false,
+          items: state.items.map((item) =>
+            item.kind === "message" ? { ...item, streaming: false } : item,
+          ),
+        }));
+        if (mockController === active) mockController = null;
+      }
+      return;
+    }
+
+    const composer = useComposerStore.getState();
+    const optimistic: TimelineItem = {
+      id: `optimistic_user_${Date.now()}`,
       kind: "message",
       role: "user",
       text: trimmed,
       createdAt: Date.now(),
     };
-
-    set((state) => ({
-      items: [...state.items, userItem],
-      isStreaming: true,
-    }));
-
-    controller = new AbortController();
-    const active = controller;
-    const sessionId = get().sessionId;
+    set((state) => ({ items: [...state.items, optimistic], isStreaming: true }));
 
     try {
-      for await (const event of gateway.sendTurn({
+      await updateSession(sessionId, {
+        modelProfileId: composer.modelId,
+        approvalPolicyId: composer.policy,
+      });
+      const created = await createTurn(
         sessionId,
-        text: trimmed,
-        signal: active.signal,
-      })) {
-        set((state) => ({ items: applyTurnEvent(state.items, event) }));
-      }
+        { input: trimmed, modelProfileId: composer.modelId },
+        crypto.randomUUID(),
+      );
+      set({ activeTurnId: created.turnId });
+      await get().syncEvents();
     } catch (error) {
-      const aborted = error instanceof DOMException && error.name === "AbortError";
-      set((state) => ({
-        items: appendAssistantMessage(
-          state.items,
-          uid("msg"),
-          aborted ? "已停止当前执行。" : "执行失败：Mock Provider 连接被中断。",
-        ),
-      }));
-    } finally {
+      const message = error instanceof Error ? error.message : "发送失败";
       set((state) => ({
         isStreaming: false,
-        items: state.items.map((item) =>
-          item.kind === "message" ? { ...item, streaming: false } : item,
-        ),
+        items: [
+          ...state.items.filter((item) => item.id !== optimistic.id),
+          errorItem(`发送失败：${message}`),
+        ],
       }));
-      if (controller === active) controller = null;
+      await get().syncEvents();
     }
   },
 
   stop: () => {
-    controller?.abort();
-    const sessionId = get().sessionId;
-    void gateway.cancelTurn(sessionId);
-    set({ isStreaming: false });
+    if (USE_MOCKS) {
+      mockController?.abort();
+      mockController = null;
+      void gateway.cancelTurn(get().sessionId);
+      set({ isStreaming: false });
+      return;
+    }
+
+    const activeTurnId = get().activeTurnId;
+
+    if (activeTurnId === null) {
+      return;
+    }
+
+    void cancelTurn(activeTurnId).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : "停止失败";
+      useTimelineStore.setState((state) => ({
+        items: [...state.items, errorItem(`停止失败：${message}`)],
+      }));
+    });
   },
 
   resolveApproval: async (approvalId, decision) => {
+    const status = decision === "approve" ? "approved" : "rejected";
+    const update = (next: "pending" | "approved" | "rejected") =>
+      set((state) => ({
+        items: state.items.map((item) =>
+          item.kind === "approval" && item.id === approvalId ? { ...item, status: next } : item,
+        ),
+      }));
+
     const approval = get().items.find(
       (item): item is ApprovalItem => item.kind === "approval" && item.id === approvalId,
     );
-    if (!approval) return;
-    if (approval.status !== "pending") return;
+    if (!approval || approval.status !== "pending") return;
 
-    set((state) => ({
-      items: state.items.map((item) =>
-        item.kind === "approval" && item.id === approvalId
-          ? { ...item, status: decision === "approve" ? "approved" : "rejected" }
-          : item,
-      ),
-    }));
+    update(status);
 
-    await gateway.resolveApproval(approvalId, decision);
+    if (USE_MOCKS) {
+      await gateway.resolveApproval(approvalId, decision);
+      set((state) => {
+        const message =
+          decision === "approve"
+            ? "已批准部署。PM2 正在替换 web-prod，健康检查通过后会写入部署记录。"
+            : "已暂不部署。web-prod 保持停止状态，构建产物会保留 24 小时。";
+        const items = appendAssistantMessage(state.items, uid("msg"), message);
 
-    set((state) => {
-      const message =
-        decision === "approve"
-          ? "已批准部署。PM2 正在替换 web-prod，健康检查通过后会写入部署记录。"
-          : "已暂不部署。web-prod 保持停止状态，构建产物会保留 24 小时。";
-      const items = appendAssistantMessage(state.items, uid("msg"), message);
-      if (decision === "approve") {
-        items.push({
-          id: uid("art"),
-          kind: "artifact",
-          title: "部署成功",
-          description: "web-prod 已在 8080 端口启动，健康检查通过。",
-          meta: "PM2 · 2026-10-31 20:45",
-          createdAt: Date.now(),
-        });
-      }
-      return {
-        items: items.map((item) =>
-          item.kind === "plan"
-            ? {
-                ...item,
-                steps: item.steps.map((step) =>
-                  step.title.includes("部署") && decision === "approve"
-                    ? { ...step, status: "done" as const }
-                    : step,
-                ),
-              }
-            : item,
-        ),
-      };
-    });
+        if (decision === "approve") {
+          items.push({
+            id: uid("art"),
+            kind: "artifact",
+            title: "部署成功",
+            description: "web-prod 已在 8080 端口启动，健康检查通过。",
+            meta: "PM2 · 2026-10-31 20:45",
+            createdAt: Date.now(),
+          });
+        }
+
+        return { items };
+      });
+      return;
+    }
+
+    try {
+      await decideApproval(approvalId, decision);
+      await get().syncEvents();
+    } catch (error) {
+      update("pending");
+      const message = error instanceof Error ? error.message : "审批失败";
+      set((state) => ({ items: [...state.items, errorItem(`审批失败：${message}`)] }));
+    }
   },
 }));

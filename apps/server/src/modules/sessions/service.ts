@@ -53,8 +53,11 @@ export interface UpdateSessionInput {
   id: string;
   title?: string;
   modelProfileId?: string | null;
+  approvalPolicyId?: ApprovalPolicy;
   clientSessionId?: string;
 }
+
+export type ApprovalPolicy = "standard" | "strict" | "readonly";
 
 export function sessionDto(row: SessionRow): SessionDto {
   return {
@@ -107,6 +110,18 @@ function normalizeModelProfileId(value: string | null | undefined): string | nul
   }
 
   return trimmed;
+}
+
+function normalizeApprovalPolicy(value: ApprovalPolicy | undefined): ApprovalPolicy | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value !== "standard" && value !== "strict" && value !== "readonly") {
+    throw new SessionError("VALIDATION_ERROR", "invalid approval policy");
+  }
+
+  return value;
 }
 
 export function listSessionDtos(
@@ -247,6 +262,7 @@ export function updateSession(
 ): SessionDto {
   const title = input.title === undefined ? undefined : normalizeTitle(input.title);
   const modelProfileId = normalizeModelProfileId(input.modelProfileId);
+  const approvalPolicyId = normalizeApprovalPolicy(input.approvalPolicyId);
   const now = options.now?.() ?? Date.now();
 
   const row = immediateTransaction(options.db, (tx) => {
@@ -259,6 +275,7 @@ export function updateSession(
     const updated = updateSessionRow(tx, input.id, {
       title,
       modelProfileId,
+      approvalPolicyId,
       updatedAt: now,
     });
 

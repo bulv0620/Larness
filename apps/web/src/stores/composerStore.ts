@@ -11,7 +11,7 @@ interface ComposerState {
 
 export const useComposerStore = create<ComposerState>((set) => ({
   draft: "",
-  modelId: "mdl_deepseek_chat",
+  modelId: "deepseek-default",
   policy: "standard",
   setDraft: (draft) => set({ draft }),
   setModelId: (modelId) => set({ modelId }),

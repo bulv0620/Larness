@@ -1,10 +1,13 @@
 import { cn, Kbd } from "@larness/ui";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Boxes,
   ChevronDown,
   ChevronRight,
   Clock3,
   Folder,
+  FolderPlus,
+  LogOut,
   Plus,
   Search,
   Settings,
@@ -13,9 +16,13 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
+import { useLogout } from "@/features/auth/useAuth";
+import { ProjectDialog } from "@/features/projects/ProjectDialog";
+import { USE_MOCKS } from "@/lib/env";
 import { relativeTime } from "@/lib/format";
 import { useSnapshot } from "@/lib/queries";
 import { useNewSession } from "@/lib/useNewSession";
+import { createSession } from "@/lib/workspaceApi";
 import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
@@ -27,12 +34,28 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const extra = useLocalSessionsStore((state) => state.extra);
   const isStreaming = useTimelineStore((state) => state.isStreaming);
   const newSession = useNewSession();
+  const logout = useLogout();
+  const queryClient = useQueryClient();
+  const focusComposer = useNavigationStore((state) => state.focusComposer);
   const [query, setQuery] = useState("");
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
 
   const sessions = useMemo(
-    () => [...extra, ...data.sessions].sort((a, b) => b.updatedAt - a.updatedAt),
+    () => [...(USE_MOCKS ? extra : []), ...data.sessions].sort((a, b) => b.updatedAt - a.updatedAt),
     [extra, data.sessions],
   );
+
+  const newProjectSession = async (projectId: string): Promise<void> => {
+    try {
+      const session = await createSession({ projectId });
+      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+      selectSession(session.id, session.projectId);
+      focusComposer();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "新建会话失败";
+      window.dispatchEvent(new CustomEvent("larness:workspace-error", { detail: message }));
+    }
+  };
 
   const normalized = query.trim().toLowerCase();
   const projects = data.projects.map((project) => ({
@@ -109,36 +132,60 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto px-1.5 pb-2">
         <div className="flex items-center px-2 pb-1 text-[10px] font-semibold uppercase tracking-[.08em] text-ink-3">
           项目
+          {!USE_MOCKS ? (
+            <button
+              type="button"
+              onClick={() => setProjectDialogOpen(true)}
+              aria-label="添加项目"
+              className="ml-auto flex h-5 w-5 items-center justify-center rounded-md text-ink-3 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]"
+            >
+              <FolderPlus size={12} />
+            </button>
+          ) : null}
         </div>
 
         {visibleProjects.map((project) => {
           const expanded = expandedProjects[project.id] ?? true;
           return (
             <div key={project.id} className="mb-0.5">
-              <button
-                type="button"
-                onClick={() => toggleProject(project.id)}
-                aria-expanded={expanded}
-                className="flex h-[27px] w-full items-center gap-1.5 rounded-md px-1.5 text-left text-[11.5px] text-ink-2 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"
-              >
-                {expanded ? (
-                  <ChevronDown size={11} className="text-ink-3" />
-                ) : (
-                  <ChevronRight size={11} className="text-ink-3" />
-                )}
-                <span
-                  className="flex h-4 w-4 items-center justify-center rounded-[4px]"
-                  style={{ backgroundColor: `${project.accent}18`, color: project.accent }}
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => toggleProject(project.id)}
+                  aria-expanded={expanded}
+                  className="flex h-[27px] min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 text-left text-[11.5px] text-ink-2 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"
                 >
-                  <Folder size={10} />
-                </span>
-                <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
-                {project.git ? (
-                  <span className="font-mono text-[9px] text-ink-3">{project.branch}</span>
-                ) : (
-                  <span className="text-[9px] text-ink-3">no git</span>
-                )}
-              </button>
+                  {expanded ? (
+                    <ChevronDown size={11} className="text-ink-3" />
+                  ) : (
+                    <ChevronRight size={11} className="text-ink-3" />
+                  )}
+                  <span
+                    className="flex h-4 w-4 items-center justify-center rounded-[4px]"
+                    style={{ backgroundColor: `${project.accent}18`, color: project.accent }}
+                  >
+                    <Folder size={10} />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
+                  {project.git ? (
+                    <span className="font-mono text-[9px] text-ink-3">
+                      {project.branch ?? "git"}
+                    </span>
+                  ) : (
+                    <span className="text-[9px] text-ink-3">no git</span>
+                  )}
+                </button>
+                {!USE_MOCKS ? (
+                  <button
+                    type="button"
+                    aria-label={`在 ${project.name} 中新建会话`}
+                    onClick={() => void newProjectSession(project.id)}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 hover:bg-black/[.06] hover:text-ink dark:hover:bg-white/[.08]"
+                  >
+                    <Plus size={11} />
+                  </button>
+                ) : null}
+              </div>
 
               {expanded ? (
                 <div className="ml-[13px] border-l border-line/70 pl-1">
@@ -160,6 +207,12 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
             </div>
           );
         })}
+
+        {visibleProjects.length === 0 ? (
+          <div className="mx-1 rounded-lg border border-dashed border-line px-2.5 py-3 text-[10.5px] text-ink-3">
+            还没有登记项目。点击项目标题旁的 + 添加本机目录。
+          </div>
+        ) : null}
 
         <div className="mt-3 flex items-center px-2 pb-1 text-[10px] font-semibold uppercase tracking-[.08em] text-ink-3">
           最近
@@ -214,9 +267,24 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
             <div className="truncate text-[11.5px] font-medium text-ink">bulv</div>
             <div className="truncate text-[9.5px] text-ink-3">本机操作者</div>
           </div>
-          <UserRound size={13} className="text-ink-3" />
+          {USE_MOCKS ? (
+            <UserRound size={13} className="text-ink-3" />
+          ) : (
+            <button
+              type="button"
+              aria-label="退出登录"
+              title="退出登录"
+              data-testid="logout-button"
+              onClick={() => void logout()}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-ink-3 hover:bg-black/[.06] hover:text-danger dark:hover:bg-white/[.08]"
+            >
+              <LogOut size={13} />
+            </button>
+          )}
         </div>
       </div>
+
+      <ProjectDialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen} />
     </aside>
   );
 }

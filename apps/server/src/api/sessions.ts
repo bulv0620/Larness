@@ -27,6 +27,7 @@ const UpdateSessionSchema = z
   .object({
     title: z.string().min(1).max(128).optional(),
     modelProfileId: z.string().min(1).max(128).nullable().optional(),
+    approvalPolicyId: z.enum(["standard", "strict", "readonly"]).optional(),
   })
   .strict();
 
@@ -150,6 +151,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
         id,
         title: body.title,
         modelProfileId: body.modelProfileId,
+        approvalPolicyId: body.approvalPolicyId,
         clientSessionId: request.clientSession?.id,
       });
     } catch (error) {

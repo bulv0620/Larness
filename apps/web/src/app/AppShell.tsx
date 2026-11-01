@@ -1,17 +1,21 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ProjectResourceSidebar } from "@/components/layout/ProjectResourceSidebar";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
 import { SidebarResizeHandle } from "@/components/layout/SidebarResizeHandle";
 import { TopBar } from "@/components/layout/TopBar";
 import { WindowLayer } from "@/components/windows/WindowLayer";
 import { ConversationWorkspace } from "@/features/chat/ConversationWorkspace";
+import { useSessionEvents } from "@/features/chat/useSessionEvents";
+import { USE_MOCKS } from "@/lib/env";
+import { useSnapshot } from "@/lib/queries";
 import { useNewSession } from "@/lib/useNewSession";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
 import { useWindowStore } from "@/stores/windowStore";
 
 export function AppShell() {
+  const { data } = useSnapshot();
   const sessionId = useNavigationStore((state) => state.sessionId);
+  const selectSession = useNavigationStore((state) => state.selectSession);
   const sidebarCollapsed = useNavigationStore((state) => state.sidebarCollapsed);
   const sidebarWidth = useNavigationStore((state) => state.sidebarWidth);
   const resourceWidth = useNavigationStore((state) => state.resourceWidth);
@@ -21,10 +25,35 @@ export function AppShell() {
   const toggleSidebar = useNavigationStore((state) => state.toggleSidebar);
   const setMobileSidebar = useNavigationStore((state) => state.setMobileSidebar);
   const newSession = useNewSession();
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+
+  useSessionEvents(sessionId);
 
   useEffect(() => {
-    void useTimelineStore.getState().load(sessionId);
-  }, [sessionId]);
+    const onError = (event: Event): void => {
+      const detail = (event as CustomEvent<string>).detail;
+      setWorkspaceError(typeof detail === "string" ? detail : "操作失败");
+    };
+
+    window.addEventListener("larness:workspace-error", onError);
+    return () => window.removeEventListener("larness:workspace-error", onError);
+  }, []);
+
+  useEffect(() => {
+    if (USE_MOCKS) return;
+
+    if (data.sessions.length === 0) {
+      if (sessionId !== "") {
+        selectSession("", data.projects[0]?.id ?? null);
+      }
+      return;
+    }
+
+    if (!data.sessions.some((session) => session.id === sessionId)) {
+      const latest = [...data.sessions].sort((left, right) => right.updatedAt - left.updatedAt)[0];
+      if (latest) selectSession(latest.id, latest.projectId);
+    }
+  }, [data.projects, data.sessions, selectSession, sessionId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -59,7 +88,10 @@ export function AppShell() {
   }, [newSession, toggleSidebar]);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-canvas text-ink">
+    <div
+      className="flex h-screen flex-col overflow-hidden bg-canvas text-ink"
+      data-testid="workspace-home"
+    >
       <TopBar />
       <div className="relative flex min-h-0 flex-1">
         {!sidebarCollapsed ? <ProjectSidebar /> : null}
@@ -89,6 +121,19 @@ export function AppShell() {
         <ProjectResourceSidebar />
         <WindowLayer />
       </div>
+
+      {workspaceError ? (
+        <div className="fixed bottom-4 left-1/2 z-[200] flex -translate-x-1/2 items-center gap-3 rounded-lg border border-danger/25 bg-surface px-3 py-2 text-[11.5px] text-danger shadow-[var(--shadow-pop)]">
+          <span>{workspaceError}</span>
+          <button
+            type="button"
+            className="text-ink-3 hover:text-ink"
+            onClick={() => setWorkspaceError(null)}
+          >
+            关闭
+          </button>
+        </div>
+      ) : null}
 
       {mobileSidebarOpen ? (
         <div className="fixed inset-0 z-[150] md:hidden">

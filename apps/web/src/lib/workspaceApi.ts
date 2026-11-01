@@ -1,0 +1,222 @@
+import type { ModelProfile, ServerEvent } from "@larness/shared";
+import { apiFetch } from "./api";
+
+export interface ApiProject {
+  id: string;
+  name: string;
+  rootPath: string;
+  realPath: string;
+  settings: {
+    defaultModelProfileId: string | null;
+    instructions: string;
+    ignore: string[];
+  };
+  gitDetected: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ApiSession {
+  id: string;
+  projectId: string | null;
+  workspacePath: string;
+  title: string;
+  status: "active" | "archived";
+  modelProfileId: string | null;
+  approvalPolicyId: "standard" | "strict" | "readonly";
+  createdAt: number;
+  updatedAt: number;
+  lastActivityAt: number;
+}
+
+export interface ApiTurn {
+  id: string;
+  sessionId: string;
+  status: string;
+  modelProfileId: string | null;
+  provider: string | null;
+  model: string | null;
+  input: { text: string };
+  usage: unknown;
+  error: unknown;
+  createdAt: number;
+  startedAt: number | null;
+  endedAt: number | null;
+}
+
+export interface ApiSessionDetail extends ApiSession {
+  activeTurn: ApiTurn | null;
+}
+
+export interface EventPage {
+  items: ServerEvent[];
+  nextSeq: number;
+  hasMore: boolean;
+}
+
+export interface CreateTurnResponse {
+  turnId: string;
+  status: string;
+  sessionId: string;
+}
+
+export interface WorkspaceData {
+  projects: ApiProject[];
+  sessions: ApiSession[];
+  models: ModelProfile[];
+}
+
+export const WEB_MODEL_PROFILES: ModelProfile[] = [
+  {
+    id: "deepseek-default",
+    label: "DeepSeek Chat",
+    provider: "deepseek",
+    model: "deepseek-chat",
+    detail: "128K 上下文 · 工具调用",
+  },
+];
+
+export async function listProjects(): Promise<ApiProject[]> {
+  const response = await apiFetch<{ projects: ApiProject[] }>("/api/projects");
+  return response.projects;
+}
+
+export async function createProject(input: {
+  name?: string;
+  rootPath: string;
+}): Promise<ApiProject> {
+  return apiFetch<ApiProject>("/api/projects", {
+    method: "POST",
+    body: input,
+    csrf: true,
+  });
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  await apiFetch(`/api/projects/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    csrf: true,
+  });
+}
+
+export async function listSessions(): Promise<ApiSession[]> {
+  const response = await apiFetch<{ sessions: ApiSession[] }>("/api/sessions?limit=100");
+  return response.sessions;
+}
+
+export async function createSession(input: {
+  projectId?: string;
+  title?: string;
+}): Promise<ApiSession> {
+  return apiFetch<ApiSession>("/api/sessions", {
+    method: "POST",
+    body: input,
+    csrf: true,
+  });
+}
+
+export async function getSession(id: string): Promise<ApiSessionDetail> {
+  return apiFetch<ApiSessionDetail>(`/api/sessions/${encodeURIComponent(id)}`);
+}
+
+export async function updateSession(
+  id: string,
+  input: {
+    title?: string;
+    modelProfileId?: string | null;
+    approvalPolicyId?: "standard" | "strict" | "readonly";
+  },
+): Promise<ApiSession> {
+  return apiFetch<ApiSession>(`/api/sessions/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: input,
+    csrf: true,
+  });
+}
+
+export async function archiveSession(id: string): Promise<void> {
+  await apiFetch(`/api/sessions/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    csrf: true,
+  });
+}
+
+export async function createTurn(
+  sessionId: string,
+  input: { input: string; modelProfileId?: string },
+  idempotencyKey: string,
+): Promise<CreateTurnResponse> {
+  return apiFetch<CreateTurnResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/turns`, {
+    method: "POST",
+    body: input,
+    csrf: true,
+    headers: { "idempotency-key": idempotencyKey },
+  });
+}
+
+export async function cancelTurn(turnId: string): Promise<{ turnId: string; status: string }> {
+  return apiFetch(`/api/turns/${encodeURIComponent(turnId)}/cancel`, {
+    method: "POST",
+    body: {},
+    csrf: true,
+  });
+}
+
+export async function fetchEvents(sessionId: string, after = 0, limit = 200): Promise<EventPage> {
+  return apiFetch<EventPage>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/events?after=${after}&limit=${limit}`,
+  );
+}
+
+export async function fetchAllEvents(
+  sessionId: string,
+  after = 0,
+  limit = 200,
+): Promise<ServerEvent[]> {
+  const collected: ServerEvent[] = [];
+  let cursor = after;
+
+  for (;;) {
+    const page = await fetchEvents(sessionId, cursor, limit);
+    collected.push(...page.items);
+    cursor = page.nextSeq;
+
+    if (!page.hasMore) {
+      return collected;
+    }
+  }
+}
+
+export async function decideApproval(
+  approvalId: string,
+  decision: "approve" | "reject",
+): Promise<void> {
+  await apiFetch(`/api/approvals/${encodeURIComponent(approvalId)}`, {
+    method: "POST",
+    body: { decision },
+    csrf: true,
+  });
+}
+
+export function toProjectView(project: ApiProject) {
+  const accents = ["#0A84FF", "#FF9F0A", "#30D158", "#BF5AF2", "#64D2FF"];
+  const index = Array.from(project.id).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return {
+    id: project.id,
+    name: project.name,
+    rootPath: project.realPath,
+    branch: null,
+    git: project.gitDetected,
+    accent: accents[index % accents.length] ?? accents[0],
+  };
+}
+
+export function toSessionView(session: ApiSession) {
+  return {
+    id: session.id,
+    projectId: session.projectId,
+    title: session.title,
+    status: "idle" as const,
+    updatedAt: session.updatedAt,
+  };
+}

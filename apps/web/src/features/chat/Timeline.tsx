@@ -18,6 +18,7 @@ export function Timeline() {
   const items = useTimelineStore((state) => state.items);
   const loading = useTimelineStore((state) => state.loading);
   const focusComposer = useNavigationStore((state) => state.focusComposer);
+  const hasSession = useNavigationStore((state) => Boolean(state.sessionId));
   const setDraft = useComposerStore((state) => state.setDraft);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
@@ -28,6 +29,20 @@ export function Timeline() {
     if (!element || !pinnedRef.current) return;
     element.scrollTop = element.scrollHeight;
   }, [items]);
+
+  if (!hasSession) {
+    return (
+      <div className="flex flex-1 items-center justify-center overflow-auto">
+        <div className="w-full max-w-[560px] px-6">
+          <EmptyState
+            icon={Sparkles}
+            title="还没有会话"
+            description="在左侧选择项目旁的 + 新建会话，或直接点击“新建会话”开始。"
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

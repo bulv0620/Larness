@@ -34,6 +34,7 @@ export function Composer() {
   const send = useTimelineStore((state) => state.send);
   const stop = useTimelineStore((state) => state.stop);
   const focusNonce = useNavigationStore((state) => state.focusComposerNonce);
+  const hasSession = useNavigationStore((state) => Boolean(state.sessionId));
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const model = data.models.find((item) => item.id === modelId) ?? data.models[0];
@@ -42,6 +43,12 @@ export function Composer() {
   useEffect(() => {
     if (focusNonce > 0) textareaRef.current?.focus();
   }, [focusNonce]);
+
+  useEffect(() => {
+    if (data.models.length > 0 && !data.models.some((item) => item.id === modelId)) {
+      setModelId(data.models[0]?.id ?? modelId);
+    }
+  }, [data.models, modelId, setModelId]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: draft is the resize trigger
   useEffect(() => {
@@ -58,6 +65,7 @@ export function Composer() {
   };
 
   const submit = () => {
+    if (!hasSession) return;
     if (isStreaming) {
       stop();
       return;
@@ -75,7 +83,7 @@ export function Composer() {
         ref={textareaRef}
         value={draft}
         rows={1}
-        placeholder="描述任务，或粘贴日志 / 截图…"
+        placeholder={hasSession ? "描述任务，或粘贴日志 / 截图…" : "先新建或选择一个会话…"}
         aria-label="对话输入"
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -183,11 +191,11 @@ export function Composer() {
           <button
             type="button"
             onClick={submit}
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || !hasSession}
             aria-label="发送消息"
             className={cn(
               "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-all",
-              draft.trim()
+              draft.trim() && hasSession
                 ? "bg-accent text-white shadow-[0_2px_8px_rgba(10,132,255,.3)] hover:brightness-110 active:scale-95"
                 : "bg-black/[.06] text-ink-3 dark:bg-white/[.08]",
             )}

@@ -1,9 +1,22 @@
-import { cn, IconButton } from "@larness/ui";
+import {
+  cn,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  IconButton,
+} from "@larness/ui";
+import { useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal, PanelRight, Sparkles } from "lucide-react";
+import { useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
 import { Composer } from "@/features/chat/Composer";
+import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
 import { Timeline } from "@/features/chat/Timeline";
+import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
+import { archiveSession } from "@/lib/workspaceApi";
 import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
@@ -13,10 +26,26 @@ export function ConversationWorkspace() {
   const { projectId, sessionId } = useNavigationStore();
   const extra = useLocalSessionsStore((state) => state.extra);
   const isStreaming = useTimelineStore((state) => state.isStreaming);
+  const queryClient = useQueryClient();
+  const [renameOpen, setRenameOpen] = useState(false);
 
-  const session = [...extra, ...data.sessions].find((item) => item.id === sessionId);
+  const session = [...(USE_MOCKS ? extra : []), ...data.sessions].find(
+    (item) => item.id === sessionId,
+  );
   const project = data.projects.find((item) => item.id === projectId) ?? null;
   const running = isStreaming || session?.status === "running";
+
+  const archive = async (): Promise<void> => {
+    if (!session || USE_MOCKS) return;
+
+    try {
+      await archiveSession(session.id);
+      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "归档会话失败";
+      window.dispatchEvent(new CustomEvent("larness:workspace-error", { detail: message }));
+    }
+  };
 
   return (
     <main className="flex min-w-0 flex-1 flex-col bg-canvas/55">
@@ -45,13 +74,36 @@ export function ConversationWorkspace() {
           <IconButton label="会话操作">
             <PanelRight size={14} />
           </IconButton>
-          <IconButton label="更多">
-            <MoreHorizontal size={15} />
-          </IconButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <IconButton label="会话操作">
+                <MoreHorizontal size={15} />
+              </IconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[190px]">
+              <DropdownMenuItem disabled={!session} onSelect={() => setRenameOpen(true)}>
+                重命名会话
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={!session || USE_MOCKS}
+                onSelect={() => void archive()}
+                className="text-danger focus:text-danger"
+              >
+                归档会话
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
       <Timeline />
+
+      <RenameSessionDialog
+        session={session ? { id: session.id, title: session.title } : null}
+        onClose={() => setRenameOpen(false)}
+        open={renameOpen}
+      />
 
       <div data-testid="composer-dock" className="relative shrink-0 px-4 pb-4 pt-2">
         <div

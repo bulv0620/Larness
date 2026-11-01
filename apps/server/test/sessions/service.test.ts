@@ -134,10 +134,12 @@ describe("session service", () => {
           id: session.id,
           title: "  Renamed  ",
           modelProfileId: "mdl_deepseek",
+          approvalPolicyId: "strict",
         });
 
         expect(updated.title).toBe("Renamed");
         expect(updated.modelProfileId).toBe("mdl_deepseek");
+        expect(updated.approvalPolicyId).toBe("strict");
         expect(updated.updatedAt).toBe(2_000);
       } finally {
         opened.close();

@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-01 18:40 (+08:00)
-> 当前阶段：**M1 进行中；M1-5 完成，下一步 M1-6**
+> 最后更新：2026-11-01 18:50 (+08:00)
+> 当前阶段：**M1 进行中；M1-6 完成，下一步 M1-7**
 
 ## 里程碑
 
@@ -9,7 +9,7 @@
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
-| M1 | 项目、会话与最小 Agent | `in_progress` | M1-5 完成；下一步 M1-6 |
+| M1 | 项目、会话与最小 Agent | `in_progress` | M1-6 完成；下一步 M1-7 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
@@ -17,6 +17,15 @@
 
 ## 当前工作
 
+- 刚完成：`M1-6` — 实时对话 UI（分支 `task/m1-6-chat-ui`）
+  - 真实工作区数据：项目 / 会话来自 API，模型列表暂用内置 DeepSeek Profile（M1-7 改为 `/api/models`）；
+  - 项目管理：添加项目对话框、项目内新建会话、新建 / 重命名 / 归档会话；
+  - `useSessionEvents`：首屏 REST 事件 + `agent:<sessionId>` WS 订阅 + 事件去重 / 缺口补拉 / 断线重连；
+  - 事件 reducer：消息、工具卡片、文件变更、审批、错误、取消；纯函数测试覆盖；
+  - Composer：模型 / 审批策略在发送前 PATCH 到会话，发送 Turn、停止、失败重试；审批卡片调用真实 `/api/approvals/:id`；
+  - 认证：工作区会话撤销监控、退出登录、401 统一回登录；
+  - 验证：web 23 项（新增 5 项 reducer）、server 227 项、agent 32 项；`pnpm check` / `build`、demo E2E 15 项、真实认证 E2E 1 项通过；
+  - 偏差：真实 Agent 全链路 E2E 留在 M1-8；`assistant.delta` 仍未广播。
 - 刚完成：`M1-5` — Turn Runner 与状态机（分支 `task/m1-5-runner`）
   - `TurnQueue`：全局并发 2、同会话串行、排队 / 取消 / 关闭时等待在途 Turn；
   - `TurnRunner`：QUEUED → PREPARING → RUNNING → WAITING_APPROVAL → COMPLETED / FAILED / CANCELLED；上下文构建、Provider 单步循环、工具事件、usage 与审计；
@@ -86,7 +95,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：`M1-6` — 实时对话 UI
+- 下一个任务：`M1-7` — 模型 Profile 与 SecretStore
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -152,3 +161,4 @@
 | 2026-11-01 | M1-3 完成：ProviderAdapter / FakeProvider / DeepSeek 适配与错误分类；内置模型 Profile；共享 Provider 错误码；agent 15 / server 202 / web 18 测试；真实 DeepSeek 冒烟待 M1-8 |
 | 2026-11-01 | M1-4 完成：文件工具 / 版本校验 / 输出上限；ToolRegistry 与审批策略；审批服务与 API、超时与篡改检测；ProjectWriteLock；ToolExecutor 审计；agent 32 / server 210 / web 18 测试 |
 | 2026-11-01 | M1-5 完成：TurnQueue / TurnRunner 状态机、上下文与预算、审批挂起恢复、取消、项目写锁、agent WS 广播；创建 Turn 自动入队；agent 32 / server 227 / web 18 测试 |
+| 2026-11-01 | M1-6 完成：真实项目 / 会话 / 事件 / 审批 UI；项目与重命名对话框、新建 / 归档会话、WS 补拉 reducer、Composer 发送 / 停止、真实审批；web 23 / server 227 / agent 32 测试；demo 与认证 E2E 通过 |

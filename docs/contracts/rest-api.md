@@ -280,7 +280,7 @@
 | GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档 |
 | POST | `/api/sessions` | `{ projectId?, title? }`；无项目时创建独立工作目录；201 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
-| PATCH | `/api/sessions/:id` | `{ title?, modelProfileId? }`；模型只影响下一 Turn |
+| PATCH | `/api/sessions/:id` | `{ title?, modelProfileId?, approvalPolicyId? }`；模型 / 策略只影响下一 Turn |
 | DELETE | `/api/sessions/:id` | 归档会话（`status=archived`，不删 workspace / 源码）；活跃 Turn 返回 409 |
 | POST | `/api/sessions/:id/turns` | `{ input, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
 | POST | `/api/turns/:id/cancel` | 活跃 Turn 置 `CANCELLING`；无活跃 Turn 返回 409 |

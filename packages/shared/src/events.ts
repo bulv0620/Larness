@@ -54,10 +54,15 @@ export interface ToolItem {
 export interface ApprovalItem {
   id: string;
   kind: "approval";
-  serviceName: string;
-  port: number;
-  version: string;
-  impact: string;
+  serviceName?: string;
+  port?: number;
+  version?: string;
+  impact?: string;
+  toolName?: string;
+  summary?: string;
+  risk?: string;
+  scope?: unknown;
+  expiresAt?: number;
   status: "pending" | "approved" | "rejected";
   createdAt: number;
 }

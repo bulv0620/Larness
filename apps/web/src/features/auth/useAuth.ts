@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { useNavigate } from "react-router";
 import { ApiError, apiFetch, type BootstrapData, type SessionData, setCsrfToken } from "@/lib/api";
 
 export function useBootstrap() {
@@ -11,9 +12,10 @@ export function useBootstrap() {
   });
 }
 
-export function useSession() {
+export function useSession(enabled = true) {
   return useQuery({
     queryKey: ["session"],
+    enabled,
     queryFn: async () => {
       try {
         const session = await apiFetch<SessionData>("/api/auth/session");
@@ -45,4 +47,19 @@ export function useUnauthorizedRedirect(): void {
     window.addEventListener("larness:unauthenticated", handler);
     return () => window.removeEventListener("larness:unauthenticated", handler);
   }, [queryClient]);
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  return async (): Promise<void> => {
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST", csrf: true });
+    } finally {
+      setCsrfToken(null);
+      queryClient.clear();
+      navigate("/", { replace: true });
+    }
+  };
 }

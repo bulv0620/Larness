@@ -117,11 +117,16 @@ describe("sessions API", () => {
           method: "PATCH",
           url: `/api/sessions/${session.id}`,
           headers: auth,
-          payload: { title: "Renamed", modelProfileId: "mdl_next" },
+          payload: {
+            title: "Renamed",
+            modelProfileId: "mdl_next",
+            approvalPolicyId: "strict",
+          },
         });
         expect(renamed.json()).toMatchObject({
           title: "Renamed",
           modelProfileId: "mdl_next",
+          approvalPolicyId: "strict",
         });
 
         const cancelled = await started.running.app.inject({

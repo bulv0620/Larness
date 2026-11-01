@@ -474,6 +474,8 @@ export class TurnRunner {
               turnId: turn.id,
               toolCallId: request.id,
               approvalId: outcome.approval.id,
+              toolName: request.name,
+              risk: definition?.riskLevel ?? "L1",
               summary:
                 typeof (outcome.approval.scope as { summary?: unknown }).summary === "string"
                   ? (outcome.approval.scope as { summary: string }).summary

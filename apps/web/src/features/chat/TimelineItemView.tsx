@@ -217,6 +217,10 @@ function ToolCard({ item }: { item: ToolItem }) {
 function ApprovalCard({ item }: { item: ApprovalItem }) {
   const resolve = useTimelineStore((state) => state.resolveApproval);
   const pending = item.status === "pending";
+  const toolApproval = item.toolName !== undefined || item.summary !== undefined;
+  const expires = item.expiresAt === undefined ? null : new Date(item.expiresAt);
+  const expiryLabel =
+    expires === null ? "—" : expires.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div
@@ -248,7 +252,9 @@ function ApprovalCard({ item }: { item: ApprovalItem }) {
             <ShieldAlert size={14} />
           )}
         </span>
-        <span className="text-[12px] font-semibold text-ink">部署审批</span>
+        <span className="text-[12px] font-semibold text-ink">
+          {toolApproval ? "工具审批" : "部署审批"}
+        </span>
         <span className="ml-auto rounded-full border border-line bg-surface px-2 py-[1px] text-[9.5px] font-medium text-ink-2">
           {item.status === "approved"
             ? "已批准"
@@ -259,21 +265,39 @@ function ApprovalCard({ item }: { item: ApprovalItem }) {
       </div>
 
       <div className="mt-2.5 grid grid-cols-3 gap-2 rounded-lg border border-line/80 bg-surface/70 p-2.5">
-        <Metric label="服务" value={item.serviceName} mono />
-        <Metric label="端口" value={String(item.port)} mono />
-        <Metric label="版本" value={item.version} mono />
+        <Metric
+          label={toolApproval ? "工具" : "服务"}
+          value={toolApproval ? (item.toolName ?? "tool") : (item.serviceName ?? "—")}
+          mono
+        />
+        <Metric
+          label={toolApproval ? "风险" : "端口"}
+          value={toolApproval ? (item.risk ?? "L1") : String(item.port ?? "—")}
+          mono
+        />
+        <Metric
+          label={toolApproval ? "过期" : "版本"}
+          value={toolApproval ? expiryLabel : (item.version ?? "—")}
+          mono
+        />
       </div>
-      <p className="mt-2 text-[11px] leading-5 text-ink-2">{item.impact}</p>
+      <p className="mt-2 text-[11px] leading-5 text-ink-2">
+        {toolApproval
+          ? (item.summary ?? "Agent 请求执行受控工具，需要你的确认。")
+          : (item.impact ?? "批准后才会替换生产服务。")}
+      </p>
 
       {pending ? (
         <div className="mt-2.5 flex items-center gap-1.5">
           <Button variant="primary" size="sm" onClick={() => void resolve(item.id, "approve")}>
-            批准部署
+            {toolApproval ? "批准执行" : "批准部署"}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => void resolve(item.id, "reject")}>
-            暂不部署
+            {toolApproval ? "拒绝" : "暂不部署"}
           </Button>
-          <span className="ml-auto text-[9.5px] text-ink-3">批准后才会替换生产服务</span>
+          <span className="ml-auto text-[9.5px] text-ink-3">
+            {toolApproval ? "参数绑定，批准后仅执行一次" : "批准后才会替换生产服务"}
+          </span>
         </div>
       ) : null}
     </div>

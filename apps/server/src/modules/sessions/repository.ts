@@ -78,6 +78,7 @@ export function updateSessionRow(
   input: {
     title?: string;
     modelProfileId?: string | null;
+    approvalPolicyId?: string;
     status?: SessionRow["status"];
     updatedAt: number;
     lastActivityAt?: number;
@@ -86,6 +87,7 @@ export function updateSessionRow(
   const changes = {
     ...(input.title === undefined ? {} : { title: input.title }),
     ...(input.modelProfileId === undefined ? {} : { modelProfileId: input.modelProfileId }),
+    ...(input.approvalPolicyId === undefined ? {} : { approvalPolicyId: input.approvalPolicyId }),
     ...(input.status === undefined ? {} : { status: input.status }),
     updatedAt: input.updatedAt,
     ...(input.lastActivityAt === undefined ? {} : { lastActivityAt: input.lastActivityAt }),
