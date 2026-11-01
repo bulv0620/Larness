@@ -8,7 +8,7 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M1-1 | 项目登记与路径授权 | G0 | `done` |
-| M1-2 | 会话、Turn 与事件存储 | M1-1 | `todo` |
+| M1-2 | 会话、Turn 与事件存储 | M1-1 | `done` |
 | M1-3 | Provider 适配与 FakeProvider | G0 | `todo` |
 | M1-4 | 工具注册与审批引擎 | M1-1, M1-2 | `todo` |
 | M1-5 | Turn Runner 与状态机 | M1-2, M1-3, M1-4 | `todo` |
@@ -43,7 +43,7 @@
 
 ### M1-2 会话、Turn 与事件存储
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：M1-1
 - 目标：建立可重放、可幂等、可修复的执行历史。
 - 交付物：
@@ -55,7 +55,15 @@
   - `approvals` 表（供 M1-4 使用）。
 - 验收：A2、A4（后端）、A5、A13、A12；并发创建同会话 Turn 只有一个成功。
 - 测试：seq 连续 / 唯一、幂等、跨会话隔离、重启修复、事件分页。
-- 涉及路径：`apps/server/src/modules/sessions/`、`apps/server/src/modules/agent/events.ts`、`apps/server/drizzle/0002_workspace.sql`。
+- 涉及路径：`apps/server/src/modules/sessions/`、`apps/server/src/modules/agent/events.ts`、`apps/server/drizzle/0003_workspace.sql`。
+- 完成记录：
+  - `0003_workspace`：`sessions` / `turns` / `agent_events` / `approvals` / `resource_locks`，含 seq / 幂等 / 资源唯一索引与级联外键；
+  - 会话：独立 workspace（`dataDir/sessions/<id>/workspace`，空目录）、项目会话 `realPath`、列表 / 项目筛选 / limit、详情活跃 Turn、重命名 / 下一轮模型、归档不删源码；活跃 Turn 归档 409；
+  - Turn：事务内幂等键 + 活跃校验、`user.message` / `turn.created` 事件、取消骨架 `CANCELLING`；审计 `turn.started` / `turn.cancelled`；
+  - 事件：事务内递增 `seq`、`GET /events?after=&limit=`（`nextSeq` / `hasMore`）、`ServerEvent` 包络；
+  - 启动 `repairInterruptedTurns()`：活跃 Turn → `INTERRUPTED` + 事件，重启集成测试覆盖；重复执行不重复写事件；
+  - 资源锁：acquire / renew / release / 过期回收，软释放保持 `fencing_token` 单调，旧 token 操作失败；
+  - 验收：A2、A4（后端）、A5、A12、A13；server 200 项测试（新增 23 项）。
 
 ### M1-3 Provider 适配与 FakeProvider
 

@@ -13,6 +13,7 @@ import { appendAudit } from "../db/repositories/audit.js";
 import { ensureInstanceId } from "../db/repositories/meta.js";
 import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
+import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import { SERVER_VERSION } from "../version.js";
 import { type LoadedConfig, loadConfig } from "./config.js";
@@ -85,6 +86,12 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const schemaVersion = appliedMigrationCount(opened.sqlite);
     ensureInstanceId(opened.db);
 
+    const repairedTurns = repairInterruptedTurns({ db: opened.db });
+
+    if (repairedTurns > 0) {
+      logger.warn({ repairedTurns }, "marked interrupted turns");
+    }
+
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger });
     cleanup = cleanupScheduler;
 
@@ -109,6 +116,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       logger,
       services: {
         db: opened.db,
+        dataDir,
         config: loaded.config,
         webAuthn: loaded.webAuthn,
         csrfKey,

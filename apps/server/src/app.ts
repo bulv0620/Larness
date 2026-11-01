@@ -6,6 +6,7 @@ import { registerBootstrapRoutes } from "./api/bootstrap.js";
 import { registerHealthRoute } from "./api/health.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerProjectRoutes } from "./api/projects.js";
+import { registerSessionRoutes } from "./api/sessions.js";
 import { registerStaticRoutes } from "./api/static.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
 import type { Database } from "./db/client.js";
@@ -17,6 +18,7 @@ import { registerWsRoutes } from "./ws/server.js";
 
 export interface AppServices {
   db: Database;
+  dataDir: string;
   config: AppConfig;
   webAuthn: WebAuthnRuntime;
   csrfKey: Buffer;
@@ -66,6 +68,10 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.services) {
     registerAuthRoutes(app, options.services);
     registerProjectRoutes(app, { db: options.services.db });
+    registerSessionRoutes(app, {
+      db: options.services.db,
+      dataDir: options.services.dataDir,
+    });
     registerPairingRoutes(app, options.services);
     registerWebAuthnRoutes(app, options.services);
     registerWsRoutes(app, options.services);

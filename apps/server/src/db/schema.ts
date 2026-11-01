@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export type DeviceRequestStatus =
   | "pending"
@@ -13,6 +13,19 @@ export type PairingDecision = "allow_once" | "trust";
 export type SessionKind = "once" | "passkey";
 export type ChallengeType = "registration" | "authentication";
 export type AuditDecision = "allow" | "deny" | "info";
+export type SessionStatus = "active" | "archived";
+export type TurnStatus =
+  | "QUEUED"
+  | "PREPARING"
+  | "RUNNING"
+  | "WAITING_APPROVAL"
+  | "CANCELLING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED"
+  | "INTERRUPTED";
+export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
+export type ResourceLockType = "project" | "service" | "file" | "git" | "global-maintenance";
 
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
@@ -33,6 +46,111 @@ export const projects = sqliteTable(
     updatedAt: integer("updated_at").notNull(),
   },
   (table) => [index("idx_projects_updated").on(table.updatedAt)],
+);
+
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
+    workspacePath: text("workspace_path").notNull(),
+    title: text("title").notNull(),
+    status: text("status").$type<SessionStatus>().notNull().default("active"),
+    modelProfileId: text("model_profile_id"),
+    approvalPolicyId: text("approval_policy_id").notNull().default("standard"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    lastActivityAt: integer("last_activity_at").notNull(),
+  },
+  (table) => [
+    index("idx_sessions_project_updated").on(table.projectId, table.updatedAt),
+    index("idx_sessions_updated").on(table.updatedAt),
+  ],
+);
+
+export const turns = sqliteTable(
+  "turns",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    modelProfileId: text("model_profile_id"),
+    provider: text("provider"),
+    model: text("model"),
+    status: text("status").$type<TurnStatus>().notNull(),
+    inputJson: text("input_json").notNull(),
+    usageJson: text("usage_json"),
+    errorJson: text("error_json"),
+    idempotencyKey: text("idempotency_key"),
+    createdAt: integer("created_at").notNull(),
+    startedAt: integer("started_at"),
+    endedAt: integer("ended_at"),
+  },
+  (table) => [
+    uniqueIndex("turns_session_idempotency_unique").on(table.sessionId, table.idempotencyKey),
+    index("idx_turns_session_created").on(table.sessionId, table.createdAt),
+    index("idx_turns_session_status").on(table.sessionId, table.status),
+  ],
+);
+
+export const agentEvents = sqliteTable(
+  "agent_events",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    turnId: text("turn_id").references(() => turns.id, { onDelete: "cascade" }),
+    seq: integer("seq").notNull(),
+    type: text("type").notNull(),
+    payloadJson: text("payload_json").notNull().default("{}"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("agent_events_session_seq_unique").on(table.sessionId, table.seq)],
+);
+
+export const approvals = sqliteTable(
+  "approvals",
+  {
+    id: text("id").primaryKey(),
+    turnId: text("turn_id")
+      .notNull()
+      .references(() => turns.id, { onDelete: "cascade" }),
+    toolCallId: text("tool_call_id").notNull(),
+    toolName: text("tool_name").notNull(),
+    risk: text("risk").notNull(),
+    status: text("status").$type<ApprovalStatus>().notNull().default("pending"),
+    scopeJson: text("scope_json").notNull().default("{}"),
+    paramsHash: text("params_hash").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+    decidedAt: integer("decided_at"),
+    decidedBy: text("decided_by"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("idx_approvals_turn_status").on(table.turnId, table.status),
+    index("idx_approvals_expiry").on(table.expiresAt),
+  ],
+);
+
+export const resourceLocks = sqliteTable(
+  "resource_locks",
+  {
+    id: text("id").primaryKey(),
+    resourceType: text("resource_type").$type<ResourceLockType>().notNull(),
+    resourceId: text("resource_id").notNull(),
+    owner: text("owner").notNull(),
+    executionId: text("execution_id").notNull(),
+    fencingToken: integer("fencing_token").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+    heartbeatAt: integer("heartbeat_at").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("resource_locks_resource_unique").on(table.resourceType, table.resourceId),
+    index("idx_resource_locks_expiry").on(table.expiresAt),
+  ],
 );
 
 export const authSettings = sqliteTable(
@@ -154,6 +272,11 @@ export const auditLogs = sqliteTable(
 );
 
 export type ProjectRow = typeof projects.$inferSelect;
+export type SessionRow = typeof sessions.$inferSelect;
+export type TurnRow = typeof turns.$inferSelect;
+export type AgentEventRow = typeof agentEvents.$inferSelect;
+export type ApprovalRow = typeof approvals.$inferSelect;
+export type ResourceLockRow = typeof resourceLocks.$inferSelect;
 export type AppMetaRow = typeof appMeta.$inferSelect;
 export type AuthSettingsRow = typeof authSettings.$inferSelect;
 export type DeviceRequestRow = typeof deviceRequests.$inferSelect;

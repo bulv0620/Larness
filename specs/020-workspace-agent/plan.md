@@ -52,7 +52,7 @@ apps/server/src/modules/agent/*
 apps/server/src/modules/models/*
 apps/server/src/api/{projects,sessions,turns,events,models,approvals}.ts
 apps/server/src/ws/publisher.ts
-apps/server/drizzle/0002_workspace.sql
+apps/server/drizzle/0003_workspace.sql
 apps/server/test/{projects,sessions,agent,approvals}/*
 apps/web/src/features/projects/{ProjectDialog,ProjectList}.tsx
 apps/web/src/features/chat/{useSessionEvents,useSendTurn,ApprovalCard}.tsx
@@ -175,7 +175,7 @@ interface ProviderAdapter {
 
 ## 5. 数据与迁移
 
-`0002_workspace`：
+`0003_workspace`：
 
 | 表 | 说明 |
 |---|---|

@@ -1,3 +1,20 @@
+export type EventTopic = "agent" | "terminal" | "service" | "git" | "file" | "system";
+
+export interface ServerEvent<T = unknown> {
+  kind: "event";
+  eventId: string;
+  protocolVersion: 1;
+  topic: EventTopic;
+  streamId: string;
+  projectId?: string;
+  sessionId?: string;
+  resourceId?: string;
+  sequence: number;
+  timestamp: number;
+  type: string;
+  payload: T;
+}
+
 export interface MessageItem {
   id: string;
   kind: "message";

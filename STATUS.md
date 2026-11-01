@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-01 17:44 (+08:00)
-> 当前阶段：**M1 进行中；M1-1 完成，下一步 M1-2**
+> 最后更新：2026-11-01 18:00 (+08:00)
+> 当前阶段：**M1 进行中；M1-2 完成，下一步 M1-3**
 
 ## 里程碑
 
@@ -9,7 +9,7 @@
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
-| M1 | 项目、会话与最小 Agent | `in_progress` | M1-1 完成；项目写锁已纳入 M1-4/M1-5 规划 |
+| M1 | 项目、会话与最小 Agent | `in_progress` | M1-2 完成；下一步 M1-3；项目写锁已纳入 M1-4/M1-5 规划 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
@@ -17,11 +17,17 @@
 
 ## 当前工作
 
-- 进行中：`M1` — 项目、会话与最小 Agent（分支 `task/m1-1-projects`）
+- 刚完成：`M1-2` — 会话、Turn 与事件存储（分支 `task/m1-2-sessions`）
+  - `0003_workspace` 迁移：`sessions` / `turns` / `agent_events` / `approvals` / `resource_locks`，含 `UNIQUE(session_id, seq)`、`UNIQUE(session_id, idempotency_key)`、资源锁唯一约束与外键；
+  - 会话：独立会话创建空 workspace、项目会话复用 `realPath`、列表 / 项目筛选 / limit、详情含活跃 Turn、重命名 / 下一轮模型、归档（不删源码，活跃 Turn 409）；
+  - Turn：事务内幂等创建与活跃校验、`user.message` + `turn.created` 事件、取消骨架（`CANCELLING`）；审计 `turn.started` / `turn.cancelled`；
+  - 事件：事务内 Session 级 `seq`、`GET /events?after=&limit=` 增量分页（`nextSeq` / `hasMore`）、`ServerEvent` 包络；
+  - 启动修复：所有无法证明存活的活跃 Turn → `INTERRUPTED` 并写 `turn.interrupted`，重启集成测试覆盖；
+  - 资源锁：获取 / 续租 / 释放 / 过期回收与 fencing token，软释放保持 token 单调；
+  - 验收：A2、A4（后端）、A5、A12、A13；server 200 项测试（新增 23 项），`pnpm check` 通过。
 - 刚完成：`M1-1` — 项目登记与路径授权
   - `0002_projects` 迁移、projects repository / API、pathGuard、Git 检测、项目设置、删除仅解除关联、审计；
-  - server 176 项测试；项目写锁规划已从 M2-7 提前到 M1-4/M1-5；
-  - 下一步 `M1-2` 会话 / Turn / 事件存储。
+  - server 176 项测试；项目写锁规划已从 M2-7 提前到 M1-4/M1-5。
 - 刚完成：`M0-9` — 稳定入口与 M0 验收（分支 `task/m0-9-entry`，状态 `done`）
   - 已完成：TUI 受管前台入口（[ADR-023](docs/adr/ADR-023-tui-as-managed-entry.md)）——`pnpm dev` / `node app.js` 启动 Server（开发另起 Vite）并进入 TUI；启动页显示数据目录 / Server / Web / IPC 检查；关闭 TUI 优雅停止全部；`l` 查看 Server 日志与 Vite 输出；
   - 已完成：`app.js` status / doctor / version、静态托管 + SPA 回退 + 缓存 / CSP、四入口构建、关闭审计、IPC 契约校准、[G0 验收记录](specs/010-foundation/acceptance.md)；
@@ -57,7 +63,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：`M1-2` — 会话、Turn 与事件存储
+- 下一个任务：`M1-3` — Provider 适配与 FakeProvider
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -119,3 +125,4 @@
 | 2026-11-01 | dev 模式 3210 关闭静态 Web，只保留 API/WS；前端仍只经 Vite 5173；新增静态开关测试 |
 | 2026-11-01 | M0 验收关闭：macOS 范围 G0 通过；Linux / Windows / CI 首次远端结果列为后续验证；下一步先修 M1 项目写锁规划 |
 | 2026-11-01 | M1-1 完成：projects 迁移 / API / pathGuard / Git 检测 / 设置 / 审计；项目写锁提前到 M1-4/M1-5；server 176 项测试 |
+| 2026-11-01 | M1-2 完成：`0003_workspace` 五表 / repository；会话 workspace / 列表 / 重命名 / 归档；Turn 幂等创建、活跃校验、取消骨架；事务内 seq 与事件分页；启动 INTERRUPTED 修复；资源锁 fencing；server 200 项测试 |

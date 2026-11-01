@@ -272,14 +272,14 @@
 | GET | `/api/projects/:id` | 详情 |
 | PATCH | `/api/projects/:id` | `{ name?, settings? }`；settings 局部合并 |
 | DELETE | `/api/projects/:id` | `{ ok: true }`；仅删数据库行，不删目录 |
-| GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话 |
-| POST | `/api/sessions` | `{ projectId?, title? }`；无项目时创建独立工作目录 |
+| GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档 |
+| POST | `/api/sessions` | `{ projectId?, title? }`；无项目时创建独立工作目录；201 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
-| PATCH | `/api/sessions/:id` | 标题、下一轮模型 |
-| DELETE | `/api/sessions/:id` | 归档 / 删除会话（先预览，不删项目源码） |
-| POST | `/api/sessions/:id/turns` | `{ input, modelProfileId? }` + `Idempotency-Key`；409 `TURN_IN_PROGRESS` |
-| POST | `/api/turns/:id/cancel` | 取消；无活跃 Turn 返回 409 |
-| GET | `/api/sessions/:id/events?after=<seq>&limit=` | 增量事件，按 `seq` 升序 |
+| PATCH | `/api/sessions/:id` | `{ title?, modelProfileId? }`；模型只影响下一 Turn |
+| DELETE | `/api/sessions/:id` | 归档会话（`status=archived`，不删 workspace / 源码）；活跃 Turn 返回 409 |
+| POST | `/api/sessions/:id/turns` | `{ input, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
+| POST | `/api/turns/:id/cancel` | 活跃 Turn 置 `CANCELLING`；无活跃 Turn 返回 409 |
+| GET | `/api/sessions/:id/events?after=<seq>&limit=` | 增量事件，按 `seq` 升序；`limit` 1–500（默认 100） |
 | GET | `/api/approvals/:id` | 审批详情（参数摘要、范围、过期时间） |
 | POST | `/api/approvals/:id` | `{ decision: "approve" \| "reject" }`；校验参数哈希与范围 |
 | GET | `/api/models` | 可用模型 Profile（不含密钥） |
@@ -307,11 +307,46 @@
 }
 ```
 
+`Session` 响应字段（详情额外带 `activeTurn`）：
+
+```json
+{
+  "id": "ses_…",
+  "projectId": "prj_…",
+  "workspacePath": "/Users/me/demo",
+  "title": "New session",
+  "status": "active",
+  "modelProfileId": null,
+  "approvalPolicyId": "standard",
+  "createdAt": 1790000000000,
+  "updatedAt": 1790000000000,
+  "lastActivityAt": 1790000000000,
+  "activeTurn": {
+    "id": "trn_…",
+    "sessionId": "ses_…",
+    "status": "QUEUED",
+    "modelProfileId": null,
+    "provider": null,
+    "model": null,
+    "input": { "text": "…" },
+    "usage": null,
+    "error": null,
+    "createdAt": 1790000000000,
+    "startedAt": null,
+    "endedAt": null
+  }
+}
+```
+
+独立会话的 `workspacePath` 是 `dataDir/sessions/<sessionId>/workspace`，创建时为空目录；项目会话使用项目 `realPath`。列表只返回 `active` 会话。
+
 Turn 创建成功返回 `202`：
 
 ```json
 { "turnId": "trn_…", "status": "QUEUED", "sessionId": "ses_…" }
 ```
+
+重复 `Idempotency-Key` 返回首次 Turn 的当前状态（不重复写事件）；同一会话已有活跃 Turn 时返回 `409 TURN_IN_PROGRESS`。
 
 `GET /api/sessions/:id/events` 的响应为：
 

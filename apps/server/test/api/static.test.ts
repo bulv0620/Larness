@@ -38,6 +38,7 @@ async function createStaticApp(dir: string) {
   const app = createApp({
     services: {
       db: opened.db,
+      dataDir: dir,
       config,
       webAuthn,
       csrfKey: randomBytes(32),

@@ -134,14 +134,14 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | 表 | 关键列 | 说明 |
 |---|---|---|
 | `projects` | `id, name, root_path, real_path, settings_json, git_detected, created_at, updated_at` | `real_path` canonical 且唯一；`settings_json` 含默认模型 / 指令 / ignore；删除只删行 |
-| `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, approval_policy_id, created_at, updated_at, last_activity_at` | 独立会话的 workspace 在 dataDir 下 |
-| `turns` | `id, session_id, model_profile_id, provider, model, status, input_json, usage_json, error_json, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn |
+| `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, approval_policy_id, created_at, updated_at, last_activity_at` | `status`: `active / archived`；归档不删 workspace；独立会话 workspace 在 dataDir 下 |
+| `turns` | `id, session_id, model_profile_id, provider, model, status, input_json, usage_json, error_json, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn；provider / model 在 Turn 运行时快照 |
 | `agent_events` | `id, session_id, turn_id, seq, type, payload_json, created_at`；`UNIQUE(session_id, seq)` | `seq` 在 Session 内递增，事务内分配 |
 | `model_profiles` | `id, label, provider, model, credential_profile_id, endpoint, capabilities_json, created_at` | 不含密钥 |
 | `credential_profiles` | `id, provider, label, secret_ref, created_at` | 密钥在 SecretStore |
 | `secrets` | `id, ciphertext, nonce, tag, created_at` | AES-256-GCM；主密钥在文件系统 |
-| `approvals` | `id, turn_id, tool_call_id, tool_name, risk, status, scope_json, params_hash, expires_at, decided_at, decided_by, created_at` | 审批参数绑定与审计 |
-| `resource_locks` | `id, resource_type, resource_id, owner, execution_id, fencing_token, expires_at, heartbeat_at, created_at` | M2 使用 |
+| `approvals` | `id, turn_id, tool_call_id, tool_name, risk, status, scope_json, params_hash, expires_at, decided_at, decided_by, created_at` | `status`: `pending / approved / denied / expired`；审批参数绑定与审计 |
+| `resource_locks` | `id, resource_type, resource_id, owner, execution_id, fencing_token, expires_at, heartbeat_at, created_at`；`UNIQUE(resource_type, resource_id)` | M1 最小项目写锁；M2 扩展 file / git / service |
 
 索引：`agent_events(session_id, seq)`、`turns(session_id, created_at)`、`sessions(project_id, updated_at)`、`projects(real_path)`。
 
@@ -149,7 +149,8 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 
 - `sessions.project_id` 外键可空；项目删除时置空而不是级联删除会话（保留历史）。
 - `turns.idempotency_key` 与 `session_id` 建唯一索引，防止重复提交。
-- Turn 状态变化必须写事件；重启时把无法证明存活的 `RUNNING` 标记 `INTERRUPTED`。
+- Turn 状态变化必须写事件；重启时把无法证明存活的活跃 Turn（QUEUED / PREPARING / RUNNING / WAITING_APPROVAL / CANCELLING）标记 `INTERRUPTED`。
+- `resource_locks` 每个资源只保留一行；释放写 `expires_at = 0`，回收时递增 `fencing_token`，旧 token 的续租 / 释放 / 写入必须失败。
 
 ## 4. M2–M5 表（目标）
 
