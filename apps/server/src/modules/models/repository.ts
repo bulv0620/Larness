@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import {
@@ -100,7 +100,7 @@ export function findLatestCredentialForProvider(
       .select()
       .from(credentialProfiles)
       .where(eq(credentialProfiles.provider, provider))
-      .orderBy(desc(credentialProfiles.createdAt), desc(credentialProfiles.id))
+      .orderBy(desc(credentialProfiles.createdAt), sql`rowid desc`)
       .limit(1)
       .get() ?? null
   );
