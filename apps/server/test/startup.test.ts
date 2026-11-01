@@ -1,11 +1,12 @@
 import { existsSync } from "node:fs";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ConfigError } from "../src/bootstrap/config.js";
 import { InstanceLockedError, inspectInstanceLock } from "../src/bootstrap/lock.js";
 import { startServer } from "../src/bootstrap/start.js";
+import { ipcTokenPath, resolveIpcAddress } from "../src/ipc/address.js";
 import { DataDirError } from "../src/platform/paths.js";
 import { collectStatus } from "../src/status.js";
 import { createLogSink, getFreePort, testConfig, withTempDir, writeConfig } from "./helpers.js";
@@ -31,6 +32,12 @@ describe("startServer", () => {
         expect(running.webAuthn.origin).toBe(`http://localhost:${port}`);
         expect(running.schemaVersion).toBe(1);
         expect(existsSync(running.dbPath)).toBe(true);
+        expect(existsSync(running.ipc.address.path)).toBe(true);
+
+        if (process.platform !== "win32") {
+          expect((await stat(running.ipc.address.path)).mode & 0o777).toBe(0o600);
+          expect((await stat(ipcTokenPath(dir))).mode & 0o777).toBe(0o600);
+        }
 
         const status = await collectStatus({ dataDir: dir, env: envFor(dir, port) });
         expect(status.running).toBe(true);
@@ -41,6 +48,7 @@ describe("startServer", () => {
       }
 
       expect(await inspectInstanceLock(dir)).toBeNull();
+      expect(existsSync(ipcTokenPath(dir))).toBe(false);
     });
   });
 
@@ -83,6 +91,8 @@ describe("startServer", () => {
       }
 
       expect(await inspectInstanceLock(dir)).toBeNull();
+      expect(existsSync(ipcTokenPath(dir))).toBe(false);
+      expect(existsSync(resolveIpcAddress(dir).path)).toBe(false);
     });
   });
 

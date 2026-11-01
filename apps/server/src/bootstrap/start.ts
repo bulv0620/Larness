@@ -7,6 +7,8 @@ import { type CleanupScheduler, startCleanupScheduler } from "../db/cleanup.js";
 import { type Database, type OpenedDatabase, openDatabase } from "../db/client.js";
 import { appliedMigrationCount, runMigrations } from "../db/migrate.js";
 import { ensureInstanceId } from "../db/repositories/meta.js";
+import { createIpcHandler } from "../ipc/handlers.js";
+import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import { SERVER_VERSION } from "../version.js";
 import { type LoadedConfig, loadConfig } from "./config.js";
@@ -31,6 +33,7 @@ export interface RunningServer {
   sqlite: OpenedDatabase["sqlite"];
   dbPath: string;
   schemaVersion: number;
+  ipc: IpcServer;
   lock: InstanceLock;
   logger: Logger;
   shutdown: Shutdown;
@@ -54,7 +57,9 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   let lock: InstanceLock | null = null;
   let database: OpenedDatabase | null = null;
   let cleanup: CleanupScheduler | null = null;
+  let ipc: IpcServer | null = null;
   let app: FastifyInstance | null = null;
+  let requestShutdown: ((reason: string) => void) | null = null;
 
   try {
     lock = await acquireInstanceLock(dataDir, { version });
@@ -70,6 +75,20 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger });
     cleanup = cleanupScheduler;
 
+    const ipcServer = await startIpcServer({
+      dataDir,
+      version,
+      logger,
+      handler: createIpcHandler({
+        db: opened.db,
+        dataDir,
+        config: loaded.config,
+        webAuthn: loaded.webAuthn,
+        requestShutdown: (reason) => requestShutdown?.(reason),
+      }),
+    });
+    ipc = ipcServer;
+
     app = createApp({ logger });
 
     await app.listen({
@@ -83,6 +102,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         dataDir,
         dbPath,
         schemaVersion,
+        ipcPath: ipcServer.address.path,
+        ipcKind: ipcServer.address.kind,
         host: loaded.config.server.host,
         port: loaded.config.server.port,
         origin: loaded.webAuthn.origin,
@@ -98,11 +119,16 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       logger,
       timeoutMs: options.shutdownTimeoutMs,
       onTimeout: options.onShutdownTimeout,
-      onClose: () => {
+      onClose: async () => {
+        await ipcServer.close();
         cleanupScheduler.stop();
         opened.close();
       },
     });
+
+    requestShutdown = (reason) => {
+      void shutdown(reason);
+    };
 
     return {
       app,
@@ -113,12 +139,17 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       sqlite: opened.sqlite,
       dbPath,
       schemaVersion,
+      ipc: ipcServer,
       lock,
       logger,
       shutdown,
     };
   } catch (error) {
     logger.error({ err: error }, "server failed to start");
+
+    if (ipc !== null) {
+      await ipc.close().catch(() => undefined);
+    }
 
     cleanup?.stop();
 

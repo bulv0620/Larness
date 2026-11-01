@@ -12,7 +12,8 @@
     "doctor": "tsx src/cli/doctor.ts",
     "db:generate": "drizzle-kit generate --name auth",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "tui": "tsx src/tui/main.ts"
   },
   "dependencies": {
     "@larness/shared": "workspace:*",
@@ -21,7 +22,11 @@
     "pino": "^10.4.0",
     "pino-roll": "^4.0.0",
     "better-sqlite3": "^11.10.0",
-    "drizzle-orm": "^0.45.4"
+    "drizzle-orm": "^0.45.4",
+    "@node-rs/argon2": "^2.2.2",
+    "@inquirer/prompts": "^8.7.5",
+    "picocolors": "^1.1.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

@@ -69,7 +69,7 @@ export async function collectStatus(options: CollectStatusOptions = {}): Promise
 
   return {
     version: SERVER_VERSION,
-    initialized: loaded.source === "file",
+    initialized: database?.initialized ?? false,
     running,
     pid: running ? (record?.pid ?? null) : null,
     uptimeMs: running && record ? Math.max(0, now() - record.startedAt) : null,

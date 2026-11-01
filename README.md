@@ -6,7 +6,7 @@
 - 以对话驱动 Agent 读写项目、运行命令、管理终端 / 服务 / Git；
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
-> **当前状态：S0 视觉 Demo 已验收（G-S0 通过）；M0-1 ~ M0-3 完成，下一个任务 M0-4。**
+> **当前状态：S0 视觉 Demo 已验收（G-S0 通过）；M0-1 ~ M0-4 完成，下一个任务 M0-5。**
 > 启动开发环境：`pnpm install && pnpm dev` → Web <http://localhost:5173>，Server <http://127.0.0.1:3210/api/health>。
 > 验收记录与截图：[specs/000-visual-demo/acceptance.md](specs/000-visual-demo/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
@@ -39,14 +39,15 @@
 pnpm install
 pnpm dev            # Web http://localhost:5173 + Server http://127.0.0.1:3210
 pnpm run status     # 只读状态 JSON（running / listen / db.schemaVersion / webauthn …）
-pnpm run doctor     # 数据目录 / 配置 / 端口 / Node 自检，失败退出非 0
+pnpm run doctor     # 数据目录 / 配置 / 端口 / DB / Node 自检，失败退出非 0
+pnpm run tui        # 本机 TUI：初始化向导 / 仪表盘（需 server 已启动）
 pnpm check          # Biome + 类型 + 单元测试
 pnpm build
 pnpm test:e2e
 pnpm demo:shots     # 重新生成验收截图
 ```
 
-数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）。Web 数据仍来自 `MockGateway`；Server 目前提供健康检查、配置 / 数据目录 / 日志 / 单实例锁 / SQLite 迁移与审计、`status` 与 `doctor`，认证与 IPC 随 M0 后续任务补齐。
+数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 数据仍来自 `MockGateway`；Server 目前提供健康检查、SQLite 迁移与审计、本机 IPC、初始化、`status` / `doctor`，Web 认证与配对随 M0 后续任务补齐。
 
 ## 如何使用本仓库
 
@@ -60,7 +61,7 @@ Agent 的启动指令示例：
 
 ```text
 请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md。
-S0 已验收，M0-1 ~ M0-3 完成；按 specs/010-foundation/{spec,plan,tasks}.md 执行 M0-4。
+S0 已验收，M0-1 ~ M0-4 完成；按 specs/010-foundation/{spec,plan,tasks}.md 执行 M0-5。
 ```
 
 ## 当前仓库结构
