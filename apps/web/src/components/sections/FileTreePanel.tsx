@@ -1,7 +1,6 @@
 import { cn } from "@larness/ui";
 import { ChevronDown, ChevronRight, FileCode2, FileText, Folder } from "lucide-react";
 import { useState } from "react";
-import { EmptyState } from "@/components/common/EmptyState";
 import { fileTree } from "@/mocks/fixtures";
 import { useWindowStore } from "@/stores/windowStore";
 
@@ -28,14 +27,7 @@ export function FileTreePanel({ projectId }: { projectId: string | null }) {
   );
 
   if (projectId !== "prj_larness") {
-    return (
-      <EmptyState
-        icon={Folder}
-        title="暂无文件预览"
-        description="S0 只为 larness-web 准备了文件树 Mock；连接真实项目后按项目展示。"
-        className="py-6"
-      />
-    );
+    return <div className="px-2 py-3 text-[10.5px] text-ink-3">当前项目暂无文件</div>;
   }
 
   return (
