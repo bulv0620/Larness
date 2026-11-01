@@ -64,6 +64,10 @@ export function ProjectResourceSidebar() {
   ];
 
   const solo = sections.find((section) => section.id === view);
+  const expandedTotal = Math.max(
+    0.0001,
+    sections.reduce((sum, section) => sum + (section.expanded ? section.size : 0), 0),
+  );
 
   const renderPanel = (id: string) => {
     if (id === "files") return <FileTreePanel projectId={projectId} />;
@@ -134,7 +138,7 @@ export function ProjectResourceSidebar() {
                   icon={icons[section.id as keyof typeof icons]}
                   count={counts[section.id as keyof typeof counts]}
                   expanded={section.expanded}
-                  size={section.size}
+                  size={section.size / expandedTotal}
                   onToggle={() => toggle(section.id)}
                 >
                   {renderPanel(section.id)}
@@ -142,7 +146,7 @@ export function ProjectResourceSidebar() {
 
                 {next?.expanded && section.expanded ? (
                   <SectionSplitter
-                    value={section.size}
+                    value={section.size / expandedTotal}
                     onPointerDown={(event) => onPointerDown(index, event)}
                     onDoubleClick={() => equalize(index)}
                     onKeyDown={(event) => {

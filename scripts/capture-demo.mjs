@@ -68,6 +68,14 @@ await shot("07-files-tab.png", {
     await page.waitForTimeout(400);
   },
 });
+await shot("08-collapsed.png", {
+  width: 1440,
+  height: 900,
+  action: async (page) => {
+    await page.getByRole("button", { name: /^服务/ }).first().click();
+    await page.waitForTimeout(400);
+  },
+});
 
 console.log(JSON.stringify({ out: outDir.pathname, errors }, null, 2));
 await browser.close();

@@ -74,6 +74,24 @@ test.describe("Harness S0 视觉 Demo", () => {
     await expect(tree.getByText("AppShell.tsx", { exact: true })).toBeVisible();
   });
 
+  test("折叠分区后剩余分区填满右栏", async ({ page }) => {
+    const aside = page.getByLabel("项目资源", { exact: true });
+    await page.getByRole("button", { name: /^服务/ }).first().click();
+    await page.waitForTimeout(250);
+
+    const sections = aside.locator("section");
+    await expect(sections).toHaveCount(4);
+    await expect(sections.nth(1)).toHaveCSS("min-height", "36px");
+
+    const asideBox = await aside.boundingBox();
+    const lastBox = await sections.last().boundingBox();
+    expect(asideBox).not.toBeNull();
+    expect(lastBox).not.toBeNull();
+    const gap =
+      (asideBox?.y ?? 0) + (asideBox?.height ?? 0) - ((lastBox?.y ?? 0) + (lastBox?.height ?? 0));
+    expect(gap).toBeLessThan(20);
+  });
+
   test("主题切换并持久化", async ({ page }) => {
     await page.getByRole("button", { name: "外观与主题" }).click();
     await page.getByRole("menuitemradio", { name: /深色/ }).click();

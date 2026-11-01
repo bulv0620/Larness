@@ -35,7 +35,7 @@ pnpm demo:shots     # 重新生成 screenshots/ 下的截图
 测试明细：
 
 - 单元 / 组件：3 个文件、10 个用例（窗口几何、事件 reducer、主题解析）。
-- E2E：11 个用例（布局、资源 Tabs、项目切换、主题、窗口、分区、Monaco、对话审批、快捷键、窄屏、上下文菜单与文件树折叠）。
+- E2E：12 个用例（布局、资源 Tabs、项目切换、主题、窗口、分区、折叠填充、Monaco、对话审批、快捷键、窄屏、上下文菜单与文件树折叠）。
 - 控制台：无 error；无外部网络请求；fixtures 无真实秘密。
 
 ## 3. 截图
@@ -67,6 +67,10 @@ pnpm demo:shots     # 重新生成 screenshots/ 下的截图
 ### 资源区“文件”单项视图
 
 ![文件视图](screenshots/07-files-tab.png)
+
+### 折叠“服务”后的资源区（剩余分区填满）
+
+![折叠资源区](screenshots/08-collapsed.png)
 
 ## 4. 已知边界
 

@@ -1,4 +1,3 @@
-import { IconButton } from "@harness/ui";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
@@ -47,11 +46,6 @@ export function ResizableSection({
             {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
           </span>
         </button>
-        <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
-          <IconButton label={`${title} 操作`} className="h-6 w-6" onClick={onToggle}>
-            <span className="text-[15px] leading-none">·</span>
-          </IconButton>
-        </div>
       </div>
       {expanded ? <div className="min-h-0 flex-1 overflow-auto pb-1">{children}</div> : null}
     </section>
