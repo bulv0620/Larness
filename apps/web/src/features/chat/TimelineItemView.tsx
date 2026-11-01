@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { useWindowStore } from "@/stores/windowStore";
 
@@ -281,6 +282,8 @@ function ApprovalCard({ item }: { item: ApprovalItem }) {
 
 function ArtifactCard({ item }: { item: ArtifactItem }) {
   const open = useWindowStore((state) => state.open);
+  const projectId = useNavigationStore((state) => state.projectId);
+  const sessionId = useNavigationStore((state) => state.sessionId);
   const deploy = item.title.includes("部署");
 
   return (
@@ -302,6 +305,9 @@ function ArtifactCard({ item }: { item: ArtifactItem }) {
             kind: "browser",
             resourceId: item.href ?? "browser_preview",
             title: item.meta,
+            projectId,
+            sessionId,
+            source: "artifact",
           })
         }
       >

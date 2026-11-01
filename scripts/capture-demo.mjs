@@ -76,6 +76,15 @@ await shot("08-collapsed.png", {
     await page.waitForTimeout(400);
   },
 });
+await shot("09-window-filter.png", {
+  width: 1440,
+  height: 900,
+  action: async (page) => {
+    await page.getByText("整理文档站首页导航", { exact: true }).first().click();
+    await page.getByText("pnpm docs:dev", { exact: true }).click();
+    await page.waitForTimeout(700);
+  },
+});
 
 console.log(JSON.stringify({ out: outDir.pathname, errors }, null, 2));
 await browser.close();

@@ -129,6 +129,17 @@ export const services = [
     runtime: "pm2" as const,
     kind: "production" as const,
   },
+  {
+    id: "svc_docs_dev",
+    projectId: "prj_docs",
+    name: "docs-dev",
+    port: 4321,
+    status: "running" as const,
+    runtime: "native" as const,
+    kind: "development" as const,
+    pid: 48311,
+    uptime: "38m",
+  },
 ];
 
 export const terminals = [
@@ -137,6 +148,7 @@ export const terminals = [
     projectId: "prj_harness",
     title: "pnpm dev",
     cwd: "/Users/bulv/Desktop/Larness",
+    port: 5173,
     status: "running" as const,
   },
   {
@@ -144,6 +156,14 @@ export const terminals = [
     projectId: null,
     title: "zsh",
     cwd: "~",
+    status: "running" as const,
+  },
+  {
+    id: "ter_3",
+    projectId: "prj_docs",
+    title: "pnpm docs:dev",
+    cwd: "/Users/bulv/Desktop/docs-site",
+    port: 4321,
     status: "running" as const,
   },
 ];

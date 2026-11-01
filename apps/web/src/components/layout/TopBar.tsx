@@ -40,15 +40,31 @@ const launchers: Array<{
   icon: typeof SquareTerminal;
   resourceId: string;
   title: string;
+  projectId: string | null;
 }> = [
-  { kind: "terminal", label: "终端", icon: SquareTerminal, resourceId: "ter_1", title: "pnpm dev" },
-  { kind: "services", label: "服务", icon: Server, resourceId: "svc_web_dev", title: "web-dev" },
+  {
+    kind: "terminal",
+    label: "终端",
+    icon: SquareTerminal,
+    resourceId: "ter_1",
+    title: "pnpm dev",
+    projectId: "prj_harness",
+  },
+  {
+    kind: "services",
+    label: "服务",
+    icon: Server,
+    resourceId: "svc_web_dev",
+    title: "web-dev",
+    projectId: "prj_harness",
+  },
   {
     kind: "browser",
     label: "浏览器",
     icon: Globe2,
     resourceId: "browser_preview",
     title: "localhost:5173",
+    projectId: "prj_harness",
   },
   {
     kind: "files",
@@ -56,6 +72,7 @@ const launchers: Array<{
     icon: Files,
     resourceId: "apps/web/src/app/AppShell.tsx",
     title: "AppShell.tsx",
+    projectId: "prj_harness",
   },
 ];
 
@@ -107,7 +124,7 @@ export function TopBar() {
               <Hint key={launcher.kind} label={`打开${launcher.label}窗口`}>
                 <button
                   type="button"
-                  onClick={() => open(launcher)}
+                  onClick={() => open({ ...launcher, source: "header" })}
                   aria-label={`打开${launcher.label}窗口`}
                   aria-pressed={active}
                   className={cn(

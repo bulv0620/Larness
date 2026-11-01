@@ -62,8 +62,10 @@ export function ServiceWindow({ tab }: { tab: WindowTab }) {
             onClick={() =>
               open({
                 kind: "browser",
-                resourceId: "browser_preview",
+                resourceId: `http://localhost:${service?.port ?? 5173}/`,
                 title: `localhost:${service?.port ?? 5173}`,
+                projectId: service?.projectId ?? null,
+                source: "artifact",
               })
             }
           >

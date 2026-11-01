@@ -1,18 +1,32 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { filterTabs, insertIntoTabGroup, isTabVisible } from "@/lib/windowFilters";
 import { clampRect, defaultRect } from "@/lib/windowGeometry";
-import type { ManagedWindow, Rect, WindowKind } from "@/lib/windowTypes";
+import type {
+  ManagedWindow,
+  ProjectFilter,
+  Rect,
+  TabOrigin,
+  WindowKind,
+  WindowTab,
+} from "@/lib/windowTypes";
+
+type OpenSource = TabOrigin | "header";
 
 interface OpenInput {
   kind: WindowKind;
   resourceId: string;
   title: string;
+  projectId?: string | null;
+  sessionId?: string | null;
+  source?: OpenSource;
 }
 
 interface WindowState {
   windows: ManagedWindow[];
   focusedId: string | null;
   zCounter: number;
+  lastFilters: Partial<Record<WindowKind, ProjectFilter>>;
   open: (input: OpenInput) => void;
   focus: (id: string) => void;
   close: (id: string) => void;
@@ -23,6 +37,7 @@ interface WindowState {
   setActiveTab: (windowId: string, tabId: string) => void;
   closeTab: (windowId: string, tabId: string) => void;
   setBounds: (id: string, rect: Rect) => void;
+  setFilter: (windowId: string, filter: ProjectFilter) => void;
 }
 
 function viewport() {
@@ -37,59 +52,104 @@ function topZ(windows: ManagedWindow[]): number {
   return windows.reduce((max, item) => Math.max(max, item.z), 0);
 }
 
+function originFor(source: OpenSource | undefined): TabOrigin {
+  if (!source || source === "header") return "global";
+  return source;
+}
+
+function preferredFilter(
+  source: OpenSource | undefined,
+  projectId: string | null,
+): ProjectFilter | null {
+  if (!source || source === "header") return null;
+  return projectId ? { mode: "project", projectId } : { mode: "global" };
+}
+
 export const useWindowStore = create<WindowState>()(
   persist(
     (set, get) => ({
       windows: [],
       focusedId: null,
       zCounter: 10,
+      lastFilters: {},
 
-      open: ({ kind, resourceId, title }) => {
+      open: ({
+        kind,
+        resourceId,
+        title,
+        projectId = null,
+        sessionId = null,
+        source = "header",
+      }) => {
         const state = get();
         const tabMatch = state.windows.find((win) =>
           win.tabs.some((tab) => tab.kind === kind && tab.resourceId === resourceId),
         );
-
         const z = Math.max(state.zCounter + 1, topZ(state.windows) + 1);
+        const preferred = preferredFilter(source, projectId);
 
         if (tabMatch) {
           const tab = tabMatch.tabs.find(
             (item) => item.kind === kind && item.resourceId === resourceId,
           );
+          const nextFilter =
+            preferred ??
+            (tab && isTabVisible(tab, tabMatch.filter) ? tabMatch.filter : { mode: "all" });
           set({
             windows: state.windows.map((win) =>
               win.id === tabMatch.id
-                ? { ...win, minimized: false, activeTabId: tab?.id ?? win.activeTabId, z }
+                ? {
+                    ...win,
+                    minimized: false,
+                    activeTabId: tab?.id ?? win.activeTabId,
+                    z,
+                    filter: nextFilter,
+                  }
                 : win,
             ),
             focusedId: tabMatch.id,
             zCounter: z,
+            lastFilters: { ...state.lastFilters, [kind]: nextFilter },
           });
           return;
         }
 
-        const sameKind = state.windows.find((win) => win.tabs.some((tab) => tab.kind === kind));
+        const tab: WindowTab = {
+          id: uid("tab"),
+          kind,
+          resourceId,
+          title,
+          projectId,
+          sourceSessionId: sessionId,
+          originType: originFor(source),
+        };
+
+        const sameKind = state.windows.find((win) => win.tabs.some((item) => item.kind === kind));
         if (sameKind) {
-          const tab = { id: uid("tab"), kind, resourceId, title };
+          const tabs = insertIntoTabGroup(sameKind.tabs, tab);
+          let filter = preferred ?? sameKind.filter;
+          if (!isTabVisible(tab, filter)) filter = { mode: "all" };
           set({
             windows: state.windows.map((win) =>
               win.id === sameKind.id
-                ? { ...win, tabs: [...win.tabs, tab], activeTabId: tab.id, minimized: false, z }
+                ? { ...win, tabs, activeTabId: tab.id, filter, minimized: false, z }
                 : win,
             ),
             focusedId: sameKind.id,
             zCounter: z,
+            lastFilters: { ...state.lastFilters, [kind]: filter },
           });
           return;
         }
 
-        const index = state.windows.length;
-        const rect = defaultRect(kind, index, viewport());
-        const tab = { id: uid("tab"), kind, resourceId, title };
+        let filter = preferred ?? state.lastFilters[kind] ?? ({ mode: "all" } as ProjectFilter);
+        if (!isTabVisible(tab, filter)) filter = { mode: "all" };
+        const rect = defaultRect(kind, state.windows.length, viewport());
         const managed: ManagedWindow = {
           id: uid("win"),
           tabs: [tab],
           activeTabId: tab.id,
+          filter,
           ...rect,
           z,
           minimized: false,
@@ -97,7 +157,12 @@ export const useWindowStore = create<WindowState>()(
           pinned: false,
           restore: null,
         };
-        set({ windows: [...state.windows, managed], focusedId: managed.id, zCounter: z });
+        set({
+          windows: [...state.windows, managed],
+          focusedId: managed.id,
+          zCounter: z,
+          lastFilters: { ...state.lastFilters, [kind]: filter },
+        });
       },
 
       focus: (id) => {
@@ -182,18 +247,12 @@ export const useWindowStore = create<WindowState>()(
           return;
         }
         const tabs = target.tabs.filter((tab) => tab.id !== tabId);
+        const visible = filterTabs(tabs, target.filter);
+        const activeTabId =
+          target.activeTabId === tabId ? (visible[0]?.id ?? null) : target.activeTabId;
         set({
           windows: state.windows.map((win) =>
-            win.id === windowId
-              ? {
-                  ...win,
-                  tabs,
-                  activeTabId:
-                    win.activeTabId === tabId
-                      ? (tabs[tabs.length - 1]?.id ?? tabs[0].id)
-                      : win.activeTabId,
-                }
-              : win,
+            win.id === windowId ? { ...win, tabs, activeTabId } : win,
           ),
         });
       },
@@ -206,13 +265,30 @@ export const useWindowStore = create<WindowState>()(
           ),
         });
       },
+
+      setFilter: (windowId, filter) => {
+        const state = get();
+        const target = state.windows.find((win) => win.id === windowId);
+        if (!target) return;
+        const visible = filterTabs(target.tabs, filter);
+        const activeTabId =
+          visible.find((tab) => tab.id === target.activeTabId)?.id ?? visible[0]?.id ?? null;
+        set({
+          windows: state.windows.map((win) =>
+            win.id === windowId ? { ...win, filter, activeTabId } : win,
+          ),
+          lastFilters: { ...state.lastFilters, [target.tabs[0]?.kind ?? "terminal"]: filter },
+        });
+      },
     }),
     {
-      name: "harness.windows.v1",
+      name: "harness.windows.v2",
+      version: 2,
       partialize: (state) => ({
         windows: state.windows,
         focusedId: state.focusedId,
         zCounter: state.zCounter,
+        lastFilters: state.lastFilters,
       }),
     },
   ),
@@ -228,3 +304,7 @@ export function visibleWindow(
 export function anyWindow(windows: ManagedWindow[], kind: WindowKind): ManagedWindow | undefined {
   return windows.find((win) => win.tabs.some((tab) => tab.kind === kind));
 }
+
+export { filterValue } from "@/lib/windowFilters";
+export type { OpenInput };
+export { filterTabs };

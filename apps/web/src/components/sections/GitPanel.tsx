@@ -51,6 +51,8 @@ export function GitPanel({ projectId }: { projectId: string | null }) {
                 kind: "git-diff",
                 resourceId: change.path,
                 title: change.path.split("/").pop() ?? change.path,
+                projectId,
+                source: "project",
               })
             }
             className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-colors hover:bg-black/[.035] dark:hover:bg-white/[.05]"

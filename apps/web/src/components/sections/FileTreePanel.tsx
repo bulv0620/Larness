@@ -48,7 +48,13 @@ export function FileTreePanel({ projectId }: { projectId: string | null }) {
             type="button"
             onClick={() => {
               if (node.type === "file") {
-                open({ kind: "files", resourceId: node.path, title: node.name });
+                open({
+                  kind: "files",
+                  resourceId: node.path,
+                  title: node.name,
+                  projectId,
+                  source: "project",
+                });
               } else {
                 toggleDirectory(node.path);
               }

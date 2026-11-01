@@ -56,13 +56,14 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo | undefined 
     term.writeln("\x1b[38;5;245mLast login: Fri Oct 31 20:41:12 on ttys004\x1b[0m");
     term.writeln(`\x1b[38;5;245m${terminal?.cwd ?? "~"}\x1b[0m`);
     term.writeln("");
-    term.write("\x1b[38;5;114m➜\x1b[0m \x1b[38;5;81mpnpm dev\x1b[0m\r\n");
-    term.writeln("\x1b[38;5;245m> harness-web@0.1.0 dev /Users/bulv/Desktop/Larness\x1b[0m");
+    term.write(`\x1b[38;5;114m➜\x1b[0m \x1b[38;5;81m${terminal?.title ?? "shell"}\x1b[0m\r\n`);
     term.writeln("\x1b[38;5;245m> vite --host 127.0.0.1\x1b[0m");
     term.writeln("");
     term.writeln("\x1b[38;5;114mVITE v7.3.7\x1b[0m  ready in \x1b[38;5;221m412\x1b[0m ms");
     term.writeln("");
-    term.writeln("  \x1b[38;5;114m➜\x1b[0m  Local:   \x1b[38;5;81mhttp://localhost:5173/\x1b[0m");
+    term.writeln(
+      `  \x1b[38;5;114m➜\x1b[0m  Local:   \x1b[38;5;81mhttp://localhost:${terminal?.port ?? 5173}/\x1b[0m`,
+    );
     term.writeln("  \x1b[38;5;114m➜\x1b[0m  press \x1b[38;5;221mh + enter\x1b[0m to show help");
     term.writeln("");
 
@@ -83,7 +84,7 @@ export function TerminalView({ terminal }: { terminal: TerminalInfo | undefined 
       term.dispose();
       termRef.current = null;
     };
-  }, [terminal?.cwd]);
+  }, [terminal?.cwd, terminal?.port, terminal?.title]);
 
   return (
     <div ref={containerRef} className="h-full w-full" role="application" aria-label="终端输出" />

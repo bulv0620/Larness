@@ -17,7 +17,15 @@ export function ServicesPanel({ projectId }: { projectId: string | null }) {
         <button
           key={service.id}
           type="button"
-          onClick={() => open({ kind: "services", resourceId: service.id, title: service.name })}
+          onClick={() =>
+            open({
+              kind: "services",
+              resourceId: service.id,
+              title: service.name,
+              projectId: service.projectId,
+              source: "project",
+            })
+          }
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-black/[.035] dark:hover:bg-white/[.05]"
         >
           <StatusDot

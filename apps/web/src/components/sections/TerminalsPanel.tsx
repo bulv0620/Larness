@@ -18,7 +18,15 @@ export function TerminalsPanel({ projectId }: { projectId: string | null }) {
         <button
           key={terminal.id}
           type="button"
-          onClick={() => open({ kind: "terminal", resourceId: terminal.id, title: terminal.title })}
+          onClick={() =>
+            open({
+              kind: "terminal",
+              resourceId: terminal.id,
+              title: terminal.title,
+              projectId: terminal.projectId,
+              source: "project",
+            })
+          }
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-black/[.035] dark:hover:bg-white/[.05]"
         >
           <SquareTerminal size={14} strokeWidth={1.8} className="shrink-0 text-ink-3" />

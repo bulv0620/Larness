@@ -40,6 +40,7 @@ export interface TerminalInfo {
   projectId: string | null;
   title: string;
   cwd: string;
+  port?: number;
   status: "running" | "exited";
 }
 

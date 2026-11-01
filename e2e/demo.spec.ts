@@ -92,6 +92,24 @@ test.describe("Harness S0 视觉 Demo", () => {
     expect(gap).toBeLessThan(20);
   });
 
+  test("窗口项目筛选按来源定位", async ({ page }) => {
+    await page.getByText("整理文档站首页导航", { exact: true }).first().click();
+    await page.getByText("pnpm docs:dev", { exact: true }).click();
+
+    const filter = page.getByLabel("项目筛选");
+    await expect(filter).toHaveValue("project:prj_docs");
+    await expect(page.getByTitle("docs-site · pnpm docs:dev")).toBeVisible();
+
+    await page.getByRole("button", { name: "打开终端窗口" }).click();
+    await expect(filter).toHaveValue("all");
+    await expect(page.getByTitle("harness-web · pnpm dev")).toBeVisible();
+    await expect(page.getByTitle("docs-site · pnpm docs:dev")).toBeVisible();
+
+    await filter.selectOption("project:prj_harness");
+    await expect(page.getByTitle("harness-web · pnpm dev")).toBeVisible();
+    await expect(page.getByTitle("docs-site · pnpm docs:dev")).toHaveCount(0);
+  });
+
   test("主题切换并持久化", async ({ page }) => {
     await page.getByRole("button", { name: "外观与主题" }).click();
     await page.getByRole("menuitemradio", { name: /深色/ }).click();

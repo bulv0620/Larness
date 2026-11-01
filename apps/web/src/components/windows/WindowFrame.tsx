@@ -3,8 +3,10 @@ import { Maximize2, Minimize2, Minus, Pin, PinOff, X } from "lucide-react";
 import { Rnd } from "react-rnd";
 import { useWindowTitle } from "@/components/windows/useWindowTitle";
 import { WindowContent } from "@/components/windows/WindowContent";
+import { WindowFilterBar } from "@/components/windows/WindowFilterBar";
 import { WindowTabs } from "@/components/windows/WindowTabs";
 import { useSnapshot } from "@/lib/queries";
+import { filterTabs } from "@/lib/windowFilters";
 import type { ManagedWindow } from "@/lib/windowTypes";
 import { useWindowStore } from "@/stores/windowStore";
 
@@ -16,7 +18,8 @@ export function WindowFrame({ window: win }: { window: ManagedWindow }) {
   const togglePin = useWindowStore((state) => state.togglePin);
   const setBounds = useWindowStore((state) => state.setBounds);
   const { data } = useSnapshot();
-  const activeTab = win.tabs.find((tab) => tab.id === win.activeTabId) ?? win.tabs[0];
+  const visibleTabs = filterTabs(win.tabs, win.filter);
+  const activeTab = visibleTabs.find((tab) => tab.id === win.activeTabId) ?? visibleTabs[0];
   const title = useWindowTitle(activeTab, data);
 
   return (
@@ -113,8 +116,15 @@ export function WindowFrame({ window: win }: { window: ManagedWindow }) {
       </div>
 
       <WindowTabs window={win} />
+      {win.tabs[0]?.kind !== "git-diff" ? <WindowFilterBar window={win} /> : null}
       <div className="min-h-0 flex-1 overflow-hidden">
-        <WindowContent tab={activeTab} />
+        {activeTab ? (
+          <WindowContent tab={activeTab} />
+        ) : (
+          <div className="flex h-full items-center justify-center text-[11px] text-ink-3">
+            当前筛选下没有 Tab
+          </div>
+        )}
       </div>
     </Rnd>
   );
