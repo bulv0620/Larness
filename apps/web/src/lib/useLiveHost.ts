@@ -1,4 +1,4 @@
-import type { HostMetrics } from "@harness/shared";
+import type { HostMetrics } from "@larness/shared";
 import { useEffect, useState } from "react";
 
 export function useLiveHost(initial: HostMetrics): HostMetrics {

@@ -14,7 +14,7 @@ export function GitPanel({ projectId }: { projectId: string | null }) {
   const { data } = useSnapshot();
   const open = useWindowStore((state) => state.open);
   const project = data.projects.find((item) => item.id === projectId);
-  const changes = projectId === "prj_harness" ? data.gitChanges : [];
+  const changes = projectId === "prj_larness" ? data.gitChanges : [];
 
   if (!project?.git) {
     return (

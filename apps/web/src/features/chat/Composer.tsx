@@ -8,7 +8,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
   IconButton,
-} from "@harness/ui";
+} from "@larness/ui";
 import { ArrowUp, ChevronDown, Plus, Shield, Sparkles, Square } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useSnapshot } from "@/lib/queries";

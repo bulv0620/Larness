@@ -1,4 +1,4 @@
-import type { TimelineItem } from "@harness/shared";
+import type { TimelineItem } from "@larness/shared";
 import { describe, expect, it } from "vitest";
 import { applyTurnEvent } from "./timeline";
 

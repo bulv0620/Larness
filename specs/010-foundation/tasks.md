@@ -49,7 +49,7 @@
   - `config.json` Zod schema（含 `webauthn`）、环境变量覆盖、默认值；
   - canonical origin / RP ID 推导与校验工具（拒绝 IP、远程 http）；
   - pino 日志 + 轮转 + 脱敏器；
-  - `harness.lock` 单实例锁；
+  - `larness.lock` 单实例锁；
   - `status` / `doctor` CLI（临时经 tsx 调用，M0-9 接入 `app.js`）；
   - 优雅关闭骨架。
 - 验收：

@@ -27,7 +27,7 @@ updated: 2026-11-01
 
 ## 2. 目标
 
-- G-1：`pnpm --filter @harness/web dev` 可启动，浏览器看到完整三栏工作台。
+- G-1：`pnpm --filter @larness/web dev` 可启动，浏览器看到完整三栏工作台。
 - G-2：实现顶部入口、左侧项目 / 会话树、中央对话、右侧四分区、全局窗口层。
 - G-3：浅色 / 深色 / 跟随系统可切换并持久化；字体、图标、间距符合苹果应用风。
 - G-4：窗口可拖动、缩放、置顶、隐藏、最大化、关闭，并能从顶部入口恢复。
@@ -186,9 +186,9 @@ Given 终端窗口筛选为“全部项目”
 When 从 docs-site 右栏打开 pnpm docs:dev
 Then 窗口筛选切到 docs-site，Tab 显示 docs-site 来源
 When 点击顶部终端入口
-Then 隐藏的 harness-web 终端被加入并切回“全部项目”
+Then 隐藏的 larness-web 终端被加入并切回“全部项目”
 When 手动筛选 docs-site
-Then 只显示 docs-site 的 Tab，harness-web Tab 被隐藏但资源仍存在
+Then 只显示 docs-site 的 Tab，larness-web Tab 被隐藏但资源仍存在
 ```
 
 ### A13 输入区融合
@@ -289,7 +289,7 @@ And 双击恢复 340px
 
 ### 6.6 Mock 数据（MUST）
 
-- 2 个项目：`harness-web`（Git，当前分支 `feat/agent-runtime`）、`docs-site`（无 Git）。
+- 2 个项目：`larness-web`（Git，当前分支 `feat/agent-runtime`）、`docs-site`（无 Git）。
 - 5 个会话：3 个项目内、2 个独立；最近会话按更新时间排序且不重复。
 - 1 个运行中 Turn：3 步计划（读取项目 → 修改代码 → 启动服务），2 个工具调用，1 个待审批部署。
 - 3 个服务：`web-dev`（5173，运行中）、`api-dev`（3001，运行中）、`web-prod`（8080，未部署）。
@@ -324,7 +324,7 @@ export interface Gateway {
 ## 8. 数据与迁移
 
 - 无数据库。
-- `localStorage` 键：`harness.theme`（`light|dark|system`）、`harness.window-layout.v1`、`harness.nav.v1`、`harness.composer.v1`。
+- `localStorage` 键：`larness.theme`（`light|dark|system`）、`larness.window-layout.v1`、`larness.nav.v1`、`larness.composer.v1`。
 - 读取失败 / schema 版本不符时回退默认值并清除坏数据；不得因此白屏。
 - 不持久化 Mock 会话、消息、审批结果；刷新后重置（Demo 语义）。
 

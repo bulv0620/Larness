@@ -11,15 +11,15 @@ import type {
   SessionSummary,
   TimelineItem,
   ToolItem,
-} from "@harness/shared";
+} from "@larness/shared";
 
 const now = Date.now();
 const minutes = (n: number) => n * 60_000;
 
 export const projects: Project[] = [
   {
-    id: "prj_harness",
-    name: "harness-web",
+    id: "prj_larness",
+    name: "larness-web",
     rootPath: "/Users/bulv/Desktop/Larness",
     branch: "feat/agent-runtime",
     git: true,
@@ -38,14 +38,14 @@ export const projects: Project[] = [
 export const sessions: SessionSummary[] = [
   {
     id: "ses_1",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
     title: "实现 Agent 工具调用审批",
     status: "running",
     updatedAt: now - minutes(2),
   },
   {
     id: "ses_2",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
     title: "修复终端重连时的 Tab 状态",
     status: "idle",
     updatedAt: now - minutes(48),
@@ -100,7 +100,7 @@ export const models = [
 export const services = [
   {
     id: "svc_web_dev",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
     name: "web-dev",
     port: 5173,
     status: "running" as const,
@@ -111,7 +111,7 @@ export const services = [
   },
   {
     id: "svc_api_dev",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
     name: "api-dev",
     port: 3001,
     status: "running" as const,
@@ -122,7 +122,7 @@ export const services = [
   },
   {
     id: "svc_web_prod",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
     name: "web-prod",
     port: 8080,
     status: "stopped" as const,
@@ -145,7 +145,7 @@ export const services = [
 export const terminals = [
   {
     id: "ter_1",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
     title: "pnpm dev",
     cwd: "/Users/bulv/Desktop/Larness",
     port: 5173,
@@ -282,18 +282,18 @@ const composer = `export function Composer() {
 `;
 
 const packageJson = `{
-  "name": "harness",
+  "name": "larness",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @harness/web dev",
-    "build": "pnpm --filter @harness/web build",
+    "dev": "pnpm --filter @larness/web dev",
+    "build": "pnpm --filter @larness/web build",
     "check": "biome ci . && pnpm typecheck && pnpm test"
   }
 }
 `;
 
-const readme = `# Harness
+const readme = `# Larness
 
 单机、单工作空间、AI-first 的 Web IDE 与本机服务运维工作空间。
 
@@ -308,7 +308,7 @@ Spec 工程已初始化，开始构建 S0 视觉 Demo。
 
 const overview = `# 系统架构总览
 
-Harness 是运行在单台主机上的单工作空间 AI-first Web IDE。
+Larness 是运行在单台主机上的单工作空间 AI-first Web IDE。
 
 ## 进程边界
 
@@ -431,8 +431,8 @@ const buildTool: ToolItem = {
   id: "tool_2",
   kind: "tool",
   name: "run_command",
-  summary: "pnpm --filter @harness/web build",
-  args: '{ "command": "pnpm --filter @harness/web build", "cwd": "." }',
+  summary: "pnpm --filter @larness/web build",
+  args: '{ "command": "pnpm --filter @larness/web build", "cwd": "." }',
   status: "done",
   output:
     "vite v7.1.7 building for production…\n✓ 1842 modules transformed\ndist/assets/index-8f2a1c.js  412.8 kB │ gzip: 126.4 kB\n✓ built in 3.42s",

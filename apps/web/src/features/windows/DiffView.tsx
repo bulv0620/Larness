@@ -1,4 +1,4 @@
-import { cn } from "@harness/ui";
+import { cn } from "@larness/ui";
 import { Check, GitCompare, Plus, Trash2 } from "lucide-react";
 import type { WindowTab } from "@/lib/windowTypes";
 import { diffLines, gitChanges } from "@/mocks/fixtures";

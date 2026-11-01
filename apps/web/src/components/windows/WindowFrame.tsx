@@ -1,4 +1,4 @@
-import { cn, IconButton } from "@harness/ui";
+import { cn, IconButton } from "@larness/ui";
 import { Maximize2, Minimize2, Minus, Pin, PinOff, X } from "lucide-react";
 import { Rnd } from "react-rnd";
 import { useWindowTitle } from "@/components/windows/useWindowTitle";

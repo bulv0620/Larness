@@ -73,10 +73,10 @@ docs/contracts/ipc.md（校准）
 ## 4. 启动顺序（严格）
 
 1. 解析 `argv`（`tui` / `status` / `doctor` / 默认 server）。
-2. `resolveDataDir()`：`HARNESS_DATA_DIR` > 默认 OS 目录；创建并校验权限（POSIX 0700）。
+2. `resolveDataDir()`：`LARNESS_DATA_DIR` > 默认 OS 目录；创建并校验权限（POSIX 0700）。
 3. `loadConfig()`：`config.json` Zod 校验；环境变量覆盖；推导 / 校验 `webauthn.rpId` / `origin`。
 4. `initLogger()`：pino + 轮转；安装 `uncaughtException` / `unhandledRejection`。
-5. `acquireInstanceLock()`：`harness.lock` 写 PID / 启动时间；冲突时检查 PID 存活。
+5. `acquireInstanceLock()`：`larness.lock` 写 PID / 启动时间；冲突时检查 PID 存活。
 6. `openDatabase()`：WAL / 外键 / busy_timeout；执行迁移；失败退出。
 7. `startIpc()`：创建 socket / pipe，写 0600 Token 文件。
 8. `createApp()`：公开路由、鉴权路由、静态资源。
@@ -92,7 +92,7 @@ docs/contracts/ipc.md（校准）
 ```ts
 interface WebAuthnConfig {
   rpId: string;      // 必须等于 origin hostname；拒绝 IP
-  rpName: string;    // "Harness"
+  rpName: string;    // "Larness"
   origin: string;    // 精确比较，不带尾斜杠
 }
 ```
@@ -101,7 +101,7 @@ interface WebAuthnConfig {
 - 无 `publicUrl`：`origin=http://localhost:<port>`，`rpId=localhost`。
 - `rpId` 为 IP、`origin` 配置本身无效、或远程 http：`passkeyEnabled=false`，业务仍可用 allow_once，doctor 告警；通过 IP 访问属于当前 origin 不匹配，不是配置无效。
 - 初始化向导展示推导结果并要求确认；修改后提示旧 Passkey 可能失效。
-- Vite 开发（5173）与生产（3210 / publicUrl）的浏览器 origin 不同：dev 用 `HARNESS_PUBLIC_URL=http://localhost:5173`，否则 Origin 校验会拒绝 Passkey；E2E 优先用 Server 托管的构建产物。
+- Vite 开发（5173）与生产（3210 / publicUrl）的浏览器 origin 不同：dev 用 `LARNESS_PUBLIC_URL=http://localhost:5173`，否则 Origin 校验会拒绝 Passkey；E2E 优先用 Server 托管的构建产物。
 
 ### 5.2 单实例锁
 
@@ -115,8 +115,8 @@ interface WebAuthnConfig {
 
 ### 5.3 IPC
 
-- POSIX：`<dataDir>/ipc/harness.sock` 0600；路径 > 100 字节时用 `os.tmpdir()/harness-<hash>/harness.sock`（0700）。
-- Windows：`\\.\pipe\harness-<sha256(dataDir).slice(0,16)>`。
+- POSIX：`<dataDir>/ipc/larness.sock` 0600；路径 > 100 字节时用 `os.tmpdir()/larness-<hash>/larness.sock`（0700）。
+- Windows：`\\.\pipe\larness-<sha256(dataDir).slice(0,16)>`。
 - IPC Token 32 字节，写 `<dataDir>/ipc/token` 0600；首帧 `hello` 校验。
 - NDJSON；单帧 ≤ 1 MiB；空闲 30 分钟断开；Zod 判别联合。
 - 安全边界：文件权限 + Token；可用平台追加 peer uid。
@@ -133,7 +133,7 @@ CSRF：HMAC-SHA256(csrfKey, sessionId) → base64url；csrfKey 32 字节，secre
 - 比较 Token / CSRF 使用 `crypto.timingSafeEqual`。
 - Cookie 仅在请求 HTTPS 或 `origin` 为 https 时加 `Secure`。
 - 会话查询校验 `revoked_at IS NULL`、`expires_at > now`、空闲期限；`last_seen_at` 最多每 60 秒更新。
-- **没有** `harness_device` Cookie、`/api/auth/refresh`、设备 Token 轮换。
+- **没有** `larness_device` Cookie、`/api/auth/refresh`、设备 Token 轮换。
 
 ### 5.5 配对与 enrollment
 
@@ -153,7 +153,7 @@ trust:
     UPDATE request SET status='enrollment_pending'
     INSERT audit_logs
   COMMIT
-  → Set-Cookie harness_enrollment
+  → Set-Cookie larness_enrollment
 ```
 
 - 配对码失败 `attempts += 1`；达到 5 次作废申请。
@@ -169,7 +169,7 @@ POST registration/options（enrollment Cookie + Origin）
   → 生成 challenge（32B，5 分钟，type=registration，request_id）
   → generateRegistrationOptions({
        rpID, rpName, userID: sha256(instance_id) (Uint8Array, 32B),
-       userName: 'operator', userDisplayName: 'Harness Operator',
+       userName: 'operator', userDisplayName: 'Larness Operator',
        attestationType: 'none',
        authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
        excludeCredentials: 现有有效 credential

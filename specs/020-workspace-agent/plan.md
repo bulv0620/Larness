@@ -197,14 +197,14 @@ interface ProviderAdapter {
 
 ```bash
 pnpm check
-pnpm --filter @harness/server test
+pnpm --filter @larness/server test
 pnpm test:e2e
 ```
 
 真实 Provider 冒烟（手动，需环境变量）：
 
 ```bash
-DEEPSEEK_API_KEY=... pnpm --filter @harness/server test:provider
+DEEPSEEK_API_KEY=... pnpm --filter @larness/server test:provider
 ```
 
 ## 8. 风险

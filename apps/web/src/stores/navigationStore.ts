@@ -22,13 +22,13 @@ interface NavigationState {
 export const useNavigationStore = create<NavigationState>()(
   persist(
     (set) => ({
-      projectId: "prj_harness",
+      projectId: "prj_larness",
       sessionId: "ses_1",
       sidebarWidth: 268,
       resourceWidth: 340,
       sidebarCollapsed: false,
       mobileSidebarOpen: false,
-      expandedProjects: { prj_harness: true, prj_docs: true },
+      expandedProjects: { prj_larness: true, prj_docs: true },
       focusComposerNonce: 0,
 
       selectSession: (sessionId, projectId) =>
@@ -53,7 +53,7 @@ export const useNavigationStore = create<NavigationState>()(
       focusComposer: () => set((state) => ({ focusComposerNonce: state.focusComposerNonce + 1 })),
     }),
     {
-      name: "harness.nav.v1",
+      name: "larness.nav.v1",
       version: 1,
       partialize: (state) => ({
         projectId: state.projectId,

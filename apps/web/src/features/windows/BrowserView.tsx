@@ -1,4 +1,4 @@
-import { cn, IconButton } from "@harness/ui";
+import { cn, IconButton } from "@larness/ui";
 import {
   ArrowLeft,
   ArrowRight,
@@ -74,9 +74,9 @@ function MockSite({ address }: { address: string }) {
       <div className="border-b border-black/[.06] bg-white/80 px-6 py-3 backdrop-blur">
         <div className="mx-auto flex max-w-[900px] items-center gap-3">
           <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#0a84ff] text-[10px] font-bold text-white">
-            H
+            L
           </div>
-          <span className="text-[12px] font-semibold">Harness</span>
+          <span className="text-[12px] font-semibold">Larness</span>
           <nav className="ml-4 flex items-center gap-4 text-[10.5px] text-[#6e6e73]">
             <span className="text-[#1d1d1f]">概览</span>
             <span>项目</span>

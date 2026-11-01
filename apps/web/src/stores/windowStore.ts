@@ -282,7 +282,7 @@ export const useWindowStore = create<WindowState>()(
       },
     }),
     {
-      name: "harness.windows.v2",
+      name: "larness.windows.v2",
       version: 2,
       partialize: (state) => ({
         windows: state.windows,

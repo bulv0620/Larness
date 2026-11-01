@@ -1,4 +1,4 @@
-import { cn, IconButton } from "@harness/ui";
+import { cn, IconButton } from "@larness/ui";
 import { MoreHorizontal, PanelRight, Sparkles } from "lucide-react";
 import { StatusDot } from "@/components/common/StatusDot";
 import { Composer } from "@/features/chat/Composer";

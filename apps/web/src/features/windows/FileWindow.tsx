@@ -1,4 +1,4 @@
-import type { FileDocument } from "@harness/shared";
+import type { FileDocument } from "@larness/shared";
 import { Loader2 } from "lucide-react";
 import { lazy, Suspense } from "react";
 import type { WindowTab } from "@/lib/windowTypes";

@@ -6,7 +6,7 @@
 ## 1. 连接与握手
 
 - 端点：`GET /ws`（HTTP Upgrade）。
-- 必须携带有效 `harness_session` Cookie；否则 `401` 并关闭。
+- 必须携带有效 `larness_session` Cookie；否则 `401` 并关闭。
 - 必须校验 `Origin` 在允许列表；缺失或不匹配返回 `403`。
 - 不接受 URL 查询参数中的 Token。
 - 握手成功后服务端发送 `hello`：

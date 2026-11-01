@@ -68,7 +68,7 @@
 pnpm check                 # biome ci + tsc --noEmit + vitest run
 pnpm test                  # vitest watch（本地）
 pnpm test:e2e              # Playwright
-pnpm --filter @harness/server test
+pnpm --filter @larness/server test
 ```
 
 M0-1 / D0-1 负责落地脚本；在此之前命令不存在。

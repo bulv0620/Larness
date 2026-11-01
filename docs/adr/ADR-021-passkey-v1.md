@@ -41,7 +41,7 @@
 ### API / 契约
 
 - 新增 `/api/webauthn/registration/{options,verify}`、`/api/webauthn/authentication/{options,verify}`。
-- 删除 `/api/auth/refresh` 与 `harness_device` Cookie。
+- 删除 `/api/auth/refresh` 与 `larness_device` Cookie。
 - `POST /api/pairing/redeem` 对 `trust` 返回 `passkey_required` + 短期 enrollment Cookie，不返回会话。
 
 ### 数据 / 迁移

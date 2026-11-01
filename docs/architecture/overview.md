@@ -5,12 +5,12 @@
 
 ## 1. 定位
 
-Harness 是运行在单台主机上的单工作空间 AI-first Web IDE：
+Larness 是运行在单台主机上的单工作空间 AI-first Web IDE：
 
 - 一个 Server 进程持有全部业务状态（SQLite）与执行资源（PTY、子进程、PM2、预览代理）；
 - 多个已授权浏览器访问同一份工作空间，但各自维护窗口与布局；
 - Agent 与人工 UI 走同一套 ResourceManager / 授权 / 审计路径；
-- 所有代码、构建、服务都运行在 Harness 主机，不设计远程执行节点。
+- 所有代码、构建、服务都运行在 Larness 主机，不设计远程执行节点。
 
 不可协商的约束见 [CONSTITUTION.md](../../CONSTITUTION.md)。
 
@@ -51,7 +51,7 @@ Stable Launcher / Updater ── controls ── Server process
 | Server | Fastify、WS、SQLite、Agent Runtime、资源管理、代理、调度 | 覆盖正在运行的自身二进制 |
 | TUI Client | 初始化、设备审批 / 撤销、状态、日志、doctor、关闭 | 绕过 Server 直接操作业务数据 |
 | Web Client | 视图、窗口、输入、事件订阅 | 直接操控进程 / 文件 / 端口 |
-| User Services | 项目开发进程、PM2 长期服务 | 依赖 Harness 存活 |
+| User Services | 项目开发进程、PM2 长期服务 | 依赖 Larness 存活 |
 | Updater | 下载、验签、切换版本、健康检查、回滚 | 在 Server 内自更新 |
 
 Launcher / Updater 的完整实现属于 M5；M0 只要求 `node app.js` 能启动已构建的 Server，并转发 `tui` / `status` 子命令。
@@ -155,7 +155,7 @@ Agent 工具 ──ToolRegistry──► 同一 ResourceManager
 
 - 关闭 / 隐藏窗口只改变客户端视图；`terminate` 才是终止资源。
 - 同一 Terminal 可被多个客户端观看，交互输入需租约。
-- 服务与终端由 Harness 拥有，可带 `projectId`，Session 只是创建来源。
+- 服务与终端由 Larness 拥有，可带 `projectId`，Session 只是创建来源。
 - Tab 身份、来源、项目筛选、分组与去重规则见 [resource-views.md](../contracts/resource-views.md)。
 
 ### 5.5 预览
@@ -166,7 +166,7 @@ Agent 工具 ──ToolRegistry──► 同一 ResourceManager
   → 校验会话 + 服务权限
   → 签发短期预览票据
   → 独立预览来源加载 iframe
-  → Harness 代理 → 127.0.0.1:5173
+  → Larness 代理 → 127.0.0.1:5173
 ```
 
 代理只允许已登记 loopback 目标；独立来源不可用时安全降级，不允许同源执行不可信项目代码。
@@ -183,7 +183,7 @@ Agent 工具 ──ToolRegistry──► 同一 ResourceManager
 
 <dataDir>/                      # 独立于安装目录，0700
 ├── config.json
-├── harness.db
+├── larness.db
 ├── secrets/                    # 加密凭据
 ├── sessions/<id>/workspace/    # 独立会话工作目录
 ├── artifacts/<session-id>/
@@ -192,7 +192,7 @@ Agent 工具 ──ToolRegistry──► 同一 ResourceManager
 └── tmp/
 ```
 
-默认数据目录使用 OS 标准用户数据目录（macOS `~/Library/Application Support/Harness`，Linux `$XDG_DATA_HOME/harness`，Windows `%LOCALAPPDATA%\Harness`），可用 `HARNESS_DATA_DIR` 覆盖。项目源码目录永远不放在数据目录内（独立会话除外）。
+默认数据目录使用 OS 标准用户数据目录（macOS `~/Library/Application Support/Larness`，Linux `$XDG_DATA_HOME/larness`，Windows `%LOCALAPPDATA%\Larness`），可用 `LARNESS_DATA_DIR` 覆盖。项目源码目录永远不放在数据目录内（独立会话除外）。
 
 ## 7. 仓库源码布局（目标）
 

@@ -12,7 +12,7 @@
 | Execution Identity | 执行 PTY、构建、PM2 的 OS 账户 | OS 账户权限 | 应用层可降权的沙箱 |
 | Preview Origin | 运行项目代码的预览页面 | 短期预览票据 | 管理站点的同源页面 |
 
-关键边界：**应用层路径白名单只约束 Harness 自己的文件工具**。一旦允许未隔离的 Shell、npm lifecycle script 或 Node 脚本，代码就拥有 Harness 运行账户的权限。
+关键边界：**应用层路径白名单只约束 Larness 自己的文件工具**。一旦允许未隔离的 Shell、npm lifecycle script 或 Node 脚本，代码就拥有 Larness 运行账户的权限。
 
 ## 2. 认证与准入
 
@@ -48,8 +48,8 @@ ACTIVE → REVOKED
 
 | Cookie | 内容 | 作用域 | 属性 |
 |---|---|---|---|
-| `harness_session` | 32 字节随机 Token | 管理站点 | HttpOnly、SameSite=Lax、Secure（HTTPS 时）、Path=/、Max-Age ≤ 12h |
-| `harness_enrollment` | 32 字节随机 Token | `/api/webauthn/registration` | HttpOnly、SameSite=Lax、Secure（HTTPS 时）、Path=/api/webauthn/registration、Max-Age 5min |
+| `larness_session` | 32 字节随机 Token | 管理站点 | HttpOnly、SameSite=Lax、Secure（HTTPS 时）、Path=/、Max-Age ≤ 12h |
+| `larness_enrollment` | 32 字节随机 Token | `/api/webauthn/registration` | HttpOnly、SameSite=Lax、Secure（HTTPS 时）、Path=/api/webauthn/registration、Max-Age 5min |
 
 - 数据库只存 Token 的 SHA-256；比较使用恒定时间。
 - 会话：绝对 12 小时、空闲 30 分钟（可配置）；过期后通过 Passkey assertion 重新认证，不使用 refresh token。
@@ -169,7 +169,7 @@ ACTIVE → REVOKED
 - 不保证 TUI 不可用时能恢复访问；V1 没有 Web 侧的“忘记 Passkey”流程；
 - 不保证反向代理配置正确、TLS 终止安全由部署者负责；
 - 不保证第三方网页可被 iframe 嵌入；
-- 不保证 Harness 崩溃后 PTY / 子进程 / 未完成 Turn 原状态恢复。
+- 不保证 Larness 崩溃后 PTY / 子进程 / 未完成 Turn 原状态恢复。
 
 ## 10. 安全测试要求
 

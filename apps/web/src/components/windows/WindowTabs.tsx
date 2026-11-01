@@ -1,4 +1,4 @@
-import { cn } from "@harness/ui";
+import { cn } from "@larness/ui";
 import { FileCode2, FolderTree, GitCompare, Globe2, Server, SquareTerminal, X } from "lucide-react";
 import { useSnapshot } from "@/lib/queries";
 import { filterFromValue, filterTabs, filterValue } from "@/lib/windowFilters";

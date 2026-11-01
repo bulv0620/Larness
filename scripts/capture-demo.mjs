@@ -20,7 +20,7 @@ async function shot(name, { width, height, theme, action }) {
   });
   if (theme) {
     await page.addInitScript((value) => {
-      window.localStorage.setItem("harness.theme", value);
+      window.localStorage.setItem("larness.theme", value);
     }, theme);
   }
   await page.goto(baseURL, { waitUntil: "networkidle" });

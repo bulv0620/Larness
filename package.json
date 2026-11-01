@@ -1,5 +1,5 @@
 {
-  "name": "harness",
+  "name": "larness",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.12.4",
@@ -7,9 +7,9 @@
     "node": ">=20.19"
   },
   "scripts": {
-    "dev": "pnpm --filter @harness/web dev",
-    "build": "pnpm --filter @harness/web build",
-    "preview": "pnpm --filter @harness/web preview",
+    "dev": "pnpm --filter @larness/web dev",
+    "build": "pnpm --filter @larness/web build",
+    "preview": "pnpm --filter @larness/web preview",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "check": "biome ci . && pnpm typecheck && pnpm test",

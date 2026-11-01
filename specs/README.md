@@ -79,7 +79,7 @@ depends_on: [010-foundation]
 
 | 切片 | 状态 | 说明 |
 |---|---|---|
-| `000-visual-demo` | active | 已实现，`D0-9` 待人类验收 |
+| `000-visual-demo` | done | 已验收（G-S0 通过，`D0-9` done） |
 | `010-foundation` | ready | 可信启动与认证 |
 | `020-workspace-agent` | ready | 项目 / 会话 / 最小 Agent |
 | `030`–`060` | draft | 启动对应里程碑前补全 |

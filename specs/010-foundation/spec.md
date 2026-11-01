@@ -17,7 +17,7 @@ updated: 2026-10-31
 
 ## 1. 背景与问题
 
-S0 只提供前端外壳与 Mock 数据。M0 要把 Harness 变成一台可以真实部署、真实访问的单机服务：
+S0 只提供前端外壳与 Mock 数据。M0 要把 Larness 变成一台可以真实部署、真实访问的单机服务：
 
 - `node app.js` 能启动并明确报告状态；
 - 首次运行只能在本机 TUI 初始化，公网不能抢占管理员；
@@ -94,7 +94,7 @@ node app.js tui
 浏览器 /pair → 申请 → TUI 审批：始终允许
   → TUI 显示一次性配对码
   → 浏览器输入配对码 → POST /api/pairing/redeem
-  → 200 passkey_required + Set-Cookie harness_enrollment（5 分钟）
+  → 200 passkey_required + Set-Cookie larness_enrollment（5 分钟）
   → 浏览器预取 POST /api/webauthn/registration/options（enrollment Cookie）
   → 显示“创建 Passkey”按钮
   → 用户点击 → navigator.credentials.create（保留用户手势）
@@ -144,9 +144,9 @@ node app.js tui
 
 | ID | 需求 |
 |---|---|
-| R-6 | 数据目录默认使用 OS 标准目录（`env-paths`），支持 `HARNESS_DATA_DIR`；校验存在 / 可写 / 权限。 |
+| R-6 | 数据目录默认使用 OS 标准目录（`env-paths`），支持 `LARNESS_DATA_DIR`；校验存在 / 可写 / 权限。 |
 | R-7 | `config.json` 由 init 生成；Zod 校验；非法配置拒绝启动，不静默回退。 |
-| R-8 | 环境变量覆盖：`HARNESS_DATA_DIR`、`HARNESS_HOST`、`HARNESS_PORT`、`HARNESS_LOG_LEVEL`、`HARNESS_PUBLIC_URL`。 |
+| R-8 | 环境变量覆盖：`LARNESS_DATA_DIR`、`LARNESS_HOST`、`LARNESS_PORT`、`LARNESS_LOG_LEVEL`、`LARNESS_PUBLIC_URL`。 |
 | R-9 | 创建 `logs/`、`backups/`、`tmp/`、`sessions/`、`artifacts/`、`secrets/`、`ipc/`；目录 0700 / 文件 0600。 |
 | R-10 | 初始化只经 IPC；重复初始化返回 `ALREADY_INITIALIZED`；未初始化不得写 `initialized_at`。 |
 
@@ -159,7 +159,7 @@ node app.js tui
   "auth": { "sessionTtlMinutes": 720, "idleTtlMinutes": 30, "requireHttpsForRemote": true },
   "webauthn": {
     "rpId": "localhost",
-    "rpName": "Harness",
+    "rpName": "Larness",
     "origin": "http://localhost:3210"
   },
   "logging": { "level": "info", "retentionDays": 14 },
@@ -174,7 +174,7 @@ Canonical origin / RP ID 规则：
 - 无 `publicUrl`：`origin = http://localhost:<port>`，`rpId = localhost`。
 - 禁止 IP 作为 `rpId`；配置本身无效（IP / 远程 http）时 `passkeyEnabled=false`。通过 `127.0.0.1` 等非 canonical 来源访问时是 origin 不匹配，Passkey 不可用。
 - 只支持一个 origin；修改需重新初始化或经 TUI + 重启，并提示旧 Passkey 可能失效。
-- 开发期 Web 由 Vite（默认 5173）提供、API 经代理访问时，canonical origin 必须设为 `http://localhost:5173`（`HARNESS_PUBLIC_URL`），RP ID 仍为 `localhost`；生产由 Server 托管，origin 为 `http://localhost:<port>` 或 `publicUrl`。
+- 开发期 Web 由 Vite（默认 5173）提供、API 经代理访问时，canonical origin 必须设为 `http://localhost:5173`（`LARNESS_PUBLIC_URL`），RP ID 仍为 `localhost`；生产由 Server 托管，origin 为 `http://localhost:<port>` 或 `publicUrl`。
 
 ### 5.3 日志与诊断（MUST）
 
@@ -236,7 +236,7 @@ Canonical origin / RP ID 规则：
 
 | ID | 需求 |
 |---|---|
-| R-42 | 会话 Token 32 字节随机，只存 SHA-256；Cookie `harness_session`：HttpOnly、SameSite=Lax、Path=/、Max-Age ≤ 12h、HTTPS 时 Secure。 |
+| R-42 | 会话 Token 32 字节随机，只存 SHA-256；Cookie `larness_session`：HttpOnly、SameSite=Lax、Path=/、Max-Age ≤ 12h、HTTPS 时 Secure。 |
 | R-43 | 会话绝对 12h、空闲 30min（可配置）；无 refresh token；过期走 Passkey 登录。 |
 | R-44 | CSRF Token 由服务器密钥对 `sessionId` 做 HMAC 派生；已认证变更请求必须带 `x-csrf-token`。 |
 | R-45 | Origin / Host 精确校验 canonical origin；非 WebAuthn API 额外允许 loopback 来源（`localhost` / `127.0.0.1` / `[::1]` 同端口），WebAuthn 仍只接受 canonical；不信任 `X-Forwarded-*`，除非来源 IP 在 `trustedProxies`。 |
@@ -291,7 +291,7 @@ Given 已初始化且 TUI 在线
 When 浏览器申请配对，TUI 选择“允许本次”
 Then TUI 显示短编号与一次性配对码
 When 浏览器提交正确配对码
-Then 获得 harness_session（kind=once，deviceId=null），进入 Workspace
+Then 获得 larness_session（kind=once，deviceId=null），进入 Workspace
 And 不创建 trusted_devices / webauthn_credentials
 And 申请标记 redeemed，配对码不可复用
 ```
@@ -301,11 +301,11 @@ And 申请标记 redeemed，配对码不可复用
 ```gherkin
 Given 已初始化且 TUI 在线
 When 浏览器申请配对，TUI 选择“始终允许”
-Then 浏览器兑换配对码后得到 passkey_required 与 harness_enrollment Cookie
+Then 浏览器兑换配对码后得到 passkey_required 与 larness_enrollment Cookie
 And 未获得会话，未创建设备
 When 浏览器完成 WebAuthn 注册并 POST registration/verify
 Then 创建 trusted_device 与 webauthn_credential
-And 签发 harness_session（kind=passkey），申请标记 redeemed
+And 签发 larness_session（kind=passkey），申请标记 redeemed
 And 审计包含 auth.passkey.registered
 ```
 

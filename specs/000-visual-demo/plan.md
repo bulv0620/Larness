@@ -142,7 +142,7 @@ Demo 为新增代码，回滚即回退对应任务提交；不影响任何后端
 pnpm install
 pnpm check
 pnpm build
-pnpm --filter @harness/web dev
+pnpm --filter @larness/web dev
 pnpm test:e2e
 ```
 

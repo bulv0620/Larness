@@ -1,4 +1,4 @@
-import { cn, Kbd } from "@harness/ui";
+import { cn, Kbd } from "@larness/ui";
 import {
   Boxes,
   ChevronDown,
@@ -70,10 +70,10 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     >
       <div className="flex h-12 shrink-0 items-center gap-2 px-3.5">
         <div className="flex h-7 w-7 items-center justify-center rounded-[9px] bg-gradient-to-br from-[#3d9bff] to-[#0066d6] text-[13px] font-bold text-white shadow-sm">
-          H
+          L
         </div>
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold leading-4 tracking-[-.01em]">Harness</div>
+          <div className="text-[13px] font-semibold leading-4 tracking-[-.01em]">Larness</div>
           <div className="text-[9.5px] leading-3 text-ink-3">本机工作空间</div>
         </div>
         <span className="ml-auto rounded-full border border-line bg-surface-2 px-1.5 py-[1px] font-mono text-[9px] text-ink-3">

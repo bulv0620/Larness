@@ -1,4 +1,4 @@
-import { cn } from "@harness/ui";
+import { cn } from "@larness/ui";
 
 const tones = {
   running: "bg-success",

@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("Harness S0 视觉 Demo", () => {
+test.describe("Larness S0 视觉 Demo", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("Harness", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Larness", { exact: true }).first()).toBeVisible();
   });
 
   test("三栏布局与右侧资源分区", async ({ page }) => {
@@ -115,11 +115,11 @@ test.describe("Harness S0 视觉 Demo", () => {
 
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(filter).toHaveValue("all");
-    await expect(page.getByTitle("harness-web · pnpm dev")).toBeVisible();
+    await expect(page.getByTitle("larness-web · pnpm dev")).toBeVisible();
     await expect(page.getByTitle("docs-site · pnpm docs:dev")).toBeVisible();
 
-    await filter.selectOption("project:prj_harness");
-    await expect(page.getByTitle("harness-web · pnpm dev")).toBeVisible();
+    await filter.selectOption("project:prj_larness");
+    await expect(page.getByTitle("larness-web · pnpm dev")).toBeVisible();
     await expect(page.getByTitle("docs-site · pnpm docs:dev")).toHaveCount(0);
   });
 

@@ -1,4 +1,4 @@
-import type { TimelineItem, TurnEvent } from "@harness/shared";
+import type { TimelineItem, TurnEvent } from "@larness/shared";
 
 function upsert(items: TimelineItem[], item: TimelineItem): TimelineItem[] {
   const index = items.findIndex((candidate) => candidate.id === item.id);

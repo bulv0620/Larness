@@ -1,4 +1,4 @@
-import type { TerminalInfo } from "@harness/shared";
+import type { TerminalInfo } from "@larness/shared";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { useEffect, useRef } from "react";

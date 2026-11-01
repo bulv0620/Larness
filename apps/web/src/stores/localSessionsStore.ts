@@ -1,4 +1,4 @@
-import type { SessionSummary } from "@harness/shared";
+import type { SessionSummary } from "@larness/shared";
 import { create } from "zustand";
 
 interface LocalSessionsState {

@@ -1,4 +1,4 @@
-import { cn } from "@harness/ui";
+import { cn } from "@larness/ui";
 import { ChevronDown, ChevronRight, FileCode2, FileText, Folder } from "lucide-react";
 import { useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -27,12 +27,12 @@ export function FileTreePanel({ projectId }: { projectId: string | null }) {
     (node) => ![...collapsed].some((directory) => node.path.startsWith(`${directory}/`)),
   );
 
-  if (projectId !== "prj_harness") {
+  if (projectId !== "prj_larness") {
     return (
       <EmptyState
         icon={Folder}
         title="暂无文件预览"
-        description="S0 只为 harness-web 准备了文件树 Mock；连接真实项目后按项目展示。"
+        description="S0 只为 larness-web 准备了文件树 Mock；连接真实项目后按项目展示。"
         className="py-6"
       />
     );

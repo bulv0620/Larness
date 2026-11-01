@@ -1,4 +1,4 @@
-import type { FileDocument } from "@harness/shared";
+import type { FileDocument } from "@larness/shared";
 import Editor from "@monaco-editor/react";
 import { useTheme } from "@/app/ThemeProvider";
 import "@/lib/monaco";

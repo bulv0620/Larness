@@ -6,8 +6,8 @@ import type {
   PlanItem,
   TimelineItem,
   ToolItem,
-} from "@harness/shared";
-import { Button, cn } from "@harness/ui";
+} from "@larness/shared";
+import { Button, cn } from "@larness/ui";
 import {
   Check,
   CheckCircle2,

@@ -72,7 +72,7 @@ pnpm dev              # 当前仅启动 web（M0-9 后加入 server）
 pnpm check            # biome + typecheck + unit tests
 pnpm build            # web 构建（M0-9 后加入 server）
 pnpm test:e2e         # Playwright（Chromium）
-pnpm --filter @harness/web dev
+pnpm --filter @larness/web dev
 ```
 
 根脚本已落地；M0-1 再补齐 server、CI 与跨包构建。
@@ -105,7 +105,7 @@ pnpm --filter @harness/web dev
 - 禁止跳过失败测试、删除测试、放宽断言来“通过”；
 - 禁止在未读 spec 的情况下按直觉实现；
 - 禁止把 `docs/open-questions.md` 中的默认方案当成已批准决策；
-- 禁止把项目源码目录用于存放 Harness 数据或构建产物。
+- 禁止把项目源码目录用于存放 Larness 数据或构建产物。
 
 ## 11. 文档更新责任
 

@@ -7,9 +7,9 @@
 
 | 平台 | 地址 | 权限 |
 |---|---|---|
-| macOS / Linux | `<dataDir>/ipc/harness.sock` | socket `0600`；数据目录 `0700` |
-| 路径过长 | `<tmpdir>/harness-<sha256(dataDir).slice(0,16)>/harness.sock` | 目录 `0700`，socket `0600` |
-| Windows | `\\.\pipe\harness-<sha256(dataDir).slice(0,16)>` | 依赖用户 ACL + Token |
+| macOS / Linux | `<dataDir>/ipc/larness.sock` | socket `0600`；数据目录 `0700` |
+| 路径过长 | `<tmpdir>/larness-<sha256(dataDir).slice(0,16)>/larness.sock` | 目录 `0700`，socket `0600` |
+| Windows | `\\.\pipe\larness-<sha256(dataDir).slice(0,16)>` | 依赖用户 ACL + Token |
 
 - 启动时生成 32 字节随机 IPC Token，写入 `<dataDir>/ipc/token`（`0600`）。
 - 客户端首帧必须是 `hello`，携带 Token；错误 / 缺失立即断开。
@@ -89,8 +89,8 @@
   "db": { "ok": true, "schemaVersion": 3 },
   "ipc": { "ok": true, "clients": 1 },
   "sessions": { "online": 2, "pendingPairings": 1 },
-  "publicUrl": "https://harness.example.com",
-  "webauthn": { "enabled": true, "rpId": "harness.example.com", "origin": "https://harness.example.com" },
+  "publicUrl": "https://larness.example.com",
+  "webauthn": { "enabled": true, "rpId": "larness.example.com", "origin": "https://larness.example.com" },
   "warnings": []
 }
 ```

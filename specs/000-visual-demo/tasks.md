@@ -32,7 +32,7 @@
   - Vitest + Testing Library + happy-dom 配置；Playwright 配置与一条占位 E2E；
   - `mock` 目录与 `MockGateway` 空实现（接口可编译，数据在 D0-2 / D0-4 填充）。
 - 验收：
-  - `pnpm install` 成功；`pnpm --filter @harness/web dev` 打开占位页；
+  - `pnpm install` 成功；`pnpm --filter @larness/web dev` 打开占位页；
   - `pnpm check` 通过（Biome、类型、单测）；
   - `pnpm build` 产出 `apps/web/dist`；
   - `pnpm test:e2e` 的占位用例通过（或明确记录浏览器未安装的环境原因）。

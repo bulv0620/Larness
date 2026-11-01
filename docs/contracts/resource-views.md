@@ -5,7 +5,7 @@
 
 ## 1. 原则
 
-1. **资源全局，视图本地**：Terminal、Service、Browser 预览、File 是 Harness 的资源；Window / Tab / 项目筛选是客户端视图。
+1. **资源全局，视图本地**：Terminal、Service、Browser 预览、File 是 Larness 的资源；Window / Tab / 项目筛选是客户端视图。
 2. **全局工具 ≠ 全局权限**：顶部入口对所有已授权客户端可见，但每个资源操作仍在后端按 Project / Session / 能力校验。
 3. **来源只用于定位**：`sourceSessionId` / tab origin 只用于展示、分组与筛选，不参与授权。
 4. **关闭视图不终止资源**：关闭 Tab / 隐藏窗口不杀 PTY、不停止服务；终止资源必须显式操作。
@@ -103,7 +103,7 @@ type ProjectFilter =
 - **终止 PTY / 停止服务**：独立确认操作；资源状态变为 ended/stopped，所有客户端对应 Tab 显示结束状态，Tab 不自动消失，用户可关闭。
 - **资源删除 / 文件被删**：Tab 标记 `unavailable`，提供“重新加载 / 关闭”；不得伪造运行状态。
 - **刷新 / 重启客户端**：从本地布局恢复窗口与 Tab；资源不存在时标 unavailable，不重建 PTY / 服务。
-- **Harness 重启**：临时 PTY 不恢复（标记 interrupted）；PM2 服务按对账结果恢复；Browser Tab 若绑定服务仍存在则保留，否则标 unavailable。
+- **Larness 重启**：临时 PTY 不恢复（标记 interrupted）；PM2 服务按对账结果恢复；Browser Tab 若绑定服务仍存在则保留，否则标 unavailable。
 
 ## 8. 多客户端
 
@@ -124,8 +124,8 @@ type ProjectFilter =
 
 ```gherkin
 Given 终端窗口当前筛选为“全部项目”
-When 从项目 harness-web 的右栏点击 pnpm dev
-Then 窗口筛选切到 harness-web，pnpm dev Tab 被激活
+When 从项目 larness-web 的右栏点击 pnpm dev
+Then 窗口筛选切到 larness-web，pnpm dev Tab 被激活
 And 其他项目的终端仍然存在，只是被隐藏
 ```
 
@@ -143,7 +143,7 @@ Then 筛选为“全部项目”
 ### V3 切换项目不影响已开窗口
 
 ```gherkin
-Given 终端窗口筛选为 harness-web 且处于打开状态
+Given 终端窗口筛选为 larness-web 且处于打开状态
 When 左侧切换到 docs-site
 Then 终端窗口的筛选、Tab 与激活项不变
 ```

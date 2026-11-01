@@ -1,4 +1,4 @@
-import { cn } from "@harness/ui";
+import { cn } from "@larness/ui";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 

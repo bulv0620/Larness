@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
   Hint,
   IconButton,
-} from "@harness/ui";
+} from "@larness/ui";
 import {
   Bell,
   Cpu,
@@ -48,7 +48,7 @@ const launchers: Array<{
     icon: SquareTerminal,
     resourceId: "ter_1",
     title: "pnpm dev",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
   },
   {
     kind: "services",
@@ -56,7 +56,7 @@ const launchers: Array<{
     icon: Server,
     resourceId: "svc_web_dev",
     title: "web-dev",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
   },
   {
     kind: "browser",
@@ -64,7 +64,7 @@ const launchers: Array<{
     icon: Globe2,
     resourceId: "browser_preview",
     title: "localhost:5173",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
   },
   {
     kind: "files",
@@ -72,7 +72,7 @@ const launchers: Array<{
     icon: Files,
     resourceId: "apps/web/src/app/AppShell.tsx",
     title: "AppShell.tsx",
-    projectId: "prj_harness",
+    projectId: "prj_larness",
   },
 ];
 
@@ -143,7 +143,7 @@ export function TopBar() {
         </div>
 
         <div className="mx-1 hidden items-center gap-3 rounded-xl border border-line bg-surface-2/60 px-2.5 py-1 xl:flex">
-          <Hint label="Harness 主机 CPU 使用率">
+          <Hint label="Larness 主机 CPU 使用率">
             <span className="flex items-center gap-1.5">
               <Cpu size={12} className="text-ink-3" />
               <span className="h-1 w-10 overflow-hidden rounded-full bg-black/[.08] dark:bg-white/[.1]">
@@ -158,7 +158,7 @@ export function TopBar() {
             </span>
           </Hint>
           <span className="h-3 w-px bg-line" />
-          <Hint label="Harness 主机内存占用">
+          <Hint label="Larness 主机内存占用">
             <span className="flex items-center gap-1.5">
               <MemoryStick size={12} className="text-ink-3" />
               <span className="font-mono text-[10px] text-ink-2">

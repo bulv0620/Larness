@@ -7,7 +7,7 @@ import type {
   TimelineItem,
   ToolItem,
   TurnEvent,
-} from "@harness/shared";
+} from "@larness/shared";
 import { initialTimeline, snapshot } from "./fixtures";
 
 function wait(ms: number, signal: AbortSignal): Promise<void> {
@@ -126,8 +126,8 @@ export class MockGateway implements Gateway {
       id: uid("tool"),
       kind: "tool",
       name: "run_command",
-      summary: "pnpm --filter @harness/web dev",
-      args: '{ "command": "pnpm --filter @harness/web dev", "cwd": ".", "timeout": 120000 }',
+      summary: "pnpm --filter @larness/web dev",
+      args: '{ "command": "pnpm --filter @larness/web dev", "cwd": ".", "timeout": 120000 }',
       status: "running",
       createdAt: Date.now(),
     };

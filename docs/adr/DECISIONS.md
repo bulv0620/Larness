@@ -10,15 +10,15 @@
 | ADR-001 | 单实例、单工作空间、多授权客户端 | 不做多租户；所有客户端共享业务数据，仅视图状态独立 |
 | ADR-002 | 可信开发机模式：项目内常规操作允许，越界与敏感操作审批 | 不声称沙箱；恶意 Shell 仍是残余风险 |
 | ADR-003 | 同项目写任务串行，跨项目可并发 | 同会话单 Turn；资源级锁协调共享目标 |
-| ADR-004 | 临时 PTY 不跨 Harness 重启恢复 | 重启后标记中断；PM2 服务独立持久化 |
+| ADR-004 | 临时 PTY 不跨 Larness 重启恢复 | 重启后标记中断；PM2 服务独立持久化 |
 | ADR-005 | 统一构建 → 审批 → PM2 部署 → 健康检查 → 记录 | 生产变更不可绕过审批与审计 |
 | ADR-006 | 设备准入只经本机 TUI 或预置离线恢复码 | Web 设备不能批准新设备；TUI 不可用则拒绝 |
 | ADR-007 | 自动检查更新，手动安装，等待任务安全点 | 外部 Updater 执行，不强杀执行中的任务 |
 | ADR-008 | DeepSeek / GLM 优先，每 Turn 固定模型 | 多 Key Profile；切模型只影响下一轮 |
-| ADR-009 | 所有代码与服务运行在 Harness 本机 | 不设计 SSH / Docker / 远程节点 |
+| ADR-009 | 所有代码与服务运行在 Larness 本机 | 不设计 SSH / Docker / 远程节点 |
 | ADR-010 | 三栏 Chat-first + 顶部入口 + 全局悬浮多 Tab | 右栏四分区可同时展开；无底部 Dock |
 | ADR-011 | 内嵌预览仅限本机已登记 Web 服务 | 地址栏可输 `localhost:5173`；不做 Electron 窗口远控 |
-| ADR-012 | 开发服务 Native、长期服务 PM2 | Harness 自身由 OS 服务管理器 / Launcher 守护 |
+| ADR-012 | 开发服务 Native、长期服务 PM2 | Larness 自身由 OS 服务管理器 / Launcher 守护 |
 
 ## 2. 实现决策（本仓库冻结）
 
@@ -33,6 +33,7 @@
 | ADR-019 | ID / 时间 / 错误码统一约定 | `<prefix>_<uuid>`、Unix ms、稳定错误码；见 `docs/contracts/rest-api.md` |
 | ADR-020 | 文档与 UI 中文优先，代码标识符英文 | 降低沟通成本；字符串集中管理，后续可国际化 |
 | ADR-021 | V1 使用 Passkey / WebAuthn 作为可信凭据，不签发长期设备 Token | 见 [ADR-021](ADR-021-passkey-v1.md)；`allow_once` 仍保留为临时访问 |
+| ADR-022 | 产品名与内部命名空间统一为 Larness | 见 [ADR-022](ADR-022-product-name-larness.md)；M0 前完成，无兼容别名 |
 
 ## 3. 变更流程
 

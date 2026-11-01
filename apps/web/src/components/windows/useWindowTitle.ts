@@ -1,4 +1,4 @@
-import type { GatewaySnapshot } from "@harness/shared";
+import type { GatewaySnapshot } from "@larness/shared";
 import type { WindowTab } from "@/lib/windowTypes";
 
 export function useWindowTitle(tab: WindowTab | undefined, data: GatewaySnapshot): string {

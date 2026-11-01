@@ -1,8 +1,10 @@
-# Harness 产品需求、技术架构与边界约束设计文档
+# Larness 产品需求、技术架构与边界约束设计文档
+
+> 2026-11-01：仅将产品名统一为 Larness；架构语义未修改（ADR-022）。
 
 > 设计版本：v3.0 · 2026-10-30  
 > 状态：**设计方案，尚非已实现功能**  
-> 基础材料：《Harness 产品需求文档（PRD）v1.1》；第一篇保留原始需求，第二篇补充最新产品决策与工程落地方案。  
+> 基础材料：《Larness 产品需求文档（PRD）v1.1》；第一篇保留原始需求，第二篇补充最新产品决策与工程落地方案。
 > 主要读者：产品负责人、前端/后端工程师、AI 编程 Agent、测试人员。
 
 ## 阅读指南与决策优先级
@@ -33,14 +35,14 @@
 
 > 版本：v1.1（按当前 UI Demo 修订，2026-10-30）  
 > 定位：自托管、单机运行、AI-first 的 Web IDE 与本机服务运维工作空间。  
-> 范围：以 Node.js 项目为主要目标，使用浏览器远程访问部署 Harness 的这台机器。  
+> 范围：以 Node.js 项目为主要目标，使用浏览器远程访问部署 Larness 的这台机器。
 > 状态：已有纯前端 UI Demo，视觉与交互待用户验收；真实 AI、文件系统、终端、服务管理及认证等后端能力仍待实现。本文同时描述产品目标与当前展示范围，两者不等同。
 
 ## 1. 产品目标与约束
 
 ### 1.1 核心目标
 
-用户在一台装有 Node.js 的电脑上启动 Harness，通过网页访问并登录，在一个统一界面内完成：
+用户在一台装有 Node.js 的电脑上启动 Larness，通过网页访问并登录，在一个统一界面内完成：
 
 1. 关联本地项目目录，创建和管理 AI 会话；
 2. 利用多个模型提供商的 AI Agent 读写代码、运行命令、查看 Git；
@@ -51,9 +53,9 @@
 
 ### 1.2 明确范围
 
-- **单机执行**：所有代码、终端、构建、部署和服务均在 Harness 所在电脑上执行；不设计远程主机、SSH 部署集群或分布式 Agent。
+- **单机执行**：所有代码、终端、构建、部署和服务均在 Larness 所在电脑上执行；不设计远程主机、SSH 部署集群或分布式 Agent。
 - **Web 优先**：用户通过浏览器使用；不要求安装 Electron 客户端。
-- **Node.js 优先**：Harness 自身使用 TypeScript/Node.js；优先管理 Node.js 项目，其他语言不是首版目标。
+- **Node.js 优先**：Larness 自身使用 TypeScript/Node.js；优先管理 Node.js 项目，其他语言不是首版目标。
 - **最简部署**：目标发布物为单一 JS 入口（`node app.js`）。原生 PTY、PM2 运行时资源等如无法完全打包，允许提供平台相关的附带资源目录；不能以“单文件”为由牺牲核心功能。
 - **AI 为主，人可接管**：会话是默认主界面；文件编辑、终端、预览和日志以悬浮窗口呈现。
 - **权限有限制**：公网访问必须有身份验证；Agent 不能天然继承所有 Web 登录权限。
@@ -66,7 +68,7 @@
 
 目标用户为需要在个人电脑、服务器或 NAS 上开发并托管 Node.js 应用的单人开发者。
 
-**核心流程**：启动 Harness → 登录 → 关联项目（或直接新建独立会话）→ 在对话框提出需求 → Agent 修改项目并使用终端 → 用户在文件/终端/浏览器悬浮窗口查看 → Agent 执行测试与构建 → 用户授权部署 → 本机服务持续运行 → 观察日志、Git 和运行状态 → 必要时安排定时任务。
+**核心流程**：启动 Larness → 登录 → 关联项目（或直接新建独立会话）→ 在对话框提出需求 → Agent 修改项目并使用终端 → 用户在文件/终端/浏览器悬浮窗口查看 → Agent 执行测试与构建 → 用户授权部署 → 本机服务持续运行 → 观察日志、Git 和运行状态 → 必要时安排定时任务。
 
 ## 3. 信息架构与 UI
 
@@ -88,7 +90,7 @@
 
 - **终端**：窗口顶部多 Tab；项目下拉框支持“全部项目 / 指定项目 / 全局终端”；每个 Tab 归属一个实际 PTY。
 - **服务**：项目筛选、多 Tab 或详情视图；包含状态、端口、启动方式、自动重启、日志、打开预览、启停重启。
-- **浏览器**：多 Tab、地址栏、刷新、外部打开；主要访问 Harness 主机的开发服务。
+- **浏览器**：多 Tab、地址栏、刷新、外部打开；主要访问 Larness 主机的开发服务。
 - **文件浏览**：可浏览已授权的本机路径；点击文件进入文件预览/编辑窗口，同一文件优先复用已有视图。
 
 以上项目筛选、真实资源与多 Tab 管理属于完整产品目标；当前 Demo 只展示部分 Tab 外观和资源切换，不代表已完成真实多资源管理。
@@ -126,7 +128,7 @@
 - 添加、编辑、移除项目与本地目录的关联；验证路径是否存在、是否可访问。
 - 每个项目保存名称、路径、创建时间、最近使用时间和默认 Agent/模型配置。
 - 识别项目是否为 Git 仓库；无 Git 时隐藏或提示 Git 功能不可用。
-- 移除项目只解除 Harness 关联，**不删除磁盘目录**。
+- 移除项目只解除 Larness 关联，**不删除磁盘目录**。
 - 项目目录支持显式授权路径；防止符号链接越界、路径穿越。
 
 ### 4.2 会话与 AI 对话 [P0]
@@ -143,7 +145,7 @@
 
 - 支持多个 Provider、多个 API Key Profile、自定义兼容端点；凭据不传给前端或 LLM 上下文。
 - 会话输入框选择模型；**仅从下一轮 Turn 生效**，正在执行的 Turn 不热切换模型。
-- Harness 自主管理 Session/Turn/Task/ToolEvent，不把会话模型绑定单一厂商消息格式。
+- Larness 自主管理 Session/Turn/Task/ToolEvent，不把会话模型绑定单一厂商消息格式。
 - 适配器声明流式输出、工具调用、视觉、上下文容量等能力；切模型时重构上下文，保留显式任务状态、文件改动和待审批动作。
 - 首版只需实现一个可用的 Agent Provider，后续增添 OpenAI/Anthropic/Gemini/OpenAI-compatible 等。
 
@@ -161,7 +163,7 @@
 - 统一 ServiceManager 管理本机 Node.js 开发服务和生产服务，服务关联 Project ID（可空）。
 - 两类生命周期：开发服务（临时、可主动停止）和生产服务（持久、按策略自动重启/恢复）。
 - 支持启动、停止、重启、查询状态、端口、实时/历史日志、运行时指标。
-- 顶部单独展示 Harness 所在主机的 CPU 使用率与已用／总内存，区别于服务卡片内的单进程指标；正式接入后由后端提供采样数据，当前 Demo 均为固定模拟数值。
+- 顶部单独展示 Larness 所在主机的 CPU 使用率与已用／总内存，区别于服务卡片内的单进程指标；正式接入后由后端提供采样数据，当前 Demo 均为固定模拟数值。
 - 服务提供启动命令、cwd、环境变量引用、自动重启、构建前置命令及健康检查配置。
 - 优先以 **PM2 Adapter** 管理长期运行服务；开发服务可用 Node child_process / PTY；Adapter 层隔离 PM2 实现。
 - 部署流程：检查项目 → 构建 → 审批 → 启动/替换服务 → 健康检查 → 记录版本和结果；失败时保留日志与人工恢复入口。
@@ -182,11 +184,11 @@
 
 ### 4.8 内嵌浏览器与 Preview Proxy [P1]
 
-- 用户在内嵌浏览器地址栏输入 `http://localhost:5173`，该地址是 **Harness 主机的 localhost**，而不是远程访问者设备。
+- 用户在内嵌浏览器地址栏输入 `http://localhost:5173`，该地址是 **Larness 主机的 localhost**，而不是远程访问者设备。
 - 前端解析地址，并向后端请求对应已登记/已授权的本机 Service；代理层转发 HTTP 和 WebSocket（包括 Vite HMR）。
 - 地址栏显示输入的 localhost 地址；实际 iframe 访问安全代理 URL。
 - **不需要**公开 5173 端口，也不要求 Nginx/Caddy 专门代理该端口。
-- 预览页面使用隔离来源（优先不同注册域名），不能与 Harness 管理页面共享特权 Cookie/DOM；避免使用同源 `/preview/*` 展示不可信 JS。
+- 预览页面使用隔离来源（优先不同注册域名），不能与 Larness 管理页面共享特权 Cookie/DOM；避免使用同源 `/preview/*` 展示不可信 JS。
 - 普通 iframe 可能受 CSP/X-Frame-Options 限制；不承诺访问任意第三方网站或提供完整浏览器级控制。
 
 ### 4.9 自动化任务 [P2]
@@ -200,8 +202,8 @@
 - 默认监听 `127.0.0.1`；支持用户自行通过 HTTPS 反向代理/隧道接入公网。
 - 首次初始化管理员；强密码哈希、登录限流、可选 Passkey/TOTP、设备和登录会话撤销。
 - Cookie 使用 Secure/HttpOnly/SameSite，并实施 CSRF、Origin、WebSocket 握手鉴权和授权复核。
-- Agent 权限由 Harness 后端强制执行：项目内常规动作、跨项目访问、服务部署、系统敏感操作分级审批。
-- **不能仅凭命令字符串黑名单实现 Shell 沙箱**；未经隔离的任意命令执行将拥有 Harness 运行账户权限。默认非管理员运行，敏感任务需操作系统级隔离或限制执行能力。
+- Agent 权限由 Larness 后端强制执行：项目内常规动作、跨项目访问、服务部署、系统敏感操作分级审批。
+- **不能仅凭命令字符串黑名单实现 Shell 沙箱**；未经隔离的任意命令执行将拥有 Larness 运行账户权限。默认非管理员运行，敏感任务需操作系统级隔离或限制执行能力。
 - PM2 不提供文件系统/权限沙箱；项目依赖安装和执行都可能运行任意脚本，必须按不可信代码对待。
 - Secret Store 保存 API Keys 和服务凭据，Agent 工具仅以受控方式引用；日志脱敏。
 - Preview Proxy 只访问登记的服务，防止端口扫描/SSRF；预览域与主应用隔离。
@@ -223,7 +225,7 @@
 | CredentialProfile | id, provider, label, secretRef | Secret Store 中的密钥引用 |
 | ScheduledJob | id, schedule, scope, policy, enabled | 定时执行 |
 
-**基本规则**：资源属于 Harness，全局可按 Project 筛选；Session 可以创建/使用资源，但关闭 Session 不自动删除资源；Window 与 Tab 仅为资源视图。
+**基本规则**：资源属于 Larness，全局可按 Project 筛选；Session 可以创建/使用资源，但关闭 Session 不自动删除资源；Window 与 Tab 仅为资源视图。
 
 ## 6. 核心技术方案
 
@@ -237,7 +239,7 @@
 | HTTP | Fastify + REST API |
 | 实时 | WebSocket，带事件序号和断线重放机制 |
 | 存储 | SQLite（配置、项目、会话、任务、审计） |
-| Agent | Harness AgentRuntime + ProviderAdapter + ToolPermissionEngine |
+| Agent | Larness AgentRuntime + ProviderAdapter + ToolPermissionEngine |
 | Terminal | node-pty + xterm.js（多平台原生模块需验证） |
 | Services | PM2Adapter（生产）+ NativeProcessAdapter（开发） |
 | Files | Node.js fs + Monaco |
@@ -265,7 +267,7 @@
 
 ### 7.2 完整产品验收（待后端实现）
 
-1. 一台机器启动 Harness 后，从另一台设备安全登录，可创建/切换多个项目和会话。
+1. 一台机器启动 Larness 后，从另一台设备安全登录，可创建/切换多个项目和会话。
 2. Agent 正在运行时刷新浏览器，可恢复会话消息与可重放事件，不因 WebSocket 断开而默认结束任务。
 3. 在项目中打开终端，切换到“全部项目”仍能找到该终端；隐藏后从顶部终端入口恢复，不重建 PTY。
 4. Agent 启动 Vite 服务，右侧服务列表自动更新；点击预览或输入 `localhost:5173` 可在悬浮浏览器中看到该主机服务，5173 无需公开到互联网。
@@ -291,12 +293,12 @@
 - 严格的单 `app.js` 与 `node-pty`、PM2 Daemon/资源文件打包存在冲突：优先保证可运行的 Node 启动入口，后续验证单文件发布。
 - 内嵌预览的**独立来源**需要域名/通配路由支持；如果没有独立域名，必须制定明确的功能与安全降级策略。
 - 未隔离的 Shell/PM2 不保证项目级文件权限边界；真正的进程隔离方案要根据 Windows/macOS/Linux 分别设计。
-- 单机自动恢复需要与 OS 服务管理器集成；PM2 负责项目服务，不能替代 Harness 本身的守护。
+- 单机自动恢复需要与 OS 服务管理器集成；PM2 负责项目服务，不能替代 Larness 本身的守护。
 - 并发会话编辑同一项目可能冲突：至少需要文件变更检测、执行状态追踪与操作提示。
 
 ---
 
-**一句话定义**：Harness 是一个运行在单台计算机上的、可通过 Web 安全远程访问的 AI-first 开发与运维工作空间，用户通过对话驱动本机项目的开发、预览、构建、部署和自动化，同时随时通过窗口化的文件、终端、服务和 Git 工具查看或接管。
+**一句话定义**：Larness 是一个运行在单台计算机上的、可通过 Web 安全远程访问的 AI-first 开发与运维工作空间，用户通过对话驱动本机项目的开发、预览、构建、部署和自动化，同时随时通过窗口化的文件、终端、服务和 Git 工具查看或接管。
 
 
 ---
@@ -357,7 +359,7 @@ Local Browser ────┘                          │
                                      127.0.0.1:port
 
 Local Terminal ── protected local IPC ── Control TUI
-Stable Launcher/Updater ── controls ── Harness Server process
+Stable Launcher/Updater ── controls ── Larness Server process
 ```
 
 ### 11.1 进程边界
@@ -371,7 +373,7 @@ Stable Launcher/Updater ── controls ── Harness Server process
 ### 11.2 目录建议
 
 ```text
-harness-install/
+larness-install/
 ├── app.js                    # 稳定入口（launcher）
 ├── current.json               # 当前版本指针 / 校验信息
 ├── releases/
@@ -380,9 +382,9 @@ harness-install/
 ├── runtime/                   # 可选的 node-pty/PM2 平台资源
 └── updater/                   # 更新执行程序/脚本
 
-<harness-data-dir>/           # 配置项指定，独立于安装目录
+<larness-data-dir>/           # 配置项指定，独立于安装目录
 ├── config.json
-├── harness.db
+├── larness.db
 ├── secrets/                   # 加密凭据存储
 ├── sessions/<session-id>/workspace/
 ├── artifacts/<session-id>/
@@ -391,7 +393,7 @@ harness-install/
 └── tmp/
 ```
 
-默认数据目录应采用 OS 标准用户数据目录，不硬编码 `~/.harness`；上述仅为结构示例。数据目录权限限制为 Harness 操作系统账户，禁止公开为静态文件。
+默认数据目录应采用 OS 标准用户数据目录，不硬编码 `~/.larness`；上述仅为结构示例。数据目录权限限制为 Larness 操作系统账户，禁止公开为静态文件。
 
 ## 12. 服务端模块与责任边界
 
@@ -417,7 +419,7 @@ harness-install/
 
 ### 13.1 核心依赖
 
-推荐 TypeScript + Vercel AI SDK（或可替换的模型 SDK 层），首先实现 DeepSeek 与 GLM 适配。Vercel AI SDK 负责 API 调用、流式文本与工具调用循环；Harness 独立实现 Agent 的工程能力。模型接口兼容性以具体 API 版本的联调结果为准，不能假定所有 OpenAI-compatible 端点能力一致。
+推荐 TypeScript + Vercel AI SDK（或可替换的模型 SDK 层），首先实现 DeepSeek 与 GLM 适配。Vercel AI SDK 负责 API 调用、流式文本与工具调用循环；Larness 独立实现 Agent 的工程能力。模型接口兼容性以具体 API 版本的联调结果为准，不能假定所有 OpenAI-compatible 端点能力一致。
 
 ```ts
 type AgentProviderId = 'deepseek' | 'glm' | 'openai-compatible';
@@ -636,7 +638,7 @@ node app.js status      # 本机只读状态
 
 ### 16.4 访问链路安全
 
-- Harness 默认仅绑定 `127.0.0.1`；公网通过 HTTPS 可信反代/隧道访问。
+- Larness 默认仅绑定 `127.0.0.1`；公网通过 HTTPS 可信反代/隧道访问。
 - 严格配置可信代理列表，避免伪造 `X-Forwarded-*`；强制 TLS、HSTS 视部署环境启用。
 - Session Cookie 使用 HttpOnly/Secure/SameSite；状态修改接口校验 CSRF 与 Origin。
 - Preview 独立来源和 Cookie 范围；任何未认证请求不得访问 Preview。
@@ -655,7 +657,7 @@ node app.js status      # 本机只读状态
 | 资源 | 首版规则 |
 |---|---|
 | 同一 Session | 同时仅一条活跃 Turn，其余请求入队或提示冲突 |
-| 项目写操作 | Harness 内进程排队；文件写入使用 expectedVersion 检测外部修改 |
+| 项目写操作 | Larness 内进程排队；文件写入使用 expectedVersion 检测外部修改 |
 | Git | checkout/reset/commit/pull 等写操作获取项目级 Git 锁 |
 | 终端 | 可多人看，同一时刻一方拥有交互输入 Lease；超时可接管 |
 | Service | 启动/停止/部署串行；每项操作记录幂等 requestId |
@@ -697,7 +699,7 @@ interface ServiceConfig {
 - 开发服务由 NativeProcessAdapter 管理，可随开发周期清理。
 - 生产服务经 PM2Adapter 托管，连接 PM2 之前必须解决 PM2_HOME、Daemon 隔离、日志路径与多实例冲突。
 - 服务状态至少区分 `STOPPED/STARTING/RUNNING/UNHEALTHY/STOPPING/FAILED/UNKNOWN`；不能只依赖进程存活判断健康。
-- Harness 主进程自身仍由 Launcher/OS 服务监督，不能靠自己内部 PM2 保证开机恢复。
+- Larness 主进程自身仍由 Launcher/OS 服务监督，不能靠自己内部 PM2 保证开机恢复。
 - V1 主要支持 Node.js 项目；Node 运行时由宿主机提供。端口冲突、环境变量变更与进程树退出需跨平台验证。
 
 ### 18.4 部署步骤
@@ -708,7 +710,7 @@ interface ServiceConfig {
 
 ### 19.1 用户体验
 
-用户在 Harness Browser 悬浮窗口输入 `http://localhost:5173/dashboard`。BrowserManager 只将显式登记且已授权的本机 Service 解析为安全 Preview 地址，在 iframe 加载；顶部显示原始 localhost URL，不向外开放 5173 端口。
+用户在 Larness Browser 悬浮窗口输入 `http://localhost:5173/dashboard`。BrowserManager 只将显式登记且已授权的本机 Service 解析为安全 Preview 地址，在 iframe 加载；顶部显示原始 localhost URL，不向外开放 5173 端口。
 
 ### 19.2 数据流
 
@@ -719,7 +721,7 @@ address: localhost:5173/dashboard
   → API check session + service permission
   → signed/short-lived preview access
   → isolated preview origin
-  → Harness HTTP/WS proxy
+  → Larness HTTP/WS proxy
   → 127.0.0.1:5173/dashboard
 ```
 
@@ -940,7 +942,7 @@ scripts/
 ```json
 {
   "server": { "host": "127.0.0.1", "port": 3210, "trustedProxies": [] },
-  "workspace": { "mode": "single", "dataDir": "<OS_USER_DATA>/Harness" },
+  "workspace": { "mode": "single", "dataDir": "<OS_USER_DATA>/Larness" },
   "auth": { "deviceApproval": "local-tui", "requireHttpsForRemote": true },
   "agent": { "defaultProvider": "deepseek", "maxConcurrentTurns": 2 },
   "services": { "productionRuntime": "pm2", "developmentRuntime": "native" },
@@ -988,15 +990,15 @@ scripts/
 | ADR-001 | 用户模型 | **单实例、单工作空间、多授权客户端** | 无业务多用户、角色、租户隔离；不同浏览器的布局互不影响 |
 | ADR-002 | Agent 权限 | **可信开发机模式**，项目内常规操作允许；越界和敏感操作审批 | 不得将 cwd、路径过滤或字符串黑名单宣称为 Shell 沙箱 |
 | ADR-003 | 并发 | **同项目写任务串行，其他项目可并发** | 同一会话同时只运行一个 Turn；跨项目共享文件/服务仍需资源级协调 |
-| ADR-004 | 终端恢复 | **临时 PTY 不跨 Harness 重启恢复** | 重启后原 PTY 标记中断；PM2 生产服务独立持久化 |
+| ADR-004 | 终端恢复 | **临时 PTY 不跨 Larness 重启恢复** | 重启后原 PTY 标记中断；PM2 生产服务独立持久化 |
 | ADR-005 | 生产部署 | **统一构建 → 审批 → PM2 部署 → 健康检查 → 记录** | 生产服务变更不得绕过审批与审计；未经结构化部署登记的任意 Shell 不能被宣传为“受管部署” |
 | ADR-006 | 设备准入 | **本机 TUI 审批或预置离线恢复码** | 不允许已有 Web 设备直接批准新设备；TUI 不可用时新设备默认拒绝 |
 | ADR-007 | 更新 | **自动检查，手动安装，等待任务安全结束** | 不因更新强杀 Agent 执行；安装由外部 Updater/Launcher 接管 |
 | ADR-008 | 模型 | **DeepSeek、GLM 优先**，每 Turn 固定模型 | 支持多 API Key Profile；切模型仅在下一轮执行 |
-| ADR-009 | 运行位置 | **所有代码与服务均运行在 Harness 本机** | 不设计 SSH Host、Docker 集群或远程部署节点 |
+| ADR-009 | 运行位置 | **所有代码与服务均运行在 Larness 本机** | 不设计 SSH Host、Docker 集群或远程部署节点 |
 | ADR-010 | 交互 | **三栏 Chat-first + 顶部入口 + 全局悬浮多 Tab** | 右栏文件/服务/终端/Git 可同时展开；**无底部 Dock** |
 | ADR-011 | 浏览器 | **仅本机 Web 服务的内嵌预览** | 地址栏可输 `localhost:5173`，后台内部安全代理；Electron 原生窗口、WebRTC 不纳入首版 |
-| ADR-012 | 服务生命周期 | **NativeProcess（开发）与 PM2（长期服务）分开** | Harness 需由 OS 服务管理器/外部守护负责自身启动与恢复 |
+| ADR-012 | 服务生命周期 | **NativeProcess（开发）与 PM2（长期服务）分开** | Larness 需由 OS 服务管理器/外部守护负责自身启动与恢复 |
 
 ### 33.2 需求优先级和“完成”的定义
 
@@ -1015,7 +1017,7 @@ scripts/
 - **Execution Identity（系统账户）**：执行 PTY、构建脚本、PM2 的实际 OS 身份；这是最后的权限上限。
 - **Preview Origin（预览页面）**：不可信项目脚本，绝不能获取管理站点的会话和 privileged API。
 
-**关键边界**：项目目录白名单只可约束 Harness 自己实现的文件工具；只要允许未隔离的任意 Shell、npm lifecycle scripts 或 Node 脚本执行，该代码就可能以 Harness 所在 OS 账户的权限读取非项目文件。因此 V1 的“可信开发机模式”**不是安全沙箱，也不提供对恶意 Agent/恶意项目的强隔离保证**。
+**关键边界**：项目目录白名单只可约束 Larness 自己实现的文件工具；只要允许未隔离的任意 Shell、npm lifecycle scripts 或 Node 脚本执行，该代码就可能以 Larness 所在 OS 账户的权限读取非项目文件。因此 V1 的“可信开发机模式”**不是安全沙箱，也不提供对恶意 Agent/恶意项目的强隔离保证**。
 
 ### 34.2 统一审批分级
 
@@ -1044,7 +1046,7 @@ scripts/
 2. 本机 TUI 初始化管理员恢复凭据、监听地址、公共访问 URL、更新通道、日志和安全选项。
 3. 管理密码使用 Argon2id 等适当的密码哈希；初始化密钥、签名公钥/设备凭据保存在受 OS 权限保护的数据目录。
 4. 正常运行：`node app.js` 启动服务；`node app.js tui` 通过**本机受保护 IPC**连接管理端，避免依赖长期占用的交互式 stdin。
-5. TUI 未打开时，Harness 仍正常运行、现有可信设备正常工作；新设备申请挂起直到可用的本机审批或有效恢复机制。
+5. TUI 未打开时，Larness 仍正常运行、现有可信设备正常工作；新设备申请挂起直到可用的本机审批或有效恢复机制。
 
 ### 35.2 设备配对协议（状态机）
 
@@ -1063,7 +1065,7 @@ scripts/
 
 ### 35.3 公网访问前置条件
 
-- Harness 默认监听 `127.0.0.1`；公网由用户配置 HTTPS 反向代理或受保护隧道，不能把裸 HTTP 管理端暴露公网。
+- Larness 默认监听 `127.0.0.1`；公网由用户配置 HTTPS 反向代理或受保护隧道，不能把裸 HTTP 管理端暴露公网。
 - 设置 Host/Origin 白名单、WebSocket 握手与升级鉴权、登录/配对限速、会话吊销及安全审计。
 - 后端必须对 Cookie 会话执行 CSRF 防护；上传、文件写入、命令执行、审批和设备管理都为敏感接口。
 - TUI 本机 IPC 权限不得仅依据“请求来自 localhost”认定安全；要使用 OS 文件/管道权限与管理凭据。
@@ -1098,9 +1100,9 @@ scripts/
 
 ### 37.1 原生 Agent 优先
 
-- 以 DeepSeek / GLM 为首批模型，AI SDK 仅作为模型调用、流式与工具循环基础；Harness 控制上下文、工具、权限、持久化与生命周期。
+- 以 DeepSeek / GLM 为首批模型，AI SDK 仅作为模型调用、流式与工具循环基础；Larness 控制上下文、工具、权限、持久化与生命周期。
 - `ProviderAdapter` 应声明 tool calling、流式、多模态、reasoning、最大上下文、响应格式等能力；“OpenAI compatible”不等于协议完全一致，须对每个模型做契约测试。
-- `Session → Turn → Step/ToolCall → Event` 由 Harness 定义；每个 Turn 记录 provider、model、credentialProfileId、参数与结果，切换模型只影响新 Turn。
+- `Session → Turn → Step/ToolCall → Event` 由 Larness 定义；每个 Turn 记录 provider、model、credentialProfileId、参数与结果，切换模型只影响新 Turn。
 - 厂商私有 reasoning 数据不得简单拼接给别的模型；保存结构化任务进度、决策摘要、相关文件与工具结果，以 ContextBuilder 构造可迁移上下文。
 
 ### 37.2 执行状态机与持久化
@@ -1109,7 +1111,7 @@ scripts/
 
 - 发起执行、工具请求、批准、工具返回、文件变更、终止状态均写入 SQLite 事件日志，事务中递增序号。先持久化关键状态再推送 WebSocket。
 - `WAITING_APPROVAL` 持久化审批资源 ID、参数摘要、作用域、过期时间；超时默认拒绝，取消 Turn 作废审批。
-- 客户端刷新/断连只改变订阅，不取消执行；Harness 进程崩溃后原 Tool/PTY 是否继续无法假定，启动时把未知状态标记为 `INTERRUPTED` 并执行资源对账。
+- 客户端刷新/断连只改变订阅，不取消执行；Larness 进程崩溃后原 Tool/PTY 是否继续无法假定，启动时把未知状态标记为 `INTERRUPTED` 并执行资源对账。
 - Tool 输出限定大小，支持截断与附件化；要防止日志/工具结果无限扩展上下文。
 - Agent 应有最大循环次数、最大时长、token/费用预算、命令超时和中断控制，不允许无限自循环。
 - 自动化 Agent 只能使用专门授权的有限工具清单，不继承交互会话的一次性批准。
@@ -1132,12 +1134,12 @@ scripts/
 | 类型 | 典型操作 | 生命周期 | 重启恢复保证 |
 |---|---|---|---|
 | CommandExecution | `pnpm test`, `git status` | 短时、单次 | 不保证恢复；结果记录保留 |
-| Terminal (PTY) | 用户交互 Bash/PowerShell | 进程存活时可重连/多客户端查看 | Harness 进程重启后不恢复原交互状态 |
+| Terminal (PTY) | 用户交互 Bash/PowerShell | 进程存活时可重连/多客户端查看 | Larness 进程重启后不恢复原交互状态 |
 | ManagedService | `node dist/main.js` / PM2 | 长期、后台、自启配置 | 需 PM2 与 OS 开机自启配置完成并验证；失败须可见 |
 
 - 关闭资源窗口只是关闭视图；终止 PTY 或 ManagedService 必须发出独立操作。
 - Agent 的普通命令不自动产生终端 Tab；只有需要持续交互的任务显式创建终端。
-- Harness 更新或重启前，已持久化的 PM2 服务尽量不中断；若无法保证则须展示“此次更新将影响托管服务”的预估影响并要求确认。
+- Larness 更新或重启前，已持久化的 PM2 服务尽量不中断；若无法保证则须展示“此次更新将影响托管服务”的预估影响并要求确认。
 - 启动后与 PM2 进程列表进行 reconcile；缺失服务标记异常、不能凭数据库显示“运行中”。
 
 ### 38.2 单机生产部署标准流水线
@@ -1156,7 +1158,7 @@ scripts/
 
 - `ServiceManager` 必须提供独立接口，`PM2Adapter` 为可替换实现，禁止 UI/Agent 直接依赖 PM2 命令格式。
 - PM2 能托管进程，但不负责主机安全沙箱、容器网络隔离、项目环境依赖隔离。
-- Harness 进程不由其自身内部 PM2 自举守护；开机启动与重启需通过 OS 服务管理器或稳定 Launcher。
+- Larness 进程不由其自身内部 PM2 自举守护；开机启动与重启需通过 OS 服务管理器或稳定 Launcher。
 - Windows/macOS/Linux 支持范围按分平台 PoC 公布；不能假设 PM2 startup 在各 OS 完全一致。
 
 ## 39. 预览代理、浏览器与来源隔离
@@ -1167,7 +1169,7 @@ scripts/
 
 - 禁止将前端输入直接作为 proxy upstream；目标只能是 ServiceRegistry 中已登记且允许预览的本机 HTTP 服务。
 - 代理需要转发 HTTP、WebSocket、重定向、静态资源和 Vite HMR；对绝对资源路径的兼容性需 PoC 验证。
-- 不允许预览代理访问 Harness 管理端口、本机 IPC、云元数据端点或任意外部 IP。
+- 不允许预览代理访问 Larness 管理端口、本机 IPC、云元数据端点或任意外部 IP。
 - 用户可通过权限校验的服务详情打开预览；任意未登记端口不能当作通用公网 TCP 转发器。
 
 ### 39.2 独立来源是上线前置条件
@@ -1194,7 +1196,7 @@ scripts/
 
 - `data/` 与 `releases/` 分离：SQLite、设备凭据、模型 SecretStore、会话事件、任务、审计、布局配置与用户上传产物不得被更新覆盖。
 - SQLite 备份使用一致性备份机制（不可在 WAL 写入时仅复制单一 `.db` 文件就假设数据完整）。
-- 项目源码为用户已有目录：**默认不随 Harness 备份、删除或更新**；备份项目源码需要用户明确配置。
+- 项目源码为用户已有目录：**默认不随 Larness 备份、删除或更新**；备份项目源码需要用户明确配置。
 - 备份包含高敏感 API Key/设备凭据时必须加密并限制恢复权限；默认保留策略与磁盘上限需在产品设置中可见。
 - 删除项目关联不得删除磁盘源码；清理 Session/Artifacts/Logs 分别设置预览与确认。
 
@@ -1211,7 +1213,7 @@ scripts/
 
 - 不承诺 `node app.js` 在没有 Node.js 安装的主机可运行。
 - 不承诺所有平台/发行版都有完整 PTY、进程统计、后台保活与开机自启能力。
-- 不承诺 Harness 崩溃后临时 PTY、命令执行或未完成 Agent Turn 原状态无损恢复。
+- 不承诺 Larness 崩溃后临时 PTY、命令执行或未完成 Agent Turn 原状态无损恢复。
 - 不承诺项目工作目录能对任意 Shell 提供 OS 级文件访问隔离。
 - 不承诺任意互联网地址可在 iframe 中显示。
 
@@ -1240,9 +1242,9 @@ scripts/
 
 - [ ] 开发服务可启动、记录端口并从右栏/全局服务列表查看日志。
 - [ ] `localhost:5173` 能通过已登记服务在**独立来源**预览 Vite 页面，HMR 可工作，5173 不公开到公网。
-- [ ] 未登记端口、被禁止端口或指向 Harness 管理端的代理请求在后端被拒绝。
+- [ ] 未登记端口、被禁止端口或指向 Larness 管理端的代理请求在后端被拒绝。
 - [ ] 生产部署必须有持久化计划、明确审批、PM2 执行记录与健康检查；审批参数不可被篡改。
-- [ ] Harness 重启后原 PTY 标记已中断；PM2 生产服务实际运行状态经过对账，并按配置进行恢复。
+- [ ] Larness 重启后原 PTY 标记已中断；PM2 生产服务实际运行状态经过对账，并按配置进行恢复。
 - [ ] 自动更新只有检查而不自动安装；任务运行期间不得无提示强行更新。
 - [ ] 更新失败能够恢复先前可运行程序版本；数据库迁移不可逆时明确给出恢复指导。
 - [ ] 通过跨平台 PoC 验证发布包，文档公开真实支持范围和已知限制。
@@ -1252,7 +1254,7 @@ scripts/
 | 议题 | 默认实施方案 | PoC / 决策门槛 | 失败退路 |
 |---|---|---|---|
 | 终端 PTY 分发 | `node-pty` 原生依赖随平台发布 | Win/macOS/Linux 实际产物可运行并正常 resize/重连 | 外置平台模块或仅提供受限 CommandRunner |
-| PM2 内置与守护 | PM2Adapter 内置包 + OS 服务管理器托管 Harness | 主机重启后自启、进程列表对账、日志连续性 | 将 PM2 设为可选依赖或使用系统服务适配器 |
+| PM2 内置与守护 | PM2Adapter 内置包 + OS 服务管理器托管 Larness | 主机重启后自启、进程列表对账、日志连续性 | 将 PM2 设为可选依赖或使用系统服务适配器 |
 | Preview 域名配置 | 独立站点预览入口 + 安全票据 | HTTPS/WSS、Vite HMR、隔离 Cookie 和 CSP | 禁用公网内嵌预览，提示配置独立预览入口 |
 | WebAuthn 可信凭据 | 注册后使用 WebAuthn/Passkey | 跨平台浏览器兼容、恢复与吊销机制 | Opaque Token + 明确提示凭据重放风险 |
 | 模型兼容 | DeepSeek/GLM ProviderAdapter | 工具调用、流式、reasoning、错误码和上下文格式逐模型测试 | 能力降级并阻止不支持工具的 Agent 任务 |
@@ -1270,4 +1272,4 @@ scripts/
 
 ---
 
-**v3.0 最终定义**：Harness 是运行在一台已安装 Node.js 的主机上的单工作空间 AI-first Web IDE；授权浏览器共享项目、对话、终端、服务和 Git 资源。它以 DeepSeek/GLM 驱动 Agent，复用本机资源管理器完成 Node.js 项目开发、预览、构建与 PM2 部署；新设备由本机 TUI 配对准入，敏感操作按后端策略审批，更新由外部更新器在安全时点执行。V1 是可信开发机模式，**不声称拥有针对恶意 Shell 或项目脚本的 OS 级沙箱能力**。
+**v3.0 最终定义**：Larness 是运行在一台已安装 Node.js 的主机上的单工作空间 AI-first Web IDE；授权浏览器共享项目、对话、终端、服务和 Git 资源。它以 DeepSeek/GLM 驱动 Agent，复用本机资源管理器完成 Node.js 项目开发、预览、构建与 PM2 部署；新设备由本机 TUI 配对准入，敏感操作按后端策略审批，更新由外部更新器在安全时点执行。V1 是可信开发机模式，**不声称拥有针对恶意 Shell 或项目脚本的 OS 级沙箱能力**。

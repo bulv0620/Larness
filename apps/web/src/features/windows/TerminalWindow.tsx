@@ -1,4 +1,4 @@
-import type { TerminalInfo } from "@harness/shared";
+import type { TerminalInfo } from "@larness/shared";
 import { TerminalView } from "@/features/windows/TerminalView";
 import { useSnapshot } from "@/lib/queries";
 import type { WindowTab } from "@/lib/windowTypes";

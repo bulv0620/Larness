@@ -1,5 +1,5 @@
-import type { TimelineItem } from "@harness/shared";
-import { cn } from "@harness/ui";
+import type { TimelineItem } from "@larness/shared";
+import { cn } from "@larness/ui";
 import { MessageSquareText, Sparkles } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { EmptyState } from "@/components/common/EmptyState";

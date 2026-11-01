@@ -8,7 +8,7 @@
 | 项 | 约定 |
 |---|---|
 | 编码 | UTF-8；请求 / 响应 `application/json`（文件下载除外） |
-| 认证 | `harness_session` HttpOnly Cookie；公开接口仅健康、bootstrap、配对、Passkey options / verify |
+| 认证 | `larness_session` HttpOnly Cookie；公开接口仅健康、bootstrap、配对、Passkey options / verify |
 | CSRF | 已认证的变更请求带 `x-csrf-token`；公开配对 / Passkey 接口校验 Origin |
 | 请求 ID | 客户端可传 `x-request-id`，否则服务端生成；响应回显 |
 | 幂等 | 变更接口支持 `Idempotency-Key`；Turn、服务动作、部署必须支持 |
@@ -65,7 +65,7 @@
 
 ```json
 {
-  "app": { "name": "Harness", "version": "0.1.0" },
+  "app": { "name": "Larness", "version": "0.1.0" },
   "initialized": true,
   "auth": {
     "authenticated": false,
@@ -129,7 +129,7 @@
 
 配对码原子消费；同一码不可再次使用。
 
-**`allow_once`**：成功 `200`，`Set-Cookie: harness_session`：
+**`allow_once`**：成功 `200`，`Set-Cookie: larness_session`：
 
 ```json
 {
@@ -142,7 +142,7 @@
 }
 ```
 
-**`trust`**：成功 `200`，**不签发会话**，`Set-Cookie: harness_enrollment`（HttpOnly、Path=/api/webauthn/registration、5 分钟）：
+**`trust`**：成功 `200`，**不签发会话**，`Set-Cookie: larness_enrollment`（HttpOnly、Path=/api/webauthn/registration、5 分钟）：
 
 ```json
 {
@@ -182,15 +182,15 @@
 
 ### POST `/api/webauthn/registration/options`
 
-- 需要 `harness_enrollment` Cookie（`trust` 配对兑换后签发，5 分钟），不接受普通会话代替。
+- 需要 `larness_enrollment` Cookie（`trust` 配对兑换后签发，5 分钟），不接受普通会话代替。
 - 校验 Origin；生成一次性 challenge（5 分钟），返回：
 
 ```json
 {
   "challengeId": "chl_…",
   "options": {
-    "rp": { "id": "localhost", "name": "Harness" },
-    "user": { "id": "…", "name": "operator", "displayName": "Harness Operator" },
+    "rp": { "id": "localhost", "name": "Larness" },
+    "user": { "id": "…", "name": "operator", "displayName": "Larness Operator" },
     "challenge": "…",
     "pubKeyCredParams": [{ "type": "public-key", "alg": -7 }, { "type": "public-key", "alg": -257 }],
     "timeout": 60000,
@@ -214,7 +214,7 @@
 ```
 
 - 需要同一个 enrollment Cookie；校验 challenge、Origin、RP ID、UV，attestation `none`。
-- 成功：创建 `trusted_devices` + `webauthn_credentials`，配对申请标记 `redeemed`，清 enrollment Cookie，签发 `harness_session`，返回与 `GET /api/auth/session` 相同结构（`201`）。
+- 成功：创建 `trusted_devices` + `webauthn_credentials`，配对申请标记 `redeemed`，清 enrollment Cookie，签发 `larness_session`，返回与 `GET /api/auth/session` 相同结构（`201`）。
 - 重复 credential / 验证失败：`PASSKEY_REGISTRATION_FAILED`；challenge 过期：`CHALLENGE_EXPIRED`。浏览器不支持 WebAuthn 时由 Web 端阻止并提示，不发起验证。
 
 ### POST `/api/webauthn/authentication/options`
@@ -235,7 +235,7 @@
 ```
 
 - 校验 challenge、Origin、RP ID、UV、签名、credential 与设备状态；更新计数器与最后使用时间。
-- 成功：签发新的 `harness_session`，返回与 `GET /api/auth/session` 相同结构（`200`）。
+- 成功：签发新的 `larness_session`，返回与 `GET /api/auth/session` 相同结构（`200`）。
 - 失败统一返回 `401 PASSKEY_AUTH_FAILED`，不区分“credential 不存在 / 已撤销 / 签名错误”；challenge 过期返回 `CHALLENGE_EXPIRED`。
 
 ### POST `/api/auth/logout`
@@ -250,7 +250,7 @@
   "node": "v22.0.0",
   "platform": "darwin",
   "arch": "arm64",
-  "dataDir": "/Users/…/Harness",
+  "dataDir": "/Users/…/Larness",
   "initializedAt": 1761900000000,
   "uptimeMs": 12345
 }

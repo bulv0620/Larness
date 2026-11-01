@@ -1,4 +1,4 @@
-import { Button, cn, IconButton, Tabs, TabsContent, TabsList, TabsTrigger } from "@harness/ui";
+import { Button, cn, IconButton, Tabs, TabsContent, TabsList, TabsTrigger } from "@larness/ui";
 import { ExternalLink, Play, RotateCw, Square, SquareTerminal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
@@ -113,7 +113,7 @@ export function ServiceWindow({ tab }: { tab: WindowTab }) {
               启动命令
             </div>
             <pre className="mt-1.5 overflow-auto rounded-lg bg-[#1d1d1f] px-2.5 py-2 font-mono text-[10px] text-[#d7dae0]">
-              pnpm --filter @harness/web {service?.kind === "production" ? "start" : "dev"}
+              pnpm --filter @larness/web {service?.kind === "production" ? "start" : "dev"}
             </pre>
           </div>
         </TabsContent>

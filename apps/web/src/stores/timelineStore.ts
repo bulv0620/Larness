@@ -1,4 +1,4 @@
-import type { ApprovalItem, TimelineItem } from "@harness/shared";
+import type { ApprovalItem, TimelineItem } from "@larness/shared";
 import { create } from "zustand";
 import { appendAssistantMessage, applyTurnEvent } from "@/lib/timeline";
 import { gateway } from "@/mocks/gateway";

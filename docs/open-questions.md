@@ -12,7 +12,6 @@
 | Q-004 | 仓库许可证？ | 暂不添加 LICENSE，按私有项目处理 | 开源 / 分发 | 公开发布前 |
 | Q-005 | Windows 支持的时间与范围？ | macOS 主开发；Linux CI；Windows 在 M5 前完成 PTY / 路径 / PM2 / 更新 / Passkey PoC | 任务排期、发布说明 | M5 开始前 |
 | Q-006 | 是否收集遥测 / 崩溃报告？ | 默认完全关闭；仅本地日志 | 隐私、实现 | M5 |
-| Q-007 | 默认数据目录命名？ | 使用 OS 标准目录下的 `Harness`（macOS `~/Library/Application Support/Harness`） | 首次启动、迁移 | M0 |
 | Q-008 | 会话有效期具体值？ | 绝对 12h、空闲 30min；过期后用 Passkey 重新认证 | 认证体验、安全 | M0 |
 | Q-009 | 调度任务时区？ | 使用系统时区；每个任务显式记录时区，DST 需测试 | M5 调度 | M5 |
 | Q-010 | 备份保留策略？ | 7 份日备份 + 4 份周备份；含秘密时加密；项目源码不备份 | M4/M5 | M5 |
@@ -31,9 +30,11 @@
 |---|---|---|
 | Q-001 | V1 使用 Passkey / WebAuthn，不再签发长期设备 Token | [ADR-021](adr/ADR-021-passkey-v1.md) |
 | Q-019 | 一个工作空间只支持一个 canonical RP ID / Origin，不做多域名 | [ADR-021](adr/ADR-021-passkey-v1.md) |
+| Q-007 | 产品名与命名空间统一为 Larness；默认数据目录使用 Larness | [ADR-022](adr/ADR-022-product-name-larness.md) |
 
 ## 已确认（勿重复讨论）
 
+- 产品名与内部命名空间统一为 Larness（ADR-022）。
 - 单机、单工作空间、多客户端；不做多租户。
 - 三栏 Chat-first、顶部入口、无 Dock、右栏四分区可调高。
 - TUI 初始化与设备审批；Web 不能自我注册。

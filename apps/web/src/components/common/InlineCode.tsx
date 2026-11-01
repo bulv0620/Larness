@@ -1,4 +1,4 @@
-import { cn } from "@harness/ui";
+import { cn } from "@larness/ui";
 import type { ReactNode } from "react";
 
 export function InlineCode({ children, className }: { children: ReactNode; className?: string }) {

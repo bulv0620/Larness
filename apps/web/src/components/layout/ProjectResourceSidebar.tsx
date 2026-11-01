@@ -1,4 +1,4 @@
-import { cn } from "@harness/ui";
+import { cn } from "@larness/ui";
 import { Files, GitBranch, Server, SquareTerminal } from "lucide-react";
 import { Fragment, useState } from "react";
 import { FileTreePanel } from "@/components/sections/FileTreePanel";
@@ -34,13 +34,13 @@ export function ProjectResourceSidebar() {
   const project = data.projects.find((item) => item.id === projectId) ?? null;
   const projectServices = data.services.filter((service) => service.projectId === projectId);
   const projectTerminals = data.terminals.filter((terminal) => terminal.projectId === projectId);
-  const projectChanges = projectId === "prj_harness" ? data.gitChanges : [];
+  const projectChanges = projectId === "prj_larness" ? data.gitChanges : [];
   const [view, setView] = useState<ResourceView>("all");
   const { sections, containerRef, toggle, onPointerDown, equalize, nudge } =
     useSectionResizer(initialSections);
 
   const counts = {
-    files: projectId === "prj_harness" ? 22 : 0,
+    files: projectId === "prj_larness" ? 22 : 0,
     services: projectServices.length,
     terminals: projectTerminals.length,
     git: projectChanges.length,

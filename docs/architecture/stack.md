@@ -51,9 +51,9 @@
 
 | 领域 | 选择 | 说明 |
 |---|---|---|
-| 模型调用 | Vercel AI SDK（`ai`） | 仅使用流式与工具调用能力；Harness 自管 Turn / 上下文 / 权限 |
+| 模型调用 | Vercel AI SDK（`ai`） | 仅使用流式与工具调用能力；Larness 自管 Turn / 上下文 / 权限 |
 | Provider | `@ai-sdk/deepseek`、`@ai-sdk/openai-compatible`（GLM） | 逐模型契约测试；能力声明不假设一致 |
-| 工具 | Harness 自研 ToolRegistry | 不用 SDK 自带 agent 循环作为状态机 |
+| 工具 | Larness 自研 ToolRegistry | 不用 SDK 自带 agent 循环作为状态机 |
 | 测试 | FakeProvider | 确定性脚本化流与工具调用，禁止真实 API 依赖单测 |
 
 ## 5. Web
@@ -81,13 +81,13 @@
 pnpm-workspace.yaml
 package.json                 # 根脚本：dev / check / build / test / test:e2e
 apps/
-  web/                       # @harness/web
-  server/                    # @harness/server
+  web/                       # @larness/web
+  server/                    # @larness/server
 packages/
-  shared/                    # @harness/shared
-  agent/                     # @harness/agent
-  resources/                 # @harness/resources
-  ui/                        # @harness/ui
+  shared/                    # @larness/shared
+  agent/                     # @larness/agent
+  resources/                 # @larness/resources
+  ui/                        # @larness/ui
 scripts/
 app.js                       # M0-9 创建
 ```
@@ -104,7 +104,7 @@ pnpm dev
 pnpm check            # biome ci + tsc --noEmit + vitest run
 pnpm build
 pnpm test:e2e
-pnpm --filter @harness/web dev
+pnpm --filter @larness/web dev
 ```
 
 命令由 D0-1 / M0-1 落地；在此之前不存在。
