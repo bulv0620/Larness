@@ -267,11 +267,11 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/projects` | 项目列表（含 git 检测状态） |
-| POST | `/api/projects` | `{ name, rootPath }`；校验目录存在、可读、realpath |
+| GET | `/api/projects` | `{ projects: Project[] }`，按 `updatedAt` 倒序 |
+| POST | `/api/projects` | `{ name?, rootPath }`；校验目录存在、可读、realpath；201 |
 | GET | `/api/projects/:id` | 详情 |
-| PATCH | `/api/projects/:id` | 改名、默认模型、设置 |
-| DELETE | `/api/projects/:id` | 仅解除关联，不删目录 |
+| PATCH | `/api/projects/:id` | `{ name?, settings? }`；settings 局部合并 |
+| DELETE | `/api/projects/:id` | `{ ok: true }`；仅删数据库行，不删目录 |
 | GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话 |
 | POST | `/api/sessions` | `{ projectId?, title? }`；无项目时创建独立工作目录 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
@@ -291,6 +291,21 @@
 | GET | `/api/projects/:id/files` | 文件树（M2） |
 | GET | `/api/files?path=&version=` | 读取文件（M2） |
 | PUT | `/api/files` | `{ path, content, expectedVersion }`（M2） |
+
+`Project` 响应字段：
+
+```json
+{
+  "id": "prj_…",
+  "name": "demo",
+  "rootPath": "/Users/me/demo",
+  "realPath": "/Users/me/demo",
+  "settings": { "defaultModelProfileId": null, "instructions": "", "ignore": [] },
+  "gitDetected": true,
+  "createdAt": 1790000000000,
+  "updatedAt": 1790000000000
+}
+```
 
 Turn 创建成功返回 `202`：
 

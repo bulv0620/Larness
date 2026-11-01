@@ -7,7 +7,7 @@
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M1-1 | 项目登记与路径授权 | G0 | `todo` |
+| M1-1 | 项目登记与路径授权 | G0 | `done` |
 | M1-2 | 会话、Turn 与事件存储 | M1-1 | `todo` |
 | M1-3 | Provider 适配与 FakeProvider | G0 | `todo` |
 | M1-4 | 工具注册与审批引擎 | M1-1, M1-2 | `todo` |
@@ -20,7 +20,7 @@
 
 ### M1-1 项目登记与路径授权
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：G0
 - 目标：安全地登记本机目录，并提供统一路径校验给后续所有工具。
 - 交付物：
@@ -33,6 +33,13 @@
 - 验收：A1、A7 的 API 部分；不存在 / 文件 / 重复路径被拒绝；删除后目录仍存在。
 - 测试：路径穿越、符号链接、大小写、Unicode、重复登记、Git 缺失。
 - 涉及路径：`apps/server/src/modules/projects/`、`packages/resources/src/files/pathGuard.ts`、`apps/server/src/api/projects.ts`。
+- 完成记录：
+  - `0002_projects` 迁移 + `projects` 表 / repository；`GET/POST /api/projects`、`GET/PATCH/DELETE /api/projects/:id`；
+  - `pathGuard`：realpath、根内包含、非存在路径祖先解析、NUL / 穿越 / 符号链接逃逸拒绝；Unicode 测试；
+  - Git 检测 `git -C <root> rev-parse --show-toplevel`，5 秒超时，失败不阻塞；
+  - 重复 realpath（含 symlink）409；删除仅删数据库行，目录保留；`project.created/updated/deleted` 审计；
+  - 项目设置 schema：默认模型 / 指令 / ignore；PATCH 合并校验；
+  - server 176 项测试。
 
 ### M1-2 会话、Turn 与事件存储
 
@@ -40,7 +47,7 @@
 - 依赖：M1-1
 - 目标：建立可重放、可幂等、可修复的执行历史。
 - 交付物：
-  - `sessions` / `turns` / `agent_events` 表与 repository；
+  - `sessions` / `turns` / `agent_events` / `resource_locks` 表与 repository；
   - 独立会话工作目录创建；列表 / 最近 / 重命名 / 归档；
   - Turn 创建（含幂等）、取消骨架、活跃校验；
   - `seq` 事务分配 + `GET /events?after=`；
@@ -75,6 +82,7 @@
   - `list_files` / `read_file` / `search_code` / `apply_patch`；
   - 版本 hash 与 `expectedVersion` 冲突检测；
   - `ApprovalService`：L2 请求、超时、批准 / 拒绝、参数哈希校验；
+  - `ProjectWriteLock`：project 资源锁、fencing token、TTL、心跳、过期回收；
   - `POST /api/approvals/:id`、`GET /api/approvals/:id`；
   - 审计：requested / completed / denied / approval。
 - 验收：A7、A8；审批参数替换被拒绝；超时默认拒绝；工具输出截断。
@@ -87,7 +95,7 @@
 - 依赖：M1-2, M1-3, M1-4
 - 目标：把 Provider 与工具串成可持久化、可取消、有预算的执行循环。
 - 交付物：
-  - `TurnQueue`（全局并发 + 会话串行）；
+  - `TurnQueue`（全局并发 + 会话串行）；写 Turn 获取 / 续租 / 释放项目锁；
   - Runner：状态机、上下文构建、工具循环、事件写入、usage 记录；
   - 预算：30 步 / 50 工具 / 10 分钟 / 上下文 80%；
   - 取消：CANCELLING、abort、工具真实结果；

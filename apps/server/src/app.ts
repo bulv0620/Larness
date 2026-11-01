@@ -5,6 +5,7 @@ import { registerAuthRoutes } from "./api/auth.js";
 import { registerBootstrapRoutes } from "./api/bootstrap.js";
 import { registerHealthRoute } from "./api/health.js";
 import { registerPairingRoutes } from "./api/pairing.js";
+import { registerProjectRoutes } from "./api/projects.js";
 import { registerStaticRoutes } from "./api/static.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
 import type { Database } from "./db/client.js";
@@ -64,6 +65,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
 
   if (options.services) {
     registerAuthRoutes(app, options.services);
+    registerProjectRoutes(app, { db: options.services.db });
     registerPairingRoutes(app, options.services);
     registerWebAuthnRoutes(app, options.services);
     registerWsRoutes(app, options.services);

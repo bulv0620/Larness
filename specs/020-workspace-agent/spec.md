@@ -41,7 +41,7 @@ M1 只做“文件工具 + 对话”，不实现终端、命令执行、Git、�
 
 - 终端 / PTY、`run_command`、Git 写操作、服务、部署、预览（M2–M4）。
 - 多 Provider 全量适配、GLM 深度适配、上下文压缩（M5，M1 只做 DeepSeek + Fake）。
-- 项目级写锁与多会话并发写协调（M2-7；M1 只保证单会话单 Turn）。
+- 完整 file / git / service 锁与 fencing 扩展（M2-7）；M1 在写工具启用前实现最小项目级写锁，保证同项目写作业串行。
 - 文件编辑 UI、Monaco、Diff 窗口（M2）。
 - 自动化 Agent、定时任务（M5）。
 - 多租户 / 多用户。
@@ -140,6 +140,8 @@ M1 只做“文件工具 + 对话”，不实现终端、命令执行、Git、�
 | R-44 | Composer 支持模型选择、审批策略、发送、停止；发送后禁用直到 Turn 结束。 |
 | R-45 | 审批卡片展示工具、参数摘要、作用域、过期时间；批准 / 拒绝调用后端并更新状态。 |
 | R-46 | 项目路径、会话工作目录、错误信息对用户可见；不显示任何密钥。 |
+| R-47 | 项目写锁：同一项目同一时刻最多一个写作业（写 Turn / `apply_patch`）；锁含 owner、fencingToken、过期时间与心跳；过期可回收。 |
+| R-48 | 写工具执行前必须持有有效项目锁；锁丢失 / fencing 不匹配返回 `RESOURCE_LOCKED`；只读 Turn 可并发。 |
 
 ## 6. 验收场景
 
@@ -264,6 +266,16 @@ When 网络重试再次提交
 Then 返回同一个 turnId，不产生第二个 Turn
 ```
 
+### A14 同项目写串行
+
+```gherkin
+Given 同一项目有两个会话同时请求 apply_patch
+When 两个 Turn 并发执行
+Then 只有一个 Turn 持有项目写锁并修改文件
+And 另一个 Turn 等待或返回 RESOURCE_LOCKED，不产生交错写入
+And 锁过期后可被新 Turn 回收，旧 fencing token 不能继续写
+```
+
 ## 7. 接口与契约
 
 新增 / 使用：
@@ -281,9 +293,10 @@ Turn 状态使用大写枚举；API 字段小驼峰；错误码沿用既有表�
 
 ## 8. 数据与迁移
 
-迁移 `0002_workspace`：
+迁移 `0002_projects` + `0003_workspace`：
 
-- `projects`、`sessions`、`turns`、`agent_events`、`model_profiles`、`credential_profiles`、`secrets`、`approvals`；
+- `0002_projects`：`projects`；
+- `0003_workspace`：`sessions`、`turns`、`agent_events`、`model_profiles`、`credential_profiles`、`secrets`、`approvals`、`resource_locks`；
 - `turns` 唯一索引 `(session_id, idempotency_key)`；`agent_events` 唯一 `(session_id, seq)`；
 - 外键：`sessions.project_id → projects.id`（`ON DELETE SET NULL`）；`turns.session_id → sessions.id`（`ON DELETE CASCADE`，但删除会话需先预览）；
 - 启动时修复：活跃 Turn → INTERRUPTED。
@@ -294,7 +307,7 @@ Turn 状态使用大写枚举；API 字段小驼峰；错误码沿用既有表�
 - 路径校验在工具层与 API 层各做一次；不信任前端传入的绝对路径。
 - 项目指令视为不可信文本；系统策略优先级最高。
 - 工具参数记录摘要；文件内容只记录路径与 hash，不记录全文。
-- 审计：`project.created/deleted`、`session.created/deleted`、`turn.started/cancelled`、`tool.requested/completed/denied`、`approval.granted/denied`、`model.changed`、`credential.created`。
+- 审计：`project.created/updated/deleted`、`session.created/deleted`、`turn.started/cancelled`、`tool.requested/completed/denied`、`approval.granted/denied`、`model.changed`、`credential.created`。
 - SecretStore 主密钥权限 0600；密钥不进入事件、日志、错误、前端。
 
 ## 10. 失败、边界与恢复
@@ -332,11 +345,11 @@ Turn 状态使用大写枚举；API 字段小驼峰；错误码沿用既有表�
 | 上下文压缩策略 | M1 只做截断 + 摘要占位；M5 完整实现 | M5 |
 | 审批策略是否允许“记住本项目” | M1 不做记忆，仅逐次 / 本 Turn | M2 |
 | `run_command` 何时加入 | M2-3；M1 不提供 | M2 |
-| 多会话同项目并发写 | M1 不保证；M2-7 加项目锁 | M2 |
+| 多会话同项目并发写 | M1 加最小项目写锁 + fencing；M2-7 扩展 file / git / service 锁 | M1 |
 
 ## 14. 完成定义
 
-- [ ] A1–A13 全部通过；
+- [ ] A1–A14 全部通过；
 - [ ] FakeProvider 覆盖状态机；DeepSeek 至少一次真实工具调用验收；
 - [ ] 刷新 / 重连无事件缺口；
 - [ ] 密钥扫描通过；

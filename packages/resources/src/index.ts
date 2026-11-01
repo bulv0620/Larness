@@ -1,2 +1,1 @@
-// Placeholder: files, terminals, git and services land in M2.
-export {};
+export * from "./files/pathGuard.js";

@@ -219,7 +219,7 @@ describe("security guard", () => {
           url: "/api/projects",
           headers: { cookie: session.cookie },
         });
-        expect(business.statusCode).toBe(404);
+        expect(business.statusCode).toBe(200);
 
         const afterBusiness = listAllSessions(started.running.db).find(
           (row) => row.id === session.sessionId,
@@ -250,7 +250,7 @@ describe("security guard", () => {
           url: "/api/projects",
           headers: { cookie: session.cookie },
         });
-        expect(authenticated.statusCode).toBe(404);
+        expect(authenticated.statusCode).toBe(200);
 
         const bootstrap = await started.running.app.inject({
           method: "GET",

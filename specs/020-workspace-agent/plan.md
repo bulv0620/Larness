@@ -146,6 +146,7 @@ interface ProviderAdapter {
 
 ### 4.6 工具与审批
 
+- 项目写锁：`resource_locks`（`resource_type=project`）记录 owner、executionId、fencingToken、expiresAt、heartbeatAt；写 Turn 在首次写工具前获取，心跳续租，结束 / 失败 / 取消释放；过期锁可回收，旧 token 写入必须失败。锁顺序固定 `global-maintenance → project → service → file/git`。
 - 风险映射：read/list/search = L0；apply_patch = L1；根外读取 / 写入 = L2。
 - `approvalService.request()` 写 `approvals` 行 + 事件，返回 Promise；超时默认 `denied` 并写事件。
 - 规范化参数：路径转相对根、统一分隔符、排序环境变量；比较 `sha256(JSON(normalized))`。

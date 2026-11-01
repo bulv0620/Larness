@@ -133,7 +133,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 
 | 表 | 关键列 | 说明 |
 |---|---|---|
-| `projects` | `id, name, root_path, real_path, settings_json, git_detected, created_at, updated_at` | `real_path` 为 canonical；删除只删行 |
+| `projects` | `id, name, root_path, real_path, settings_json, git_detected, created_at, updated_at` | `real_path` canonical 且唯一；`settings_json` 含默认模型 / 指令 / ignore；删除只删行 |
 | `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, approval_policy_id, created_at, updated_at, last_activity_at` | 独立会话的 workspace 在 dataDir 下 |
 | `turns` | `id, session_id, model_profile_id, provider, model, status, input_json, usage_json, error_json, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn |
 | `agent_events` | `id, session_id, turn_id, seq, type, payload_json, created_at`；`UNIQUE(session_id, seq)` | `seq` 在 Session 内递增，事务内分配 |

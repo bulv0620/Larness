@@ -20,6 +20,21 @@ export const appMeta = sqliteTable("app_meta", {
   updatedAt: integer("updated_at").notNull(),
 });
 
+export const projects = sqliteTable(
+  "projects",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    rootPath: text("root_path").notNull(),
+    realPath: text("real_path").notNull().unique(),
+    settingsJson: text("settings_json").notNull().default("{}"),
+    gitDetected: integer("git_detected", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [index("idx_projects_updated").on(table.updatedAt)],
+);
+
 export const authSettings = sqliteTable(
   "auth_settings",
   {
@@ -138,6 +153,7 @@ export const auditLogs = sqliteTable(
   ],
 );
 
+export type ProjectRow = typeof projects.$inferSelect;
 export type AppMetaRow = typeof appMeta.$inferSelect;
 export type AuthSettingsRow = typeof authSettings.$inferSelect;
 export type DeviceRequestRow = typeof deviceRequests.$inferSelect;

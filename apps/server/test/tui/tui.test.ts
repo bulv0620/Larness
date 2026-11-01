@@ -17,7 +17,7 @@ const status: StatusReport = {
   pid: 123,
   uptimeMs: 1000,
   listen: { host: "127.0.0.1", port: 3210 },
-  db: { ok: true, schemaVersion: 1, detail: "quick_check ok" },
+  db: { ok: true, schemaVersion: 2, detail: "quick_check ok" },
   ipc: { ok: true, clients: 1, detail: "local" },
   sessions: { online: 0, pendingPairings: 0 },
   publicUrl: null,
@@ -316,7 +316,7 @@ describe("TUI formatting and dashboard", () => {
     const text = formatStatus(status);
     expect(text).toContain("Larness");
     expect(text).toContain("数据库");
-    expect(text).toContain("schema 1");
+    expect(text).toContain("schema 2");
     expect(text).toContain("localhost:3210");
     expect(formatAudit([])).toContain("无");
     expect(
