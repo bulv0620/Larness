@@ -13,6 +13,8 @@ export default defineConfig({
   dts: false,
   outExtensions: () => ({ js: ".js" }),
   deps: {
-    alwaysBundle: ["@larness/shared"],
+    // Workspace packages ship TypeScript sources, so they must be bundled
+    // instead of being left as runtime imports in the built server.
+    alwaysBundle: [/^@larness\//],
   },
 });
