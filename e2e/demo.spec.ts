@@ -117,6 +117,12 @@ test.describe("Harness S0 视觉 Demo", () => {
     await expect(page.getByTitle("docs-site · pnpm docs:dev")).toHaveCount(0);
   });
 
+  test("输入区与时间线之间没有硬分割线", async ({ page }) => {
+    const dock = page.getByTestId("composer-dock");
+    await expect(dock).toHaveCSS("border-top-width", "0px");
+    await expect(dock).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  });
+
   test("主题切换并持久化", async ({ page }) => {
     await page.getByRole("button", { name: "外观与主题" }).click();
     await page.getByRole("menuitemradio", { name: /深色/ }).click();

@@ -82,7 +82,8 @@
 - 目标：用 Mock 数据完整演示一次 Agent 执行与部署审批。
 - 交付物：
   - `Timeline` / `MessageItem` / `PlanSteps` / `ToolCard` / `ArtifactCard` / `ApprovalCard` / `ErrorItem`；
-  - `Composer`：项目上下文、路径、附件按钮占位、模型选择、审批策略、发送 / 停止；
+  - `Composer`：项目上下文、路径、附件按钮、模型选择、审批策略、发送 / 停止；
+  - 输入区与时间线用留白 / 顶部渐变融合，去掉硬分割线；
   - `MockGateway.sendTurn` 异步生成器：脚本化事件、40–80ms 延迟、AbortSignal、审批等待；
   - 流式追加、自动滚动（用户上滚时暂停）、工具卡片折叠、长输出截断。
 - 验收：

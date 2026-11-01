@@ -82,7 +82,7 @@ export function Timeline() {
       role="log"
       aria-label="会话时间线"
     >
-      <div className="mx-auto flex w-full max-w-[880px] flex-col gap-3 pb-2">
+      <div className="mx-auto flex w-full max-w-[880px] flex-col gap-3 pb-6">
         {items.map((item: TimelineItem) => (
           <TimelineItemView key={item.id} item={item} />
         ))}

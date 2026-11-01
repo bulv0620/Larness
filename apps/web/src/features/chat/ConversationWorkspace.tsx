@@ -53,8 +53,12 @@ export function ConversationWorkspace() {
 
       <Timeline />
 
-      <div className="shrink-0 border-t border-line/70 bg-canvas/70 px-4 pb-4 pt-3 backdrop-blur-sm">
-        <div className="mx-auto w-full max-w-[880px]">
+      <div data-testid="composer-dock" className="relative shrink-0 px-4 pb-4 pt-2">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-5 h-5 bg-gradient-to-t from-canvas via-canvas/70 to-transparent"
+        />
+        <div className="relative mx-auto w-full max-w-[880px]">
           <div className="mb-2 flex items-center gap-1.5 px-0.5 text-[10.5px] text-ink-3">
             <Sparkles size={11.5} className="text-accent" />
             <span className="font-medium text-ink-2">项目上下文</span>
