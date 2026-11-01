@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { StatusReport } from "../../src/status.js";
 import { runDashboard } from "../../src/tui/dashboard.js";
+import { type DeviceItem, formatDevices, runDevicesView } from "../../src/tui/devices.js";
 import { formatAudit, formatStatus } from "../../src/tui/format.js";
 import type { InitPrompts } from "../../src/tui/init-flow.js";
 import { runInitWizard } from "../../src/tui/init-flow.js";
@@ -249,6 +250,64 @@ describe("TUI pairing view", () => {
 
     expect(denied).toBe(1);
     expect(output.join("\n")).toContain("已拒绝");
+  });
+});
+
+describe("TUI device view", () => {
+  const device: DeviceItem = {
+    id: "dev_1",
+    label: "MacBook",
+    createdAt: 0,
+    lastSeenAt: 100,
+    revokedAt: null,
+    credentials: [
+      {
+        id: "cred_1",
+        type: "passkey",
+        backupEligible: true,
+        backupState: true,
+        createdAt: 0,
+        lastUsedAt: 100,
+        revokedAt: null,
+      },
+    ],
+  };
+
+  it("formats devices with backup flags and status", () => {
+    const text = formatDevices([device, { ...device, id: "dev_2", revokedAt: 5 }]);
+    expect(text).toContain("MacBook");
+    expect(text).toContain("backup eligible=true");
+    expect(text).toContain("active");
+    expect(text).toContain("revoked");
+    expect(formatDevices([])).toContain("无");
+  });
+
+  it("revokes a device after confirmation", async () => {
+    const output: string[] = [];
+    const answers = ["1", "y"];
+    let revoked = 0;
+
+    const client = {
+      request: async (method: string) => {
+        if (method === "devices.list") {
+          return { devices: [device] };
+        }
+        if (method === "devices.revoke") {
+          revoked += 1;
+          return { revokedCredentials: 1, revokedSessions: 2 };
+        }
+        return {};
+      },
+    };
+
+    await runDevicesView({
+      client,
+      out: (text) => output.push(text),
+      ask: async () => answers.shift() ?? "",
+    });
+
+    expect(revoked).toBe(1);
+    expect(output.join("\n")).toContain("credential 1 个");
   });
 });
 

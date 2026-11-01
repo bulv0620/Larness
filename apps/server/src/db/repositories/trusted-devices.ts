@@ -46,6 +46,14 @@ export function listTrustedDevices(db: DbExecutor, includeRevoked = false): Trus
     .all();
 }
 
+export function updateTrustedDeviceLastSeen(
+  db: DbExecutor,
+  id: string,
+  lastSeenAt = Date.now(),
+): void {
+  db.update(trustedDevices).set({ lastSeenAt }).where(eq(trustedDevices.id, id)).run();
+}
+
 export function revokeTrustedDevice(db: DbExecutor, id: string, now = Date.now()): boolean {
   return (
     db.update(trustedDevices).set({ revokedAt: now }).where(eq(trustedDevices.id, id)).run()

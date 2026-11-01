@@ -1,10 +1,10 @@
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import { csrfTokenFor } from "../auth/csrf.js";
+import { isInitialized } from "../auth/initialized.js";
 import { issueSession } from "../auth/sessions.js";
 import { generateOpaqueToken, hashToken, tokenMatchesHash } from "../auth/tokens.js";
 import type { Database, DbExecutor } from "../db/client.js";
 import { appendAudit } from "../db/repositories/audit.js";
-import { getAuthSettings } from "../db/repositories/auth-settings.js";
 import {
   createDeviceRequest,
   getDeviceRequestById,
@@ -51,10 +51,6 @@ export interface PairingServiceOptions {
   config: AppConfig;
   webAuthn: WebAuthnRuntime;
   csrfKey: Buffer;
-}
-
-export function isInitialized(db: DbExecutor): boolean {
-  return getAuthSettings(db) !== null;
 }
 
 export interface CreatePairingRequestInput {

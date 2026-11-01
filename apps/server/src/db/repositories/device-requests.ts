@@ -49,6 +49,19 @@ export function getDeviceRequestById(db: DbExecutor, id: string): DeviceRequestR
   return db.select().from(deviceRequests).where(eq(deviceRequests.id, id)).get() ?? null;
 }
 
+export function getDeviceRequestByEnrollmentTokenHash(
+  db: DbExecutor,
+  enrollmentTokenHash: string,
+): DeviceRequestRow | null {
+  return (
+    db
+      .select()
+      .from(deviceRequests)
+      .where(eq(deviceRequests.enrollmentTokenHash, enrollmentTokenHash))
+      .get() ?? null
+  );
+}
+
 export function getDeviceRequestByShortCode(
   db: DbExecutor,
   shortCode: string,

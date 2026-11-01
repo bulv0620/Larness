@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import type { DbExecutor } from "../client.js";
 import { newId } from "../ids.js";
 import { type WebAuthnCredentialRow, webauthnCredentials } from "../schema.js";
@@ -50,6 +50,57 @@ export function getCredentialByCredentialId(
       .where(eq(webauthnCredentials.credentialId, credentialId))
       .get() ?? null
   );
+}
+
+export function listActiveCredentials(db: DbExecutor): WebAuthnCredentialRow[] {
+  return db.select().from(webauthnCredentials).where(isNull(webauthnCredentials.revokedAt)).all();
+}
+
+export function getActiveCredentialByDevice(
+  db: DbExecutor,
+  deviceId: string,
+): WebAuthnCredentialRow | null {
+  return (
+    db
+      .select()
+      .from(webauthnCredentials)
+      .where(and(eq(webauthnCredentials.deviceId, deviceId), isNull(webauthnCredentials.revokedAt)))
+      .orderBy(desc(webauthnCredentials.createdAt))
+      .get() ?? null
+  );
+}
+
+export function revokeCredentialsByDevice(
+  db: DbExecutor,
+  deviceId: string,
+  now = Date.now(),
+): number {
+  return db
+    .update(webauthnCredentials)
+    .set({ revokedAt: now })
+    .where(and(eq(webauthnCredentials.deviceId, deviceId), isNull(webauthnCredentials.revokedAt)))
+    .run().changes;
+}
+
+export function updateCredentialUsage(
+  db: DbExecutor,
+  id: string,
+  input: {
+    counter: number;
+    lastUsedAt: number;
+    backupEligible: boolean;
+    backupState: boolean;
+  },
+): void {
+  db.update(webauthnCredentials)
+    .set({
+      counter: input.counter,
+      lastUsedAt: input.lastUsedAt,
+      backupEligible: input.backupEligible,
+      backupState: input.backupState,
+    })
+    .where(eq(webauthnCredentials.id, id))
+    .run();
 }
 
 export function listCredentialsByDevice(db: DbExecutor, deviceId: string): WebAuthnCredentialRow[] {

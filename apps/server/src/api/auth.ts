@@ -4,6 +4,7 @@ import type { FastifyInstance } from "fastify";
 import { csrfTokenFor } from "../auth/csrf.js";
 import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
 import type { Database } from "../db/client.js";
+import { getActiveCredentialByDevice } from "../db/repositories/webauthn-credentials.js";
 import { HttpError } from "../errors.js";
 
 export interface AuthApiDeps {
@@ -25,6 +26,9 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthApiDeps): voi
       throw new HttpError("UNAUTHENTICATED", "Authentication required");
     }
 
+    const credential =
+      session.deviceId === null ? null : getActiveCredentialByDevice(deps.db, session.deviceId);
+
     return {
       clientSessionId: session.id,
       deviceId: session.deviceId,
@@ -33,6 +37,14 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthApiDeps): voi
       expiresAt: session.expiresAt,
       csrfToken: csrfTokenFor(session.id, deps.csrfKey),
       capabilities: ["workspace.read", "workspace.write"],
+      ...(credential === null
+        ? {}
+        : {
+            passkey: {
+              backupEligible: credential.backupEligible,
+              backupState: credential.backupState,
+            },
+          }),
     };
   });
 }

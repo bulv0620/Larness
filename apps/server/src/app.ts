@@ -4,6 +4,7 @@ import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { registerAuthRoutes } from "./api/auth.js";
 import { registerHealthRoute } from "./api/health.js";
 import { registerPairingRoutes } from "./api/pairing.js";
+import { registerWebAuthnRoutes } from "./api/webauthn.js";
 import type { Database } from "./db/client.js";
 import { registerErrorHandler } from "./errors.js";
 import { resolveRequestId } from "./request-id.js";
@@ -48,6 +49,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.services) {
     registerAuthRoutes(app, options.services);
     registerPairingRoutes(app, options.services);
+    registerWebAuthnRoutes(app, options.services);
   }
 
   return app;

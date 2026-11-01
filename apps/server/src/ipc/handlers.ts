@@ -14,9 +14,11 @@ import {
   type PairingErrorCode,
 } from "../pairing/service.js";
 import { collectStatus } from "../status.js";
+import { DeviceAdminError, listDevices, revokeDevice } from "../webauthn/service.js";
 import { readNewestLogLines } from "./logs.js";
 import {
   AuditTailParamsSchema,
+  DeviceRevokeParamsSchema,
   InitApplyParamsSchema,
   IpcError,
   type IpcErrorCode,
@@ -193,6 +195,44 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
           return { ok: true };
         } catch (error) {
           throw mapPairingError(error);
+        }
+      }
+
+      case "devices.list": {
+        return {
+          devices: listDevices(deps).map(({ device, credentials }) => ({
+            id: device.id,
+            label: device.label,
+            createdAt: device.createdAt,
+            lastSeenAt: device.lastSeenAt,
+            revokedAt: device.revokedAt,
+            credentials: credentials.map((credential) => ({
+              id: credential.id,
+              type: "passkey",
+              backupEligible: credential.backupEligible,
+              backupState: credential.backupState,
+              createdAt: credential.createdAt,
+              lastUsedAt: credential.lastUsedAt,
+              revokedAt: credential.revokedAt,
+            })),
+          })),
+        };
+      }
+
+      case "devices.revoke": {
+        const params = parseParams(DeviceRevokeParamsSchema, request.params);
+
+        try {
+          const result = revokeDevice(deps, { deviceId: params.deviceId });
+          return { ok: true, ...result };
+        } catch (error) {
+          if (error instanceof DeviceAdminError) {
+            throw new IpcError(
+              error.code === "NOT_FOUND" ? "NOT_FOUND" : "CONFLICT",
+              error.message,
+            );
+          }
+          throw error;
         }
       }
 

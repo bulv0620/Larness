@@ -86,6 +86,8 @@ export const PairingApproveParamsSchema = z
 
 export const PairingDenyParamsSchema = z.object({ requestId: z.string().min(1).max(128) }).strict();
 
+export const DeviceRevokeParamsSchema = z.object({ deviceId: z.string().min(1).max(128) }).strict();
+
 export type IpcResponse =
   | { id: string; ok: true; result: unknown }
   | { id: string; ok: false; error: { code: IpcErrorCode; message: string } };

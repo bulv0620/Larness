@@ -13,7 +13,7 @@
 | M0-3 | SQLite、迁移与审计 | M0-2 | `done` |
 | M0-4 | 本机 IPC 与 TUI 初始化 | M0-3 | `done` |
 | M0-5 | 配对申请与准入 | M0-4 | `done` |
-| M0-6 | Passkey 注册与登录 | M0-5 | `todo` |
+| M0-6 | Passkey 注册与登录 | M0-5 | `done` |
 | M0-7 | 鉴权与传输安全 | M0-6 | `todo` |
 | M0-8 | Web 认证集成 | M0-7 | `todo` |
 | M0-9 | 稳定入口与 M0 验收 | M0-8 | `todo` |
@@ -148,7 +148,7 @@
 
 ### M0-6 Passkey 注册与登录
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：M0-5
 - 目标：用 `@simplewebauthn/server` 完成 WebAuthn 注册 / 认证、设备与 credential 生命周期。
 - 交付物：
@@ -167,6 +167,15 @@
   - IP 来源 / 不支持浏览器返回明确错误。
 - 测试：虚拟认证器注册 / 登录、challenge 重放 / 过期、enrollment 跨请求、重复 credential、撤销、计数器 0。
 - 涉及路径：`apps/server/src/webauthn/`、`apps/server/src/api/webauthn.ts`、`apps/server/src/tui/`、`drizzle/`。
+- 完成记录：
+  - `@simplewebauthn/server@14`：registration / authentication options 与 verify；challenge 5 分钟、一次性消费、绑定 enrollment request；attestation none、residentKey / UV required、excludeCredentials；
+  - 注册成功创建 device + credential + passkey 会话，配对申请标记 redeemed、清 enrollment Cookie；失败不创建设备 / 会话，challenge 已消费需重新取 options；
+  - 存储 credential ID、公钥、counter、transports、AAGUID、backupEligible / backupState；登录允许 counter 0 / 回退仅审计（保留注册时的 eligibility）；
+  - `/api/webauthn/{registration,authentication}/{options,verify}`、`/api/auth/session` 返回 passkey 标志；Origin 非 canonical / IP 返回 `ORIGIN_INVALID`，配置无效 `WEBAUTHN_NOT_CONFIGURED`；
+  - TUI `devices.list` / `devices.revoke`：设备、凭据类型、backup 标志、创建 / 最后使用、撤销二次确认；撤销事务作废 credential + 设备 + 全部会话并审计；
+  - 测试 143 项：新增 webauthn service 12、REST 4、TUI 2（其余沿用）；软件认证器覆盖注册、登录、challenge 重放 / 过期、enrollment 单次 / 跨请求、重复 credential、撤销后登录失败、counter 异常审计；
+  - 手工证据：真实 HTTP + IPC 完成 trust 配对 → 注册 201（passkey、backup 标志）→ 登录 200 → 撤销后会话 401；DB device / credential 已撤销、counter=1、审计含 registered / login / device.revoked；
+  - 偏差：设备撤销后的 WebSocket 关闭依赖 M0-7（当前无 WS）；浏览器虚拟认证器 E2E 与真实 Touch ID 冒烟在 M0-8 / M0-9；WebAuthn options / verify 限流与全站 Origin 中间件留待 M0-7；未实现 attestation 验证（spec 明确 none）。
 
 ### M0-7 鉴权与传输安全
 

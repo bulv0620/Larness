@@ -1,14 +1,14 @@
 # STATUS
 
-> 最后更新：2026-11-01 14:56 (+08:00)
-> 当前阶段：**M0 进行中；M0-5 完成，下一步 M0-6**
+> 最后更新：2026-11-01 15:07 (+08:00)
+> 当前阶段：**M0 进行中；M0-6 完成，下一步 M0-7**
 
 ## 里程碑
 
 | 阶段 | 名称 | 状态 | 说明 |
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
-| M0 | 工程底座与可信启动 | `in_progress` | M0-1 ~ M0-5 完成；M0-6 可开始 |
+| M0 | 工程底座与可信启动 | `in_progress` | M0-1 ~ M0-6 完成；M0-7 可开始 |
 | M1 | 项目、会话与最小 Agent | `ready` | spec 已细化，进入前需复核 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
@@ -18,7 +18,11 @@
 ## 当前工作
 
 - 进行中：无
-- 刚完成：`M0-5` — 配对申请与准入（分支 `task/m0-5-pairing`）
+- 刚完成：`M0-6` — Passkey 注册与登录（分支 `task/m0-6-passkey`）
+  - SimpleWebAuthn 注册 / 认证 options / verify、challenge 一次性消费、设备 + credential + 会话、TUI 设备列表 / 撤销；
+  - 备份标志、counter（0 / 回退仅审计）、AAGUID / transports 入库；注册失败不产生设备 / 会话；
+  - 143 项 server 测试；软件认证器覆盖注册 / 登录 / 重放 / 重复 credential / 撤销。
+- 刚完成：`M0-5` — 配对申请与准入（分支 `task/m0-5-pairing`，已合入 main）
   - 配对状态机、10 字符 Crockford 配对码、5 次尝试 / 5 分钟 TTL / 原子兑换、allow_once 会话与 trust enrollment；
   - REST 配对接口（申请 / 轮询 / 兑换）、`/api/auth/session`、会话 / CSRF 基础、TUI 待审批列表与审批（含一次性码展示）；
   - 125 项 server 测试；并发兑换仅一个成功，错误 5 次后限流作废。
@@ -33,7 +37,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：`M0-6` — Passkey 注册与登录
+- 下一个任务：`M0-7` — 鉴权与传输安全
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -51,9 +55,9 @@
 
 | 问题 | 默认方案 | 截止 |
 |---|---|---|
-| 通过 `127.0.0.1` / 局域网 IP 访问时 Passkey 不可用 | 仅支持 `localhost` 或 HTTPS 域名；IP 访问提示改用 localhost / 域名 | M0-6 |
+| 通过 `127.0.0.1` / 局域网 IP 访问时 Passkey 不可用 | 已按默认实现：仅支持 localhost / HTTPS，IP 来源返回 ORIGIN_INVALID；Web 提示待 M0-8 | 已实现（M0-6） |
 | 所有 Passkey 丢失且 TUI 不可用时如何恢复 | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码为 P1 | M4 |
-| 是否允许可同步 Passkey | 允许，展示 backup 标志，不承诺物理设备绑定 | M0-6 |
+| 是否允许可同步 Passkey | 已按默认实现：允许，存储并展示 backupEligible / backupState | 已实现（M0-6） |
 | 预览独立来源方案 | 开发用 `*.preview.localhost`，生产要求独立域 | M3 开始前 |
 | PM2 交付方式 | 随包依赖 + 可选外部安装 | M3 开始前 |
 | 仓库许可证 | 未定，暂不添加 LICENSE | 公开发布前 |
@@ -84,3 +88,4 @@
 | 2026-11-01 | 完成 M0-3：Drizzle 八表 + `0001_auth`、启动迁移、WAL / 外键、repository、审计脱敏与 fail-closed、清理调度、备份、`status` / `doctor` DB 检查；server 62 项测试通过 |
 | 2026-11-01 | 完成 M0-4：本机 IPC（UDS / Named Pipe、Token、NDJSON、限额）、初始化方法（Argon2id、config 0600、审计、并发唯一成功）、TUI 向导 / 仪表盘、status 优先 IPC；server 96 项测试通过 |
 | 2026-11-01 | 完成 M0-5：配对状态机、一次性码与限次、allow_once 会话、trust enrollment、REST 配对接口、会话 / CSRF 基线与 TUI 审批；server 125 项测试通过 |
+| 2026-11-01 | 完成 M0-6：SimpleWebAuthn 注册 / 登录、challenge 生命周期、设备与 credential、备份标志 / counter、TUI 设备撤销；server 143 项测试通过 |
