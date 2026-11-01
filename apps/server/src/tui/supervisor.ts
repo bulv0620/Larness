@@ -12,6 +12,39 @@ const WEB_DEV_URL = "http://localhost:5173";
 const READY_TIMEOUT_MS = 25_000;
 const LOG_LIMIT = 300;
 
+function isLoopbackHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+function originPort(origin: string): number {
+  const parsed = new URL(origin);
+  return Number(parsed.port || (parsed.protocol === "https:" ? "443" : "80"));
+}
+
+export function resolveWebUrl(options: {
+  dev: boolean;
+  serverPort: number;
+  publicUrl: string | null;
+  canonicalOrigin: string;
+}): string {
+  const localUrl = `http://localhost:${options.serverPort}`;
+  const canonical = new URL(options.canonicalOrigin);
+
+  if (isLoopbackHostname(canonical.hostname)) {
+    const expectedPort = options.dev ? 5173 : options.serverPort;
+
+    if (originPort(options.canonicalOrigin) !== expectedPort) {
+      throw new Error(
+        options.dev
+          ? `当前数据目录的 canonical origin 是 ${options.canonicalOrigin}，但开发 Web 固定为 ${WEB_DEV_URL}。请使用独立的开发数据目录，或设置 LARNESS_PUBLIC_URL=${WEB_DEV_URL} 后重试。`
+          : `当前数据目录的 canonical origin 是 ${options.canonicalOrigin}，但生产静态 Web 在 ${localUrl}。请使用独立的生产数据目录并让 publicUrl 留空，或将 publicUrl 改为 ${localUrl}，或设置 LARNESS_PORT=5173 复用当前配置。`,
+      );
+    }
+  }
+
+  return options.dev ? WEB_DEV_URL : (options.publicUrl ?? localUrl);
+}
+
 export interface ManagedCommands {
   serverCommand: string;
   serverArgs: string[];
@@ -154,7 +187,17 @@ export async function startManagedRuntime(
   const port = loaded.config.server.port;
   const localBase = `http://127.0.0.1:${port}`;
   const serverUrl = `http://localhost:${port}`;
-  const webUrl = options.dev ? WEB_DEV_URL : (loaded.config.server.publicUrl ?? serverUrl);
+  const firstRun = loaded.source === "defaults";
+  const canonicalOrigin =
+    options.dev && firstRun && process.env.LARNESS_PUBLIC_URL === undefined
+      ? WEB_DEV_URL
+      : loaded.webAuthn.origin;
+  const webUrl = resolveWebUrl({
+    dev: options.dev,
+    serverPort: port,
+    publicUrl: loaded.config.server.publicUrl,
+    canonicalOrigin,
+  });
 
   if (await httpOk(`${localBase}/api/health`)) {
     throw new Error(`已有 Larness Server 在 ${serverUrl} 运行；请先关闭原 TUI。`);
@@ -179,8 +222,6 @@ export async function startManagedRuntime(
     LARNESS_LOG_STDERR: "0",
     LARNESS_TUI_CHILD: "1",
   };
-
-  const firstRun = loaded.source === "defaults";
 
   if (options.dev && firstRun && process.env.LARNESS_PUBLIC_URL === undefined) {
     serverEnv.LARNESS_PUBLIC_URL = WEB_DEV_URL;
@@ -293,11 +334,6 @@ export async function startManagedRuntime(
     await stop();
     throw error;
   }
-
-  const canonicalOrigin =
-    options.dev && firstRun && process.env.LARNESS_PUBLIC_URL === undefined
-      ? WEB_DEV_URL
-      : loaded.webAuthn.origin;
 
   if (options.dev && canonicalOrigin !== WEB_DEV_URL) {
     console.log(

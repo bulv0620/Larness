@@ -65,6 +65,7 @@ Larness 初始化          # 首次运行进入向导
 - 已有初始化数据时直接进入仪表盘；`l` 查看 Server 日志与 Vite 输出。
 - `status` / `doctor` 仍可在 TUI 运行时从另一个终端执行：`node app.js status`、`node app.js doctor`。
 - 开发与生产请使用不同的 `LARNESS_DATA_DIR`，避免 canonical origin 混用。
+- 常见错误：开发时用 5173 初始化，之后直接 `node app.js`，数据目录里的 `publicUrl` 仍是 5173，而生产静态 Web 在 3210。TUI 会拒绝启动并提示 origin 不一致。解决方式：用独立的生产数据目录（初始化时 publicUrl 留空），或设置 `LARNESS_PORT=5173` 让生产 Web 也监听 5173。
 
 数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 默认使用真实本机 API（`/login`、`/pair`、工作台空态）。仅做 S0 Mock Demo 时使用 `VITE_USE_MOCKS=1 pnpm --filter @larness/web dev`，不是产品入口。
 

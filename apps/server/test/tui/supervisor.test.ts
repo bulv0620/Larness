@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { managedCommands } from "../../src/tui/supervisor.js";
+import { managedCommands, resolveWebUrl } from "../../src/tui/supervisor.js";
 
 const serverRoot = fileURLToPath(new URL("../../", import.meta.url));
 const repoRoot = path.resolve(serverRoot, "../..");
@@ -25,5 +25,58 @@ describe("managed TUI commands", () => {
     expect(commands.serverArgs).toEqual([path.join(serverRoot, "dist", "index.js")]);
     expect(commands.webCommand).toBeNull();
     expect(commands.webArgs).toEqual([]);
+  });
+});
+
+describe("web origin resolution", () => {
+  it("accepts dev at 5173 and rejects a stale production origin", () => {
+    expect(
+      resolveWebUrl({
+        dev: true,
+        serverPort: 3210,
+        publicUrl: "http://localhost:5173",
+        canonicalOrigin: "http://localhost:5173",
+      }),
+    ).toBe("http://localhost:5173");
+
+    expect(() =>
+      resolveWebUrl({
+        dev: true,
+        serverPort: 3210,
+        publicUrl: "http://localhost:3210",
+        canonicalOrigin: "http://localhost:3210",
+      }),
+    ).toThrow(/开发 Web 固定/);
+  });
+
+  it("accepts production at the server port but rejects the dev origin", () => {
+    expect(
+      resolveWebUrl({
+        dev: false,
+        serverPort: 3210,
+        publicUrl: null,
+        canonicalOrigin: "http://localhost:3210",
+      }),
+    ).toBe("http://localhost:3210");
+
+    expect(() =>
+      resolveWebUrl({
+        dev: false,
+        serverPort: 3210,
+        publicUrl: "http://localhost:5173",
+        canonicalOrigin: "http://localhost:5173",
+      }),
+    ).toThrow(/生产静态 Web/);
+  });
+
+  it("keeps a public HTTPS origin for reverse-proxied deployments", () => {
+    expect(
+      resolveWebUrl({
+        dev: false,
+        serverPort: 3210,
+        publicUrl: "https://larness.example.com",
+        canonicalOrigin: "https://larness.example.com",
+      }),
+    ).toBe("https://larness.example.com");
   });
 });
