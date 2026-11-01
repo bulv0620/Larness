@@ -59,7 +59,7 @@ function toolId(event: ServerEvent, source: Payload): string {
 
 export function applyAssistantDelta(
   items: TimelineItem[],
-  delta: { messageId: string; text: string; createdAt: number },
+  delta: { messageId: string; text: string; createdAt: number; turnId?: string },
 ): TimelineItem[] {
   const existing = items.find(
     (item): item is MessageItem => item.kind === "message" && item.id === delta.messageId,
@@ -71,6 +71,9 @@ export function applyAssistantDelta(
     role: "assistant",
     text: `${existing?.text ?? ""}${delta.text}`,
     createdAt: existing?.createdAt ?? delta.createdAt,
+    ...(existing?.turnId === undefined && delta.turnId === undefined
+      ? {}
+      : { turnId: existing?.turnId ?? delta.turnId }),
     streaming: true,
   });
 }
@@ -89,6 +92,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
         role: "user",
         text,
         createdAt: event.timestamp,
+        turnId,
       });
     }
     case "assistant.message": {
@@ -100,6 +104,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
         role: "assistant",
         text,
         createdAt: event.timestamp,
+        turnId,
       };
       return upsert(items, message);
     }
@@ -110,6 +115,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
         messageId,
         text: delta,
         createdAt: event.timestamp,
+        turnId,
       });
     }
     case "tool.requested": {

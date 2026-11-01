@@ -91,7 +91,16 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
   if (input.includes("list")) {
     return {
       adapter: createFakeProvider([
-        toolStep({ id: "call_list", name: "list_files", args: { path: "." } }),
+        {
+          chunks: [
+            { type: "text-delta", text: "我先看一下。" },
+            {
+              type: "tool-call",
+              toolCall: { id: "call_list", name: "list_files", args: { path: "." } },
+            },
+            { type: "finish", finishReason: "tool-calls" },
+          ],
+        },
         textStep("项目文件已列出。"),
       ]),
       model: "fake",

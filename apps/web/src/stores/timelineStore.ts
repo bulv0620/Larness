@@ -105,6 +105,7 @@ function applyDeltaToState(event: AssistantDeltaEvent): void {
       messageId: event.messageId,
       text: event.text,
       createdAt: event.timestamp,
+      turnId: event.turnId,
     }),
     isStreaming: true,
     activeTurnId: state.activeTurnId ?? event.turnId,

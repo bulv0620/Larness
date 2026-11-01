@@ -20,6 +20,7 @@
 | M1-11 | 工作区布局与工具分组 | M1-6, M1-7 | `review` |
 | M1-12 | 自动会话标题 | M1-2 | `review` |
 | M1-13 | 侧栏右键操作 | M1-2, M1-9 | `review` |
+| M1-14 | 仅展示最终答复 | M1-6, M1-10 | `review` |
 
 ## 任务卡
 
@@ -291,3 +292,17 @@
 - 测试：M1 E2E 右键重命名项目 / 会话；API 现有 PATCH / DELETE 测试。
 - 涉及路径：`apps/web/src/components/layout/ProjectSidebar.tsx`、`apps/web/src/features/projects/RenameProjectDialog.tsx`。
 - 完成记录：右键菜单、项目 / 会话重命名、会话归档、项目移除确认；E2E 通过。
+
+### M1-14 仅展示最终答复
+
+- 状态：`review`（2026-11-01）
+- 依赖：M1-6, M1-10
+- 目标：避免一次提问出现多段助手消息，只展示每个 Turn 的最终答复。
+- 交付物：
+  - `MessageItem.turnId`；时间线按 Turn 仅保留最后一条 assistant 消息；
+  - 中间“先看一下 / 正在处理”等段落不再作为独立气泡展示；
+  - 工具调用仍以折叠分组保留，展开可查看细节；流式最终文本保留。
+- 验收：带 preamble 的 Turn 只显示最终答复；工具组可展开；刷新后仍只显示最终答复。
+- 测试：M1 E2E 注入中间文本并断言不可见。
+- 涉及路径：`packages/shared/src/events.ts`、`apps/web/src/lib/eventReducer.ts`、`apps/web/src/features/chat/Timeline.tsx`。
+- 完成记录：Turn 级最终消息过滤与 E2E 通过。

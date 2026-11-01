@@ -33,6 +33,7 @@ export interface MessageItem {
   role: "user" | "assistant";
   text: string;
   createdAt: number;
+  turnId?: string;
   streaming?: boolean;
 }
 

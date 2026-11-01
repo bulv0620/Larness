@@ -24,6 +24,22 @@ const suggestions = [
 ];
 
 function TimelineItems({ items }: { items: TimelineItem[] }) {
+  const lastAssistantByTurn = new Map<string, number>();
+
+  items.forEach((item, index) => {
+    if (item.kind === "message" && item.role === "assistant" && item.turnId !== undefined) {
+      lastAssistantByTurn.set(item.turnId, index);
+    }
+  });
+
+  const visible = items.filter((item, index) => {
+    if (item.kind !== "message" || item.role !== "assistant" || item.turnId === undefined) {
+      return true;
+    }
+
+    return lastAssistantByTurn.get(item.turnId) === index;
+  });
+
   const nodes: React.ReactNode[] = [];
   let tools: ToolItem[] = [];
 
@@ -37,7 +53,7 @@ function TimelineItems({ items }: { items: TimelineItem[] }) {
     tools = [];
   };
 
-  for (const item of items) {
+  for (const item of visible) {
     if (item.kind === "tool") {
       tools.push(item);
       continue;
