@@ -52,7 +52,7 @@ ACTIVE → REVOKED
 | `larness_enrollment` | 32 字节随机 Token | `/api/webauthn/registration` | HttpOnly、SameSite=Lax、Secure（HTTPS 时）、Path=/api/webauthn/registration、Max-Age 5min |
 
 - 数据库只存 Token 的 SHA-256；比较使用恒定时间。
-- 会话：绝对 12 小时、空闲 30 分钟（可配置）；过期后通过 Passkey assertion 重新认证，不使用 refresh token。
+- 会话：绝对 12 小时、空闲 30 分钟（可配置）；非轮询的已认证请求会节流更新 `lastSeenAt`，`/api/auth/session` / `/api/bootstrap` 轮询不计入活跃；过期后通过 Passkey assertion 重新认证，不使用 refresh token。
 - 退出登录撤销当前会话；设备撤销撤销其 credential、全部会话与 WS。
 - Passkey 私钥永不离开认证器 / 密码管理器；服务端只存公钥、credential ID、计数器与备份标志。
 
@@ -72,7 +72,10 @@ ACTIVE → REVOKED
 - 所有非 GET / HEAD 请求必须携带 `Origin`（或 `Referer` 回退），并与 canonical origin 精确匹配（协议 + 主机 + 端口）。
 - 已认证的变更请求还必须携带 `x-csrf-token`，值来自 `GET /api/auth/session`；服务端与会话绑定校验。
 - Passkey 注册 / 认证端点无会话（或仅 enrollment Cookie），不要求 CSRF Token，但必须校验 Origin；enrollment Cookie 为 SameSite=Lax。
-- 允许来源：canonical `origin`；非 WebAuthn API 额外允许 loopback 来源 `http://localhost:<port>`、`http://127.0.0.1:<port>`、`http://[::1]:<port>`；WebAuthn options / verify 仍只接受 canonical。不信任 `X-Forwarded-*`，除非来源 IP 在 `trustedProxies`。
+- 允许来源：canonical `origin`；非 WebAuthn API 额外允许 loopback 来源 `http://localhost:<port>`、`http://127.0.0.1:<port>`、`http://[::1]:<port>`；WebAuthn options / verify 仍只接受 canonical。不信任 `X-Forwarded-*`，除非来源 IP 在 `trustedProxies`（已接入 Fastify `trustProxy`）。
+- 传输：`requireHttpsForRemote` 为 true 时，非 loopback 请求必须使用 HTTPS；HTTP / WS 升级返回 `HTTPS_REQUIRED`。
+- WebSocket：握手校验 session；心跳与每条消息重新校验绝对 / 空闲期限，过期以 1008 关闭。
+- TUI IPC：TUI 每 5 分钟发送 `system.ping` 保活；IPC 意外断开时最多重连 2 次，避免空闲 30 分钟后误停 Server。
 - 配对申请 / 兑换、Passkey options / verify 都是公开接口，但仍限流并校验 Origin。
 
 ### 2.6 WebSocket

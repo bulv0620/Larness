@@ -178,6 +178,29 @@ describe("IPC server", () => {
     });
   });
 
+  it("keeps a long-idle client alive when keepAlive is enabled", async () => {
+    await withTempDir(async (dir) => {
+      const server = await startServer(dir, { idleTimeoutMs: 120 });
+
+      try {
+        const client = await connectIpc({
+          dataDir: dir,
+          client: "keepalive",
+          keepAliveMs: 40,
+        });
+
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 320));
+          await expect(client.request("echo", { ok: true })).resolves.toBeDefined();
+        } finally {
+          client.close();
+        }
+      } finally {
+        await server.close();
+      }
+    });
+  });
+
   it("closes idle connections", async () => {
     await withTempDir(async (dir) => {
       const server = await startServer(dir, { idleTimeoutMs: 100 });

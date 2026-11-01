@@ -7,8 +7,10 @@ import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
 import { hashToken } from "../auth/tokens.js";
 import type { Database } from "../db/client.js";
 import { appendAudit } from "../db/repositories/audit.js";
+import { touchSession } from "../db/repositories/browser-sessions.js";
 import { HttpError } from "../errors.js";
 import { RateLimiter } from "./rate-limit.js";
+import { transportAllowed } from "./transport.js";
 
 export interface SecurityGuardDeps {
   db: Database;
@@ -159,6 +161,10 @@ export function installSecurityGuard(app: FastifyInstance, deps: SecurityGuardDe
       throw new HttpError("ORIGIN_INVALID", "Host is not allowed");
     }
 
+    if (!transportAllowed(request, deps.config.auth)) {
+      throw new HttpError("HTTPS_REQUIRED", "HTTPS is required for remote access");
+    }
+
     const mutating = MUTATING_METHODS.has(request.method);
 
     if (mutating && !originAllowed(request.headers.origin, deps.webAuthn)) {
@@ -204,8 +210,9 @@ export function installSecurityGuard(app: FastifyInstance, deps: SecurityGuardDe
     }
 
     const token = readCookie(request.headers.cookie, SESSION_COOKIE);
+    const timestamp = now();
     const session = resolveActiveSession(deps.db, token, {
-      now: now(),
+      now: timestamp,
       idleTtlMinutes: deps.config.auth.idleTtlMinutes,
     });
 
@@ -224,7 +231,20 @@ export function installSecurityGuard(app: FastifyInstance, deps: SecurityGuardDe
       }
     }
 
-    const sessionDecision = limiter.consume(`session:${session.id}`, 600, RATE_WINDOW_MS, now());
+    const passivePoll =
+      (request.method === "GET" && pathname === "/api/auth/session") ||
+      (request.method === "GET" && pathname === "/api/bootstrap");
+
+    if (!passivePoll && timestamp - session.lastSeenAt >= 60_000) {
+      touchSession(deps.db, session.id, timestamp);
+    }
+
+    const sessionDecision = limiter.consume(
+      `session:${session.id}`,
+      600,
+      RATE_WINDOW_MS,
+      timestamp,
+    );
 
     if (!sessionDecision.allowed) {
       try {

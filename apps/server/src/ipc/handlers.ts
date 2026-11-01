@@ -90,6 +90,9 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
 
   return async (request, context) => {
     switch (request.method) {
+      case "system.ping":
+        return { ok: true, now: now() };
+
       case "system.status": {
         const status = await collectStatus({ dataDir: deps.dataDir });
         const initialized = getAuthSettings(deps.db) !== null;

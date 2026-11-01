@@ -8,11 +8,12 @@
 
 | 命令 | 结果 |
 |---|---|
-| `pnpm check` | 通过：Biome 215 文件、6 个 workspace typecheck、server 164 项测试、web 18 项测试 |
+| `pnpm check` | 通过：Biome 216 文件、6 个 workspace typecheck、server 169 项测试、web 18 项测试 |
 | `pnpm build` | 通过：server `tsdown` 输出 `dist/{index,status,doctor,tui}.js`，web `vite build` |
 | `pnpm test:e2e` | 15/15 通过（S0 Mock Demo，`VITE_USE_MOCKS=1`） |
 | `pnpm test:e2e:auth` | 1/1 通过（Vite 5173 + server 3210，虚拟认证器） |
 | `pnpm test:e2e:prod` | 1/1 通过（Server 3210 静态托管，虚拟认证器） |
+| CI Playwright | 已配置 Ubuntu / macOS 的 `test:e2e`、`test:e2e:auth`、`test:e2e:prod`；远端首次运行待 push |
 | `node app.js --version` / `--help` | 通过 |
 | `pnpm dev` | 通过：启动页显示 Server `http://localhost:3210` / Web `http://localhost:5173` / IPC；SIGTERM 后端口与子进程全部清理 |
 | `node app.js`（构建后） | 通过：启动 Server + 静态 Web 并进入 TUI；关闭后端口清理；`/assets/*` 长缓存，`/api/health` 200 |
@@ -27,10 +28,10 @@
 | 配对码绑定申请、限时、限次、一次消费；并发兑换唯一 | `test/pairing/service.test.ts`、`test/api/pairing.test.ts` | 通过 |
 | `允许本次` 过期不可重用；无 refresh | `test/auth/session.test.ts`、`test/api/pairing.test.ts`（`/api/auth/refresh` 401） | 通过 |
 | `始终允许` 必须 Passkey 注册；未完成不建设备 / 会话 | `test/webauthn/service.test.ts`、`test/api/webauthn.test.ts` | 通过 |
-| Passkey 登录、撤销、challenge 重放 / 过期、错误 Origin、IP 来源 | 上述 WebAuthn 测试 + `e2e-auth` 虚拟认证器 | 通过 |
+| Passkey 登录、撤销、challenge 重放 / 过期、错误 Origin、IP 来源 | 上述 WebAuthn 测试 + `e2e-auth` 虚拟认证器；WS 过期 / 撤销关闭 | 通过 |
 | 不签发长期设备 Token / refresh | `test/db/migrations.test.ts`（无 token 列）、会话 schema | 通过 |
 | TUI 是前台入口，关闭停止全部；清理端口 / 锁 / IPC | ADR-023；`pnpm dev` / `node app.js` 启动页与 SIGTERM 清理冒烟 | 通过（自动化 + 手工） |
-| TLS / Cookie / CSRF / Origin / WS 鉴权用例 | `test/security/guard.test.ts`、`test/ws/server.test.ts`、Cookie 属性断言 | 通过 |
+| TLS / Cookie / CSRF / Origin / WS 鉴权用例 | `test/security/guard.test.ts`（远程 HTTP → `HTTPS_REQUIRED`、trusted proxy）、`test/ws/server.test.ts`（过期关闭）、Cookie 属性断言 | 通过 |
 
 ## 3. A1–A18 覆盖
 
@@ -60,7 +61,7 @@
 - [ ] 真实 macOS Touch ID / Safari 的 Passkey 注册、登录、撤销手工冒烟；
 - [ ] 安全评审：初始化、配对、Passkey、撤销、失败关闭矩阵与日志脱敏；
 - [ ] TUI 交互式初始化 / 配对审批 / 设备撤销的人工走查（启动页与关闭清理已冒烟）；
-- [ ] CI 在 Ubuntu 与 macOS 的真实运行结果（仓库暂无 remote）；
+- [ ] CI 在 Ubuntu 与 macOS 的真实运行结果（已配置 Playwright，仓库暂无 remote，首次 push 后待确认）；
 - [ ] Windows / Linux PoC 支持范围记录。
 
 ## 5. 已知偏差
@@ -68,5 +69,6 @@
 - ADR-023：TUI 是受管前台入口；关闭 TUI 会停止 Server 与 Web，不提供 headless 产品模式。异常 SIGKILL / 终端崩溃可能残留子进程。
 - M0 的 WebSocket 只开放 `system` 主题；配对 / 设备状态由 TUI 轮询。
 - 限流为单进程内存态，重启清零。
+- 远程 HTTPS 依赖正确的 `trustedProxies` 配置；未配置可信代理时无法识别本地代理后的真实客户端协议。
 - `VITE_USE_MOCKS=1` 仅用于 S0 Demo / 视觉 E2E；生产构建不得设置。
 - 未实现 attestation 验证（spec 固定 `none`）。

@@ -253,3 +253,8 @@
   - `pnpm check` / `build` / `test:e2e` 全绿。
 - 测试：启动 / 关闭 E2E、静态回退、生产构建冒烟、G0 用例、真实 macOS Passkey 人工冒烟。
 - 涉及路径：`app.js`、`apps/server/src/index.ts`、`apps/server/src/api/static.ts`、构建配置。
+- 完成记录：
+  - TUI 受管入口 + 启动检查；生产静态托管 / SPA 回退；四入口构建；关闭审计；
+  - 安全修复：远程明文 HTTP → `HTTPS_REQUIRED`，`trustedProxies` 接入 Fastify `trustProxy`；WS 心跳 / 消息重校验 session；`lastSeenAt` 对非轮询请求节流更新；TUI IPC `system.ping` 5 分钟保活 + 断线重连；
+  - server 169 项、web 18 项测试；`pnpm check` / `build` / `test:e2e` / `test:e2e:auth` / `test:e2e:prod` 通过；CI 增加 Playwright；
+  - G0 人工项仍待完成；M1 前需解决项目写锁规划冲突。

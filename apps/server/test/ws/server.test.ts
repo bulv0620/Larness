@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { issueSession } from "../../src/auth/sessions.js";
 import { startServer } from "../../src/bootstrap/start.js";
+import { touchSession } from "../../src/db/repositories/browser-sessions.js";
 import { createTrustedDevice } from "../../src/db/repositories/trusted-devices.js";
 import { connectIpc } from "../../src/ipc/client.js";
 import { createLogSink, getFreePort, withTempDir } from "../helpers.js";
@@ -186,6 +187,41 @@ describe("WebSocket security", () => {
 
         connected.socket.close();
         await connected.closed;
+      } finally {
+        started.client.close();
+        await started.running.shutdown("test");
+      }
+    });
+  });
+
+  it("closes the socket when the session expires while connected", async () => {
+    await withTempDir(async (dir) => {
+      const started = await startInitialized(dir);
+      const issued = issueSession(started.running.db, {
+        kind: "once",
+        now: Date.now(),
+        ttlMinutes: 60,
+      });
+
+      try {
+        const connected = await connect(started.port, {
+          cookie: `larness_session=${issued.token}`,
+          origin: started.origin,
+        });
+        await connected.nextMessage();
+
+        touchSession(started.running.db, issued.session.id, Date.now() - 31 * 60_000);
+        connected.socket.send(
+          JSON.stringify({
+            type: "subscribe",
+            subscriptions: [{ topic: "system", resourceId: "system" }],
+          }),
+        );
+
+        await expect(connected.closed).resolves.toMatchObject({
+          code: 1008,
+          reason: "session expired",
+        });
       } finally {
         started.client.close();
         await started.running.shutdown("test");

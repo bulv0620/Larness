@@ -144,4 +144,5 @@
 - `server.shutdown` 需 `confirm: true`；响应返回后延迟触发关闭，以便客户端收到确认。
 - M0 尚未通过 IPC 推送 `pairing.*` / `device.*` 事件，TUI 通过轮询 `pairing.list` / `devices.list` 获取状态；会话与设备撤销会通过 `session.revoked` / `device.revoked` 内部事件关闭 WebSocket。
 - M0-9 / ADR-023：TUI 是受管前台入口；由 supervisor 启动 Server（开发时另起 Vite），TUI 仍通过本契约连接。TUI 正常退出会经 `server.shutdown` 停止 Server 并终止 Web，不再承诺退出后后台存活。
+- `system.ping` 为 TUI 保活方法，返回 `{ ok: true, now }`；TUI 每 5 分钟调用一次，避免 30 分钟 IPC 空闲断开。IPC 意外断开时 TUI 最多重连 2 次。
 - 配对 / WebAuthn 的业务错误在 IPC 层映射为 `FORBIDDEN`、`VALIDATION_ERROR`、`NOT_FOUND`、`CONFLICT`、`RATE_LIMITED`，不暴露库内部错误文本。

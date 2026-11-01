@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { startServer } from "../../src/bootstrap/start.js";
+import { listAllSessions, touchSession } from "../../src/db/repositories/browser-sessions.js";
 import { connectIpc } from "../../src/ipc/client.js";
-import { createLogSink, getFreePort, withTempDir } from "../helpers.js";
+import { createLogSink, getFreePort, testConfig, withTempDir, writeConfig } from "../helpers.js";
 
 const PASSWORD = "correct horse battery staple";
 
@@ -116,6 +117,117 @@ describe("security guard", () => {
         expect(health.headers["content-security-policy"]).toContain("default-src 'none'");
       } finally {
         await running.shutdown("test");
+      }
+    });
+  });
+
+  it("rejects remote plaintext when HTTPS is required and allows loopback", async () => {
+    await withTempDir(async (dir) => {
+      const port = await getFreePort();
+      const running = await startServer({
+        env: { LARNESS_DATA_DIR: dir, LARNESS_PORT: String(port) },
+        logDestination: createLogSink().stream,
+      });
+
+      try {
+        const remote = await running.app.inject({
+          method: "GET",
+          url: "/api/bootstrap",
+          remoteAddress: "203.0.113.10",
+        });
+        expect(remote.statusCode).toBe(403);
+        expect(remote.json()).toMatchObject({ error: { code: "HTTPS_REQUIRED" } });
+
+        const local = await running.app.inject({
+          method: "GET",
+          url: "/api/bootstrap",
+          remoteAddress: "127.0.0.1",
+        });
+        expect(local.statusCode).toBe(200);
+      } finally {
+        await running.shutdown("test");
+      }
+    });
+  });
+
+  it("uses trusted proxy headers only when the proxy address is trusted", async () => {
+    await withTempDir(async (dir) => {
+      const port = await getFreePort();
+      await writeConfig(
+        dir,
+        testConfig({
+          server: { port, trustedProxies: ["127.0.0.1"] },
+        }),
+      );
+      const running = await startServer({
+        env: { LARNESS_DATA_DIR: dir, LARNESS_PORT: String(port) },
+        logDestination: createLogSink().stream,
+      });
+
+      try {
+        const plaintext = await running.app.inject({
+          method: "GET",
+          url: "/api/bootstrap",
+          remoteAddress: "127.0.0.1",
+          headers: {
+            "x-forwarded-for": "203.0.113.10",
+            "x-forwarded-proto": "http",
+          },
+        });
+        expect(plaintext.statusCode).toBe(403);
+        expect(plaintext.json()).toMatchObject({ error: { code: "HTTPS_REQUIRED" } });
+
+        const https = await running.app.inject({
+          method: "GET",
+          url: "/api/bootstrap",
+          remoteAddress: "127.0.0.1",
+          headers: {
+            "x-forwarded-for": "203.0.113.10",
+            "x-forwarded-proto": "https",
+          },
+        });
+        expect(https.statusCode).toBe(200);
+      } finally {
+        await running.shutdown("test");
+      }
+    });
+  });
+
+  it("updates last activity only for non-polling requests", async () => {
+    await withTempDir(async (dir) => {
+      const started = await startInitialized(dir);
+
+      try {
+        const session = await startAllowOnceSession(started);
+        const stale = Date.now() - 29 * 60_000;
+        touchSession(started.running.db, session.sessionId, stale);
+
+        const sessionPoll = await started.running.app.inject({
+          method: "GET",
+          url: "/api/auth/session",
+          headers: { cookie: session.cookie },
+        });
+        expect(sessionPoll.statusCode).toBe(200);
+
+        const afterPoll = listAllSessions(started.running.db).find(
+          (row) => row.id === session.sessionId,
+        );
+        expect(afterPoll?.lastSeenAt).toBe(stale);
+
+        const business = await started.running.app.inject({
+          method: "GET",
+          url: "/api/projects",
+          headers: { cookie: session.cookie },
+        });
+        expect(business.statusCode).toBe(404);
+
+        const afterBusiness = listAllSessions(started.running.db).find(
+          (row) => row.id === session.sessionId,
+        );
+        expect(afterBusiness?.lastSeenAt).toBeGreaterThan(stale);
+      } finally {
+        started.client.close();
+        await started.running.shutdown("test");
       }
     });
   });

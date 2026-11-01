@@ -27,6 +27,7 @@
 | `UNAUTHENTICATED` | 401 | 无有效会话 |
 | `FORBIDDEN` | 403 | 已认证但无权访问 |
 | `ORIGIN_INVALID` | 403 | Origin / Referer 不在允许列表 |
+| `HTTPS_REQUIRED` | 403 | 非 loopback 请求未通过 HTTPS（含 WebSocket） |
 | `CSRF_INVALID` | 403 | CSRF Token 缺失或不匹配 |
 | `NOT_FOUND` | 404 | 资源不存在（不泄漏他人资源是否存在） |
 | `NOT_INITIALIZED` | 409 | 尚未完成本机初始化 |

@@ -23,6 +23,7 @@ export interface ConnectIpcOptions {
   client?: string;
   platform?: NodeJS.Platform;
   timeoutMs?: number;
+  keepAliveMs?: number;
 }
 
 interface PendingRequest {
@@ -153,11 +154,24 @@ export async function connectIpc(options: ConnectIpcOptions): Promise<IpcClient>
     throw new IpcClientError("PROTOCOL_MISMATCH", "IPC protocol version mismatch");
   }
 
+  const keepAliveTimer =
+    options.keepAliveMs !== undefined && options.keepAliveMs > 0
+      ? setInterval(() => {
+          void send("system.ping", {}, timeoutMs).catch(() => undefined);
+        }, options.keepAliveMs)
+      : null;
+  keepAliveTimer?.unref();
+
   return {
     request: (method, params, requestTimeoutMs = timeoutMs) =>
       send(method, params ?? {}, requestTimeoutMs),
     close: () => {
       closed = true;
+
+      if (keepAliveTimer !== null) {
+        clearInterval(keepAliveTimer);
+      }
+
       socket.destroy();
     },
   };

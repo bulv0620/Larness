@@ -5,6 +5,7 @@ import type { WebSocket } from "ws";
 import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
 import type { Database } from "../db/client.js";
 import { sessionEvents } from "../security/session-events.js";
+import { transportAllowed } from "../security/transport.js";
 
 const PROTOCOL_VERSION = 1;
 const HEARTBEAT_MS = 25_000;
@@ -67,6 +68,16 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             });
           }
 
+          if (!transportAllowed(request, deps.config.auth)) {
+            return reply.code(403).send({
+              error: {
+                code: "HTTPS_REQUIRED",
+                message: "HTTPS is required for remote access",
+                requestId: request.id,
+              },
+            });
+          }
+
           const session = resolveActiveSession(
             deps.db,
             readCookie(request.headers.cookie, SESSION_COOKIE),
@@ -104,7 +115,14 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
         }
 
         const subscriptions = new Set<string>();
+        const sessionToken = readCookie(request.headers.cookie, SESSION_COOKIE);
         let lastPong = Date.now();
+
+        const sessionActive = (): boolean =>
+          resolveActiveSession(deps.db, sessionToken, {
+            now: deps.now?.(),
+            idleTtlMinutes: deps.config.auth.idleTtlMinutes,
+          }) !== null;
 
         send(socket, {
           kind: "hello",
@@ -116,6 +134,11 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
         });
 
         const heartbeat = setInterval(() => {
+          if (!sessionActive()) {
+            socket.close(1008, "session expired");
+            return;
+          }
+
           if (Date.now() - lastPong > HEARTBEAT_TIMEOUT_MS) {
             socket.close(1001, "heartbeat timeout");
             return;
@@ -146,6 +169,11 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
         sessionEvents.on("device.revoked", onDeviceRevoked);
 
         socket.on("message", (raw: Buffer) => {
+          if (!sessionActive()) {
+            socket.close(1008, "session expired");
+            return;
+          }
+
           let message: unknown;
 
           try {

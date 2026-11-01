@@ -30,10 +30,12 @@ export interface CreateAppOptions {
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   const startedAt = options.startedAt ?? Date.now();
+  const trustedProxies = options.services?.config.server.trustedProxies ?? [];
 
   const app = Fastify({
     ...(options.logger ? { loggerInstance: options.logger } : { logger: false }),
     requestIdHeader: false,
+    trustProxy: trustedProxies.length > 0 ? trustedProxies : false,
     genReqId: (request) => resolveRequestId(request.headers["x-request-id"]),
   });
 
