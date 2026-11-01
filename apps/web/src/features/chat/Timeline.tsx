@@ -1,6 +1,15 @@
 import type { ApprovalItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
-import { Check, ChevronDown, Loader2, ShieldAlert, Sparkles, Wrench, XCircle } from "lucide-react";
+import {
+  ArrowDown,
+  Check,
+  ChevronDown,
+  Loader2,
+  ShieldAlert,
+  Sparkles,
+  Wrench,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TimelineItemView } from "@/features/chat/TimelineItemView";
@@ -161,12 +170,14 @@ export function Timeline() {
   const hasSession = useNavigationStore((state) => Boolean(state.sessionId));
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: items is the scroll trigger
   useEffect(() => {
     const element = scrollRef.current;
     if (!element || !pinnedRef.current) return;
     element.scrollTop = element.scrollHeight;
+    setShowJumpToBottom(false);
   }, [items]);
 
   if (!hasSession) {
@@ -209,22 +220,45 @@ export function Timeline() {
     );
   }
 
+  const scrollToBottom = (): void => {
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+    pinnedRef.current = true;
+    setShowJumpToBottom(false);
+  };
+
   return (
-    <div
-      ref={scrollRef}
-      onScroll={(event) => {
-        const element = event.currentTarget;
-        pinnedRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < 90;
-      }}
-      className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
-      role="log"
-      aria-label="会话时间线"
-    >
-      <div className="mx-auto flex w-full max-w-[880px] flex-col gap-3 pb-6">
-        <TimelineItems items={items} />
-        <TurnActivity />
-        <div className={cn("h-1 shrink-0")} />
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scrollRef}
+        onScroll={(event) => {
+          const element = event.currentTarget;
+          const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
+          pinnedRef.current = distance < 90;
+          setShowJumpToBottom(distance > 150);
+        }}
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
+        role="log"
+        aria-label="会话时间线"
+      >
+        <div className="mx-auto flex w-full max-w-[880px] flex-col gap-3 pb-6">
+          <TimelineItems items={items} />
+          <TurnActivity />
+          <div className={cn("h-1 shrink-0")} />
+        </div>
       </div>
+      {showJumpToBottom ? (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          aria-label="回到最新消息"
+          title="回到最新消息"
+          className="absolute bottom-4 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface/95 text-ink-2 shadow-[var(--shadow-pop)] backdrop-blur transition-colors hover:bg-surface hover:text-ink"
+        >
+          <ArrowDown size={14} />
+        </button>
+      ) : null}
     </div>
   );
 }
