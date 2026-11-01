@@ -70,7 +70,7 @@ export function SidebarResizeHandle({
       onKeyDown={onKeyDown}
       className={`group relative z-30 w-1.5 shrink-0 cursor-col-resize focus-visible:outline-none ${className ?? ""}`}
     >
-      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-line transition-colors group-hover:bg-accent/45 group-focus-visible:bg-accent/60" />
+      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-line transition-colors group-hover:bg-line-strong group-focus-visible:bg-ink-3/50" />
     </div>
   );
 }

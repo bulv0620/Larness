@@ -26,7 +26,7 @@ export function SectionSplitter({
       onKeyDown={onKeyDown}
       className="group relative flex h-[7px] shrink-0 cursor-row-resize items-center justify-center focus-visible:outline-none"
     >
-      <span className="absolute inset-x-2 h-px bg-line transition-colors group-hover:bg-accent/40 group-focus-visible:bg-accent/60" />
+      <span className="absolute inset-x-2 h-px bg-line transition-colors group-hover:bg-line-strong group-focus-visible:bg-ink-3/50" />
     </div>
   );
 }
