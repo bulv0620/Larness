@@ -16,7 +16,7 @@
 | M0-6 | Passkey 注册与登录 | M0-5 | `done` |
 | M0-7 | 鉴权与传输安全 | M0-6 | `done` |
 | M0-8 | Web 认证集成 | M0-7 | `done` |
-| M0-9 | 稳定入口与 M0 验收 | M0-8 | `review` |
+| M0-9 | 稳定入口与 M0 验收 | M0-8 | `done` |
 
 ## 任务卡
 
@@ -235,7 +235,7 @@
 
 ### M0-9 稳定入口与 M0 验收
 
-- 状态：`review`（实现完成；G0 人工验收待完成）
+- 状态：`done`（2026-11-01；macOS 范围 G0 通过）
 - 依赖：M0-8
 - 目标：交付 `node app.js` 可运行的最小产品，并完成 G0 门禁。
 - 交付物：
@@ -257,4 +257,4 @@
   - TUI 受管入口 + 启动检查；生产静态托管 / SPA 回退；四入口构建；关闭审计；
   - 安全修复：远程明文 HTTP → `HTTPS_REQUIRED`，`trustedProxies` 接入 Fastify `trustProxy`；WS 心跳 / 消息重校验 session；`lastSeenAt` 对非轮询请求节流更新；TUI IPC `system.ping` 5 分钟保活 + 断线重连；
   - server 170 项、web 18 项测试；`pnpm check` / `build` / `test:e2e` / `test:e2e:auth` / `test:e2e:prod` 通过；CI 增加 Playwright；
-  - G0 人工项仍待完成；M1 前需解决项目写锁规划冲突。
+  - macOS G0 人工项通过；Linux / Windows / CI 首次远端结果列为后续验证；M1 前需解决项目写锁规划冲突。

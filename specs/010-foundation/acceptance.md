@@ -1,6 +1,6 @@
 # M0 验收记录（G0）
 
-> 状态：**自动化检查通过；macOS 人工验收通过（2026-11-01）；CI 远端与 Linux/Windows 范围待确认，G0 尚未关闭。**
+> 状态：**G0 通过（macOS 范围，2026-11-01）。Linux / Windows / CI 首次远端结果列为后续平台验证，不阻塞 M1。**
 > 日期：2026-11-01 · 平台：macOS（Darwin 27，arm64，Node 20.19.3）
 > 对应门禁：[ROADMAP G0](../../specs/ROADMAP.md)、[spec 完成定义](spec.md#14-完成定义)
 
@@ -61,10 +61,16 @@
 - [x] 真实 macOS Touch ID / Safari 的 Passkey 注册、登录、撤销手工冒烟；
 - [x] 安全评审：初始化、配对、Passkey、撤销、失败关闭矩阵与日志脱敏；
 - [x] TUI 交互式初始化 / 配对审批 / 设备撤销的人工走查（启动页与关闭清理已冒烟）；
-- [ ] CI 在 Ubuntu 与 macOS 的真实运行结果（已配置 Playwright，仓库暂无 remote，首次 push 后待确认）；
-- [ ] Windows / Linux PoC 支持范围记录。
+- [—] CI 在 Ubuntu 与 macOS 的真实运行结果：workflow 已配置 Playwright；仓库暂无 remote，首次 push 后补记录（macOS-only G0 不阻塞）。
+- [—] Windows / Linux PoC：按 spec 属后续平台验证，完整 PoC 在 M5。
 
-## 5. 已知偏差
+## 5. G0 关闭范围
+
+- 已验收：macOS 本地全量（含 Touch ID / Safari、TUI、Passkey、撤销、生产 3210、安全修复）。
+- 后续验证：Linux CI、Windows IPC / 构建 / 虚拟认证器冒烟、CI 首次远端运行；不阻塞 M1。
+- 进入 M1 前必须先解决：项目写锁与 M1 `apply_patch` 多会话写的规划冲突。
+
+## 6. 已知偏差
 
 - ADR-023：TUI 是受管前台入口；关闭 TUI 会停止 Server 与 Web，不提供 headless 产品模式。异常 SIGKILL / 终端崩溃可能残留子进程。
 - M0 的 WebSocket 只开放 `system` 主题；配对 / 设备状态由 TUI 轮询。

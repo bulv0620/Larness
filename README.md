@@ -6,7 +6,7 @@
 - 以对话驱动 Agent 读写项目、运行命令、管理终端 / 服务 / Git；
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
-> **当前状态：S0 视觉 Demo 已验收（G-S0 通过）；M0-1 ~ M0-9 实现完成，G0 自动化通过，等待人工安全评审与真机验收。**
+> **当前状态：S0 视觉 Demo 与 M0（macOS 范围）均已验收；下一步先修正 M1 项目写锁规划，再进入 M1-1。**
 > 启动开发环境：`pnpm install && pnpm dev` → Server <http://127.0.0.1:3210/api/health> + Web <http://localhost:5173>，并直接进入 TUI。
 > 验收记录与截图：[specs/000-visual-demo/acceptance.md](specs/000-visual-demo/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
@@ -94,7 +94,7 @@ Agent 的启动指令示例：
 
 ```text
 请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md。
-S0 已验收，M0-1 ~ M0-9 实现完成；G0 人工验收见 specs/010-foundation/acceptance.md。
+S0 与 M0（macOS 范围）已验收；G0 记录见 specs/010-foundation/acceptance.md；进入 M1 前先修正项目写锁规划。
 ```
 
 ## 当前仓库结构

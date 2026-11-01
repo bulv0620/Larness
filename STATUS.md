@@ -1,14 +1,14 @@
 # STATUS
 
-> 最后更新：2026-11-01 17:27 (+08:00)
-> 当前阶段：**M0-9 实现完成；G0 自动化通过，等待人工安全评审与真机验收**
+> 最后更新：2026-11-01 17:40 (+08:00)
+> 当前阶段：**M0 已验收关闭（macOS 范围，G0 通过）；下一步 M1-1 前的项目锁规划修正**
 
 ## 里程碑
 
 | 阶段 | 名称 | 状态 | 说明 |
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
-| M0 | 工程底座与可信启动 | `review` | M0-1 ~ M0-9 实现完成；G0 人工验收待完成 |
+| M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `ready` | spec 已细化，进入前需复核 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
@@ -17,13 +17,14 @@
 
 ## 当前工作
 
-- 进行中：`M0-9` — 稳定入口与 M0 验收（分支 `task/m0-9-entry`，状态 `review`）
+- 进行中：无；`M0` 已关闭（macOS 范围）
+- 刚完成：`M0-9` — 稳定入口与 M0 验收（分支 `task/m0-9-entry`，状态 `done`）
   - 已完成：TUI 受管前台入口（[ADR-023](docs/adr/ADR-023-tui-as-managed-entry.md)）——`pnpm dev` / `node app.js` 启动 Server（开发另起 Vite）并进入 TUI；启动页显示数据目录 / Server / Web / IPC 检查；关闭 TUI 优雅停止全部；`l` 查看 Server 日志与 Vite 输出；
   - 已完成：`app.js` status / doctor / version、静态托管 + SPA 回退 + 缓存 / CSP、四入口构建、关闭审计、IPC 契约校准、[G0 验收记录](specs/010-foundation/acceptance.md)；
   - 安全修复：远程 HTTP 强制拒绝（`HTTPS_REQUIRED`）、Fastify `trustProxy` 仅信任 `trustedProxies`、WS 过期重校验、会话活跃时间节流更新（排除轮询）、TUI IPC 5 分钟保活 + 断线重连；
   - 验证：server 170 项、web 18 项；开发/生产启动页与关闭清理手工冒烟通过；
-  - macOS 人工验收：已通过（真实 Touch ID / Safari、TUI 初始化 / 审批 / 撤销、安全评审）。
-  - 待确认：G0 是否按 macOS-only 关闭；CI 远端与 Linux/Windows 范围仍待确认。
+  - macOS 人工验收：已通过（真实 Touch ID / Safari、TUI 初始化 / 审批 / 撤销、安全评审）；
+  - G0 按 macOS 范围关闭；Linux / Windows / CI 首次远端结果列为后续平台验证，不阻塞 M1；
   - M1 前置：项目写锁与 M1 `apply_patch` 的规划冲突需在 M1 开工前解决。
 - 刚完成：`M0-8` — Web 认证集成（分支 `task/m0-8-web-auth`）
   - `/login`、`/pair`、`useSession` / `RequireAuth`、登出、空态工作台；Passkey options 预取与用户手势调用；
@@ -52,7 +53,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：G0 人工验收；通过后进入 M1-1（项目登记）
+- 下一个任务：先修正 M1 项目写锁规划，再进入 M1-1（项目登记）
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -112,3 +113,4 @@
 | 2026-11-01 | 配对页刷新复用 sessionStorage 中的未过期申请，避免每次刷新产生新待审批记录；支持刷新恢复 enrollment 阶段；新增 1 项 Web 测试 |
 | 2026-11-01 | 安全修复：远程 HTTPS 强制、trustedProxies 接入、WS 过期重校验、会话 idle TTL 活跃更新、TUI IPC 保活与重连；server 169 / web 18 测试；CI 增加 Playwright E2E |
 | 2026-11-01 | dev 模式 3210 关闭静态 Web，只保留 API/WS；前端仍只经 Vite 5173；新增静态开关测试 |
+| 2026-11-01 | M0 验收关闭：macOS 范围 G0 通过；Linux / Windows / CI 首次远端结果列为后续验证；下一步先修 M1 项目写锁规划 |
