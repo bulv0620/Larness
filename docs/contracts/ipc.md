@@ -132,3 +132,15 @@
 - `protocolVersion` 主版本不一致时拒绝连接；新增方法 / 字段视为兼容。
 - 删除 / 改语义必须提升主版本，并同步 `app.js tui` / `status` 与测试。
 - 所有方法在服务端重新校验初始化、状态与参数；不信任客户端传入的 ID 归属。
+
+## 8. M0 实现校准（2026-11-01）
+
+- 实现范围：`hello`、`system.status`、`system.doctor`、`init.status`、`init.apply`、`pairing.list/approve/deny`、`devices.list/revoke`、`sessions.list/revoke`、`logs.tail`、`audit.tail`、`server.shutdown`。
+- `system.status` 实际返回 `running`、`db {ok, schemaVersion, initialized}`、`ipc {ok, clients}`、`sessions {online, pendingPairings}` 与 `warnings[]`；`system.doctor` 返回 `{version, dataDir, checks[]}`。
+- `pairing.list` 返回 `{ requests[] }`，每项含 `requestId / shortCode / status / decision / clientLabel / clientOrigin / userAgent / createdAt / expiresAt / trustAvailable`；`trustAvailable` 表示 WebAuthn 有效且申请 Origin 为 canonical。
+- `pairing.approve` 返回 `{ code, expiresAt }`（`code` 为未格式化的一次性码，仅此一次返回）；`pairing.deny` 返回 `{ ok: true }`。
+- `devices.list` 返回 `{ devices[] }`，每项含 `id / label / createdAt / lastSeenAt / revokedAt / credentials[]`；`devices.revoke` 返回 `{ ok, revokedCredentials, revokedSessions }`。
+- `sessions.list` 返回 `{ sessions[] }`；`sessions.revoke` 返回 `{ ok }` 并在 1 秒内关闭对应 WebSocket。
+- `server.shutdown` 需 `confirm: true`；响应返回后延迟触发关闭，以便客户端收到确认。
+- M0 尚未通过 IPC 推送 `pairing.*` / `device.*` 事件，TUI 通过轮询 `pairing.list` / `devices.list` 获取状态；会话与设备撤销会通过 `session.revoked` / `device.revoked` 内部事件关闭 WebSocket。
+- 配对 / WebAuthn 的业务错误在 IPC 层映射为 `FORBIDDEN`、`VALIDATION_ERROR`、`NOT_FOUND`、`CONFLICT`、`RATE_LIMITED`，不暴露库内部错误文本。

@@ -1,14 +1,14 @@
 # STATUS
 
-> 最后更新：2026-11-01 15:28 (+08:00)
-> 当前阶段：**M0 进行中；M0-8 完成，下一步 M0-9**
+> 最后更新：2026-11-01 15:44 (+08:00)
+> 当前阶段：**M0-9 实现完成；G0 自动化通过，等待人工安全评审与真机验收**
 
 ## 里程碑
 
 | 阶段 | 名称 | 状态 | 说明 |
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
-| M0 | 工程底座与可信启动 | `in_progress` | M0-1 ~ M0-8 完成；M0-9 可开始 |
+| M0 | 工程底座与可信启动 | `review` | M0-1 ~ M0-9 实现完成；G0 人工验收待完成 |
 | M1 | 项目、会话与最小 Agent | `ready` | spec 已细化，进入前需复核 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
@@ -17,7 +17,9 @@
 
 ## 当前工作
 
-- 进行中：无
+- 进行中：`M0-9` — 稳定入口与 M0 验收（分支 `task/m0-9-entry`，状态 `review`）
+  - 已完成：根 `app.js`（server / tui / status / doctor / version，构建产物与开发源码两条路径）、静态托管 + SPA 回退 + 缓存 / CSP、四入口构建、关闭审计、IPC 契约校准、[G0 验收记录](specs/010-foundation/acceptance.md)；
+  - 待人工：真实 Touch ID / Safari、TUI 交互走查、安全评审、CI 远端结果。
 - 刚完成：`M0-8` — Web 认证集成（分支 `task/m0-8-web-auth`）
   - `/login`、`/pair`、`useSession` / `RequireAuth`、登出、空态工作台；Passkey options 预取与用户手势调用；
   - Vite `/api` + `/ws` 代理；默认真实认证，`VITE_USE_MOCKS=1` 保留 S0 Demo；
@@ -45,7 +47,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：`M0-9` — 稳定入口与 M0 验收
+- 下一个任务：G0 人工验收；通过后进入 M1-1（项目登记）
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -99,3 +101,4 @@
 | 2026-11-01 | 完成 M0-6：SimpleWebAuthn 注册 / 登录、challenge 生命周期、设备与 credential、备份标志 / counter、TUI 设备撤销；server 143 项测试通过 |
 | 2026-11-01 | 完成 M0-7：全局会话 / CSRF / Origin / Host 守卫、限流与审计、bootstrap / logout、WebSocket 鉴权 / 订阅 / 撤销即断、IPC sessions；server 154 项测试通过 |
 | 2026-11-01 | 完成 M0-8：`/login`、`/pair`、路由守卫、登出、空态工作台、Vite 代理；虚拟认证器 E2E 通过；web 17 项测试、demo E2E 15 项保留 |
+| 2026-11-01 | M0-9 实现完成：`app.js`、生产静态托管 / SPA 回退、四入口构建、关闭审计、IPC 契约校准；G0 自动化通过，人工验收待完成 |

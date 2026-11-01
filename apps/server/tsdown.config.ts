@@ -1,7 +1,12 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/index.ts"],
+  entry: {
+    index: "src/index.ts",
+    status: "src/cli/status.ts",
+    doctor: "src/cli/doctor.ts",
+    tui: "src/tui/main.ts",
+  },
   format: "esm",
   platform: "node",
   clean: true,

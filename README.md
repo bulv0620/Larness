@@ -6,7 +6,7 @@
 - 以对话驱动 Agent 读写项目、运行命令、管理终端 / 服务 / Git；
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
-> **当前状态：S0 视觉 Demo 已验收（G-S0 通过）；M0-1 ~ M0-8 完成，下一个任务 M0-9。**
+> **当前状态：S0 视觉 Demo 已验收（G-S0 通过）；M0-1 ~ M0-9 实现完成，G0 自动化通过，等待人工安全评审与真机验收。**
 > 启动开发环境：`pnpm install && pnpm dev` → Web <http://localhost:5173>，Server <http://127.0.0.1:3210/api/health>。
 > 验收记录与截图：[specs/000-visual-demo/acceptance.md](specs/000-visual-demo/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
@@ -45,10 +45,23 @@ pnpm check          # Biome + 类型 + 单元测试
 pnpm build
 pnpm test:e2e       # S0 Mock Demo E2E
 pnpm test:e2e:auth  # 真实 server + 虚拟认证器：配对 / 注册 / 登录 / 撤销
+pnpm test:e2e:prod  # 构建后由 Server 3210 托管 Web 的生产形态 E2E
 pnpm demo:shots     # 重新生成验收截图
 ```
 
 数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 默认使用真实本机 API（`/login`、`/pair`、工作台空态）；`VITE_USE_MOCKS=1` 时保留 S0 Mock Demo。开发时 Web 跑在 5173，需让 server 的 canonical origin 为 `http://localhost:5173`（初始化时填写该 publicUrl，或启动 server 时设置 `LARNESS_PUBLIC_URL`）。
+
+构建后可直接运行完整产品：
+
+```bash
+pnpm build
+node app.js            # Server 3210，同时托管 apps/web/dist
+node app.js tui        # 本机初始化 / 管理
+node app.js status     # 只读状态
+node app.js doctor     # 自检
+```
+
+生产形态的认证 E2E：`pnpm test:e2e:prod`（需先 `pnpm build`）。
 
 ## 如何使用本仓库
 
@@ -62,7 +75,7 @@ Agent 的启动指令示例：
 
 ```text
 请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md。
-S0 已验收，M0-1 ~ M0-8 完成；按 specs/010-foundation/{spec,plan,tasks}.md 执行 M0-9。
+S0 已验收，M0-1 ~ M0-9 实现完成；G0 人工验收见 specs/010-foundation/acceptance.md。
 ```
 
 ## 当前仓库结构
@@ -70,6 +83,7 @@ S0 已验收，M0-1 ~ M0-8 完成；按 specs/010-foundation/{spec,plan,tasks}.m
 ```text
 .
 ├── larness.md                  # 源设计（v3.0，冻结）
+├── app.js                      # 稳定入口：server / tui / status / doctor
 ├── README.md / AGENTS.md / CONSTITUTION.md / STATUS.md
 ├── apps/
 │   ├── server/                 # Fastify 5 Server（M0-1：health / 错误契约 / 请求 ID）

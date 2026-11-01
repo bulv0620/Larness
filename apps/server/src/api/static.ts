@@ -1,0 +1,63 @@
+import path from "node:path";
+import fastifyStatic from "@fastify/static";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { HttpError } from "../errors.js";
+
+export const APP_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' ws: wss:",
+  "worker-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join("; ");
+
+export interface StaticRoutesOptions {
+  webDistDir: string;
+}
+
+export function registerStaticRoutes(app: FastifyInstance, options: StaticRoutesOptions): void {
+  app.register(fastifyStatic, {
+    root: options.webDistDir,
+    serve: false,
+    decorateReply: true,
+  });
+
+  app.get<{ Params: { "*": string } }>("/assets/*", async (request, reply) => {
+    const asset = request.params["*"];
+
+    if (asset.length === 0 || asset.includes("..")) {
+      throw new HttpError("NOT_FOUND", "Not found");
+    }
+
+    return reply.sendFile(path.join("assets", asset), {
+      maxAge: "1y",
+      immutable: true,
+    });
+  });
+
+  app.get("/favicon.svg", async (_request, reply) => {
+    return reply.sendFile("favicon.svg", { maxAge: "1d" });
+  });
+
+  const indexHandler = async (request: FastifyRequest, reply: FastifyReply): Promise<unknown> => {
+    if (request.url.startsWith("/api/") || request.url === "/ws") {
+      throw new HttpError("NOT_FOUND", "Not found");
+    }
+
+    reply.header("cache-control", "no-store");
+    return reply.sendFile("index.html", {
+      cacheControl: false,
+      lastModified: false,
+      etag: false,
+    });
+  };
+
+  app.get("/", indexHandler);
+  app.get("/*", indexHandler);
+}

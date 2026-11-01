@@ -5,6 +5,7 @@ import { registerAuthRoutes } from "./api/auth.js";
 import { registerBootstrapRoutes } from "./api/bootstrap.js";
 import { registerHealthRoute } from "./api/health.js";
 import { registerPairingRoutes } from "./api/pairing.js";
+import { registerStaticRoutes } from "./api/static.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
 import type { Database } from "./db/client.js";
 import { registerErrorHandler } from "./errors.js";
@@ -24,6 +25,7 @@ export interface CreateAppOptions {
   startedAt?: number;
   logger?: FastifyBaseLogger;
   services?: AppServices;
+  webDistDir?: string;
 }
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
@@ -63,6 +65,10 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerPairingRoutes(app, options.services);
     registerWebAuthnRoutes(app, options.services);
     registerWsRoutes(app, options.services);
+  }
+
+  if (options.webDistDir !== undefined) {
+    registerStaticRoutes(app, { webDistDir: options.webDistDir });
   }
 
   return app;

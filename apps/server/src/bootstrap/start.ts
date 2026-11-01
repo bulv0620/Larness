@@ -1,4 +1,6 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import type { DestinationStream, Logger } from "pino";
@@ -6,7 +8,8 @@ import { createApp } from "../app.js";
 import { loadOrCreateCsrfKey } from "../auth/csrf.js";
 import { type CleanupScheduler, startCleanupScheduler } from "../db/cleanup.js";
 import { type Database, type OpenedDatabase, openDatabase } from "../db/client.js";
-import { appliedMigrationCount, runMigrations } from "../db/migrate.js";
+import { appliedMigrationCount, findServerRoot, runMigrations } from "../db/migrate.js";
+import { appendAudit } from "../db/repositories/audit.js";
 import { ensureInstanceId } from "../db/repositories/meta.js";
 import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
@@ -46,6 +49,13 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   const dataDir = resolveDataDir(env);
 
   await ensureDataDirs(dataDir);
+
+  const serverRoot = findServerRoot(fileURLToPath(new URL(".", import.meta.url)));
+  const webDistCandidate =
+    process.env.LARNESS_WEB_DIST ?? path.resolve(serverRoot, "../../apps/web/dist");
+  const webDistDir = existsSync(path.join(webDistCandidate, "index.html"))
+    ? webDistCandidate
+    : undefined;
 
   const loaded: LoadedConfig = await loadConfig({ dataDir, env });
   const logger = createLogger({
@@ -101,6 +111,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         webAuthn: loaded.webAuthn,
         csrfKey,
       },
+      webDistDir,
     });
 
     await app.listen({
@@ -121,6 +132,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         origin: loaded.webAuthn.origin,
         rpId: loaded.webAuthn.rpId,
         passkeyEnabled: loaded.webAuthn.enabled,
+        webDist: webDistDir !== undefined,
       },
       "server listening",
     );
@@ -131,7 +143,18 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       logger,
       timeoutMs: options.shutdownTimeoutMs,
       onTimeout: options.onShutdownTimeout,
-      onClose: async () => {
+      onClose: async (reason) => {
+        try {
+          appendAudit(opened.db, {
+            action: "server.shutdown",
+            decision: "info",
+            details: { reason },
+            now: Date.now(),
+          });
+        } catch {
+          // Shutdown must proceed even if the audit write fails.
+        }
+
         await ipcServer.close();
         cleanupScheduler.stop();
         opened.close();

@@ -6,8 +6,8 @@ import { startServer } from "../apps/server/src/bootstrap/start.js";
 import { connectIpc } from "../apps/server/src/ipc/client.js";
 
 const dataDir = mkdtempSync(path.join(tmpdir(), "larness-e2e-"));
-const port = 3210;
-const publicUrl = "http://localhost:5173";
+const port = Number(process.env.LARNESS_E2E_PORT ?? 3210);
+const publicUrl = process.env.LARNESS_E2E_PUBLIC_URL ?? "http://localhost:5173";
 const password = "e2e admin password 123";
 
 const root = fileURLToPath(new URL("..", import.meta.url));

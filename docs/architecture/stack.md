@@ -89,7 +89,7 @@ packages/
   resources/                 # @larness/resources
   ui/                        # @larness/ui
 scripts/
-app.js                       # M0-9 创建
+app.js                       # 稳定入口（M0-9）
 ```
 
 - 第一阶段（D0）创建 `apps/web`、`packages/shared`、`packages/ui` 与根配置；`apps/server`、`packages/{agent,resources}` 已在 M0-1 创建。

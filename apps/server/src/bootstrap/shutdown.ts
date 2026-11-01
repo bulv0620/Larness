@@ -16,7 +16,7 @@ export interface CreateShutdownOptions {
   logger: ShutdownLogger;
   timeoutMs?: number;
   onTimeout?: () => void;
-  onClose?: () => Promise<void> | void;
+  onClose?: (reason: string) => Promise<void> | void;
 }
 
 export type Shutdown = (reason?: string) => Promise<void>;
@@ -45,7 +45,7 @@ export function createShutdown(options: CreateShutdownOptions): Shutdown {
     }
 
     try {
-      await options.onClose?.();
+      await options.onClose?.(reason);
     } catch (error) {
       failure ??= error;
     }

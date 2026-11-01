@@ -1,5 +1,6 @@
 import { type AppConfig, ERROR_HTTP_STATUS, type WebAuthnRuntime } from "@larness/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { APP_CSP } from "../api/static.js";
 import { verifyCsrfToken } from "../auth/csrf.js";
 import { isInitialized } from "../auth/initialized.js";
 import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
@@ -248,9 +249,10 @@ export function installSecurityGuard(app: FastifyInstance, deps: SecurityGuardDe
     reply.header("referrer-policy", "no-referrer");
     reply.header("x-frame-options", "DENY");
 
-    if (request.url.startsWith("/api/")) {
-      reply.header("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
-    }
+    reply.header(
+      "content-security-policy",
+      request.url.startsWith("/api/") ? "default-src 'none'; frame-ancestors 'none'" : APP_CSP,
+    );
 
     return payload;
   });

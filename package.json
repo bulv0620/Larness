@@ -21,11 +21,15 @@
     "format": "biome format --write .",
     "demo:shots": "node scripts/capture-demo.mjs",
     "tui": "pnpm --filter @larness/server run tui",
-    "test:e2e:auth": "playwright test -c playwright.auth.config.ts"
+    "test:e2e:auth": "playwright test -c playwright.auth.config.ts",
+    "test:e2e:prod": "playwright test -c playwright.prod.config.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.4",
     "@playwright/test": "^1.64.1",
     "typescript": "^5.9.3"
+  },
+  "bin": {
+    "larness": "./app.js"
   }
 }
