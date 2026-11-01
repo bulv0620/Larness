@@ -9,7 +9,7 @@
 |---|---|---|---|---|
 | S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
-| M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01） |
+| M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `review` | 自动化通过；G1 待人类验收 |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `draft` | G2 |
 | M3 | 本机服务与 Preview | [040](040-services-preview/spec.md) | `draft` | G3 |
 | M4 | 部署闭环与权限加固 | [050](050-deploy/spec.md) | `draft` | G4 |
@@ -68,7 +68,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-8
 | M1-5 | Turn Runner 与状态机 | QUEUED→…→COMPLETED、预算、取消、项目锁续租、事件写入 | M1-2, M1-3, M1-4 | `done` |
 | M1-6 | 实时对话 UI | Query + WS、乐观 / 重放、工具卡片、审批卡片、错误态 | M1-5, M0-8 | `done` |
 | M1-7 | 模型 Profile 与 SecretStore | 凭据加密、模型配置、下一轮切换、密钥脱敏 | M1-3 | `done` |
-| M1-8 | M1 验收与 E2E | 项目 → 任务 → 刷新恢复 → 切模型 → 取消；G1 门禁 | M1-6, M1-7 | `done` |
+| M1-8 | M1 验收与 E2E | 项目 → 任务 → 刷新恢复 → 切模型 → 取消；G1 门禁 | M1-6, M1-7 | `review` |
 
 ## 5. M2 开发资源与窗口层（草案）
 
@@ -146,7 +146,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-8
 - 取消后不再产生新工具调用；
 - 切模型只影响下一 Turn。
 
-**状态：通过（2026-11-01）**。证据见 [M1 acceptance](../specs/020-workspace-agent/acceptance.md)。
+**状态：自动化通过，待人类验收（2026-11-01）。** 清单与签字见 [M1 acceptance](../specs/020-workspace-agent/acceptance.md)。
 
 ### G2 开发资源
 

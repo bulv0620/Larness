@@ -14,7 +14,7 @@
 | M1-5 | Turn Runner 与状态机 | M1-2, M1-3, M1-4 | `done` |
 | M1-6 | 实时对话 UI | M1-5, M0-8 | `done` |
 | M1-7 | 模型 Profile 与 SecretStore | M1-3 | `done` |
-| M1-8 | M1 验收与 E2E | M1-6, M1-7 | `done` |
+| M1-8 | M1 验收与 E2E | M1-6, M1-7 | `review` |
 
 ## 任务卡
 
@@ -183,7 +183,7 @@
 
 ### M1-8 M1 验收与 E2E
 
-- 状态：`done`（2026-11-01）
+- 状态：`review`（自动化通过；人类验收待完成）
 - 依赖：M1-6, M1-7
 - 目标：完成端到端验证与 G1 门禁，形成可演示的最小产品。
 - 交付物：
@@ -202,4 +202,5 @@
   - E2E Server 注入 FakeProvider；真实 TurnQueue / 工具 / 审批 / 事件 / WS；
   - `pnpm check`（agent 32 / server 236 / web 23）、`pnpm build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2 通过；
   - 验收记录 `acceptance.md`，含 A1–A14 / G1 映射与真实 Key 冒烟步骤；
-  - 真实 DeepSeek live smoke：2026-11-01 通过（33 tests、654ms、`deepseek-chat` 工具调用，无 Key 泄漏）；G1 关闭。
+  - 真实 DeepSeek live smoke：2026-11-01 通过（33 tests、654ms、`deepseek-chat` 工具调用，无 Key 泄漏）；
+  - **待人类验收**：按 acceptance 第 7 节执行真实 UI / Key / 刷新 / 停止 / 切模型 / 视觉检查并签字；G1 尚未关闭。

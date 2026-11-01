@@ -1,6 +1,7 @@
 # M1 验收记录（G1）
 
-> 状态：**G1 通过（2026-11-01）。A1–A14、FakeProvider 状态机、真实 DeepSeek 工具调用、刷新恢复与取消均有记录。**
+> 状态：**自动化验收通过；G1 仍需人类验收。**
+> 依据：[workflow 评审门](../../docs/process/workflow.md) 规定 G1–G4 由人类通过；本文自动化结果不能替代人工确认。
 > 日期：2026-11-01 · 平台：macOS（Darwin 27，arm64，Node 20.19.3）
 > 对应门禁：[ROADMAP G1](../../specs/ROADMAP.md)、[spec 完成定义](spec.md#14-完成定义)
 
@@ -33,7 +34,7 @@
 
 | 门禁项 | 证据 | 状态 |
 |---|---|---|
-| DeepSeek 至少一个流式工具调用场景 | Adapter 映射测试 + 真实 live smoke（第 5 节） | 通过 |
+| DeepSeek 至少一个流式工具调用场景 | Adapter 映射测试 + live smoke（第 5 节，Provider 层） | 自动化通过；产品层人工待验 |
 | FakeProvider 覆盖状态机 | `test/agent/turnRunner.test.ts`、`test/agent/queue.test.ts`、E2E | 通过 |
 | 同会话并发 Turn 被拒绝 / 排队 | `test/sessions/turns.test.ts`、`test/agent/queue.test.ts` | 通过 |
 | 文件版本冲突不静默覆盖 | `test/projects/pathGuard.test.ts`、`test/tools/fileService.test.ts`、`test/agent/toolExecutor.test.ts` | 通过 |
@@ -77,7 +78,7 @@ LARNESS_DEEPSEEK_SMOKE=1 DEEPSEEK_API_KEY=... \
 - 测试输出、日志与响应中未出现 Key 明文；
 - AI SDK 仅提示 messages 中 system 消息的安全警告，不影响本次工具调用。
 
-该记录满足 G1 “DeepSeek 至少一个可用的流式工具调用场景”。
+该记录证明 Provider 层的流式工具调用可用；它不代表完整 UI / TurnRunner 产品链路已经人工验收。
 
 ## 6. 已知偏差
 
@@ -86,3 +87,26 @@ LARNESS_DEEPSEEK_SMOKE=1 DEEPSEEK_API_KEY=... \
 - 自动化 E2E 使用 FakeProvider；真实 DeepSeek 调用由第 5 节的 live smoke 单独覆盖。
 - AI SDK 对 messages 中的 system 内容给出注入风险警告；M1 的系统策略与项目指令仍按受控文本处理，后续可改为独立 `system` 参数。
 - 资源窗口（文件 / 终端 / 服务 / Git）属于 M2，当前为占位。
+
+## 7. 人类验收清单（G1 关闭前必须完成）
+
+> 目的：验证真实产品入口、真实模型 Key、视觉与交互，而不仅是自动化测试。请由人类执行并记录结果。
+
+- [ ] 使用 `pnpm dev` 或 `node app.js` 启动，Passkey 登录进入工作区，无阻塞性控制台 / 页面错误；
+- [ ] 添加一个临时项目目录，新建项目会话；确认标题、路径、Git 状态与空态正确；
+- [ ] 在“设置与模型”添加真实 DeepSeek Key（只显示掩码），发送真实任务读取并修改临时文件；确认工具卡片、审批卡片、文件变化与 Turn 完成；
+- [ ] 刷新页面：历史与审批状态完整，无重复、无缺口，Turn 不被中断；
+- [ ] 发送一个可延迟任务并点击“停止”，确认 UI 显示已停止且不再产生工具调用；
+- [ ] 创建第二个模型 Profile（可用 `POST /api/models` 或后续设置界面）并切换；确认当前 Turn 不受影响、下一轮使用新模型；
+- [ ] 检查页面、事件、API 响应、日志与审计中无 Key 明文；`secrets/master.key` 权限为 0600；
+- [ ] 1440×900 桌面与窄屏截图检查：无遮挡、无横向溢出、审批/工具卡片可读；
+- [ ] 记录：日期、平台、执行人、截图路径、结果与遗留问题。
+
+### 验收签字
+
+| 项 | 记录 |
+|---|---|
+| 执行人 | 待填写 |
+| 日期 / 平台 | 待填写 |
+| 结果 | 待填写（通过 / 不通过 + 问题） |
+| 证据 | 截图 / 录屏 / 日志路径 |
