@@ -37,7 +37,7 @@
 | 迁移 | drizzle-kit 生成 + 启动时 migrator | 迁移文件进版本库；启动前备份 |
 | 密码哈希 | `@node-rs/argon2`（Argon2id） | 预编译二进制；失败时明确报错，不回退弱哈希 |
 | Passkey / WebAuthn | `@simplewebauthn/server` | 注册 / 认证 ceremony 与验证；attestation `none`、UV required、resident key required |
-| 日志 | pino + 文件轮转 | JSON 行；开发用 pino-pretty；秘密脱敏 |
+| 日志 | pino + pino-roll | JSON 行；开发用 pino-pretty；按日 / 大小轮转；秘密脱敏 |
 | WebSocket | `@fastify/websocket`（ws） | 握手鉴权、Origin 校验、事件序号 |
 | 本机 IPC | Unix Domain Socket / Windows Named Pipe | 换行分隔 JSON；0600 权限 + 0600 Token 握手；可用平台追加 peer uid |
 | TUI | `@inquirer/prompts` + `picocolors` | 交互向导 / 仪表盘；不引 React / Ink |

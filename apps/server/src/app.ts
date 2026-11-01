@@ -1,17 +1,18 @@
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { registerHealthRoute } from "./api/health.js";
 import { registerErrorHandler } from "./errors.js";
 import { resolveRequestId } from "./request-id.js";
 
 export interface CreateAppOptions {
   startedAt?: number;
+  logger?: FastifyBaseLogger;
 }
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   const startedAt = options.startedAt ?? Date.now();
 
   const app = Fastify({
-    logger: false,
+    ...(options.logger ? { loggerInstance: options.logger } : { logger: false }),
     requestIdHeader: false,
     genReqId: (request) => resolveRequestId(request.headers["x-request-id"]),
   });

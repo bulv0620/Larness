@@ -11,6 +11,8 @@
     "dev:web": "pnpm --filter @larness/web dev",
     "dev:server": "pnpm --filter @larness/server dev",
     "build": "pnpm typecheck && pnpm --filter @larness/server build && pnpm --filter @larness/web build",
+    "status": "pnpm --filter @larness/server run status",
+    "doctor": "pnpm --filter @larness/server run doctor",
     "preview": "pnpm --filter @larness/web preview",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",

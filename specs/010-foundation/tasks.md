@@ -9,7 +9,7 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M0-1 | Server 与 workspace 扩展 | D0-9 | `done` |
-| M0-2 | 配置、数据目录、日志与诊断 | M0-1 | `todo` |
+| M0-2 | 配置、数据目录、日志与诊断 | M0-1 | `done` |
 | M0-3 | SQLite、迁移与审计 | M0-2 | `todo` |
 | M0-4 | 本机 IPC 与 TUI 初始化 | M0-3 | `todo` |
 | M0-5 | 配对申请与准入 | M0-4 | `todo` |
@@ -47,7 +47,7 @@
 
 ### M0-2 配置、数据目录、日志与诊断
 
-- 状态：`todo`
+- 状态：`done`（2026-11-01）
 - 依赖：M0-1
 - 目标：服务能在正确的位置、以正确权限读写配置与日志，并在异常时明确失败。
 - 交付物：
@@ -65,6 +65,13 @@
   - 第二个实例 3 秒内退出。
 - 测试：配置优先级；RP ID / origin 推导；权限错误；锁竞争；脱敏；关闭幂等。
 - 涉及路径：`apps/server/src/{bootstrap,cli,security}/`、`packages/shared/src/config.ts`。
+- 完成记录：
+  - 新增 `platform/paths`（数据目录 + 7 个子目录 0700、宽权限收紧、不可写 / 非目录失败）、`bootstrap/config`（Zod schema、环境变量覆盖、canonical origin / RP ID 推导）、`bootstrap/logger`（pino + pino-roll 100m / 每日轮转、0600、脱敏）、`bootstrap/lock`（`larness.lock`、PID 存活检查、陈旧锁替换）、`bootstrap/shutdown`（幂等、10 秒强退、释放锁）、`status` / `doctor` 与 `cli/{status,doctor}`；
+  - `pnpm --filter @larness/server test` 43 项通过（config 11 / paths 6 / lock 6 / redact 2 / shutdown 2 / status 5 / startup 5 / health 3 / errors 3）；
+  - 手工证据：`pnpm dev` 同时启动 5173 / 3210；`pnpm run status` 输出 running / pid / listen / webauthn；`pnpm run doctor` 输出 11 项检查；第二个实例 0 秒退出码 1；端口占用退出码 1；非法配置退出码 1；SIGTERM 后锁移除、端口释放、`server.shutdown` 落日志；
+  - 日志文件实测 `-rw------- larness.1.log`，脱敏测试覆盖 Cookie / Token / 密码 / 配对码；
+  - 偏差：`status.db` / `status.ipc` 暂为 `null` 并给出 M0-3 / M0-4 提示（数据层与 IPC 尚不存在，不伪造状态）；`initialized` 暂以 `config.json` 是否存在为代理，M0-4 改用 `app_meta.initialized_at`；
+  - 说明：`pnpm doctor` 会被 pnpm 内置命令抢占，使用 `pnpm run doctor`；`status` / `doctor` 均先经 tsx，M0-9 接入 `app.js`。
 
 ### M0-3 SQLite、迁移与审计
 
