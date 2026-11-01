@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { ProjectResourceSidebar } from "@/components/layout/ProjectResourceSidebar";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
+import { SidebarResizeHandle } from "@/components/layout/SidebarResizeHandle";
 import { TopBar } from "@/components/layout/TopBar";
 import { WindowLayer } from "@/components/windows/WindowLayer";
 import { ConversationWorkspace } from "@/features/chat/ConversationWorkspace";
@@ -12,6 +13,10 @@ import { useWindowStore } from "@/stores/windowStore";
 export function AppShell() {
   const sessionId = useNavigationStore((state) => state.sessionId);
   const sidebarCollapsed = useNavigationStore((state) => state.sidebarCollapsed);
+  const sidebarWidth = useNavigationStore((state) => state.sidebarWidth);
+  const resourceWidth = useNavigationStore((state) => state.resourceWidth);
+  const setSidebarWidth = useNavigationStore((state) => state.setSidebarWidth);
+  const setResourceWidth = useNavigationStore((state) => state.setResourceWidth);
   const mobileSidebarOpen = useNavigationStore((state) => state.mobileSidebarOpen);
   const toggleSidebar = useNavigationStore((state) => state.toggleSidebar);
   const setMobileSidebar = useNavigationStore((state) => state.setMobileSidebar);
@@ -58,7 +63,29 @@ export function AppShell() {
       <TopBar />
       <div className="relative flex min-h-0 flex-1">
         {!sidebarCollapsed ? <ProjectSidebar /> : null}
+        {!sidebarCollapsed ? (
+          <SidebarResizeHandle
+            side="left"
+            label="调整项目侧栏宽度"
+            value={sidebarWidth}
+            min={220}
+            max={360}
+            defaultValue={268}
+            onChange={setSidebarWidth}
+            className="hidden md:block"
+          />
+        ) : null}
         <ConversationWorkspace />
+        <SidebarResizeHandle
+          side="right"
+          label="调整资源侧栏宽度"
+          value={resourceWidth}
+          min={280}
+          max={460}
+          defaultValue={340}
+          onChange={setResourceWidth}
+          className="hidden xl:block"
+        />
         <ProjectResourceSidebar />
         <WindowLayer />
       </div>

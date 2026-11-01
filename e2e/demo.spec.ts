@@ -11,7 +11,9 @@ test.describe("Harness S0 视觉 Demo", () => {
     await expect(page.getByLabel("项目资源", { exact: true })).toBeVisible();
     await expect(page.getByLabel("对话输入")).toBeVisible();
     await expect(page.getByText(/^最近/).first()).toBeVisible();
-    await expect(page.getByRole("separator")).toHaveCount(3);
+    await expect(page.getByLabel("项目资源", { exact: true }).getByRole("separator")).toHaveCount(
+      3,
+    );
 
     const fileHeader = page.getByRole("button", { name: /^文件/ }).first();
     await fileHeader.click();
@@ -54,11 +56,15 @@ test.describe("Harness S0 视觉 Demo", () => {
     await expect(page.locator('aside[aria-label="项目资源"] section')).toHaveCount(1);
     await expect(page.getByText("AppShell.tsx", { exact: true })).toBeVisible();
     await expect(page.getByText("web-dev", { exact: true })).toHaveCount(0);
-    await expect(page.getByRole("separator")).toHaveCount(0);
+    await expect(page.getByLabel("项目资源", { exact: true }).getByRole("separator")).toHaveCount(
+      0,
+    );
 
     await page.getByRole("tab", { name: "全部" }).click();
     await expect(page.locator('aside[aria-label="项目资源"] section')).toHaveCount(4);
-    await expect(page.getByRole("separator")).toHaveCount(3);
+    await expect(page.getByLabel("项目资源", { exact: true }).getByRole("separator")).toHaveCount(
+      3,
+    );
     await expect(page.getByText("web-dev", { exact: true })).toBeVisible();
   });
 
@@ -121,6 +127,43 @@ test.describe("Harness S0 视觉 Demo", () => {
     const dock = page.getByTestId("composer-dock");
     await expect(dock).toHaveCSS("border-top-width", "0px");
     await expect(dock).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  });
+
+  test("左右侧栏可拖动调宽并双击复位", async ({ page }) => {
+    const nav = page.getByLabel("项目与会话导航");
+    const resources = page.getByLabel("项目资源", { exact: true });
+    const leftHandle = page.getByRole("separator", { name: "调整项目侧栏宽度" });
+    const rightHandle = page.getByRole("separator", { name: "调整资源侧栏宽度" });
+
+    const leftBefore = (await nav.boundingBox())?.width ?? 0;
+    const leftBox = await leftHandle.boundingBox();
+    expect(leftBox).not.toBeNull();
+    if (leftBox) {
+      await page.mouse.move(leftBox.x + 3, leftBox.y + 300);
+      await page.mouse.down();
+      await page.mouse.move(leftBox.x + 43, leftBox.y + 300);
+      await page.mouse.up();
+    }
+    const leftAfter = (await nav.boundingBox())?.width ?? 0;
+    expect(leftAfter).toBeGreaterThan(leftBefore + 20);
+    await leftHandle.dblclick();
+    await expect.poll(async () => Math.round((await nav.boundingBox())?.width ?? 0)).toBe(268);
+
+    const rightBefore = (await resources.boundingBox())?.width ?? 0;
+    const rightBox = await rightHandle.boundingBox();
+    expect(rightBox).not.toBeNull();
+    if (rightBox) {
+      await page.mouse.move(rightBox.x + 3, rightBox.y + 300);
+      await page.mouse.down();
+      await page.mouse.move(rightBox.x - 37, rightBox.y + 300);
+      await page.mouse.up();
+    }
+    const rightAfter = (await resources.boundingBox())?.width ?? 0;
+    expect(rightAfter).toBeGreaterThan(rightBefore + 20);
+    await rightHandle.dblclick();
+    await expect
+      .poll(async () => Math.round((await resources.boundingBox())?.width ?? 0))
+      .toBe(340);
   });
 
   test("主题切换并持久化", async ({ page }) => {

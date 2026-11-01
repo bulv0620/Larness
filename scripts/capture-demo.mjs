@@ -85,6 +85,29 @@ await shot("09-window-filter.png", {
     await page.waitForTimeout(700);
   },
 });
+await shot("10-sidebars-resized.png", {
+  width: 1440,
+  height: 900,
+  action: async (page) => {
+    const leftHandle = page.getByRole("separator", { name: "调整项目侧栏宽度" });
+    const rightHandle = page.getByRole("separator", { name: "调整资源侧栏宽度" });
+    const leftBox = await leftHandle.boundingBox();
+    if (leftBox) {
+      await page.mouse.move(leftBox.x + 3, leftBox.y + 300);
+      await page.mouse.down();
+      await page.mouse.move(leftBox.x + 43, leftBox.y + 300);
+      await page.mouse.up();
+    }
+    const rightBox = await rightHandle.boundingBox();
+    if (rightBox) {
+      await page.mouse.move(rightBox.x + 3, rightBox.y + 300);
+      await page.mouse.down();
+      await page.mouse.move(rightBox.x - 37, rightBox.y + 300);
+      await page.mouse.up();
+    }
+    await page.waitForTimeout(300);
+  },
+});
 
 console.log(JSON.stringify({ out: outDir.pathname, errors }, null, 2));
 await browser.close();

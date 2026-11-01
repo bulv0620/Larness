@@ -4,11 +4,15 @@ import { persist } from "zustand/middleware";
 interface NavigationState {
   projectId: string | null;
   sessionId: string;
+  sidebarWidth: number;
+  resourceWidth: number;
   sidebarCollapsed: boolean;
   mobileSidebarOpen: boolean;
   expandedProjects: Record<string, boolean>;
   focusComposerNonce: number;
   selectSession: (sessionId: string, projectId: string | null) => void;
+  setSidebarWidth: (width: number) => void;
+  setResourceWidth: (width: number) => void;
   toggleSidebar: () => void;
   setMobileSidebar: (open: boolean) => void;
   toggleProject: (projectId: string) => void;
@@ -20,6 +24,8 @@ export const useNavigationStore = create<NavigationState>()(
     (set) => ({
       projectId: "prj_harness",
       sessionId: "ses_1",
+      sidebarWidth: 268,
+      resourceWidth: 340,
       sidebarCollapsed: false,
       mobileSidebarOpen: false,
       expandedProjects: { prj_harness: true, prj_docs: true },
@@ -27,6 +33,10 @@ export const useNavigationStore = create<NavigationState>()(
 
       selectSession: (sessionId, projectId) =>
         set({ sessionId, projectId, mobileSidebarOpen: false }),
+
+      setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
+
+      setResourceWidth: (resourceWidth) => set({ resourceWidth }),
 
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
@@ -48,6 +58,8 @@ export const useNavigationStore = create<NavigationState>()(
       partialize: (state) => ({
         projectId: state.projectId,
         sessionId: state.sessionId,
+        sidebarWidth: state.sidebarWidth,
+        resourceWidth: state.resourceWidth,
         sidebarCollapsed: state.sidebarCollapsed,
         expandedProjects: state.expandedProjects,
       }),

@@ -30,6 +30,7 @@ const icons = {
 export function ProjectResourceSidebar() {
   const { data } = useSnapshot();
   const projectId = useNavigationStore((state) => state.projectId);
+  const resourceWidth = useNavigationStore((state) => state.resourceWidth);
   const project = data.projects.find((item) => item.id === projectId) ?? null;
   const projectServices = data.services.filter((service) => service.projectId === projectId);
   const projectTerminals = data.terminals.filter((terminal) => terminal.projectId === projectId);
@@ -79,7 +80,8 @@ export function ProjectResourceSidebar() {
   return (
     <aside
       aria-label="项目资源"
-      className="hidden w-[340px] shrink-0 border-l border-line bg-surface/40 xl:flex xl:flex-col"
+      className="hidden shrink-0 bg-surface/40 xl:flex xl:flex-col"
+      style={{ width: resourceWidth }}
     >
       <div className="flex h-11 shrink-0 items-center gap-2 px-3.5">
         <span className="text-[11px] font-semibold uppercase tracking-[.08em] text-ink-3">

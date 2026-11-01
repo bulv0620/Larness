@@ -22,7 +22,8 @@ import { useTimelineStore } from "@/stores/timelineStore";
 
 export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const { data } = useSnapshot();
-  const { sessionId, expandedProjects, toggleProject, selectSession } = useNavigationStore();
+  const { sessionId, sidebarWidth, expandedProjects, toggleProject, selectSession } =
+    useNavigationStore();
   const extra = useLocalSessionsStore((state) => state.extra);
   const isStreaming = useTimelineStore((state) => state.isStreaming);
   const newSession = useNewSession();
@@ -61,9 +62,10 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   return (
     <aside
       className={cn(
-        "w-[268px] shrink-0 flex-col border-r border-line bg-surface/45",
+        "shrink-0 flex-col bg-surface/45",
         mobile ? "flex h-full bg-surface" : "hidden md:flex",
       )}
+      style={{ width: mobile ? 268 : sidebarWidth }}
       aria-label="项目与会话导航"
     >
       <div className="flex h-12 shrink-0 items-center gap-2 px-3.5">
