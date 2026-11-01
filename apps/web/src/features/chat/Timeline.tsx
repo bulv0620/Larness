@@ -1,27 +1,11 @@
 import type { ApprovalItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
-import {
-  Check,
-  ChevronDown,
-  Loader2,
-  MessageSquareText,
-  ShieldAlert,
-  Sparkles,
-  Wrench,
-  XCircle,
-} from "lucide-react";
+import { Check, ChevronDown, Loader2, ShieldAlert, Sparkles, Wrench, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TimelineItemView } from "@/features/chat/TimelineItemView";
-import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
-
-const suggestions = [
-  "把首页改成三栏工作台，并补上窗口层。",
-  "检查当前端口，启动 dev server 并在浏览器预览。",
-  "总结最近的 Git 改动，生成一段发布说明。",
-];
 
 function TimelineItems({ items }: { items: TimelineItem[] }) {
   const lastAssistantByTurn = new Map<string, number>();
@@ -174,9 +158,7 @@ function TurnActivity() {
 export function Timeline() {
   const items = useTimelineStore((state) => state.items);
   const loading = useTimelineStore((state) => state.loading);
-  const focusComposer = useNavigationStore((state) => state.focusComposer);
   const hasSession = useNavigationStore((state) => Boolean(state.sessionId));
-  const setDraft = useComposerStore((state) => state.setDraft);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
 
@@ -222,22 +204,6 @@ export function Timeline() {
             title="开始新的对话"
             description="描述你想完成的任务，Agent 会读取项目、调用工具并在这里展示执行过程。"
           />
-          <div className="mt-1 grid gap-1.5">
-            {suggestions.map((suggestion) => (
-              <button
-                key={suggestion}
-                type="button"
-                onClick={() => {
-                  setDraft(suggestion);
-                  focusComposer();
-                }}
-                className="flex items-center gap-2 rounded-xl border border-line bg-surface/70 px-3 py-2 text-left text-[11.5px] text-ink-2 transition-colors hover:border-accent/25 hover:bg-accent-soft/50 hover:text-ink"
-              >
-                <MessageSquareText size={13} className="shrink-0 text-accent" />
-                <span>{suggestion}</span>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     );
