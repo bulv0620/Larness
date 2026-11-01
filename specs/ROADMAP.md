@@ -7,7 +7,7 @@
 
 | 阶段 | 名称 | spec | 状态 | 门禁 |
 |---|---|---|---|---|
-| S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `active` | G-S0 |
+| S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `ready` | G0 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `ready` | G1 |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `draft` | G2 |
@@ -37,7 +37,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-8
 | D0-6 | 窗口层 | WindowManager、拖动 / 缩放 / 层级 / 置顶 / 最小化 / 最大化 / 关闭、顶部入口恢复 | D0-2 | `done` |
 | D0-7 | 资源窗口内容 | 文件（Monaco 只读）、终端（fake 输出）、服务（状态 / 日志）、浏览器（iframe 占位）、Git Diff | D0-6 | `done` |
 | D0-8 | 响应式、键盘与可访问性 | 窄屏降级、Ctrl+K / Ctrl+B / Esc、焦点可见、ARIA、无遮挡菜单 | D0-3 ~ D0-7 | `done` |
-| D0-9 | Demo 验收与视觉基线 | Playwright 冒烟与截图、验收清单、人类验收记录 | D0-8 | `review` |
+| D0-9 | Demo 验收与视觉基线 | Playwright 冒烟与截图、验收清单、人类验收记录 | D0-8 | `done` |
 
 ## 3. M0 工程底座与可信启动
 
@@ -120,6 +120,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-8
 - 对齐 `larness.md` 7.1 六条：三栏 / 主题 / 右栏分区 / 红黄绿浮窗 / 输入框聚焦 / Mock 对话与审批；
 - 无底部 Dock、无模拟系统标题栏、无最左侧活动栏；
 - 桌面 1440×900 与窄屏各有一组截图；人类确认。
+- **状态：通过（2026-11-01）**。
 
 ### G0 可信启动与认证
 

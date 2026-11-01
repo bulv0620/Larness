@@ -2,17 +2,18 @@
 id: 000-visual-demo
 title: S0 视觉 Demo
 milestone: S0
-status: active
+status: done
 depends_on: []
 owners: [human]
 created: 2026-10-31
-updated: 2026-10-31
+updated: 2026-11-01
 ---
 
 # S0 视觉 Demo
 
 > 源设计：`larness.md` 第 3、7.1、20 章；本切片是**第 0 步**，先建立可交互的视觉与交互基线。
 > 重要：Demo 的数据全部来自 Mock，不代表任何后端能力已完成；禁止用 Demo 冒充真实功能。
+> 状态：S0 已完成，人类验收于 2026-11-01 通过；截图与记录见 [acceptance.md](acceptance.md)。
 
 ## 1. 背景与问题
 
