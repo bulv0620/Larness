@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-01 19:10 (+08:00)
-> 当前阶段：**M1 自动化验收通过；真实 DeepSeek 冒烟待 Key（G1 未关闭）**
+> 最后更新：2026-11-01 19:15 (+08:00)
+> 当前阶段：**M1 完成，G1 通过（2026-11-01）；下一步补全 M2 spec**
 
 ## 里程碑
 
@@ -9,7 +9,7 @@
 |---|---|---|---|
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
-| M1 | 项目、会话与最小 Agent | `in_progress` | M1-8 自动化完成；真实 DeepSeek 冒烟待 Key |
+| M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01）；M1-1 ~ M1-8 完成 |
 | M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
@@ -17,12 +17,12 @@
 
 ## 当前工作
 
-- 待关闭：`M1-8` — M1 验收与 E2E（分支 `task/m1-8-acceptance`）
+- 刚完成：`M1-8` — M1 验收与 E2E（分支 `task/m1-8-acceptance`）
   - 新增 M1 全链路 E2E：配对 → 添加项目 → 新建会话 → 工具 → 严格审批 → 补丁 → 刷新恢复 → 切模型 → 添加 Key（掩码）→ 停止；
   - E2E Server 注入 FakeProvider；TurnQueue / 工具 / 审批 / SQLite / 事件 / WS 均为真实实现；
-  - 自动化：`pnpm check`（agent 32 / server 236 / web 23）、`pnpm build`、demo E2E 15、认证 + M1 E2E 2、生产 E2E 2 全部通过；
-  - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)；A1–A14 与 G1 逐项映射；
-  - **剩余人工项**：真实 DeepSeek 工具调用冒烟（无 `DEEPSEEK_API_KEY`，未执行）；G1 不关闭，暂不进入 M2。
+  - 自动化：`pnpm check`（agent 33 / server 236 / web 23）、`pnpm build`、demo E2E 15、认证 + M1 E2E 2、生产 E2E 2 全部通过；
+  - 真实 DeepSeek live smoke 通过：`deepseek-chat` 流式工具调用，6 文件 / 33 测试，654 ms，无 Key 明文；
+  - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)；A1–A14 与 G1 全部通过。
 - 刚完成：`M1-7` — 模型 Profile 与 SecretStore（分支 `task/m1-7-secrets`）
   - `0004_models` 迁移：`secrets` / `credential_profiles` / `model_profiles`；启动时幂等 seed `deepseek-default`；
   - SecretStore：AES-256-GCM、随机 nonce、主密钥 `secrets/master.key`（0600）、错误密钥 / 篡改 fail closed；
@@ -109,7 +109,7 @@
 - 刚完成：`M0-2` — 配置、数据目录、日志与诊断（分支 `task/m0-2-config-paths-logging`，已合入 main）
   - 数据目录 0700 / 子目录 / 权限收紧、`config.json` Zod + 环境变量覆盖、canonical origin / RP ID 推导（拒绝 IP 与远程 http Passkey）；
   - pino + pino-roll 日志（0600、按日 / 100m 轮转、脱敏）、`larness.lock` 单实例、幂等关闭、`status` / `doctor`。
-- 下一个任务：等待真实 DeepSeek 冒烟；G1 关闭后进入 M2（需先补全 M2 spec）
+- 下一个任务：`M2` spec 补全（当前 `draft`，需人类确认后开工）
 - 阻塞项：无
 - 待确认：CI 首次 push 结果（仓库暂无 remote）。
 
@@ -178,3 +178,4 @@
 | 2026-11-01 | M1-6 完成：真实项目 / 会话 / 事件 / 审批 UI；项目与重命名对话框、新建 / 归档会话、WS 补拉 reducer、Composer 发送 / 停止、真实审批；web 23 / server 227 / agent 32 测试；demo 与认证 E2E 通过 |
 | 2026-11-01 | M1-7 完成：`0004_models`、AES-256-GCM SecretStore、模型 / 凭据 API 与设置界面、默认模型、密钥脱敏与删除引用保护；agent 32 / server 236 / web 23 测试 |
 | 2026-11-01 | M1-8 自动化完成：M1 全链路 E2E（项目 / 工具 / 审批 / 刷新 / 切模型 / 停止）、验收记录；check / build / demo E2E / auth+prod E2E 全绿；真实 DeepSeek 冒烟待 Key，G1 未关闭 |
+| 2026-11-01 | M1-8 关闭：真实 DeepSeek live smoke 通过（33 tests / 654ms，工具调用，无 Key 泄漏）；G1 通过；M1 完成 |

@@ -1,6 +1,6 @@
 # M1 验收记录（G1）
 
-> 状态：**自动化验收通过；真实 DeepSeek 冒烟待 Key，G1 未关闭。**
+> 状态：**G1 通过（2026-11-01）。A1–A14、FakeProvider 状态机、真实 DeepSeek 工具调用、刷新恢复与取消均有记录。**
 > 日期：2026-11-01 · 平台：macOS（Darwin 27，arm64，Node 20.19.3）
 > 对应门禁：[ROADMAP G1](../../specs/ROADMAP.md)、[spec 完成定义](spec.md#14-完成定义)
 
@@ -8,12 +8,12 @@
 
 | 命令 | 结果 |
 |---|---|
-| `pnpm check` | 通过：Biome 290 文件；agent 32 项、server 236 项、web 23 项测试 |
+| `pnpm check` | 通过：Biome 291 文件；agent 33 项（含真实 DeepSeek live）、server 236 项、web 23 项测试 |
 | `pnpm build` | 通过：server 四入口 + web 静态构建 |
 | `pnpm test:e2e` | 15/15 通过（S0 Mock Demo，`VITE_USE_MOCKS=1`） |
 | `pnpm test:e2e:auth` | 2/2 通过（真实 Server + Vite；虚拟认证器；含 M1 全流程） |
 | `pnpm test:e2e:prod` | 2/2 通过（Server 3210 静态托管；含 M1 全流程） |
-| 真实 DeepSeek 工具调用 | **未执行**：当前环境没有 `DEEPSEEK_API_KEY`；见第 5 节 |
+| 真实 DeepSeek 工具调用 | 通过：live smoke 654ms，见第 5 节 |
 
 ## 2. M1 E2E 场景（`e2e-auth/m1.spec.ts`）
 
@@ -33,7 +33,7 @@
 
 | 门禁项 | 证据 | 状态 |
 |---|---|---|
-| DeepSeek 至少一个流式工具调用场景 | Adapter 映射测试 + `DEEPSEEK_API_KEY` 门控 live test；真实调用未执行 | **待人工冒烟** |
+| DeepSeek 至少一个流式工具调用场景 | Adapter 映射测试 + 真实 live smoke（第 5 节） | 通过 |
 | FakeProvider 覆盖状态机 | `test/agent/turnRunner.test.ts`、`test/agent/queue.test.ts`、E2E | 通过 |
 | 同会话并发 Turn 被拒绝 / 排队 | `test/sessions/turns.test.ts`、`test/agent/queue.test.ts` | 通过 |
 | 文件版本冲突不静默覆盖 | `test/projects/pathGuard.test.ts`、`test/tools/fileService.test.ts`、`test/agent/toolExecutor.test.ts` | 通过 |
@@ -60,25 +60,29 @@
 | A13 幂等 | `turns.test.ts`、`sessions/api.test.ts` |
 | A14 同项目写串行 | `locks/service.test.ts`、`projectWriteLock.test.ts`、`turnRunner.test.ts` 锁释放 |
 
-## 5. 真实 DeepSeek 冒烟（待执行）
+## 5. 真实 DeepSeek 冒烟（2026-11-01，通过）
 
-无 Key 时不得宣称 G1 关闭。提供 Key 后执行：
+执行命令：
 
 ```bash
 LARNESS_DEEPSEEK_SMOKE=1 DEEPSEEK_API_KEY=... \
   pnpm --filter @larness/agent test
 ```
 
-或在完成设置的机器上通过“设置与模型”添加 Key，新建会话发送“读取并修改项目文件”执行一次真实工具调用，并记录：
+结果：
 
-- 日期 / 模型（默认 `deepseek-chat`）；
-- 工具调用名称与结果；
-- Turn 状态与事件序列；
-- 日志 / 事件 / API 响应中无 Key 明文。
+- 6 个测试文件、33 项测试全部通过；
+- `deepseek.live.test.ts` 用时 654 ms；
+- 模型 `deepseek-chat` 返回流式工具调用（`tool-call`），无 provider 错误；
+- 测试输出、日志与响应中未出现 Key 明文；
+- AI SDK 仅提示 messages 中 system 消息的安全警告，不影响本次工具调用。
+
+该记录满足 G1 “DeepSeek 至少一个可用的流式工具调用场景”。
 
 ## 6. 已知偏差
 
 - `assistant.delta` 未广播；当前实时性以工具 / 状态事件和最终 `assistant.message` 为准。
 - `POST /api/models/:id/test` 可选项未实现。
-- 自动化 E2E 使用 FakeProvider；真实 DeepSeek 冒烟是关闭 G1 的剩余人工项。
+- 自动化 E2E 使用 FakeProvider；真实 DeepSeek 调用由第 5 节的 live smoke 单独覆盖。
+- AI SDK 对 messages 中的 system 内容给出注入风险警告；M1 的系统策略与项目指令仍按受控文本处理，后续可改为独立 `system` 参数。
 - 资源窗口（文件 / 终端 / 服务 / Git）属于 M2，当前为占位。
