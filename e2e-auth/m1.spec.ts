@@ -37,7 +37,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
   await expect
     .poll(
       async () => {
-        const response = await request.get("http://127.0.0.1:3210/api/bootstrap");
+        const response = await request.get("/api/bootstrap");
         const body = (await response.json()) as { initialized?: boolean };
         return body.initialized;
       },
@@ -68,7 +68,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
 
     await page.getByRole("button", { name: "添加项目" }).click();
     const projectDialog = page.getByRole("dialog");
-    await projectDialog.getByLabel("目录路径").fill(projectDir);
+    await projectDialog.getByLabel("项目目录").fill(projectDir);
     await projectDialog.getByRole("button", { name: "添加项目" }).click();
     await expect(page.getByText(projectName).first()).toBeVisible({ timeout: 10_000 });
 

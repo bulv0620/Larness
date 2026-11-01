@@ -36,7 +36,7 @@ test("pair, register a passkey, log in, and get logged out after revocation", as
   await expect
     .poll(
       async () => {
-        const response = await request.get("http://127.0.0.1:3210/api/bootstrap");
+        const response = await request.get("/api/bootstrap");
         const body = (await response.json()) as { initialized?: boolean };
         return body.initialized;
       },

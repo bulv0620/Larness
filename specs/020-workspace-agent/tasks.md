@@ -15,6 +15,7 @@
 | M1-6 | 实时对话 UI | M1-5, M0-8 | `done` |
 | M1-7 | 模型 Profile 与 SecretStore | M1-3 | `done` |
 | M1-8 | M1 验收与 E2E | M1-6, M1-7 | `review` |
+| M1-9 | 项目目录选择器 | M1-1 | `review` |
 
 ## 任务卡
 
@@ -204,3 +205,21 @@
   - 验收记录 `acceptance.md`，含 A1–A14 / G1 映射与真实 Key 冒烟步骤；
   - 真实 DeepSeek live smoke：2026-11-01 通过（33 tests、654ms、`deepseek-chat` 工具调用，无 Key 泄漏）；
   - **待人类验收**：按 acceptance 第 7 节执行真实 UI / Key / 刷新 / 停止 / 切模型 / 视觉检查并签字；G1 尚未关闭。
+
+### M1-9 项目目录选择器
+
+- 状态：`review`（2026-11-01）
+- 依赖：M1-1
+- 目标：让“添加项目”不必手写绝对路径，同时不扩大远程文件枚举面。
+- 交付物：
+  - `GET /api/fs/directories`：本机 loopback + 已认证，只列目录，跳过符号链接与文件，最多 500 项；
+  - 项目对话框目录树：主目录 / 上一级 / 刷新 / 选择当前目录，保留手动路径输入；
+  - 契约、测试与人工验收清单更新。
+- 验收：本地可选到目录；远程请求 403；文件 / 相对路径 / 不存在目录被拒绝；密钥与文件内容不出现在响应。
+- 测试：API 目录过滤、loopback 限制、项目对话框 E2E 路径选择。
+- 涉及路径：`apps/server/src/api/fs.ts`、`apps/web/src/features/projects/ProjectDialog.tsx`、`docs/contracts/rest-api.md`。
+- 完成记录：
+  - `GET /api/fs/directories`：loopback + 已认证、只列目录、跳过符号链接、最多 500 项、realpath / 错误码处理；
+  - 项目对话框目录树：主目录 / 上一级 / 刷新 / 选择当前目录，保留手动绝对路径；
+  - 测试：server API 目录过滤与 loopback / 文件 / 相对路径 / 不存在目录；web `ProjectDialog` 组件测试；`pnpm check`（agent 32 / server 237 / web 24）与 `pnpm build` 通过；
+  - M1 E2E 仍使用手动路径（临时目录在 home 之外，沙箱无法创建 home 目录）；目录树由组件测试覆盖，待人工验收第 2 步确认。

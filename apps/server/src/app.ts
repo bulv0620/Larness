@@ -4,6 +4,7 @@ import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { registerApprovalRoutes } from "./api/approvals.js";
 import { registerAuthRoutes } from "./api/auth.js";
 import { registerBootstrapRoutes } from "./api/bootstrap.js";
+import { registerFsRoutes } from "./api/fs.js";
 import { registerHealthRoute } from "./api/health.js";
 import { registerModelRoutes } from "./api/models.js";
 import { registerPairingRoutes } from "./api/pairing.js";
@@ -79,6 +80,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       });
     }
     registerApprovalRoutes(app, { db: options.services.db });
+    registerFsRoutes(app);
     registerProjectRoutes(app, { db: options.services.db });
     registerSessionRoutes(app, {
       db: options.services.db,

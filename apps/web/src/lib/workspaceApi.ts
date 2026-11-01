@@ -93,6 +93,19 @@ export interface ApiCredential {
   createdAt: number;
 }
 
+export interface DirectoryListing {
+  path: string;
+  parent: string | null;
+  home: string;
+  entries: Array<{ name: string; path: string }>;
+  truncated: boolean;
+}
+
+export async function listDirectories(directory?: string): Promise<DirectoryListing> {
+  const query = directory === undefined ? "" : `?path=${encodeURIComponent(directory)}`;
+  return apiFetch<DirectoryListing>(`/api/fs/directories${query}`);
+}
+
 export async function listProjects(): Promise<ApiProject[]> {
   const response = await apiFetch<{ projects: ApiProject[] }>("/api/projects");
   return response.projects;

@@ -272,6 +272,7 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
+| GET | `/api/fs/directories?path=` | 本机 loopback 专用；只返回目录 `{ path, parent, home, entries, truncated }`，不返回文件内容 |
 | GET | `/api/projects` | `{ projects: Project[] }`，按 `updatedAt` 倒序 |
 | POST | `/api/projects` | `{ name?, rootPath }`；校验目录存在、可读、realpath；201 |
 | GET | `/api/projects/:id` | 详情 |

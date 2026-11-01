@@ -60,6 +60,7 @@ M1 只做“文件工具 + 对话”，不实现终端、命令执行、Git、�
 | ID | 需求 |
 |---|---|
 | R-1 | `POST /api/projects` 接受 `{name, rootPath}`；路径必须存在、是目录、可读；保存 `realpath`。 |
+| R-1a | Web 添加项目时必须提供目录树选择器：`GET /api/fs/directories` 仅允许本机 loopback、只返回目录（不读文件内容、不跟随符号链接），供管理员选择项目根目录；手动绝对路径仍保留。 |
 | R-2 | 名称默认取目录名；同一 `real_path` 不允许重复登记（可提示已有项目）。 |
 | R-3 | Git 检测使用 `git -C <root> rev-parse --show-toplevel`，5 秒超时；无 Git 不阻塞项目使用。 |
 | R-4 | 删除项目只删数据库记录与关联视图，**不删除磁盘目录**；会话保留但 `project_id` 置空或归档。 |

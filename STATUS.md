@@ -17,6 +17,11 @@
 
 ## 当前工作
 
+- 待人工验收：`M1-9` — 项目目录选择器
+  - `GET /api/fs/directories`：loopback + 已认证、仅目录、跳过符号链接、最多 500 项；
+  - 项目对话框目录树（主目录 / 上一级 / 刷新 / 选择当前目录），保留手动路径；
+  - 验证：server API 测试、web `ProjectDialog` 组件测试、`pnpm check` / `build` 通过；M1 E2E 使用手动路径回退；
+  - 人工验收时重点确认目录树实际可用。
 - 待人类验收：`M1-8` — M1 验收与 E2E（分支 `task/m1-8-acceptance`）
   - 新增 M1 全链路 E2E：配对 → 添加项目 → 新建会话 → 工具 → 严格审批 → 补丁 → 刷新恢复 → 切模型 → 添加 Key（掩码）→ 停止；
   - E2E Server 注入 FakeProvider；TurnQueue / 工具 / 审批 / SQLite / 事件 / WS 均为真实实现；
@@ -180,3 +185,4 @@
 | 2026-11-01 | M1-7 完成：`0004_models`、AES-256-GCM SecretStore、模型 / 凭据 API 与设置界面、默认模型、密钥脱敏与删除引用保护；agent 32 / server 236 / web 23 测试 |
 | 2026-11-01 | M1-8 自动化完成：M1 全链路 E2E（项目 / 工具 / 审批 / 刷新 / 切模型 / 停止）、验收记录；check / build / demo E2E / auth+prod E2E 全绿；真实 DeepSeek 冒烟待 Key，G1 未关闭 |
 | 2026-11-01 | M1-8 自动化通过：真实 DeepSeek live smoke 通过（33 tests / 654ms）；G1 仍需人类按 acceptance 第 7 节验收 |
+| 2026-11-01 | M1-9 目录选择器实现：本机目录浏览 API + 项目对话框目录树；server 237 / web 24 测试通过；待人工验收 |
