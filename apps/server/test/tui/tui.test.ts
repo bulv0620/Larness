@@ -170,6 +170,79 @@ describe("TUI pairing view", () => {
     expect(output.join("\n")).toContain("ABCDE-12345");
   });
 
+  it.each(["a", "t"])("keeps the code visible until Enter after approval %s", async (choice) => {
+    const output: string[] = [];
+    const answers = ["123456", choice, "y"];
+    let resume: (value: string) => void = () => {
+      throw new Error("pause prompt not shown");
+    };
+    const ask = vi.fn(async () => {
+      const answer = answers.shift();
+      if (answer !== undefined) return answer;
+      return new Promise<string>((resolve) => {
+        resume = resolve;
+      });
+    });
+    let returned = false;
+    const view = runPairingView({
+      client: {
+        request: async (method) =>
+          method === "pairing.list" ? { requests: [item] } : { code: "abcde12345", expiresAt: 0 },
+      },
+      out: (text) => output.push(text),
+      ask,
+    }).then(() => {
+      returned = true;
+    });
+    await vi.waitFor(() => expect(output.join("\n")).toContain("ABCDE-12345"));
+    expect(ask).toHaveBeenLastCalledWith("按回车返回控制面板: ");
+    expect(returned).toBe(false);
+    resume("");
+    await view;
+    expect(returned).toBe(true);
+  });
+
+  it("does not pause for a code when approval fails", async () => {
+    const output: string[] = [];
+    const answers = ["123456", "a", "y"];
+    const ask = vi.fn(async () => answers.shift() ?? "");
+    await runPairingView({
+      client: {
+        request: async (method) => {
+          if (method === "pairing.list") return { requests: [item] };
+          throw new Error("approval expired");
+        },
+      },
+      out: (text) => output.push(text),
+      ask,
+    });
+    expect(ask).toHaveBeenCalledTimes(3);
+    expect(output.join("\n")).toContain("审批失败");
+    expect(output.join("\n")).not.toContain("配对码:");
+  });
+
+  it("propagates cancellation of the pause without reporting approval failure", async () => {
+    const output: string[] = [];
+    const answers = ["123456", "a", "y"];
+    const cancelled = new Error("input cancelled");
+    await expect(
+      runPairingView({
+        client: {
+          request: async (method) =>
+            method === "pairing.list" ? { requests: [item] } : { code: "abcde12345", expiresAt: 0 },
+        },
+        out: (text) => output.push(text),
+        ask: async () => {
+          const answer = answers.shift();
+          if (answer !== undefined) return answer;
+          throw cancelled;
+        },
+      }),
+    ).rejects.toBe(cancelled);
+    expect(output.join("\n")).toContain("ABCDE-12345");
+    expect(output.join("\n")).not.toContain("审批失败");
+  });
+
   it("refuses trust for non-canonical requests", async () => {
     const output: string[] = [];
     const answers = ["123456", "t"];

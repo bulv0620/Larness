@@ -111,5 +111,8 @@ export async function runPairingView(deps: PairingViewDeps): Promise<void> {
     );
   } catch (error) {
     deps.out(`审批失败: ${error instanceof Error ? error.message : String(error)}`);
+    return;
   }
+
+  await deps.ask("按回车返回控制面板: ");
 }

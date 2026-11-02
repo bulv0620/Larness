@@ -32,6 +32,8 @@ created: 2026-11-02
 8. Given 未发布的开发契约，When 执行 I0-6，Then IPC hello 返回 protocolVersion=1，当前无密码/可选网络参数契约保留，不新增旧参数适配。
 9. Given 人类明确授权本地重置，When 检查进程与数据目录并完成清理，Then 已确认的 Larness 开发/生产配置及遗留测试数据消失，项目源码保留；测试使用临时目录，结束后默认数据目录仍不存在。
 
+10. Given 本机批准 allow_once 或 trust 并显示一次性配对码，When 尚未按回车，Then TUI 停留展示配对码，不能返回/刷新控制面板；按回车后才返回。审批失败不进入配对码停留步骤，等待取消按原有退出流程处理；不改变配对码有效期、消费与鉴权。
+
 ## 接口与数据
 
 - REST/WS 无新增；config.json 已有键、IPC init.apply 响应保持兼容。ADR-025 / ADR-026：IPC protocolVersion=1（撤回本次 v2），init.apply 移除 adminPassword 并将网络字段设为可选补丁；旧密码字段拒绝，历史 admin_hash 保留、新实例写空标记。

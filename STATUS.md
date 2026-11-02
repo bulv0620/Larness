@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-02 (+08:00)
-> 当前阶段：**M1 / G1 已验收，初始化修复 I0-1～I0-6 完成；下一步补全 M2 spec**
+> 当前阶段：**M1 / G1 已验收，初始化与 TUI 修复 I0-1～I0-7 完成；下一步补全 M2 spec**
 
 ## 里程碑
 
@@ -39,6 +39,12 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 已删除 `/Users/bulv/Library/Application Support/larness`、`/Users/bulv/Library/Application Support/larness-prod` 及 64 项已识别临时测试数据/日志；清理前已确认相关进程退出、会话工作区无源码文件。项目源码和依赖保留。
 - check / build / 真实构建 smoke 均通过；测试结束后两数据目录仍不存在，遗留测试数据目录为 0。
 - 下次运行需重新初始化、配对浏览器与配置模型凭据。无进行中任务，下一步仍为 M2 G-Spec。
+
+## TUI 配对码停留（2026-11-02 / I0-7）
+
+- 已完成：配对码显示后等待回车再返回控制面板；task/i0-7-pairing-code-pause。
+- allow_once / trust 均覆盖；审批失败不等待，取消输入不误报审批失败；配对码有效期及接口无变更。
+- 测试先失败后通过；pnpm check（server 269 / agent 32 / web 26）、pnpm build 通过。无进行中补充任务，下一步仍为 M2 G-Spec。
 
 ## 当前工作
 

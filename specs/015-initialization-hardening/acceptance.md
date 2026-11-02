@@ -38,3 +38,9 @@ I0-5 最终 `pnpm check`（server 263 / agent 32 / web 26）、`pnpm build`、`p
 - 清理前预览范围、核实进程已退出、会话工作区无源码文件；按用户明确删除授权清空标准开发和生产数据目录，以及 64 项遗留临时测试数据/日志。未删除项目源码、依赖或浏览器全局数据；未创建用户未要求的备份。
 - 清理目标：`/Users/bulv/Library/Application Support/larness`、`/Users/bulv/Library/Application Support/larness-prod`，系统临时目录内已识别的 Larness 测试残留。
 - 验收后确认上述两数据目录不存在，识别出的测试数据目录残留为 0。下次运行重新初始化、配对和配置模型凭据。
+
+## I0-7 配对码显示后等待回车（2026-11-02）
+
+- 新增测试先失败：allow_once / trust 显示后直接返回、取消等待未传播；最小实现后通过。
+- 验证未按回车时配对视图仍挂起，回车后返回；审批失败不进入等待，取消输入不被误报为审批失败。
+- `pnpm check`（server 269 / agent 32 / web 26）、`pnpm build` 通过；仅本机 TUI 停留交互调整，无接口/数据库/有效期变更，不重复浏览器 E2E。

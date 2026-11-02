@@ -243,7 +243,7 @@ onError: 统一错误码 + requestId；5xx 记录堆栈，4xx 不记录堆栈
 - `pnpm dev` / `node app.js` → supervisor 启动 Server（开发模式另起 Vite）→ 启动检查 → TUI；TUI 通过 IPC 连接。
 - 启动页显示数据目录、Server、Web、IPC 检查；关闭 TUI 停止 Server 与 Web（ADR-023）。
 - 初始化（ADR-024/025）：默认有效配置、可选高级网络设置，展示 canonical origin / RP ID；不设置密码、不询问更新通道。config.json 与初始化事务通过 init_pending 恢复，发布后有效配置变化由 supervisor 重启应用。历史哈希保留，新实例为空标记。
-- 配对审批：`允许本次` / `始终允许（注册 Passkey）` / 拒绝；批准后展示配对码。
+- 配对审批：`允许本次` / `始终允许（注册 Passkey）` / 拒绝；批准后展示配对码，等待操作者按回车再返回控制面板（I0-7）。
 - 设备列表：标签、credential 类型、backup 标志、最后使用、状态；`r` 撤销（二次确认）。
 - 退出 TUI 停止 Server 与 Web；`server.shutdown` 仍可用于显式关闭。日志作为 TUI 模块展示。
 
