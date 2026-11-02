@@ -46,12 +46,12 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - allow_once / trust 均覆盖；审批失败不等待，取消输入不误报审批失败；配对码有效期及接口无变更。
 - 测试先失败后通过；pnpm check（server 269 / agent 32 / web 26）、pnpm build 通过。无进行中补充任务，下一步仍为 M2 G-Spec。
 
-## TUI 优化方案（仅文档，2026-11-02）
+## TUI 优化方案（文档已补全，2026-11-02）
 
-- 新增 [016 spec](specs/016-tui-experience/spec.md)、plan/tasks 草案，status=draft；本次按人类要求仅更新规划文档，未修改实现代码或测试。
-- 范围：独立屏幕重绘、精简概览、配对/设备/日志/审计页面、统一停留与返回、退出确认及终端恢复。
-- 拟按 T0-1 页面基础 → T0-2 配对/设备 → T0-3 日志/审计顺序实施，均未开始；待人类确认 G-Spec-TUI、输入/渲染选型及相对 M2 的优先级。
-- 现行行为和 ADR-023 保持，未把草案记为已验收能力。
+- [016 spec](specs/016-tui-experience/spec.md) 内容已补齐：16 项验收场景、页面/按键、日志快照与滚动、写超时结果待确认、请求竞态、初始化/终端恢复、任务与验收映射。
+- 配套 [页面契约提案](docs/contracts/tui.md)、[ADR-027](docs/adr/ADR-027-tui-screen-and-input.md) proposed、[G-Spec 清单](specs/016-tui-experience/review.md)。技术提案明确单一输入所有者、Node 内置终端能力及已在锁文件中的纯 JS 宽度工具，不增加原生库。
+- spec 保持 draft：待人类确认 G-Spec-TUI / ADR-027 与相对 M2 的优先级（Q-020）。T0-1 → T0-2 → T0-3 均 todo，未开始实施；未更改现行行为/依赖/测试/运行数据。
+- 本次只完成设计文档；现有仓库检查不代表新 TUI 验收通过。
 
 ## 当前工作
 

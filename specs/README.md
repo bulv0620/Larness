@@ -9,6 +9,7 @@ specs/
   ROADMAP.md              # 里程碑、任务、依赖、门禁（唯一进度总表）
   000-visual-demo/        # S0 视觉 Demo
   010-foundation/         # M0 工程底座与可信启动
+  016-tui-experience/     # TUI 交互统一（内容已补全，待人类评审）
   020-workspace-agent/    # M1 项目、会话与最小 Agent
   030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（draft）
   040-services-preview/   # M3 服务与预览（draft）
@@ -82,6 +83,7 @@ depends_on: [010-foundation]
 | `000-visual-demo` | done | 已验收（G-S0 通过，`D0-9` done） |
 | `010-foundation` | ready | 可信启动与认证 |
 | `020-workspace-agent` | ready | 项目 / 会话 / 最小 Agent |
+| `016-tui-experience` | draft | 内容已补全，待 G-Spec-TUI / ADR-027 人类确认，不授权实现 |
 | `030`–`060` | draft | 启动对应里程碑前补全 |
 
 详细任务与依赖见 [ROADMAP.md](ROADMAP.md)。

@@ -44,6 +44,10 @@
 
 - [ADR-026 开发期直接调整契约，撤回 IPC v2](ADR-026-development-contract-reset.md)：accepted，2026-11-02 人类明确批准；替代 ADR-025 的 v2 升级条款，授权本次本地数据清理。
 
+## 待评审提案
+
+- [ADR-027 TUI 独立屏幕与单一输入所有者](ADR-027-tui-screen-and-input.md)：proposed；016 spec 内容已补全，待 G-Spec-TUI 与人类选型批准；未安装依赖或修改运行行为。
+
 ## 3. 变更流程
 
 1. 复制模板生成新 ADR，状态 `proposed`。

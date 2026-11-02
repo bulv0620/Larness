@@ -93,11 +93,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 ## 4.2 TUI 页面与交互统一（仅规划，2026-11-02）
 
-[016 spec](016-tui-experience/spec.md) 为 draft；人类本次仅要求更新 spec，不授权实现。G-Spec-TUI 及相对 M2 的实施优先级待确认；本节不改变已冻结里程碑顺序。
+[016 spec](016-tui-experience/spec.md) 内容已补全，配套 [评审清单](016-tui-experience/review.md)、[页面契约提案](../docs/contracts/tui.md) 和 [ADR-027](../docs/adr/ADR-027-tui-screen-and-input.md)。状态仍为 draft，本次不授权实现；G-Spec-TUI / ADR-027 及相对 M2 优先级待人类确认，不自行调整里程碑顺序。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| T0-1 | 页面容器、导航、概览与退出恢复 | G-Spec-TUI（未通过） | `todo` |
+| T0-1 | 页面容器、输入所有权、概览与退出恢复 | I0-7 done；G-Spec-TUI / ADR-027（未通过） | `todo` |
 | T0-2 | 配对与设备页面统一 | T0-1 | `todo` |
 | T0-3 | 日志/审计阅读页与整体验收 | T0-2 | `todo` |
 
