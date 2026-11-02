@@ -26,7 +26,7 @@ import { SERVER_VERSION } from "../version.js";
 import { publishAgentEvent } from "../ws/publisher.js";
 import { type LoadedConfig, loadConfig } from "./config.js";
 import { acquireInstanceLock, type InstanceLock, releaseInstanceLock } from "./lock.js";
-import { startLogRetention } from "./log-retention.js";
+import { pruneExpiredLogs, startLogRetention } from "./log-retention.js";
 import { createLogger, flushLogger } from "./logger.js";
 import { createShutdown, type Shutdown } from "./shutdown.js";
 
@@ -123,6 +123,12 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     runMigrations(opened.db);
     recoverInitialization(opened.db, dataDir);
     const loaded: LoadedConfig = await loadConfig({ dataDir, env });
+    let retentionError: unknown;
+    try {
+      await pruneExpiredLogs(dataDir, loaded.config.logging.retentionDays);
+    } catch (error) {
+      retentionError = error;
+    }
     const activeLogger = createLogger({
       dataDir,
       level: loaded.config.logging.level,
@@ -131,7 +137,14 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       destination: options.logDestination,
     });
     logger = activeLogger;
-    const retention = startLogRetention(dataDir, loaded.config.logging.retentionDays, activeLogger);
+    if (retentionError !== undefined)
+      activeLogger.warn({ err: retentionError }, "log retention failed");
+    const retention = startLogRetention(
+      dataDir,
+      loaded.config.logging.retentionDays,
+      activeLogger,
+      { initialRun: false },
+    );
     logRetention = retention;
 
     const schemaVersion = appliedMigrationCount(opened.sqlite);

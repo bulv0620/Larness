@@ -23,3 +23,9 @@
 - Argon2id 依赖已删除；包管理器最初 store 路径与本地安装不符，显式使用现有 store 后移除成功，lockfile 仅删除该依赖及其专属依赖，无版本升级。
 - 无破坏性迁移，无默认数据目录迁移，七个子目录保持。开发/生产用显式 LARNESS_DATA_DIR 区分。
 - 未宣称 Linux/Windows 人工验证通过；没有新增 Web 密码恢复。
+
+## I0-5 启动顺序补充
+
+验收复查发现日志 worker 与首次清理并发可能删除刚打开的旧轮转文件。新增延迟清理测试先失败（观察到 logger:open → schedule），修复后顺序为 prune:start → prune:finished → logger:open → schedule。启动清理失败在 logger 就绪后可见，每日调度不重复首次执行。
+
+I0-5 最终 `pnpm check`（server 263 / agent 32 / web 26）、`pnpm build`、`pnpm test:smoke:init` 均通过。该补充只改变日志启动顺序，未改 Web/认证，未重复与其无关的浏览器 E2E。

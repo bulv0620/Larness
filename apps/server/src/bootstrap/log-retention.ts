@@ -32,7 +32,7 @@ export function startLogRetention(
   dataDir: string,
   retentionDays: number,
   logger: { warn(fields: Record<string, unknown>, message: string): void },
-  options: { prune?: typeof pruneExpiredLogs } = {},
+  options: { prune?: typeof pruneExpiredLogs; initialRun?: boolean } = {},
 ): { stop(): Promise<void> } {
   const prune = options.prune ?? pruneExpiredLogs;
   let pending: Promise<void> | null = null;
@@ -44,7 +44,7 @@ export function startLogRetention(
         pending = null;
       });
   };
-  run();
+  if (options.initialRun !== false) run();
   const timer = setInterval(run, DAY_MS);
   timer.unref();
   return {

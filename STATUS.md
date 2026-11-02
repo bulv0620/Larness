@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-01 23:10 (+08:00)
-> 当前阶段：**M1 完成，G1 通过（2026-11-01 人类验收）；下一步补全 M2 spec**
+> 最后更新：2026-11-02 (+08:00)
+> 当前阶段：**M1 / G1 已验收，初始化修复 I0-1～I0-5 完成；下一步补全 M2 spec**
 
 ## 里程碑
 
@@ -17,16 +17,20 @@
 
 ## 初始化修复（2026-11-02）
 
-- 已完成：I0-1 日志真实按天保留；分支 task/i0-1-log-retention；开始/完成 2026-11-02（+08:00）。
-- 验收：pnpm check（agent 32 / server 241 / web 26）、pnpm build 通过；先红后绿。
-- 已完成：I0-2 初始化配置保留与崩溃恢复；分支 task/i0-2-init-recovery；2026-11-02（+08:00）。
-- I0-2 验收：pnpm check（server 248 / agent 32 / web 26）、pnpm build 通过；I0-3 已完成（task/i0-3-master-key-validation，2026-11-02）：密钥缺失/错误启动拒绝，空库可创建，恢复原密钥后可用。
-- I0-3 验收：pnpm check（server 251 / agent 32 / web 26）、pnpm build 通过；I0-4 已完成：task/i0-4-init-experience，2026-11-02；取消密码（ADR-025）、可选网络补丁、有效配置预览、受管重启与恢复启动。
-- I0-4 验收：check（server 261 / agent 32 / web 26）、build、真实构建 smoke、Demo 15 / auth 2 / prod 2 E2E 通过，详见 specs/015-initialization-hardening/acceptance.md。
-- 计划：文件配置基线、事务提交待发布配置、启动前恢复、发布完成前业务失败关闭。
-- 计划：先修日志时间保留，再按 I0-2 → I0-3 → I0-4 修复初始化一致性、密钥校验与向导。
-- ADR-024 已于 2026-11-02 获批；人类另明确批准取消首次密码设置、保留历史哈希，纳入 I0-4 / ADR-025。
-- 默认数据目录不变，不做破坏性迁移；密码取消在 I0-4 实施；M2 保持 draft。
+I0-1 → I0-2 → I0-3 → I0-4 → I0-5 已按顺序完成，逐任务先测试再实现并提交。
+
+| ID | 结果 | 分支 |
+|---|---|---|
+| I0-1 | 日志按实际时间保留，跳过无关文件与符号链接 | task/i0-1-log-retention |
+| I0-2 | 保留文件配置，事务提交待发布记录，发布失败业务关闭，启动恢复 | task/i0-2-init-recovery |
+| I0-3 | 已有加密凭据时密钥缺失/错误拒绝启动，恢复原密钥后可用 | task/i0-3-master-key-validation |
+| I0-4 | 取消密码与更新通道询问，沿用有效配置，可选高级网络设置，自动应用配置 | task/i0-4-init-experience |
+| I0-5 | 首次日志清理结束后才打开写入器，消除并发删除旧日志的竞态 | task/i0-5-log-startup-order |
+
+- 最终验收：pnpm check（server 263 / agent 32 / web 26）、pnpm build、真实构建 smoke 通过；I0-4 Demo 15 / auth 2 / prod 2 E2E 通过。[验收记录](specs/015-initialization-hardening/acceptance.md)。
+- ADR-024 / ADR-025 已获人类批准；首次不设置密码，历史哈希不变。IPC 升为 v2，TUI/server 需同步升级；无 Web 密码登录/恢复入口。
+- 默认数据目录及七个子目录保留；开发/生产显式使用独立 LARNESS_DATA_DIR，无破坏性迁移。
+- 无进行中的初始化修复任务；M2 保持 draft，待 G-Spec。
 
 ## 当前工作
 

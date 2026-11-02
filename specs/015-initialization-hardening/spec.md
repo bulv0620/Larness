@@ -27,6 +27,8 @@ created: 2026-11-02
 5. Given 无密码设置，When 本机初始化，Then 不要求密码、历史哈希不变、新实例空标记、旧 IPC 参数被拒绝；Given 首次 TUI 启动与环境自定义 URL，When 使用默认选项，Then 使用有效配置而不是硬编码 URL；默认不询问网络字段及更新通道；高级设置允许修改网络字段并预览 origin/RP ID。
 6. Given 初始化改变运行配置，When 保存成功，Then 关闭旧 IPC 后停止旧受管运行环境、启动新环境并重新连接，再进入仪表盘；重启失败退出并保留已保存配置。未改变则不重启。
 
+7. Given 数据目录存在过期日志，When Server 启动，Then 持有实例锁后先等待过期日志清理结束，再创建日志写入器；清理失败可见且不与日志打开并发；每日调度仍运行，关闭后停止。
+
 ## 接口与数据
 
 - REST/WS 无新增；config.json 已有键、IPC init.apply 响应保持兼容。ADR-025：IPC protocolVersion=2，init.apply 移除 adminPassword 并将网络字段设为可选补丁；旧密码字段拒绝，历史 admin_hash 保留、新实例写空标记。
