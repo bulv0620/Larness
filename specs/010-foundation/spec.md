@@ -53,26 +53,21 @@ S0 只提供前端外壳与 Mock 数据。M0 要把 Larness 变成一台可以�
 
 ## 4. 用户与流程
 
-### 4.1 首次运行
+### 4.1 首次运行（ADR-023 / ADR-024 / ADR-025）
 
 ```text
-node app.js
-  → 创建 / 校验数据目录（0700）
-  → 打开 SQLite，执行迁移
-  → 获取单实例锁
-  → 启动本地 IPC
-  → 未初始化：只提供 /api/health、/api/bootstrap，控制台提示运行 tui
-  → 启动 Fastify（默认 127.0.0.1:3210）
-
-node app.js tui
-  → 连接 IPC
-  → 设置管理员恢复凭据（≥ 12 字符，二次确认）
-  → 确认监听地址 / 端口 / 公网 URL / 更新通道
-  → 推导并校验 canonical origin / RP ID
-  → 写入 config.json 与 app_meta.initialized_at
-  → 审计 auth.init
-  → 提示“初始化完成；如修改了监听地址，请重启 server”
+pnpm dev / node app.js
+  → TUI supervisor 规划配置（只读待发布配置），启动受管 Server / Web
+  → Server 持有实例锁，迁移 DB，恢复待发布配置，再加载有效配置
+  → 未初始化时仅开放最小公开接口，业务 API 失败关闭
+  → TUI 连接本机 IPC，展示监听与浏览器访问地址、canonical origin / RP ID
+  → 默认沿用有效配置；可选高级网络设置；不询问密码或更新通道
+  → 本机用户确认后调用 init.apply（protocolVersion=2）
+  → 事务提交初始化、auth.init 审计与 init_pending，发布 config.json
+  → 有效配置变化则关闭旧 IPC、停止并重启受管服务，重新连接后进入仪表盘
 ```
+
+历史 admin_hash 保留，新实例旧列为空标记；不提供密码登录/恢复。环境变量只覆盖运行值，向导只把明确修改的字段写回文件。默认数据目录不变，开发/生产请显式使用独立 LARNESS_DATA_DIR。
 
 ### 4.2 允许本次（allow_once）
 
@@ -270,7 +265,7 @@ And 访问 /api/pairing/requests 返回 NOT_INITIALIZED
 
 ```gherkin
 Given 未初始化且 server 已启动
-When 运行 node app.js tui 并完成管理员密码、监听与 canonical origin 配置
+When 运行 node app.js tui 并确认监听与 canonical origin 配置（不设置密码）
 Then config.json 生成且权限受限，app_meta.initialized_at 写入
 And 审计存在 auth.init
 And 再次初始化返回 ALREADY_INITIALIZED

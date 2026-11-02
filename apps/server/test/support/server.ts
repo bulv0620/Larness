@@ -3,8 +3,6 @@ import { connectIpc } from "../../src/ipc/client.js";
 import type { ProviderResolver } from "../../src/modules/agent/turnRunner.js";
 import { createLogSink, getFreePort } from "../helpers.js";
 
-const PASSWORD = "correct horse battery staple";
-
 function cookieValue(header: string, name: string): string {
   return new RegExp(`${name}=([^;]+)`).exec(header)?.[1] ?? "";
 }
@@ -39,7 +37,6 @@ export async function startAuthorizedServer(
   const client = await connectIpc({ dataDir: dir, client: "tui" });
 
   await client.request("init.apply", {
-    adminPassword: PASSWORD,
     host: "127.0.0.1",
     port,
     publicUrl: null,

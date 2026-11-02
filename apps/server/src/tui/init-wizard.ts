@@ -1,6 +1,5 @@
-import { deriveWebAuthn, type UpdateChannel } from "@larness/shared";
-import { validateAdminPassword } from "../init/password.js";
-import type { InitApplyParams } from "../ipc/protocol.js";
+import { deriveWebAuthn } from "@larness/shared";
+import { InitApplyParamsSchema } from "../ipc/protocol.js";
 
 export class TuiError extends Error {
   constructor(message: string) {
@@ -10,56 +9,30 @@ export class TuiError extends Error {
 }
 
 export interface InitWizardAnswers {
-  password: string;
-  confirmPassword: string;
   host: string;
   port: string;
   publicUrl: string;
-  channel: UpdateChannel;
 }
 
-export interface InitRequest {
-  params: InitApplyParams;
-  origin: string;
-  rpId: string;
-  passkeyEnabled: boolean;
-  warning: string | null;
-}
-
-export function buildInitRequest(answers: InitWizardAnswers): InitRequest {
-  const passwordError = validateAdminPassword(answers.password);
-
-  if (passwordError !== null) {
-    throw new TuiError(passwordError);
-  }
-
-  if (answers.password !== answers.confirmPassword) {
-    throw new TuiError("两次输入的管理员密码不一致");
-  }
-
+export function buildInitRequest(answers: InitWizardAnswers) {
   const port = Number(answers.port.trim());
-
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new TuiError("端口必须是 1-65535 的整数");
-  }
-
-  const host = answers.host.trim();
-
-  if (host.length === 0) {
-    throw new TuiError("监听地址不能为空");
-  }
-
-  const publicUrl = answers.publicUrl.trim() === "" ? null : answers.publicUrl.trim();
-  const webAuthn = deriveWebAuthn({ port, publicUrl }, "Larness");
-
+  const parsed = InitApplyParamsSchema.required({
+    host: true,
+    port: true,
+    publicUrl: true,
+  }).safeParse({
+    host: answers.host.trim(),
+    port,
+    publicUrl: answers.publicUrl.trim() || null,
+  });
+  if (!parsed.success)
+    throw new TuiError("监听地址或浏览器访问地址不合法；地址须为不带路径的 http(s) 来源");
+  const params = parsed.data;
+  const webAuthn = deriveWebAuthn(params, "Larness");
   return {
-    params: {
-      adminPassword: answers.password,
-      host,
-      port,
-      publicUrl,
-      channel: answers.channel,
-    },
+    params,
     origin: webAuthn.origin,
     rpId: webAuthn.rpId,
     passkeyEnabled: webAuthn.enabled,

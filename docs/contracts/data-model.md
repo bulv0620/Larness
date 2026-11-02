@@ -31,7 +31,7 @@ CREATE TABLE app_meta (
 
 CREATE TABLE auth_settings (
   id               INTEGER PRIMARY KEY CHECK (id = 1),
-  admin_hash       TEXT NOT NULL,          -- Argon2id
+  admin_hash       TEXT NOT NULL,          -- 历史 Argon2id 原样保留；ADR-025 新实例为空标记，不可认证
   admin_updated_at INTEGER NOT NULL,
   initialized_at   INTEGER NOT NULL
 );

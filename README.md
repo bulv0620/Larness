@@ -43,6 +43,7 @@ pnpm build
 pnpm test:e2e       # S0 Mock Demo E2E
 pnpm test:e2e:auth  # 真实 server + 虚拟认证器：配对 / 注册 / 登录 / 撤销
 pnpm test:e2e:prod  # 构建后由 Server 3210 托管 Web 的生产形态 E2E
+pnpm test:smoke:init # 需先 build：临时目录/随机端口验证初始化重启与恢复
 pnpm demo:shots     # 重新生成验收截图
 ```
 
@@ -61,7 +62,9 @@ Larness 初始化          # 首次运行进入向导
 ```
 
 - **TUI 是唯一前台入口**：Server / Vite 由 TUI supervisor 拉起；关闭 TUI（`q`、Ctrl-C、SIGTERM）会优雅停止全部，不留后台进程。
-- 首次运行按向导初始化；开发模式 `publicUrl` 默认 `http://localhost:5173`，直接接受即可让 Passkey 正常工作。
+- 首次运行展示有效配置，确认后初始化；不设置管理员密码、不询问更新通道。需要改监听或访问地址时选择高级设置；环境变量控制的字段需修改环境变量。开发模式首次默认来源为 `http://localhost:5173`，显式 `LARNESS_PUBLIC_URL` 会被沿用。
+- 初始化保留已有配置；有效配置变化后 TUI 自动停止并重新启动受管服务，再进入仪表盘。中断恢复在下次启动监听前完成，失败则拒绝启动。
+- 旧实例的历史密码哈希保留，但没有密码登录/恢复入口。本机 IPC 协议为 v2，TUI 与 Server 需同步升级。
 - 已有初始化数据时直接进入仪表盘；`l` 查看 Server 日志与 Vite 输出。
 - `status` / `doctor` 仍可在 TUI 运行时从另一个终端执行：`node app.js status`、`node app.js doctor`。
 - 开发与生产请使用不同的 `LARNESS_DATA_DIR`，避免 canonical origin 混用。
@@ -71,7 +74,7 @@ Larness 初始化          # 首次运行进入向导
 
 数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 默认使用真实本机 API（`/login`、`/pair`、工作台空态）。仅做 S0 Mock Demo 时使用 `VITE_USE_MOCKS=1 pnpm --filter @larness/web dev`，不是产品入口。
 
-真实模型 Key 在左侧“设置与模型”中添加，使用 AES-256-GCM 加密保存在数据目录的 `secrets/`；主密钥为 `secrets/master.key`（权限 0600），接口、日志与事件只返回掩码。
+真实模型 Key 在左侧“设置与模型”中添加，密文保存在 SQLite，AES-256-GCM 主密钥为数据目录 `secrets/master.key`（权限 0600），接口、日志与事件只返回掩码。已有密文时主密钥缺失或不匹配会拒绝启动，不自动重建；恢复时须使用匹配的数据库与原密钥。
 
 构建后运行完整产品：
 
@@ -156,3 +159,5 @@ pnpm workspace · Node.js ≥ 20.19 · TypeScript strict · React + Vite · Tail
 ## 源设计
 
 [larness.md](larness.md) 是 2026-10-30 冻结的产品需求、技术架构与边界约束文档（v3.0）。本仓库的 spec 与 ADR 由它派生；若两者冲突，以 [CONSTITUTION.md](CONSTITUTION.md) 与已冻结 ADR 为准，并回写差异。2026-11-01 仅将产品名统一为 Larness（ADR-022），架构语义未修改。
+
+E2E 默认端口被占用时，可设置 `LARNESS_E2E_PORT`（auth/prod）与 `LARNESS_E2E_WEB_PORT`（auth/demo）使用独立端口；测试仍使用临时数据目录。

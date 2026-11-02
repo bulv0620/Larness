@@ -8,8 +8,6 @@ import { runInitWizard } from "../../src/tui/init-flow.js";
 import { buildInitRequest, TuiError } from "../../src/tui/init-wizard.js";
 import { formatPairingRequests, type PairingItem, runPairingView } from "../../src/tui/pairing.js";
 
-const PASSWORD = "correct horse battery staple";
-
 const status: StatusReport = {
   version: "0.0.0",
   initialized: true,
@@ -32,12 +30,10 @@ const status: StatusReport = {
 
 function prompts(overrides: Partial<InitPrompts> = {}): InitPrompts {
   return {
-    password: async () => PASSWORD,
-    confirmPassword: async () => PASSWORD,
+    advanced: async () => true,
     host: async () => "127.0.0.1",
     port: async () => "3210",
     publicUrl: async () => "",
-    channel: async () => "stable",
     confirm: async () => true,
     ...overrides,
   };
@@ -46,16 +42,12 @@ function prompts(overrides: Partial<InitPrompts> = {}): InitPrompts {
 describe("TUI init wizard", () => {
   it("builds an init request with a canonical origin preview", () => {
     const request = buildInitRequest({
-      password: PASSWORD,
-      confirmPassword: PASSWORD,
       host: "127.0.0.1",
       port: "3210",
       publicUrl: "https://larness.example.com",
-      channel: "stable",
     });
 
     expect(request.params).toMatchObject({
-      adminPassword: PASSWORD,
       host: "127.0.0.1",
       port: 3210,
       publicUrl: "https://larness.example.com",
@@ -66,39 +58,19 @@ describe("TUI init wizard", () => {
     expect(request.warning).toBeNull();
 
     const remote = buildInitRequest({
-      password: PASSWORD,
-      confirmPassword: PASSWORD,
       host: "127.0.0.1",
       port: "3210",
       publicUrl: "http://192.168.1.10:3210",
-      channel: "stable",
     });
     expect(remote.passkeyEnabled).toBe(false);
     expect(remote.warning).toContain("Passkey 不可用");
   });
 
-  it("rejects mismatched passwords and invalid ports", () => {
-    expect(() =>
-      buildInitRequest({
-        password: PASSWORD,
-        confirmPassword: `${PASSWORD}x`,
-        host: "127.0.0.1",
-        port: "3210",
-        publicUrl: "",
-        channel: "stable",
-      }),
-    ).toThrow(TuiError);
-
-    expect(() =>
-      buildInitRequest({
-        password: PASSWORD,
-        confirmPassword: PASSWORD,
-        host: "127.0.0.1",
-        port: "70000",
-        publicUrl: "",
-        channel: "stable",
-      }),
-    ).toThrow(/端口/);
+  it("rejects invalid hosts and ports", () => {
+    expect(() => buildInitRequest({ host: "", port: "3210", publicUrl: "" })).toThrow(TuiError);
+    expect(() => buildInitRequest({ host: "127.0.0.1", port: "70000", publicUrl: "" })).toThrow(
+      /端口/,
+    );
   });
 
   it("applies the collected answers through the IPC callback", async () => {
@@ -111,9 +83,7 @@ describe("TUI init wizard", () => {
     const result = await runInitWizard(prompts(), apply);
 
     expect(result.restartRequired).toBe(true);
-    expect(apply).toHaveBeenCalledWith(
-      expect.objectContaining({ host: "127.0.0.1", port: 3210, channel: "stable" }),
-    );
+    expect(apply).toHaveBeenCalledWith({});
   });
 
   it("notifies and retries after invalid input", async () => {
@@ -127,9 +97,9 @@ describe("TUI init wizard", () => {
 
     await runInitWizard(
       prompts({
-        password: async () => {
+        port: async () => {
           attempt += 1;
-          return attempt === 1 ? "short" : PASSWORD;
+          return attempt === 1 ? "70000" : "3210";
         },
         notify,
       }),

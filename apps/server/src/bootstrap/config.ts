@@ -113,6 +113,13 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
     raw = structuredClone(DEFAULT_APP_CONFIG);
   }
 
+  return { ...resolveConfig(raw, env), source, path: file };
+}
+
+export function resolveConfig(
+  raw: unknown,
+  env: NodeJS.ProcessEnv,
+): Pick<LoadedConfig, "config" | "webAuthn"> {
   const parsed = AppConfigSchema.safeParse(raw);
 
   if (!parsed.success) {
@@ -145,7 +152,5 @@ export async function loadConfig(options: LoadConfigOptions): Promise<LoadedConf
       },
     },
     webAuthn,
-    source,
-    path: file,
   };
 }

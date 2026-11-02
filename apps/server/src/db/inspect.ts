@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import BetterSqlite3 from "better-sqlite3";
+import { InitPendingSchema } from "../init/recovery.js";
 import { appliedMigrationCount, quickCheck } from "./migrate.js";
 
 export interface DatabaseInspection {
@@ -49,5 +50,30 @@ export function inspectDatabase(file: string): DatabaseInspection | null {
     };
   } finally {
     sqlite?.close();
+  }
+}
+
+// Read-only planning for the supervisor. Only the locked server publishes it.
+export function inspectPendingInitialization(file: string) {
+  if (!existsSync(file)) return null;
+  const sqlite = new BetterSqlite3(file, { readonly: true, fileMustExist: true });
+  try {
+    if (
+      !sqlite
+        .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'app_meta'")
+        .get()
+    )
+      return null;
+    const row = sqlite.prepare("SELECT value FROM app_meta WHERE key = ?").get("init_pending") as
+      | { value: string }
+      | undefined;
+    if (!row) return null;
+    try {
+      return InitPendingSchema.parse(JSON.parse(row.value)).config;
+    } catch {
+      throw new Error("invalid initialization recovery record; restore the database backup");
+    }
+  } finally {
+    sqlite.close();
   }
 }

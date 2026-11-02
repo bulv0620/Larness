@@ -47,7 +47,9 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(
       page.getByLabel("项目资源", { exact: true }).getByText("docs-site", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("暂无文件预览")).toBeVisible();
+    await expect(
+      page.getByLabel("项目资源", { exact: true }).getByText("当前项目暂无文件", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("未检测到 Git 仓库", { exact: false })).toBeVisible();
   });
 

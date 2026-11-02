@@ -1,6 +1,7 @@
+import { OriginUrlSchema } from "@larness/shared";
 import { z } from "zod";
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 export const MAX_FRAME_BYTES = 1024 * 1024;
 export const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60_000;
 export const MAX_CONNECTIONS = 8;
@@ -49,10 +50,9 @@ export const HelloParamsSchema = z
 
 export const InitApplyParamsSchema = z
   .object({
-    adminPassword: z.string().min(12).max(1024),
-    host: z.string().min(1).max(255),
-    port: z.int().min(1).max(65535),
-    publicUrl: z.string().max(2048).nullable().optional(),
+    host: z.string().min(1).max(255).optional(),
+    port: z.int().min(1).max(65535).optional(),
+    publicUrl: OriginUrlSchema.nullable().optional(),
     channel: z.enum(["stable", "beta"]).optional(),
   })
   .strict();

@@ -6,8 +6,6 @@ import { startServer } from "../../src/bootstrap/start.js";
 import { connectIpc } from "../../src/ipc/client.js";
 import { createLogSink, getFreePort, withTempDir } from "../helpers.js";
 
-const PASSWORD = "correct horse battery staple";
-
 interface Started {
   dir: string;
   port: number;
@@ -26,7 +24,6 @@ async function startInitialized(dir: string): Promise<Started> {
   const client = await connectIpc({ dataDir: dir, client: "tui" });
 
   await client.request("init.apply", {
-    adminPassword: PASSWORD,
     host: "127.0.0.1",
     port,
     publicUrl: null,

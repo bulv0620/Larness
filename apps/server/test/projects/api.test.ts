@@ -8,8 +8,6 @@ import { listRecentAudit } from "../../src/db/repositories/audit.js";
 import { connectIpc } from "../../src/ipc/client.js";
 import { createLogSink, getFreePort, withTempDir } from "../helpers.js";
 
-const PASSWORD = "correct horse battery staple";
-
 function cookieValue(header: string, name: string): string {
   return new RegExp(`${name}=([^;]+)`).exec(header)?.[1] ?? "";
 }
@@ -28,7 +26,6 @@ async function startSession(dir: string) {
   const client = await connectIpc({ dataDir: dir, client: "tui" });
 
   await client.request("init.apply", {
-    adminPassword: PASSWORD,
     host: "127.0.0.1",
     port,
     publicUrl: null,

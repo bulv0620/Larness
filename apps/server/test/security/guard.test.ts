@@ -4,8 +4,6 @@ import { listAllSessions, touchSession } from "../../src/db/repositories/browser
 import { connectIpc } from "../../src/ipc/client.js";
 import { createLogSink, getFreePort, testConfig, withTempDir, writeConfig } from "../helpers.js";
 
-const PASSWORD = "correct horse battery staple";
-
 function setCookieHeader(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value.join("; ") : (value ?? "");
 }
@@ -24,7 +22,6 @@ async function startInitialized(dir: string) {
   const client = await connectIpc({ dataDir: dir, client: "tui" });
 
   await client.request("init.apply", {
-    adminPassword: PASSWORD,
     host: "127.0.0.1",
     port,
     publicUrl: null,

@@ -40,6 +40,8 @@
 
 - [ADR-024 初始化恢复与主密钥完整性](ADR-024-initialization-recovery.md)：accepted，2026-11-02 人类批准。
 
+- [ADR-025 取消未接入使用流程的初始化密码](ADR-025-remove-unused-init-password.md)：accepted，2026-11-02 人类明确批准取消密码、保留历史哈希；补充 ADR-024。
+
 ## 3. 变更流程
 
 1. 复制模板生成新 ADR，状态 `proposed`。

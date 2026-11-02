@@ -37,7 +37,10 @@ describe("IPC init integration", () => {
           payload: { adminPassword: PASSWORD },
         });
         expect(remoteInit.statusCode).toBe(404);
-        expect(await client.request("init.status")).toMatchObject({ initialized: false });
+        expect(await client.request("init.status")).toMatchObject({
+          initialized: false,
+          requiredFields: [],
+        });
         await expect(
           client.request("init.apply", {
             adminPassword: "short",
@@ -47,7 +50,6 @@ describe("IPC init integration", () => {
         ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
 
         const result = await client.request("init.apply", {
-          adminPassword: PASSWORD,
           host: "127.0.0.1",
           port,
           publicUrl: null,
@@ -63,7 +65,6 @@ describe("IPC init integration", () => {
 
         await expect(
           client.request("init.apply", {
-            adminPassword: PASSWORD,
             host: "127.0.0.1",
             port,
           }),
@@ -117,7 +118,6 @@ describe("IPC init integration", () => {
       const first = await connectIpc({ dataDir: dir, client: "tui-1" });
       const second = await connectIpc({ dataDir: dir, client: "tui-2" });
       const payload = {
-        adminPassword: PASSWORD,
         host: "127.0.0.1",
         port,
       };
@@ -178,7 +178,7 @@ describe("IPC init integration", () => {
           "CREATE TRIGGER fail_publish BEFORE DELETE ON app_meta WHEN OLD.key = 'init_pending' BEGIN SELECT RAISE(ABORT, 'disk completion failure'); END",
         );
         await expect(
-          client.request("init.apply", { adminPassword: PASSWORD, host: "127.0.0.1", port }),
+          client.request("init.apply", { host: "127.0.0.1", port }),
         ).rejects.toMatchObject({ code: "INTERNAL" });
         const pending = getMeta(running.db, "init_pending");
         expect(pending).not.toBeNull();

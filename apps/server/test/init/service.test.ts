@@ -9,9 +9,8 @@ import { runMigrations } from "../../src/db/migrate.js";
 import { listRecentAudit } from "../../src/db/repositories/audit.js";
 import { createAuthSettings, getAuthSettings } from "../../src/db/repositories/auth-settings.js";
 import { getMeta, setMeta } from "../../src/db/repositories/meta.js";
-import { validateAdminPassword } from "../../src/init/password.js";
 import { recoverInitialization } from "../../src/init/recovery.js";
-import { applyInit, buildInitConfig, InitError } from "../../src/init/service.js";
+import { applyInit, buildInitConfig } from "../../src/init/service.js";
 import { testConfig, withTempDir, writeConfig } from "../helpers.js";
 
 const PASSWORD = "correct horse battery staple";
@@ -24,7 +23,6 @@ async function openMigrated(dir: string): Promise<OpenedDatabase> {
 
 function baseInput(overrides: Partial<Parameters<typeof buildInitConfig>[0]> = {}) {
   return {
-    adminPassword: PASSWORD,
     host: "127.0.0.1",
     port: 3210,
     publicUrl: null,
@@ -33,17 +31,8 @@ function baseInput(overrides: Partial<Parameters<typeof buildInitConfig>[0]> = {
   };
 }
 
-describe("admin password policy", () => {
-  it("requires at least 12 non-whitespace characters", () => {
-    expect(validateAdminPassword("short")).toBeTruthy();
-    expect(validateAdminPassword("            ")).toBeTruthy();
-    expect(validateAdminPassword(PASSWORD)).toBeNull();
-  });
-});
-
 describe("buildInitConfig", () => {
-  it("rejects short passwords and invalid public URLs", () => {
-    expect(() => buildInitConfig(baseInput({ adminPassword: "short" }))).toThrow(InitError);
+  it("rejects invalid public URLs", () => {
     expect(() => buildInitConfig(baseInput({ publicUrl: "https://example.com/app" }))).toThrow(
       /publicUrl/,
     );
@@ -95,7 +84,7 @@ describe("applyInit", () => {
           rpId: "localhost",
         });
 
-        expect(getAuthSettings(opened.db)?.adminHash).toMatch(/^\$argon2id\$/);
+        expect(getAuthSettings(opened.db)?.adminHash).toBe("");
         expect(getAuthSettings(opened.db)?.adminHash).not.toContain(PASSWORD);
         expect(getMeta(opened.db, "initialized_at")).toBe("1000");
 
@@ -271,6 +260,50 @@ describe("applyInit", () => {
         expect(() => recoverInitialization(opened.db, dir)).toThrow(/initialization recovery/);
         expect(await readFile(configFilePath(dir), "utf8")).toBe(before);
         expect(getMeta(opened.db, "init_pending")).not.toBeNull();
+      } finally {
+        opened.close();
+      }
+    });
+  });
+  it("initializes without password and preserves historical hashes on repeat attempts", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openMigrated(dir);
+      try {
+        await applyInit({ db: opened.db, dataDir: dir, input: {} });
+        expect(getAuthSettings(opened.db)?.adminHash).toBe("");
+        opened.sqlite.prepare("UPDATE auth_settings SET admin_hash = ?").run("historical-hash");
+        await expect(applyInit({ db: opened.db, dataDir: dir, input: {} })).rejects.toMatchObject({
+          code: "ALREADY_INITIALIZED",
+        });
+        expect(getAuthSettings(opened.db)?.adminHash).toBe("historical-hash");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("does not persist effective environment values and computes restart from effective configuration", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openMigrated(dir);
+      const env = {
+        LARNESS_PORT: "4000",
+        LARNESS_PUBLIC_URL: "https://custom.example",
+        LARNESS_LOG_LEVEL: "debug",
+      };
+      try {
+        const current = await loadConfig({ dataDir: dir, env });
+        const result = await applyInit({
+          db: opened.db,
+          dataDir: dir,
+          input: {},
+          currentConfig: current.config,
+          env,
+        });
+        expect(result).toMatchObject({ origin: "https://custom.example", restartRequired: false });
+        const stored = await loadConfig({ dataDir: dir, env: {} });
+        expect(stored.config.server.port).toBe(3210);
+        expect(stored.config.server.publicUrl).toBeNull();
+        expect(stored.config.logging.level).toBe("info");
       } finally {
         opened.close();
       }

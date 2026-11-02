@@ -42,6 +42,7 @@ export interface IpcHandlerDeps {
   csrfKey: Buffer;
   requestShutdown: (reason: string) => void;
   now?: () => number;
+  env?: NodeJS.ProcessEnv;
 }
 
 function parseParams<T>(schema: z.ZodType<T>, params: unknown): T {
@@ -126,7 +127,7 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
       case "init.status":
         return {
           initialized: isInitialized(deps.db),
-          requiredFields: ["adminPassword", "host", "port"],
+          requiredFields: [],
         };
 
       case "init.apply": {
@@ -138,13 +139,8 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
             dataDir: deps.dataDir,
             currentConfig: deps.config,
             now: now(),
-            input: {
-              adminPassword: params.adminPassword,
-              host: params.host,
-              port: params.port,
-              publicUrl: params.publicUrl ?? null,
-              channel: params.channel,
-            },
+            input: params,
+            env: deps.env,
           });
 
           return { ok: true, ...result };

@@ -4,7 +4,13 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pc from "picocolors";
-import { type LoadedConfig, loadConfig } from "../bootstrap/config.js";
+import {
+  configFilePath,
+  type LoadedConfig,
+  loadConfig,
+  resolveConfig,
+} from "../bootstrap/config.js";
+import { inspectPendingInitialization } from "../db/inspect.js";
 import { findServerRoot } from "../db/migrate.js";
 import { resolveDataDir } from "../platform/paths.js";
 
@@ -177,13 +183,23 @@ async function stopChild(child: ChildProcess | null, timeoutMs: number): Promise
   await waitForExit(child, 2_000);
 }
 
+export async function loadManagedConfig(
+  dataDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<LoadedConfig> {
+  const pending = inspectPendingInitialization(path.join(dataDir, "larness.db"));
+  return pending === null
+    ? loadConfig({ dataDir, env })
+    : { ...resolveConfig(pending, env), source: "file", path: configFilePath(dataDir) };
+}
+
 export async function startManagedRuntime(
   options: StartManagedRuntimeOptions,
 ): Promise<ManagedRuntime> {
   const root = serverRoot();
   const repoRoot = path.resolve(root, "../..");
   const dataDir = resolveDataDir();
-  const loaded: LoadedConfig = await loadConfig({ dataDir });
+  let loaded: LoadedConfig = await loadManagedConfig(dataDir);
   const port = loaded.config.server.port;
   const localBase = `http://127.0.0.1:${port}`;
   const serverUrl = `http://localhost:${port}`;
@@ -227,6 +243,8 @@ export async function startManagedRuntime(
   if (options.dev && firstRun && process.env.LARNESS_PUBLIC_URL === undefined) {
     serverEnv.LARNESS_PUBLIC_URL = WEB_DEV_URL;
   }
+
+  loaded = { ...loaded, ...resolveConfig(loaded.config, serverEnv) };
 
   const server = spawn(commands.serverCommand, commands.serverArgs, {
     cwd: commands.serverCwd,

@@ -53,7 +53,7 @@
 成功：
 
 ```json
-{ "id": "1", "ok": true, "result": { "protocolVersion": 1, "serverVersion": "0.1.0" } }
+{ "id": "1", "ok": true, "result": { "protocolVersion": 2, "serverVersion": "0.1.0" } }
 ```
 
 失败码：`INVALID_TOKEN`、`TOO_MANY_CONNECTIONS`、`PROTOCOL_MISMATCH`。
@@ -66,7 +66,7 @@
 | `system.status` | — | 见下 | 状态快照 |
 | `system.doctor` | — | `checks[]` | 自检 |
 | `init.status` | — | `initialized, requiredFields` | 初始化状态 |
-| `init.apply` | `adminPassword, host, port, publicUrl?, channel?` | `ok, origin, rpId, restartRequired` | 仅未初始化；写配置与密码哈希；推导 canonical origin / RP ID |
+| `init.apply` | `host?, port?, publicUrl?, channel?` | `ok, origin, rpId, restartRequired` | 仅未初始化；可选配置补丁，空参数沿用配置；不接收密码；返回有效 origin / RP ID |
 | `pairing.list` | `status?` | `requests[]` | 默认 pending；含 shortCode / Origin / UA / 时间 |
 | `pairing.approve` | `requestId, decision: allow_once\|trust` | `code, expiresAt` | 生成一次性码；`trust` 仅在 WebAuthn 配置有效且申请 Origin 为 canonical 时可用，且需浏览器注册 Passkey |
 | `pairing.deny` | `requestId` | `ok` | 拒绝 |
@@ -150,3 +150,11 @@
 ### 初始化发布恢复（I0-2）
 
 `init.apply` 保留已有 config.json 中未明确修改的字段，环境变量覆盖不会作为整份配置写回。配置发布完成前 `init.status` / `system.status` 的 initialized 为 false；发布失败返回 INTERNAL，提示重启恢复，业务接口保持关闭。数据库已提交的初始化不可再次覆盖；重启先恢复发布，再允许业务访问。
+
+### 初始化向导与协议 v2（I0-4 / ADR-025）
+
+- IPC protocolVersion=2（WebSocket 版本不变）。移除 init.apply.adminPassword，旧字段返回 VALIDATION_ERROR；旧 TUI 在 hello 版本检查时拒绝连接，需同步升级。
+- init.status.requiredFields=[]；必须经本机用户确认才调用 init.apply，空参数不等于自动初始化。host/port/publicUrl/channel 均可省略，省略保留文件值；publicUrl=null 显式清空。
+- 不再要求管理员密码；历史哈希保留、新实例 admin_hash 为空字符串，未增加密码认证。
+- 默认向导展示有效网络配置，网络进入高级设置；环境覆盖不无意落盘，修改受环境控制字段须先改环境变量。首次 dev 默认 5173 只在没有显式来源配置时持久化。
+- restartRequired 按发布后叠加环境变量的有效配置与当前运行配置比较。受管 TUI 在进入仪表盘前关闭旧 IPC、停止旧运行环境、重新启动并连接；失败退出，保留已保存配置。

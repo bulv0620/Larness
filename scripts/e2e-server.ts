@@ -12,7 +12,6 @@ import { createFakeProvider, type ProviderChunk } from "../packages/agent/src/in
 const dataDir = mkdtempSync(path.join(tmpdir(), "larness-e2e-"));
 const port = Number(process.env.LARNESS_E2E_PORT ?? 3210);
 const publicUrl = process.env.LARNESS_E2E_PUBLIC_URL ?? "http://localhost:5173";
-const password = "e2e admin password 123";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const resultsDir = path.join(root, "test-results");
@@ -146,7 +145,6 @@ const client = await connectIpc({ dataDir, client: "e2e-setup" });
 
 try {
   await client.request("init.apply", {
-    adminPassword: password,
     host: "127.0.0.1",
     port,
     publicUrl,

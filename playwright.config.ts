@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const webPort = Number(process.env.LARNESS_E2E_WEB_PORT ?? 5173);
+const webUrl = `http://localhost:${webPort}`;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -7,14 +10,14 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: [["list"]],
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: webUrl,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "pnpm --filter @larness/web dev",
+    command: `pnpm --filter @larness/web exec vite --port ${webPort} --strictPort`,
     env: { VITE_USE_MOCKS: "1" },
-    url: "http://localhost:5173",
+    url: webUrl,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

@@ -1,10 +1,11 @@
-import { confirm, input, password, select } from "@inquirer/prompts";
+import { confirm, input } from "@inquirer/prompts";
 import pc from "picocolors";
 import type { InitResult } from "../init/service.js";
 import { connectIpc, type IpcClient, IpcClientError } from "../ipc/client.js";
 import { resolveDataDir } from "../platform/paths.js";
 import { runDashboard } from "./dashboard.js";
 import { runInitWizard } from "./init-flow.js";
+import { runManagedSessions, type SessionAction } from "./lifecycle.js";
 import { type ManagedRuntime, startManagedRuntime } from "./supervisor.js";
 
 const WEB_DEV_URL = "http://localhost:5173";
@@ -25,7 +26,7 @@ function isConnectionError(error: unknown): boolean {
   );
 }
 
-async function runSession(client: IpcClient, options: AttachedOptions): Promise<void> {
+async function runSession(client: IpcClient, options: AttachedOptions): Promise<SessionAction> {
   const init = (await client.request("init.status")) as { initialized: boolean };
 
   if (!init.initialized) {
@@ -33,8 +34,7 @@ async function runSession(client: IpcClient, options: AttachedOptions): Promise<
 
     const result = await runInitWizard(
       {
-        password: () => password({ message: "管理员密码（至少 12 位）", mask: "*" }),
-        confirmPassword: () => password({ message: "再次输入管理员密码", mask: "*" }),
+        advanced: () => confirm({ message: "修改高级网络设置？", default: false }),
         host: () =>
           input({
             message: "监听地址",
@@ -47,25 +47,23 @@ async function runSession(client: IpcClient, options: AttachedOptions): Promise<
           }),
         publicUrl: () =>
           input({
-            message:
-              options.runtime?.dev === true
-                ? "公网 URL（开发默认 http://localhost:5173）"
-                : "公网 URL（可选；留空则使用 http://localhost:<port>）",
-            default: options.runtime?.dev === true ? WEB_DEV_URL : "",
-          }),
-        channel: () =>
-          select({
-            message: "更新通道",
-            choices: [
-              { name: "stable", value: "stable" },
-              { name: "beta", value: "beta" },
-            ],
-            default: "stable",
+            message: "浏览器访问地址（留空使用 http://localhost:<port>）",
+            default: options.runtime?.config.config.server.publicUrl ?? "",
           }),
         confirm: (summary) => confirm({ message: `${summary}\n确认写入配置？`, default: false }),
         notify: (message) => console.error(pc.yellow(`! ${message}`)),
       },
       async (params) => (await client.request("init.apply", params)) as InitResult,
+      {
+        config: options.runtime?.config.config,
+        env: process.env,
+        initialParams:
+          options.runtime?.dev === true &&
+          options.runtime.config.source === "defaults" &&
+          process.env.LARNESS_PUBLIC_URL === undefined
+            ? { publicUrl: WEB_DEV_URL }
+            : {},
+      },
     );
 
     console.log(pc.green("初始化完成"));
@@ -73,7 +71,14 @@ async function runSession(client: IpcClient, options: AttachedOptions): Promise<
     console.log(`RP ID: ${result.rpId}`);
 
     if (result.restartRequired) {
-      console.log(pc.yellow("监听地址 / publicUrl / 更新通道已变化，请退出 TUI 后重新运行。"));
+      console.log(
+        pc.yellow(
+          options.runtime
+            ? "配置已保存，正在重新启动 Server 与 Web…"
+            : "配置已保存，请重新运行 TUI 以应用。",
+        ),
+      );
+      return options.runtime ? "restart" : "done";
     }
   }
 
@@ -88,9 +93,10 @@ async function runSession(client: IpcClient, options: AttachedOptions): Promise<
     localLogs: options.runtime?.logs,
     managed: options.runtime !== undefined,
   });
+  return "done";
 }
 
-async function runAttached(options: AttachedOptions): Promise<void> {
+async function runAttached(options: AttachedOptions): Promise<SessionAction> {
   for (let attempt = 0; ; attempt += 1) {
     const client = await connectIpc({
       dataDir: options.dataDir,
@@ -105,12 +111,11 @@ async function runAttached(options: AttachedOptions): Promise<void> {
     });
 
     if (client === null) {
-      return;
+      return "done";
     }
 
     try {
-      await runSession(client, options);
-      return;
+      return await runSession(client, options);
     } catch (error) {
       if (!isConnectionError(error) || attempt >= 2) {
         throw error;
@@ -156,16 +161,18 @@ async function main(): Promise<void> {
 
   try {
     if (managed) {
-      runtime = await startManagedRuntime({ dev });
+      await runManagedSessions({
+        start: () => startManagedRuntime({ dev }),
+        attach: (current) => runAttached({ dataDir: current.dataDir, runtime: current }),
+        onRuntime: (current) => {
+          runtime = current;
+        },
+      });
+    } else {
+      await runAttached({ dataDir });
     }
-
-    await runAttached({ dataDir: runtime?.dataDir ?? dataDir, runtime: runtime ?? undefined });
   } finally {
-    await runtime?.stop();
-
-    if (runtime !== null) {
-      console.log(pc.green("✓ 已停止 Server 与 Web"));
-    }
+    if (managed) console.log(pc.green("✓ 已停止 Server 与 Web"));
   }
 }
 

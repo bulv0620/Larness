@@ -1,20 +1,19 @@
+import { isDeepStrictEqual } from "node:util";
 import {
   type AppConfig,
   AppConfigSchema,
   DEFAULT_APP_CONFIG,
   deriveWebAuthn,
   OriginUrlSchema,
-  type UpdateChannel,
   type WebAuthnRuntime,
 } from "@larness/shared";
-import { hash as argon2Hash } from "@node-rs/argon2";
 import { loadConfig } from "../bootstrap/config.js";
 import type { Database } from "../db/client.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { createAuthSettings, getAuthSettings } from "../db/repositories/auth-settings.js";
 import { getMeta, setMeta } from "../db/repositories/meta.js";
 import { immediateTransaction } from "../db/transaction.js";
-import { validateAdminPassword } from "./password.js";
+import type { InitApplyParams } from "../ipc/protocol.js";
 import { recoverInitialization } from "./recovery.js";
 
 export type InitErrorCode = "VALIDATION_ERROR" | "ALREADY_INITIALIZED" | "INTERNAL";
@@ -29,13 +28,7 @@ export class InitError extends Error {
   }
 }
 
-export interface InitInput {
-  adminPassword: string;
-  host: string;
-  port: number;
-  publicUrl: string | null;
-  channel?: UpdateChannel;
-}
+export type InitInput = InitApplyParams;
 
 export interface InitConfigPlan {
   config: AppConfig;
@@ -54,25 +47,19 @@ export interface ApplyInitOptions {
   input: InitInput;
   currentConfig?: AppConfig;
   now?: number;
-  hashPassword?: (password: string) => Promise<string>;
+  env?: NodeJS.ProcessEnv;
 }
 
 export function buildInitConfig(
   input: InitInput,
   base: AppConfig = DEFAULT_APP_CONFIG,
 ): InitConfigPlan {
-  const passwordError = validateAdminPassword(input.adminPassword);
-
-  if (passwordError !== null) {
-    throw new InitError("VALIDATION_ERROR", passwordError);
-  }
-
   const config = structuredClone(base);
-  config.server.host = input.host;
-  config.server.port = input.port;
+  config.server.host = input.host ?? config.server.host;
+  config.server.port = input.port ?? config.server.port;
   config.updates.channel = input.channel ?? config.updates.channel;
 
-  if (input.publicUrl !== null && input.publicUrl.trim() !== "") {
+  if (input.publicUrl !== undefined && input.publicUrl !== null && input.publicUrl.trim() !== "") {
     const candidate = input.publicUrl.trim();
     const parsed = OriginUrlSchema.safeParse(candidate);
 
@@ -81,7 +68,7 @@ export function buildInitConfig(
     }
 
     config.server.publicUrl = new URL(parsed.data).origin;
-  } else {
+  } else if (input.publicUrl !== undefined) {
     config.server.publicUrl = null;
   }
 
@@ -109,21 +96,13 @@ function restartRequired(next: AppConfig, current: AppConfig | undefined): boole
     return true;
   }
 
-  return (
-    next.server.host !== current.server.host ||
-    next.server.port !== current.server.port ||
-    next.server.publicUrl !== current.server.publicUrl ||
-    next.updates.channel !== current.updates.channel
-  );
+  return !isDeepStrictEqual(next, current);
 }
 
 export async function applyInit(options: ApplyInitOptions): Promise<InitResult> {
   const now = options.now ?? Date.now();
   const baseline = await loadConfig({ dataDir: options.dataDir, env: {} });
   const plan = buildInitConfig(options.input, baseline.config);
-  // Argon2id is the library default; keep it explicit in docs/tests rather than the const enum.
-  const hashPassword = options.hashPassword ?? ((password: string) => argon2Hash(password));
-  const adminHash = await hashPassword(options.input.adminPassword);
 
   try {
     immediateTransaction(options.db, (tx) => {
@@ -132,7 +111,7 @@ export async function applyInit(options: ApplyInitOptions): Promise<InitResult> 
       }
 
       createAuthSettings(tx, {
-        adminHash,
+        adminHash: "",
         initializedAt: now,
         now,
       });
@@ -165,9 +144,10 @@ export async function applyInit(options: ApplyInitOptions): Promise<InitResult> 
     );
   }
 
+  const effective = await loadConfig({ dataDir: options.dataDir, env: options.env });
   return {
-    origin: plan.webAuthn.origin,
-    rpId: plan.webAuthn.rpId,
-    restartRequired: restartRequired(plan.config, options.currentConfig),
+    origin: effective.webAuthn.origin,
+    rpId: effective.webAuthn.rpId,
+    restartRequired: restartRequired(effective.config, options.currentConfig),
   };
 }

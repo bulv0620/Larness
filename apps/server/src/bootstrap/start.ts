@@ -161,6 +161,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         config: loaded.config,
         webAuthn: loaded.webAuthn,
         csrfKey,
+        env,
         requestShutdown: (reason) => requestShutdown?.(reason),
       }),
     });

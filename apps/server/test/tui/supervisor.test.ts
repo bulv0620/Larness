@@ -1,7 +1,12 @@
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { managedCommands, resolveWebUrl } from "../../src/tui/supervisor.js";
+import { openDatabase } from "../../src/db/client.js";
+import { runMigrations } from "../../src/db/migrate.js";
+import { setMeta } from "../../src/db/repositories/meta.js";
+import { loadManagedConfig, managedCommands, resolveWebUrl } from "../../src/tui/supervisor.js";
+import { testConfig, withTempDir, writeConfig } from "../helpers.js";
 
 const serverRoot = fileURLToPath(new URL("../../", import.meta.url));
 const repoRoot = path.resolve(serverRoot, "../..");
@@ -78,5 +83,42 @@ describe("web origin resolution", () => {
         canonicalOrigin: "https://larness.example.com",
       }),
     ).toBe("https://larness.example.com");
+  });
+});
+
+describe("managed recovery planning", () => {
+  it("uses committed pending settings without mutating the database or existing config", async () => {
+    await withTempDir(async (dir) => {
+      const file = await writeConfig(dir);
+      const before = await readFile(file, "utf8");
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+      setMeta(
+        opened.db,
+        "init_pending",
+        JSON.stringify({
+          version: 1,
+          config: testConfig({ server: { port: 4321, publicUrl: "https://saved.example" } }),
+        }),
+      );
+      opened.close();
+      const loaded = await loadManagedConfig(dir, {});
+      expect(loaded.config.server.port).toBe(4321);
+      expect(loaded.webAuthn.origin).toBe("https://saved.example");
+      expect(await readFile(file, "utf8")).toBe(before);
+      const overridden = await loadManagedConfig(dir, { LARNESS_PORT: "5000" });
+      expect(overridden.config.server.port).toBe(5000);
+    });
+  });
+
+  it("fails closed on invalid recovery metadata instead of falling back to old config", async () => {
+    await withTempDir(async (dir) => {
+      await writeConfig(dir);
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+      setMeta(opened.db, "init_pending", "invalid");
+      opened.close();
+      await expect(loadManagedConfig(dir, {})).rejects.toThrow(/initialization recovery/);
+    });
   });
 });

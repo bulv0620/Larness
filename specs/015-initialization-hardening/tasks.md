@@ -5,7 +5,7 @@
 | I0-1 | 日志真实按天保留 | G1 | done |
 | I0-2 | 初始化配置保留与崩溃恢复 | I0-1、ADR-024 | done |
 | I0-3 | 已有凭据的主密钥启动校验 | I0-2、ADR-024 | done |
-| I0-4 | 初始化向导简化与配置自动应用 | I0-3、ADR-024 | todo |
+| I0-4 | 向导简化、取消密码与配置自动应用 | I0-3、ADR-024/025 | done |
 
 每个任务的验收按 spec 对应场景执行，pnpm check 通过后提交。ADR 未批准时仅执行 I0-1。
 
@@ -26,5 +26,6 @@
 - 无新依赖/迁移；启动逐条验证所有持久化 secret；故障无 IPC/HTTP，锁可释放，原数据及密钥不覆盖。
 
 ## I0-4
-- [ ] 默认/高级设置、环境 URL、重启顺序与失败测试。
-- [ ] check/build/demo/auth/prod E2E，文档同步。
+- [x] 默认/高级设置、环境 URL、密码取消/历史哈希、重启顺序与失败测试。
+- [x] check/build/demo/auth/prod E2E、真实构建进程 smoke、文档同步。server 261 / agent 32 / web 26；Demo 15 / auth 2 / prod 2。
+- 详见 acceptance.md；协议 v2 随 TUI/server 一起升级；无破坏性迁移。

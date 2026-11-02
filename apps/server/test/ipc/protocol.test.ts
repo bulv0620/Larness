@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { validateAdminPassword } from "../../src/init/password.js";
 import {
   errorResponse,
   InitApplyParamsSchema,
@@ -19,7 +18,6 @@ describe("IPC protocol", () => {
 
     expect(
       InitApplyParamsSchema.safeParse({
-        adminPassword: "correct horse battery",
         host: "127.0.0.1",
         port: 3210,
         publicUrl: "https://larness.example.com",
@@ -29,7 +27,6 @@ describe("IPC protocol", () => {
 
     expect(
       InitApplyParamsSchema.safeParse({
-        adminPassword: "correct horse battery",
         host: "127.0.0.1",
         port: 3210,
         extra: true,
@@ -37,9 +34,15 @@ describe("IPC protocol", () => {
     ).toBe(false);
   });
 
-  it("keeps the admin password policy in one place", () => {
-    expect(validateAdminPassword("123456789012")).toBeNull();
-    expect(validateAdminPassword("12345678901")).toContain("12");
+  it("accepts default initialization without a password and rejects legacy password parameters", () => {
+    expect(InitApplyParamsSchema.safeParse({}).success).toBe(true);
+    expect(
+      InitApplyParamsSchema.safeParse({ adminPassword: "correct horse battery" }).success,
+    ).toBe(false);
+    expect(InitApplyParamsSchema.safeParse({ port: 70000 }).success).toBe(false);
+    expect(InitApplyParamsSchema.safeParse({ publicUrl: "https://example.com/path" }).success).toBe(
+      false,
+    );
   });
 
   it("maps IpcError and unexpected errors into stable responses", () => {

@@ -9,8 +9,6 @@ import { createSession } from "../../src/modules/sessions/service.js";
 import { publishAgentEvent } from "../../src/ws/publisher.js";
 import { createLogSink, getFreePort, withTempDir } from "../helpers.js";
 
-const PASSWORD = "correct horse battery staple";
-
 async function startInitialized(dir: string) {
   const port = await getFreePort();
   const origin = `http://localhost:${port}`;
@@ -21,7 +19,6 @@ async function startInitialized(dir: string) {
   const client = await connectIpc({ dataDir: dir, client: "tui" });
 
   await client.request("init.apply", {
-    adminPassword: PASSWORD,
     host: "127.0.0.1",
     port,
     publicUrl: null,

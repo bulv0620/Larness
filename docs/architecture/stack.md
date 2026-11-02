@@ -35,7 +35,7 @@
 | 校验 | Zod | 请求 / 响应 / 配置 / IPC / 工具参数统一 |
 | 数据库 | SQLite + `better-sqlite3` + Drizzle ORM | WAL、foreign_keys、busy_timeout；SQL 迁移文件；Node 20 使用 `better-sqlite3@^11`（12+ 预编译未覆盖、13 要求 Node 22） |
 | 迁移 | drizzle-kit 生成 + 启动时 migrator | 迁移文件进版本库；启动前备份 |
-| 密码哈希 | `@node-rs/argon2`（Argon2id） | 预编译二进制；失败时明确报错，不回退弱哈希 |
+| 初始化信任 | 本机 OS 权限 + IPC Token | ADR-025 取消未使用的管理员密码及 Argon2id 依赖；历史哈希保留 |
 | Passkey / WebAuthn | `@simplewebauthn/server`（^14） | 注册 / 认证 ceremony 与验证；attestation `none`、UV required、resident key required |
 | 日志 | pino + pino-roll | JSON 行；开发用 pino-pretty；按日 / 大小轮转；秘密脱敏 |
 | WebSocket | `@fastify/websocket`（ws） | 握手鉴权、Origin 校验、事件序号 |
