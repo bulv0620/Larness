@@ -63,6 +63,31 @@ const device = {
 };
 
 describe("resource pages", () => {
+  it("keeps actions reachable with a long origin and permits reading the context", async () => {
+    const f = fixture();
+    const request = vi.fn(async () => ({
+      requests: [{ ...pair, clientOrigin: `https://example.test/${"long".repeat(500)}` }],
+    }));
+    const run = runResourcePage("pairing", { terminal: f.terminal, client: { request } });
+    try {
+      await vi.waitFor(() => expect(f.latest()).toContain("123456"));
+      f.send("\r");
+      await vi.waitFor(() => expect(f.latest()).toContain("› 允许本次"));
+      f.send("\x1b[H");
+      await vi.waitFor(() => expect(f.latest()).toContain("https://example.test/"));
+      f.send("\x1b[B");
+      await vi.waitFor(() => expect(f.latest()).toContain("› 始终允许"));
+      f.send("\x1b");
+      await vi.waitFor(() => expect(f.latest()).toContain("待审批配对"));
+      f.send("\x1b");
+      await run;
+    } finally {
+      f.terminal.close();
+      await run.catch((error: unknown) => {
+        if (!(error instanceof TerminalInterrupted)) throw error;
+      });
+    }
+  });
   it.each(["allow_once", "trust"])(
     "keeps %s code in its own page and never repeats a submitted approval",
     async (decision) => {

@@ -38,13 +38,13 @@ def config(directory, port):
 
 
 class Session:
-    def __init__(self, directory, port, size=(30, 100)):
+    def __init__(self, directory, port, size=(30, 100), term="xterm-256color"):
         self.directory, self.port = directory, port
         self.master, self.slave = pty.openpty()
         self.original = termios.tcgetattr(self.slave)
         self.resize(*size, notify=False)
         env = {k: v for k, v in os.environ.items() if not k.startswith("LARNESS_")}
-        env.update(TERM="xterm-256color", NO_COLOR="1", LARNESS_DATA_DIR=str(directory))
+        env.update(TERM=term, NO_COLOR="1", LARNESS_DATA_DIR=str(directory))
         self.proc = subprocess.Popen([NODE, "app.js"], cwd=ROOT, env=env,
                                      stdin=self.slave, stdout=self.slave, stderr=self.slave,
                                      start_new_session=True)
@@ -83,15 +83,28 @@ class Session:
         start = self.send(b"n\r")
         self.wait("确认写入配置", start)
         start = self.send(b"y\r")
-        self.wait("控制面板", start)
+        self.wait("Larness · 控制面板", start)
 
-    def finish(self, expected=0):
+    def record(self, name):
+        destination = os.environ.get("LARNESS_TUI_RECORD_DIR")
+        if destination:
+            # Called only on non-secret overview/log/audit/size frames.
+            frame = self.read().split("\x1b[2J")[-1]
+            frame = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", frame).replace("\r", "")
+            target = Path(destination)
+            target.mkdir(parents=True, exist_ok=True)
+            (target / f"{name}.txt").write_text(frame)
+
+    def finish(self, expected=0, screen=True):
         deadline = time.monotonic() + 20
         while self.proc.poll() is None and time.monotonic() < deadline:
             self.read()
-        assert self.proc.poll() == expected, f"Unexpected exit: {self.proc.poll()}, output={self.read()[-800:]!r}"
+        assert self.proc.poll() == expected, f"Unexpected exit: {self.proc.poll()}; terminal output withheld"
         output = self.read()
-        assert "\x1b[?1049h" in output and "\x1b[?1049l" in output
+        if screen:
+            assert "\x1b[?1049h" in output and "\x1b[?1049l" in output
+        else:
+            assert "\x1b[?1049h" not in output
         mask = termios.ECHO | termios.ICANON | termios.ISIG
         assert termios.tcgetattr(self.slave)[3] & mask == self.original[3] & mask, "TTY mode was not restored"
         assert not (self.directory / "larness.lock").exists()
@@ -121,7 +134,16 @@ def main():
         assert not non_tty.exists(), "Non-TTY invocation started the server"
         print("PASS non-TTY rejected before child startup")
 
-        for mode in ["normal", "pairing", "ctrl-c", "sigterm", "startup-sigterm", "startup-failure"]:
+        dumb = root / "dumb"
+        session = Session(dumb, free_port(), term="dumb")
+        try:
+            session.finish(expected=1, screen=False)
+            assert not dumb.exists(), "TERM=dumb invocation started the server"
+            print("PASS TERM=dumb rejected on a real TTY before child startup")
+        finally:
+            session.close()
+
+        for mode in ["normal", "pairing", "reading", "reconnect-failure", "ctrl-c", "sigterm", "sighup", "startup-sigterm", "startup-failure"]:
             directory = root / mode
             directory.mkdir()
             port = free_port()
@@ -180,6 +202,60 @@ def main():
                         start = session.send(b"q")
                         session.wait("退出确认", start)
                         session.send(b"\x1b[B\r")
+                    elif mode == "reading":
+                        session.record("overview-100x30")
+                        log = directory / "logs/larness.log"
+                        with log.open("a") as stream:
+                            stream.write("\n".join(f"PTY-log-{i:03d} 中文长日志 " + "可阅读😀" * 20 for i in range(220)) + "\n")
+                        start = session.send(b"l")
+                        session.wait("PTY-log-219", start)
+                        session.record("logs-100x30")
+                        start = session.send(b"\x1b[H")
+                        session.wait("PTY-log-020", start)
+                        with log.open("a") as stream:
+                            stream.write("PTY-new-after-snapshot\n")
+                        start = session.send(b"\x1b[C")
+                        session.wait("日志 · 子进程", start)
+                        start = session.send(b"\x1b[D")
+                        output = session.wait("PTY-log-020", start)
+                        assert "PTY-new-after-snapshot" not in output[start:]
+                        start = session.send(b"\x1b[F")
+                        session.wait("PTY-log-219", start)
+                        start = session.send(b"r")
+                        session.wait("PTY-new-after-snapshot", start)
+                        start = session.send(b"\x1b")
+                        output = session.wait("Larness · 控制面板", start)
+                        assert "PTY-log-" not in output[start:]
+                        start = session.send(b"a")
+                        session.wait("auth.init", start)
+                        session.record("audit-100x30")
+                        start = len(session.read())
+                        session.resize(24, 80)
+                        session.wait("Larness · 审计", start)
+                        session.record("audit-80x24")
+                        start = len(session.read())
+                        session.resize(16, 60)
+                        session.wait("终端空间不足", start)
+                        session.record("small-60x16")
+                        start = session.send(b"\x1b")
+                        session.wait("终端空间不足", start)
+                        start = len(session.read())
+                        session.resize(24, 80)
+                        session.wait("Larness · 控制面板", start)
+                        session.record("overview-80x24")
+                        start = session.send(b"l")
+                        session.wait("PTY-new-after-snapshot", start)
+                        session.record("logs-80x24")
+                        session.send(b"\x03")
+                    elif mode == "reconnect-failure":
+                        # Target only the server PID owned by this temporary instance.
+                        record = json.loads((directory / "larness.lock").read_text())
+                        os.kill(record["pid"], signal.SIGTERM)
+                        end = time.monotonic() + 10
+                        while (directory / "ipc/token").exists() and time.monotonic() < end:
+                            session.read()
+                        start = session.send(b"r")
+                        session.wait("重新连接", start)
                     elif mode == "normal":
                         start = session.send(b"q")
                         session.wait("退出确认", start)
@@ -197,8 +273,8 @@ def main():
                     elif mode == "ctrl-c":
                         session.send(b"\x03")
                     else:
-                        os.kill(session.proc.pid, signal.SIGTERM)
-                    session.finish()
+                        os.kill(session.proc.pid, signal.SIGHUP if mode == "sighup" else signal.SIGTERM)
+                    session.finish(expected=1 if mode == "reconnect-failure" else 0)
                 print(f"PASS {mode}: real TTY mode/screen restored; children, lock and IPC released")
             finally:
                 if blocker is not None:

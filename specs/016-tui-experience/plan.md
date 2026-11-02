@@ -1,6 +1,6 @@
 # 实施计划：TUI 页面与交互统一
 
-> 设计内容已补齐；spec.status=draft，等待 G-Spec-TUI 与 ADR-027 人类批准。本次仅编辑文档，以下均为后续实施计划。
+> G-Spec-TUI / ADR-027 已于 2026-11-02 获人类批准；顺序实施完成，最终 UI 人类抽查待完成。实际模块和验收见 acceptance.md。
 
 ## 1. 技术选型提案
 
@@ -48,7 +48,7 @@ TerminalSession 是物理 stdin 的唯一所有者，键盘事件按当前上下
 ## 6. 验证与证据
 
 - 每项先失败测试，再实现，最后 pnpm check / pnpm build；测试只用临时数据目录和空闲端口，不触碰用户运行目录。
-- T0-1 创建后续可复用的 pnpm test:tui:pty 命令（当前尚不存在），调用 Node 内置 child_process 与 Python 3 标准库 pty 驱动 Unix 真实终端；不引入 node-pty。测试机缺 Python/PTY 时明确失败，不静默跳过；不因此新增产品运行时 Python 依赖。
+- T0-1 已创建 pnpm test:tui:pty，使用 Python 3 标准库 pty/subprocess 驱动 Unix 真实终端；不引入 node-pty。测试机缺 Python/PTY 时明确失败，不静默跳过；不新增产品运行时 Python 依赖。
 - 基础 PTY 测试不加载真实凭据，固定假数据；操作重放只含键盘和脱敏状态，不保存真实配对码、Token 或完整终端秘密画面。
 - 自动化按 spec A1–A16 与 review.md 的映射验收；截图/人工记录以 100×30、80×24 和 60×16 空间不足态为准。
 - macOS 首验；Linux 只有真实运行通过后才记录支持，Windows 另有人工终端验证，不从 Unix PTY 外推。

@@ -260,7 +260,7 @@ class ResourcePage {
           this.result,
           this.error,
         ],
-        footer: "↑↓ 选择 · Enter 打开 · r 刷新列表 · Esc 返回列表",
+        footer: "↑↓选择 Enter打开 · PgUp/Dn Home/End 阅读 · r刷新 Esc返回",
       };
     }
     const device = this.device;
@@ -287,8 +287,17 @@ class ResourcePage {
           : "↑↓ 滚动 · r 刷新 · Esc 返回列表",
     };
   }
-  private render(): void {
+  private render(revealAction = true): void {
     const frame = this.content();
+    if (this.view === "actions" && revealAction) {
+      const selectedLine = frame.body.findIndex((line) => line.startsWith("› "));
+      if (selectedLine >= 0) {
+        const row = bodyLines(frame.body.slice(0, selectedLine), this.terminal.columns).length;
+        if (row < this.offset) this.offset = row;
+        else if (row >= this.offset + this.terminal.bodyHeight)
+          this.offset = row - this.terminal.bodyHeight + 1;
+      }
+    }
     const length = bodyLines(frame.body, this.terminal.columns).length;
     this.offset = Math.max(0, Math.min(this.offset, length - this.terminal.bodyHeight));
     this.terminal.render({ ...frame, offset: this.offset });
@@ -347,7 +356,7 @@ class ResourcePage {
         else if (this.view === "confirm" && ["up", "down"].includes(key.name))
           this.confirmed = !this.confirmed;
         else if (
-          this.view === "detail" &&
+          (this.view === "detail" || this.view === "actions") &&
           ["up", "down", "pageup", "pagedown", "home", "end"].includes(key.name)
         ) {
           this.offset =
@@ -387,7 +396,7 @@ class ResourcePage {
             else this.view = this.kind === "devices" ? "detail" : "actions";
           }
         }
-        this.render();
+        this.render(!["pageup", "pagedown", "home", "end"].includes(key.name));
       }
     } finally {
       ++this.generation;

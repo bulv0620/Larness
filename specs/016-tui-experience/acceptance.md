@@ -1,5 +1,32 @@
 # TUI 页面化验收记录
 
+## T0-3（2026-11-02，macOS / Node 20.19.3）
+
+- 日志使用两个独立快照：Server 最近 200 行、子进程缓存最后 300 行；←/→ 只切缓存，各自保留位置。初次定位末尾，刷新保持末尾或原视觉行偏移。审计最多 200 条、最新优先，初次定位顶部。所有阅读页支持滚动、翻页、Home/End、r 和 Esc。
+- 页头显示来源、数量、快照获取时间与本机时区；后台输出不触发重绘。首次失败与空态分离，刷新失败保留旧快照，底部标记“刷新失败，当前为上次快照”及稳定错误码；部分来源失败不影响另一来源。离页使请求代号失效并释放快照。
+- 测试先行：缺少 reading-page 模块时失败；六项页面测试覆盖快照上限、初始位置、独立来源位置、刷新底部/非底部、空态/无效载荷、部分失败、迟到结果、断线及控制序列。整体长来源地址用例先复现操作不可见，再补选中项可见与上下文翻页，未放宽断言。
+- 最终自动化：pnpm check（server 290 / agent 32 / web 26）、pnpm build、pnpm test:tui:pty、pnpm test:smoke:init；Demo E2E 15、auth E2E 2、prod E2E 2。命令全部通过后提交；现有 Web 大 chunk 提示仍存在。
+- 真 PTY 覆盖：非 TTY、真实 TTY 的 TERM=dumb 启动前拒绝；初始化、默认取消/确认退出；真实 HTTP 配对申请/IPC 审批/兑换；长中文 emoji 日志、Home/End、来源切换、冻结/刷新、日志→概览→审计、100×30/80×24/60×16；Ctrl+C、SIGTERM、SIGHUP、启动中信号、启动失败、IPC 重连耗尽后的非 0 退出。每次检查屏幕/光标/输入模式、端口、锁与 Token 清理。没有修改用户数据目录。
+- 验收脚本纠正：审计动作名使用实际 auth.init；auth/prod 最初并行运行共用 test-results/e2e-data-dir，导致 IPC 串线，后按现有脚本要求串行重跑通过；不为此修改产品或测试断言。
+
+### 场景证据映射
+
+| 场景 | 当前证据 |
+|---|---|
+| A1 / A3 / A16 | reading-page.test.ts 的快照/来源/滚动/旧数据测试 + PTY reading |
+| A2 / A4 | resource-pages.test.ts 两种批准、Enter/Esc 清码、设备结果；PTY pairing / reading；真实浏览器 auth/prod |
+| A5 / A6 | screen-dashboard.test.ts 默认取消；terminal.test.ts 表单 q/Esc；资源确认测试；PTY normal |
+| A7 / A8 / A13 | IPC 后端既有权限/冲突测试；页面 Zod/失败/超时与 single-flight 测试；不自动重发写请求 |
+| A9 / A10 / A11 | PTY 信号/启动失败/重连耗尽/尺寸/非 TTY/TERM=dumb；terminal.test.ts |
+| A12 | 终端及阅读页 ANSI/OSC 过滤、无效载荷不泄漏、审计不显示 details；配对码只在码页，PTY 不保存材料 |
+| A14 / A15 | 三类页面的晚到响应测试；重连重新创建控制器；初始化输入适配/返回/生命周期测试及真实初始化 smoke |
+
+### 画面记录与待人类抽查
+
+- [帧渲染图](evidence/frames.png) / [可放大 HTML](evidence/frames.html) 由真实 PTY 捕获文本渲染，原始 .txt 同目录；包含 100×30 / 80×24 的概览、日志、审计及 60×16 提示。使用临时数据与固定非秘密日志；不含配对码、Token、Cookie 或真实密钥。Agent 已检查图片的页头、正文、底部完整，无页面堆叠。图片是浏览器渲染的终端帧，不冒充原生终端截图。
+- 人工步骤：在自己的中文终端运行 pnpm dev，按 l 阅读/切源/r/Esc，按 p 批准临时申请，查看码后 Enter 回概览；进入 d 检查详情及取消撤销；q 默认取消再确认退出，检查 shell 光标与输入。分别在 100×30、80×24 和 60×16 核对布局。不要提交真实码或凭据截图。
+- **待人类终端视觉抽查**：按 docs/process/workflow.md §3 / §5，T0-3 保持 review，spec 保持 active，不宣称人工验收或整个切片 done。Linux/Windows 未在本轮运行，不外推平台支持。
+
 ## T0-2（2026-11-02，macOS / Node 20.19.3）
 
 - 配对列表、操作、默认取消确认和独立码页；设备列表、可滚动详情、撤销确认和结果留页接现有 IPC，返回通过 Zod 校验。

@@ -50,22 +50,26 @@ pnpm demo:shots     # 重新生成验收截图
 `pnpm dev` 的体验（ADR-023）：
 
 ```text
-Larness
-✓ 数据目录 /path/to/data
-✓ Server  http://localhost:3210
-✓ Web     http://localhost:5173
-✓ IPC     /path/to/data/ipc
+Larness · 控制面板      # 首次运行先进入初始化向导
+状态：运行中
+Web：http://localhost:5173
+待配对 0 · 在线会话 0
 
-Larness 初始化          # 首次运行进入向导
-...
-? Enter 刷新 / p 配对 / d 设备 / l 日志 / q 退出（停止服务） / s 关闭 server:
+› 配对
+  设备
+  日志
+  审计
+  退出并停止服务
+
+↑↓ 选择 · Enter 打开 · p/d/l/a · r 刷新 · q 退出
 ```
 
-- **TUI 是唯一前台入口**：Server / Vite 由 TUI supervisor 拉起；关闭 TUI（`q`、Ctrl-C、SIGTERM）会优雅停止全部，不留后台进程。
+- **TUI 是唯一前台入口**：Server / Vite 由 TUI supervisor 拉起；`q` 打开默认取消的退出确认，确认后停止全部；Ctrl+C、SIGTERM/SIGHUP 直接清理。退出恢复原终端画面和输入模式。
 - 首次运行展示有效配置，确认后初始化；不设置管理员密码、不询问更新通道。需要改监听或访问地址时选择高级设置；环境变量控制的字段需修改环境变量。开发模式首次默认来源为 `http://localhost:5173`，显式 `LARNESS_PUBLIC_URL` 会被沿用。
 - 初始化保留已有配置；有效配置变化后 TUI 自动停止并重新启动受管服务，再进入仪表盘。中断恢复在下次启动监听前完成，失败则拒绝启动。
 - 旧实例的历史密码哈希保留，但没有密码登录/恢复入口。开发期 IPC 保持协议号 1，参数变更直接更新源码与测试后统一构建（ADR-026）。
-- 已有初始化数据时直接进入仪表盘；`l` 查看 Server 日志与 Vite 输出。
+- 已有初始化数据时直接进入独立屏幕概览；`l` 打开日志，←/→ 切换 Server/子进程来源，↑/↓、PageUp/Down、Home/End 阅读，`r` 手动刷新，Esc 返回。`a` 打开审计；页面不会被后台输出顶走。
+- 配对码仅在专用页面显示，Enter 返回概览、Esc 返回申请列表；设备撤销二次确认，结果停留在详情页。交互需 TTY 且 TERM 非 dumb，完整布局至少 80×24。
 - `status` / `doctor` 仍可在 TUI 运行时从另一个终端执行：`node app.js status`、`node app.js doctor`。
 - 开发与生产请使用不同的 `LARNESS_DATA_DIR`，避免 canonical origin 混用。
 - 开发模式下 3210 只提供 API / WS，前端只在 5173；构建后的生产模式才由 3210 同时托管前端。

@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-02 (+08:00)
-> 当前阶段：**M1 / G1 已验收；TUI 页面化 T0-1 / T0-2 完成，下一项 T0-3，完成后进入 M2 规划**
+> 当前阶段：**M1 / G1 已验收；TUI 页面化实现完成，T0-3 review（待人类终端视觉抽查），之后进入 M2 规划**
 
 ## 里程碑
 
@@ -48,10 +48,12 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## TUI 页面化实施（2026-11-02）
 
-- T0-2 已完成：task/t0-2-resource-pages；check（server 283 / agent 32 / web 26）、build、真实 PTY 配对申请/审批/兑换及清理通过。下一项 T0-3。
+- T0-3：task/t0-3-reading-pages，2026-11-02（+08:00）开始，现为 review；日志双来源、审计阅读、手动刷新、滚动与失败旧快照已实现，整体回归与脱敏画面记录见 acceptance.md。按 docs/process/workflow.md §3，UI 任务需人类抽查，尚未标记切片 done。
+- T0-3 自动化：check（server 290 / agent 32 / web 26）、build、真实 PTY、初始化 smoke、Demo 15 / auth 2 / prod 2 E2E 均通过；浏览器 auth/prod 因共用 IPC 定位文件串行运行。仅验证 macOS，Linux/Windows 待实机。
+- T0-2 已完成：task/t0-2-resource-pages；check（server 283 / agent 32 / web 26）、build、真实 PTY 配对申请/审批/兑换及清理通过。
 
 - 人类完成 spec 后明确指令“开始实现”，G-Spec-TUI / ADR-027 通过；T0-1 → T0-2 → T0-3 先于 M2 实施。
-- 已完成 T0-1，分支 task/t0-1-screen-foundation，2026-11-02（+08:00）：独立屏幕、单一输入、初始化适配、概览与退出恢复；当前 T0-2（task/t0-2-resource-pages，2026-11-02 开始）：配对列表/操作/确认/码页与设备列表/详情/撤销确认，先测试、再接现有 IPC。
+- 已完成 T0-1，分支 task/t0-1-screen-foundation，2026-11-02（+08:00）：独立屏幕、单一输入、初始化适配、概览与退出恢复；T0-2 完成配对列表/操作/确认/码页与设备列表/详情/撤销确认，先测试、再接现有 IPC。
 - 验收：check（server 276 / agent 32 / web 26）、build、真实 PTY、初始化 smoke 通过，见 specs/016-tui-experience/acceptance.md。
 - 运行依赖只按 ADR-027 显式声明现有版本的两个纯 JS 宽度工具；无原生库/协议/DB 变化。
 
@@ -61,7 +63,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：补全 `M2` spec（当前 `draft`），经 G-Spec 确认后开始 M2-1（FileManager）。
+- 下一步：完成 T0-3 人类视觉抽查；随后补全 `M2` spec（当前 `draft`），经 G-Spec 确认后开始 M2-1（FileManager）。
 - 阻塞项：无。
 - 待确认：M2 spec 范围（文件树 / Monaco / CommandRunner / PTY / Git / 锁扩展）与 G-Spec 评审时间。
 

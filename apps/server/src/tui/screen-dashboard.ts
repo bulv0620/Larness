@@ -3,8 +3,9 @@ import { disconnected, displayError } from "./page-error.js";
 export { displayError } from "./page-error.js";
 
 import type { IpcClient } from "../ipc/client.js";
+import { runReadingPage } from "./reading-page.js";
 import { runResourcePage } from "./resource-pages.js";
-import { AuditSchema, LogLinesSchema, type ScreenStatus, StatusSchema } from "./schemas.js";
+import { type ScreenStatus, StatusSchema } from "./schemas.js";
 import { NavigationCancelled, TerminalInterrupted, type TerminalSession } from "./terminal.js";
 
 export async function runScreenDashboard(deps: {
@@ -16,7 +17,7 @@ export async function runScreenDashboard(deps: {
   const { terminal, client } = deps;
   const menu = ["配对", "设备", "日志", "审计", "退出并停止服务"];
   let selected = 0;
-  let page: "overview" | "exit" | "legacy" = "overview";
+  let page: "overview" | "exit" | "child" = "overview";
   let status: ScreenStatus | null = null;
   let error = "";
   let connectionError: unknown;
@@ -24,7 +25,7 @@ export async function runScreenDashboard(deps: {
   let loading = false;
   let confirmExit = false;
   const render = () => {
-    if (page === "legacy") return;
+    if (page === "child") return;
     if (page === "exit") {
       terminal.render({
         title: "退出确认",
@@ -122,7 +123,7 @@ export async function runScreenDashboard(deps: {
       }
       ++generation;
       loading = false;
-      page = "legacy";
+      page = "child";
 
       const lines: string[] = [];
       const title = menu[selected] ?? "功能";
@@ -135,31 +136,7 @@ export async function runScreenDashboard(deps: {
       try {
         if (selected === 0 || selected === 1)
           await runResourcePage(selected === 0 ? "pairing" : "devices", { client, terminal });
-        else {
-          if (selected === 2) {
-            const logs = LogLinesSchema.parse(await client.request("logs.tail", { lines: 20 }));
-            out(
-              [
-                "Server 最近日志",
-                ...logs.lines,
-                "",
-                "子进程输出",
-                ...(deps.localLogs?.() ?? []),
-              ].join("\n"),
-            );
-          } else {
-            const audit = AuditSchema.parse(await client.request("audit.tail", { limit: 20 }));
-            out(
-              audit.items
-                .map(
-                  (item) =>
-                    `${new Date(item.createdAt).toLocaleString()} ${item.action} ${item.decision ?? ""}`,
-                )
-                .join("\n") || "最近审计：无",
-            );
-          }
-          await ask("按回车返回控制面板");
-        }
+        else await runReadingPage(selected === 2 ? "logs" : "audit", deps);
       } catch (cause) {
         if (disconnected(cause) || cause instanceof TerminalInterrupted) throw cause;
         if (!(cause instanceof NavigationCancelled)) {
