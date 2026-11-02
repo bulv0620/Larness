@@ -2,7 +2,7 @@
 id: 016-tui-experience
 title: TUI 页面与交互统一
 milestone: M0-followup
-status: draft
+status: active
 depends_on: [015-initialization-hardening]
 owners: [human]
 created: 2026-11-02
@@ -11,7 +11,7 @@ updated: 2026-11-02
 
 # TUI 页面与交互统一
 
-> 内容已补全，状态仍为 draft，等待人类 G-Spec-TUI 确认；本次不授权实施。
+> G-Spec-TUI 于 2026-11-02 随人类“开始实现”指令确认；按 T0-1 → T0-2 → T0-3 先于 M2 实施。
 > 配套：[页面契约提案](../../docs/contracts/tui.md)、[渲染与输入 ADR 提案](../../docs/adr/ADR-027-tui-screen-and-input.md)、[评审清单](review.md)。
 > 现有 I0-7 的配对码回车停留仍是当前行为，本草案不代表页面化已实现。
 > 约束：[ADR-023](../../docs/adr/ADR-023-tui-as-managed-entry.md)、[IPC 契约](../../docs/contracts/ipc.md)、[安全模型](../../docs/architecture/security.md)。
@@ -32,7 +32,7 @@ updated: 2026-11-02
 - 不改变 IPC/REST/WS、数据库、配置、认证来源、配对码有效期或消费规则。
 - 不增加后台运行方式，不把业务状态/权限判断迁入 TUI。
 - 首版不做日志自动跟随、自动刷新、搜索筛选、导出或无限历史加载。
-- 不新增主题系统、鼠标操作、面板拖动或业务功能；依赖方案见 ADR-027（proposed），不引入 React / Ink 或新原生库。
+- 不新增主题系统、鼠标操作、面板拖动或业务功能；依赖方案见 ADR-027（accepted），不引入 React / Ink 或新原生库。
 - 不清空终端全局历史或声称擦除此前会话的回滚内容；目标是管理本次 TUI 的独立屏幕。
 
 ## 4. 页面与导航
@@ -130,7 +130,7 @@ updated: 2026-11-02
 
 产品与失败边界已细化，不把待评审事项交由实现 Agent 自行发明。人类待确认项只有本切片的 G-Spec-TUI、ADR-027 技术提案与相对 M2 的实施优先级，见 review.md；本次文档完成不等同已批准实现。
 
-- [ ] 人类确认 G-Spec-TUI 与 ADR-027，通过后转 ready；
+- [x] 人类于 2026-11-02 确认 G-Spec-TUI 与 ADR-027，开始顺序实施；
 - [ ] T0-1 → T0-2 → T0-3 按序实现、逐任务验证和提交；
 - [ ] A1–A16、PTY 和人工视觉验收通过；
 - [ ] 合同/文档/STATUS 同步，平台支持范围与真实证据一致。

@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-02 (+08:00)
-> 当前阶段：**M1 / G1 已验收，初始化与 TUI 修复 I0-1～I0-7 完成；下一步补全 M2 spec**
+> 当前阶段：**M1 / G1 已验收；TUI 页面化 T0-1 完成，下一项 T0-2，完成后进入 M2 规划**
 
 ## 里程碑
 
@@ -46,12 +46,12 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - allow_once / trust 均覆盖；审批失败不等待，取消输入不误报审批失败；配对码有效期及接口无变更。
 - 测试先失败后通过；pnpm check（server 269 / agent 32 / web 26）、pnpm build 通过。无进行中补充任务，下一步仍为 M2 G-Spec。
 
-## TUI 优化方案（文档已补全，2026-11-02）
+## TUI 页面化实施（2026-11-02）
 
-- [016 spec](specs/016-tui-experience/spec.md) 内容已补齐：16 项验收场景、页面/按键、日志快照与滚动、写超时结果待确认、请求竞态、初始化/终端恢复、任务与验收映射。
-- 配套 [页面契约提案](docs/contracts/tui.md)、[ADR-027](docs/adr/ADR-027-tui-screen-and-input.md) proposed、[G-Spec 清单](specs/016-tui-experience/review.md)。技术提案明确单一输入所有者、Node 内置终端能力及已在锁文件中的纯 JS 宽度工具，不增加原生库。
-- spec 保持 draft：待人类确认 G-Spec-TUI / ADR-027 与相对 M2 的优先级（Q-020）。T0-1 → T0-2 → T0-3 均 todo，未开始实施；未更改现行行为/依赖/测试/运行数据。
-- 本次只完成设计文档；现有仓库检查不代表新 TUI 验收通过。
+- 人类完成 spec 后明确指令“开始实现”，G-Spec-TUI / ADR-027 通过；T0-1 → T0-2 → T0-3 先于 M2 实施。
+- 已完成 T0-1，分支 task/t0-1-screen-foundation，2026-11-02（+08:00）：独立屏幕、单一输入、初始化适配、概览与退出恢复；下一项 T0-2。
+- 验收：check（server 276 / agent 32 / web 26）、build、真实 PTY、初始化 smoke 通过，见 specs/016-tui-experience/acceptance.md。
+- 运行依赖只按 ADR-027 显式声明现有版本的两个纯 JS 宽度工具；无原生库/协议/DB 变化。
 
 ## 当前工作
 

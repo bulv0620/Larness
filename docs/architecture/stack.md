@@ -40,7 +40,7 @@
 | 日志 | pino + pino-roll | JSON 行；开发用 pino-pretty；按日 / 大小轮转；秘密脱敏 |
 | WebSocket | `@fastify/websocket`（ws） | 握手鉴权、Origin 校验、事件序号 |
 | 本机 IPC | Unix Domain Socket / Windows Named Pipe | 换行分隔 JSON；0600 权限 + 0600 Token 握手；可用平台追加 peer uid |
-| TUI | `@inquirer/prompts` + `picocolors` | 交互向导 / 仪表盘；不引 React / Ink |
+| TUI | Node readline/TTY + `@inquirer/prompts` + `picocolors` | ADR-027：单一输入所有者与独立屏幕，向导受控适配；fast-string-width / fast-wrap-ansi 计算显示列宽；不引 React / Ink |
 | Diff / Patch | `diff`（jsdiff） | apply_patch 与 Diff 视图；不自行实现补丁解析 |
 | HTTP 代理 | `undici` | 预览代理；禁止任意 upstream |
 | PTY | `node-pty` | 平台 PoC；失败退路见 M2 |

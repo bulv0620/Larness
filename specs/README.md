@@ -83,7 +83,7 @@ depends_on: [010-foundation]
 | `000-visual-demo` | done | 已验收（G-S0 通过，`D0-9` done） |
 | `010-foundation` | ready | 可信启动与认证 |
 | `020-workspace-agent` | ready | 项目 / 会话 / 最小 Agent |
-| `016-tui-experience` | draft | 内容已补全，待 G-Spec-TUI / ADR-027 人类确认，不授权实现 |
+| `016-tui-experience` | active | G-Spec-TUI / ADR-027 已通过，按序实现，见 ROADMAP |
 | `030`–`060` | draft | 启动对应里程碑前补全 |
 
 详细任务与依赖见 [ROADMAP.md](ROADMAP.md)。

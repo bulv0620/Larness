@@ -73,6 +73,8 @@ export interface ManagedRuntime {
 
 export interface StartManagedRuntimeOptions {
   dev: boolean;
+  out?: (text: string) => void;
+  signal?: AbortSignal;
 }
 
 function serverRoot(): string {
@@ -135,12 +137,21 @@ async function httpOk(url: string, requireHtml = false): Promise<boolean> {
 async function waitForHttp(
   url: string,
   child: ChildProcess,
-  options: { requireHtml?: boolean; timeoutMs?: number; failed?: () => boolean } = {},
+  options: {
+    requireHtml?: boolean;
+    timeoutMs?: number;
+    failed?: () => boolean;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<boolean> {
   const deadline = Date.now() + (options.timeoutMs ?? READY_TIMEOUT_MS);
 
   while (Date.now() < deadline) {
-    if (child.exitCode !== null || options.failed?.() === true) {
+    if (
+      child.exitCode !== null ||
+      options.failed?.() === true ||
+      options.signal?.aborted === true
+    ) {
       return false;
     }
 
@@ -196,6 +207,8 @@ export async function loadManagedConfig(
 export async function startManagedRuntime(
   options: StartManagedRuntimeOptions,
 ): Promise<ManagedRuntime> {
+  options.signal?.throwIfAborted();
+  const out = options.out ?? console.log;
   const root = serverRoot();
   const repoRoot = path.resolve(root, "../..");
   const dataDir = resolveDataDir();
@@ -301,24 +314,23 @@ export async function startManagedRuntime(
   };
   process.once("exit", forceKill);
 
-  let stopped = false;
-  const stop = async (): Promise<void> => {
-    if (stopped) {
-      return;
-    }
-    stopped = true;
-
-    try {
-      await stopChild(server, 10_000);
-      await stopChild(web, 5_000);
-    } finally {
-      process.off("exit", forceKill);
-    }
+  let stopping: Promise<void> | null = null;
+  const stop = (): Promise<void> => {
+    stopping ??= (async () => {
+      try {
+        await stopChild(server, 10_000);
+        await stopChild(web, 5_000);
+      } finally {
+        process.off("exit", forceKill);
+      }
+    })();
+    return stopping;
   };
 
   try {
     const serverReady = await waitForHttp(`${localBase}/api/health`, server, {
       failed: () => serverSpawnError !== null,
+      signal: options.signal,
     });
     const webReady = serverReady
       ? await waitForHttp(
@@ -328,6 +340,7 @@ export async function startManagedRuntime(
             requireHtml: true,
             timeoutMs: options.dev ? READY_TIMEOUT_MS : 5_000,
             failed: options.dev ? () => webSpawnError !== null : () => serverSpawnError !== null,
+            signal: options.signal,
           },
         )
       : false;
@@ -355,18 +368,18 @@ export async function startManagedRuntime(
   }
 
   if (options.dev && canonicalOrigin !== WEB_DEV_URL) {
-    console.log(
+    out(
       pc.yellow(
         `! canonical origin 是 ${canonicalOrigin}，与开发 Web ${WEB_DEV_URL} 不一致；Passkey 将不可用。`,
       ),
     );
   }
 
-  console.log(pc.bold("Larness"));
-  console.log(`${pc.green("✓")} 数据目录 ${dataDir}`);
-  console.log(`${pc.green("✓")} Server  ${serverUrl}`);
-  console.log(`${pc.green("✓")} Web     ${webUrl}`);
-  console.log(`${pc.green("✓")} IPC     ${path.join(dataDir, "ipc")}`);
+  out(pc.bold("Larness"));
+  out(`${pc.green("✓")} 数据目录 ${dataDir}`);
+  out(`${pc.green("✓")} Server  ${serverUrl}`);
+  out(`${pc.green("✓")} Web     ${webUrl}`);
+  out(`${pc.green("✓")} IPC     ${path.join(dataDir, "ipc")}`);
 
   return {
     dataDir,

@@ -23,13 +23,13 @@
 | Q-016 | 所有 Passkey 丢失 / TUI 不可用时如何恢复？ | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码仍为 P1 | 恢复流程、支持成本 | M4 |
 | Q-017 | 是否允许可同步 Passkey（iCloud / Google）？ | 允许；存储 `backupEligible` / `backupState` 并在设备列表展示，不承诺物理设备绑定 | 安全文案、撤销粒度 | M0-6 |
 | Q-018 | 是否保留 `允许本次` 临时访问？ | 保留；仅短期会话，不注册 Passkey，不产生长期凭据 | 兼容不支持 WebAuthn 的浏览器 | M0-5 |
-| Q-020 | TUI 页面化方案、输入/渲染选型及相对 M2 的实施顺序是否批准？ | 016 spec 内容已补全；建议 T0-1 → T0-2 → T0-3，ADR-027 proposed；未经 G-Spec-TUI 确认不得实施或视为已批准优先级 | 页面契约、两个已有纯 JS 工具的直接依赖声明、TUI 排期 | T0-1 前，人类确认 |
 
 ## 已解决
 
 | ID | 结论 | 记录 |
 |---|---|---|
 | Q-001 | V1 使用 Passkey / WebAuthn，不再签发长期设备 Token | [ADR-021](adr/ADR-021-passkey-v1.md) |
+| Q-020 | 2026-11-02 人类明确开始实现，G-Spec-TUI / ADR-027 通过，T0-1 → T0-2 → T0-3 先于 M2 | [ADR-027](adr/ADR-027-tui-screen-and-input.md) |
 | Q-019 | 一个工作空间只支持一个 canonical RP ID / Origin，不做多域名 | [ADR-021](adr/ADR-021-passkey-v1.md) |
 | Q-007 | 产品名与命名空间统一为 Larness；默认数据目录使用 Larness | [ADR-022](adr/ADR-022-product-name-larness.md) |
 

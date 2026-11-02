@@ -2,6 +2,7 @@ import { type AppConfig, DEFAULT_APP_CONFIG } from "@larness/shared";
 import type { InitResult } from "../init/service.js";
 import type { InitApplyParams } from "../ipc/protocol.js";
 import { buildInitRequest, TuiError } from "./init-wizard.js";
+import { NavigationCancelled } from "./terminal.js";
 
 export interface InitPrompts {
   advanced(): Promise<boolean>;
@@ -10,6 +11,13 @@ export interface InitPrompts {
   publicUrl(): Promise<string>;
   confirm(summary: string): Promise<boolean>;
   notify?(message: string): void;
+}
+
+export class InitCancelled extends Error {
+  constructor() {
+    super("初始化已取消");
+    this.name = "InitCancelled";
+  }
 }
 
 export type InitApply = (params: InitApplyParams) => Promise<InitResult>;
@@ -27,15 +35,27 @@ export async function runInitWizard(
   const config = options.config ?? DEFAULT_APP_CONFIG;
   const defaults = config.server;
   const maxAttempts = options.maxAttempts ?? 3;
-  const advanced = await prompts.advanced();
+  let advanced = await prompts.advanced();
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const answers = advanced
-      ? {
-          host: await prompts.host(),
-          port: await prompts.port(),
-          publicUrl: await prompts.publicUrl(),
-        }
-      : { host: defaults.host, port: String(defaults.port), publicUrl: defaults.publicUrl ?? "" };
+    const answers = {
+      host: defaults.host,
+      port: String(defaults.port),
+      publicUrl: defaults.publicUrl ?? "",
+    };
+    const fields = ["host", "port", "publicUrl"] as const;
+    let step = 0;
+    while (advanced && step < fields.length) {
+      const field = fields[step];
+      if (field === undefined) break;
+      try {
+        answers[field] = await prompts[field]();
+        step += 1;
+      } catch (error) {
+        if (!(error instanceof NavigationCancelled)) throw error;
+        if (step > 0) step -= 1;
+        else advanced = await prompts.advanced();
+      }
+    }
     let request: ReturnType<typeof buildInitRequest>;
     const params: InitApplyParams = { ...options.initialParams };
     try {
@@ -63,7 +83,7 @@ export async function runInitWizard(
       `Passkey: ${request.passkeyEnabled ? "可用" : "不可用（将仅支持 allow_once）"}`,
       ...(request.warning === null ? [] : [request.warning]),
     ].join("\n");
-    if (!(await prompts.confirm(summary))) throw new Error("初始化已取消");
+    if (!(await prompts.confirm(summary))) throw new InitCancelled();
     return apply(params);
   }
   throw new Error("初始化失败：重试次数已用尽");

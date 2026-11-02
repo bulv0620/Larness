@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { runInitWizard } from "../../src/tui/init-flow.js";
+import { NavigationCancelled } from "../../src/tui/terminal.js";
 import { testConfig } from "../helpers.js";
 
 const result = { origin: "https://custom.example", rpId: "custom.example", restartRequired: false };
@@ -56,5 +57,17 @@ describe("initialization settings", () => {
       }),
     ).rejects.toThrow(/LARNESS_PORT/);
     expect(apply).not.toHaveBeenCalled();
+  });
+  it("returns to the previous initialization field on Escape without submitting", async () => {
+    const ask = prompts(true);
+    ask.host.mockResolvedValueOnce("127.0.0.1").mockResolvedValue("0.0.0.0");
+    ask.port.mockRejectedValueOnce(new NavigationCancelled()).mockResolvedValue("3210");
+    const apply = vi.fn(async () => result);
+    await runInitWizard(ask, apply, {
+      config: testConfig({ server: { publicUrl: result.origin } }),
+    });
+    expect(ask.host).toHaveBeenCalledTimes(2);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(apply).toHaveBeenCalledWith({ host: "0.0.0.0" });
   });
 });

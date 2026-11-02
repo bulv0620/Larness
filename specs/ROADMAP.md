@@ -91,13 +91,13 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | I0-6 | 撤回 IPC v2 与开发数据重置 | I0-5、ADR-026 accepted | `done` |
 | I0-7 | 配对码显示后回车返回 | I0-6 | `done` |
 
-## 4.2 TUI 页面与交互统一（仅规划，2026-11-02）
+## 4.2 TUI 页面与交互统一（2026-11-02）
 
-[016 spec](016-tui-experience/spec.md) 内容已补全，配套 [评审清单](016-tui-experience/review.md)、[页面契约提案](../docs/contracts/tui.md) 和 [ADR-027](../docs/adr/ADR-027-tui-screen-and-input.md)。状态仍为 draft，本次不授权实现；G-Spec-TUI / ADR-027 及相对 M2 优先级待人类确认，不自行调整里程碑顺序。
+[016 spec](016-tui-experience/spec.md) / ADR-027 已于 2026-11-02 随人类“开始实现”指令通过 G-Spec-TUI，按 T0-1 → T0-2 → T0-3 在 M2 前顺序执行。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| T0-1 | 页面容器、输入所有权、概览与退出恢复 | I0-7 done；G-Spec-TUI / ADR-027（未通过） | `todo` |
+| T0-1 | 页面容器、输入所有权、概览与退出恢复 | I0-7 done；G-Spec-TUI / ADR-027 accepted | `done` |
 | T0-2 | 配对与设备页面统一 | T0-1 | `todo` |
 | T0-3 | 日志/审计阅读页与整体验收 | T0-2 | `todo` |
 
