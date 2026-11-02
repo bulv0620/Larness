@@ -48,20 +48,20 @@ FileEntry 为 `{ path, name, type: "file" | "directory", size? }`。稳定排序
 | GET `/api/terminals` | 按 projectId / workspaceSessionId / 全局过滤；返回分页资源，不读取客户端 Tab |
 | POST `/api/terminals` | `{ scope?, cwd?: ".", sourceSessionId?, riskAcknowledged: true }`；服务端固定平台 Shell；201 Terminal |
 | GET `/api/terminals/:id` | Terminal 与当前租约元数据 |
-| POST `/api/terminals/:id/terminate` | 显式确认 `{ confirmed: true }`；幂等停止，不等于关 Tab |
+| POST `/api/terminals/:id/terminate` | `{ confirmed: true }`；主动关闭终端 Tab 或显式终止都经此能力，幂等停止；窗口关闭不调用 |
 | POST `/api/terminals/:id/resize` | `{ connectionId, leaseGeneration, cols, rows }`；cols 2–500、rows 1–300 |
 | POST `/api/terminals/:id/lease` | `{ action: "acquire" \| "renew" \| "release", connectionId, leaseGeneration? }` |
 | GET `/api/terminals/:id/output?after=&limit=` | 脱敏的有界游标回放，最多每页 64 KiB |
 
-Terminal：`{ id, projectId, workspaceSessionId, sourceSessionId, cwd, shell, status, createdAt, startedAt?, endedAt?, exitCode?, currentSequence, lease }`；状态 `CREATED / RUNNING / STOPPING / EXITED / TERMINATED / INTERRUPTED`。重启不恢复 PTY，不因恢复 Tab 自动 POST 新资源。
+Terminal：`{ id, projectId, workspaceSessionId, sourceSessionId, executionId, cwd, shell, status, createdAt, startedAt?, endedAt?, exitCode?, currentSequence, lease }`；状态 `CREATED / RUNNING / STOPPING / EXITED / TERMINATED / INTERRUPTED`。重启不恢复 PTY，不因恢复 Tab 自动 POST 新资源。
 
-订阅成功返回服务端 connectionId；只有该会话持有的活 WS 连接可以申请租约。lease 为 `{ ownerClientSessionId, ownerConnectionId, generation, expiresAt } | null`，generation 单调递增且不复用；不是身份 Token。30s TTL、10s renew；使用服务端时钟。旧 generation 输入 / resize / renew / release 均拒绝，两个并发 acquire 只成功一个。WS 输入新增消息：
+订阅成功返回服务端 connectionId；人工申请仅接受该会话持有的活 WS 连接；AI 工具由真实 Turn / executionId principal 申请同一租约，见 §10。lease 为 `{ ownerType, ownerClientSessionId, ownerConnectionId?, ownerTurnId?, ownerExecutionId?, generation, expiresAt } | null`，generation 单调递增且不复用；不是身份 Token。30s TTL、10s renew；使用服务端时钟。旧 generation 输入 / resize / renew / release 均拒绝，两个并发 acquire 只成功一个。WS 输入新增消息：
 
 ```ts
 { type: 'terminal.input', terminalId: string, leaseGeneration: number, inputSequence: number, data: string }
 ```
 
-服务端按当前连接验证持有者与 generation；inputSequence 在该租约内递增，重复不重放按键，未来跳号拒绝并要求重同步。每条 ≤ 8 KiB，单连接 ≤ 64 KiB/s；粘贴也受同一限制。禁止把输入正文记日志。身份过期 / 撤销 / 断线立即释放输入租约，PTY 仍运行；输入租约与源码写锁不绑定。M2 不提供 force takeover。
+服务端按当前连接验证持有者与 generation；inputSequence 在该租约内递增，重复不重放按键，未来跳号拒绝并要求重同步。每条 ≤ 8 KiB，单连接 ≤ 64 KiB/s；粘贴也受同一限制。禁止把输入正文记日志。身份过期 / 撤销 / 断线立即释放输入租约，PTY 仍运行；输入租约与源码写锁不绑定。不提供人工之间的 force takeover；人工显式接管 AI 控制按 §10 原子交接。
 
 ### 4.1 Agent 项目开发终端工具（draft）
 
@@ -69,9 +69,9 @@ Terminal：`{ id, projectId, workspaceSessionId, sourceSessionId, cwd, shell, st
 - `read_terminal_output({ terminalId, after?, limit? })`：按资源归属授权，返回与 REST 相同的脱敏游标页；单次最多 64 KiB，并受工具输出预算约束。不隐式抢输入租约。
 - `stop_project_terminal({ terminalId })`：显式停止自己创建且归当前项目的终端，按工具策略授权和审计；不自动停止其他来源资源，不以停止 Turn 代替停止终端。终止需实际确认退出。
 
-新增 Terminal 字段 `mode: "shell" | "dev"`、`role: string | null`、`launchParamsHash: string | null`、`createdByTurnId: string | null`；内部保存规范化启动程序 / 参数，敏感材料按现有规则拒绝 / 脱敏。租约仍用于人工输入 / resize；Agent 创建进程无需伪装浏览器 connectionId，M2 不开放 Agent 通用输入工具。
+新增 Terminal 字段 `mode: "shell" | "dev"`、`role: string | null`、`launchParamsHash: string | null`、`createdByTurnId: string | null`；内部保存规范化启动程序 / 参数，敏感材料按现有规则拒绝 / 脱敏。人工与 AI 输入 / resize 共享唯一控制租约；Agent 创建进程无需伪装浏览器 connectionId，输入 / 中断 / 交接工具见 §10。
 
-同项目 + role 只允许一个活跃 dev 资源；相同规范化参数重试返回已有 terminalId，不重新执行；参数不同 CONFLICT。角色不是服务 ID，不保证端口或健康。已结束资源可显式重新启动为新 terminalId，不能因订阅 / 恢复 Tab 自动启动。人工 Shell 与 dev 终端可分别存在；均不因 Tab 关闭结束。
+同项目 + role 只允许一个活跃 dev 资源；相同规范化参数重试返回已有 terminalId，不重新执行；参数不同 CONFLICT。角色不是服务 ID，不保证端口或健康。已结束资源可显式重新启动为新 terminalId，不能因订阅 / 恢复 Tab 自动启动。人工 Shell 与 dev 终端可分别存在；均不因窗口关闭 / 最小化结束；主动关闭终端 Tab 复用经授权 / 幂等的 terminate，确认终态才移除 Tab，失败保留。
 
 创建成功持久化资源、创建结果与 `terminal.created` 事件后返回 `{ terminalId, role, status, reused }`；立即退出通过终态反馈，不宣称 ready。发起客户端据 origin=agent 在项目组插入 Tab（不抢焦点），其余客户端仅更新全局资源列表。真正 Tab / 窗口仍是各客户端本地状态。创建成功交付前取消需清理未交付进程；交付后终端属于项目，Turn 结束 / 取消不自动停止，需独立停止操作。服务端崩溃仍按 INTERRUPTED 对账。
 
@@ -121,7 +121,7 @@ GET `/api/resource-events?streamId=&after=&limit=` 返回 `{ items, currentSeque
 |---|---|---|
 | M2-1 | `file_versions(scope_key, path, real_path, version_hash, size, mtime, updated_at)`；`resource_events(id, stream_id, seq, type, payload_json, created_at)`；`resource_streams(stream_id, last_seq)`；`resource_operations(id, scope_key, kind, status, params_hash, idempotency_key, client_session_id, result_json, created_at, updated_at)` | 文件索引不存内容，不作权威版本；UNIQUE(stream_id, seq)；操作记录包含写意图与幂等结果 |
 | M2-3 | `command_executions(id, operation_id, project_id?, workspace_session_id?, session_id, turn_id, tool_call_id, policy_snapshot_id, params_hash, status, exit_code?, reason_code?, truncated, process_identity_json?, created_at, started_at?, ended_at?)` | 原始环境 / 秘密不存库；operation_id 唯一；进程身份用于恢复对账，不能单凭 PID 杀进程 |
-| M2-4 | `terminals(id, operation_id, project_id?, workspace_session_id?, source_session_id?, cwd, shell, mode, role?, launch_params_json?, launch_params_hash?, created_by_turn_id?, status, process_identity_json?, created_at, started_at?, ended_at?, exit_code?)`；`terminal_leases(terminal_id, generation, owner_client_session_id?, owner_connection_id?, expires_at, heartbeat_at)` | 每终端一条租约；释放保留 generation，重启作废全部旧连接；事务更新资源与事件；同 project_id + role 的活跃 dev 资源唯一 |
+| M2-4 | `terminals(id, operation_id, project_id?, workspace_session_id?, source_session_id?, cwd, shell, mode, role?, launch_params_json?, launch_params_hash?, created_by_turn_id?, status, process_identity_json?, created_at, started_at?, ended_at?, exit_code?)`；`terminal_leases(terminal_id, generation, owner_type?, owner_client_session_id?, owner_connection_id?, owner_turn_id?, owner_execution_id?, expires_at, heartbeat_at)` | 每终端一条租约；释放保留 generation，重启作废全部旧连接；事务更新资源与事件；同 project_id + role 的活跃 dev 资源唯一 |
 | M2-5 | `resource_actions(id, operation_id, project_id, kind, risk, status, params_json, params_hash, snapshot_hash, requested_by, decided_by?, expires_at, decided_at?, started_at?, ended_at?, result_json)` | params_json 只含结构化非秘密参数；批准状态单次消费；不改变 M1 approvals 的 Turn 约束 |
 | 各写任务 | 复用 `resource_locks` 的 owner / execution_id / fencing_token / expires_at / heartbeat_at | 顺序 global-maintenance → project → service → file/git；每次副作用前重验 |
 
@@ -146,3 +146,25 @@ GET `/api/resource-events?streamId=&after=&limit=` 返回 `{ items, currentSeque
 | `GIT_AUTH_REQUIRED` | 409 | 主机现有认证不可用，要求本机处理 |
 
 命令非零 / 超时 / 取消是执行资源的终态，HTTP 查询仍返回该资源；不能把子进程 stderr 原样当服务器错误。错误 details 仅含有限的 owner / resourceId / 当前版本 / 可恢复原因，不返回输入、完整主机环境或认证材料。
+
+## 9. ADR-030 补充：Tab 关闭、文件卡片与 M3 边界
+
+主动关闭终端 Tab 携带显式后端终止意图，不能只从 store 删除；等待实际退出、持久化状态再移除发起者视图，其他客户端显示 ended。失败保留 Tab / 错误；重复请求查询同一资源结果。窗口关闭 / 最小化、刷新 / 断网、筛选 / 布局迁移不调用 terminate。关闭 Browser Tab 不停止源服务，关闭文件 Tab 不删除文件。
+
+服务没有 Tab，采用服务窗口 filter / selectedServiceId、卡片 / 详情，不再把 services 作为 WindowTab.kind；旧布局按视图迁移，不触发资源停止。临时服务注册 / 退登归 M3，TerminalManager 提供 terminalId、每次执行身份、状态与退出事件，作为源进程的唯一控制者。PM2 持久服务不挂终端 Tab。
+
+M2 文件工具结果与 artifact 事件补结构化 `resourceTarget`，file target / 点击解析见 [services-preview §6](services-preview.md)。预览 target 属 M3，须登记验证后才可生成，不以任意 URL 直接 iframe。
+
+完整 AI 终端交互技术草案见 §10：输入 / 中断、principal 联合、generation、人工接管、审计与取消；M2-4d 负责接线与验收，schema 仍待 G-Spec-M2 冻结。
+
+## 10. AI 终端输入与人工接管（技术草案）
+
+为补齐完整终端操作，拟增加 `acquire_terminal_control({ terminalId })`、`send_terminal_input({ terminalId, leaseGeneration, inputSequence, data })`、`interrupt_terminal({ terminalId, leaseGeneration })`、`release_terminal_control({ terminalId, leaseGeneration })`；已有 start / read / stop 复用同一个 TerminalManager。身份、Turn / executionId、项目和 policy 由工具上下文注入，不接受模型伪造 owner 或浏览器 connectionId。
+
+租约 principal 拟改为判别联合：human 绑定真实认证会话 + WS connectionId；agent 绑定真实发起认证会话 + sessionId / turnId / executionId。共享同一 terminalId 的唯一租约、30s TTL / 10s 续租、递增 generation，任何来源只有持有者能输入 / resize / 中断。读取输出不抢控制权，终止则按独立资源授权执行。Agent 工具经 ToolRegistry / 参数审批后才能调用内部输入能力，禁止直接连接 PTY 绕过审计。
+
+人工显式“接管 AI 控制”由后端原子撤销 Agent generation 后授予人，旧 Agent 输入立即失败并告知 Turn 暂停终端操作；Agent 不自动抢回。两人工客户端不强抢，仍等待到期 / 主动交接。原始身份撤销、Turn 取消 / 结束、工具执行失效立即撤销相应 Agent 租约，但已成功交付的终端进程继续，只有显式中断 / 停止或终端 Tab 关闭才改变进程。人工断线同样只释放其输入租约。
+
+inputSequence 在该租约中递增，重复包不重放，迟到 generation 拒绝；每次输入 ≤ 8 KiB、速率沿人工 64 KiB/s 上限，工具调用 / Turn 预算另行限制。interrupt 发送当前终端的中断控制（例如 ETX），不将“已发中断”报告为“进程已退出”；需重读输出 / 状态确认。输入 / 中断前按实际程序 / 操作风险沿工具策略审批，不能在取得一次租约后无限绕过工具策略。原始输入正文、密码、Token 不进入日志 / 事件；只记长度、资源、执行关联和允许 / 拒绝，不引入自动填写主机凭据能力。
+
+M2-4 定义共享 principal 租约存储 / 校验；M2-4d 接工具、人机交接和假时钟 / 真实 PTY 验证；全部仍待 G-Spec-M2 冻结 schema，不把本文当作已经上线协议。

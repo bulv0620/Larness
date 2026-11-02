@@ -158,7 +158,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 |---|---|---|
 | `terminals` | M2 | `id, project_id?, source_session_id?, cwd, shell, status, created_at, ended_at` |
 | `file_versions` | M2 | `path, project_id, version_hash, size, mtime, updated_at` |
-| `services` | M3 | `id, project_id?, name, kind, runtime, config_json, desired_state, observed_state, created_at` |
+| `services` | M3 | `id, project_id?, name, kind(temporary/persistent), terminal_id?, terminal_execution_id?, endpoint_generation?, pm2_identity?, config_ref?, desired_state?, observed_state, endpoint_json?, preview_eligible, created_at, updated_at`（kind 约束见服务契约） |
 | `service_logs` | M3 | `service_id, cursor, chunk, created_at`（或落盘 + 索引） |
 | `deployments` | M4 | `id, service_id, commit_sha, artifact_ref, status, plan_json, created_at` |
 | `scheduled_jobs` | M5 | `id, name, schedule, scope, policy, enabled, created_at` |
@@ -167,7 +167,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 
 完整字段在对应 milestone spec 中冻结；不得在实现时静默增加跨里程碑的大表。
 
-`BrowserTab`、`Window`、`WindowTab`、`ProjectFilter` 是**客户端视图状态**，不落服务端数据库；其身份、来源与筛选规则见 [resource-views.md](resource-views.md)。
+`BrowserTab`、`Window`、`WindowTab`、`ProjectFilter`、服务窗口的 `selectedServiceId` 是**客户端视图状态**，不落服务端数据库；其身份、来源与筛选规则见 [resource-views.md](resource-views.md)。
 
 ## 5. 迁移规则
 
@@ -211,3 +211,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 ## M2 详细草案入口（2026-11-02，未冻结）
 
 文件 / 命令 / PTY / Git 的接口、资源事件与回放、数据迁移、锁与错误码拟细化于 [m2-resources.md](m2-resources.md)，配套 [030 spec](../../specs/030-dev-resources/spec.md)。本文件中原 M2 摘要只作范围索引；细化提案须经 G-Spec-M2 / ADR-029 确认后才生效，实施时同步 Zod schema 与测试，不改变 M0 / M1 已实现契约。
+
+## ADR-030 服务与资源生命周期补充（2026-11-02）
+
+[资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与拟议接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。产品规则已接受，M2/M3 技术 schema / 迁移 / 代码尚未实施，既有认证和事件权威性不变。

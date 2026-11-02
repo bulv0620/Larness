@@ -190,3 +190,7 @@ ACTIVE → REVOKED
 ## 主密钥启动校验（I0-3 / ADR-024）
 
 启动在 IPC/HTTP 监听前读取所有持久化 secret，校验其可用当前 master.key 解密；明文不输出、不返回或持久化。已有 secret 时 master.key 缺失不得重建；格式错误、密钥不匹配、密文损坏均拒绝启动，保留原记录，要求恢复正确密钥及匹配备份。不提供自动清空/重置。secret 表为空时允许首次创建密钥。
+
+## 资源关闭、临时绑定与服务动作（ADR-030）
+
+主动关闭终端 Tab 是已认证 terminate 操作，必须鉴权 / CSRF / 幂等 / 审计并等待实际退出；不能用本地移除 Tab 代替。窗口关闭、最小化、组件卸载 / 网络断开不 terminate。临时服务仅验证、登记与展示其 Terminal 源执行，源退出或身份不明立即撤销预览资格，不允许日志 URL / 客户端 PID 自动授权。持久 PM2 操作对人工与 Agent 采用同一权限、审批、服务锁和审计；新增部署 / 产物变更仍经 M4。详细产品规则见 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md)，具体身份 / endpoint 核验与票据仍待 M3 PoC。

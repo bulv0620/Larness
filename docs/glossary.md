@@ -14,15 +14,16 @@
 | 工具调用 | Tool Call | Agent 请求执行的结构化动作（读文件、跑命令等） |
 | 审批 | Approval | 对 L2 / L3 能力的人工授权，绑定参数、范围、有效期 |
 | 资源 | Resource | 后端拥有的对象：Terminal、Service、Turn、Deployment |
-| 视图 | View | 客户端窗口 / Tab；关闭视图不终止资源 |
+| 视图 | View | 窗口关闭 / 最小化只隐藏视图；终端 Tab 主动关闭是终止资源操作，文件 / Browser Tab 关闭仅结束其内容（ADR-030） |
 | Tab 归属 | Tab Origin | Tab 记录的资源所属项目与来源，用于分组/筛选，不用于授权 |
-| 项目筛选 | Project Filter | 窗口内的 全部 / 指定项目 / 全局 视图筛选；只隐藏 Tab，不停止资源 |
-| 视图键 | viewKey | 去重键：terminal ID、service ID、file realpath、browser service+URL、diff project+path |
+| 项目筛选 | Project Filter | 窗口内的 全部 / 指定项目 / 全局 视图筛选；只过滤 Tab 或服务卡片，不停止资源 |
+| 视图键 | viewKey | 去重键：terminal ID、file realpath、browser service+URL、diff project+path；service ID 用于卡片 / 详情，不是服务 Tab |
 | 窗口层 | Window Layer | 悬浮窗口容器，管理拖动、缩放、层级、最大化、隐藏 |
 | 租约 | Lease | 终端交互输入等短时独占权，带过期与接管 |
 | 栅栏令牌 | Fencing Token | 锁的单调递增标识，防止过期持有者继续写入 |
-| 原生进程 | Native Process | 由 child_process / PTY 直接管理的开发服务 |
-| 托管服务 | Managed Service | 由 PM2 管理的长期运行服务 |
+| 原生进程 | Native Process | 由 TerminalManager / PTY 管理的开发进程，不由服务模块独立启停 |
+| 临时服务 | Temporary Service | Terminal 源进程的活跃登记，随源退出取消，供展示和隔离预览，无 PM2 管控 |
+| 持久服务 / 托管服务 | Persistent / Managed Service | 由 PM2 管理的长期运行服务 |
 | 预览来源 | Preview Origin | 加载项目页面的隔离来源，不得共享管理站 Cookie |
 | 预览票据 | Preview Ticket | 绑定服务与会话的短期访问凭证 |
 | 配对码 | Pairing Code | TUI 展示的一次性高熵码，用于兑换会话 / enrollment |

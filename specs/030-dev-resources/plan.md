@@ -21,7 +21,7 @@
 2. **M2-0**：只做阻断性 PoC，先写可失败的验收脚本，真实 node-pty / 发布寻址 / 进程树 / 文件身份 / watcher / 锁丢失与重叠根。形成 poc.md，人类确认 G-PoC-M2。失败按原门禁停止，不安装替代依赖。
 3. **M2-1 → M2-1b → M2-2**：文件 API 和锁 / 写意图 / 资源事件底座 → 监听与重放 → Monaco 保存冲突。
 4. **M2-3 → M2-3b**：CommandRunner 生命周期 → Agent 工具、预算与取消接线。
-5. **M2-4 → M2-4b → M2-4c**：PTY 后端 / 租约 → xterm、双客户端与真实输入 → Agent 项目 dev 终端启动 / 读取 / 停止、用途去重与 Turn 独立生命周期。
+5. **M2-4 → M2-4b → M2-4c → M2-4d**：PTY 后端 / 租约 → xterm、双客户端与真实输入 → Agent 项目 dev 终端启动 / 读取 / 停止、用途去重与 Turn 独立生命周期 → AI 输入 / 中断 / 人工接管。
 6. **M2-5 → M2-5b**：Git 后端 / 人工动作 / Agent 工具 → 状态、Diff 与审批 UI。
 7. **M2-6 → M2-7 → M2-8**：统一资源窗口和恢复 → 跨资源并发故障矩阵 → 整体验收。
 
@@ -55,7 +55,7 @@ GitAdapter 使用 executable + args / shell:false；解析 porcelain NUL 格式�
 
 ### 客户端
 
-窗口布局 localStorage 加版本校验，旧 Demo resourceId 不当作真实 ID；找不到资源标 unavailable，不自动创建。顶部入口枚举真实资源以便关闭 Tab 后重开。恢复 Tab / filter / active / geometry，不存完整文件、输出或输入租约。
+窗口布局 localStorage 加版本校验，旧 Demo resourceId 不当作真实 ID；找不到资源标 unavailable，不自动创建。顶部入口枚举真实资源以便关闭 / 最小化窗口后恢复；主动关闭终端 Tab 请求 terminate 并确认终态后移除，不能靠恢复 Tab 重新启动已终止资源。恢复 Tab / filter / active / geometry，不存完整文件、输出或输入租约。
 
 Monaco 对每个 viewKey 保留独立 model / 脏状态；完整读取、版本比较、Diff 与手工合并；卸载编辑器前处理草稿。租约 owner 与项目写占用用不同提示展示；输入只发当前连接 generation，重连不能自动恢复旧控制权。服务 / Browser 真实入口保持 M3 能力未开放，不显示 mock 假运行。
 
@@ -81,10 +81,16 @@ Monaco 对每个 viewKey 保留独立 model / 脏状态；完整读取、版本�
 | 外部最后瞬间写盘、Git 远端结果不确定 | 记录边界、对账与冲突，不自动覆盖或重试副作用 |
 | 草稿丢失、恢复旧 Mock Tab | 关闭脏确认、刷新提示、布局版本与资源核实 |
 
-预估仅用于拆分：实现约 18–28 个工作日，另计人类评审 / 平台环境等待；不是交付承诺。单任务明显超过 2 天或实际超过原估计两倍时依 AGENTS 停止拆分。未决事项 Q-021～Q-025 见 spec / review。
+预估仅用于拆分：实现约 19–30 个工作日，另计人类评审 / 平台环境等待；不是交付承诺。单任务明显超过 2 天或实际超过原估计两倍时依 AGENTS 停止拆分。未决事项 Q-021～Q-025 见 spec / review。
 
 ## 6. Agent 项目开发终端（评审修订）
 
 一次性测试 / 构建仍用 CommandRunner；Agent 为前后端各创建一个 mode=dev 的项目 PTY。M2-4 支持 dev 程序参数及 role 去重的持久结构，M2-4b 接来源与本地 Tab；M2-4c 注册 start_project_terminal / read_terminal_output / stop_project_terminal，经过现有审批与工具关联链路。命令正文不靠键盘注入已有 Shell，不申请虚假浏览器租约。
 
 发起浏览器仅在资源持久化后插入 Agent 来源 Tab，不抢焦点；其他客户端列表更新即可。resource ownership 归项目，已交付资源不随创建它的 Turn 结束 / 取消；未交付创建被取消必须停止并清理。前后端能常驻，Agent 可继续改代码；不推断其 ready 或允许预览。服务登记 / 健康检查 / Preview 仍属 M3。
+
+## 7. ADR-030 生命周期接线
+
+Window close / minimize 只改本地 visibility；TerminalTab close 调 terminate mutation，stopping 禁重复副作用，成功后移除本地 Tab，失败保留并重查。资源终态广播使其他客户端停止输入并显示 ended。Browser / File / Diff Tab close 只结束对应内容（文件处理脏状态）。不能把通用 unmount cleanup 连接到 terminate。
+
+M2-2 / M2-3b 补文件结果 target 卡片，M2-4 / 4b 补精确执行身份 / 退出事件与关闭终止，M2-6 移除 services Tab 数据结构并预留独立卡片窗口 filter / selectedServiceId，旧布局迁移不操作资源。M2-4d 补输入 / 中断 / 人机租约交接，技术草案见 m2-resources §10，G-Spec-M2 后才冻结工具 schema。服务注册 / 卡片内容 / 预览在 M3，不在 M2 顺手实现。

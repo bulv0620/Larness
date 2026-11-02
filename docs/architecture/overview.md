@@ -1,7 +1,7 @@
 # 系统架构总览
 
 > 状态：已冻结（v1.0）· 来源：`larness.md` 第 10–20、33–41 章
-> 本文只描述跨里程碑的稳定结构；具体功能见 `specs/`。
+> 本文只描述跨里程碑的稳定结构；具体功能见 `specs/`。资源生命周期与服务分工已按 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md) 修订；M2/M3 技术实现仍待各自门禁。
 
 ## 1. 定位
 
@@ -68,7 +68,7 @@ Launcher / Updater 的完整实现属于 M5；M0-9 后 `node app.js` 以 TUI 为
 | ToolRegistry | 工具 schema、参数校验、审批、执行路由、审计 | 向模型暴露秘密 |
 | TerminalManager | PTY 创建 / 写入 / resize / 终止、控制权租约 | 长期服务托管 |
 | CommandRunner | 非交互短命令、超时、输出截断、取消 | 为每条命令创建终端 Tab |
-| ServiceManager | 服务登记、Runtime Adapter、日志、健康检查、对账 | 把 PM2 当安全沙箱 |
+| ServiceManager / Registry | 临时服务的终端绑定登记 / 展示 / 预览资格；持久服务的 PM2Adapter、日志 / 健康 / 对账 | 独立 spawn / 启停临时服务；把 PM2 当安全沙箱 |
 | FileManager | 授权路径读写、版本冲突检测、文件监听 | 对任意 Shell 提供文件隔离 |
 | GitManager | status / diff / commit / branch 等结构化操作 | 无审批自动 push |
 | PreviewRegistry / Proxy | 登记 loopback 目标、票据、HTTP / WS 转发 | 任意内网 URL 代理 |
@@ -153,12 +153,20 @@ UI 操作 ──REST/WS──► ResourceManager ──► OS / PTY / PM2 / Git
 Agent 工具 ──ToolRegistry──► 同一 ResourceManager
 ```
 
-- 关闭 / 隐藏窗口只改变客户端视图；`terminate` 才是终止资源。
+- 关闭 / 最小化窗口只隐藏视图；主动关闭终端 Tab 经后端 `terminate` 终止资源，失败保留 Tab；文件 / Browser Tab 关闭不影响源资源。服务窗口无服务 Tab，采用项目筛选 + 卡片 / 详情。
 - 同一 Terminal 可被多个客户端观看，交互输入需租约。
 - 服务与终端由 Larness 拥有，可带 `projectId`，Session 只是创建来源。
 - Tab 身份、来源、项目筛选、分组与去重规则见 [resource-views.md](../contracts/resource-views.md)。
 
-### 5.5 预览
+### 5.5 临时服务、持久服务与结果入口
+
+终端启动 dev → 核验该次执行与 loopback endpoint → 登记临时服务 → 服务窗口卡片 → 目标 ready 后 AI 预览卡片 → 点击打开隔离预览。终端源命令退出 / PTY 结束自动退登并撤销代理；ServiceRegistry 不另 spawn、不接管进程、不交 PM2。
+
+构建 / M4 审批 → PM2Adapter 启动正式产物 → 持久服务卡片与正式地址；AI 和用户走同一服务动作 / 审批 / 审计，不直接绕过后端管理 PM2。服务窗口左上切项目、主体卡片、点击详情，无服务资源 Tab。临时卡片可打开所属终端，持久卡片提供实际 PM2 操作。
+
+文件工具结果附 scope / path 卡片，点击打开文件 Tab；可预览服务结果附 serviceId / 相对页面路径卡片，点击解析当前授权后打开 Browser Tab。卡片只打开视图，不重新执行工具、启动资源或自动开放端口。详细契约见 [services-preview.md](../contracts/services-preview.md)。
+
+### 5.6 预览
 
 ```text
 输入 localhost:5173/dashboard

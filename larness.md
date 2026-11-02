@@ -1,3 +1,5 @@
+> **2026-11-02 资源规则修订：** 以下为历史设计正文；窗口 / Tab 与服务分工如有旧描述，以 [ADR-030](docs/adr/ADR-030-resource-lifecycle-and-services.md)、[资源视图契约](docs/contracts/resource-views.md)、[服务预览契约](docs/contracts/services-preview.md) 为准。关闭 / 最小化窗口仅隐藏；关闭终端 Tab 终止终端进程。临时服务只登记 Terminal 中的进程，退出退登；持久服务由 PM2 管理。服务窗口为项目筛选 + 卡片 / 详情，无服务 Tab；不再独立 NativeProcessAdapter 启停临时服务。正文旧 ADR / S0 记录保留，不作为新规则实现已完成的证据。
+
 # Larness 产品需求、技术架构与边界约束设计文档
 
 > 2026-11-01：仅将产品名统一为 Larness；架构语义未修改（ADR-022）。

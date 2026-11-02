@@ -56,6 +56,10 @@
 
 - [ADR-029 开发资源的执行、审批与锁边界](ADR-029-development-resource-execution.md)：proposed，2026-11-02 仅起草；Agent 项目开发终端及其并发写边界、人工 Git 资源动作、输出回放与原生 PoC 待 G-Spec-M2 确认。
 
+## 资源生命周期与服务分工补充决策
+
+- [ADR-030 窗口、终端 Tab 与两类服务的生命周期](ADR-030-resource-lifecycle-and-services.md)：accepted（2026-11-02 人类明确产品规则并要求补齐文档）。替代 resource-views 的终端 Tab 纯视图关闭与服务 Tab 设计，补充宪法第八条 / ADR-012；临时服务由 Terminal 控制、服务模块只登记展示与转发，持久服务由 PM2 管理；服务窗口无 Tab。原 ADR 条目保留，具体差异以 ADR-030 为准。此接受不等于 M2/M3 技术规格或 ADR-029 全部批准。
+
 ## 3. 变更流程
 
 1. 复制模板生成新 ADR，状态 `proposed`。

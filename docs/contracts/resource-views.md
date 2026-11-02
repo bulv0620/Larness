@@ -1,184 +1,122 @@
 # 全局资源、窗口与 Tab 归属契约
 
-> 状态：accepted（2026-11-01）。适用于 M2 及之后的真实资源窗口；S0 视觉 Demo 只实现简化版。  
-> 关联：`larness.md` 3.1、3.2、4.4、4.6、5、17.1、20.3、38.1；`docs/architecture/overview.md` 第 5.4 节。
+> 状态：accepted，2026-11-02 按 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md) 修订。适用于 M2 及后续真实资源；S0 旧 Demo 尚未按本修订实现，不回写历史验收结论。
 
 ## 1. 原则
 
-1. **资源全局，视图本地**：Terminal、Service、Browser 预览、File 是 Larness 的资源；Window / Tab / 项目筛选是客户端视图。
-2. **全局工具 ≠ 全局权限**：顶部入口对所有已授权客户端可见，但每个资源操作仍在后端按 Project / Session / 能力校验。
-3. **来源只用于定位**：`sourceSessionId` / tab origin 只用于展示、分组与筛选，不参与授权。
-4. **关闭视图不终止资源**：关闭 Tab / 隐藏窗口不杀 PTY、不停止服务；终止资源必须显式操作。
-5. **同一资源默认只有一个视图**：重复打开聚焦已有 Tab；需要第二个视图时显式“在新 Tab 中打开”（P1，默认不提供）。
-6. **多客户端各自布局**：两个浏览器看同一资源时，资源状态共享，但 Tab 顺序、激活项、筛选、窗口位置互不同步。
+- 资源全局、视图本地；来源、项目筛选、Tab 标签都不是授权依据。
+- **关闭 / 最小化窗口只隐藏视图；主动关闭终端 Tab 就终止对应终端和受管进程。** 刷新、卸载组件、切项目、断网、布局迁移不能触发 Tab 关闭命令。
+- 终端、文件、浏览器、Git Diff 使用 Tab；**服务窗口不使用服务 Tab**，采用项目筛选 + 卡片列表 / 详情。
+- 同资源重复打开优先恢复 / 聚焦，不重复创建后端资源。多客户端各自保存布局，后端资源状态共享。
 
-## 2. 资源身份（viewKey）
+## 2. 身份与来源
 
-| 类型 | 资源 ID | viewKey | 说明 |
-|---|---|---|---|
-| Terminal | `terminalId`（PTY） | `terminal:<id>` | 每个 PTY 一个独立 Tab；关闭 Tab 不终止 PTY |
-| Service | `serviceId` | `service:<id>` | 每个服务一个 Tab；概览 / 日志是服务内部的子视图，不占顶层 Tab |
-| Browser | 无独立后端资源，绑定已登记 `serviceId` | `browser:<serviceId>:<normalizedUrl>` | 归一化 URL：小写 host、去默认端口、解析 `.`/`..`、保留 path/search、忽略 hash |
-| File | 无独立后端资源，绑定 realpath | `file:<realpath>` | 同一 realpath 跨项目 / 来源复用同一 Tab；标签显示当前项目上下文 |
-| Git Diff | `projectId + path` | `diff:<projectId>:<path>` | 同一项目同一文件复用；不与其他项目的 Diff 合并 |
+| 类型 | 资源身份 / viewKey | 展示结构 |
+|---|---|---|
+| Terminal | `terminal:<terminalId>` | 每 PTY 一个 Tab；主动关闭触发 terminate |
+| Service | `serviceId`（卡片 / 详情选择键，不是 Tab key） | 筛选后的卡片列表，点击服务进入详情 |
+| Browser | `browser:<serviceId>:<normalizedUrl>` | 每登记服务 + URL 一个页面 Tab |
+| File | `file:<realpath>` | 同 realpath 跨项目 / 来源复用 Tab |
+| Git Diff | `diff:<projectId>:<path>` | 同项目同文件复用 Tab |
 
-- 独立会话的 workspace 文件仍是 `file:<realpath>`；标签来源显示“独立会话”。
-- 若同一 realpath 同时属于两个项目，仍视为同一文件视图；切换来源时只更新标签上下文，不创建第二个 Tab。
-
-## 3. Tab 数据
+Browser URL 归一化：host 小写、去默认端口、解析点路径、保留 path/search、忽略 hash；身份归一化不授权任意 upstream。文件必须先通过后端 scope 授权才能返回 realpath。独立会话来源展示“独立会话”，不因 projectId=null 扩大权限。
 
 ```ts
 type OriginType = "global" | "project" | "session" | "agent" | "artifact";
-
 interface ResourceOrigin {
   type: OriginType;
   projectId: string | null;
-  sessionId: string | null;   // 仅来源，不用于授权
-  label?: string;             // 如 “从部署产物打开”
+  sessionId: string | null; // 来源，不是授权
+  label?: string;
 }
-
 interface WindowTab {
   id: string;
-  kind: "files" | "terminal" | "services" | "browser" | "git-diff";
+  kind: "files" | "terminal" | "browser" | "git-diff";
   resourceId: string;
-  viewKey: string;            // 第 2 节
+  viewKey: string;
   title: string;
-  projectId: string | null;   // 资源归属；决定分组/筛选
+  projectId: string | null;
   origin: ResourceOrigin;
   createdAt: number;
 }
-```
-
-- `projectId` 取资源自身的归属，不取“当前选中的项目”。
-- `origin` 只用于展示、审计和默认筛选；不得用于替代资源归属。
-- Tab 标签：`项目名 · 资源名`；`projectId=null` 显示 `全局 · 资源名`；独立会话显示 `独立会话 · 资源名`。完整标签放 tooltip。
-
-## 4. 分组与排序
-
-- 同一窗口内按 `projectId` 分组；`projectId=null` 为“全局”组。
-- 组顺序按该组第一个 Tab 的创建时间；组内按创建时间。
-- 新建 Tab 插入其所属组的末尾，并激活；已有 Tab 被聚焦时不重排。
-- 切换项目、切换筛选不改变 Tab 顺序。
-- 不同项目同名资源依靠分组与项目标签区分，不合并。
-
-## 5. 窗口与项目筛选
-
-每个工具窗口（Terminal / Services / Browser / Files）独立保存：
-
-```ts
 type ProjectFilter =
   | { mode: "all" }
-  | { mode: "global" }                       // 仅 projectId=null
+  | { mode: "global" }
   | { mode: "project"; projectId: string };
+interface ServiceWindowView {
+  filter: ProjectFilter;
+  selectedServiceId: string | null; // null=列表；非空=详情，不是 Tab
+}
 ```
 
-规则：
+Tab 标签显示“项目名 · 资源名”，null 项目显示“全局”或“独立会话”。真实资源归属取后端，不取当前左侧项目；同 realpath 跨来源打开只更新展示上下文。同一窗口 Tab 按项目分组，组按首个 Tab 创建时间排序，组内按创建时间，新 Tab 插组末尾；聚焦 / 筛选不重排。
 
-1. 顶部 Header 入口：恢复该窗口**上次打开状态**（`filter` + `activeTabId`）；没有历史时默认 `{ mode: "all" }`。
-2. 从项目内的具体位置打开（右栏文件 / 服务 / 终端 / Git、项目树、项目内产物）：把该窗口筛选切到对应 `projectId`，聚焦目标 Tab，并记录为新的“上次状态”。
-3. 从独立会话 / 全局位置打开：筛选切到 `global`（或保持资源所属筛选），记录来源。
-4. 切换左侧当前项目**不影响**任何已开窗口的筛选、Tab 与激活项。
-5. 筛选只隐藏 Tab，不停止/暂停资源，也不把资源标记为结束。
-6. 筛选后当前激活 Tab 被隐藏时，选择该筛选下第一个可见 Tab；没有可见 Tab 时显示空态“当前筛选下没有 Tab”，窗口不关闭。
-7. 显式打开一个被当前筛选隐藏的 Tab 时，自动切到 `all` 并聚焦，不能静默无响应。
-8. 筛选状态按客户端持久化；不属于业务数据，不跨设备同步。
-9. 筛选控件与 Tab 同排：下拉框在最左，Tab 区域在其右侧横向滚动，计数在最右；不得额外占用一整行纵向空间。
-
-## 6. 去重与打开
+## 3. 打开、筛选与恢复
 
 | 操作 | 行为 |
 |---|---|
-| 同一 viewKey 再次打开（顶部 / 右栏 / 会话 / 产物） | 恢复窗口、切到目标项目筛选、激活已有 Tab；不新建资源 |
-| 同服务 / 同 terminal / 同文件 | 同上；一个客户端只有一个默认视图 |
-| 同浏览器 service + URL | 聚焦已有 Tab（默认）；URL 不同则新建 Tab |
-| 显式“在新 Tab 打开” | P1；若实现，需要独立 `viewId`，但资源仍只有一个 |
-| Agent 的一次性命令 | 不创建终端 Tab；只发 CommandExecution 事件 |
-| Agent 启动服务 | 创建 Service 资源；在 Services 窗口插入 Tab，不自动抢焦点 |
-| Agent 产物预览 | 用户点击打开时创建 Browser Tab，origin=artifact |
+| 首次顶部入口 | 默认全部项目，展示资源选择 / 空态；不自动新建终端或服务 |
+| 再次顶部入口 | 恢复窗口、上次 filter、activeTabId；服务窗口恢复 filter / selectedServiceId |
+| 项目内文件 / 终端 / Diff 入口 | 筛选对应项目并激活已有 Tab 或新增视图，不重复创建资源 |
+| 项目内服务卡片 / 服务结果入口 | 打开服务窗口，筛选项目、选择 serviceId 详情，不创建服务 Tab |
+| 切换左侧项目 / 会话 | 不改变已开窗口筛选和内容，不停止资源 |
+| 筛选隐藏当前激活 Tab | 选可见的第一个，无可见项显示空态；资源仍运行 |
+| 显式打开被筛选隐藏的资源 | 切到相应项目 / all，目标可见并聚焦 |
+| 同 browser 服务 + URL | 聚焦已有页面 Tab；不同 URL 可以新建页面 Tab |
+| Agent 一次性命令 | 对话命令卡片，不创建 Terminal Tab |
+| Agent 启动 dev 终端 | 发起客户端增加 origin=agent 的项目 Terminal Tab，不抢焦点；其他客户端只更新资源列表 |
+| Agent 登记临时 / 持久服务 | 服务列表出现卡片，不插入服务 Tab，不强制弹窗 |
+| 文件结果卡片 | 点击按 scope / path 解析并打开文件 Tab，不重新执行工具 |
+| 预览结果卡片 | 点击按 serviceId / 相对页面路径解析预览，再打开 Browser Tab；不启动服务 |
 
-## 7. 生命周期
+终端 / 文件 / 浏览器的筛选控件与 Tab 同排：下拉最左、Tabs 横向滚动、计数最右。服务窗口左上项目筛选，主体卡片列表，卡片注明 temporary / persistent、状态、项目、地址和来源；点击详情后提供返回列表。详情的日志 / 信息子区不承载独立服务资源 Tab。
 
-- **关闭 Tab**：只移除当前客户端视图；资源继续运行；窗口无 Tab 时隐藏（可从顶部恢复，前提是资源仍存在）。
-- **隐藏窗口**：保留全部 Tab、激活项与筛选；顶部入口恢复。
-- **终止 PTY / 停止服务**：独立确认操作；资源状态变为 ended/stopped，所有客户端对应 Tab 显示结束状态，Tab 不自动消失，用户可关闭。
-- **资源删除 / 文件被删**：Tab 标记 `unavailable`，提供“重新加载 / 关闭”；不得伪造运行状态。
-- **刷新 / 重启客户端**：从本地布局恢复窗口与 Tab；资源不存在时标 unavailable，不重建 PTY / 服务。
-- **Larness 重启**：临时 PTY 不恢复（标记 interrupted）；PM2 服务按对账结果恢复；Browser Tab 若绑定服务仍存在则保留，否则标 unavailable。
+服务列表与详情是 Query 服务器数据，客户端只保存 filter / selectedServiceId / 布局。临时服务退登后从活跃列表移除，已打开详情显示已结束 / 不可用并可返回；持久服务停止后卡片保留 stopped。关闭详情不停止任何服务。
 
-## 8. 多客户端
+## 4. 生命周期与失败处理
 
-- 资源与状态共享；一个客户端终止 PTY / 停止服务，其他客户端收到事件并更新 Tab 状态。
-- Tab 顺序、激活项、筛选、窗口位置、最大化 / 隐藏状态均为客户端本地，不同步。
-- 一个客户端关闭 Tab 不影响其他客户端的视图。
-- 多客户端同时打开同一资源时，默认都显示同一状态；终端输入仍受租约控制（M2）。
+| 操作 | 后端影响 | 客户端结果 |
+|---|---|---|
+| 关闭 / 最小化窗口 | 无资源终止请求 | 保留内容 / Tab / filter，隐藏窗口，顶部恢复 |
+| 主动关闭运行中的终端 Tab | 已认证、幂等 terminate，终止 PTY 和受管进程树；M3 撤销关联临时服务 / 预览 | 显示 stopping；确认终态后移除发起者 Tab |
+| terminate 失败 / 会话失效 | 拒绝或保持待确认，不能伪报停止 | 保留 Tab、状态和可恢复错误；网络超时先查终态，不自动新建 |
+| 关闭已结束终端 Tab | 无需重杀，幂等核对终态 | 移除本地结束视图 |
+| 关闭文件 Tab | 不删除文件 | 脏文件保存 / 放弃 / 取消；保存失败保留草稿和 Tab |
+| 关闭 Browser / Git Diff Tab | 不停止源服务 / 终端 | 销毁该页面或差异视图 |
+| 关闭服务详情 / 窗口 | 不停止服务 | 返回卡片列表 / 隐藏窗口，无服务 Tab 关闭操作 |
+| 持久服务卡片停止 | 经授权 / 审批调用 PM2Adapter，状态持久化与审计 | 所有客户端更新 stopped；保留配置 / 部署记录 |
+| 临时服务需要停止 | 从卡片打开所属终端，在终端中断进程或关闭终端 Tab | 源进程退出后自动退登，卡片 / 预览失效；服务模块不独立控制它 |
 
-## 9. 审计与可观测性
+最后一个 Tab 关闭成功后可以隐藏空窗口；这不改变之前已完成的终止 / 草稿处理，也不因空窗口恢复新建资源。
 
-- Tab 创建 / 关闭不是安全事件，可记 debug 日志；资源创建 / 终止 / 服务启停 / 预览打开必须审计。
-- 审计包含 `projectId`、`sessionId`、`resourceId`、`origin.type`；不记录浏览器 URL 的敏感 query（按脱敏规则）。
-- 不在日志中记录 Cookie、Token、预览票据。
+一个终端可关联多个临时 endpoint，关闭其 Tab 会影响全部关联服务；界面显示影响范围，不能只关一个 endpoint 却声称终端仍可用。是否存在关联服务由后端判断，不能只看当前浏览器已打开卡片。
 
-## 10. 验收场景
+刷新 / 浏览器退出 / 连接中断只断开视图和输入租约，不逐个关闭 Tab。布局恢复先查询后端，ended / interrupted / missing 不重建进程。旧 service Tabs 迁移成服务窗口筛选与选择，不执行启停。Larness 重启不恢复临时 PTY；临时服务先撤销，PM2 持久服务依实际对账恢复展示。TUI 退出对 PM2 的策略仍见 Q-027，不能与普通 Web 窗口关闭混同。
 
-### V1 项目来源自动筛选
+## 5. 多客户端、权限与审计
 
-```gherkin
-Given 终端窗口当前筛选为“全部项目”
-When 从项目 larness-web 的右栏点击 pnpm dev
-Then 窗口筛选切到 larness-web，pnpm dev Tab 被激活
-And 其他项目的终端仍然存在，只是被隐藏
-```
+- 一客户端主动关闭终端 Tab 是全局终止；其他客户端显示已结束并停止输入，保留自己的结束视图直至关闭，不误报运行。
+- 一客户端关闭窗口 / 文件 / Browser Tab 仅影响本地视图；服务卡片列表是共享状态的查询结果，布局仍独立。
+- 终端输入同时只给一个控制者；终止资源是独立授权能力，不能从“无输入租约”推断禁止显式终止。
+- 所有卡片解析、订阅、读取、终止、服务动作、预览均后端授权；origin 仅来源。资源 / PID / URL 不由前端随意指定。
+- 窗口隐藏、文件 / Browser Tab 关闭可记本地调试；终端 Tab 关闭的 terminate、服务登记 / 退登 / PM2 动作、预览授予 / 拒绝必须审计。不记录输入正文、秘密、票据或敏感 URL query。
 
-### V2 Header 恢复上次状态
+## 6. 验收场景
 
-```gherkin
-Given 上次从项目 docs-site 打开了终端窗口，筛选为 docs-site
-When 关闭窗口后点击顶部终端入口
-Then 窗口恢复 docs-site 筛选与上次激活的 Tab
-Given 从未打开过终端窗口
-When 点击顶部终端入口
-Then 筛选为“全部项目”
-```
+| ID | Given | When | Then |
+|---|---|---|---|
+| V1 | 终端筛选全部 | 从项目 A 右栏打开终端 | 筛选 A、激活目标；B 终端仍运行 |
+| V2 | 窗口有布局历史 | 关闭 / 最小化窗口后顶部恢复 | 原 filter / Tab / 激活恢复，PTY 不重复创建；首次默认全部 |
+| V3 | 终端窗口筛选 A | 左侧切项目 / 会话 | 已开窗口筛选与内容不变 |
+| V4 | 已有 A / B Tab | 重复打开 A，或新建 A 终端 | 复用原资源；新 Tab 插 A 组末尾，不重排 B |
+| V5 | 同一运行 PTY 两客户端查看 | 一方主动关闭终端 Tab | 后端终止，发起方成功后移除 Tab，另一方 ended，临时服务退登 |
+| V6 | 服务窗口有 A / B 卡片 | 筛选 A | B 卡片隐藏但继续运行；无服务 Tab |
+| V7 | PTY 终止失败 / 超时 | 关闭终端 Tab | 保留 Tab / 错误，核对真实状态，不假装成功 |
+| V8 | 前后端两个终端，各有临时服务 | 关闭前端终端 Tab | 仅前端终止 / 退登；后端继续；关闭整个窗口均继续 |
+| V9 | 服务列表或详情可见 | 关闭详情 / 服务窗口 | 不停止服务；顶部恢复筛选 / 选择，无 Tab |
+| V10 | 脏文件及运行服务预览 | 分别关闭文件 / Browser Tab | 文件按保存选择处理，源文件 / 源服务不被删除或停止 |
+| V11 | AI 结果附文件 / 预览卡片 | 重复点击 | 授权解析后复用相应视图，不重复执行命令或登记服务 |
 
-### V3 切换项目不影响已开窗口
+## 7. 非目标
 
-```gherkin
-Given 终端窗口筛选为 larness-web 且处于打开状态
-When 左侧切换到 docs-site
-Then 终端窗口的筛选、Tab 与激活项不变
-```
-
-### V4 去重与分组
-
-```gherkin
-Given 窗口已有项目 A 的 terminal-1 和项目 B 的 terminal-2
-When 再次从项目 A 打开 terminal-1
-Then 只聚焦已有 Tab，不新建
-When 新建项目 A 的 terminal-3
-Then terminal-3 插入项目 A 组末尾，项目 B 组顺序不变
-```
-
-### V5 关闭视图不终止资源
-
-```gherkin
-Given terminal-1 正在运行
-When 关闭其 Tab
-Then PTY 继续运行
-When 从顶部终端入口选择 terminal-1
-Then 重新显示同一个 PTY，不创建新 PTY
-```
-
-### V6 筛选不停止资源
-
-```gherkin
-Given 服务窗口有项目 A 和项目 B 的服务
-When 筛选切到项目 A
-Then 项目 B 的服务 Tab 隐藏但服务继续运行
-```
-
-## 11. 非目标
-
-- 不做跨客户端 Tab 位置实时同步。
-- 不做同一资源的多个并行视图（P1 可评估）。
-- 不把项目筛选当作权限边界。
-- 不保证浏览器 URL 的第三方网页可预览（仍受 M3 预览隔离约束）。
+不跨客户端同步布局，不以筛选授予权限，不代理任意第三方 URL，不在窗口恢复时自动启动资源。实现任务、平台与安全门禁仍由 M2 / M3 spec 决定。

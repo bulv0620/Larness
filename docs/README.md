@@ -10,6 +10,7 @@
 | [contracts/rest-api.md](contracts/rest-api.md) | REST 约定、错误码、M0 / M1 接口契约 | 写 API 或前端请求 |
 | [contracts/ws-events.md](contracts/ws-events.md) | 事件包络、序号、重放、主题与事件类型 | 写实时链路 |
 | [contracts/ipc.md](contracts/ipc.md) | 本机 TUI ↔ Server 的 NDJSON 协议、方法与事件 | 写 TUI / IPC |
+| [contracts/services-preview.md](contracts/services-preview.md) | 临时 / 持久服务、Terminal 绑定、预览、结果卡片与接口草案 | 写服务 / 预览 / AI 结果入口 |
 | [contracts/resource-views.md](contracts/resource-views.md) | 全局资源、窗口、Tab 归属、项目筛选与去重 | 写窗口 / Tab / 终端 / 服务 |
 | [contracts/data-model.md](contracts/data-model.md) | SQLite 表、索引、迁移、保留与备份 | 写 migration / repository |
 | [adr/DECISIONS.md](adr/DECISIONS.md) | 已冻结 ADR 与新增 ADR 流程 | 需要偏离现有决策 |
