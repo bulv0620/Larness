@@ -15,13 +15,14 @@
 | M2-3b | Agent 命令工具与实时执行展示 | M2-3 | 1–2 | `todo` |
 | M2-4 | TerminalManager 与输入租约后端 | M2-3b | 2 | `todo` |
 | M2-4b | xterm 交互与双客户端接管 | M2-4 | 1–2 | `todo` |
-| M2-5 | GitManager、资源动作与 Agent 工具 | M2-4b | 2 | `todo` |
+| M2-4c | Agent 项目开发终端工具与生命周期 | M2-4b | 1–2 | `todo` |
+| M2-5 | GitManager、资源动作与 Agent 工具 | M2-4c | 2 | `todo` |
 | M2-5b | Git 资源区、Diff 与审批界面 | M2-5 | 1–2 | `todo` |
 | M2-6 | 真实资源统一窗口与布局恢复 | M2-5b/M2-2/M2-4b | 1–2 | `todo` |
 | M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
 | M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
 
-保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序均待 G-Spec-M2 确认。无进行中实现任务。
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序均待 G-Spec-M2 确认。无进行中实现任务。
 
 ## 任务卡
 
@@ -103,7 +104,7 @@
 - 依赖：M2-3b；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：2 天；明显超出则先拆分，不绕过门禁。
 - [ ] 先写失败测试并确认失败原因：两认证连接争抢 / 重放 / 过期 / 撤销、PTY 退出、隐藏不停止、锁丢失、重启中断和轮转回放。
-- [ ] 交付：真实 PTY 生命周期、范围 / 全局 workspace、持久状态 / 游标；输入租约 generation、连接绑定、resize / terminate；terminals / terminal_leases 一份迁移。
+- [ ] 交付：真实 PTY 生命周期、范围 / 全局 workspace、持久状态 / 游标；输入租约 generation、连接绑定、resize / terminate；dev 启动程序 / 参数、role 活跃唯一；terminals / terminal_leases 一份迁移。
 - [ ] 验收：A9/A10/A12/A16–A21/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
 - [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
 - [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
@@ -121,10 +122,21 @@
 - [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：apps/web/src/features/windows/Terminal*；components/sections/TerminalsPanel；e2e-auth/。
 
+### M2-4c Agent 项目开发终端工具与生命周期
+
+- 状态：`todo`
+- 依赖：M2-4b；G-Spec-M2 / ADR-029 / G-PoC-M2。
+- 预估：1–2 天；不含通用键盘自动化。
+- [ ] 先写失败测试：FakeProvider 启动真实前后端两个进程；角色 / 参数重试；审批篡改；读日志；Turn 取消前后交付竞态；显式停止。
+- [ ] 交付：start_project_terminal / read_terminal_output / stop_project_terminal，项目身份绑定、逐次 L2 启动审批、有界日志、role 去重和来源 Tab。
+- [ ] 验收：A25–A27；前后端 dev 与源码编辑并行；已交付资源不随 Turn 结束 / 取消，未交付取消清理；不声称服务 ready。
+- [ ] 验证：`pnpm check` / `pnpm build` 与真实浏览器；同步契约 / 状态并逐任务提交。
+- 涉及路径：packages/agent/；apps/server/src/modules/agent / terminals；apps/web/src/components/windows；e2e-auth/。
+
 ### M2-5 GitManager、资源动作与 Agent 工具
 
 - 状态：`todo`
-- 依赖：M2-4b；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 依赖：M2-4c；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：2 天；明显超出则先拆分，不绕过门禁。
 - [ ] 先写失败测试并确认失败原因：临时仓库 / 本地 bare remote；特殊文件名、hooks / diff 配置、快照变化 / 审批过期 / 单次消费、脏工作区 / 无上游 / 非快进、Git 不可用。
 - [ ] 交付：结构化 status / diff / log / branch；add / commit / 分支 / ff-only pull / push；人工动作审批与幂等；Agent 同 Manager；resource_actions 一份迁移。
@@ -176,7 +188,7 @@
 - 预估：1–2 天；明显超出则先拆分，不绕过门禁。
 - [ ] 先写失败测试并确认失败原因：check / build / Demo / auth / prod；初始化 / 统一入口 / TUI 回归；模型离线、未授权、双客户端、清理证据；人类验收。
 - [ ] 交付：真实文件 / Git / PTY E2E、Agent 测试命令、dev / built smoke、macOS 平台与 UI 记录、acceptance.md / 契约落地检查。
-- [ ] 验收：A1–A24 / G2；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验收：A1–A27 / G2；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
 - [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
 - [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：e2e*；scripts/；specs/030-dev-resources/acceptance.md；docs/；STATUS.md。

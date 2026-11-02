@@ -54,7 +54,7 @@
 
 ## M2 开发资源补充决策（待评审）
 
-- [ADR-029 开发资源的执行、审批与锁边界](ADR-029-development-resource-execution.md)：proposed，2026-11-02 仅起草；PTY 持锁、人工 Git 资源动作、输出回放与原生 PoC 待 G-Spec-M2 确认。
+- [ADR-029 开发资源的执行、审批与锁边界](ADR-029-development-resource-execution.md)：proposed，2026-11-02 仅起草；Agent 项目开发终端及其并发写边界、人工 Git 资源动作、输出回放与原生 PoC 待 G-Spec-M2 确认。
 
 ## 3. 变更流程
 

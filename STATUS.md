@@ -70,7 +70,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
 - 下一步：M2 G-Spec；M2 仍保持 draft，经 G-Spec-M2 / ADR-029 确认后先做 M2-0 PoC，G-PoC-M2 通过后才能开始 M2-1。
 - 阻塞项：无。
-- 待确认：G-Spec-M2 / ADR-029；重点为 PTY 全生命周期持锁、回放限额、Git 人工审批与操作范围、重叠根冲突域和任务拆分，见 [M2 review](specs/030-dev-resources/review.md)。无 M2 功能实现授权。
+- 待确认：G-Spec-M2 / ADR-029；重点为 Agent 前后端 dev 项目终端、其并发写边界与源码写锁保证范围、回放限额、Git 人工审批与操作范围、重叠根冲突域和任务拆分，见 [M2 review](specs/030-dev-resources/review.md)。无 M2 功能实现授权。
 
 ## 已冻结
 
@@ -171,3 +171,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - T0-4：2026-11-02（+08:00），task/t0-4-init-copy，done；按人类直接反馈删除初始化页“不设置管理员密码。”，只改展示文字，check（server 297 / agent 32 / web 26）与 build 通过，统一入口仍 review。
 
 - 2026-11-02 人类明确“验收通过”：统一入口 U0-3 / 017 切片和初始化文案修正 T0-4 验收完成；同步 done 与 G-Task 记录。无进行中实现任务；下一步为 M2 spec 评审，M2 保持 draft，尚未获实现授权。
+
+## M2 草案评审修订：Agent 开发终端（2026-11-02）
+
+- 人类指出一次性操作用 CommandRunner，前后端 dev 应由 Agent 创建项目 Terminal Tab；已在 030 / 契约 / ADR-029 提案中补入启动、输出读取、显式停止、角色去重与 Turn 独立生命周期。
+- 新增 M2-4c 规划任务，实施任务共 14 个，验收扩至 A1–A27；尚未实现或授权安装依赖。
+- 撤回初稿“所有 PTY 存活期占项目写锁”的建议；dev 进程与编辑并行所需锁保证边界仍须 ADR-029 / G-Spec-M2 明确批准，不修改冻结原文或运行行为。M2 保持 draft。
