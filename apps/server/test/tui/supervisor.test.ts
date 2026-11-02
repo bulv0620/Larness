@@ -20,7 +20,10 @@ describe("managed TUI commands", () => {
     expect(commands.serverArgs[1]).toContain("tsx");
     expect(commands.serverArgs[2]).toBe(path.join(serverRoot, "src", "index.ts"));
     expect(commands.webCommand).toBe("/node");
-    expect(commands.webArgs[0]).toContain(path.join("vite", "bin", "vite.js"));
+    expect(commands.webArgs[0]).toBe("--import");
+    expect(commands.webArgs[2]).toBe(
+      path.join(repoRoot, "apps", "web", "scripts", "managed-vite.ts"),
+    );
     expect(commands.webCwd).toBe(path.join(repoRoot, "apps", "web"));
   });
 
@@ -34,50 +37,42 @@ describe("managed TUI commands", () => {
 });
 
 describe("web origin resolution", () => {
-  it("accepts dev at 5173 and rejects a stale production origin", () => {
+  it.each([true, false])("uses the same configured public address in either mode (%s)", (dev) => {
     expect(
       resolveWebUrl({
-        dev: true,
-        serverPort: 3210,
-        publicUrl: "http://localhost:5173",
-        canonicalOrigin: "http://localhost:5173",
-      }),
-    ).toBe("http://localhost:5173");
-
-    expect(() =>
-      resolveWebUrl({
-        dev: true,
-        serverPort: 3210,
-        publicUrl: "http://localhost:3210",
-        canonicalOrigin: "http://localhost:3210",
-      }),
-    ).toThrow(/开发 Web 固定/);
-  });
-
-  it("accepts production at the server port but rejects the dev origin", () => {
-    expect(
-      resolveWebUrl({
-        dev: false,
+        dev,
         serverPort: 3210,
         publicUrl: null,
         canonicalOrigin: "http://localhost:3210",
       }),
     ).toBe("http://localhost:3210");
-
+    expect(
+      resolveWebUrl({
+        dev,
+        serverPort: 5173,
+        publicUrl: "http://localhost:5173",
+        canonicalOrigin: "http://localhost:5173",
+      }),
+    ).toBe("http://localhost:5173");
     expect(() =>
       resolveWebUrl({
-        dev: false,
+        dev,
         serverPort: 3210,
         publicUrl: "http://localhost:5173",
         canonicalOrigin: "http://localhost:5173",
       }),
-    ).toThrow(/生产静态 Web/);
-  });
-
-  it("keeps a public HTTPS origin for reverse-proxied deployments", () => {
+    ).toThrow(/server.port.*5173/);
     expect(
       resolveWebUrl({
-        dev: false,
+        dev,
+        serverPort: 3210,
+        publicUrl: "https://localhost:9443",
+        canonicalOrigin: "https://localhost:9443",
+      }),
+    ).toBe("https://localhost:9443");
+    expect(
+      resolveWebUrl({
+        dev,
         serverPort: 3210,
         publicUrl: "https://larness.example.com",
         canonicalOrigin: "https://larness.example.com",
@@ -121,4 +116,21 @@ describe("managed recovery planning", () => {
       await expect(loadManagedConfig(dir, {})).rejects.toThrow(/initialization recovery/);
     });
   });
+});
+
+it("keeps the actionable legacy configuration diagnostic visible through the TUI error formatter", async () => {
+  const { displayError } = await import("../../src/tui/page-error.js");
+  let message = "";
+  try {
+    resolveWebUrl({
+      dev: true,
+      serverPort: 3210,
+      publicUrl: "http://localhost:5173",
+      canonicalOrigin: "http://localhost:5173",
+    });
+  } catch (error) {
+    message = displayError(error);
+  }
+  expect(message).toContain("server.port 对齐为 5173");
+  expect(message).not.toContain("无法读取或校验数据");
 });

@@ -1,6 +1,6 @@
 # 运行入口与开发前端转发契约
 
-> 状态：accepted（2026-11-02 人类指令开始实现）；配套 [ADR-028](../adr/ADR-028-unified-dev-entry.md) / [017 spec](../../specs/017-unified-entry/spec.md)。U0-1 已实现独立模块和测试，默认产品接线属于 U0-2；现阶段不宣称默认入口已切换。
+> 状态：accepted（2026-11-02 人类指令开始实现）；配套 [ADR-028](../adr/ADR-028-unified-dev-entry.md) / [017 spec](../../specs/017-unified-entry/spec.md)。U0-1/U0-2 已实现模块和默认产品接线；同目录真实模式切换整体验收属于 U0-3。
 
 ## 1. 地址和配置
 

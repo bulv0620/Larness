@@ -12,7 +12,10 @@ import { registerProjectRoutes } from "./api/projects.js";
 import { registerSessionRoutes, type TurnControls } from "./api/sessions.js";
 import { registerStaticRoutes } from "./api/static.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
+import { resolveActiveSession } from "./auth/sessions.js";
 import type { Database } from "./db/client.js";
+import { appendAudit } from "./db/repositories/audit.js";
+import { type DevWebOptions, registerDevWeb } from "./dev-web/routes.js";
 import { registerErrorHandler } from "./errors.js";
 import { resolveRequestId } from "./request-id.js";
 import { installSecurityGuard } from "./security/guard.js";
@@ -35,6 +38,7 @@ export interface CreateAppOptions {
   logger?: FastifyBaseLogger;
   services?: AppServices;
   webDistDir?: string;
+  devWeb?: Pick<DevWebOptions, "target" | "webRoot" | "roots">;
 }
 
 export function createApp(options: CreateAppOptions = {}): FastifyInstance {
@@ -94,7 +98,27 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerWsRoutes(app, options.services);
   }
 
-  if (options.webDistDir !== undefined) {
+  if (options.devWeb) {
+    const services = options.services;
+    if (!services) throw new Error("开发页面需要后端授权服务");
+    registerDevWeb(app, {
+      ...options.devWeb,
+      config: services.config,
+      origin: services.webAuthn.origin,
+      resolveSession: (request) =>
+        resolveActiveSession(services.db, request.cookies.larness_session ?? "", {
+          idleTtlMinutes: services.config.auth.idleTtlMinutes,
+        }),
+      auditReject: (code) =>
+        appendAudit(services.db, {
+          action: "dev-web.rejected",
+          decision: "deny",
+          details: { code },
+          now: Date.now(),
+        }),
+    });
+  }
+  if (!options.devWeb && options.webDistDir !== undefined) {
     registerStaticRoutes(app, { webDistDir: options.webDistDir });
   }
 

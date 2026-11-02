@@ -6,6 +6,8 @@ let closing = false;
 let starting = false;
 const stop = async () => {
   closing = true;
+  // Notify the supervisor before close waits on its still-connected HTTP clients.
+  if (process.connected) process.disconnect();
   await running?.server.close();
 };
 process.once("SIGINT", () => void stop());
@@ -20,7 +22,7 @@ process.on("message", (message: unknown) => {
     return;
   }
   starting = true;
-  void startManagedVite(parsed.data.origin)
+  void startManagedVite(parsed.data.origin, undefined, parsed.data.generation)
     .then(async (value) => {
       running = value;
       if (closing) {
@@ -34,10 +36,18 @@ process.on("message", (message: unknown) => {
         port: value.port,
       });
     })
-    .catch(() => {
-      console.error("[larness] 开发前端启动失败");
+    .catch((error: unknown) => {
+      const code =
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        typeof error.code === "string" &&
+        /^[A-Z_0-9]{1,64}$/.test(error.code)
+          ? error.code
+          : "DEV_WEB_UNAVAILABLE";
+      console.error(`[larness] 开发前端启动失败 (${code})`);
       process.exitCode = 1;
-      process.disconnect?.();
+      if (process.connected) process.disconnect();
       void stop();
     });
 });

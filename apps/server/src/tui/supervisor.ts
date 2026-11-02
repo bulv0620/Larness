@@ -1,4 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -12,9 +13,10 @@ import {
 } from "../bootstrap/config.js";
 import { inspectPendingInitialization } from "../db/inspect.js";
 import { findServerRoot } from "../db/migrate.js";
+import { DevWebAttachedSchema, DevWebControl, EntryConfigError } from "../dev-web/control.js";
+import { waitChildMessage } from "../dev-web/managed.js";
 import { resolveDataDir } from "../platform/paths.js";
 
-const WEB_DEV_URL = "http://localhost:5173";
 const READY_TIMEOUT_MS = 25_000;
 const LOG_LIMIT = 300;
 
@@ -36,19 +38,14 @@ export function resolveWebUrl(options: {
   const localUrl = `http://localhost:${options.serverPort}`;
   const canonical = new URL(options.canonicalOrigin);
 
-  if (isLoopbackHostname(canonical.hostname)) {
-    const expectedPort = options.dev ? 5173 : options.serverPort;
-
-    if (originPort(options.canonicalOrigin) !== expectedPort) {
-      throw new Error(
-        options.dev
-          ? `当前数据目录的 canonical origin 是 ${options.canonicalOrigin}，但开发 Web 固定为 ${WEB_DEV_URL}。请使用独立的开发数据目录，或设置 LARNESS_PUBLIC_URL=${WEB_DEV_URL} 后重试。`
-          : `当前数据目录的 canonical origin 是 ${options.canonicalOrigin}，但生产静态 Web 在 ${localUrl}。请使用独立的生产数据目录并让 publicUrl 留空，或将 publicUrl 改为 ${localUrl}，或设置 LARNESS_PORT=5173 复用当前配置。`,
-      );
-    }
+  if (
+    canonical.protocol === "http:" &&
+    isLoopbackHostname(canonical.hostname) &&
+    originPort(options.canonicalOrigin) !== options.serverPort
+  ) {
+    throw new EntryConfigError(options.canonicalOrigin, options.serverPort);
   }
-
-  return options.dev ? WEB_DEV_URL : (options.publicUrl ?? localUrl);
+  return options.publicUrl ?? localUrl;
 }
 
 export interface ManagedCommands {
@@ -69,6 +66,7 @@ export interface ManagedRuntime {
   logs(): string[];
   stop(): Promise<void>;
   serverExited: Promise<void>;
+  devFailed: Promise<void>;
 }
 
 export interface StartManagedRuntimeOptions {
@@ -101,17 +99,23 @@ export function managedCommands(options: {
   }
 
   const serverRequire = createRequire(path.join(options.serverRoot, "package.json"));
-  const webRequire = createRequire(path.join(options.repoRoot, "apps", "web", "package.json"));
   const tsxLoader = serverRequire.resolve("tsx/esm");
-  const vitePackage = webRequire.resolve("vite/package.json");
-  const viteBin = path.join(path.dirname(vitePackage), "bin", "vite.js");
 
   return {
     serverCommand: nodePath,
-    serverArgs: ["--import", tsxLoader, path.join(options.serverRoot, "src", "index.ts")],
+    serverArgs: [
+      "--import",
+      tsxLoader,
+      path.join(options.serverRoot, "src", "index.ts"),
+      "--managed-dev-web",
+    ],
     serverCwd: options.serverRoot,
     webCommand: nodePath,
-    webArgs: [viteBin],
+    webArgs: [
+      "--import",
+      tsxLoader,
+      path.join(options.repoRoot, "apps", "web", "scripts", "managed-vite.ts"),
+    ],
     webCwd: path.join(options.repoRoot, "apps", "web"),
   };
 }
@@ -120,9 +124,12 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function httpOk(url: string, requireHtml = false): Promise<boolean> {
+async function httpOk(url: string, requireHtml = false, host?: string): Promise<boolean> {
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(1_500) });
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(5_000),
+      ...(host ? { headers: { host } } : {}),
+    });
 
     if (!response.ok) {
       return false;
@@ -142,6 +149,7 @@ async function waitForHttp(
     timeoutMs?: number;
     failed?: () => boolean;
     signal?: AbortSignal;
+    host?: string;
   } = {},
 ): Promise<boolean> {
   const deadline = Date.now() + (options.timeoutMs ?? READY_TIMEOUT_MS);
@@ -149,13 +157,14 @@ async function waitForHttp(
   while (Date.now() < deadline) {
     if (
       child.exitCode !== null ||
+      child.signalCode !== null ||
       options.failed?.() === true ||
       options.signal?.aborted === true
     ) {
       return false;
     }
 
-    if (await httpOk(url, options.requireHtml)) {
+    if (await httpOk(url, options.requireHtml, options.host)) {
       return true;
     }
 
@@ -212,175 +221,152 @@ export async function startManagedRuntime(
   const root = serverRoot();
   const repoRoot = path.resolve(root, "../..");
   const dataDir = resolveDataDir();
-  let loaded: LoadedConfig = await loadManagedConfig(dataDir);
+  const loaded: LoadedConfig = await loadManagedConfig(dataDir);
   const port = loaded.config.server.port;
   const localBase = `http://127.0.0.1:${port}`;
   const serverUrl = `http://localhost:${port}`;
-  const firstRun = loaded.source === "defaults";
-  const canonicalOrigin =
-    options.dev && firstRun && process.env.LARNESS_PUBLIC_URL === undefined
-      ? WEB_DEV_URL
-      : loaded.webAuthn.origin;
+  const canonicalOrigin = loaded.webAuthn.origin;
   const webUrl = resolveWebUrl({
     dev: options.dev,
     serverPort: port,
     publicUrl: loaded.config.server.publicUrl,
     canonicalOrigin,
   });
-
-  if (await httpOk(`${localBase}/api/health`)) {
+  if (await httpOk(`${localBase}/api/health`))
     throw new Error(`已有 Larness Server 在 ${serverUrl} 运行；请先关闭原 TUI。`);
-  }
-
   const commands = managedCommands({ dev: options.dev, serverRoot: root, repoRoot });
   const logs: string[] = [];
   const appendLog = (prefix: string, chunk: Buffer): void => {
-    for (const line of chunk.toString("utf8").split(/\r?\n/)) {
-      if (line.trim().length > 0) {
-        logs.push(`${prefix} ${line}`);
-      }
-    }
-
-    if (logs.length > LOG_LIMIT) {
-      logs.splice(0, logs.length - LOG_LIMIT);
-    }
+    for (const line of chunk.toString("utf8").split(/\r?\n/))
+      if (line.trim()) logs.push(`${prefix} ${line}`);
+    if (logs.length > LOG_LIMIT) logs.splice(0, logs.length - LOG_LIMIT);
   };
-
-  const serverEnv: NodeJS.ProcessEnv = {
-    ...process.env,
-    LARNESS_LOG_STDERR: "0",
-    LARNESS_TUI_CHILD: "1",
-    ...(options.dev ? { LARNESS_SERVE_WEB: "0" } : {}),
-  };
-
-  if (options.dev && firstRun && process.env.LARNESS_PUBLIC_URL === undefined) {
-    serverEnv.LARNESS_PUBLIC_URL = WEB_DEV_URL;
-  }
-
-  loaded = { ...loaded, ...resolveConfig(loaded.config, serverEnv) };
-
-  const server = spawn(commands.serverCommand, commands.serverArgs, {
-    cwd: commands.serverCwd,
-    env: serverEnv,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let serverSpawnError: Error | null = null;
-  server.stdout?.on("data", (chunk: Buffer) => appendLog("[server]", chunk));
-  server.stderr?.on("data", (chunk: Buffer) => appendLog("[server]", chunk));
-  server.on("error", (error) => {
-    serverSpawnError = error;
-    appendLog("[server]", Buffer.from(error.message));
-  });
-
-  let serverExitResolved = false;
+  let server: ChildProcess | null = null;
+  let web: ChildProcess | null = null;
+  let stopped = false;
+  let stopping: Promise<void> | null = null;
   let resolveServerExit: () => void = () => undefined;
   const serverExited = new Promise<void>((resolve) => {
-    resolveServerExit = () => {
-      if (!serverExitResolved) {
-        serverExitResolved = true;
-        resolve();
-      }
-    };
+    resolveServerExit = resolve;
   });
-  server.once("exit", resolveServerExit);
-
-  let web: ChildProcess | null = null;
-  let webSpawnError: Error | null = null;
-
-  if (options.dev) {
-    web = spawn(commands.webCommand ?? "pnpm", commands.webArgs, {
-      cwd: commands.webCwd ?? repoRoot,
-      env: {
-        ...process.env,
-        LARNESS_API_URL: `http://127.0.0.1:${port}`,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    web.stdout?.on("data", (chunk: Buffer) => appendLog("[web]", chunk));
-    web.stderr?.on("data", (chunk: Buffer) => appendLog("[web]", chunk));
-    web.on("error", (error) => {
-      webSpawnError = error;
-      appendLog("[web]", Buffer.from(error.message));
-    });
-  }
-
-  const forceKill = (): void => {
-    if (server.exitCode === null) {
-      server.kill("SIGKILL");
-    }
-    if (web !== null && web.exitCode === null) {
-      web.kill("SIGKILL");
-    }
+  let resolveDevFailure: () => void = () => undefined;
+  const devFailed = new Promise<void>((resolve) => {
+    resolveDevFailure = resolve;
+  });
+  const forceKill = () => {
+    server?.kill("SIGKILL");
+    web?.kill("SIGKILL");
   };
   process.once("exit", forceKill);
-
-  let stopping: Promise<void> | null = null;
   const stop = (): Promise<void> => {
+    stopped = true;
     stopping ??= (async () => {
       try {
         await stopChild(server, 10_000);
-        await stopChild(web, 5_000);
       } finally {
-        process.off("exit", forceKill);
+        try {
+          await stopChild(web, 5_000);
+        } finally {
+          process.off("exit", forceKill);
+        }
       }
     })();
     return stopping;
   };
-
+  const observe = (child: ChildProcess, prefix: string) => {
+    child.stdout?.on("data", (chunk: Buffer) => appendLog(prefix, chunk));
+    child.stderr?.on("data", (chunk: Buffer) => appendLog(prefix, chunk));
+    child.on("error", () => {
+      if (options.dev && !stopped) resolveDevFailure();
+    });
+    child.on("exit", () => {
+      if (options.dev && !stopped) resolveDevFailure();
+    });
+    if (options.dev)
+      child.on("disconnect", () => {
+        if (!stopped) resolveDevFailure();
+      });
+  };
   try {
+    const generation = randomUUID();
+    let target: import("../dev-web/control.js").DevWebTarget | null = null;
+    if (options.dev) {
+      options.signal?.throwIfAborted();
+      web = spawn(commands.webCommand ?? process.execPath, commands.webArgs, {
+        cwd: commands.webCwd ?? repoRoot,
+        env: process.env,
+        stdio: ["ignore", "pipe", "pipe", "ipc"],
+      });
+      observe(web, "[web]");
+      const control = new DevWebControl(web, generation);
+      const child = web;
+      const ready = waitChildMessage(
+        child,
+        (message) => (control.accept(child, message) ? control.target : null),
+        options.signal,
+        "Vite",
+      );
+      child.send({ type: "dev-web.start", generation, origin: canonicalOrigin });
+      target = await ready;
+    }
+    options.signal?.throwIfAborted();
+    server = spawn(commands.serverCommand, commands.serverArgs, {
+      cwd: commands.serverCwd,
+      env: {
+        ...process.env,
+        LARNESS_LOG_STDERR: "0",
+        LARNESS_TUI_CHILD: "1",
+        ...(options.dev ? { LARNESS_SERVE_WEB: "0" } : {}),
+      },
+      stdio: options.dev ? ["ignore", "pipe", "pipe", "ipc"] : ["ignore", "pipe", "pipe"],
+    });
+    observe(server, "[server]");
+    server.once("exit", resolveServerExit);
+    if (target) {
+      const attached = waitChildMessage(
+        server,
+        (message) => {
+          const parsed = DevWebAttachedSchema.safeParse(message);
+          return parsed.success && parsed.data.generation === generation ? true : null;
+        },
+        options.signal,
+      );
+      server.send({ type: "dev-web.attach", ...target });
+      await attached;
+    }
     const serverReady = await waitForHttp(`${localBase}/api/health`, server, {
-      failed: () => serverSpawnError !== null,
       signal: options.signal,
     });
-    const webReady = serverReady
-      ? await waitForHttp(
-          options.dev ? `${WEB_DEV_URL}/` : `${localBase}/`,
-          options.dev ? (web as ChildProcess) : server,
-          {
-            requireHtml: true,
-            timeoutMs: options.dev ? READY_TIMEOUT_MS : 5_000,
-            failed: options.dev ? () => webSpawnError !== null : () => serverSpawnError !== null,
-            signal: options.signal,
-          },
-        )
-      : false;
-
-    if (!serverReady || !webReady) {
-      const detail = logs.slice(-12).join("\n");
-      throw new Error(
-        [
-          !serverReady ? `Server 未能在 ${serverUrl} 就绪` : null,
-          !webReady ? `Web 未能在 ${webUrl} 就绪` : null,
-          options.dev ? null : "如果 Web 构建缺失，请先运行 pnpm build。",
-          detail.length > 0 ? `\n最近输出:\n${detail}` : null,
-        ]
-          .filter(Boolean)
-          .join("\n"),
-      );
-    }
-
-    if (!existsSync(path.join(dataDir, "ipc", "token"))) {
-      throw new Error("Server 已启动，但 IPC Token 尚未就绪。");
-    }
+    const host = new URL(canonicalOrigin).host;
+    const webReady =
+      serverReady &&
+      (await waitForHttp(`${localBase}/`, server, {
+        requireHtml: true,
+        signal: options.signal,
+        host,
+        timeoutMs: options.dev ? READY_TIMEOUT_MS : 5_000,
+      }));
+    const resourcesReady =
+      !options.dev ||
+      (await waitForHttp(`${localBase}/@vite/client`, server, { signal: options.signal, host }));
+    if (
+      !serverReady ||
+      !webReady ||
+      !resourcesReady ||
+      (web?.exitCode !== null && web !== null) ||
+      (web?.signalCode !== null && web !== null)
+    )
+      throw new Error("Server 或 Web 未就绪；请查看本机日志，打包模式请先运行 pnpm build。");
+    if (!existsSync(path.join(dataDir, "ipc", "token"))) throw new Error("IPC 尚未就绪");
   } catch (error) {
     await stop();
     throw error;
   }
-
-  if (options.dev && canonicalOrigin !== WEB_DEV_URL) {
-    out(
-      pc.yellow(
-        `! canonical origin 是 ${canonicalOrigin}，与开发 Web ${WEB_DEV_URL} 不一致；Passkey 将不可用。`,
-      ),
-    );
-  }
-
   out(pc.bold("Larness"));
   out(`${pc.green("✓")} 数据目录 ${dataDir}`);
   out(`${pc.green("✓")} Server  ${serverUrl}`);
   out(`${pc.green("✓")} Web     ${webUrl}`);
   out(`${pc.green("✓")} IPC     ${path.join(dataDir, "ipc")}`);
-
   return {
     dataDir,
     config: loaded,
@@ -390,5 +376,6 @@ export async function startManagedRuntime(
     logs: () => [...logs],
     stop,
     serverExited,
+    devFailed,
   };
 }

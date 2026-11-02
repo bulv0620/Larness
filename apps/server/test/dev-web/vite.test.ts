@@ -34,6 +34,12 @@ it("loads a real Vite React page under nonce CSP and hot-updates over the authen
     const port = await getFreePort();
     const origin = `http://localhost:${port}`;
     const vite = await startManagedVite(origin, root);
+    const parallel = await startManagedVite(origin, root);
+    try {
+      expect(parallel.port).not.toBe(vite.port);
+    } finally {
+      await parallel.server.close();
+    }
     const app = Fastify();
     registerErrorHandler(app);
     app.register(websocket, { options: { maxPayload: 1024 * 1024 } });

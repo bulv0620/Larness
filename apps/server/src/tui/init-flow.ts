@@ -27,7 +27,6 @@ export async function runInitWizard(
   apply: InitApply,
   options: {
     config?: AppConfig;
-    initialParams?: InitApplyParams;
     env?: NodeJS.ProcessEnv;
     maxAttempts?: number;
   } = {},
@@ -57,7 +56,7 @@ export async function runInitWizard(
       }
     }
     let request: ReturnType<typeof buildInitRequest>;
-    const params: InitApplyParams = { ...options.initialParams };
+    const params: InitApplyParams = {};
     try {
       request = buildInitRequest(answers);
       for (const [key, variable] of [

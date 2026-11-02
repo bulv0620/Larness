@@ -1,21 +1,23 @@
+import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer, mergeConfig, type Plugin } from "vite";
-import { HMR_PATH, NONCE_MARKER } from "../../server/src/dev-web/control.js";
+import { devWebCache, HMR_PATH, NONCE_MARKER } from "../../server/src/dev-web/control.js";
 import { webRoots } from "../../server/src/dev-web/paths.js";
 import baseConfig from "../vite.config.js";
 
 export async function startManagedVite(
   origin: string,
   root = fileURLToPath(new URL("..", import.meta.url)),
+  generation: string = randomUUID(),
 ) {
   root = realpathSync(root);
   const canonical = new URL(origin);
   const dependencyRoots = webRoots(root);
-  const cache = await mkdtemp(path.join(tmpdir(), "larness-vite-cache-"));
+  const cache = devWebCache(generation);
+  await mkdir(cache, { mode: 0o700 });
   const roots = [...dependencyRoots, realpathSync(cache)];
   const client: Plugin = {
     name: "larness-managed-client",
@@ -87,7 +89,17 @@ export async function startManagedVite(
         await rm(cache, { recursive: true, force: true });
       }
     };
-    await server.listen();
+    // Vite 7's listen() treats port 0 as its default 5173. Its public HTTP
+    // listener still initializes Vite and lets the OS bind an ephemeral port.
+    const listener = server.httpServer;
+    if (!listener) throw new Error("Missing Vite listener");
+    await new Promise<void>((resolve, reject) => {
+      listener.once("error", reject);
+      listener.listen(0, "127.0.0.1", () => {
+        listener.off("error", reject);
+        resolve();
+      });
+    });
     const address = server.httpServer?.address();
     if (!address || typeof address === "string") throw new Error("Missing Vite listener");
     return { server, port: address.port, roots };

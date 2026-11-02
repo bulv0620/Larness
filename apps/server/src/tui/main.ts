@@ -1,5 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 import { confirm } from "@inquirer/prompts";
+import { DevWebUnavailable } from "../dev-web/control.js";
 import type { IpcClient } from "../ipc/client.js";
 import { connectIpc, IpcClientError } from "../ipc/client.js";
 import { resolveDataDir } from "../platform/paths.js";
@@ -61,12 +62,6 @@ async function runSession(
       {
         config: runtime?.config.config,
         env: process.env,
-        initialParams:
-          runtime?.dev === true &&
-          runtime.config.source === "defaults" &&
-          process.env.LARNESS_PUBLIC_URL === undefined
-            ? { publicUrl: "http://localhost:5173" }
-            : {},
       },
     );
     if (result.restartRequired) {
@@ -159,7 +154,19 @@ async function main(): Promise<void> {
                 footer: "Ctrl+C 停止服务",
               }),
           }),
-        attach,
+        attach: async (value) => {
+          try {
+            return await Promise.race([
+              attach(value),
+              value.devFailed.then(() => {
+                throw new DevWebUnavailable();
+              }),
+            ]);
+          } catch (error) {
+            terminal.interrupt();
+            throw error;
+          }
+        },
         onRuntime: (value) => {
           runtime = value;
         },

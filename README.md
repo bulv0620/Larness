@@ -7,7 +7,7 @@
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
 > **当前状态：S0 视觉 Demo 与 M0（macOS 范围）均已验收；下一步先修正 M1 项目写锁规划，再进入 M1-1。**
-> 启动开发环境：`pnpm install && pnpm dev` → Server <http://127.0.0.1:3210/api/health> + Web <http://localhost:5173>，并直接进入 TUI。
+> 启动开发环境：`pnpm install && pnpm dev` → Server <http://127.0.0.1:3210/api/health> + Web <http://localhost:3210>，并直接进入 TUI。
 > 验收记录与截图：[specs/000-visual-demo/acceptance.md](specs/000-visual-demo/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
 
@@ -37,7 +37,7 @@
 
 ```bash
 pnpm install
-pnpm dev            # 启动 Server(3210，仅 API/WS) + Vite(5173，前端)，然后进入 TUI
+pnpm dev            # 启动 Server（默认 3210，页面/API/WS）+ 内部 Vite，然后进入 TUI
 pnpm check          # Biome + 类型 + 单元测试
 pnpm build
 pnpm test:e2e       # S0 Mock Demo E2E
@@ -52,7 +52,7 @@ pnpm demo:shots     # 重新生成验收截图
 ```text
 Larness · 控制面板      # 首次运行先进入初始化向导
 状态：运行中
-Web：http://localhost:5173
+Web：http://localhost:3210
 待配对 0 · 在线会话 0
 
 › 配对
@@ -65,16 +65,15 @@ Web：http://localhost:5173
 ```
 
 - **TUI 是唯一前台入口**：Server / Vite 由 TUI supervisor 拉起；`q` 打开默认取消的退出确认，确认后停止全部；Ctrl+C、SIGTERM/SIGHUP 直接清理。退出恢复原终端画面和输入模式。
-- 首次运行展示有效配置，确认后初始化；不设置管理员密码、不询问更新通道。需要改监听或访问地址时选择高级设置；环境变量控制的字段需修改环境变量。开发模式首次默认来源为 `http://localhost:5173`，显式 `LARNESS_PUBLIC_URL` 会被沿用。
+- 首次运行展示有效配置，确认后初始化；不设置管理员密码、不询问更新通道。需要改监听或访问地址时选择高级设置；环境变量控制的字段需修改环境变量。两种模式默认来源均为 `http://localhost:3210`，显式 `LARNESS_PUBLIC_URL` 会被沿用。
 - 初始化保留已有配置；有效配置变化后 TUI 自动停止并重新启动受管服务，再进入仪表盘。中断恢复在下次启动监听前完成，失败则拒绝启动。
 - 旧实例的历史密码哈希保留，但没有密码登录/恢复入口。开发期 IPC 保持协议号 1，参数变更直接更新源码与测试后统一构建（ADR-026）。
 - 已有初始化数据时直接进入独立屏幕概览；`l` 打开日志，←/→ 切换 Server/子进程来源，↑/↓、PageUp/Down、Home/End 阅读，`r` 手动刷新，Esc 返回。`a` 打开审计；页面不会被后台输出顶走。
 - 配对码仅在专用页面显示，Enter 返回概览、Esc 返回申请列表；设备撤销二次确认，结果停留在详情页。交互需 TTY 且 TERM 非 dumb，完整布局至少 80×24。
 - `status` / `doctor` 仍可在 TUI 运行时从另一个终端执行：`node app.js status`、`node app.js doctor`。
-- 开发与生产请使用不同的 `LARNESS_DATA_DIR`，避免 canonical origin 混用。
-- 统一开发/打包入口的待评审方案见 [017 spec](specs/017-unified-entry/spec.md)；当前尚未实现，下面仍为现行运行方式。
-- 开发模式下 3210 只提供 API / WS，前端只在 5173；构建后的生产模式才由 3210 同时托管前端。
-- 常见错误：开发时用 5173 初始化，之后直接 `node app.js`，数据目录里的 `publicUrl` 仍是 5173，而生产静态 Web 在 3210。TUI 会拒绝启动并提示 origin 不一致。解决方式：用独立的生产数据目录（初始化时 publicUrl 留空），或设置 `LARNESS_PORT=5173` 让生产 Web 也监听 5173。
+- dev 与打包运行默认共用同一个数据目录、配置、模型凭据和设备记录；先退出当前 TUI，再切换模式，同一目录不能并发运行。`LARNESS_DATA_DIR` 仍可显式选择其他实例，程序不会自动合并数据目录。
+- 两种模式都从配置的 Server 端口提供页面、API 和业务 WS；dev 在内部接入受管 Vite，内部端口自动分配且不写入配置；打包模式提供静态文件。HMR 需登录后才能连接。见 [017 spec](specs/017-unified-entry/spec.md)。
+- 旧 dev 配置若为 `server.port=3210`、`publicUrl=http://localhost:5173`，关闭实例后一次性把原 config.json 的 `server.port` 改为 `5173`，保留其余字段与所有数据。以后两种模式都访问 `http://localhost:5173`；无需重初始化、重新配对或每次覆盖端口。若监听端口受环境变量控制，请对齐该环境变量。已一致的配置无需调整。
 - 远程访问必须使用 HTTPS；反向代理需配置 `server.trustedProxies`，非 loopback 的明文 HTTP / WS 会返回 `HTTPS_REQUIRED`。
 
 数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 默认使用真实本机 API（`/login`、`/pair`、工作台空态）。仅做 S0 Mock Demo 时使用 `VITE_USE_MOCKS=1 pnpm --filter @larness/web dev`，不是产品入口。

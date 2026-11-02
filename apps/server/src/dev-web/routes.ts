@@ -44,6 +44,7 @@ const forbiddenHeaders = new Set([
   "trailer",
   "proxy-authenticate",
   "set-cookie",
+  "content-length",
   "if-none-match",
   "if-modified-since",
   "range",

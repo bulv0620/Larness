@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-02 (+08:00)
-> 当前阶段：**M1 / G1、TUI 页面化已验收；统一入口已获实现授权，U0-1 转发基础已完成，下一项 U0-2；M2 保持 draft**
+> 当前阶段：**M1 / G1、TUI 页面化已验收；统一入口已获实现授权，U0-1/U0-2 完成，下一项 U0-3；M2 保持 draft**
 
 ## 里程碑
 
@@ -60,13 +60,13 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 ## 当前工作
 
 - U0-0（仅文档）已完成：task/u0-0-unified-entry-spec，2026-11-02（+08:00）开始并完成。人类要求“先补充文档”；新增 ADR-028 / 017 spec / runtime-entry 契约草案和任务，不修改运行代码、配置/数据，不把方向认可当成具体设计或实施门禁已批准。
-- 待评审：统一 Server 入口、内部受管 Vite/限定 HTTP/HMR、旧 5173 一次性手动对齐；G-Spec-U / ADR-028 与相对 M2 优先级，见 specs/017-unified-entry/review.md。
+- G-Spec-U / ADR-028 与先于 M2 的排期已获人类“开始实现”确认，当前按任务验收，见 specs/017-unified-entry/review.md。
 
 - 已完成：`M1` — 项目、会话与最小 Agent（M1-1 ~ M1-15）
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：评审 017 / ADR-028 并确认相对 M2 的优先级；M2 仍保持 draft，经其 G-Spec 确认后才能开始 M2-1。
+- 下一步：完成 U0-3 整体验收；M2 仍保持 draft，经其 G-Spec 确认后才能开始 M2-1。
 - 阻塞项：无。
 - 待确认：M2 spec 范围（文件树 / Monaco / CommandRunner / PTY / Git / 锁扩展）与 G-Spec 评审时间。
 
@@ -150,3 +150,11 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - 人类文档完成后明确“开始实现”，G-Spec-U / ADR-028 通过；U0-1 → U0-2 → U0-3 先于 M2。
 - 已完成 U0-1：task/u0-1-dev-web-foundation，2026-11-02（+08:00）开始；先验证控制消息、固定上游 HTTP/HMR、安全边界、真实 Vite/CSP，再实现；本任务不切换默认入口。check（server 295 / agent 32 / web 26）与 build 通过，真实 Vite/Chromium 热更新与 CSP 验证通过；见 specs/017-unified-entry/acceptance.md。
+
+- 当前 U0-2：task/u0-2-unified-entry，2026-11-02（+08:00）开始；接线统一地址、私有 ready/attach、实际认证、初始化去 5173 特例和失败清理；不修改用户配置/数据。
+
+- U0-2 暂停编码（AGENTS §9）：两次 pnpm check 的 runtime 2 项均在子进程 ready 前退出；同一文件单独运行 2 项通过。真实 PTY normal / dev-normal 通过，dev-web-failure 退出等待超时。已向人类提问是否继续补充脱敏启动诊断、修复关闭通知顺序并按原断言验收；未开始 U0-3，U0-2 代码未提交。
+
+- 人类已明确“继续定位并修复，按原计划验收”，U0-2 恢复 in_progress；保留原断言，先补脱敏诊断并修复通知顺序，不重问同一已授权问题。
+
+- U0-2 已完成：两轮失败按规则暂停后，经人类明确批准继续，定位为 Vite listen(0) 回退 5173 引发并行冲突；改用公开 HTTP listener 的 OS 端口分配，并提前发关闭通知解除退出等待。check（server 297 / agent 32 / web 26）、build、全部 PTY（含 dev 正常/故障/信号）与初始化 smoke 通过。

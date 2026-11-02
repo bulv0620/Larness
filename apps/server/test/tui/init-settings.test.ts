@@ -29,7 +29,7 @@ describe("initialization settings", () => {
     expect(ask.confirm).toHaveBeenCalledWith(expect.stringContaining(result.origin));
   });
 
-  it("only persists explicit advanced changes and retains first-dev origin defaults", async () => {
+  it("only persists explicit advanced changes and keeps an existing origin without a dev-specific patch", async () => {
     const ask = prompts(true);
     ask.port.mockResolvedValue("4000");
     const apply = vi.fn(async () => result);
@@ -40,9 +40,8 @@ describe("initialization settings", () => {
     const devApply = vi.fn(async () => result);
     await runInitWizard(prompts(), devApply, {
       config: testConfig({ server: { publicUrl: "http://localhost:5173" } }),
-      initialParams: { publicUrl: "http://localhost:5173" },
     });
-    expect(devApply).toHaveBeenCalledWith({ publicUrl: "http://localhost:5173" });
+    expect(devApply).toHaveBeenCalledWith({});
   });
 
   it("rejects changing a field controlled by environment without applying", async () => {

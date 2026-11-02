@@ -12,6 +12,8 @@ import { type Database, type OpenedDatabase, openDatabase } from "../db/client.j
 import { appliedMigrationCount, findServerRoot, runMigrations } from "../db/migrate.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { ensureInstanceId } from "../db/repositories/meta.js";
+import { type DevWebTarget, DevWebTargetSchema } from "../dev-web/control.js";
+import { managedWebFiles } from "../dev-web/managed.js";
 import { recoverInitialization } from "../init/recovery.js";
 import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
@@ -32,6 +34,7 @@ import { createShutdown, type Shutdown } from "./shutdown.js";
 
 export interface StartServerOptions {
   env?: NodeJS.ProcessEnv;
+  devWeb?: DevWebTarget;
   logDestination?: DestinationStream;
   shutdownTimeoutMs?: number;
   onShutdownTimeout?: () => void;
@@ -216,6 +219,14 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
             }),
       },
       webDistDir,
+      ...(options.devWeb
+        ? {
+            devWeb: {
+              target: DevWebTargetSchema.parse(options.devWeb),
+              ...managedWebFiles(serverRoot, options.devWeb),
+            },
+          }
+        : {}),
     });
 
     await app.listen({

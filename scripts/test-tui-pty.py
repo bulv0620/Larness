@@ -38,17 +38,22 @@ def config(directory, port):
 
 
 class Session:
-    def __init__(self, directory, port, size=(30, 100), term="xterm-256color"):
+    def __init__(self, directory, port, size=(30, 100), term="xterm-256color", dev=False):
         self.directory, self.port = directory, port
         self.master, self.slave = pty.openpty()
         self.original = termios.tcgetattr(self.slave)
         self.resize(*size, notify=False)
         env = {k: v for k, v in os.environ.items() if not k.startswith("LARNESS_")}
         env.update(TERM=term, NO_COLOR="1", LARNESS_DATA_DIR=str(directory))
-        self.proc = subprocess.Popen([NODE, "app.js"], cwd=ROOT, env=env,
+        command = [NODE, "app.js"]
+        if dev:
+            loader = subprocess.check_output([NODE, "--input-type=module", "-e", "import {createRequire} from 'node:module';console.log(createRequire(process.cwd()+'/apps/server/package.json').resolve('tsx/esm'))"], cwd=ROOT, text=True).strip()
+            command = [NODE, "--import", loader, str(ROOT / "apps/server/src/tui/main.ts"), "--managed", "--dev"]
+        self.proc = subprocess.Popen(command, cwd=ROOT, env=env,
                                      stdin=self.slave, stdout=self.slave, stderr=self.slave,
                                      start_new_session=True)
         self.data = b""
+        self.children = []
 
     def resize(self, rows, columns, notify=True):
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
@@ -84,6 +89,11 @@ class Session:
         self.wait("确认写入配置", start)
         start = self.send(b"y\r")
         self.wait("Larness · 控制面板", start)
+        self.children = self.managed_children()
+
+    def managed_children(self):
+        rows = subprocess.check_output(["ps", "-axo", "pid=,ppid=,command="], text=True).splitlines()
+        return [(int(parts[0]), parts[2]) for row in rows if len(parts := row.strip().split(None, 2)) == 3 and int(parts[1]) == self.proc.pid]
 
     def record(self, name):
         destination = os.environ.get("LARNESS_TUI_RECORD_DIR")
@@ -111,6 +121,12 @@ class Session:
         assert not (self.directory / "ipc/token").exists()
         with socket.socket() as sock:
             assert sock.connect_ex(("127.0.0.1", self.port)) != 0, "Server still listening"
+        for pid, _command in self.children:
+            try:
+                os.kill(pid, 0)
+            except ProcessLookupError:
+                continue
+            raise AssertionError("Managed child still alive after TUI exit")
 
     def close(self):
         if self.proc.poll() is None:
@@ -143,7 +159,7 @@ def main():
         finally:
             session.close()
 
-        for mode in ["normal", "pairing", "reading", "reconnect-failure", "ctrl-c", "sigterm", "sighup", "startup-sigterm", "startup-failure"]:
+        for mode in ["normal", "dev-normal", "dev-web-failure", "dev-sigterm", "pairing", "reading", "reconnect-failure", "ctrl-c", "sigterm", "sighup", "startup-sigterm", "startup-failure"]:
             directory = root / mode
             directory.mkdir()
             port = free_port()
@@ -153,7 +169,7 @@ def main():
                 blocker = socket.socket()
                 blocker.bind(("127.0.0.1", port))
                 blocker.listen()
-            session = Session(directory, port)
+            session = Session(directory, port, dev=mode.startswith("dev-"))
             try:
                 if mode == "startup-sigterm":
                     session.wait("启动")
@@ -256,7 +272,11 @@ def main():
                             session.read()
                         start = session.send(b"r")
                         session.wait("重新连接", start)
-                    elif mode == "normal":
+                    elif mode == "dev-web-failure":
+                        wrappers = [pid for pid, command in session.children if "managed-vite.ts" in command]
+                        assert len(wrappers) == 1
+                        os.kill(wrappers[0], signal.SIGTERM)
+                    elif mode in ["normal", "dev-normal"]:
                         start = session.send(b"q")
                         session.wait("退出确认", start)
                         start = session.send(b"\r")
@@ -274,7 +294,7 @@ def main():
                         session.send(b"\x03")
                     else:
                         os.kill(session.proc.pid, signal.SIGHUP if mode == "sighup" else signal.SIGTERM)
-                    session.finish(expected=1 if mode == "reconnect-failure" else 0)
+                    session.finish(expected=1 if mode in ["reconnect-failure", "dev-web-failure"] else 0)
                 print(f"PASS {mode}: real TTY mode/screen restored; children, lock and IPC released")
             finally:
                 if blocker is not None:

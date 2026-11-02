@@ -1,7 +1,7 @@
 # REST API 契约
 
 > 状态：M0 已冻结（Passkey / WebAuthn）；M1 为设计基线，实现时可补充字段但不得破坏既有语义。
-> Base URL：默认监听 `127.0.0.1:3210`；浏览器 canonical origin 为 `http://localhost:3210`（Passkey 需要）或 HTTPS 域名；Vite 开发（5173）需把 origin 配置为 `http://localhost:5173`。所有业务接口前缀 `/api`。
+> Base URL：默认监听 `127.0.0.1:3210`；dev/打包浏览器 canonical origin 均为 `http://localhost:3210`（Passkey 需要）或配置的 HTTPS 域名。Vite 是 dev 的内部受管前端，不改变 API 来源；见 [入口契约](runtime-entry.md)。所有业务接口前缀 `/api`。
 
 ## 1. 通用约定
 
