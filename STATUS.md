@@ -164,3 +164,5 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - U0-3 自动化完成、状态 review：同目录 HTTP dev→built→dev、HTTPS dev→built 的真实 Passkey/数据/密钥/业务 WS/worker/CSP/HMR、过期/撤销/锁、legacy 一次对齐、built 禁止加载 Vite 均通过。新增 `pnpm test:smoke:unified` 和 CI 接线。
 - 验收修复：大型 vendor 兜底内联 map 超限、主题内联脚本 CSP 拒绝、登出后 HMR 匿名探活无法恢复、启动探测响应未消费和已终止子进程重复等待；安全限制/协议/DB/用户数据不变。同代临时缓存由 supervisor 兜底回收。
 - 最终自动化：check（server 297 / agent 32 / web 26）、build、统一入口/初始化 smoke、真实 PTY（含 Vite SIGKILL）、Demo 15 / auth 2 / prod 2 E2E 通过；auth/prod 串行。证据和抽查步骤见 specs/017-unified-entry/acceptance.md。仅 macOS 实测，M2 仍 draft；等待人类验收，不将自动化标为切片关闭。
+
+- T0-4：2026-11-02（+08:00），task/t0-4-init-copy，done；按人类直接反馈删除初始化页“不设置管理员密码。”，只改展示文字，check（server 297 / agent 32 / web 26）与 build 通过，统一入口仍 review。

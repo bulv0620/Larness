@@ -22,11 +22,7 @@ async function runSession(
     const current = runtime?.config.config.server;
     terminal.render({
       title: "初始化",
-      body: [
-        "确认当前设置后初始化本机工作空间。",
-        `Web：${runtime?.webUrl ?? "本机"}`,
-        "不设置管理员密码。",
-      ],
+      body: ["确认当前设置后初始化本机工作空间。", `Web：${runtime?.webUrl ?? "本机"}`],
       footer: "Enter 选择 · Esc 取消 · Ctrl+C 停止服务",
     });
     const result = await runInitWizard(
