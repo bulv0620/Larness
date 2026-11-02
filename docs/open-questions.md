@@ -23,6 +23,11 @@
 | Q-016 | 所有 Passkey 丢失 / TUI 不可用时如何恢复？ | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码仍为 P1 | 恢复流程、支持成本 | M4 |
 | Q-017 | 是否允许可同步 Passkey（iCloud / Google）？ | 允许；存储 `backupEligible` / `backupState` 并在设备列表展示，不承诺物理设备绑定 | 安全文案、撤销粒度 | M0-6 |
 | Q-018 | 是否保留 `允许本次` 临时访问？ | 保留；仅短期会话，不注册 Passkey，不产生长期凭据 | 兼容不支持 WebAuthn 的浏览器 | M0-5 |
+| Q-021 | PTY 与项目写锁如何协调？ | 草案建议 PTY 存活期持锁，输入租约独立；同项目其他写作业受阻 | [ADR-029](adr/ADR-029-development-resource-execution.md) / M2 使用体验与单写保证 | G-Spec-M2 |
+| Q-022 | node-pty、进程清理与文件监听是否可行？ | 设计批准后 M2-0 实机 PoC；node-pty + 原生目录监听 / 对账；失败回评审 | ABI / built 寻址、孤儿进程、文件身份与监听溢出 | G-PoC-M2 |
+| Q-023 | 终端回放大小与保留策略？ | 内存 1 MiB；落盘 7 天 / 每终端 10 MiB / 总 100 MiB，先触发者轮转，过旧明确缺口 | 存储、脱敏、重连体验 | G-Spec-M2 |
+| Q-024 | 人工 Git 如何审批及限定操作？ | 新资源动作绑定客户端、参数 / 仓库快照；pull 仅 ff-only / 普通 push 逐次批准 | [M2 契约草案](contracts/m2-resources.md)，不虚构 Agent Turn | G-Spec-M2 / ADR-029 |
+| Q-025 | 不同项目根重叠如何加锁？ | canonical root 相等 / 祖先包含视为冲突，独立 workspace 同样纳入 | 跨项目并发不能绕过共同目录保护；M2-0 验证 | G-Spec-M2 / G-PoC-M2 |
 
 ## 已解决
 

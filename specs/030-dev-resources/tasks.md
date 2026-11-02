@@ -1,0 +1,186 @@
+# 任务：M2 开发资源与窗口层
+
+> draft，2026-11-02。仅文档规划；所有实施任务保持 todo，依赖满足也必须先过设计与 PoC 门禁。一次一个任务、一任务一提交，先红测试再实现；有 UI / 安全 / 契约影响时提交后进入人类 review。工期为工作日估计，不含等待。
+
+## 状态总表
+
+| ID | 任务 | 依赖 | 预估 | 状态 |
+|---|---|---|---|---|
+| M2-P | 本次评审草案（仅文档） | 人类起草指令 | — | `done`（文档完成，不代表 G-Spec 通过） |
+| M2-0 | 执行与原生资源 PoC | G-Spec-M2 / ADR-029；G1 / 015 / 016 / 017 done | 1–2 | `todo` |
+| M2-1 | FileManager 与资源持久化底座 | M2-0 done；G-PoC-M2 | 2 | `todo` |
+| M2-1b | 文件监听与资源事件补拉 | M2-1 | 1–2 | `todo` |
+| M2-2 | Monaco 编辑与冲突恢复 | M2-1b | 1–2 | `todo` |
+| M2-3 | CommandRunner 与受管进程协调 | M2-2 | 2 | `todo` |
+| M2-3b | Agent 命令工具与实时执行展示 | M2-3 | 1–2 | `todo` |
+| M2-4 | TerminalManager 与输入租约后端 | M2-3b | 2 | `todo` |
+| M2-4b | xterm 交互与双客户端接管 | M2-4 | 1–2 | `todo` |
+| M2-5 | GitManager、资源动作与 Agent 工具 | M2-4b | 2 | `todo` |
+| M2-5b | Git 资源区、Diff 与审批界面 | M2-5 | 1–2 | `todo` |
+| M2-6 | 真实资源统一窗口与布局恢复 | M2-5b/M2-2/M2-4b | 1–2 | `todo` |
+| M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
+| M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
+
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序均待 G-Spec-M2 确认。无进行中实现任务。
+
+## 任务卡
+
+### M2-0 执行与原生资源 PoC
+
+- 状态：`todo`
+- 依赖：G-Spec-M2 / ADR-029；G1 / 015 / 016 / 017 done；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：1–2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：真实系统资源、故障注入与进程残留检查；记录 Node / OS / 架构，失败不换依赖不缩减验收。
+- [ ] 交付：node-pty 安装与 built 寻址；真实 PTY resize / 退出；子进程组与锁丢失；文件身份 / watcher；重叠根与 workspace 冲突；poc.md 与 G-PoC-M2 证据。
+- [ ] 验收：A4/A7/A17/A18/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：scripts/；packages/resources/；server 构建配置；poc.md。
+
+### M2-1 FileManager 与资源持久化底座
+
+- 状态：`todo`
+- 依赖：M2-0 done；G-PoC-M2；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：完整换行、版本冲突、路径替换、二进制 / 超限、DB / 文件写故障、空库与升级库。
+- [ ] 交付：授权 scope 文件树 / 完整读写；保存锁 / 写意图 / 幂等；file_versions、resource_operations、resource_streams、resource_events 一份迁移；共享 DTO / 错误码。
+- [ ] 验收：A1–A5/A16/A20/A21；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：packages/resources/src/files/；apps/server/src/api/；modules/files / resources；db/；packages/shared/。
+
+### M2-1b 文件监听与资源事件补拉
+
+- 状态：`todo`
+- 依赖：M2-1；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：1–2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：真实外部写 / 改名 / 删除、watcher 故障 / 队列溢出、断线缺口、慢消费者；事件先落库后广播。
+- [ ] 交付：有界目录 watcher、合并通知 / 失效重扫、资源订阅授权与 REST 重放；手动刷新入口。
+- [ ] 验收：A1/A3/A19/A20；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：packages/resources/src/files/；apps/server/src/ws/；modules/resources/。
+
+### M2-2 Monaco 编辑与冲突恢复
+
+- 状态：`todo`
+- 依赖：M2-1b；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：1–2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：组件草稿 / 冲突与真实服务器浏览器保存回读；大文件不能编辑、源内容不被截断。
+- [ ] 交付：真实文件树 / 完整编辑、多 Tab / realpath 去重、保存、冲突 Diff、重载 / 手工合并、脏 Tab 关闭确认。
+- [ ] 验收：A1–A5/A22/A24；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：apps/web/src/features/windows/；components/sections/；lib/。
+
+### M2-3 CommandRunner 与受管进程协调
+
+- 状态：`todo`
+- 依赖：M2-2；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：真实非零退出、海量输出、spawn 失败、子进程树、重复 cancel、续租失败、重启 / 残留处理与秘密跨块。
+- [ ] 交付：进程组、环境过滤、超时 / 取消、输出上限与游标；真实命令状态 / repository / REST；command_executions 一份迁移；共用锁协调。
+- [ ] 验收：A7/A17/A18/A20/A21/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：packages/resources/src/commands/；apps/server/src/modules/commands / locks；db/。
+
+### M2-3b Agent 命令工具与实时执行展示
+
+- 状态：`todo`
+- 依赖：M2-3；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：1–2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：FakeProvider 驱动真实子进程；等审批取消、执行中取消、超时、参数替换、无后续工具调用。
+- [ ] 交付：run_command 注册、风险策略与审批、Turn 剩余预算 / AbortSignal / 有效锁传递；命令卡片流式输出 / 取消，无终端 Tab。
+- [ ] 验收：A6–A8/A16/A21；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：packages/agent/；apps/server/src/modules/agent/；apps/web/src/features/chat/。
+
+### M2-4 TerminalManager 与输入租约后端
+
+- 状态：`todo`
+- 依赖：M2-3b；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：两认证连接争抢 / 重放 / 过期 / 撤销、PTY 退出、隐藏不停止、锁丢失、重启中断和轮转回放。
+- [ ] 交付：真实 PTY 生命周期、范围 / 全局 workspace、持久状态 / 游标；输入租约 generation、连接绑定、resize / terminate；terminals / terminal_leases 一份迁移。
+- [ ] 验收：A9/A10/A12/A16–A21/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：packages/resources/src/terminals/；apps/server/src/api / ws / modules/terminals；db/。
+
+### M2-4b xterm 交互与双客户端接管
+
+- 状态：`todo`
+- 依赖：M2-4；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：1–2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：两独立浏览器上下文同 PTY；租约释放 / 到期、撤销、输出一致、断线恢复不重建。
+- [ ] 交付：真实终端列表 / 创建确认 / 输入 / resize / 显式终止；只读观察、持有者 / 到期与项目写占用显示。
+- [ ] 验收：A9–A12/A22；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：apps/web/src/features/windows/Terminal*；components/sections/TerminalsPanel；e2e-auth/。
+
+### M2-5 GitManager、资源动作与 Agent 工具
+
+- 状态：`todo`
+- 依赖：M2-4b；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：临时仓库 / 本地 bare remote；特殊文件名、hooks / diff 配置、快照变化 / 审批过期 / 单次消费、脏工作区 / 无上游 / 非快进、Git 不可用。
+- [ ] 交付：结构化 status / diff / log / branch；add / commit / 分支 / ff-only pull / push；人工动作审批与幂等；Agent 同 Manager；resource_actions 一份迁移。
+- [ ] 验收：A13–A18/A20/A21；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：packages/resources/src/git/；apps/server/src/modules/git / api；packages/agent/；db/。
+
+### M2-5b Git 资源区、Diff 与审批界面
+
+- 状态：`todo`
+- 依赖：M2-5；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：1–2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：真实服务器浏览器流程、批准参数摘要、重复点击、冲突后重查、模型离线可用。
+- [ ] 交付：staged / unstaged / untracked、Diff、选择性 add / commit、分支操作、pull / push 计划 / 审批 / 执行与失败态。
+- [ ] 验收：A13–A16/A22/A24；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：apps/web/src/components/sections/GitPanel；features/windows/DiffView；features/git/。
+
+### M2-6 真实资源统一窗口与布局恢复
+
+- 状态：`todo`
+- 依赖：M2-5b/M2-2/M2-4b；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：1–2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：隐藏 / 关闭 / 刷新 / 切会话不创建资源；文件跨来源去重；资源失效与脏草稿；双客户端布局独立。
+- [ ] 交付：viewKey、来源分组、项目筛选同排、顶部资源枚举 / 恢复、本地布局版本与资源对账；真实模式不显示服务 / Browser 假状态。
+- [ ] 验收：A11/A22/A24；resource-views V1–V6 的 M2 类型；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：apps/web/src/stores/windowStore；lib/window*；components/windows / layout/。
+
+### M2-7 跨资源锁、fencing 与恢复验收
+
+- 状态：`todo`
+- 依赖：M2-6；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：1–2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：真实并发与假时钟、旧 token 续租 / 写 / 释放、跨项目并发、旧进程未停不能接管、固定顺序无死锁。
+- [ ] 交付：集中验证文件 / Agent / 命令 / PTY / Git 共享锁；根包含冲突；续租失败停止 / 阻塞；重启孤儿进程对账；关联问题修正。
+- [ ] 验收：A12/A17–A20/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：apps/server/src/modules/locks / agent / resources；packages/resources/；集成测试。
+
+### M2-8 M2 整体交付与 G2
+
+- 状态：`todo`
+- 依赖：M2-7；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
+- 预估：1–2 天；明显超出则先拆分，不绕过门禁。
+- [ ] 先写失败测试并确认失败原因：check / build / Demo / auth / prod；初始化 / 统一入口 / TUI 回归；模型离线、未授权、双客户端、清理证据；人类验收。
+- [ ] 交付：真实文件 / Git / PTY E2E、Agent 测试命令、dev / built smoke、macOS 平台与 UI 记录、acceptance.md / 契约落地检查。
+- [ ] 验收：A1–A24 / G2；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- 涉及路径（计划）：e2e*；scripts/；specs/030-dev-resources/acceptance.md；docs/；STATUS.md。
+
+## 本次 M2-P 说明
+
+2026-11-02：补全 spec / plan / tasks / review、资源契约与 ADR-029 提案，关联路线图与开放问题。未编写资源运行代码、安装依赖、执行 PoC、迁移数据库或修改用户数据。验证记录见 review.md；M2 的完成定义与 G2 仍全部未验收。

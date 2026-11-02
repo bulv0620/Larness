@@ -207,3 +207,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 ## 主密钥与备份（I0-3）
 
 `secrets` 的 ciphertext / nonce / tag 与 `<dataDir>/secrets/master.key` 必须配套。启动校验所有记录；有记录时缺失密钥不自动生成，无法解密则拒绝启动。恢复应保留原数据库与密钥，备份数据库本身不能替代密钥备份；密钥不得明文外传。
+
+## M2 详细草案入口（2026-11-02，未冻结）
+
+文件 / 命令 / PTY / Git 的接口、资源事件与回放、数据迁移、锁与错误码拟细化于 [m2-resources.md](m2-resources.md)，配套 [030 spec](../../specs/030-dev-resources/spec.md)。本文件中原 M2 摘要只作范围索引；细化提案须经 G-Spec-M2 / ADR-029 确认后才生效，实施时同步 Zod schema 与测试，不改变 M0 / M1 已实现契约。

@@ -52,6 +52,10 @@
 
 - [ADR-028 开发与打包运行共用入口和实例配置](ADR-028-unified-dev-entry.md)：accepted；2026-11-02 文档完成后人类明确“开始实现”，批准 G-Spec-U 和 U0-1→U0-2→U0-3 先于 M2。原 ADR-023/025 原文保留，接线完成前不宣称入口已切换。
 
+## M2 开发资源补充决策（待评审）
+
+- [ADR-029 开发资源的执行、审批与锁边界](ADR-029-development-resource-execution.md)：proposed，2026-11-02 仅起草；PTY 持锁、人工 Git 资源动作、输出回放与原生 PoC 待 G-Spec-M2 确认。
+
 ## 3. 变更流程
 
 1. 复制模板生成新 ADR，状态 `proposed`。

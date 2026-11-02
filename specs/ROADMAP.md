@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
-| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `draft` | G2 |
+| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `draft` | 待 G-Spec-M2 / G-PoC-M2，最终 G2 |
 | M3 | 本机服务与 Preview | [040](040-services-preview/spec.md) | `draft` | G3 |
 | M4 | 部署闭环与权限加固 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
@@ -19,7 +19,7 @@
 
 ```text
 D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
-→ M2-1 → … → M2-8 → M3-1 → … → M3-6 → M4-1 → … → M4-4
+→ G-Spec-M2 → M2-0 → G-PoC-M2 → M2-1 → … → M2-8 → M3-1 → … → M3-6 → M4-1 → … → M4-4
 → M5-1 → … → M5-5
 ```
 
@@ -113,18 +113,26 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | U0-2 | supervisor 接线与共享配置/统一初始化 | U0-1 | `done` |
 | U0-3 | 同目录模式切换、真实 HMR 与整体交付 | U0-2 | `done`（2026-11-02 人类验收通过） |
 
-## 5. M2 开发资源与窗口层（草案）
+## 5. M2 开发资源与窗口层（评审草案）
+
+2026-11-02 按人类要求完成 M2-P 文档起草；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [review](030-dev-resources/review.md) 保持 draft。以下拆分与执行顺序待 G-Spec-M2 / ADR-029 确认；G-PoC-M2 通过前不启动 M2-1，不把 todo 当作已就绪授权。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M2-1 | FileManager：文件树、读写、版本冲突、监听 | G1 | `todo` |
-| M2-2 | 文件窗口：Monaco、多 Tab、冲突提示 | M2-1 | `todo` |
-| M2-3 | CommandRunner：超时、输出上限、取消、环境白名单 | G1 | `todo` |
-| M2-4 | TerminalManager：PTY、xterm、多客户端观察、输入租约 | M2-3 | `todo` |
-| M2-5 | GitManager：status / diff / add / commit / branch / push 审批 | M2-3 | `todo` |
-| M2-6 | 真实资源接入窗口层：顶部入口、来源/项目筛选、分组 Tab、恢复、布局持久化 | M2-2, M2-4 | `todo` |
-| M2-7 | 项目锁、fencing、并发与冲突用例 | M2-1, M2-4, M2-5 | `todo` |
-| M2-8 | M2 验收与门禁 | M2-6, M2-7 | `todo` |
+| M2-P | M2 评审草案（仅文档） | 人类起草指令 | `done`（不代表门禁通过） |
+| M2-0 | 原生 PTY、进程清理、文件与锁边界 PoC | G1 / 015 / 016 / 017 done；G-Spec-M2 / ADR-029 | `todo` |
+| M2-1 | FileManager、写锁与资源持久化底座 | M2-0；G-PoC-M2 | `todo` |
+| M2-1b | 文件监听与资源事件补拉 | M2-1 | `todo` |
+| M2-2 | Monaco 编辑、多 Tab 与冲突恢复 | M2-1b | `todo` |
+| M2-3 | CommandRunner 与受管进程协调 | M2-2 | `todo` |
+| M2-3b | Agent 命令工具、预算、取消与输出 UI | M2-3 | `todo` |
+| M2-4 | TerminalManager、PTY 与输入租约 | M2-3b | `todo` |
+| M2-4b | xterm 真实交互与双客户端观察 | M2-4 | `todo` |
+| M2-5 | GitManager、资源动作审批与 Agent 工具 | M2-4b | `todo` |
+| M2-5b | Git 资源区、Diff 与审批 UI | M2-5 | `todo` |
+| M2-6 | 真实资源窗口、来源/项目筛选、分组与布局恢复 | M2-2, M2-4b, M2-5b | `todo` |
+| M2-7 | 跨资源项目锁、fencing、并发与恢复验收 | M2-6 | `todo` |
+| M2-8 | M2 整体验收与 G2 | M2-7 | `todo` |
 
 ## 6. M3 本机服务与 Preview（草案）
 
@@ -191,12 +199,23 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 **状态：通过（2026-11-01，人类验收）。** 记录见 [M1 acceptance](../specs/020-workspace-agent/acceptance.md)。
 
-### G2 开发资源
+### G-Spec-M2 / G-PoC-M2（草案，待评审）
 
-- 终端多 Tab / 项目筛选 / 隐藏恢复不重建 PTY；
-- 两客户端观看同一终端，输入租约可见；
-- 文件树、Monaco 编辑、Git Diff 可用；
-- 项目写锁生效，跨项目可并发。
+- 先人类确认 030 spec / plan / tasks、资源契约和 ADR-029，含 PTY 全生命周期持项目锁、Git 操作范围及回放限额，才能启动 M2-0；
+- M2-0 提供真实 PTY / built 寻址、进程树清理、锁失效 / 重启、文件竞争 / 监听、重叠根冲突域证据；人类确认 G-PoC-M2 后才能启动 M2-1；
+- PoC 失败不得静默改用非交互输出冒充终端，范围变更回到评审。
+
+### G2 开发资源（细化草案）
+
+- A1–A24 自动化与真实资源证据齐全；文件树 / Monaco 编辑 / Git Diff 可用，版本冲突保留草稿且不静默覆盖；
+- Agent 真实执行测试命令，输出有界、超时 / 取消停止受管进程；模型离线时资源操作可用；
+- 终端多 Tab / 项目筛选 / 隐藏 / 关闭视图 / 刷新恢复不重建 PTY；两独立认证客户端观察同一终端，只有当前租约可输入 / resize；
+- PTY / Agent / 文件 / Git 从首次接入即执行共同项目锁；同根 / 重叠根受保护，无重叠的跨项目可并发；旧 fencing 不可续租 / 写 / 释放新锁；
+- Git 远端动作逐次审批、参数 / 仓库快照绑定、幂等不重复副作用；
+- 重启标原 PTY / 命令中断，未知旧进程未清理前不允许冲突写；TUI 退出清理受管进程；
+- check / build / Demo / auth / prod / 初始化 / 统一入口 / TUI 回归通过，真实 macOS dev / built 冒烟及人类 UI / 安全验收通过；其他平台仅据实记录。
+
+**状态：待 G-Spec-M2 确认细化标准，尚未执行 G2。**
 
 ### G3 服务与预览
 

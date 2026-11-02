@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `draft` | 仅路线图级范围，启动前补全 spec |
+| M2 | 开发资源与窗口层 | `draft` | 详细评审草案已补齐，待 G-Spec-M2 / G-PoC-M2 |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -59,6 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M2-P（仅文档）已完成起草：2026-11-02（+08:00），分支 `task/m2-spec-draft`。按人类“起草一下 m2 阶段”补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；check（server 297 / agent 32 / web 26）及文档链接 / 依赖检查通过；不启动功能实现、不安装依赖、不修改运行数据。
+
 - U0-0（仅文档）已完成：task/u0-0-unified-entry-spec，2026-11-02（+08:00）开始并完成。人类要求“先补充文档”；新增 ADR-028 / 017 spec / runtime-entry 契约草案和任务，不修改运行代码、配置/数据，不把方向认可当成具体设计或实施门禁已批准。
 - G-Spec-U / ADR-028 与先于 M2 的排期已获人类“开始实现”确认，当前按任务验收，见 specs/017-unified-entry/review.md。
 
@@ -66,9 +68,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：M2 G-Spec；M2 仍保持 draft，经其 G-Spec 确认后才能开始 M2-1。
+- 下一步：M2 G-Spec；M2 仍保持 draft，经 G-Spec-M2 / ADR-029 确认后先做 M2-0 PoC，G-PoC-M2 通过后才能开始 M2-1。
 - 阻塞项：无。
-- 待确认：M2 spec 范围（文件树 / Monaco / CommandRunner / PTY / Git / 锁扩展）与 G-Spec 评审时间。
+- 待确认：G-Spec-M2 / ADR-029；重点为 PTY 全生命周期持锁、回放限额、Git 人工审批与操作范围、重叠根冲突域和任务拆分，见 [M2 review](specs/030-dev-resources/review.md)。无 M2 功能实现授权。
 
 ## 已冻结
 
@@ -97,6 +99,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 | 日期 | 变更 |
 |---|---|
+| 2026-11-02 | M2-P：补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；同步路线图与 Q-021～Q-025。仅文档，M2 仍 draft，待 G-Spec-M2 / G-PoC-M2 |
 | 2026-10-31 | 初始化 spec 工程：宪法、Agent 手册、架构/契约、路线图、S0–M1 详细 spec、M2–M5 草案 |
 | 2026-10-31 | 改用 Passkey / WebAuthn 作为 V1 可信凭据（ADR-021）；移除长期设备 Token / refresh；M0 拆为 9 个任务 |
 | 2026-11-01 | 完成 S0 视觉 Demo（D0-1–D0-8）：三栏、主题、窗口层、资源分区、Mock 对话/审批、Monaco/xterm/预览占位；E2E 9 项通过 |
