@@ -2,7 +2,7 @@
 id: 017-unified-entry
 title: 开发与打包运行统一入口
 milestone: M0-followup
-status: active
+status: done
 depends_on: [016-tui-experience]
 owners: [human]
 created: 2026-11-02
@@ -11,7 +11,7 @@ updated: 2026-11-02
 
 # 开发与打包运行统一入口
 
-> 2026-11-02 人类明确“开始实现”，G-Spec-U / [ADR-028](../../docs/adr/ADR-028-unified-dev-entry.md) 已批准；按 U0-1→U0-2→U0-3 先于 M2 实施。配套：[入口契约草案](../../docs/contracts/runtime-entry.md)、[计划](plan.md)、[任务](tasks.md)、[评审包](review.md)。
+> 2026-11-02 人类明确“开始实现”，G-Spec-U / [ADR-028](../../docs/adr/ADR-028-unified-dev-entry.md) 已批准；按 U0-1→U0-2→U0-3 先于 M2 实施。2026-11-02 人类明确“验收通过”，G-Task 通过，切片关闭。配套：[入口契约](../../docs/contracts/runtime-entry.md)、[计划](plan.md)、[任务](tasks.md)、[评审包](review.md)。
 
 ## 1. 目标与非目标
 

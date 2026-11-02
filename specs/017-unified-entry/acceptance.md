@@ -58,10 +58,12 @@
 
 脱敏界面记录（均为临时 fixture，无配对码、Cookie、密钥）：[首次 dev](evidence/http-1-dev.png)、[built](evidence/http-2-built.png)、[切回 dev](evidence/http-3-dev.png)、[HTTPS dev](evidence/https-1-dev.png)。已检查自动截图，不能代替负责人的 G-Task 验收。
 
-### 人类抽查（待完成）
+### 人类抽查（2026-11-02 已通过）
+
+人类在初始化文案修正后明确“验收通过”，本轮统一入口与文案修正验收完成。以下保留复验步骤：
 
 1. 选定同一 `LARNESS_DATA_DIR`，确认有效 publicUrl/监听端口一致；若为旧 3210/5173 配置先按 README 一次性对齐。
 2. `pnpm dev` 进入工作台后退出 TUI，再用 `node app.js` 访问同一地址，确认原项目/会话/模型凭据仍在并能用 Passkey 登录；关闭后再切回 dev。
 3. dev 登录后修改管理前端组件，确认无需刷新即可更新；日志页返回、正常退出与信号退出均恢复终端并停止服务。
 
-仅记录 macOS 实机；Windows/Linux 未作本机验收。自动化完成后 U0-3 保持 review，收到人类 G-Task 通过后才能关闭切片，M2 仍为 draft。
+仅记录 macOS 实机；Windows/Linux 未作本机验收。U0-3 人类 G-Task 已通过，切片关闭，M2 仍为 draft。

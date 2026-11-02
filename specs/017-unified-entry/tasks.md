@@ -1,13 +1,13 @@
 # 任务：统一运行入口
 
-> 2026-11-02 人类明确“开始实现”，批准 G-Spec-U / ADR-028 及优先于 M2 的顺序实施。U0-1/U0-2 已完成，U0-3 自动化完成，待人类抽查。
+> 2026-11-02 人类明确“开始实现”，批准 G-Spec-U / ADR-028 及优先于 M2 的顺序实施。U0-1/U0-2 已完成，U0-3 已于 2026-11-02 经人类明确“验收通过”，全部完成。
 
 | ID | 任务 | 依赖 | 状态 | 预估 |
 |---|---|---|---|---|
 | U0-0 | ADR/spec/契约草案与评审包 | T0-3 done；人类授权补充文档 | done | 0.5 天 |
 | U0-1 | 受管 Vite 与限定 HTTP/HMR 转发基础 | U0-0 done；G-Spec-U / ADR-028 accepted | done | 2 天 |
 | U0-2 | supervisor 接线与共享配置/统一初始化 | U0-1 done | done | 1–2 天 |
-| U0-3 | 同目录模式切换、真实 HMR 与整体交付 | U0-2 done | review | 2 天 |
+| U0-3 | 同目录模式切换、真实 HMR 与整体交付 | U0-2 done | done | 2 天 |
 
 ## U0-0 文档
 
@@ -45,4 +45,4 @@
 - 不包含：公开新版本发布、三平台未经实测支持声明或其他里程碑功能。
 - [x] 2026-11-02 U0-2 done 后声明 in_progress，task/u0-3-unified-entry-acceptance；
 - [x] 自动化证据和当前文档同步、独立提交；check/build、统一入口 smoke、初始化 smoke、真实 PTY、Demo/auth/prod E2E 通过，见 acceptance.md；
-- [ ] 人类 G-Task 通过，全部任务 done 后将 spec 关闭。
+- [x] 2026-11-02 人类明确“验收通过”，G-Task 通过，全部任务 done，spec 关闭。

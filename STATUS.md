@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-02 (+08:00)
-> 当前阶段：**M1 / G1、TUI 页面化已验收；统一入口 U0-1/U0-2 完成，U0-3 自动化通过、待人类抽查；M2 保持 draft**
+> 当前阶段：**M1 / G1、TUI 页面化已验收；统一入口与初始化文案修正已通过人类验收；M2 保持 draft**
 
 ## 里程碑
 
@@ -66,7 +66,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：U0-3 人类 G-Task 抽查；M2 仍保持 draft，经其 G-Spec 确认后才能开始 M2-1。
+- 下一步：M2 G-Spec；M2 仍保持 draft，经其 G-Spec 确认后才能开始 M2-1。
 - 阻塞项：无。
 - 待确认：M2 spec 范围（文件树 / Monaco / CommandRunner / PTY / Git / 锁扩展）与 G-Spec 评审时间。
 
@@ -166,3 +166,5 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 最终自动化：check（server 297 / agent 32 / web 26）、build、统一入口/初始化 smoke、真实 PTY（含 Vite SIGKILL）、Demo 15 / auth 2 / prod 2 E2E 通过；auth/prod 串行。证据和抽查步骤见 specs/017-unified-entry/acceptance.md。仅 macOS 实测，M2 仍 draft；等待人类验收，不将自动化标为切片关闭。
 
 - T0-4：2026-11-02（+08:00），task/t0-4-init-copy，done；按人类直接反馈删除初始化页“不设置管理员密码。”，只改展示文字，check（server 297 / agent 32 / web 26）与 build 通过，统一入口仍 review。
+
+- 2026-11-02 人类明确“验收通过”：统一入口 U0-3 / 017 切片和初始化文案修正 T0-4 验收完成；同步 done 与 G-Task 记录。无进行中实现任务；下一步为 M2 spec 评审，M2 保持 draft，尚未获实现授权。
