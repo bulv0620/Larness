@@ -45,19 +45,19 @@
 
 - HTTP 请求剥离 Cookie、Authorization、Proxy-Authorization、x-csrf-token、Forwarded、X-Forwarded-*、hop-by-hop 头；HMR 先由 Server 校验会话，再以受控 Upgrade/Connection 建立上游握手。上游 Host 固定为已登记内部目标，不采用浏览器输入；Vite allowedHosts 保持明确列表，Origin 保留已校验值。
 - 响应丢弃 Set-Cookie、hop-by-hop 头和上游 CSP/CORS；CSP/跨源策略由管理入口统一设置。禁止将内部目标的 Location 发给浏览器，不跟随上游重定向。外部重定向也不得成为可选代理目标。
-- dev HTML/模块 no-store；HTTP 采用流式背压，单响应上限 32 MiB，不完整缓冲任意响应；转发端连接/响应首部超时 5 秒、响应传输空闲超时 30 秒。浏览器断开即销毁上游流，停机销毁全部代理流。启动探测须覆盖冷启动资源转换，依赖预热在就绪前完成。
+- dev HTML/模块 no-store；HTTP 采用流式背压，单响应上限 32 MiB，不完整缓冲任意响应；转发端连接/响应首部超时 5 秒、响应传输空闲超时 30 秒。浏览器断开即销毁上游流，停机销毁全部代理流。启动探测须覆盖冷启动资源转换，依赖扫描与首轮预构建在就绪前完成。大于 1 MiB 的第三方模块省略 Vite 的兜底内联 source map，避免 Monaco TypeScript 服务被重复嵌入后超限；不改变源码内容或 32 MiB 上限。
 - 新拟议错误 `DEV_WEB_UNAVAILABLE`，HTTP 503，使用既有错误结构，消息为“开发页面暂不可用，请查看本机 TUI”；仅在响应未开始时返回，已发部分内容则中断连接。不返回内部地址/路径、原始异常/堆栈或认证材料，不把 Vite 不可用伪装成静态 dist 成功。
 - 现有业务错误仍由原处理器返回。U0-1 已同步 shared 错误 schema 和 REST 错误表；默认产品接线属于 U0-2。
 
 ## 5. HMR 与安全头
 
 - 专用路径 /_larness/dev/hmr，与 /ws 分开；仅 dev 且当前目标已附加时处理。浏览器连接地址使用当前 canonical origin 对应的 ws/wss，设置 clientPort/path，不暴露或回退内部端口。
-- 握手先按现有 resolveActiveSession 校验有效会话（含绝对/空闲期限）、canonical Origin 和 transportAllowed，错误复用 UNAUTHENTICATED / ORIGIN_INVALID / HTTPS_REQUIRED；无会话不能以 localhost 豁免。登录/配对页可加载公开壳资源，HMR 在登录成功后重试。旧设备撤销/会话撤销事件需关闭对应 HMR，期限至少按现有业务 WS 的心跳频率复核，不将 HMR 心跳视为用户活动延长空闲期限。
+- 握手先按现有 resolveActiveSession 校验有效会话（含绝对/空闲期限）、canonical Origin 和 transportAllowed，错误复用 UNAUTHENTICATED / ORIGIN_INVALID / HTTPS_REQUIRED；无会话不能以 localhost 豁免。登录/配对页可加载公开壳资源，HMR 在登录成功后重试；登出断开后也经相同鉴权通道重连，不使用匿名 vite-ping 探活，不回退内部端口。旧设备撤销/会话撤销事件需关闭对应 HMR，期限至少按现有业务 WS 的心跳频率复核，不将 HMR 心跳视为用户活动延长空闲期限。
 - 仅允许 Vite HMR 的受控握手/子协议；保留 Vite 自身 token 验证，不实现通用 WS 隧道。握手查询串/子协议中的临时材料不得进入日志/审计/错误/截图。审计拒绝时仅记录脱敏路径、稳定原因和关联 ID。
 - 帧上限 1 MiB，待发送缓冲上限 8 MiB，超限关闭连接，不能无界积压；停止/上游断开/授权失效都关闭双向连接。未知 upgrade 直接拒绝，不抢占业务 WS。
-- dev HTML 逐响应生成不可预测 nonce，并给主题脚本、Vite/React refresh 注入的合法内联脚本附加对应 nonce；script-src 使用 self + nonce，保持其余当前 CSP 限制。样式策略沿用当前允许内联样式；不新增 unsafe-eval 或 script unsafe-inline，不去掉 frame-ancestors。不能直接透传任意 Vite 错误 HTML 绕过 nonce 流程。
+- dev HTML 逐响应生成不可预测 nonce，并给 Vite/React refresh 注入的合法内联脚本附加对应 nonce；主题初始化使用同源模块；script-src 使用 self + nonce，保持其余当前 CSP 限制。样式策略沿用当前允许内联样式；不新增 unsafe-eval 或 script unsafe-inline，不去掉 frame-ancestors。不能直接透传任意 Vite 错误 HTML 绕过 nonce 流程。
 - 生产静态 CSP 与业务 API CSP 不变。真实 Chromium 验证登录、主题、React refresh、Monaco/worker、业务 WS 和 HMR，无 CSP 控制台错误且恶意脚本不执行。
 
 ## 6. 故障和退出
 
-Vite 退出/控制通道中断使 dev 运行环境失败；supervisor 停止本次 Server 与剩余子进程，不影响其他数据目录实例。HTTP 连接短暂失败先按上节返回，若进程已退出则走整体清理。公开端口冲突不自动跳号，内部端口由 OS 分配不持久化。正常退出、重复信号、初始化重启、启动失败均释放转发连接、监听、锁、IPC 和 TUI 原始模式；残余 SIGKILL 限制沿用 ADR-023。
+Vite 退出/控制通道中断使 dev 运行环境失败；supervisor 停止本次 Server 与剩余子进程，不影响其他数据目录实例。HTTP 连接短暂失败先按上节返回，若进程已退出则走整体清理。公开端口冲突不自动跳号，内部端口由 OS 分配不持久化。正常退出、重复信号、初始化重启、启动失败均释放转发连接、监听、锁、IPC 和 TUI 原始模式；Vite wrapper 被 SIGKILL 后，仍存活的 supervisor 清理已验证同代临时缓存；supervisor 自身被 SIGKILL 的限制沿用 ADR-023。

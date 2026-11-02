@@ -23,10 +23,24 @@ export async function startManagedVite(
     name: "larness-managed-client",
     enforce: "post",
     transform(code, id) {
+      // An explicit empty map plus a harmless newline prevents Vite from
+      // generating a huge fallback inline map for an otherwise unchanged vendor.
+      if (id.includes("/node_modules/") && code.length > 1024 * 1024)
+        return { code: `${code}\n`, map: { version: 3, sources: [], names: [], mappings: "" } };
       if (!id.replaceAll("\\", "/").endsWith("/vite/dist/client/client.mjs")) return;
       const marker = "await wsTransport.connect(handlers);";
-      if (!code.includes(marker)) throw new Error("Unsupported Vite client transport");
+      const restart = "await waitForSuccessfulPing(url.href);\n\t\t\t\t\tlocation.reload();";
+      if (!code.includes(marker) || !code.includes(restart))
+        throw new Error("Unsupported Vite client transport");
       return code
+        .replace(
+          "const socket = options.createConnection();",
+          "clearInterval(pingIntervalId); const socket = options.createConnection();",
+        )
+        .replace(
+          restart,
+          "await new Promise(done => setTimeout(done, 0)); await transport.connect(createHMRHandler(handleMessage));",
+        )
         .replace(/const serverHost = .*?;/, `const serverHost = ${JSON.stringify(canonical.host)};`)
         .replace(
           /const directSocketHost = .*?;/,
@@ -46,6 +60,7 @@ export async function startManagedVite(
     logLevel: "error",
     plugins: [client],
     html: { cspNonce: NONCE_MARKER },
+    optimizeDeps: { holdUntilCrawlEnd: false },
     server: {
       host: "127.0.0.1",
       port: 0,
@@ -100,6 +115,12 @@ export async function startManagedVite(
         resolve();
       });
     });
+    const optimizer = server.environments.client.depsOptimizer;
+    await optimizer?.scanProcessing;
+    if (optimizer)
+      await Promise.all(
+        Object.values(optimizer.metadata.discovered).map((item) => item.processing),
+      );
     const address = server.httpServer?.address();
     if (!address || typeof address === "string") throw new Error("Missing Vite listener");
     return { server, port: address.port, roots };

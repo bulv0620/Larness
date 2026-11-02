@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import websocket from "@fastify/websocket";
@@ -58,6 +58,17 @@ it("loads a real Vite React page under nonce CSP and hot-updates over the authen
     const browser = await chromium.launch({ headless: true });
     try {
       await app.listen({ host: "127.0.0.1", port });
+      const vendor = await realpath(
+        path.join(
+          webRoot,
+          "node_modules/monaco-editor/esm/vs/languages/features/typescript/lib/typescriptServices.js",
+        ),
+      );
+      const vendorResponse = await fetch(`${origin}/@fs${vendor}`);
+      expect(vendorResponse.status).toBe(200);
+      const vendorBytes = (await vendorResponse.arrayBuffer()).byteLength;
+      expect(vendorBytes).toBeGreaterThan(1024 * 1024);
+      expect(vendorBytes).toBeLessThan(32 * 1024 * 1024);
       const context = await browser.newContext();
       const page = await context.newPage();
       const violations: string[] = [];
@@ -87,6 +98,13 @@ it("loads a real Vite React page under nonce CSP and hot-updates over the authen
       authorized = false;
       emitSessionRevoked("test", "test");
       await vi.waitFor(() => expect(vite.server.ws.clients.size).toBe(0));
+      authorized = true;
+      await vi.waitFor(() => expect(vite.server.ws.clients.size).toBe(1), { timeout: 10000 });
+      await writeFile(component, "export function App(){return <h1>After reauthentication</h1>}");
+      await vi.waitFor(
+        async () => expect(await page.locator("h1").textContent()).toBe("After reauthentication"),
+        { timeout: 10000 },
+      );
       await page.evaluate(
         'const injected = document.createElement("script"); injected.textContent = "window.injected=true"; document.body.append(injected);',
       );

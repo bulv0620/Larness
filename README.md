@@ -44,6 +44,7 @@ pnpm test:e2e       # S0 Mock Demo E2E
 pnpm test:e2e:auth  # 真实 server + 虚拟认证器：配对 / 注册 / 登录 / 撤销
 pnpm test:e2e:prod  # 构建后由 Server 3210 托管 Web 的生产形态 E2E
 pnpm test:smoke:init # 需先 build：临时目录/随机端口验证初始化重启与恢复
+pnpm test:smoke:unified # 需先 build、Chromium 和 openssl：真实模式切换 / Passkey / HMR / HTTPS
 pnpm demo:shots     # 重新生成验收截图
 ```
 

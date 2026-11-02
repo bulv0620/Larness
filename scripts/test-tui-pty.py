@@ -45,6 +45,10 @@ class Session:
         self.resize(*size, notify=False)
         env = {k: v for k, v in os.environ.items() if not k.startswith("LARNESS_")}
         env.update(TERM=term, NO_COLOR="1", LARNESS_DATA_DIR=str(directory))
+        self.cache_directory = tempfile.TemporaryDirectory(prefix="larness-pty-cache-", dir="/tmp") if dev else None
+        self.cache_root = Path(self.cache_directory.name) if self.cache_directory else directory / "temporary"
+        if dev:
+            env["TMPDIR"] = str(self.cache_root)
         command = [NODE, "app.js"]
         if dev:
             loader = subprocess.check_output([NODE, "--input-type=module", "-e", "import {createRequire} from 'node:module';console.log(createRequire(process.cwd()+'/apps/server/package.json').resolve('tsx/esm'))"], cwd=ROOT, text=True).strip()
@@ -121,6 +125,7 @@ class Session:
         assert not (self.directory / "ipc/token").exists()
         with socket.socket() as sock:
             assert sock.connect_ex(("127.0.0.1", self.port)) != 0, "Server still listening"
+        assert not list(self.cache_root.glob("larness-vite-cache-*")), "Managed Vite cache remains after shutdown"
         for pid, _command in self.children:
             try:
                 os.kill(pid, 0)
@@ -138,6 +143,8 @@ class Session:
                 self.proc.wait()
         os.close(self.master)
         os.close(self.slave)
+        if self.cache_directory:
+            self.cache_directory.cleanup()
 
 
 def main():
@@ -159,7 +166,7 @@ def main():
         finally:
             session.close()
 
-        for mode in ["normal", "dev-normal", "dev-web-failure", "dev-sigterm", "pairing", "reading", "reconnect-failure", "ctrl-c", "sigterm", "sighup", "startup-sigterm", "startup-failure"]:
+        for mode in ["normal", "dev-normal", "dev-web-failure", "dev-web-killed", "dev-sigterm", "pairing", "reading", "reconnect-failure", "ctrl-c", "sigterm", "sighup", "startup-sigterm", "startup-failure"]:
             directory = root / mode
             directory.mkdir()
             port = free_port()
@@ -272,10 +279,10 @@ def main():
                             session.read()
                         start = session.send(b"r")
                         session.wait("重新连接", start)
-                    elif mode == "dev-web-failure":
+                    elif mode in ["dev-web-failure", "dev-web-killed"]:
                         wrappers = [pid for pid, command in session.children if "managed-vite.ts" in command]
                         assert len(wrappers) == 1
-                        os.kill(wrappers[0], signal.SIGTERM)
+                        os.kill(wrappers[0], signal.SIGKILL if mode == "dev-web-killed" else signal.SIGTERM)
                     elif mode in ["normal", "dev-normal"]:
                         start = session.send(b"q")
                         session.wait("退出确认", start)
@@ -294,7 +301,7 @@ def main():
                         session.send(b"\x03")
                     else:
                         os.kill(session.proc.pid, signal.SIGHUP if mode == "sighup" else signal.SIGTERM)
-                    session.finish(expected=1 if mode in ["reconnect-failure", "dev-web-failure"] else 0)
+                    session.finish(expected=1 if mode in ["reconnect-failure", "dev-web-failure", "dev-web-killed"] else 0)
                 print(f"PASS {mode}: real TTY mode/screen restored; children, lock and IPC released")
             finally:
                 if blocker is not None:

@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-02 (+08:00)
-> 当前阶段：**M1 / G1、TUI 页面化已验收；统一入口已获实现授权，U0-1/U0-2 完成，下一项 U0-3；M2 保持 draft**
+> 当前阶段：**M1 / G1、TUI 页面化已验收；统一入口 U0-1/U0-2 完成，U0-3 自动化通过、待人类抽查；M2 保持 draft**
 
 ## 里程碑
 
@@ -66,7 +66,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：完成 U0-3 整体验收；M2 仍保持 draft，经其 G-Spec 确认后才能开始 M2-1。
+- 下一步：U0-3 人类 G-Task 抽查；M2 仍保持 draft，经其 G-Spec 确认后才能开始 M2-1。
 - 阻塞项：无。
 - 待确认：M2 spec 范围（文件树 / Monaco / CommandRunner / PTY / Git / 锁扩展）与 G-Spec 评审时间。
 
@@ -158,3 +158,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 人类已明确“继续定位并修复，按原计划验收”，U0-2 恢复 in_progress；保留原断言，先补脱敏诊断并修复通知顺序，不重问同一已授权问题。
 
 - U0-2 已完成：两轮失败按规则暂停后，经人类明确批准继续，定位为 Vite listen(0) 回退 5173 引发并行冲突；改用公开 HTTP listener 的 OS 端口分配，并提前发关闭通知解除退出等待。check（server 297 / agent 32 / web 26）、build、全部 PTY（含 dev 正常/故障/信号）与初始化 smoke 通过。
+
+- 当前 U0-3：task/u0-3-unified-entry-acceptance，2026-11-02（+08:00）开始；可丢弃工作区/同目录/同浏览器真实 dev→打包→dev、Passkey/数据/密钥、HMR 与业务 WS、HTTPS 反代和整体验收；不改用户源码/配置/数据。
+
+- U0-3 自动化完成、状态 review：同目录 HTTP dev→built→dev、HTTPS dev→built 的真实 Passkey/数据/密钥/业务 WS/worker/CSP/HMR、过期/撤销/锁、legacy 一次对齐、built 禁止加载 Vite 均通过。新增 `pnpm test:smoke:unified` 和 CI 接线。
+- 验收修复：大型 vendor 兜底内联 map 超限、主题内联脚本 CSP 拒绝、登出后 HMR 匿名探活无法恢复、启动探测响应未消费和已终止子进程重复等待；安全限制/协议/DB/用户数据不变。同代临时缓存由 supervisor 兜底回收。
+- 最终自动化：check（server 297 / agent 32 / web 26）、build、统一入口/初始化 smoke、真实 PTY（含 Vite SIGKILL）、Demo 15 / auth 2 / prod 2 E2E 通过；auth/prod 串行。证据和抽查步骤见 specs/017-unified-entry/acceptance.md。仅 macOS 实测，M2 仍 draft；等待人类验收，不将自动化标为切片关闭。

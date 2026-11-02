@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
+import { rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,7 +14,12 @@ import {
 } from "../bootstrap/config.js";
 import { inspectPendingInitialization } from "../db/inspect.js";
 import { findServerRoot } from "../db/migrate.js";
-import { DevWebAttachedSchema, DevWebControl, EntryConfigError } from "../dev-web/control.js";
+import {
+  DevWebAttachedSchema,
+  DevWebControl,
+  devWebCache,
+  EntryConfigError,
+} from "../dev-web/control.js";
 import { waitChildMessage } from "../dev-web/managed.js";
 import { resolveDataDir } from "../platform/paths.js";
 
@@ -131,11 +137,12 @@ async function httpOk(url: string, requireHtml = false, host?: string): Promise<
       ...(host ? { headers: { host } } : {}),
     });
 
-    if (!response.ok) {
-      return false;
-    }
-
-    return requireHtml ? (response.headers.get("content-type") ?? "").includes("text/html") : true;
+    const ready =
+      response.ok &&
+      (!requireHtml || (response.headers.get("content-type") ?? "").includes("text/html"));
+    // Finish probes so shutdown never waits on unread development resources.
+    await response.arrayBuffer();
+    return ready;
   } catch {
     return false;
   }
@@ -175,7 +182,7 @@ async function waitForHttp(
 }
 
 function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
-  if (child.exitCode !== null) {
+  if (child.exitCode !== null || child.signalCode !== null) {
     return Promise.resolve(true);
   }
 
@@ -189,7 +196,7 @@ function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
 }
 
 async function stopChild(child: ChildProcess | null, timeoutMs: number): Promise<void> {
-  if (child === null || child.exitCode !== null) {
+  if (child === null || child.exitCode !== null || child.signalCode !== null) {
     return;
   }
 
@@ -244,6 +251,7 @@ export async function startManagedRuntime(
   let server: ChildProcess | null = null;
   let web: ChildProcess | null = null;
   let stopped = false;
+  let ownedCache: string | null = null;
   let stopping: Promise<void> | null = null;
   let resolveServerExit: () => void = () => undefined;
   const serverExited = new Promise<void>((resolve) => {
@@ -267,7 +275,11 @@ export async function startManagedRuntime(
         try {
           await stopChild(web, 5_000);
         } finally {
-          process.off("exit", forceKill);
+          try {
+            if (ownedCache) await rm(ownedCache, { recursive: true, force: true });
+          } finally {
+            process.off("exit", forceKill);
+          }
         }
       }
     })();
@@ -308,6 +320,7 @@ export async function startManagedRuntime(
       );
       child.send({ type: "dev-web.start", generation, origin: canonicalOrigin });
       target = await ready;
+      ownedCache = devWebCache(target.generation);
     }
     options.signal?.throwIfAborted();
     server = spawn(commands.serverCommand, commands.serverArgs, {
