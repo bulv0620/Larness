@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 import pty
+import re
+import urllib.request
 import select
 import signal
 import socket
@@ -69,7 +71,7 @@ class Session:
                 return output
             if self.proc.poll() is not None:
                 raise AssertionError(f"TUI exited {self.proc.returncode} while waiting for {text!r}")
-        raise AssertionError(f"Timed out waiting for {text!r}; last frame: {self.read()[-1800:]!r}")
+        raise AssertionError(f"Timed out waiting for {text!r}; terminal diagnostic withheld to protect pairing data")
 
     def send(self, value):
         start = len(self.data.decode("utf-8", errors="replace"))
@@ -119,7 +121,7 @@ def main():
         assert not non_tty.exists(), "Non-TTY invocation started the server"
         print("PASS non-TTY rejected before child startup")
 
-        for mode in ["normal", "ctrl-c", "sigterm", "startup-sigterm", "startup-failure"]:
+        for mode in ["normal", "pairing", "ctrl-c", "sigterm", "startup-sigterm", "startup-failure"]:
             directory = root / mode
             directory.mkdir()
             port = free_port()
@@ -147,17 +149,48 @@ def main():
                     session.finish(expected=1)
                 else:
                     session.initialize()
-                    if mode == "normal":
+                    if mode == "pairing":
+                        def post(route, value):
+                            request = urllib.request.Request(f"http://localhost:{port}{route}", data=json.dumps(value).encode(), headers={"Content-Type": "application/json", "Origin": f"http://localhost:{port}"})
+                            with urllib.request.urlopen(request, timeout=5) as response:
+                                return json.load(response)
+                        application = post("/api/pairing/requests", {"clientLabel": "PTY test browser"})
+                        start = session.send(b"p")
+                        session.wait("PTY test browser", start)
+                        start = session.send(b"\r")
+                        session.wait("配对操作", start)
+                        start = session.send(b"\r")
+                        session.wait("批准确认", start)
+                        start = session.send(b"\r")
+                        session.wait("配对操作", start)
+                        start = session.send(b"\r")
+                        session.wait("批准确认", start)
+                        start = session.send(b"\x1b[B\r\r")
+                        output = session.wait("仅显示本次", start)
+                        match = re.search(r"    ([A-Z0-9]{5}-[A-Z0-9]{5})", output[start:])
+                        assert match is not None, "Pairing code was not in the dedicated page"
+                        test_code = match.group(1)
+                        # Temporary isolated instance only; never print the test code/token.
+                        post("/api/pairing/redeem", {"requestId": application["requestId"], "code": test_code})
+                        start = session.send(b"\x1b")
+                        output = session.wait("待审批配对", start)
+                        assert test_code not in output[start:], "Code leaked onto the list page"
+                        start = session.send(b"\x1b")
+                        session.wait("Larness · 控制面板", start)
+                        start = session.send(b"q")
+                        session.wait("退出确认", start)
+                        session.send(b"\x1b[B\r")
+                    elif mode == "normal":
                         start = session.send(b"q")
                         session.wait("退出确认", start)
                         start = session.send(b"\r")
-                        session.wait("控制面板", start)
+                        session.wait("Larness · 控制面板", start)
                         start = len(session.read())
                         session.resize(16, 60)
                         session.wait("终端空间不足", start)
                         start = len(session.read())
                         session.resize(24, 80)
-                        session.wait("控制面板", start)
+                        session.wait("Larness · 控制面板", start)
                         start = session.send(b"q")
                         session.wait("退出确认", start)
                         session.send(b"\x1b[B\r")

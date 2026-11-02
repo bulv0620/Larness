@@ -1,3 +1,4 @@
+import { setTimeout as delay } from "node:timers/promises";
 import { confirm } from "@inquirer/prompts";
 import type { IpcClient } from "../ipc/client.js";
 import { connectIpc, IpcClientError } from "../ipc/client.js";
@@ -111,13 +112,17 @@ async function main(): Promise<void> {
   const attach = async (current?: ManagedRuntime): Promise<SessionAction> => {
     for (let attempt = 0; ; attempt += 1) {
       abort.signal.throwIfAborted();
-      const client = await connectIpc({
-        dataDir: current?.dataDir ?? resolveDataDir(),
-        client: "tui",
-        keepAliveMs: 5 * 60_000,
-      });
-      activeClient = client;
+      let client: IpcClient | null = null;
       try {
+        client = await connectIpc({
+          dataDir: current?.dataDir ?? resolveDataDir(),
+          client: "tui",
+          keepAliveMs: 5 * 60_000,
+        }).catch((error: unknown) => {
+          if (error instanceof IpcClientError) throw error;
+          throw new IpcClientError("CONNECTION_CLOSED", "无法连接本机 IPC");
+        });
+        activeClient = client;
         return await runSession(client, current, terminal);
       } catch (error) {
         if (abort.signal.aborted) throw new TerminalInterrupted();
@@ -132,8 +137,9 @@ async function main(): Promise<void> {
           body: ["本机连接中断，正在重新连接…", "未确认的写操作不会自动重试。"],
           footer: "Ctrl+C 停止服务",
         });
+        await delay(1_000, undefined, { signal: abort.signal });
       } finally {
-        client.close();
+        client?.close();
         activeClient = null;
       }
     }

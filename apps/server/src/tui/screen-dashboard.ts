@@ -1,14 +1,11 @@
-import type { IpcClient } from "../ipc/client.js";
-import { IpcClientError } from "../ipc/client.js";
-import { runDevicesView } from "./devices.js";
-import { runPairingView } from "./pairing.js";
-import { AuditSchema, LogLinesSchema, type ScreenStatus, StatusSchema } from "./schemas.js";
-import { NavigationCancelled, type TerminalSession } from "./terminal.js";
+import { disconnected, displayError } from "./page-error.js";
 
-export function displayError(error: unknown): string {
-  if (error instanceof IpcClientError) return `${error.code}：操作未完成，请刷新查看实际状态`;
-  return "无法读取或校验数据，请刷新重试";
-}
+export { displayError } from "./page-error.js";
+
+import type { IpcClient } from "../ipc/client.js";
+import { runResourcePage } from "./resource-pages.js";
+import { AuditSchema, LogLinesSchema, type ScreenStatus, StatusSchema } from "./schemas.js";
+import { NavigationCancelled, TerminalInterrupted, type TerminalSession } from "./terminal.js";
 
 export async function runScreenDashboard(deps: {
   terminal: TerminalSession;
@@ -22,6 +19,7 @@ export async function runScreenDashboard(deps: {
   let page: "overview" | "exit" | "legacy" = "overview";
   let status: ScreenStatus | null = null;
   let error = "";
+  let connectionError: unknown;
   let generation = 0;
   let loading = false;
   let confirmExit = false;
@@ -72,12 +70,16 @@ export async function runScreenDashboard(deps: {
         error = "";
       })
       .catch((cause: unknown) => {
-        if (request === generation) error = displayError(cause);
+        if (request === generation) {
+          error = displayError(cause);
+          if (disconnected(cause)) connectionError = cause;
+        }
       })
       .finally(() => {
         if (request === generation) {
           loading = false;
           render();
+          terminal.notify();
         }
       });
   };
@@ -85,6 +87,7 @@ export async function runScreenDashboard(deps: {
   try {
     for (;;) {
       const key = await terminal.nextKey();
+      if (connectionError !== undefined) throw connectionError;
       if (page === "exit") {
         if (key.name === "escape") {
           page = "overview";
@@ -120,7 +123,7 @@ export async function runScreenDashboard(deps: {
       ++generation;
       loading = false;
       page = "legacy";
-      terminal.blockInput(true);
+
       const lines: string[] = [];
       const title = menu[selected] ?? "功能";
       const out = (text: string) => {
@@ -130,8 +133,8 @@ export async function runScreenDashboard(deps: {
       const ask = async (message: string) => terminal.ask(message);
       terminal.render({ title, body: ["正在读取…"], footer: "Ctrl+C 停止服务" });
       try {
-        if (selected === 0) await runPairingView({ client, out, ask });
-        else if (selected === 1) await runDevicesView({ client, out, ask });
+        if (selected === 0 || selected === 1)
+          await runResourcePage(selected === 0 ? "pairing" : "devices", { client, terminal });
         else {
           if (selected === 2) {
             const logs = LogLinesSchema.parse(await client.request("logs.tail", { lines: 20 }));
@@ -158,6 +161,7 @@ export async function runScreenDashboard(deps: {
           await ask("按回车返回控制面板");
         }
       } catch (cause) {
+        if (disconnected(cause) || cause instanceof TerminalInterrupted) throw cause;
         if (!(cause instanceof NavigationCancelled)) {
           out(displayError(cause));
           await ask("按回车返回控制面板");

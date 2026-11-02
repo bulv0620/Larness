@@ -189,6 +189,15 @@ export class TerminalSession {
       ),
     );
   }
+  notify(): void {
+    const event = { name: "update", text: "", ctrl: false, shift: false };
+    if (this.waiting) {
+      const waiting = this.waiting;
+      this.waiting = null;
+      waiting.resolve(event);
+    } else if (!this.keys.some((key) => key.name === "update")) this.keys.push(event);
+  }
+
   blockInput(blocked: boolean): void {
     this.inputBlocked = blocked;
     this.keys = [];
