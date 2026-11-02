@@ -2,7 +2,7 @@
 id: 016-tui-experience
 title: TUI 页面与交互统一
 milestone: M0-followup
-status: active
+status: done
 depends_on: [015-initialization-hardening]
 owners: [human]
 created: 2026-11-02
@@ -13,7 +13,7 @@ updated: 2026-11-02
 
 > G-Spec-TUI 于 2026-11-02 随人类“开始实现”指令确认；按 T0-1 → T0-2 → T0-3 先于 M2 实施。
 > 配套：[页面契约](../../docs/contracts/tui.md)、[渲染与输入 ADR](../../docs/adr/ADR-027-tui-screen-and-input.md)、[评审清单](review.md)。
-> 页面化已实施；自动化与脱敏画面见 acceptance.md，最终人类视觉抽查待完成。
+> 页面化已实施；自动化与脱敏画面见 acceptance.md，2026-11-02 人类明确“验收通过”。
 > 约束：[ADR-023](../../docs/adr/ADR-023-tui-as-managed-entry.md)、[IPC 契约](../../docs/contracts/ipc.md)、[安全模型](../../docs/architecture/security.md)。
 
 ## 1. 背景与问题
@@ -125,13 +125,13 @@ updated: 2026-11-02
 - 真实 PTY：启动、初始化、切页、resize、退出取消/确认、Ctrl+C/信号、启动失败和重连失败后的终端恢复；断言子进程、锁与 IPC 释放。
 - 人工视觉：100×30 和 80×24 中文终端各一组无真实秘密的界面记录；依次进入日志、返回、查看配对码、回车，确认无页面堆叠；60×16 验证空间不足提示。
 - 实施任务需先写失败测试，再运行 pnpm check / pnpm build 与针对性 PTY 验收；浏览器链路仅在配对行为或接口变动时扩大回归。
-- 实施验收记录见 acceptance.md；自动化结果与待人类视觉抽查分开记录。
+- 实施验收记录见 acceptance.md；自动化结果与人类验收结论分开记录。
 
 ## 10. 评审与完成定义
 
-G-Spec-TUI、ADR-027 与相对 M2 优先级已获人类确认。实现与自动化完成后，按工作流保留 UI 人类抽查门禁，见 review.md / acceptance.md。
+G-Spec-TUI、ADR-027 与相对 M2 优先级已获人类确认。实现与自动化完成后，人类于 2026-11-02 明确“验收通过”，UI 抽查门禁通过，见 review.md / acceptance.md。
 
 - [x] 人类于 2026-11-02 确认 G-Spec-TUI 与 ADR-027，开始顺序实施；
-- [x] T0-1 → T0-2 → T0-3 按序实现、逐任务验证和提交（T0-3 等待最终人工抽查）；
-- [ ] A1–A16、PTY 和人工视觉验收通过；
+- [x] T0-1 → T0-2 → T0-3 按序实现、逐任务验证和提交；
+- [x] A1–A16、PTY 和人类验收通过（2026-11-02）；
 - [x] 合同/文档/STATUS 同步，平台支持范围与真实证据一致。

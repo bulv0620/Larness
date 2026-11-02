@@ -1,6 +1,6 @@
 # TUI 页面与输入契约
 
-> 状态：accepted（2026-11-02 人类指令开始实现）；T0-1～T0-3 已实施，待最终人类视觉抽查。配套 specs/016-tui-experience/spec.md、ADR-027。IPC protocolVersion=1，传输和权限继续以 ipc.md 为准。
+> 状态：accepted（2026-11-02 人类指令开始实现）；T0-1～T0-3 已实施，2026-11-02 人类验收通过。配套 specs/016-tui-experience/spec.md、ADR-027。IPC protocolVersion=1，传输和权限继续以 ipc.md 为准。
 
 ## 页面结构
 
