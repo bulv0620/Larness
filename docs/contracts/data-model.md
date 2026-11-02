@@ -203,3 +203,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 `app_meta.init_pending` 保存经 Zod 校验的 `{ version: 1, config: AppConfig }`，不含密码、哈希或 API Key。初始化事务同时写入 auth_settings、initialized_at、auth.init 审计和该记录；事务失败不改变 config.json。事务提交后以 0600 临时文件、fsync、rename 发布 config.json，POSIX 同步父目录后才删除待发布记录。
 
 存在待发布记录时 initialized=false，业务 API 返回 NOT_INITIALIZED；启动持有实例锁后先完成迁移与发布恢复，再加载配置、启动 IPC/HTTP。恢复记录无效或发布失败拒绝启动。发布和记录清理可重放，不删除用户数据。
+
+## 主密钥与备份（I0-3）
+
+`secrets` 的 ciphertext / nonce / tag 与 `<dataDir>/secrets/master.key` 必须配套。启动校验所有记录；有记录时缺失密钥不自动生成，无法解密则拒绝启动。恢复应保留原数据库与密钥，备份数据库本身不能替代密钥备份；密钥不得明文外传。

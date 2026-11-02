@@ -69,7 +69,10 @@ export class SecretStore {
     this.#key = key;
   }
 
-  static async open(dataDir: string): Promise<SecretStore> {
+  static async open(
+    dataDir: string,
+    encryptedSecrets: readonly EncryptedSecret[] = [],
+  ): Promise<SecretStore> {
     const directory = path.join(dataDir, "secrets");
     await mkdir(directory, { recursive: true, mode: 0o700 });
     await chmod(directory, 0o700).catch(() => undefined);
@@ -84,10 +87,23 @@ export class SecretStore {
         throw error;
       }
 
+      if (encryptedSecrets.length > 0) {
+        throw new SecretStoreError(
+          "master.key is missing; restore the original secrets/master.key before restarting",
+        );
+      }
       key = await createKey(file);
     }
 
-    return new SecretStore(key);
+    const store = new SecretStore(key);
+    try {
+      for (const secret of encryptedSecrets) store.decrypt(secret);
+    } catch {
+      throw new SecretStoreError(
+        "cannot validate encrypted credentials; restore the original master.key and database backup",
+      );
+    }
+    return store;
   }
 
   encrypt(plaintext: string): EncryptedSecret {

@@ -186,3 +186,7 @@ ACTIVE → REVOKED
 - 锁崩溃恢复、fencing token 失效、重复 requestId 幂等。
 
 具体用例矩阵见 [testing.md](../process/testing.md)。
+
+## 主密钥启动校验（I0-3 / ADR-024）
+
+启动在 IPC/HTTP 监听前读取所有持久化 secret，校验其可用当前 master.key 解密；明文不输出、不返回或持久化。已有 secret 时 master.key 缺失不得重建；格式错误、密钥不匹配、密文损坏均拒绝启动，保留原记录，要求恢复正确密钥及匹配备份。不提供自动清空/重置。secret 表为空时允许首次创建密钥。

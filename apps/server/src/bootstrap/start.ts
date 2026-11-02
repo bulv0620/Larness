@@ -18,7 +18,7 @@ import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
-import { ensureDefaultModelProfiles } from "../modules/models/repository.js";
+import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import { SecretStore } from "../security/secretStore.js";
@@ -143,7 +143,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       activeLogger.warn({ repairedTurns }, "marked interrupted turns");
     }
 
-    const secretStore = await SecretStore.open(dataDir);
+    const secretStore = await SecretStore.open(dataDir, listEncryptedSecrets(opened.db));
     ensureDefaultModelProfiles(opened.db);
 
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger: activeLogger });

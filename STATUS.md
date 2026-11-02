@@ -20,7 +20,8 @@
 - 已完成：I0-1 日志真实按天保留；分支 task/i0-1-log-retention；开始/完成 2026-11-02（+08:00）。
 - 验收：pnpm check（agent 32 / server 241 / web 26）、pnpm build 通过；先红后绿。
 - 已完成：I0-2 初始化配置保留与崩溃恢复；分支 task/i0-2-init-recovery；2026-11-02（+08:00）。
-- I0-2 验收：pnpm check（server 248 / agent 32 / web 26）、pnpm build 通过；下一步 I0-3。
+- I0-2 验收：pnpm check（server 248 / agent 32 / web 26）、pnpm build 通过；I0-3 已完成（task/i0-3-master-key-validation，2026-11-02）：密钥缺失/错误启动拒绝，空库可创建，恢复原密钥后可用。
+- I0-3 验收：pnpm check（server 251 / agent 32 / web 26）、pnpm build 通过；下一步 I0-4。
 - 计划：文件配置基线、事务提交待发布配置、启动前恢复、发布完成前业务失败关闭。
 - 计划：先修日志时间保留，再按 I0-2 → I0-3 → I0-4 修复初始化一致性、密钥校验与向导。
 - ADR-024 已于 2026-11-02 获批；人类另明确批准取消首次密码设置、保留历史哈希，纳入 I0-4 / ADR-025。

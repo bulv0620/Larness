@@ -155,3 +155,7 @@ export function deleteCredentialRow(db: DbExecutor, credential: CredentialProfil
 export function deleteSecretRow(db: DbExecutor, id: string): void {
   db.delete(secrets).where(eq(secrets.id, id)).run();
 }
+
+export function listEncryptedSecrets(db: DbExecutor): SecretRow[] {
+  return db.select().from(secrets).all();
+}

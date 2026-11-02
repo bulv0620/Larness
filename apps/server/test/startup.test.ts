@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { chmod, mkdir, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -11,7 +11,9 @@ import { runMigrations } from "../src/db/migrate.js";
 import { createAuthSettings } from "../src/db/repositories/auth-settings.js";
 import { getMeta, setMeta } from "../src/db/repositories/meta.js";
 import { ipcTokenPath, resolveIpcAddress } from "../src/ipc/address.js";
+import { createCredentialRows } from "../src/modules/models/repository.js";
 import { DataDirError } from "../src/platform/paths.js";
+import { masterKeyPath, SecretStore } from "../src/security/secretStore.js";
 import { collectStatus } from "../src/status.js";
 import { createLogSink, getFreePort, testConfig, withTempDir, writeConfig } from "./helpers.js";
 
@@ -181,6 +183,43 @@ describe("startServer", () => {
       ).rejects.toThrow(/initialization recovery/);
       expect(await inspectInstanceLock(dir)).toBeNull();
       expect(existsSync(ipcTokenPath(dir))).toBe(false);
+    });
+  });
+  it("refuses missing or wrong credential keys before IPC/HTTP and preserves recoverable data", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+      const store = await SecretStore.open(dir);
+      const original = await readFile(masterKeyPath(dir));
+      createCredentialRows(opened.db, {
+        secretId: "sec_test",
+        encrypted: store.encrypt("sk-private-value"),
+        provider: "deepseek",
+        label: "test",
+        now: 1,
+      });
+      opened.close();
+      const port = await getFreePort();
+      const sink = createLogSink();
+      const options = { env: envFor(dir, port), logDestination: sink.stream };
+      await rm(masterKeyPath(dir));
+      await expect(startServer(options)).rejects.toThrow(/restore.*master.key/);
+      expect(existsSync(masterKeyPath(dir))).toBe(false);
+      expect(existsSync(ipcTokenPath(dir))).toBe(false);
+      expect(await inspectInstanceLock(dir)).toBeNull();
+      await writeFile(masterKeyPath(dir), Buffer.alloc(32, 8), { mode: 0o600 });
+      await expect(startServer(options)).rejects.toThrow(/restore/);
+      expect(existsSync(ipcTokenPath(dir))).toBe(false);
+      expect(sink.text()).not.toContain("sk-private-value");
+      await writeFile(masterKeyPath(dir), original, { mode: 0o600 });
+      const restored = await startServer(options);
+      try {
+        expect(restored.sqlite.prepare("SELECT count(*) AS n FROM secrets").get()).toEqual({
+          n: 1,
+        });
+      } finally {
+        await restored.shutdown("test");
+      }
     });
   });
 });

@@ -1,4 +1,4 @@
-import { chmod, readFile, stat } from "node:fs/promises";
+import { chmod, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { masterKeyPath, SecretStore, SecretStoreError } from "../../src/security/secretStore.js";
@@ -65,6 +65,33 @@ describe("SecretStore", () => {
       await chmod(masterKeyPath(dir), 0o644);
       await SecretStore.open(dir);
       expect((await stat(masterKeyPath(dir))).mode & 0o777).toBe(0o600);
+    });
+  });
+  it("never replaces a missing key when encrypted secrets exist, and accepts restoration", async () => {
+    await withTempDir(async (dir) => {
+      const store = await SecretStore.open(dir);
+      const encrypted = store.encrypt("sk-private-test-value");
+      const key = await readFile(masterKeyPath(dir));
+      await rm(masterKeyPath(dir));
+      await expect(SecretStore.open(dir, [encrypted])).rejects.toThrow(/restore.*master.key/);
+      await expect(stat(masterKeyPath(dir))).rejects.toMatchObject({ code: "ENOENT" });
+      await writeFile(masterKeyPath(dir), key, { mode: 0o600 });
+      const restored = await SecretStore.open(dir, [encrypted]);
+      expect(restored.decrypt(encrypted)).toBe("sk-private-test-value");
+    });
+  });
+
+  it("checks every persisted secret and rejects a wrong or corrupt key without rewriting it", async () => {
+    await withTempDir(async (dir) => {
+      const store = await SecretStore.open(dir);
+      const encrypted = store.encrypt("sk-private-test-value");
+      const wrong = Buffer.alloc(32, 7);
+      await writeFile(masterKeyPath(dir), wrong);
+      await expect(SecretStore.open(dir, [encrypted])).rejects.toThrow(/restore/);
+      expect(await readFile(masterKeyPath(dir))).toEqual(wrong);
+      await writeFile(masterKeyPath(dir), "bad-key");
+      await expect(SecretStore.open(dir, [encrypted])).rejects.toThrow(/invalid length/);
+      expect(await readFile(masterKeyPath(dir), "utf8")).toBe("bad-key");
     });
   });
 });
