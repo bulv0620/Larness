@@ -31,7 +31,6 @@ export function createLogger(options: CreateLoggerOptions): Logger {
       size: "100m",
       mkdir: true,
       mode: 0o600,
-      limit: { count: options.retentionDays },
     },
   };
 

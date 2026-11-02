@@ -181,7 +181,7 @@ Canonical origin / RP ID 规则：
 | ID | 需求 |
 |---|---|
 | R-11 | pino 结构化日志：`level`、`time`、`msg`、`requestId`、`clientSessionId`、`action`；秘密脱敏。 |
-| R-12 | 文件日志按天 / 大小轮转，保留 `retentionDays`；非 TUI 模式同时输出 stderr，TUI 模式由 supervisor 捕获并在日志模块展示。 |
+| R-12 | 文件日志按天 / 大小轮转，按最后修改时间保留 `retentionDays` 天（非文件数量）；启动及每 24 小时清理过期的本应用普通轮转日志，错误写日志；非 TUI 模式同时输出 stderr，TUI 模式由 supervisor 捕获并在日志模块展示。 |
 | R-13 | `status` 与 TUI 显示：版本、初始化、监听、DB、IPC、在线会话数、待审批数、磁盘可写。 |
 | R-14 | `doctor` 检查：Node 版本、数据目录权限、端口、DB 完整性、迁移版本、时钟偏移（>5 分钟告警）、canonical origin、RP ID、HTTPS 配置。 |
 

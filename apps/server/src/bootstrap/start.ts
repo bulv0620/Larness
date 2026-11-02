@@ -25,6 +25,7 @@ import { SERVER_VERSION } from "../version.js";
 import { publishAgentEvent } from "../ws/publisher.js";
 import { type LoadedConfig, loadConfig } from "./config.js";
 import { acquireInstanceLock, type InstanceLock, releaseInstanceLock } from "./lock.js";
+import { startLogRetention } from "./log-retention.js";
 import { createLogger, flushLogger } from "./logger.js";
 import { createShutdown, type Shutdown } from "./shutdown.js";
 
@@ -110,6 +111,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     stderr: env.LARNESS_LOG_STDERR !== "0",
     destination: options.logDestination,
   });
+
+  const logRetention = startLogRetention(dataDir, loaded.config.logging.retentionDays, logger);
 
   let lock: InstanceLock | null = null;
   let database: OpenedDatabase | null = null;
@@ -241,6 +244,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         await ipcServer.close();
         await turnQueue?.stop();
         cleanupScheduler.stop();
+        await logRetention.stop();
         opened.close();
       },
     });
@@ -272,6 +276,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     }
 
     cleanup?.stop();
+    await logRetention.stop();
 
     if (database !== null) {
       database.close();
