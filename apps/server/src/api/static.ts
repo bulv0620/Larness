@@ -1,6 +1,7 @@
 import path from "node:path";
 import fastifyStatic from "@fastify/static";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { isDevPath } from "../dev-web/paths.js";
 import { HttpError } from "../errors.js";
 
 export const APP_CSP = [
@@ -46,7 +47,19 @@ export function registerStaticRoutes(app: FastifyInstance, options: StaticRoutes
   });
 
   const indexHandler = async (request: FastifyRequest, reply: FastifyReply): Promise<unknown> => {
-    if (request.url.startsWith("/api/") || request.url === "/ws") {
+    let pathname: string;
+    try {
+      pathname = decodeURIComponent(request.url.split("?")[0] ?? "");
+    } catch {
+      throw new HttpError("NOT_FOUND", "Not found");
+    }
+    if (
+      pathname === "/api" ||
+      pathname.startsWith("/api/") ||
+      pathname === "/ws" ||
+      pathname.startsWith("/ws/") ||
+      isDevPath(pathname)
+    ) {
       throw new HttpError("NOT_FOUND", "Not found");
     }
 

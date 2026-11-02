@@ -48,6 +48,7 @@
 | `APPROVAL_INVALID` | 409 | 审批过期 / 被撤销 / 参数不一致 |
 | `PREVIEW_TARGET_INVALID` | 403 | 代理目标未登记或被禁止 |
 | `PROVIDER_UNAVAILABLE` | 503 | 模型 Provider 不可用 |
+| `DEV_WEB_UNAVAILABLE` | 503 | 受管开发前端暂不可用；仅用于 ADR-028 开发页面转发 |
 | `PROVIDER_AUTH_FAILED` | 502 | 模型 Provider 拒绝凭据 / 未配置 Key |
 | `PROVIDER_RATE_LIMITED` | 429 | 模型 Provider 限流 |
 | `PROVIDER_CONTEXT_LIMIT` | 413 | 上下文超出模型上限 |

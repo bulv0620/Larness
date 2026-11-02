@@ -1,6 +1,6 @@
 # G-Spec-U 评审包
 
-> 2026-11-02：人类同意方案方向并要求“先补充文档”。本包是具体可评审设计，未批准实施；当前 spec=draft / ADR-028=proposed。
+> 2026-11-02：人类同意方案方向并要求“先补充文档”。文档完成后人类明确“开始实现”，G-Spec-U / ADR-028 与优先于 M2 的顺序实施已批准；spec=active。
 
 ## 方案内容
 
@@ -13,9 +13,9 @@
 
 ## 待人类确认
 
-- [ ] 批准 [ADR-028](../../docs/adr/ADR-028-unified-dev-entry.md) 和 [spec](spec.md) / [入口契约草案](../../docs/contracts/runtime-entry.md)。
-- [ ] 接受旧 loopback HTTP 配置一次性手动对齐监听端口，后续不需每次启动覆盖；程序不自动迁移网络设置。
-- [ ] 确认 U0-1～U0-3 先于 M2 实施，并明确要求开始实现。
+- [x] 批准 [ADR-028](../../docs/adr/ADR-028-unified-dev-entry.md) 和 [spec](spec.md) / [入口契约草案](../../docs/contracts/runtime-entry.md)。
+- [x] 接受旧 loopback HTTP 配置一次性手动对齐监听端口，后续不需每次启动覆盖；程序不自动迁移网络设置。
+- [x] 确认 U0-1～U0-3 先于 M2 实施，并明确要求开始实现。
 
 人类确认后再将 ADR accepted、spec ready、记录优先级和启动首个就绪任务；不因“补文档”直接开始编码。
 

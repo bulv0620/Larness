@@ -29,6 +29,7 @@ export const ERROR_CODES = {
   providerContextLimit: "PROVIDER_CONTEXT_LIMIT",
   providerContentFiltered: "PROVIDER_CONTENT_FILTERED",
   providerUnknown: "PROVIDER_UNKNOWN",
+  devWebUnavailable: "DEV_WEB_UNAVAILABLE",
   internal: "INTERNAL",
 } as const;
 
@@ -65,6 +66,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   PROVIDER_CONTEXT_LIMIT: 413,
   PROVIDER_CONTENT_FILTERED: 422,
   PROVIDER_UNKNOWN: 502,
+  DEV_WEB_UNAVAILABLE: 503,
   INTERNAL: 500,
 };
 

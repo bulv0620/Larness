@@ -51,6 +51,31 @@ async function createStaticApp(dir: string) {
 }
 
 describe("static hosting", () => {
+  it("never serves the SPA for development-only paths", async () => {
+    await withTempDir(async (dir) => {
+      const { app, opened } = await createStaticApp(dir);
+      try {
+        for (const url of [
+          "/@vite/client",
+          "/@react-refresh",
+          "/@fs/private/file",
+          "/@id/module",
+          "/src/main.tsx",
+          "/node_modules/x.js",
+          "/__vite_ping",
+          "/__open-in-editor",
+          "/_larness/dev/hmr",
+        ]) {
+          const response = await app.inject({ url });
+          expect(response.statusCode).toBe(404);
+          expect(response.body).not.toContain("Larness app");
+        }
+      } finally {
+        await app.close();
+        opened.close();
+      }
+    });
+  });
   it("disables the SPA when LARNESS_SERVE_WEB=0", async () => {
     await withTempDir(async (dir) => {
       const webDir = path.join(dir, "web");

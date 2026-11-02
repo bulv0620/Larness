@@ -2,7 +2,7 @@
 id: 017-unified-entry
 title: 开发与打包运行统一入口
 milestone: M0-followup
-status: draft
+status: active
 depends_on: [016-tui-experience]
 owners: [human]
 created: 2026-11-02
@@ -11,7 +11,7 @@ updated: 2026-11-02
 
 # 开发与打包运行统一入口
 
-> 文档阶段，未实现。人类已授权补充方案文档；G-Spec-U / [ADR-028](../../docs/adr/ADR-028-unified-dev-entry.md) 待评审。配套：[入口契约草案](../../docs/contracts/runtime-entry.md)、[计划](plan.md)、[任务](tasks.md)、[评审包](review.md)。
+> 2026-11-02 人类明确“开始实现”，G-Spec-U / [ADR-028](../../docs/adr/ADR-028-unified-dev-entry.md) 已批准；按 U0-1→U0-2→U0-3 先于 M2 实施。配套：[入口契约草案](../../docs/contracts/runtime-entry.md)、[计划](plan.md)、[任务](tasks.md)、[评审包](review.md)。
 
 ## 1. 目标与非目标
 
@@ -107,4 +107,4 @@ updated: 2026-11-02
 
 ## 9. 开放问题与门禁
 
-拟议产品规则和失败路径如上，无默认待实现 Agent 发明的行为。待确认：ADR-028、G-Spec-U、旧 5173 一次性手动对齐策略，以及 U0-1～U0-3 是否先于 M2。未经确认，spec 保持 draft，实施任务 todo。
+2026-11-02 文档完成后人类明确“开始实现”，批准 ADR-028、G-Spec-U、旧 5173 一次性手动对齐策略和 U0-1～U0-3 先于 M2 的顺序实施。当前按任务验收，整体安全/界面抽查留在 U0-3。

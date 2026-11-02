@@ -1,11 +1,11 @@
 # 任务：统一运行入口
 
-> U0-0 仅文档；实施任务因 draft / ADR-028 proposed 均不可开始。优先于 M2 的排期列入 G-Spec-U 评审，不自动改变已批准排期。
+> 2026-11-02 人类明确“开始实现”，批准 G-Spec-U / ADR-028 及优先于 M2 的顺序实施。U0-1 基础完成，下一项 U0-2。
 
 | ID | 任务 | 依赖 | 状态 | 预估 |
 |---|---|---|---|---|
 | U0-0 | ADR/spec/契约草案与评审包 | T0-3 done；人类授权补充文档 | done | 0.5 天 |
-| U0-1 | 受管 Vite 与限定 HTTP/HMR 转发基础 | U0-0 done；G-Spec-U / ADR-028 accepted | todo | 2 天 |
+| U0-1 | 受管 Vite 与限定 HTTP/HMR 转发基础 | U0-0 done；G-Spec-U / ADR-028 accepted | done | 2 天 |
 | U0-2 | supervisor 接线与共享配置/统一初始化 | U0-1 done | todo | 1–2 天 |
 | U0-3 | 同目录模式切换、真实 HMR 与整体交付 | U0-2 done | todo | 2 天 |
 
@@ -23,8 +23,8 @@
 - 测试先行：伪造/晚到 IPC、SSRF/编码穿越/symlink、敏感头/Set-Cookie、Origin/会话失效、API/WS 不被抢、流取消/超限；再启动真实 Vite，验证 React/CSS/worker/HMR 与 CSP。
 - 验收：U5–U9 / U11–U12 的基础部分；实际 Vite 和恶意输入均覆盖，pnpm check/build 通过。
 - 不包含：默认启动切换、config.json 写入/迁移、初始化及完整模式切换承诺。
-- [ ] 人类批准 G-Spec-U/ADR-028 后声明 in_progress；
-- [ ] 失败测试 → 实现 → 定向与全量检查 → 契约同步 → 独立提交/抽查。
+- [x] 2026-11-02 人类批准后声明 in_progress，task/u0-1-dev-web-foundation；
+- [x] 失败测试 → 实现 → 定向与全量检查 → 契约同步 → 独立提交；整体安全抽查留在 U0-3，见 acceptance.md。
 
 ## U0-2 入口接线
 
