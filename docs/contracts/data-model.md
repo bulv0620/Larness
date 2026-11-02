@@ -197,3 +197,9 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 - 备份使用 SQLite 一致性备份（`VACUUM INTO` / backup API），不能在 WAL 写入时直接复制 `.db`。
 - 备份含秘密材料时必须加密；恢复需要本机 TUI 确认。
 - 项目源码默认不备份、不删除、不更新。
+
+## 初始化发布恢复（I0-2 / ADR-024）
+
+`app_meta.init_pending` 保存经 Zod 校验的 `{ version: 1, config: AppConfig }`，不含密码、哈希或 API Key。初始化事务同时写入 auth_settings、initialized_at、auth.init 审计和该记录；事务失败不改变 config.json。事务提交后以 0600 临时文件、fsync、rename 发布 config.json，POSIX 同步父目录后才删除待发布记录。
+
+存在待发布记录时 initialized=false，业务 API 返回 NOT_INITIALIZED；启动持有实例锁后先完成迁移与发布恢复，再加载配置、启动 IPC/HTTP。恢复记录无效或发布失败拒绝启动。发布和记录清理可重放，不删除用户数据。

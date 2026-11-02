@@ -36,9 +36,9 @@
 | ADR-022 | 产品名与内部命名空间统一为 Larness | 见 [ADR-022](ADR-022-product-name-larness.md)；M0 前完成，无兼容别名 |
 | ADR-023 | TUI 作为受管前台入口，关闭即停止全部，不提供 headless | 见 [ADR-023](ADR-023-tui-as-managed-entry.md)；替代 R-23 的常驻语义 |
 
-## 待批准
+## 初始化修复补充决策
 
-- [ADR-024 初始化恢复与主密钥完整性](ADR-024-initialization-recovery.md)：proposed，I0-2 至 I0-4 的前置门禁。
+- [ADR-024 初始化恢复与主密钥完整性](ADR-024-initialization-recovery.md)：accepted，2026-11-02 人类批准。
 
 ## 3. 变更流程
 

@@ -1,16 +1,18 @@
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { DEFAULT_APP_CONFIG } from "@larness/shared";
 import { describe, expect, it } from "vitest";
-import { configFilePath } from "../../src/bootstrap/config.js";
+import { isInitialized } from "../../src/auth/initialized.js";
+import { configFilePath, loadConfig } from "../../src/bootstrap/config.js";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { listRecentAudit } from "../../src/db/repositories/audit.js";
-import { getAuthSettings } from "../../src/db/repositories/auth-settings.js";
-import { getMeta } from "../../src/db/repositories/meta.js";
+import { createAuthSettings, getAuthSettings } from "../../src/db/repositories/auth-settings.js";
+import { getMeta, setMeta } from "../../src/db/repositories/meta.js";
 import { validateAdminPassword } from "../../src/init/password.js";
+import { recoverInitialization } from "../../src/init/recovery.js";
 import { applyInit, buildInitConfig, InitError } from "../../src/init/service.js";
-import { withTempDir } from "../helpers.js";
+import { testConfig, withTempDir, writeConfig } from "../helpers.js";
 
 const PASSWORD = "correct horse battery staple";
 
@@ -177,6 +179,98 @@ describe("applyInit", () => {
         });
 
         expect(result.restartRequired).toBe(true);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+  it("preserves file settings without persisting unrelated environment overrides", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openMigrated(dir);
+      try {
+        const original = testConfig({
+          server: { trustedProxies: ["127.0.0.1"] },
+          auth: { idleTtlMinutes: 55 },
+          logging: { level: "warn", retentionDays: 30 },
+          updates: { channel: "beta", autoCheck: false },
+          preview: { enabled: true },
+        });
+        await writeConfig(dir, original);
+        const current = await loadConfig({ dataDir: dir, env: { LARNESS_LOG_LEVEL: "debug" } });
+        const input = baseInput({ port: 4000 });
+        delete (input as { channel?: string }).channel;
+        await applyInit({ db: opened.db, dataDir: dir, input, currentConfig: current.config });
+        const saved = (await loadConfig({ dataDir: dir, env: {} })).config;
+        expect(saved.server.trustedProxies).toEqual(original.server.trustedProxies);
+        expect(saved.auth).toEqual(original.auth);
+        expect(saved.logging).toEqual(original.logging);
+        expect(saved.updates).toEqual(original.updates);
+        expect(saved.preview).toEqual(original.preview);
+        expect(saved.server.port).toBe(4000);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("keeps the old file when the initialization transaction rolls back", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openMigrated(dir);
+      try {
+        await writeConfig(dir);
+        const before = await readFile(configFilePath(dir), "utf8");
+        opened.sqlite.exec(
+          "CREATE TRIGGER fail_init BEFORE INSERT ON audit_logs BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END",
+        );
+        await expect(
+          applyInit({ db: opened.db, dataDir: dir, input: baseInput({ port: 4000 }) }),
+        ).rejects.toMatchObject({ code: "INTERNAL" });
+        expect(await readFile(configFilePath(dir), "utf8")).toBe(before);
+        expect(getMeta(opened.db, "init_pending")).toBeNull();
+        expect(isInitialized(opened.db)).toBe(false);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("fails closed after publication failure and recovers committed configuration idempotently", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openMigrated(dir);
+      try {
+        // Model interruption immediately after COMMIT, before file publication.
+        createAuthSettings(opened.db, { adminHash: "historical-hash", initializedAt: 1, now: 1 });
+        setMeta(
+          opened.db,
+          "init_pending",
+          JSON.stringify({ version: 1, config: testConfig({ server: { port: 4000 } }) }),
+        );
+        await mkdir(configFilePath(dir));
+        expect(() => recoverInitialization(opened.db, dir)).toThrow();
+        expect(getMeta(opened.db, "init_pending")).not.toBeNull();
+        expect(isInitialized(opened.db)).toBe(false);
+        await rm(configFilePath(dir), { recursive: true });
+        expect(recoverInitialization(opened.db, dir)).toBe(true);
+        expect((await loadConfig({ dataDir: dir, env: {} })).config.server.port).toBe(4000);
+        expect(getMeta(opened.db, "init_pending")).toBeNull();
+        expect(isInitialized(opened.db)).toBe(true);
+        expect(recoverInitialization(opened.db, dir)).toBe(false);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("rejects corrupt recovery records without replacing the config", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openMigrated(dir);
+      try {
+        await writeConfig(dir);
+        const before = await readFile(configFilePath(dir), "utf8");
+        setMeta(opened.db, "init_pending", '{"version":1,"config":{}}');
+        expect(() => recoverInitialization(opened.db, dir)).toThrow(/initialization recovery/);
+        expect(await readFile(configFilePath(dir), "utf8")).toBe(before);
+        expect(getMeta(opened.db, "init_pending")).not.toBeNull();
       } finally {
         opened.close();
       }

@@ -1,8 +1,8 @@
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import type { z } from "zod";
+import { isInitialized } from "../auth/initialized.js";
 import type { Database } from "../db/client.js";
 import { appendAudit, listRecentAudit } from "../db/repositories/audit.js";
-import { getAuthSettings } from "../db/repositories/auth-settings.js";
 import { listAllSessions, revokeSession } from "../db/repositories/browser-sessions.js";
 import { countOnlineSessions, countPendingPairings } from "../db/stats.js";
 import { immediateTransaction } from "../db/transaction.js";
@@ -95,7 +95,7 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
 
       case "system.status": {
         const status = await collectStatus({ dataDir: deps.dataDir });
-        const initialized = getAuthSettings(deps.db) !== null;
+        const initialized = isInitialized(deps.db);
 
         return {
           ...status,
@@ -125,7 +125,7 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
 
       case "init.status":
         return {
-          initialized: getAuthSettings(deps.db) !== null,
+          initialized: isInitialized(deps.db),
           requiredFields: ["adminPassword", "host", "port"],
         };
 

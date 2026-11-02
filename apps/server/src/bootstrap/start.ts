@@ -12,6 +12,7 @@ import { type Database, type OpenedDatabase, openDatabase } from "../db/client.j
 import { appliedMigrationCount, findServerRoot, runMigrations } from "../db/migrate.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { ensureInstanceId } from "../db/repositories/meta.js";
+import { recoverInitialization } from "../init/recovery.js";
 import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { TurnQueue } from "../modules/agent/queue.js";
@@ -103,19 +104,10 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       ? webDistCandidate
       : undefined;
 
-  const loaded: LoadedConfig = await loadConfig({ dataDir, env });
-  const logger = createLogger({
-    dataDir,
-    level: loaded.config.logging.level,
-    retentionDays: loaded.config.logging.retentionDays,
-    stderr: env.LARNESS_LOG_STDERR !== "0",
-    destination: options.logDestination,
-  });
-
-  const logRetention = startLogRetention(dataDir, loaded.config.logging.retentionDays, logger);
-
   let lock: InstanceLock | null = null;
   let database: OpenedDatabase | null = null;
+  let logger: Logger | null = null;
+  let logRetention: ReturnType<typeof startLogRetention> | null = null;
   let cleanup: CleanupScheduler | null = null;
   let ipc: IpcServer | null = null;
   let app: FastifyInstance | null = null;
@@ -129,6 +121,18 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const opened = openDatabase(dbPath);
     database = opened;
     runMigrations(opened.db);
+    recoverInitialization(opened.db, dataDir);
+    const loaded: LoadedConfig = await loadConfig({ dataDir, env });
+    const activeLogger = createLogger({
+      dataDir,
+      level: loaded.config.logging.level,
+      retentionDays: loaded.config.logging.retentionDays,
+      stderr: env.LARNESS_LOG_STDERR !== "0",
+      destination: options.logDestination,
+    });
+    logger = activeLogger;
+    const retention = startLogRetention(dataDir, loaded.config.logging.retentionDays, activeLogger);
+    logRetention = retention;
 
     const schemaVersion = appliedMigrationCount(opened.sqlite);
     ensureInstanceId(opened.db);
@@ -136,13 +140,13 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const repairedTurns = repairInterruptedTurns({ db: opened.db });
 
     if (repairedTurns > 0) {
-      logger.warn({ repairedTurns }, "marked interrupted turns");
+      activeLogger.warn({ repairedTurns }, "marked interrupted turns");
     }
 
     const secretStore = await SecretStore.open(dataDir);
     ensureDefaultModelProfiles(opened.db);
 
-    const cleanupScheduler = startCleanupScheduler(opened.db, { logger });
+    const cleanupScheduler = startCleanupScheduler(opened.db, { logger: activeLogger });
     cleanup = cleanupScheduler;
 
     const csrfKey = await loadOrCreateCsrfKey(dataDir);
@@ -150,7 +154,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const ipcServer = await startIpcServer({
       dataDir,
       version,
-      logger,
+      logger: activeLogger,
       handler: createIpcHandler({
         db: opened.db,
         dataDir,
@@ -173,13 +177,13 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       turnQueue = new TurnQueue({
         runner,
         onError: (error, turnId) => {
-          logger.error({ err: error, turnId }, "turn runner failed");
+          activeLogger.error({ err: error, turnId }, "turn runner failed");
         },
       });
     }
 
     app = createApp({
-      logger,
+      logger: activeLogger,
       services: {
         db: opened.db,
         dataDir,
@@ -205,7 +209,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       port: loaded.config.server.port,
     });
 
-    logger.info(
+    activeLogger.info(
       {
         version,
         dataDir,
@@ -226,7 +230,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const shutdown = createShutdown({
       app,
       lock,
-      logger,
+      logger: activeLogger,
       timeoutMs: options.shutdownTimeoutMs,
       onTimeout: options.onShutdownTimeout,
       onClose: async (reason) => {
@@ -244,7 +248,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         await ipcServer.close();
         await turnQueue?.stop();
         cleanupScheduler.stop();
-        await logRetention.stop();
+        await retention.stop();
         opened.close();
       },
     });
@@ -264,19 +268,19 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       schemaVersion,
       ipc: ipcServer,
       lock,
-      logger,
+      logger: activeLogger,
       shutdown,
       turnQueue,
     };
   } catch (error) {
-    logger.error({ err: error }, "server failed to start");
+    logger?.error({ err: error }, "server failed to start");
 
     if (ipc !== null) {
       await ipc.close().catch(() => undefined);
     }
 
     cleanup?.stop();
-    await logRetention.stop();
+    await logRetention?.stop();
 
     if (database !== null) {
       database.close();
@@ -288,7 +292,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       await releaseInstanceLock(lock).catch(() => undefined);
     }
 
-    await flushLogger(logger);
+    if (logger !== null) await flushLogger(logger);
     throw error;
   }
 }

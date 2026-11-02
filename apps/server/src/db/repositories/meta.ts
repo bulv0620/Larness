@@ -27,3 +27,7 @@ export function ensureInstanceId(db: DbExecutor, now = Date.now()): string {
 
   return instanceId;
 }
+
+export function deleteMeta(db: DbExecutor, key: string): void {
+  db.delete(appMeta).where(eq(appMeta.key, key)).run();
+}

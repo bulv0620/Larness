@@ -14,7 +14,8 @@ function hasAuthSettings(sqlite: BetterSqlite3.Database): boolean {
     const row = sqlite.prepare("SELECT count(*) AS count FROM auth_settings").get() as
       | { count: number }
       | undefined;
-    return (row?.count ?? 0) > 0;
+    const pending = sqlite.prepare("SELECT value FROM app_meta WHERE key = ?").get("init_pending");
+    return (row?.count ?? 0) > 0 && pending === undefined;
   } catch {
     return false;
   }

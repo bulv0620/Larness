@@ -145,7 +145,7 @@ node app.js tui
 | ID | 需求 |
 |---|---|
 | R-6 | 数据目录默认使用 OS 标准目录（`env-paths`），支持 `LARNESS_DATA_DIR`；校验存在 / 可写 / 权限。 |
-| R-7 | `config.json` 由 init 生成；Zod 校验；非法配置拒绝启动，不静默回退。 |
+| R-7 | `config.json` 由 init 生成；保留预置文件的未修改字段，环境覆盖不整份落盘；初始化事务提交待发布配置，发布完成前业务关闭，启动先恢复再加载配置（ADR-024）；Zod 校验，非法配置拒绝启动。 |
 | R-8 | 环境变量覆盖：`LARNESS_DATA_DIR`、`LARNESS_HOST`、`LARNESS_PORT`、`LARNESS_LOG_LEVEL`、`LARNESS_PUBLIC_URL`。 |
 | R-9 | 创建 `logs/`、`backups/`、`tmp/`、`sessions/`、`artifacts/`、`secrets/`、`ipc/`；目录 0700 / 文件 0600。 |
 | R-10 | 初始化只经 IPC；重复初始化返回 `ALREADY_INITIALIZED`；未初始化不得写 `initialized_at`。 |

@@ -6,6 +6,10 @@ import { describe, expect, it } from "vitest";
 import { ConfigError } from "../src/bootstrap/config.js";
 import { InstanceLockedError, inspectInstanceLock } from "../src/bootstrap/lock.js";
 import { startServer } from "../src/bootstrap/start.js";
+import { openDatabase } from "../src/db/client.js";
+import { runMigrations } from "../src/db/migrate.js";
+import { createAuthSettings } from "../src/db/repositories/auth-settings.js";
+import { getMeta, setMeta } from "../src/db/repositories/meta.js";
 import { ipcTokenPath, resolveIpcAddress } from "../src/ipc/address.js";
 import { DataDirError } from "../src/platform/paths.js";
 import { collectStatus } from "../src/status.js";
@@ -136,6 +140,47 @@ describe("startServer", () => {
       ).rejects.toThrow();
 
       expect(await inspectInstanceLock(dir)).toBeNull();
+    });
+  });
+  it("recovers committed init settings before loading config or listening", async () => {
+    await withTempDir(async (dir) => {
+      const port = await getFreePort();
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+      createAuthSettings(opened.db, { adminHash: "historical-hash", initializedAt: 1, now: 1 });
+      setMeta(
+        opened.db,
+        "init_pending",
+        JSON.stringify({ version: 1, config: testConfig({ server: { port } }) }),
+      );
+      opened.close();
+      await writeFile(path.join(dir, "config.json"), "interrupted invalid config");
+      const running = await startServer({
+        env: { LARNESS_DATA_DIR: dir },
+        logDestination: createLogSink().stream,
+      });
+      try {
+        expect(running.config.server.port).toBe(port);
+        expect(getMeta(running.db, "init_pending")).toBeNull();
+        const bootstrap = await running.app.inject({ method: "GET", url: "/api/bootstrap" });
+        expect(bootstrap.json().initialized).toBe(true);
+      } finally {
+        await running.shutdown("test");
+      }
+    });
+  });
+
+  it("rejects corrupt recovery metadata and releases the instance lock", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+      setMeta(opened.db, "init_pending", "invalid json");
+      opened.close();
+      await expect(
+        startServer({ env: envFor(dir, 3299), logDestination: createLogSink().stream }),
+      ).rejects.toThrow(/initialization recovery/);
+      expect(await inspectInstanceLock(dir)).toBeNull();
+      expect(existsSync(ipcTokenPath(dir))).toBe(false);
     });
   });
 });

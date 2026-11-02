@@ -1,6 +1,3 @@
-import { randomUUID } from "node:crypto";
-import { chmodSync, renameSync } from "node:fs";
-import { rm, writeFile } from "node:fs/promises";
 import {
   type AppConfig,
   AppConfigSchema,
@@ -11,13 +8,14 @@ import {
   type WebAuthnRuntime,
 } from "@larness/shared";
 import { hash as argon2Hash } from "@node-rs/argon2";
-import { configFilePath } from "../bootstrap/config.js";
+import { loadConfig } from "../bootstrap/config.js";
 import type { Database } from "../db/client.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { createAuthSettings, getAuthSettings } from "../db/repositories/auth-settings.js";
 import { getMeta, setMeta } from "../db/repositories/meta.js";
 import { immediateTransaction } from "../db/transaction.js";
 import { validateAdminPassword } from "./password.js";
+import { recoverInitialization } from "./recovery.js";
 
 export type InitErrorCode = "VALIDATION_ERROR" | "ALREADY_INITIALIZED" | "INTERNAL";
 
@@ -59,14 +57,17 @@ export interface ApplyInitOptions {
   hashPassword?: (password: string) => Promise<string>;
 }
 
-export function buildInitConfig(input: InitInput): InitConfigPlan {
+export function buildInitConfig(
+  input: InitInput,
+  base: AppConfig = DEFAULT_APP_CONFIG,
+): InitConfigPlan {
   const passwordError = validateAdminPassword(input.adminPassword);
 
   if (passwordError !== null) {
     throw new InitError("VALIDATION_ERROR", passwordError);
   }
 
-  const config = structuredClone(DEFAULT_APP_CONFIG);
+  const config = structuredClone(base);
   config.server.host = input.host;
   config.server.port = input.port;
   config.updates.channel = input.channel ?? config.updates.channel;
@@ -118,14 +119,11 @@ function restartRequired(next: AppConfig, current: AppConfig | undefined): boole
 
 export async function applyInit(options: ApplyInitOptions): Promise<InitResult> {
   const now = options.now ?? Date.now();
-  const plan = buildInitConfig(options.input);
+  const baseline = await loadConfig({ dataDir: options.dataDir, env: {} });
+  const plan = buildInitConfig(options.input, baseline.config);
   // Argon2id is the library default; keep it explicit in docs/tests rather than the const enum.
   const hashPassword = options.hashPassword ?? ((password: string) => argon2Hash(password));
   const adminHash = await hashPassword(options.input.adminPassword);
-  const target = configFilePath(options.dataDir);
-  const temporary = `${target}.tmp-${process.pid}-${randomUUID()}`;
-
-  await writeFile(temporary, `${JSON.stringify(plan.config, null, 2)}\n`, { mode: 0o600 });
 
   try {
     immediateTransaction(options.db, (tx) => {
@@ -153,22 +151,17 @@ export async function applyInit(options: ApplyInitOptions): Promise<InitResult> 
         now,
       });
 
-      renameSync(temporary, target);
-
-      if (process.platform !== "win32") {
-        chmodSync(target, 0o600);
-      }
+      setMeta(tx, "init_pending", JSON.stringify({ version: 1, config: plan.config }), now);
     });
+    recoverInitialization(options.db, options.dataDir);
   } catch (error) {
-    await rm(temporary, { force: true }).catch(() => undefined);
-
     if (error instanceof InitError) {
       throw error;
     }
 
     throw new InitError(
       "INTERNAL",
-      error instanceof Error ? error.message : "initialization failed",
+      "initialization failed; restart Larness to recover the saved configuration",
     );
   }
 

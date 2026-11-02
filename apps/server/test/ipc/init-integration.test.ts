@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { configFilePath } from "../../src/bootstrap/config.js";
 import { inspectInstanceLock } from "../../src/bootstrap/lock.js";
 import { startServer } from "../../src/bootstrap/start.js";
+import { getMeta } from "../../src/db/repositories/meta.js";
 import { ipcTokenPath } from "../../src/ipc/address.js";
 import { connectIpc } from "../../src/ipc/client.js";
 import { createLogSink, getFreePort, withTempDir } from "../helpers.js";
@@ -164,6 +165,42 @@ describe("IPC init integration", () => {
   it("refuses to connect without a token file", async () => {
     await withTempDir(async (dir) => {
       await expect(connectIpc({ dataDir: dir })).rejects.toBeDefined();
+    });
+  });
+  it("keeps business APIs closed if publication completion fails and recovers on restart", async () => {
+    await withTempDir(async (dir) => {
+      const port = await getFreePort();
+      const env = { LARNESS_DATA_DIR: dir, LARNESS_PORT: String(port) };
+      const running = await startServer({ env, logDestination: createLogSink().stream });
+      const client = await connectIpc({ dataDir: dir, client: "tui" });
+      try {
+        running.sqlite.exec(
+          "CREATE TRIGGER fail_publish BEFORE DELETE ON app_meta WHEN OLD.key = 'init_pending' BEGIN SELECT RAISE(ABORT, 'disk completion failure'); END",
+        );
+        await expect(
+          client.request("init.apply", { adminPassword: PASSWORD, host: "127.0.0.1", port }),
+        ).rejects.toMatchObject({ code: "INTERNAL" });
+        const pending = getMeta(running.db, "init_pending");
+        expect(pending).not.toBeNull();
+        expect(pending).not.toContain(PASSWORD);
+        expect(pending).not.toContain("argon2");
+        expect(await client.request("init.status")).toMatchObject({ initialized: false });
+        const response = await running.app.inject({ method: "GET", url: "/api/projects" });
+        expect(response.statusCode).toBe(409);
+        expect(response.json().error.code).toBe("NOT_INITIALIZED");
+        running.sqlite.exec("DROP TRIGGER fail_publish");
+      } finally {
+        client.close();
+        await running.shutdown("test");
+      }
+      const restarted = await startServer({ env, logDestination: createLogSink().stream });
+      try {
+        expect(getMeta(restarted.db, "init_pending")).toBeNull();
+        const response = await restarted.app.inject({ method: "GET", url: "/api/bootstrap" });
+        expect(response.json().initialized).toBe(true);
+      } finally {
+        await restarted.shutdown("test");
+      }
     });
   });
 });

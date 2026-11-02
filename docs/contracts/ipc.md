@@ -146,3 +146,7 @@
 - M0-9 / ADR-023：TUI 是受管前台入口；由 supervisor 启动 Server（开发时另起 Vite），TUI 仍通过本契约连接。TUI 正常退出会经 `server.shutdown` 停止 Server 并终止 Web，不再承诺退出后后台存活。
 - `system.ping` 为 TUI 保活方法，返回 `{ ok: true, now }`；TUI 每 5 分钟调用一次，避免 30 分钟 IPC 空闲断开。IPC 意外断开时 TUI 最多重连 2 次。
 - 配对 / WebAuthn 的业务错误在 IPC 层映射为 `FORBIDDEN`、`VALIDATION_ERROR`、`NOT_FOUND`、`CONFLICT`、`RATE_LIMITED`，不暴露库内部错误文本。
+
+### 初始化发布恢复（I0-2）
+
+`init.apply` 保留已有 config.json 中未明确修改的字段，环境变量覆盖不会作为整份配置写回。配置发布完成前 `init.status` / `system.status` 的 initialized 为 false；发布失败返回 INTERNAL，提示重启恢复，业务接口保持关闭。数据库已提交的初始化不可再次覆盖；重启先恢复发布，再允许业务访问。
