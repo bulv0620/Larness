@@ -62,7 +62,7 @@ pnpm dev / node app.js
   → 未初始化时仅开放最小公开接口，业务 API 失败关闭
   → TUI 连接本机 IPC，展示监听与浏览器访问地址、canonical origin / RP ID
   → 默认沿用有效配置；可选高级网络设置；不询问密码或更新通道
-  → 本机用户确认后调用 init.apply（protocolVersion=2）
+  → 本机用户确认后调用 init.apply（protocolVersion=1）
   → 事务提交初始化、auth.init 审计与 init_pending，发布 config.json
   → 有效配置变化则关闭旧 IPC、停止并重启受管服务，重新连接后进入仪表盘
 ```

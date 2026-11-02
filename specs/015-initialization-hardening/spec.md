@@ -29,9 +29,12 @@ created: 2026-11-02
 
 7. Given 数据目录存在过期日志，When Server 启动，Then 持有实例锁后先等待过期日志清理结束，再创建日志写入器；清理失败可见且不与日志打开并发；每日调度仍运行，关闭后停止。
 
+8. Given 未发布的开发契约，When 执行 I0-6，Then IPC hello 返回 protocolVersion=1，当前无密码/可选网络参数契约保留，不新增旧参数适配。
+9. Given 人类明确授权本地重置，When 检查进程与数据目录并完成清理，Then 已确认的 Larness 开发/生产配置及遗留测试数据消失，项目源码保留；测试使用临时目录，结束后默认数据目录仍不存在。
+
 ## 接口与数据
 
-- REST/WS 无新增；config.json 已有键、IPC init.apply 响应保持兼容。ADR-025：IPC protocolVersion=2，init.apply 移除 adminPassword 并将网络字段设为可选补丁；旧密码字段拒绝，历史 admin_hash 保留、新实例写空标记。
+- REST/WS 无新增；config.json 已有键、IPC init.apply 响应保持兼容。ADR-025 / ADR-026：IPC protocolVersion=1（撤回本次 v2），init.apply 移除 adminPassword 并将网络字段设为可选补丁；旧密码字段拒绝，历史 admin_hash 保留、新实例写空标记。
 - 受管入口只读检查待发布记录来规划启动端口/来源，恢复写入仍由持有实例锁的 Server 完成；记录非法即拒绝。默认设置不把环境覆盖落盘；高级修改与环境覆盖冲突时提示改环境变量。
 - I0-2 可在 app_meta 使用初始化恢复记录（Zod 校验，无密码/密钥）；不新增依赖或破坏性迁移。
 - I0-3 repository 提供读取加密记录的内部校验入口，不向 Web 暴露密文或密钥。

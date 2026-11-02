@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-02 (+08:00)
-> 当前阶段：**M1 / G1 已验收，初始化修复 I0-1～I0-5 完成；下一步补全 M2 spec**
+> 当前阶段：**M1 / G1 已验收，初始化修复 I0-1～I0-6 完成；下一步补全 M2 spec**
 
 ## 里程碑
 
@@ -17,7 +17,7 @@
 
 ## 初始化修复（2026-11-02）
 
-I0-1 → I0-2 → I0-3 → I0-4 → I0-5 已按顺序完成，逐任务先测试再实现并提交。
+I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务先测试再实现并提交。
 
 | ID | 结果 | 分支 |
 |---|---|---|
@@ -26,11 +26,19 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 已按顺序完成，逐任务先测试
 | I0-3 | 已有加密凭据时密钥缺失/错误拒绝启动，恢复原密钥后可用 | task/i0-3-master-key-validation |
 | I0-4 | 取消密码与更新通道询问，沿用有效配置，可选高级网络设置，自动应用配置 | task/i0-4-init-experience |
 | I0-5 | 首次日志清理结束后才打开写入器，消除并发删除旧日志的竞态 | task/i0-5-log-startup-order |
+| I0-6 | 撤回 IPC v2、开发期协议保持 1；按授权清空本机配置与运行数据 | task/i0-6-dev-reset |
 
-- 最终验收：pnpm check（server 263 / agent 32 / web 26）、pnpm build、真实构建 smoke 通过；I0-4 Demo 15 / auth 2 / prod 2 E2E 通过。[验收记录](specs/015-initialization-hardening/acceptance.md)。
-- ADR-024 / ADR-025 已获人类批准；首次不设置密码，历史哈希不变。IPC 升为 v2，TUI/server 需同步升级；无 Web 密码登录/恢复入口。
+- 最终验收：pnpm check（server 265 / agent 32 / web 26）、pnpm build、真实构建 smoke 通过；I0-4 Demo 15 / auth 2 / prod 2 E2E 通过。[验收记录](specs/015-initialization-hardening/acceptance.md)。
+- ADR-024 / ADR-025 已获人类批准；首次不设置密码，历史哈希不变。I0-6 / ADR-026 已按人类要求撤回 IPC v2，开发期协议号保持 1；无 Web 密码登录/恢复入口。
 - 默认数据目录及七个子目录保留；开发/生产显式使用独立 LARNESS_DATA_DIR，无破坏性迁移。
 - 无进行中的初始化修复任务；M2 保持 draft，待 G-Spec。
+
+## 本地重置记录（2026-11-02 / I0-6）
+
+- ADR-026 已按人类明确指令记录 accepted，撤回 ADR-025 的 IPC v2 条款；不增加旧参数适配。
+- 已删除 `/Users/bulv/Library/Application Support/larness`、`/Users/bulv/Library/Application Support/larness-prod` 及 64 项已识别临时测试数据/日志；清理前已确认相关进程退出、会话工作区无源码文件。项目源码和依赖保留。
+- check / build / 真实构建 smoke 均通过；测试结束后两数据目录仍不存在，遗留测试数据目录为 0。
+- 下次运行需重新初始化、配对浏览器与配置模型凭据。无进行中任务，下一步仍为 M2 G-Spec。
 
 ## 当前工作
 

@@ -42,6 +42,8 @@
 
 - [ADR-025 取消未接入使用流程的初始化密码](ADR-025-remove-unused-init-password.md)：accepted，2026-11-02 人类明确批准取消密码、保留历史哈希；补充 ADR-024。
 
+- [ADR-026 开发期直接调整契约，撤回 IPC v2](ADR-026-development-contract-reset.md)：accepted，2026-11-02 人类明确批准；替代 ADR-025 的 v2 升级条款，授权本次本地数据清理。
+
 ## 3. 变更流程
 
 1. 复制模板生成新 ADR，状态 `proposed`。

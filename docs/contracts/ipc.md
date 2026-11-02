@@ -53,7 +53,7 @@
 成功：
 
 ```json
-{ "id": "1", "ok": true, "result": { "protocolVersion": 2, "serverVersion": "0.1.0" } }
+{ "id": "1", "ok": true, "result": { "protocolVersion": 1, "serverVersion": "0.1.0" } }
 ```
 
 失败码：`INVALID_TOKEN`、`TOO_MANY_CONNECTIONS`、`PROTOCOL_MISMATCH`。
@@ -130,7 +130,7 @@
 ## 7. 兼容性
 
 - `protocolVersion` 主版本不一致时拒绝连接；新增方法 / 字段视为兼容。
-- 删除 / 改语义必须提升主版本，并同步 `app.js tui` / `status` 与测试。
+- 开发未发布阶段（ADR-026）允许经人类批准直接修改契约，代码、文档、测试一并更新并重新构建，不因单次字段变化自动升主版本；正式发布后，删除 / 改语义提升主版本。
 - 所有方法在服务端重新校验初始化、状态与参数；不信任客户端传入的 ID 归属。
 
 ## 8. M0 实现校准（2026-11-01）
@@ -151,9 +151,9 @@
 
 `init.apply` 保留已有 config.json 中未明确修改的字段，环境变量覆盖不会作为整份配置写回。配置发布完成前 `init.status` / `system.status` 的 initialized 为 false；发布失败返回 INTERNAL，提示重启恢复，业务接口保持关闭。数据库已提交的初始化不可再次覆盖；重启先恢复发布，再允许业务访问。
 
-### 初始化向导与协议 v2（I0-4 / ADR-025）
+### 初始化向导（I0-4 / ADR-025；协议决定由 ADR-026 校准）
 
-- IPC protocolVersion=2（WebSocket 版本不变）。移除 init.apply.adminPassword，旧字段返回 VALIDATION_ERROR；旧 TUI 在 hello 版本检查时拒绝连接，需同步升级。
+- IPC protocolVersion=1（WebSocket 版本不变）。移除 init.apply.adminPassword，旧字段返回 VALIDATION_ERROR；开发期按当前源码统一构建，不提供旧参数兼容层。
 - init.status.requiredFields=[]；必须经本机用户确认才调用 init.apply，空参数不等于自动初始化。host/port/publicUrl/channel 均可省略，省略保留文件值；publicUrl=null 显式清空。
 - 不再要求管理员密码；历史哈希保留、新实例 admin_hash 为空字符串，未增加密码认证。
 - 默认向导展示有效网络配置，网络进入高级设置；环境覆盖不无意落盘，修改受环境控制字段须先改环境变量。首次 dev 默认 5173 只在没有显式来源配置时持久化。

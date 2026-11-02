@@ -83,6 +83,28 @@ function waitForClose(socket: Socket): Promise<void> {
 }
 
 describe("IPC server", () => {
+  it("advertises protocol version 1 over the authenticated local handshake", async () => {
+    await withTempDir(async (dir) => {
+      const server = await startServer(dir);
+      const socket = await rawConnect(server.address.path);
+      try {
+        const token = await readFile(ipcTokenPath(dir), "utf8");
+        const reply = nextLine(socket);
+        socket.write(
+          `${JSON.stringify({ id: "handshake", method: "hello", params: { token, client: "test" } })}\n`,
+        );
+        expect(JSON.parse(await reply)).toMatchObject({
+          id: "handshake",
+          ok: true,
+          result: { protocolVersion: 1 },
+        });
+      } finally {
+        socket.destroy();
+        await server.close();
+      }
+    });
+  });
+
   it("creates 0600 socket and token files and serves requests", async () => {
     await withTempDir(async (dir) => {
       const server = await startServer(dir);

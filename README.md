@@ -64,7 +64,7 @@ Larness 初始化          # 首次运行进入向导
 - **TUI 是唯一前台入口**：Server / Vite 由 TUI supervisor 拉起；关闭 TUI（`q`、Ctrl-C、SIGTERM）会优雅停止全部，不留后台进程。
 - 首次运行展示有效配置，确认后初始化；不设置管理员密码、不询问更新通道。需要改监听或访问地址时选择高级设置；环境变量控制的字段需修改环境变量。开发模式首次默认来源为 `http://localhost:5173`，显式 `LARNESS_PUBLIC_URL` 会被沿用。
 - 初始化保留已有配置；有效配置变化后 TUI 自动停止并重新启动受管服务，再进入仪表盘。中断恢复在下次启动监听前完成，失败则拒绝启动。
-- 旧实例的历史密码哈希保留，但没有密码登录/恢复入口。本机 IPC 协议为 v2，TUI 与 Server 需同步升级。
+- 旧实例的历史密码哈希保留，但没有密码登录/恢复入口。开发期 IPC 保持协议号 1，参数变更直接更新源码与测试后统一构建（ADR-026）。
 - 已有初始化数据时直接进入仪表盘；`l` 查看 Server 日志与 Vite 输出。
 - `status` / `doctor` 仍可在 TUI 运行时从另一个终端执行：`node app.js status`、`node app.js doctor`。
 - 开发与生产请使用不同的 `LARNESS_DATA_DIR`，避免 canonical origin 混用。

@@ -4,9 +4,13 @@ import {
   InitApplyParamsSchema,
   IpcError,
   type IpcResponse,
+  PROTOCOL_VERSION,
 } from "../../src/ipc/protocol.js";
 
 describe("IPC protocol", () => {
+  it("keeps the unpublished development protocol at version 1", () => {
+    expect(PROTOCOL_VERSION).toBe(1);
+  });
   it("validates init.apply params", () => {
     expect(
       InitApplyParamsSchema.safeParse({

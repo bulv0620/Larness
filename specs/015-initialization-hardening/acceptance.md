@@ -29,3 +29,12 @@
 验收复查发现日志 worker 与首次清理并发可能删除刚打开的旧轮转文件。新增延迟清理测试先失败（观察到 logger:open → schedule），修复后顺序为 prune:start → prune:finished → logger:open → schedule。启动清理失败在 logger 就绪后可见，每日调度不重复首次执行。
 
 I0-5 最终 `pnpm check`（server 263 / agent 32 / web 26）、`pnpm build`、`pnpm test:smoke:init` 均通过。该补充只改变日志启动顺序，未改 Web/认证，未重复与其无关的浏览器 E2E。
+
+## I0-6 撤回协议升级与本机重置（2026-11-02）
+
+- 按人类指令及 ADR-026，当前 IPC protocolVersion=1；保留无密码初始化/可选配置补丁/严格未知参数拒绝，不增加兼容层。
+- 新增协议值及真实本机 hello 握手测试先失败（返回 2），修复后通过。
+- `pnpm check`：server 265 / agent 32 / web 26 通过；`pnpm build`、`pnpm test:smoke:init` 通过。此项只调整 IPC 握手号，使用现有真实进程初始化/重启/恢复冒烟验收，未重复无关的浏览器 E2E。
+- 清理前预览范围、核实进程已退出、会话工作区无源码文件；按用户明确删除授权清空标准开发和生产数据目录，以及 64 项遗留临时测试数据/日志。未删除项目源码、依赖或浏览器全局数据；未创建用户未要求的备份。
+- 清理目标：`/Users/bulv/Library/Application Support/larness`、`/Users/bulv/Library/Application Support/larness-prod`，系统临时目录内已识别的 Larness 测试残留。
+- 验收后确认上述两数据目录不存在，识别出的测试数据目录残留为 0。下次运行重新初始化、配对和配置模型凭据。

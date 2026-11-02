@@ -1,7 +1,7 @@
 import { OriginUrlSchema } from "@larness/shared";
 import { z } from "zod";
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 1;
 export const MAX_FRAME_BYTES = 1024 * 1024;
 export const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60_000;
 export const MAX_CONNECTIONS = 8;
