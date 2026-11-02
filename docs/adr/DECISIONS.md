@@ -48,6 +48,10 @@
 
 - [ADR-027 TUI 独立屏幕与单一输入所有者](ADR-027-tui-screen-and-input.md)：accepted；2026-11-02 人类确认开始实现，G-Spec-TUI 通过，T0-1 → T0-2 → T0-3 先于 M2。
 
+## 统一入口补充决策（待评审）
+
+- [ADR-028 开发与打包运行共用入口和实例配置](ADR-028-unified-dev-entry.md)：proposed；2026-11-02 人类要求先补充文档。配套 017 spec=draft，不授权实现；现行 ADR-023/025 原文与运行行为保留。
+
 ## 3. 变更流程
 
 1. 复制模板生成新 ADR，状态 `proposed`。

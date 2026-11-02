@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-02 (+08:00)
-> 当前阶段：**M1 / G1 已验收；TUI 页面化已通过人类验收，T0-1～T0-3 完成；下一步 M2 规划**
+> 当前阶段：**M1 / G1、TUI 页面化已验收；统一 dev/打包入口设计文档已补齐，待评审，尚未授权实施；M2 保持 draft**
 
 ## 里程碑
 
@@ -59,11 +59,14 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- U0-0（仅文档）已完成：task/u0-0-unified-entry-spec，2026-11-02（+08:00）开始并完成。人类要求“先补充文档”；新增 ADR-028 / 017 spec / runtime-entry 契约草案和任务，不修改运行代码、配置/数据，不把方向认可当成具体设计或实施门禁已批准。
+- 待评审：统一 Server 入口、内部受管 Vite/限定 HTTP/HMR、旧 5173 一次性手动对齐；G-Spec-U / ADR-028 与相对 M2 优先级，见 specs/017-unified-entry/review.md。
+
 - 已完成：`M1` — 项目、会话与最小 Agent（M1-1 ~ M1-15）
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：补全 `M2` spec（当前 `draft`），经 G-Spec 确认后开始 M2-1（FileManager）。
+- 下一步：评审 017 / ADR-028 并确认相对 M2 的优先级；M2 仍保持 draft，经其 G-Spec 确认后才能开始 M2-1。
 - 阻塞项：无。
 - 待确认：M2 spec 范围（文件树 / Monaco / CommandRunner / PTY / Git / 锁扩展）与 G-Spec 评审时间。
 
@@ -141,3 +144,4 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 | 2026-11-01 | M1-14 仅展示最终答复：每 Turn 只保留最后一条 assistant 消息，工具组分折叠保留；E2E 通过；待人工验收 |
 | 2026-11-01 | M1-15 草稿会话：同项目复用、切走消失、首条消息后创建；E2E 通过；待人工验收 |
 | 2026-11-01 | M1-8 ~ M1-15 人类验收通过；G1 关闭，M1 完成 |
+| 2026-11-02 | U0-0：补齐统一 dev/打包入口 ADR-028、017 spec/plan/tasks/review 和入口契约草案；仅文档，待 G-Spec-U/ADR 评审，未改运行代码或数据；check 通过 |
