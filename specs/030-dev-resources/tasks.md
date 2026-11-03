@@ -1,6 +1,6 @@
 # 任务：M2 开发资源与窗口层
 
-> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；当前 M2-4 已确认，M2-4b 待 review。一次一个任务、一任务一提交，先红测试再实现。
+> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；M2-4b 已验收，当前 M2-4c in_progress。一次一个任务、一任务一提交，先红测试再实现。
 
 ## 状态总表
 
@@ -14,8 +14,8 @@
 | M2-3 | CommandRunner 与受管进程协调 | M2-2 | 2 | `done` |
 | M2-3b | Agent 命令工具与实时执行展示 | M2-3 | 1–2 | `done` |
 | M2-4 | TerminalManager 与输入租约后端 | M2-3b | 2 | `done` |
-| M2-4b | xterm 交互与双客户端接管 | M2-4 | 1–2 | `review` |
-| M2-4c | Agent 项目开发终端工具与生命周期 | M2-4b | 1–2 | `todo` |
+| M2-4b | xterm 交互与双客户端接管 | M2-4 | 1–2 | `done` |
+| M2-4c | Agent 项目开发终端工具与生命周期 | M2-4b | 1–2 | `in_progress` |
 | M2-4d | AI 终端输入、中断与人工接管 | M2-4c | 1–2 | `todo` |
 | M2-5 | GitManager、资源动作与 Agent 工具 | M2-4d | 2 | `todo` |
 | M2-5b | Git 资源区、Diff 与审批界面 | M2-5 | 1–2 | `todo` |
@@ -23,7 +23,7 @@
 | M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
 | M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
 
-保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，M2-3b 已 done，当前 M2-4 已确认，M2-4b 待 review，后续保持 todo。
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，M2-3b 已 done，M2-4b 已验收，当前 M2-4c in_progress，后续保持 todo。
 
 ## 任务卡
 
@@ -128,7 +128,7 @@
 
 ### M2-4b xterm 交互与双客户端接管
 
-- 状态：`review`
+- 状态：`done`（2026-11-03 人类要求开始 M2-4c，验收通过）
 - 依赖：M2-4；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：1–2 天；明显超出则先拆分，不绕过门禁。
 - [x] 先写失败测试并确认失败原因：两独立浏览器上下文同 PTY；租约释放 / 到期、撤销、输出一致、断线恢复不重建。
@@ -138,11 +138,11 @@
 - [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：apps/web/src/features/windows/Terminal*；components/sections/TerminalsPanel；e2e-auth/。
 
-- 人类“继续”后完成定位；真实双浏览器输入/输出/刷新/窗口恢复、续租失败释放、30s 到期、登出撤销、关闭 Tab 失败保留/成功全局终止见 [acceptance.md](acceptance.md)。M2-4c 未启动。
+- 人类“继续”后完成定位；真实双浏览器输入/输出/刷新/窗口恢复、续租失败释放、30s 到期、登出撤销、关闭 Tab 失败保留/成功全局终止见 [acceptance.md](acceptance.md)。2026-11-03 人类要求开始 M2-4c，本任务验收通过。
 
 ### M2-4c Agent 项目开发终端工具与生命周期
 
-- 状态：`todo`
+- 状态：`in_progress`（分支 `task/m2-4c-agent-terminals`，2026-11-03 +08:00 开始）
 - 依赖：M2-4b；G-Spec-M2 / ADR-029 / G-PoC-M2。
 - 预估：1–2 天（启动 / 读取 / 停止）；完整输入 / 中断 / 人机交接拆至 M2-4d，避免本卡超范围。
 - [ ] 先写失败测试：FakeProvider 启动真实前后端两个进程；角色 / 参数重试；审批篡改；读日志；Turn 取消前后交付竞态；显式停止。
