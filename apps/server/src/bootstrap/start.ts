@@ -20,6 +20,7 @@ import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
+import { reconcileFileOperations } from "../modules/files/service.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
@@ -160,6 +161,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     }
 
     const secretStore = await SecretStore.open(dataDir, listEncryptedSecrets(opened.db));
+    await reconcileFileOperations({ db: opened.db, dataDir });
     ensureDefaultModelProfiles(opened.db);
 
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger: activeLogger });

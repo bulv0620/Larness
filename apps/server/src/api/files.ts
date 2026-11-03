@@ -1,0 +1,113 @@
+import { FileManagerError } from "@larness/resources";
+import {
+  FileListQuerySchema,
+  FileReadQuerySchema,
+  FileSaveSchema,
+  FileScopeSchema,
+} from "@larness/shared";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import { z } from "zod";
+import type { AppServices } from "../app.js";
+import { resolveActiveSession } from "../auth/sessions.js";
+import { appendAudit } from "../db/repositories/audit.js";
+import { HttpError } from "../errors.js";
+import {
+  type FileServiceOptions,
+  getDirectory,
+  getFile,
+  saveFile,
+} from "../modules/files/service.js";
+import { listEncryptedSecrets } from "../modules/models/repository.js";
+
+function parse<T>(schema: z.ZodType<T>, value: unknown): T {
+  const result = schema.safeParse(value);
+  if (!result.success) throw new HttpError("VALIDATION_ERROR", "Invalid file request");
+  return result.data;
+}
+export function registerFileRoutes(app: FastifyInstance, deps: AppServices) {
+  const options = (request: FastifyRequest): FileServiceOptions => ({
+    db: deps.db,
+    dataDir: deps.dataDir,
+    assertClient: () => {
+      const session = resolveActiveSession(deps.db, request.cookies.larness_session ?? "", {
+        idleTtlMinutes: deps.config.auth.idleTtlMinutes,
+      });
+      if (!session || session.id !== request.clientSession?.id)
+        throw new FileManagerError("UNAUTHENTICATED", "Client session expired");
+    },
+    assertContent: (content) => {
+      const secrets = listEncryptedSecrets(deps.db);
+      if (!deps.secretStore) {
+        if (secrets.length > 0)
+          throw new FileManagerError("INTERNAL", "Credential protection is unavailable");
+        return;
+      }
+      for (const secret of secrets) {
+        const value = deps.secretStore.decrypt(secret);
+        if (value.length > 0 && content.includes(value))
+          throw new FileManagerError("FILE_NOT_EDITABLE", "File contains protected credentials");
+      }
+    },
+  });
+  async function run<T>(request: FastifyRequest, action: () => Promise<T>): Promise<T> {
+    try {
+      return await action();
+    } catch (error) {
+      if (error instanceof HttpError) {
+        appendAudit(deps.db, {
+          action: "file.request.denied",
+          decision: "deny",
+          clientSessionId: request.clientSession?.id,
+          resourceType: "file",
+          details: { code: error.code },
+          now: Date.now(),
+        });
+        throw error;
+      }
+      if (error instanceof FileManagerError) {
+        appendAudit(deps.db, {
+          action: "file.access.denied",
+          decision: "deny",
+          clientSessionId: request.clientSession?.id,
+          resourceType: "file",
+          details: { code: error.code },
+          now: Date.now(),
+        });
+        throw new HttpError(error.code, error.message, { details: error.details });
+      }
+      // No raw filesystem paths/content/driver errors reach request logging.
+      throw new HttpError("INTERNAL", "File operation failed");
+    }
+  }
+  app.get("/api/files", async (request) =>
+    run(request, async () => {
+      const query = parse(FileReadQuerySchema, request.query);
+      const scope =
+        "projectId" in query ? { projectId: query.projectId } : { sessionId: query.sessionId };
+      return getFile(options(request), scope, query);
+    }),
+  );
+  app.put("/api/files", async (request) =>
+    run(request, async () => {
+      const body = parse(FileSaveSchema, request.body);
+      const key = request.headers["idempotency-key"];
+      const idempotencyKey =
+        key === undefined ? undefined : parse(z.string().trim().min(1).max(128), key);
+      const client = request.clientSession;
+      if (!client) throw new HttpError("UNAUTHENTICATED", "Authentication required");
+      return saveFile(options(request), body, client.id, idempotencyKey);
+    }),
+  );
+  for (const kind of ["projects", "sessions"] as const) {
+    app.get<{ Params: { id: string } }>(`/api/${kind}/:id/files`, async (request) =>
+      run(request, async () => {
+        const query = parse(FileListQuerySchema, request.query);
+        const scope = parse(
+          FileScopeSchema,
+          kind === "projects" ? { projectId: request.params.id } : { sessionId: request.params.id },
+        );
+        return getDirectory(options(request), scope, query);
+      }),
+    );
+  }
+}

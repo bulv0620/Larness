@@ -1,6 +1,6 @@
 # M2 资源契约（设计已批准，按任务实施）
 
-> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。M2-0 仅做隔离 PoC，不新增产品 REST / WS / 数据迁移；G-PoC-M2 待人类确认。
+> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；后续接口仍按任务逐步落地。
 
 ## 1. 共同约定
 
@@ -168,3 +168,19 @@ M2 文件工具结果与 artifact 事件补结构化 `resourceTarget`，file tar
 inputSequence 在该租约中递增，重复包不重放，迟到 generation 拒绝；每次输入 ≤ 8 KiB、速率沿人工 64 KiB/s 上限，工具调用 / Turn 预算另行限制。interrupt 发送当前终端的中断控制（例如 ETX），不将“已发中断”报告为“进程已退出”；需重读输出 / 状态确认。输入 / 中断前按实际程序 / 操作风险沿工具策略审批，不能在取得一次租约后无限绕过工具策略。原始输入正文、密码、Token 不进入日志 / 事件；只记长度、资源、执行关联和允许 / 拒绝，不引入自动填写主机凭据能力。
 
 M2-4 定义共享 principal 租约存储 / 校验；M2-4d 接工具、人机交接和假时钟 / 真实 PTY 验证；schema 已通过 G-Spec-M2，按任务实施，不把本文当作已经上线协议。
+
+## 11. M2-1 实施契约（2026-11-03）
+
+G-PoC-M2 已随人类“开始m2-1”确认通过。本节覆盖本任务已实现细节；命令 / PTY / Git、监听与 WS 补拉仍按后续任务实施。
+
+- 文件 GET / PUT 和两个目录 GET 已注册在现有鉴权守卫后。PUT 再校验活动客户端和 scope；读取返回前同样复核客户端及资源登记。JSON 1 MiB；编辑内容按 UTF-8 字节最多 512 KiB，保留 BOM / CRLF / LF，使用原始字节 SHA-256。错误新增 FILE_NOT_EDITABLE(422)、PAYLOAD_TOO_LARGE(413)、RESOURCE_UNAVAILABLE(409)。
+- path 归一化为根内相对路径；拒绝绝对路径、越界、NUL、Windows 非法保留名 / ADS、任一符号链接组件及非普通文件。打开 fd 后比较路径 / fd 的 dev、inode、size、mtime，再返回内容；不宣称能消除最后一次校验后的外部竞态。
+- 项目 scope 禁止读取 Larness dataDir 内运行数据，目录列表隐藏该数据目录；独立会话只允许其真实 sessions/<id>/workspace。项目会话及被解除项目关联后 projectId=null 的历史会话不能伪装成独立 workspace。已知 SecretStore 凭据明文命中时拒绝编辑 / 返回，不以脱敏后的文本替换编辑底稿；不宣称识别任意未知秘密。
+- 目录默认 path=. / limit=50，最大 200，目录优先、组内按名称排序。cursor 为有界 base64url 快照，绑定 canonical 目录 / revision / offset；快照变化返回 CONFLICT，非法 cursor 返回 VALIDATION_ERROR。不递归返回子树；沿用 M1 ignore 匹配方式。
+- PUT 的 Idempotency-Key 可选、1–128 字符；省略时只为该请求生成独立操作标识。唯一键为 client_session_id + kind(file.save) + key；参数摘要绑定 scope / 规范化 path / expectedVersion / 目标内容哈希。相同参数返回首次持久结果，换参数 CONFLICT；进行中或待对账返回 RESOURCE_UNAVAILABLE。失败结果同键不重试副作用，修改后使用新键。
+- 保存先在同一事务获取共同根冲突锁、写 PREPARED 意图和审计，再记 WRITING。锁内重新读取完整版本与文件身份，同目录 wx 临时文件写入 / fsync / 保留普通权限位，最终复核 scope / 客户端 / fencing 后 rename。临时名称为 .larness-save-<operationId>，不会把正文存进数据库或事件。
+- 文件落盘后，同一事务提交版本缓存、file.changed 事件与递增 seq、COMPLETED 结果及审计；失败不返回成功。本任务只持久化资源事件，通知 / 补拉 / 事件保留清理在 M2-1b 接线，不能据此认为完整 A2 通知已交付。
+- 状态为 PREPARED → WRITING → COMPLETED / FAILED / RECONCILIATION_REQUIRED。落盘或临时清理结果不确定时保留待对账，阻塞重叠根，不能仅按锁 TTL 开放新写作业。启动在监听前对账：目标等于目标版本则补记结果 / 事件，仍为原版本则标失败；其他内容 / 授权不明保持受阻，绝不自动回写。只清理该持久操作的确定临时文件名且字节哈希匹配的文件，不扫描清理用户源码；部分写入 / 文件不明需要本机核实。
+- root_real_path 加到既有 resource_locks；migration 0005 将既有项目锁从 projects.real_path 回填。同根或祖先包含互斥；独立 workspace 同规则；不重叠根可并发。M1 Turn / 文件保存复用同一锁，写前检查有效 fencing；存在活跃写者时登记重叠根或解除项目关联返回 RESOURCE_LOCKED。
+
+0005_resources 为唯一新增迁移：file_versions、resource_streams、resource_events 与 resource_operations，并增加锁的根字段。resource_operations 在 §7 摘要之外增加 root_real_path、path、expected_version、target_version、lock_id、fencing_token、error_code 用于对账 / fencing；不存正文。mtime 记录 Unix ms。无破坏性迁移，不修改 0001–0004；应用回滚保留表 / 数据，需先确认写操作已结束并清理不确定项，不执行 down migration。

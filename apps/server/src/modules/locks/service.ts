@@ -2,11 +2,13 @@ import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import type { ResourceLockRow, ResourceLockType } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
+import { getProjectById } from "../projects/repository.js";
 import {
   getResourceLockRow,
   insertResourceLockRow,
   releaseResourceLockRow,
   renewResourceLockRow,
+  rootHasWriter,
   updateResourceLockRow,
 } from "./repository.js";
 
@@ -23,6 +25,7 @@ export interface AcquireResourceLockInput {
   owner: string;
   executionId: string;
   ttlMs: number;
+  rootRealPath?: string;
 }
 
 function assertLockInput(input: {
@@ -56,6 +59,11 @@ export function acquireResourceLock(
   const now = options.now?.() ?? Date.now();
 
   return immediateTransaction(options.db, (tx) => {
+    const rootRealPath =
+      input.rootRealPath ??
+      (input.resourceType === "project" ? getProjectById(tx, input.resourceId)?.realPath : null) ??
+      null;
+    if (rootRealPath !== null && rootHasWriter(tx, rootRealPath, now)) return null;
     const existing = getResourceLockRow(tx, input.resourceType, input.resourceId);
 
     if (existing !== null && existing.expiresAt > now) {
@@ -69,6 +77,7 @@ export function acquireResourceLock(
       fencingToken,
       expiresAt: now + input.ttlMs,
       heartbeatAt: now,
+      rootRealPath,
     };
 
     if (existing !== null) {

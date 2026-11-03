@@ -41,7 +41,7 @@ function fromPosix(relative: string): string {
   return relative.split("/").join(path.sep);
 }
 
-function ignored(relativePath: string, name: string, extra: string[]): boolean {
+export function isIgnoredFile(relativePath: string, name: string, extra: string[]): boolean {
   if (DEFAULT_IGNORED.has(name)) {
     return true;
   }
@@ -192,7 +192,7 @@ export async function listFiles(
       const absolute = path.join(dir, entry.name);
       const relativePath = toPosix(path.relative(rootReal, absolute));
 
-      if (ignored(relativePath, entry.name, ignore) || entry.isSymbolicLink()) {
+      if (isIgnoredFile(relativePath, entry.name, ignore) || entry.isSymbolicLink()) {
         continue;
       }
 
@@ -406,7 +406,7 @@ export async function searchCode(
       const absolute = path.join(dir, entry.name);
       const relativePath = toPosix(path.relative(rootReal, absolute));
 
-      if (ignored(relativePath, entry.name, ignore) || entry.isSymbolicLink()) {
+      if (isIgnoredFile(relativePath, entry.name, ignore) || entry.isSymbolicLink()) {
         continue;
       }
 

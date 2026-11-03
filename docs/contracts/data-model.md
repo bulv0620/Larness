@@ -157,7 +157,9 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | 表 | 里程碑 | 关键列 |
 |---|---|---|
 | `terminals` | M2 | `id, project_id?, source_session_id?, cwd, shell, status, created_at, ended_at` |
-| `file_versions` | M2 | `path, project_id, version_hash, size, mtime, updated_at` |
+| `file_versions` | M2-1 已实施 | `scope_key, path, real_path, version_hash, size, mtime, updated_at`；scope + path 唯一，不存正文 |
+| `resource_operations` | M2-1 已实施 | 写意图、幂等结果、规范化根 / 版本、锁 / fencing；字段及状态见 m2-resources §11 |
+| `resource_streams` / `resource_events` | M2-1 已实施 | stream 序号事务递增，事件不含正文；通知 / 补拉属于 M2-1b |
 | `services` | M3 | `id, project_id?, name, kind(temporary/persistent), terminal_id?, terminal_execution_id?, endpoint_generation?, pm2_identity?, config_ref?, desired_state?, observed_state, endpoint_json?, preview_eligible, created_at, updated_at`（kind 约束见服务契约） |
 | `service_logs` | M3 | `service_id, cursor, chunk, created_at`（或落盘 + 索引） |
 | `deployments` | M4 | `id, service_id, commit_sha, artifact_ref, status, plan_json, created_at` |
@@ -215,3 +217,5 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 ## ADR-030 服务与资源生命周期补充（2026-11-02）
 
 [资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与拟议接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。产品规则已接受，M2/M3 技术 schema / 迁移 / 代码尚未实施，既有认证和事件权威性不变。
+
+M2-1（2026-11-03）：0005_resources 已落地四张资源表和 resource_locks.root_real_path，现 schemaVersion=5。字段与恢复 / fencing 语义见 [m2-resources §11](m2-resources.md#11-m2-1-实施契约2026-11-03)；旧 M2 目标摘要以该详细契约为准。

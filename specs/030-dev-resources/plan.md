@@ -1,6 +1,8 @@
 # 实施计划：M2 开发资源与窗口层
 
-> 2026-11-02 G-Spec-M2 / ADR-029 已批准，按最新 spec 一次一个任务；M2-0 证据见 [poc.md](poc.md)，G-PoC-M2 待人类确认。
+> 2026-11-02 G-Spec-M2 / ADR-029 已批准，按最新 spec 一次一个任务；M2-0 证据见 [poc.md](poc.md)，G-PoC-M2 已于 2026-11-03 确认通过。
+
+2026-11-03 人类在阅读 PoC 交付后明确“开始m2-1”，G-PoC-M2 通过，以下按顺序实施。
 
 ## 1. 复用基础与模块边界
 
@@ -94,3 +96,7 @@ Monaco 对每个 viewKey 保留独立 model / 脏状态；完整读取、版本�
 Window close / minimize 只改本地 visibility；TerminalTab close 调 terminate mutation，stopping 禁重复副作用，成功后移除本地 Tab，失败保留并重查。资源终态广播使其他客户端停止输入并显示 ended。Browser / File / Diff Tab close 只结束对应内容（文件处理脏状态）。不能把通用 unmount cleanup 连接到 terminate。
 
 M2-2 / M2-3b 补文件结果 target 卡片，M2-4 / 4b 补精确执行身份 / 退出事件与关闭终止，M2-6 移除 services Tab 数据结构并预留独立卡片窗口 filter / selectedServiceId，旧布局迁移不操作资源。M2-4d 补输入 / 中断 / 人机租约交接，技术草案见 m2-resources §10，工具 schema 按 G-Spec-M2 确认的契约实施。服务注册 / 卡片内容 / 预览在 M3，不在 M2 顺手实现。
+
+## M2-1 落地补充
+
+采用既有 resource_locks.root_real_path 持久根映射、resource_operations 保存写意图 / 版本 / fenced token，不建立第二套锁。事务内校验重叠根及登记 / 移除，M1 Turn 与新文件 API 共用锁；独立 workspace 也纳入。保存临时文件名与 operationId 绑定，正常完成立即清理，启动只对该操作且字节匹配的临时文件进行对账，不扫描删除源码。源码落盘与 DB 分离，结果失败保持不确定状态受阻；恢复只查当前字节，不回写旧稿。精确状态与新增字段见 m2-resources §11。监听 / WS / 编辑器按后续任务接线。

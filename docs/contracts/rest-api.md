@@ -295,9 +295,10 @@
 | GET | `/api/credentials` | 凭据元数据（掩码，不含明文） |
 | POST | `/api/credentials` | 新建凭据，密钥只写不读 |
 | DELETE | `/api/credentials/:id` | 删除未被模型引用的凭据 |
-| GET | `/api/projects/:id/files` | 文件树（M2） |
-| GET | `/api/files?path=&version=` | 读取文件（M2） |
-| PUT | `/api/files` | `{ path, content, expectedVersion }`（M2） |
+| GET | `/api/projects/:id/files` | M2-1：目录懒加载，`path / limit / cursor`；分页快照失效返回 CONFLICT |
+| GET | `/api/sessions/:id/files` | M2-1：仅真实独立会话 workspace；参数同项目目录 |
+| GET | `/api/files?projectId=&path=&version=` | M2-1：projectId / sessionId 二选一；完整 UTF-8 / 原字节 SHA-256 |
+| PUT | `/api/files` | M2-1：`{ scope, path, content, expectedVersion }`，scope 为 `{ projectId }` 或 `{ sessionId }`；可选 Idempotency-Key |
 
 `Project` 响应字段：
 
@@ -440,7 +441,7 @@ Turn 创建成功返回 `202`：
 | 项 | 限制 |
 |---|---|
 | JSON 请求体 | 1 MiB（文件上传单独限制） |
-| 文件读取 | 单次 ≤ 2 MiB；更大走分块 / 只读预览 |
+| M2 可编辑文件 | 完整 UTF-8 ≤ 512 KiB；超限 413，无分块编辑；M1 工具按原工具上限执行 |
 | 命令输出 | 单次 ≤ 1 MiB，超出截断并附 `truncated: true` |
 | 事件拉取 | `limit` ≤ 500 |
 | WS 消息 | 单条 ≤ 512 KiB |
@@ -458,3 +459,5 @@ Turn 创建成功返回 `202`：
 ## ADR-030 服务与资源生命周期补充（2026-11-02）
 
 [资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与拟议接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。产品规则已接受，M2/M3 技术 schema / 迁移 / 代码尚未实施，既有认证和事件权威性不变。
+
+M2-1（2026-11-03）：文件与目录接口已落地；精确 scope、幂等、错误、锁与恢复语义见 [m2-resources §11](m2-resources.md#11-m2-1-实施契约2026-11-03)。本文件早期 M2 草案描述不代表后续 PTY / Git 接口已实现。

@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-03 (+08:00)
-> 当前阶段：**M2 已启动，M2-0 PoC 实验完成待 review；G-Spec-M2 / ADR-029 已批准，G-PoC-M2 待人类确认**
+> 当前阶段：**M2-0 / G-PoC-M2 已验收；M2-1 后端底座已实现，待安全 / 契约 review**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 已批准；M2-0 review，待 G-PoC-M2 |
+| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-1 review |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- 当前任务：M2-0 `review`，分支 `task/m2-0-native-resource-poc`，2026-11-02（+08:00）开始；先红测试、再实现，实验与回归已完成。Q-028 经人类“按最新spec来”确认已解决，G-Spec-M2 / ADR-029 通过。详见 [PoC 记录](specs/030-dev-resources/poc.md)。
+- 当前任务：M2-1 `review`，分支 `task/m2-1-file-manager`，2026-11-03（+08:00）开始并完成实现；自动化、构建与生产浏览器回归通过，见 [验收记录](specs/030-dev-resources/acceptance.md)。
 
 - M2-P（仅文档）已完成起草：2026-11-02（+08:00），分支 `task/m2-spec-draft`。按人类“起草一下 m2 阶段”补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；check（server 297 / agent 32 / web 26）及文档链接 / 依赖检查通过；不启动功能实现、不安装依赖、不修改运行数据。
 
@@ -70,9 +70,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：人类确认 G-PoC-M2 后，才将 M2-0 标 done 并开始 M2-1；后续任务均 todo。
+- 下一步：M2-1 review 后进入 M2-1b 文件监听与资源事件补拉；本次未启动后续任务。
 - 阻塞项：无。
-- 待确认：G-PoC-M2，含原生安装补丁、实测支持范围、外部文件竞争及进程身份 / 清理边界，见 [poc.md](specs/030-dev-resources/poc.md)。
+- 待 review：M2-1 文件 / 根冲突锁 / 写意图与恢复 / 迁移契约；无新增设计阻塞，已知外部竞态边界保持不变。
 
 ## 已冻结
 
@@ -197,3 +197,15 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - M2-0 `review`，G-PoC-M2 待人类确认；不启动 M2-1。PoC 为原型，不宣称终端产品接线、任意脱组清理、外部原子 CAS 或 PID 复用强身份已完成。
 
 2026-11-03（+08:00）完成 M2-0 文档、差异与清理收尾；G-PoC-M2 仍待人类确认具体报告。
+
+## M2-1 启动（2026-11-03 +08:00）
+
+- 人类明确“开始m2-1”，G-PoC-M2 确认通过、M2-0 done。M2-1 in_progress，分支 `task/m2-1-file-manager`。
+- 计划：先红测试；完整 UTF-8 文件 / 目录 API、版本 / 路径 / 文件身份保护、共同根冲突锁、持久写意图 / 幂等 / 恢复、四张资源表及共享 DTO。监听 / WS 补拉属 M2-1b，编辑器 UI 属 M2-2，本任务不扩展。
+
+### M2-1 交付（2026-11-03）
+
+- 完整文本与懒加载目录 API、UTF-8 / 大小 / 版本 / fd 身份、同目录替换与暂存清理；共同根冲突锁接 M1 Turn / 文件保存，独立 workspace 同步保护；活跃写时项目登记 / 移除拒绝。
+- 0005_resources 新增四张资源表和锁根字段；写意图 / 幂等 / 结果与事件 seq 事务、失败阻塞与启动只读对账，升级保留既有项目 / 锁 / fencing。无正文进入 DB / 事件 / 审计，已知凭据与运行数据读取拒绝。
+- 验证：check（server 316 / agent 32 / web 26，live 1 项按环境跳过）、build、临时端口生产浏览器回归 2/2；真实临时文件 / SQLite / 两次配对证据见 acceptance.md。无 UI / 监听 / WS 补拉交付，未修改运行数据。
+- 状态 review；后续 M2-1b / M2-2 保持 todo。

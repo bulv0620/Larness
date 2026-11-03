@@ -258,14 +258,11 @@ export class TurnRunner {
     };
 
     const acquireProjectLock = (): boolean => {
-      if (session.projectId === null) {
-        return true;
-      }
-
       if (projectLock === null) {
         projectLock = new ProjectWriteLock({
           db: this.#options.db,
-          projectId: session.projectId,
+          projectId: session.projectId ?? `workspace:${session.id}`,
+          rootRealPath: projectRoot,
           owner: session.id,
           executionId: turn.id,
           ttlMs: this.#options.lockTtlMs,

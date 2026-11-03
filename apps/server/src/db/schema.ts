@@ -141,6 +141,7 @@ export const resourceLocks = sqliteTable(
     id: text("id").primaryKey(),
     resourceType: text("resource_type").$type<ResourceLockType>().notNull(),
     resourceId: text("resource_id").notNull(),
+    rootRealPath: text("root_real_path"),
     owner: text("owner").notNull(),
     executionId: text("execution_id").notNull(),
     fencingToken: integer("fencing_token").notNull(),
@@ -320,6 +321,74 @@ export type TurnRow = typeof turns.$inferSelect;
 export type AgentEventRow = typeof agentEvents.$inferSelect;
 export type ApprovalRow = typeof approvals.$inferSelect;
 export type ResourceLockRow = typeof resourceLocks.$inferSelect;
+export const fileVersions = sqliteTable(
+  "file_versions",
+  {
+    scopeKey: text("scope_key").notNull(),
+    path: text("path").notNull(),
+    realPath: text("real_path").notNull(),
+    versionHash: text("version_hash").notNull(),
+    size: integer("size").notNull(),
+    mtime: integer("mtime").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [uniqueIndex("file_versions_scope_path").on(table.scopeKey, table.path)],
+);
+export const resourceStreams = sqliteTable("resource_streams", {
+  streamId: text("stream_id").primaryKey(),
+  lastSeq: integer("last_seq").notNull().default(0),
+});
+export const resourceEvents = sqliteTable(
+  "resource_events",
+  {
+    id: text("id").primaryKey(),
+    streamId: text("stream_id")
+      .notNull()
+      .references(() => resourceStreams.streamId),
+    seq: integer("seq").notNull(),
+    type: text("type").notNull(),
+    payloadJson: text("payload_json").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("resource_events_stream_seq").on(table.streamId, table.seq)],
+);
+export type ResourceOperationStatus =
+  | "PREPARED"
+  | "WRITING"
+  | "COMPLETED"
+  | "FAILED"
+  | "RECONCILIATION_REQUIRED";
+export const resourceOperations = sqliteTable(
+  "resource_operations",
+  {
+    id: text("id").primaryKey(),
+    scopeKey: text("scope_key").notNull(),
+    rootRealPath: text("root_real_path").notNull(),
+    kind: text("kind").notNull(),
+    status: text("status").$type<ResourceOperationStatus>().notNull(),
+    paramsHash: text("params_hash").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    clientSessionId: text("client_session_id").notNull(),
+    path: text("path").notNull(),
+    expectedVersion: text("expected_version").notNull(),
+    targetVersion: text("target_version").notNull(),
+    lockId: text("lock_id").notNull(),
+    fencingToken: integer("fencing_token").notNull(),
+    resultJson: text("result_json"),
+    errorCode: text("error_code"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("resource_operations_client_kind_key").on(
+      table.clientSessionId,
+      table.kind,
+      table.idempotencyKey,
+    ),
+    index("resource_operations_status").on(table.status),
+  ],
+);
+export type ResourceOperationRow = typeof resourceOperations.$inferSelect;
 export type AppMetaRow = typeof appMeta.$inferSelect;
 export type AuthSettingsRow = typeof authSettings.$inferSelect;
 export type DeviceRequestRow = typeof deviceRequests.$inferSelect;

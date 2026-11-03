@@ -1,14 +1,14 @@
 # 任务：M2 开发资源与窗口层
 
-> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 实验已执行，待 G-PoC-M2 人类确认后才允许 M2-1。一次一个任务、一任务一提交，先红测试再实现。
+> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；当前仅 M2-1。一次一个任务、一任务一提交，先红测试再实现。
 
 ## 状态总表
 
 | ID | 任务 | 依赖 | 预估 | 状态 |
 |---|---|---|---|---|
 | M2-P | 本次评审草案（仅文档） | 人类起草指令 | — | `done`（文档完成，不代表 G-Spec 通过） |
-| M2-0 | 执行与原生资源 PoC | G-Spec-M2 / ADR-029；G1 / 015 / 016 / 017 done | 1–2 | `review` |
-| M2-1 | FileManager 与资源持久化底座 | M2-0 done；G-PoC-M2 | 2 | `todo` |
+| M2-0 | 执行与原生资源 PoC | G-Spec-M2 / ADR-029；G1 / 015 / 016 / 017 done | 1–2 | `done` |
+| M2-1 | FileManager 与资源持久化底座 | M2-0 done；G-PoC-M2 | 2 | `review` |
 | M2-1b | 文件监听与资源事件补拉 | M2-1 | 1–2 | `todo` |
 | M2-2 | Monaco 编辑与冲突恢复 | M2-1b | 1–2 | `todo` |
 | M2-3 | CommandRunner 与受管进程协调 | M2-2 | 2 | `todo` |
@@ -23,13 +23,13 @@
 | M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
 | M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
 
-保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；当前仅 M2-0，后续保持 todo。
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；当前仅 M2-1，后续保持 todo。
 
 ## 任务卡
 
 ### M2-0 执行与原生资源 PoC
 
-- 状态：`review`
+- 状态：`done`
 - 依赖：G-Spec-M2 / ADR-029；G1 / 015 / 016 / 017 done；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：1–2 天；明显超出则先拆分，不绕过门禁。
 - [x] 先写失败测试并确认失败原因：真实系统资源、故障注入与进程残留检查；记录 Node / OS / 架构，失败不换依赖不缩减验收。
@@ -38,20 +38,22 @@
 - [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
 - [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 实际路径：apps/server/scripts/m2-poc/、run-m2-poc.ts、test/resources/m2-poc.test.ts、原生依赖 / pnpm 补丁、文档；未改生产入口。
-- [ ] 人类确认 G-PoC-M2 后将本任务改为 done；证据与限制见 [poc.md](poc.md)。
+- [x] 2026-11-03 人类要求开始 M2-1，G-PoC-M2 确认通过，将本任务改为 done；证据与限制见 [poc.md](poc.md)。
 - 本任务无 UI / 产品接口 / 数据迁移；上述 A4/A7/A17/A18/A23 仅完成 PoC 范围证据，产品接线与最终验收归后续任务。
 
 ### M2-1 FileManager 与资源持久化底座
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：M2-0 done；G-PoC-M2；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：2 天；明显超出则先拆分，不绕过门禁。
-- [ ] 先写失败测试并确认失败原因：完整换行、版本冲突、路径替换、二进制 / 超限、DB / 文件写故障、空库与升级库。
-- [ ] 交付：授权 scope 文件树 / 完整读写；保存锁 / 写意图 / 幂等；file_versions、resource_operations、resource_streams、resource_events 一份迁移；共享 DTO / 错误码。
-- [ ] 验收：A1–A5/A16/A20/A21；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
-- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
-- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- [x] 先写失败测试并确认失败原因：完整换行、版本冲突、路径替换、二进制 / 超限、DB / 文件写故障、空库与升级库。
+- [x] 交付：授权 scope 文件树 / 完整读写；保存锁 / 写意图 / 幂等；file_versions、resource_operations、resource_streams、resource_events 一份迁移；共享 DTO / 错误码。
+- [x] 验收：A1–A5/A16/A20/A21；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：packages/resources/src/files/；apps/server/src/api/；modules/files / resources；db/；packages/shared/。
+
+- 自动化 / 构建 / 生产回归通过；安全与契约变更进入 review，见 [acceptance.md](acceptance.md)。M2-1b 保持 todo。
 
 ### M2-1b 文件监听与资源事件补拉
 

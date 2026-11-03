@@ -1,6 +1,31 @@
+import { isInsideRoot } from "@larness/resources";
 import { and, eq, gt } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
-import { type ResourceLockRow, type ResourceLockType, resourceLocks } from "../../db/schema.js";
+import {
+  type ResourceLockRow,
+  type ResourceLockType,
+  resourceLocks,
+  turns,
+} from "../../db/schema.js";
+import { pendingOperations } from "../resources/repository.js";
+
+export function rootHasWriter(db: DbExecutor, root: string, now: number): boolean {
+  const overlaps = (other: string) => isInsideRoot(root, other) || isInsideRoot(other, root);
+  if (pendingOperations(db).some((operation) => overlaps(operation.rootRealPath))) return true;
+  return db
+    .select()
+    .from(resourceLocks)
+    .all()
+    .some((lock) => {
+      if (lock.rootRealPath === null || !overlaps(lock.rootRealPath)) return false;
+      if (lock.expiresAt > now) return true;
+      const turn = db.select().from(turns).where(eq(turns.id, lock.executionId)).get();
+      return (
+        turn !== undefined &&
+        ["QUEUED", "PREPARING", "RUNNING", "WAITING_APPROVAL", "CANCELLING"].includes(turn.status)
+      );
+    });
+}
 
 export function getResourceLockRow(
   db: DbExecutor,
@@ -32,6 +57,7 @@ export function updateResourceLockRow(
     fencingToken: number;
     expiresAt: number;
     heartbeatAt: number;
+    rootRealPath?: string | null;
   },
 ): ResourceLockRow | null {
   db.update(resourceLocks).set(input).where(eq(resourceLocks.id, id)).run();

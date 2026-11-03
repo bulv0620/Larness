@@ -2,16 +2,16 @@
 id: 030-dev-resources
 title: M2 开发资源与窗口层
 milestone: M2
-status: ready
+status: active
 depends_on: [020-workspace-agent, 015-initialization-hardening, 016-tui-experience, 017-unified-entry]
 owners: [human]
 created: 2026-10-31
-updated: 2026-11-02
+updated: 2026-11-03
 ---
 
 # M2 开发资源与窗口层
 
-> 2026-11-02 人类要求开始 M2，并明确“按最新spec来”；G-Spec-M2 / ADR-029 已批准。先做 M2-0，G-PoC-M2 人类确认前不得进入 M2-1。配套：[plan](plan.md)、[tasks](tasks.md)、[review](review.md)、[资源契约](../../docs/contracts/m2-resources.md)、[ADR-029](../../docs/adr/ADR-029-development-resource-execution.md)、[PoC 记录](poc.md)。
+> 2026-11-02 人类要求开始 M2，并明确“按最新spec来”；G-Spec-M2 / ADR-029 已批准。2026-11-03 人类明确开始 M2-1，G-PoC-M2 通过；当前仅实现 M2-1。配套：[plan](plan.md)、[tasks](tasks.md)、[review](review.md)、[资源契约](../../docs/contracts/m2-resources.md)、[ADR-029](../../docs/adr/ADR-029-development-resource-execution.md)、[PoC 记录](poc.md)。
 
 ## 1. 背景与用户目标
 

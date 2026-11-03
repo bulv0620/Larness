@@ -23,6 +23,7 @@ export interface ProjectWriteLockOptions {
   executionId: string;
   ttlMs?: number;
   now?: () => number;
+  rootRealPath?: string;
 }
 
 const DEFAULT_TTL_MS = 30_000;
@@ -35,6 +36,7 @@ export class ProjectWriteLock {
   readonly #ttlMs: number;
   readonly #now: (() => number) | undefined;
   #handle: ResourceLockHandle | null = null;
+  readonly #rootRealPath: string | undefined;
 
   constructor(options: ProjectWriteLockOptions) {
     this.#db = options.db;
@@ -43,6 +45,7 @@ export class ProjectWriteLock {
     this.#executionId = options.executionId;
     this.#ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
     this.#now = options.now;
+    this.#rootRealPath = options.rootRealPath;
   }
 
   get handle(): ResourceLockHandle | null {
@@ -62,6 +65,7 @@ export class ProjectWriteLock {
         owner: this.#owner,
         executionId: this.#executionId,
         ttlMs: this.#ttlMs,
+        rootRealPath: this.#rootRealPath,
       },
     );
 
@@ -123,6 +127,7 @@ export class ProjectWriteLock {
   }
 
   #isCurrent(handle: ResourceLockHandle): boolean {
-    return this.current()?.id === handle.id;
+    const current = this.current();
+    return current?.id === handle.id && current.fencingToken === handle.fencingToken;
   }
 }

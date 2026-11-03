@@ -63,7 +63,13 @@ export function registerErrorHandler(app: FastifyInstance): void {
     if (clientStatus !== null) {
       reply
         .code(clientStatus)
-        .send(errorBody(ERROR_CODES.validation, "Invalid request", request.id));
+        .send(
+          errorBody(
+            clientStatus === 413 ? ERROR_CODES.payloadTooLarge : ERROR_CODES.validation,
+            "Invalid request",
+            request.id,
+          ),
+        );
       return;
     }
 
