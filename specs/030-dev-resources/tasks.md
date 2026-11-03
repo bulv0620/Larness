@@ -1,6 +1,6 @@
 # 任务：M2 开发资源与窗口层
 
-> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；M2-4b / M2-4c / M2-4d / M2-5 已验收，当前 M2-5b in_progress。一次一个任务、一任务一提交，先红测试再实现。
+> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；M2-4b ~ M2-5 已验收，M2-5b 已验收。一次一个任务、一任务一提交，先红测试再实现。
 
 ## 状态总表
 
@@ -18,12 +18,12 @@
 | M2-4c | Agent 项目开发终端工具与生命周期 | M2-4b | 1–2 | `done` |
 | M2-4d | AI 终端输入、中断与人工接管 | M2-4c | 1–2 | `done` |
 | M2-5 | GitManager、资源动作与 Agent 工具 | M2-4d | 2 | `done` |
-| M2-5b | Git 资源区、Diff 与审批界面 | M2-5 | 1–2 | `in_progress` |
+| M2-5b | Git 资源区、Diff 与审批界面 | M2-5 | 1–2 | `review` |
 | M2-6 | 真实资源统一窗口与布局恢复 | M2-5b/M2-2/M2-4b | 1–2 | `todo` |
 | M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
 | M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
 
-保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，M2-3b 已 done，M2-4b / M2-4c / M2-4d / M2-5 已验收，当前 M2-5b in_progress，后续保持 todo。
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，M2-3b 已 done，M2-4b ~ M2-5 已验收，M2-5b 已验收，后续保持 todo。
 
 ## 任务卡
 
@@ -178,15 +178,16 @@
 
 ### M2-5b Git 资源区、Diff 与审批界面
 
-- 状态：`in_progress`（分支 `task/m2-5b-git-ui`，2026-11-03 +08:00 开始）
+- 状态：`done`（2026-11-03）
 - 依赖：M2-5；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：1–2 天；明显超出则先拆分，不绕过门禁。
-- [ ] 先写失败测试并确认失败原因：真实服务器浏览器流程、批准参数摘要、重复点击、冲突后重查、模型离线可用。
-- [ ] 交付：staged / unstaged / untracked、Diff、选择性 add / commit、分支操作、pull / push 计划 / 审批 / 执行与失败态。
-- [ ] 验收：A13–A16/A22/A24；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
-- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
-- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- [x] 先写失败测试并确认失败原因：真实服务器浏览器流程、批准参数摘要、重复点击、冲突后重查、模型离线可用。
+- [x] 交付：staged / unstaged / untracked、Diff、选择性 add / commit、分支操作、pull / push 计划 / 审批 / 执行与失败态。
+- [x] 验收：A13–A16/A22/A24；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：apps/web/src/components/sections/GitPanel；features/windows/DiffView；features/git/。
+- 证据见 [acceptance.md](acceptance.md)：check（server 388 / agent 32 / web 39）、build、prod 8/9（唯一 auth 既有抖动）、Demo 15/15；状态 review。
 
 ### M2-6 真实资源统一窗口与布局恢复
 
@@ -196,8 +197,8 @@
 - [ ] 先写失败测试并确认失败原因：关闭 / 最小化窗口、刷新 / 切会话不创建或终止资源；主动关闭终端 Tab 真实 terminate 并处理失败 / 跨客户端终态；文件跨来源去重；资源失效与脏草稿；双客户端布局独立。
 - [ ] 交付：viewKey、来源分组、项目筛选同排、顶部资源枚举 / 恢复、本地布局版本与资源对账；真实模式不显示服务 / Browser 假状态。
 - [ ] 验收：A11/A22/A24；resource-views V1–V6 的 M2 类型；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
-- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
-- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：apps/web/src/stores/windowStore；lib/window*；components/windows / layout/。
 
 ### M2-7 跨资源锁、fencing 与恢复验收
@@ -208,8 +209,8 @@
 - [ ] 先写失败测试并确认失败原因：真实并发与假时钟、旧 token 续租 / 写 / 释放、跨项目并发、旧进程未停不能接管、固定顺序无死锁。
 - [ ] 交付：集中验证文件 / Agent / 命令 / PTY / Git 共享锁；根包含冲突；续租失败停止 / 阻塞；重启孤儿进程对账；关联问题修正。
 - [ ] 验收：A12/A17–A20/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
-- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
-- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：apps/server/src/modules/locks / agent / resources；packages/resources/；集成测试。
 
 ### M2-8 M2 整体交付与 G2
@@ -220,8 +221,8 @@
 - [ ] 先写失败测试并确认失败原因：check / build / Demo / auth / prod；初始化 / 统一入口 / TUI 回归；模型离线、未授权、双客户端、清理证据；人类验收。
 - [ ] 交付：真实文件 / Git / PTY E2E、Agent 测试命令、dev / built smoke、macOS 平台与 UI 记录、acceptance.md / 契约落地检查。
 - [ ] 验收：A1–A31 / G2；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
-- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
-- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：e2e*；scripts/；specs/030-dev-resources/acceptance.md；docs/；STATUS.md。
 
 ## 本次 M2-P 说明

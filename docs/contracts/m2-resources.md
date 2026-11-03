@@ -404,3 +404,13 @@ Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical
 
 - 真实测试覆盖临时仓库 / 本地 bare remote、特殊文件名、只暂存显式路径、commit 只含已暂存、status / diff / log / branches、外部 diff 不执行、L2 审批 / 单次消费 / 过期 / 快照变化、ff-only pull、非快进 / 脏工作区 / 无 upstream、锁冲突 / 重试、Git 不可用与 API 鉴权 / CSRF。
 - 仅实测 macOS arm64 / Node 20.19.3；不宣称 OS 沙箱、Git hooks / filters 安全、跨平台路径或远端状态强一致。新增 0008_resource_actions 迁移在空库与 v7→v8 升级保留项目 / 锁 / stream 数据；回退保留新表与用户数据，不做破坏性 down migration。
+
+## 21. M2-5b Git 资源区、Diff 与审批界面（2026-11-03）
+
+真实模式 Git 区直接使用 M2-5 REST，不经模型：状态每 3s 查询，展示 branch / upstream / ahead / behind、staged / unstaged / untracked / conflicts；只有未暂存 / 未跟踪项带选择框，add 只提交显式选中路径，commit 只提交已暂存内容。分支下拉来自本地 branches，创建 / 切换到干净分支为 L1 直接执行；脏工作区错误显示并刷新，不自动 stash / merge / reset。
+
+Diff Tab 使用 `kind=git-diff` 与 `{ path, staged }`，按 projectId + path 复用（staged / worktree 视图共享同一文件身份），只读展示统一 Diff；二进制 / 超 1 MiB 明确提示，不写文件。窗口关闭只隐藏，不停止 Git / 终端资源；布局不保存 Diff 正文。
+
+pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / 到期、批准 / 拒绝、批准后“执行一次”；重复点击禁用，执行后重新读取状态。L2 动作未批准不能执行；失败 / 过期 / 快照变化保留可恢复错误，不自动重试远端副作用。模型离线时整个 Git 区仍可用。
+
+真实模式不显示服务 / Browser 假资源；顶部仅保留文件 / 终端入口，Git 从右栏进入。无新 REST / 迁移 / 配置；git WS 失效事件仍未接线，当前依赖查询轮询，M2-6 统一资源失效时补。测试覆盖真实服务器浏览器流程、组件级选择 / 暂存 / 提交 / 审批，以及既有 auth / terminal / file 回归；平台仅 macOS Chromium。

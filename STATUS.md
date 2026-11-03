@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-03 (+08:00)
-> 当前阶段：**M2-5 已验收；M2-5b Git 资源区与审批界面进行中**
+> 当前阶段：**M2-5b Git 资源区与审批界面已实现，待 review**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | M2-5 done / M2-5b 进行中；最终 G2 |
+| M2 | 开发资源与窗口层 | `in_progress` | M2-5b done / M2-6 进行中；最终 G2 |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- 当前任务：M2-5b `in_progress`，分支 `task/m2-5b-git-ui`，2026-11-03（+08:00）开始。先红测试，再接 Git 资源区 / Diff / 选择暂存与提交 / 分支 / pull / push 审批与失败恢复；M2-6 未启动。
+- 当前任务：M2-5b `done`，分支 `task/m2-5b-git-ui`。Git 资源区 / Diff / 选择性暂存与提交 / 分支 / pull / push 审批已交付；M2-6 未启动。
 - M2-5 已验收：2026-11-03 人类“通过并继续”，Git 管理 / 资源动作 / Agent 工具交付完成并标 done。
 - M2-4d 已验收：2026-11-03 人类确认并继续；AI 终端控制 / 人工接管交付完成并标 done。
 - M2-4c 已验收：2026-11-03 人类确认并继续；启动 / 有界读取 / 显式停止、L2 审批与来源 Tab 交付完成并标 done。
@@ -74,9 +74,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：完成 M2-5b 后按顺序进入 M2-6。
+- 下一步：完成 M2-6 后进入 M2-7。
 - 阻塞项：无。
-- 待 review：无；M2-5 已验收，M2-5b 实施中。
+- 待 review：无；M2-5b 已验收，M2-6 实施中。
 
 ## 已冻结
 
@@ -106,7 +106,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 | 日期 | 变更 |
 |---|---|
 | 2026-11-03 | M2-4b 验收通过（人类要求开始 M2-4c）；补跑 check / build / prod 6/6 / Demo 15/15，记录 workspace-write 沙箱 `/bin/ps` 限制 |
-| 2026-11-03 | M2-5 验收通过（人类“通过并继续”）；启动 M2-5b：Git 资源区、Diff 与审批界面 |
+| 2026-11-03 | 完成 M2-5b：Git 资源区、Diff、选择性暂存 / 提交、分支与 pull / push 审批界面；check / build / Demo 通过，状态 review |
 | 2026-11-02 | M2-P：补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；同步路线图与 Q-021～Q-025。仅文档，M2 仍 draft，待 G-Spec-M2 / G-PoC-M2 |
 | 2026-10-31 | 初始化 spec 工程：宪法、Agent 手册、架构/契约、路线图、S0–M1 详细 spec、M2–M5 草案 |
 | 2026-10-31 | 改用 Passkey / WebAuthn 作为 V1 可信凭据（ADR-021）；移除长期设备 Token / refresh；M0 拆为 9 个任务 |
@@ -365,3 +365,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - 人类确认 M2-5 并继续；M2-5 done。分支 `task/m2-5b-git-ui`，当前 in_progress。
 - 目标：Git 资源区（真实 status / staged / unstaged / untracked）、Diff、选择性 add / commit、分支列表与操作、pull / push 计划 / 审批 / 执行 / 失败态；模型离线可用。
+
+### M2-5b 交付（2026-11-03）
+
+- 真实 GitPanel 接 M2-5 API：状态轮询、staged / unstaged / untracked / conflicts、显式路径暂存、仅暂存内容提交、分支创建 / 切换、L2 pull / push 审批 / 拒绝 / 执行一次；错误重查，不自动 stash / merge / reset。
+- Diff 窗口只读展示统一 Diff；真实模式不显示服务 / Browser 假入口；组件测试 + 真实 Chromium 仓库流程通过，截图 `larness-m2-5b-git.png`。
+- 修复 branches/log 路由未 await 导致服务端 unhandled rejection；最终 check（server 388 / agent 32 / web 39）、build、prod 8/9（唯一 auth 既有抖动）、Demo 15/15。无新依赖 / 迁移 / 配置；git WS 事件仍待 M2-6 统一资源失效。

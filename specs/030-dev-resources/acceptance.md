@@ -284,3 +284,24 @@
 仅实测 macOS arm64 / Node 20.19.3；无新依赖 / 配置 / 认证协议，唯一迁移为 0008_resource_actions。Git hooks / filters 仍可能执行主机代码，不宣称 `shell:false` 是沙箱；不提供 reset / clean / force / 删除分支 / rebase / merge / 远端管理。远端认证依赖主机既有配置，不提供网页密码；Git 不可用返回 GIT_UNAVAILABLE，不伪装本地降级。
 
 2026-11-03 人类“通过并继续”，M2-5 验收通过并标 done；M2-5b 未启动。
+
+## M2-5b Git 资源区、Diff 与审批界面（2026-11-03）
+
+分支 `task/m2-5b-git-ui`。人类确认 M2-5 后继续；真实 Git 资源区、Diff、选择性暂存 / 提交、分支、pull / push 审批面板上线，模型离线可用。
+
+### 实现与失败证据
+
+- 真实 GitPanel 接 M2-5 API：3s 状态刷新、branch / ahead / behind、staged / unstaged / untracked / conflicts、显式路径 add、仅暂存内容 commit、分支创建 / 切换、L2 pull / push 审批 / 拒绝 / 执行一次；错误后重查，不自动 stash / merge / reset。
+- Diff 窗口按项目 + 路径只读展示统一 Diff；二进制 / 超限明确提示，不写文件。真实模式不再显示服务 / Browser 假入口，顶部只保留文件 / 终端。
+- 首次 E2E 打开 `a.txt` 命中了文件树而非 Git 区，已用 `data-testid=git-panel` 限定；另发现 Git branches/log 路由返回未 await 的 Promise 导致服务端 unhandled rejection，已改为 `await`。未放宽断言。
+- 组件测试覆盖真实 status、选择 / 暂存 / 提交、L2 审批 / 执行；真实 Chromium 覆盖 diff、暂存、提交、创建 / 切换分支、push 审批与远端 ref 更新。
+
+### 自动化范围
+
+- `apps/web/src/features/git/gitPanel.test.tsx` 2 项：状态 / 选择 / 暂存 / 提交请求；pull/push 计划 → 批准 → 执行一次，重复执行受状态限制。
+- `e2e-auth/git.spec.ts`：真实临时仓库 / bare remote、项目 / 会话、Git 区 status、Diff、暂存、提交、分支创建 / 切换、push 审批、远端 ref 校验；截图 `larness-m2-5b-git.png` 已目视检查。
+- 最终 `pnpm check`：server 388 / agent 32 / web 39；`pnpm build` 通过；生产 E2E 8/9，唯一失败为既有 auth 撤销 `/pair` 抖动（auth 单独通过，Git / 终端 / 文件 / M1 全通过）；Demo 15/15。
+
+### 边界
+
+仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新依赖 / 迁移 / 配置 / 认证协议。git WS 失效事件尚未接线，Git 区依赖查询轮询；Git hooks / filters 仍是主机代码，不宣称沙箱。M2-6 未启动。

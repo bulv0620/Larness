@@ -21,6 +21,7 @@ interface OpenInput {
   sessionId?: string | null;
   source?: OpenSource;
   file?: WindowTab["file"];
+  git?: WindowTab["git"];
   /** Agent-created resources are inserted without taking focus unless explicitly opened. */
   activate?: boolean;
 }
@@ -84,6 +85,7 @@ export const useWindowStore = create<WindowState>()(
         sessionId = null,
         source = "header",
         file,
+        git,
         activate = true,
       }) => {
         const state = get();
@@ -151,6 +153,7 @@ export const useWindowStore = create<WindowState>()(
           sourceSessionId: sessionId,
           originType: originFor(source),
           ...(file ? { file } : {}),
+          ...(git ? { git } : {}),
         };
 
         const sameKind = state.windows.find((win) => win.tabs.some((item) => item.kind === kind));

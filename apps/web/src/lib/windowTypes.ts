@@ -17,6 +17,7 @@ export interface WindowTab {
   sourceSessionId: string | null;
   originType: TabOrigin;
   file?: { scope: FileScope; path: string };
+  git?: { path: string; staged: boolean };
 }
 
 export interface Rect {

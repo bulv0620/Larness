@@ -147,3 +147,7 @@ CommandManager 以真实 session / Turn / 活动客户端上下文执行，scope
 ## M2-5 实施记录（2026-11-03）
 
 Git 执行集中到 packages/resources/src/git：execFile 无 Shell、环境过滤、读操作禁 external diff / textconv，结构化 porcelain v2 / log / branches 与路径 / 分支校验。人工动作使用 0008_resource_actions，L1 PREPARED / L2 WAITING_APPROVAL，5 分钟、批准单次消费，执行前快照重验并在项目写锁后再次核对。resource_operations 关联记录创建为 COMPLETED、执行 WRITING，避免未执行意图占住共同根屏障。Agent 10 个 Git 工具按 L0 / L1 / L2 经既有 Turn 审批复用同一 Manager，锁 executionId 含 turn + toolCall。Git 资源区 / Diff / 审批 UI 与 git WS 事件留 M2-5b；契约见 m2-resources §20，证据见 acceptance.md。
+
+## M2-5b 实施记录（2026-11-03）
+
+GitPanel 真实模式直接查询 M2-5 REST：状态 3s 轮询、显式路径选择 / add、仅暂存 commit、分支创建 / 切换、L2 pull / push 面板内批准 / 拒绝 / 执行一次。Diff 使用 git-diff Tab + `{path,staged}`，按项目 + 路径复用；二进制 / 超限只读提示。修复 branches/log 路由未 await 的 unhandled rejection。真实模式隐藏服务 / Browser 假入口；git WS 事件留给 M2-6 统一资源失效。契约见 m2-resources §21，证据见 acceptance.md。

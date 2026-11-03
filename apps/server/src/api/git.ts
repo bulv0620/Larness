@@ -77,17 +77,19 @@ export function registerGitRoutes(app: FastifyInstance, deps: AppServices, git: 
     }),
   );
   app.get("/api/projects/:id/git/log", (request) =>
-    run(request, () => {
+    run(request, async () => {
       const parsed = GitLogQuerySchema.safeParse(request.query);
       if (!parsed.success) throw new HttpError("VALIDATION_ERROR", "Invalid Git log query");
-      return { items: git.log(projectId(request), parsed.data.limit, parsed.data.cursor) };
+      return { items: await git.log(projectId(request), parsed.data.limit, parsed.data.cursor) };
     }),
   );
   app.get("/api/projects/:id/git/branches", (request) =>
-    run(request, () => {
+    run(request, async () => {
       const parsed = GitBranchesQuerySchema.safeParse(request.query);
       if (!parsed.success) throw new HttpError("VALIDATION_ERROR", "Invalid Git branch query");
-      return { items: git.branches(projectId(request), parsed.data.limit, parsed.data.cursor) };
+      return {
+        items: await git.branches(projectId(request), parsed.data.limit, parsed.data.cursor),
+      };
     }),
   );
   app.post("/api/projects/:id/git/actions", async (request, reply) => {
