@@ -1,6 +1,6 @@
 # 任务：M2 开发资源与窗口层
 
-> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；M2-4b / M2-4c 已验收，M2-4d 已实现待 review。一次一个任务、一任务一提交，先红测试再实现。
+> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；M2-4b / M2-4c / M2-4d 已验收，当前 M2-5 in_progress。一次一个任务、一任务一提交，先红测试再实现。
 
 ## 状态总表
 
@@ -16,14 +16,14 @@
 | M2-4 | TerminalManager 与输入租约后端 | M2-3b | 2 | `done` |
 | M2-4b | xterm 交互与双客户端接管 | M2-4 | 1–2 | `done` |
 | M2-4c | Agent 项目开发终端工具与生命周期 | M2-4b | 1–2 | `done` |
-| M2-4d | AI 终端输入、中断与人工接管 | M2-4c | 1–2 | `review` |
-| M2-5 | GitManager、资源动作与 Agent 工具 | M2-4d | 2 | `todo` |
+| M2-4d | AI 终端输入、中断与人工接管 | M2-4c | 1–2 | `done` |
+| M2-5 | GitManager、资源动作与 Agent 工具 | M2-4d | 2 | `in_progress` |
 | M2-5b | Git 资源区、Diff 与审批界面 | M2-5 | 1–2 | `todo` |
 | M2-6 | 真实资源统一窗口与布局恢复 | M2-5b/M2-2/M2-4b | 1–2 | `todo` |
 | M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
 | M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
 
-保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，M2-3b 已 done，M2-4b / M2-4c 已验收，M2-4d 已实现待 review，后续保持 todo。
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，M2-3b 已 done，M2-4b / M2-4c / M2-4d 已验收，当前 M2-5 in_progress，后续保持 todo。
 
 ## 任务卡
 
@@ -155,17 +155,17 @@
 
 ### M2-4d AI 终端输入、中断与人工接管
 
-- 状态：`review`（分支 `task/m2-4d-agent-control`，2026-11-03 +08:00 开始）；依赖 M2-4c。
+- 状态：`done`（2026-11-03 人类确认并继续）
 - [x] 先失败测试：真实 PTY 的 Agent acquire / input / interrupt / release、人机单控制者、旧 generation / 重复输入拒绝、Turn 取消、身份撤销、人工接管后 AI 不抢回。
 - [x] 按 m2-resources §10 实现 principal 联合、输入工具策略 / 审计、AI 租约续租、人工显式接管与输入序号；读取不抢控制，终止走独立权限。
 - [x] 验收 A30 / A31；中断不伪报已停止，Turn 结束只释放输入控制，不停止已交付项目资源；不记录输入正文 / 秘密。
 - [x] check / build、FakeProvider + 真实终端 / 两浏览器、UI 与安全 review；同步契约 / 状态、单任务提交。
 - 计划路径：apps/server/src/modules/terminals / agent / ws；packages/agent / shared；apps/web/src/features/windows；e2e-auth/。
-- 证据见 [acceptance.md](acceptance.md)：check（server 379 / agent 32 / web 37）、build、prod 8/8、Demo 15/15；状态 review，等待人类验收，M2-5 未启动。
+- 证据见 [acceptance.md](acceptance.md)：check（server 379 / agent 32 / web 37）、build、prod 8/8、Demo 15/15；2026-11-03 人类验收通过。
 
 ### M2-5 GitManager、资源动作与 Agent 工具
 
-- 状态：`todo`
+- 状态：`in_progress`（分支 `task/m2-5-git-manager`，2026-11-03 +08:00 开始）
 - 依赖：M2-4d；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：2 天；明显超出则先拆分，不绕过门禁。
 - [ ] 先写失败测试并确认失败原因：临时仓库 / 本地 bare remote；特殊文件名、hooks / diff 配置、快照变化 / 审批过期 / 单次消费、脏工作区 / 无上游 / 非快进、Git 不可用。
