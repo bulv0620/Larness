@@ -130,33 +130,49 @@ export function TopBar() {
       </div>
 
       <div className="ml-auto flex items-center gap-1">
-        {USE_MOCKS ? (
+        {
           <div className="hidden items-center gap-0.5 rounded-xl border border-line bg-surface-2/70 p-0.5 lg:flex">
-            {launchers.map((launcher) => {
-              const Icon = launcher.icon;
-              const active = Boolean(anyWindow(windows, launcher.kind));
-              return (
-                <Hint key={launcher.kind} label={`打开${launcher.label}窗口`}>
-                  <button
-                    type="button"
-                    onClick={() => open({ ...launcher, source: "header" })}
-                    aria-label={`打开${launcher.label}窗口`}
-                    aria-pressed={active}
-                    className={cn(
-                      "flex h-7 items-center gap-1.5 rounded-[9px] px-2 text-[11px] font-medium transition-colors",
-                      active
-                        ? "bg-surface text-ink shadow-sm ring-1 ring-line"
-                        : "text-ink-2 hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.06]",
-                    )}
-                  >
-                    <Icon size={13.5} strokeWidth={1.8} />
-                    <span className="hidden xl:inline">{launcher.label}</span>
-                  </button>
-                </Hint>
-              );
-            })}
+            {launchers
+              .filter((launcher) => USE_MOCKS || launcher.kind === "files")
+              .map((launcher) => {
+                const Icon = launcher.icon;
+                const active = Boolean(anyWindow(windows, launcher.kind));
+                return (
+                  <Hint key={launcher.kind} label={`打开${launcher.label}窗口`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (USE_MOCKS) {
+                          open({ ...launcher, source: "header" });
+                          return;
+                        }
+                        const existing = anyWindow(windows, launcher.kind);
+                        if (existing) useWindowStore.getState().restore(existing.id);
+                        else
+                          open({
+                            kind: "files",
+                            resourceId: "files:empty",
+                            title: "文件",
+                            source: "header",
+                          });
+                      }}
+                      aria-label={`打开${launcher.label}窗口`}
+                      aria-pressed={active}
+                      className={cn(
+                        "flex h-7 items-center gap-1.5 rounded-[9px] px-2 text-[11px] font-medium transition-colors",
+                        active
+                          ? "bg-surface text-ink shadow-sm ring-1 ring-line"
+                          : "text-ink-2 hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.06]",
+                      )}
+                    >
+                      <Icon size={13.5} strokeWidth={1.8} />
+                      <span className="hidden xl:inline">{launcher.label}</span>
+                    </button>
+                  </Hint>
+                );
+              })}
           </div>
-        ) : null}
+        }
 
         {USE_MOCKS ? (
           <div className="mx-1 hidden items-center gap-3 rounded-xl border border-line bg-surface-2/60 px-2.5 py-1 xl:flex">

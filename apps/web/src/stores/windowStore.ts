@@ -20,6 +20,7 @@ interface OpenInput {
   projectId?: string | null;
   sessionId?: string | null;
   source?: OpenSource;
+  file?: WindowTab["file"];
 }
 
 interface WindowState {
@@ -80,6 +81,7 @@ export const useWindowStore = create<WindowState>()(
         projectId = null,
         sessionId = null,
         source = "header",
+        file,
       }) => {
         const state = get();
         const tabMatch = state.windows.find((win) =>
@@ -92,6 +94,25 @@ export const useWindowStore = create<WindowState>()(
           const tab = tabMatch.tabs.find(
             (item) => item.kind === kind && item.resourceId === resourceId,
           );
+          const updatedFileTab =
+            tab && file
+              ? {
+                  ...tab,
+                  file,
+                  projectId,
+                  sourceSessionId: sessionId,
+                  originType: originFor(source),
+                }
+              : undefined;
+          const updatedTabs =
+            updatedFileTab && tab
+              ? tab.projectId === projectId
+                ? tabMatch.tabs.map((item) => (item.id === tab.id ? updatedFileTab : item))
+                : insertIntoTabGroup(
+                    tabMatch.tabs.filter((item) => item.id !== tab.id),
+                    updatedFileTab,
+                  )
+              : tabMatch.tabs;
           const nextFilter =
             preferred ??
             (tab && isTabVisible(tab, tabMatch.filter) ? tabMatch.filter : { mode: "all" });
@@ -104,6 +125,7 @@ export const useWindowStore = create<WindowState>()(
                     activeTabId: tab?.id ?? win.activeTabId,
                     z,
                     filter: nextFilter,
+                    tabs: updatedTabs,
                   }
                 : win,
             ),
@@ -122,6 +144,7 @@ export const useWindowStore = create<WindowState>()(
           projectId,
           sourceSessionId: sessionId,
           originType: originFor(source),
+          ...(file ? { file } : {}),
         };
 
         const sameKind = state.windows.find((win) => win.tabs.some((item) => item.kind === kind));
@@ -182,6 +205,10 @@ export const useWindowStore = create<WindowState>()(
 
       close: (id) => {
         const state = get();
+        if (state.windows.find((win) => win.id === id)?.tabs.some((tab) => tab.file)) {
+          get().hide(id);
+          return;
+        }
         const windows = state.windows.filter((win) => win.id !== id);
         set({
           windows,
@@ -243,7 +270,7 @@ export const useWindowStore = create<WindowState>()(
         const target = state.windows.find((win) => win.id === windowId);
         if (!target) return;
         if (target.tabs.length <= 1) {
-          get().close(windowId);
+          set({ windows: state.windows.filter((win) => win.id !== windowId), focusedId: null });
           return;
         }
         const tabs = target.tabs.filter((tab) => tab.id !== tabId);

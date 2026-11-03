@@ -8,6 +8,7 @@ import { SectionSplitter } from "@/components/sections/SectionSplitter";
 import { ServicesPanel } from "@/components/sections/ServicesPanel";
 import { TerminalsPanel } from "@/components/sections/TerminalsPanel";
 import { useSectionResizer } from "@/components/sections/useSectionResizer";
+import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useNavigationStore } from "@/stores/navigationStore";
 
@@ -40,7 +41,7 @@ export function ProjectResourceSidebar() {
     useSectionResizer(initialSections);
 
   const counts = {
-    files: projectId === "prj_larness" ? 22 : 0,
+    files: USE_MOCKS ? (projectId === "prj_larness" ? 22 : 0) : undefined,
     services: projectServices.length,
     terminals: projectTerminals.length,
     git: projectChanges.length,

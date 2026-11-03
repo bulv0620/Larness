@@ -211,6 +211,9 @@ describe("TurnRunner", () => {
             "turn.completed",
           ]),
         );
+        expect(published.find((event) => event.type === "tool.completed")?.payload).toMatchObject({
+          resourceTarget: { kind: "file", scope: { sessionId: session.id }, path: "a.txt" },
+        });
         expect(published.find((event) => event.type === "file.changed")?.payload).toMatchObject({
           path: "a.txt",
           changeType: "modified",

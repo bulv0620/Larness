@@ -1,6 +1,6 @@
 # 任务：M2 开发资源与窗口层
 
-> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；当前仅 M2-1b。一次一个任务、一任务一提交，先红测试再实现。
+> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；当前仅 M2-2。一次一个任务、一任务一提交，先红测试再实现。
 
 ## 状态总表
 
@@ -9,8 +9,8 @@
 | M2-P | 本次评审草案（仅文档） | 人类起草指令 | — | `done`（文档完成，不代表 G-Spec 通过） |
 | M2-0 | 执行与原生资源 PoC | G-Spec-M2 / ADR-029；G1 / 015 / 016 / 017 done | 1–2 | `done` |
 | M2-1 | FileManager 与资源持久化底座 | M2-0 done；G-PoC-M2 | 2 | `done` |
-| M2-1b | 文件监听与资源事件补拉 | M2-1 | 1–2 | `review` |
-| M2-2 | Monaco 编辑与冲突恢复 | M2-1b | 1–2 | `todo` |
+| M2-1b | 文件监听与资源事件补拉 | M2-1 | 1–2 | `done` |
+| M2-2 | Monaco 编辑与冲突恢复 | M2-1b | 1–2 | `review` |
 | M2-3 | CommandRunner 与受管进程协调 | M2-2 | 2 | `todo` |
 | M2-3b | Agent 命令工具与实时执行展示 | M2-3 | 1–2 | `todo` |
 | M2-4 | TerminalManager 与输入租约后端 | M2-3b | 2 | `todo` |
@@ -23,7 +23,7 @@
 | M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
 | M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
 
-保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 已 done，当前仅 M2-1b，后续保持 todo。
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 已 done，当前仅 M2-2，后续保持 todo。
 
 ## 任务卡
 
@@ -57,7 +57,7 @@
 
 ### M2-1b 文件监听与资源事件补拉
 
-- 状态：`review`
+- 状态：`done`
 - 依赖：M2-1；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：1–2 天；明显超出则先拆分，不绕过门禁。
 - [x] 先写失败测试并确认失败原因：真实外部写 / 改名 / 删除、watcher 故障 / 队列溢出、断线缺口、慢消费者；事件先落库后广播。
@@ -67,19 +67,22 @@
 - [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：packages/resources/src/files/；apps/server/src/ws/；modules/resources/。
 
-- 后端手动刷新复用文件 / 目录 GET；本任务无 UI，按钮与 Query 接线归 M2-2。监听 / 补拉证据与限制见 [acceptance.md](acceptance.md)，等待本任务验收。
+- 后端手动刷新复用文件 / 目录 GET；本任务无 UI，按钮与 Query 接线归 M2-2。监听 / 补拉证据与限制见 [acceptance.md](acceptance.md)，人类“下一步”确认验收。
 
 ### M2-2 Monaco 编辑与冲突恢复
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：M2-1b；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：1–2 天；明显超出则先拆分，不绕过门禁。
-- [ ] 先写失败测试并确认失败原因：组件草稿 / 冲突与真实服务器浏览器保存回读；大文件不能编辑、源内容不被截断。
-- [ ] 交付：真实文件树 / 完整编辑、多 Tab / realpath 去重、保存、冲突 Diff、重载 / 手工合并、脏 Tab 关闭确认、文件结果卡片授权打开 / 去重。
-- [ ] 验收：A1–A5/A22/A24；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
-- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
-- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- [x] 先写失败测试并确认失败原因：组件草稿 / 冲突与真实服务器浏览器保存回读；大文件不能编辑、源内容不被截断。
+- [x] 交付：真实文件树 / 完整编辑、多 Tab / realpath 去重、保存、冲突 Diff、重载 / 手工合并、脏 Tab 关闭确认、文件结果卡片授权打开 / 去重。
+- [x] 验收：A1–A5/A22/A24；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：apps/web/src/features/windows/；components/sections/；lib/。
+
+- 2026-11-03：浏览器长文件末行断言连续两次失败，按 AGENTS §9.5 暂停待人类确认，保留原验收；具体尝试与证据见 STATUS.md。
+- 人类明确“继续”后解除暂停，完成真实文件 / 卡片验收；check / build、生产浏览器 3/3、Demo 15/15 通过。证据与限制见 [acceptance.md](acceptance.md)；M2-3 未开始。
 
 ### M2-3 CommandRunner 与受管进程协调
 

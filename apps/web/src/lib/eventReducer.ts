@@ -8,6 +8,7 @@ import type {
   TimelineItem,
   ToolItem,
 } from "@larness/shared";
+import { FileResultTargetSchema } from "@larness/shared";
 
 type Payload = Record<string, unknown>;
 
@@ -146,9 +147,11 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
     }
     case "tool.completed": {
       const id = toolId(event, data);
+      const target = FileResultTargetSchema.safeParse(data.resourceTarget);
       return patchTool(items, id, {
         status: "done",
         output: stringField(data, "resultSummary") ?? "",
+        ...(target.success ? { resourceTarget: target.data } : {}),
       });
     }
     case "tool.failed": {

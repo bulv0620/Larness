@@ -70,3 +70,13 @@ export const FileListResultSchema = z.object({
   revision: FileVersionSchema,
 });
 export type FileListResult = z.infer<typeof FileListResultSchema>;
+
+export const FileResultTargetSchema = z
+  .object({
+    kind: z.literal("file"),
+    scope: FileScopeSchema,
+    path: FilePathSchema,
+    version: FileVersionSchema.optional(),
+  })
+  .strict();
+export type FileResultTarget = z.infer<typeof FileResultTargetSchema>;

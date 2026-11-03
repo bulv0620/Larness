@@ -1,5 +1,6 @@
 import { cn } from "@larness/ui";
 import { FileCode2, FolderTree, GitCompare, Globe2, Server, SquareTerminal, X } from "lucide-react";
+import { useFileDraftStore } from "@/features/files/drafts";
 import { useSnapshot } from "@/lib/queries";
 import { filterFromValue, filterTabs, filterValue } from "@/lib/windowFilters";
 import type { ManagedWindow, WindowKind } from "@/lib/windowTypes";
@@ -26,6 +27,8 @@ function projectLabel(projectId: string | null, originType: string, name?: strin
 }
 
 export function WindowTabs({ window: win }: { window: ManagedWindow }) {
+  const saving = useFileDraftStore((state) => state.saving);
+  const drafts = useFileDraftStore((state) => state.drafts);
   const setActiveTab = useWindowStore((state) => state.setActiveTab);
   const closeTab = useWindowStore((state) => state.closeTab);
   const setFilter = useWindowStore((state) => state.setFilter);
@@ -90,14 +93,20 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
                   <TabIcon kind={tab.kind} />
                   <span className="truncate">
                     {showProjectPrefix ? `${label} · ${tab.title}` : tab.title}
+                    {drafts[tab.resourceId] ? " ●" : ""}
                   </span>
                 </button>
                 <button
                   type="button"
                   aria-label={`关闭 ${tab.title}`}
+                  disabled={saving[tab.resourceId] ?? false}
                   onClick={(event) => {
                     event.stopPropagation();
-                    closeTab(win.id, tab.id);
+                    if (tab.file && drafts[tab.resourceId])
+                      useFileDraftStore.setState({
+                        closeRequest: { windowId: win.id, tabId: tab.id },
+                      });
+                    else closeTab(win.id, tab.id);
                   }}
                   className="window-no-drag rounded p-0.5 text-ink-3 opacity-0 transition-opacity hover:bg-black/[.06] hover:text-ink group-hover:opacity-100 dark:hover:bg-white/[.08]"
                 >

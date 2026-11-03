@@ -81,9 +81,14 @@ describe("event reducer", () => {
         turnId: "trn_1",
         toolCallId: "call_1",
         resultSummary: "42 bytes",
+        resourceTarget: { kind: "file", scope: { projectId: "prj_1" }, path: "README.md" },
       }),
     );
-    expect(items[0]).toMatchObject({ status: "done", output: "42 bytes" });
+    expect(items[0]).toMatchObject({
+      status: "done",
+      output: "42 bytes",
+      resourceTarget: { kind: "file", path: "README.md" },
+    });
 
     items = applyServerEvent(
       items,

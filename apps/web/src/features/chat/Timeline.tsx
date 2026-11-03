@@ -13,6 +13,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TimelineItemView } from "@/features/chat/TimelineItemView";
+import { FileResultCard } from "@/features/files/FileResultCard";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 
@@ -39,7 +40,13 @@ function TimelineItems({ items }: { items: TimelineItem[] }) {
   const flush = () => {
     if (tools.length === 1) {
       const tool = tools[0];
-      if (tool) nodes.push(<TimelineItemView key={tool.id} item={tool} />);
+      if (tool)
+        nodes.push(
+          <div key={tool.id}>
+            <TimelineItemView item={tool} />
+            {tool.resourceTarget ? <FileResultCard target={tool.resourceTarget} /> : null}
+          </div>,
+        );
     } else if (tools.length > 1) {
       nodes.push(<ToolGroup key={`tools_${tools[0]?.id ?? "group"}`} tools={tools} />);
     }
@@ -97,6 +104,9 @@ function ToolGroup({ tools }: { tools: ToolItem[] }) {
           className={cn("shrink-0 text-ink-3 transition-transform", expanded && "rotate-180")}
         />
       </button>
+      {tools.map((tool) =>
+        tool.resourceTarget ? <FileResultCard key={tool.id} target={tool.resourceTarget} /> : null,
+      )}
       {expanded ? (
         <div className="space-y-1.5 border-t border-line/80 p-1.5">
           {tools.map((tool) => (

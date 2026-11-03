@@ -75,3 +75,51 @@
 - `pnpm build`：Server 四入口 / Web 通过；既有 chunk 体积提示保留。
 - `LARNESS_E2E_PORT=51985 pnpm test:e2e:prod`：Chromium 2/2 通过，真实 Passkey / 撤销及 Agent 审批 / 刷新 / 模型切换 / 取消。使用临时空闲端口，未停止用户现有服务。
 - 状态 `review`，等待人类验收；M2-2 未开始。M2-1 已由人类“下一步”确认标 done。
+
+
+## M2-2 Monaco 编辑与冲突恢复（2026-11-03）
+
+- 分支：`task/m2-2-file-editor`；人类“下一步”确认 M2-1b，当前仅实现 M2-2，未启动 M2-3。
+- 测试先行：草稿 / realpath 去重用例首次因缺 actions 模块失败；成功 apply_patch 的 file target 断言先因缺字段失败，再实现通过；组件验证新磁盘快照不覆盖草稿，卸载重建后仅明确重载才放弃文本。
+
+### 实现与恢复边界
+
+- 真实模式目录 API 单层懒加载 / 分页与刷新、完整文本 Query / Monaco、真实 PUT 保存；512 KiB 上限与 UTF-8 / 路径 / 版本 / 锁保护仍以后端为准。显式 Demo 保留只读静态数据，不在真实模式显示假内容。
+- 文件 Tab 按授权 GET 的 realPath 去重，跨 scope 打开前重新授权；草稿和每文件模型独立。保存只提交草稿 baseVersion；冲突 Diff / 重载 / 手工合并显式选择，失败不清草稿。文件失效保留草稿供复制。
+- 文件窗口 close / hide 保留 Tab 与草稿，主动关闭脏 Tab 提供保存并关闭 / 放弃 / 取消，刷新前提示；正文 / 草稿不进入 localStorage。
+- 已开文件与已展开目录接入授权订阅和有限补拉，通知只使 Query 失效；重连 / 缺口刷新快照，降级可见且手动刷新仍可用。工具成功修改附 scope / path / version 卡片，点击重新授权读当前文件，不重执行工具。
+- 本任务无新迁移、依赖、配置、认证 / IPC 变化；完整资源布局升级与其他资源窗口仍归后续任务。回退程序保留已有 DB / 文件，内存未保存稿在退出前须人工保存或复制。
+
+### 定位记录
+
+依 AGENTS §9.5 在长文件末行浏览器断言连续失败后暂停，经人类明确“继续”恢复。根因为 Playwright Desktop Chrome 的 Windows User-Agent 决定 Monaco 采用 Ctrl 快捷键，宿主 macOS 的 Meta 选择不适用；测试现按浏览器 UA 的相同规则选择按键，保留第 2500 行可见断言。输入使用 Monaco 公开 textarea 模式。
+
+真实 Diff 卸载发现 `TextModel got disposed before DiffEditorWidget model got reset`，保留 pageerror 空数组断言；通过 Monaco 公开 API 管理独立 Diff 模型，先 setModel(null) 再释放编辑器 / 模型修复。未改依赖或过滤异常。测试竞争窗口通过真正写盘后继续 PUT 制造 409，不 mock 后端响应；初版测试 unroute 导致重复处理已修正。多 Tab 测试按实际包含脏标记的按钮名定位，验收语义未降低。
+
+人工抽查：右侧选文件编辑；外部修改后查看差异 / 选择手工合并；关闭文件 Tab 取消或保存；窗口关闭后顶部文件入口恢复；不可编辑文件显示错误。未保存稿只在当前页面内存，刷新前须处理提示。
+
+
+### M2-2 自动化证据
+
+| 场景 | 证据 |
+|---|---|
+| 完整编辑 | 真实 2500 行 CRLF 文件，通过浏览器实际按键跳至末行；保存后直接回读磁盘字节 |
+| 并发冲突 | PUT 发出时真实外部写入制造 409；磁盘 v2 保留、草稿仍在，Diff 与手工合并后以新版本保存 |
+| 草稿与多 Tab | 窗口关闭后顶部恢复；切换另一个真实文件再回来草稿仍在；保存 / 取消 / 放弃均实际验证 |
+| BOM 与换行 | BOM + CRLF 文件保存后 UTF-8 字节前缀 / 换行保持；后续放弃草稿不改变已保存文件 |
+| 外部变化与失效 | 干净 Tab 自动显示真实外部新内容；删除文件后禁保存，关闭时保存失败仍保留提示 / Tab，随后可放弃 |
+| 不支持编辑 | 512 KiB + 1 文件明确拒绝，磁盘长度未变；未保存正文不进入 localStorage，beforeunload 可取消 |
+| 文件结果卡片 | 单工具与折叠多工具组的组件用例；真实 Agent 修改后点击打开、隐藏后重复点击只复用一个 Tab，不重执行补丁 |
+
+草稿 / 动作 2 项、冲突组件 1 项、单 / 多工具卡片 2 项；既有 reducer 用例补 file target 断言。真实浏览器 FakeProvider 只替代模型，文件、SQLite、认证与 WS 为真实后端。
+
+最终回归曾发现：Demo 顶部入口误用真实模式 restore 分支，已恢复显式 Mock 的原行为；单工具未走 ToolGroup，已补可见卡片并先红后绿验证。既有 M2-0 原生 watcher PoC 全量检查中一次超时，原用例单独复跑 4/4 通过；未修改 PoC / 超时 / 断言，不将其当新功能证据。
+
+### M2-2 最终验证
+
+- `pnpm check`：server 325 / agent 32 / web 31 通过；既有 live 1 项按环境跳过，既有 Biome 5 个警告保留；最终全量包含原 PoC 通过。
+- `pnpm build`：Server 四入口 / Web 通过；既有 chunk 体积提示保留。
+- `LARNESS_E2E_PORT=59928 pnpm test:e2e:prod`：真实 Chromium 3/3 通过（配对 / Passkey / 撤销、文件编辑与恢复、Agent 文件卡片与既有主流程）。
+- `LARNESS_E2E_WEB_PORT=60041 pnpm test:e2e`：Demo 15/15 通过，含窗口项目筛选、文件只读预览、键盘和窄屏；最终与生产回归串行。
+- 临时文件 / 数据库 / 端口均由 fixture 回收；未停止用户服务或改用户数据。仅实测 macOS arm64 / Node 20.19.3，不外推其他平台。
+- 状态 `review`，等待人类 UI 验收；M2-3 保持 todo。

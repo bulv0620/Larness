@@ -11,7 +11,11 @@ import {
   type ToolRegistry,
   type ToolSchema,
 } from "@larness/agent";
-import type { AssistantDeltaEvent, ServerEvent } from "@larness/shared";
+import {
+  type AssistantDeltaEvent,
+  FileResultTargetSchema,
+  type ServerEvent,
+} from "@larness/shared";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
@@ -565,10 +569,23 @@ export class TurnRunner {
           }
 
           if (result.result.ok) {
+            const fileResult =
+              request.name === "apply_patch"
+                ? (result.result.data as { path?: unknown; version?: unknown } | undefined)
+                : undefined;
+            const target = FileResultTargetSchema.safeParse({
+              kind: "file",
+              scope: session.projectId
+                ? { projectId: session.projectId }
+                : { sessionId: session.id },
+              path: fileResult?.path,
+              version: fileResult?.version,
+            });
             this.#emit(turn, session, "tool.completed", {
               turnId: turn.id,
               toolCallId: request.id,
               resultSummary: result.result.summary,
+              ...(target.success ? { resourceTarget: target.data } : {}),
               ...(result.result.truncated === undefined
                 ? {}
                 : { truncated: result.result.truncated }),

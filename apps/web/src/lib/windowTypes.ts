@@ -1,3 +1,4 @@
+import type { FileScope } from "@larness/shared";
 export type WindowKind = "files" | "terminal" | "services" | "browser" | "git-diff";
 
 export type TabOrigin = "global" | "project" | "session" | "agent" | "artifact";
@@ -15,6 +16,7 @@ export interface WindowTab {
   projectId: string | null;
   sourceSessionId: string | null;
   originType: TabOrigin;
+  file?: { scope: FileScope; path: string };
 }
 
 export interface Rect {

@@ -135,6 +135,17 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
       .poll(() => readFileSync(noteFile, "utf8"), { timeout: 10_000 })
       .toContain("approved");
 
+    const fileCard = page.getByRole("button", { name: "查看文件 · note.txt", exact: true });
+    await fileCard.click();
+    await expect(page.getByRole("textbox", { name: "文件内容", exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
+    await fileCard.click();
+    await expect(page.getByRole("button", { name: "关闭 note.txt", exact: true })).toHaveCount(1);
+    expect(readFileSync(noteFile, "utf8")).toBe("seed\napproved\n");
+    await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
+
     await page.reload();
     await expect(page.getByTestId("workspace-home")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("补丁已应用。")).toBeVisible({ timeout: 20_000 });

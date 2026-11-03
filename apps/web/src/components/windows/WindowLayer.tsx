@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { WindowFrame } from "@/components/windows/WindowFrame";
+import { FileLifecycle } from "@/features/files/FileLifecycle";
+import { USE_MOCKS } from "@/lib/env";
 import { useWindowStore } from "@/stores/windowStore";
 
 export function WindowLayer() {
@@ -31,6 +33,7 @@ export function WindowLayer() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
+      {!USE_MOCKS ? <FileLifecycle /> : null}
       {windows
         .filter((win) => !win.minimized)
         .map((win) => (

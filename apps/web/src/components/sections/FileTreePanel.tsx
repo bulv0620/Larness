@@ -1,82 +1,165 @@
-import { cn } from "@larness/ui";
-import { ChevronDown, ChevronRight, FileCode2, FileText, Folder } from "lucide-react";
+import type { FileScope } from "@larness/shared";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { ChevronDown, ChevronRight, FileText, Folder } from "lucide-react";
 import { useState } from "react";
-import { fileTree } from "@/mocks/fixtures";
-import { useWindowStore } from "@/stores/windowStore";
-
-function iconFor(path: string) {
-  if (path.endsWith(".md")) return FileText;
-  return FileCode2;
-}
-
+import { openFile } from "@/features/files/actions";
+import { fileError, listDirectory, scopeId } from "@/features/files/api";
+import { useFileWatch } from "@/features/files/useFileWatch";
+import { USE_MOCKS } from "@/lib/env";
+import { queryClient, useSnapshot } from "@/lib/queries";
+import { useNavigationStore } from "@/stores/navigationStore";
+import { DemoFileTreePanel } from "./DemoFileTreePanel";
 export function FileTreePanel({ projectId }: { projectId: string | null }) {
-  const open = useWindowStore((state) => state.open);
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
-
-  const toggleDirectory = (path: string) => {
-    setCollapsed((current) => {
-      const next = new Set(current);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  };
-
-  const visible = fileTree.filter(
-    (node) => ![...collapsed].some((directory) => node.path.startsWith(`${directory}/`)),
-  );
-
-  if (projectId !== "prj_larness") {
-    return <div className="px-2 py-3 text-[10.5px] text-ink-3">当前项目暂无文件</div>;
-  }
-
+  const sessionId = useNavigationStore((state) => state.sessionId);
+  const { data } = useSnapshot();
+  if (USE_MOCKS) return <DemoFileTreePanel projectId={projectId} />;
+  const standalone = data.sessions.some((item) => item.id === sessionId && item.projectId === null);
+  if (!projectId && !standalone)
+    return <p className="p-3 text-[11px] text-ink-3">选择项目或独立会话后查看文件。</p>;
+  const scope = projectId ? { projectId } : { sessionId };
+  return <RealFileTree key={scopeId(scope)} scope={scope} />;
+}
+function RealFileTree({ scope }: { scope: FileScope }) {
+  const [expanded, setExpanded] = useState<string[]>(["."]);
+  const [error, setError] = useState<string | null>(null);
+  const status = useFileWatch(scope, expanded);
   return (
-    <div className="space-y-px px-1.5">
-      {visible.map((node) => {
-        const Icon = node.type === "directory" ? Folder : iconFor(node.path);
-        return (
-          <button
-            key={node.path}
-            type="button"
-            onClick={() => {
-              if (node.type === "file") {
-                open({
-                  kind: "files",
-                  resourceId: node.path,
-                  title: node.name,
-                  projectId,
-                  source: "project",
-                });
-              } else {
-                toggleDirectory(node.path);
-              }
-            }}
-            className={cn(
-              "flex h-[26px] w-full items-center gap-1.5 rounded-md px-1.5 text-left text-[11.5px] transition-colors",
-              node.type === "directory"
-                ? "text-ink-2 hover:bg-black/[.035] dark:hover:bg-white/[.05]"
-                : "text-ink-2 hover:bg-accent-soft hover:text-ink",
-            )}
-            style={{ paddingLeft: 6 + node.depth * 12 }}
-          >
-            {node.type === "directory" ? (
-              collapsed.has(node.path) ? (
-                <ChevronRight size={11} className="shrink-0 text-ink-3" />
-              ) : (
-                <ChevronDown size={11} className="shrink-0 text-ink-3" />
-              )
-            ) : (
-              <span className="w-[11px] shrink-0" />
-            )}
-            <Icon
-              size={13}
-              strokeWidth={1.75}
-              className={cn("shrink-0", node.type === "directory" ? "text-warning" : "text-ink-3")}
-            />
-            <span className="truncate">{node.name}</span>
-          </button>
-        );
-      })}
+    <div className="p-1.5 text-[11px] text-ink-2">
+      <div className="flex items-center gap-2 pb-1 text-[10px] text-ink-3">
+        <span className="min-w-0 flex-1 truncate" title={status}>
+          {status}
+        </span>
+        <button
+          type="button"
+          aria-label="刷新文件树"
+          onClick={() => {
+            setError(null);
+            void queryClient.resetQueries({ queryKey: ["files", scopeId(scope), "directory"] });
+          }}
+        >
+          刷新
+        </button>
+      </div>
+      {error ? (
+        <p role="alert" className="p-2 text-danger">
+          {error}
+        </p>
+      ) : null}
+      <Directory
+        scope={scope}
+        path="."
+        depth={0}
+        expanded={expanded}
+        toggle={(path) =>
+          setExpanded((current) =>
+            current.includes(path)
+              ? current.filter((item) => item !== path && !item.startsWith(`${path}/`))
+              : [...current, path],
+          )
+        }
+        open={(path) => {
+          setError(null);
+          void openFile(scope, path, "projectId" in scope ? "project" : "session").catch(
+            (error: unknown) => setError(fileError(error)),
+          );
+        }}
+      />
     </div>
+  );
+}
+function Directory({
+  scope,
+  path,
+  depth,
+  expanded,
+  toggle,
+  open,
+}: {
+  scope: FileScope;
+  path: string;
+  depth: number;
+  expanded: string[];
+  toggle: (path: string) => void;
+  open: (path: string) => void;
+}) {
+  const query = useInfiniteQuery({
+    queryKey: ["files", scopeId(scope), "directory", path],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => listDirectory(scope, path, pageParam),
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    staleTime: 0,
+  });
+  return (
+    <>
+      {query.isPending ? <p className="p-2 text-ink-3">正在读取目录…</p> : null}
+      {query.isError ? (
+        <div role="alert" className="p-2 text-danger">
+          {fileError(query.error)}
+          <button
+            type="button"
+            onClick={() =>
+              void queryClient.resetQueries({
+                queryKey: ["files", scopeId(scope), "directory", path],
+              })
+            }
+          >
+            重新加载目录
+          </button>
+        </div>
+      ) : null}
+      {query.data?.pages
+        .flatMap((page) => page.items)
+        .map((entry) => (
+          <div key={entry.path}>
+            <button
+              type="button"
+              aria-label={
+                entry.type === "directory" ? `目录 ${entry.name}` : `打开文件 ${entry.name}`
+              }
+              aria-expanded={entry.type === "directory" ? expanded.includes(entry.path) : undefined}
+              className="flex h-[26px] w-full items-center gap-1.5 rounded px-1.5 text-left hover:bg-accent-soft"
+              style={{ paddingLeft: 6 + depth * 12 }}
+              onClick={() => (entry.type === "directory" ? toggle(entry.path) : open(entry.path))}
+            >
+              {entry.type === "directory" ? (
+                <>
+                  {expanded.includes(entry.path) ? (
+                    <ChevronDown size={11} />
+                  ) : (
+                    <ChevronRight size={11} />
+                  )}
+                  <Folder size={13} className="text-warning" />
+                </>
+              ) : (
+                <>
+                  <span className="w-[11px]" />
+                  <FileText size={13} className="text-ink-3" />
+                </>
+              )}
+              <span className="truncate">{entry.name}</span>
+            </button>
+            {entry.type === "directory" && expanded.includes(entry.path) ? (
+              <Directory
+                scope={scope}
+                path={entry.path}
+                depth={depth + 1}
+                expanded={expanded}
+                toggle={toggle}
+                open={open}
+              />
+            ) : null}
+          </div>
+        ))}
+      {query.hasNextPage ? (
+        <button
+          type="button"
+          className="px-3 py-2 text-accent"
+          disabled={query.isFetchingNextPage}
+          onClick={() => void query.fetchNextPage()}
+        >
+          加载更多文件
+        </button>
+      ) : null}
+    </>
   );
 }

@@ -94,7 +94,7 @@ interface ServerEvent<T = unknown> {
 | `tool.approval.required` | `toolCallId, approvalId, summary, scope, expiresAt` | 是 |
 | `tool.approval.resolved` | `approvalId, decision` | 是 |
 | `tool.started` | `toolCallId, name` | 是 |
-| `tool.completed` | `toolCallId, resultSummary, truncated` | 是 |
+| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?`（M2-2 成功文件修改附授权 scope / path / version） | 是 |
 | `tool.failed` | `toolCallId, errorCode, message` | 是 |
 | `file.changed` | `path, changeType, version` | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
@@ -178,3 +178,6 @@ PTY 输出不逐字节入库：使用限长环形缓冲 + 可选落盘日志；�
 文件订阅 resourceId 为 `project:<id>` / `session:<id>`，支持 paths（默认 `["."]`、最多 128）与 after；流键为 `file:` + resourceId。确认携带 currentSequence / resyncRequired=true / partial；确认后刷新当前文件快照，历史走 `/api/resource-events`。file.changed / file.resync.required 均先持久化再通知，路径不包含已知凭据，正文不推送。详见 [m2-resources §12](m2-resources.md#12-m2-1b-文件监听与事件恢复2026-11-03)。
 
 资源流使用 `{ items, currentSequence, resyncRequired }`，与既有 Agent 重放分页形状不同。资源事件固定保留 30 天；清理保留流序号，缺口要求快照刷新。本次实现发送缓冲超过 8 MiB 直接关闭 1008，通过持久重放恢复；输入上限 1 MiB，控制队列 64 条，订阅 / 取消串行执行。此为当前实现边界，不将此前“先丢可聚合帧”描述为已实现。
+
+
+M2-2（2026-11-03）：文件结果 target 从真实工具上下文生成，点击重新 GET 授权 / realpath 去重，不重新执行工具。文件视图消费订阅 / 补拉只做 Query 失效，草稿不会被通知覆盖；详见 [资源契约 §13](m2-resources.md#13-m2-2-编辑器与文件结果2026-11-03)。

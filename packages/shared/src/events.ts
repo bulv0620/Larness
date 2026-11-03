@@ -1,3 +1,4 @@
+import type { FileResultTarget } from "./files";
 export type EventTopic = "agent" | "terminal" | "service" | "git" | "file" | "system";
 
 export interface ServerEvent<T = unknown> {
@@ -61,6 +62,7 @@ export interface ToolItem {
   status: "running" | "done" | "error";
   output?: string;
   durationMs?: number;
+  resourceTarget?: FileResultTarget;
   createdAt: number;
 }
 
@@ -87,6 +89,7 @@ export interface ArtifactItem {
   description: string;
   meta: string;
   href?: string;
+  resourceTarget?: FileResultTarget;
   createdAt: number;
 }
 

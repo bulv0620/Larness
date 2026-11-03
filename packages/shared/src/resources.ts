@@ -37,3 +37,38 @@ export const FileResyncPayloadSchema = z.object({
   ]),
 });
 export type FileResyncReason = z.infer<typeof FileResyncPayloadSchema>["reasonCode"];
+
+const FileEventBase = z.object({
+  kind: z.literal("event"),
+  protocolVersion: z.literal(1),
+  topic: z.literal("file"),
+  eventId: z.string(),
+  streamId: FileStreamIdSchema,
+  sequence: z.number().int().nonnegative(),
+  timestamp: z.number(),
+});
+export const FileNotificationSchema = z.union([
+  FileEventBase.extend({ type: z.literal("file.changed"), payload: FileChangedPayloadSchema }),
+  FileEventBase.extend({
+    type: z.literal("file.resync.required"),
+    payload: FileResyncPayloadSchema,
+  }),
+]);
+export const ResourceReplaySchema = z.object({
+  items: z.array(FileNotificationSchema),
+  currentSequence: z.number().int().nonnegative(),
+  resyncRequired: z.boolean(),
+});
+export const FileSubscribeAckSchema = z.object({
+  kind: z.literal("subscribed"),
+  subscription: z.object({ topic: z.literal("file"), resourceId: FileResourceIdSchema }),
+  currentSequence: z.number().int().nonnegative(),
+  resyncRequired: z.boolean(),
+  partial: z.boolean(),
+});
+
+export const FileWatchErrorSchema = z.object({
+  kind: z.literal("error"),
+  code: z.string(),
+  message: z.string(),
+});
