@@ -26,8 +26,8 @@ export function GitPanel({ projectId }: { projectId: string | null }) {
   return <DemoGitPanel projectId={projectId} />;
 }
 
-function diffId(path: string, staged: boolean) {
-  return `${staged ? "staged" : "worktree"}:${path}`;
+function diffId(projectId: string, path: string) {
+  return `diff:${projectId}:${path}`;
 }
 
 function RealGitPanel({ projectId }: { projectId: string | null }) {
@@ -164,7 +164,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
                 onClick={() =>
                   open({
                     kind: "git-diff",
-                    resourceId: diffId(change.path, change.staged),
+                    resourceId: diffId(projectId, change.path),
                     title: change.path.split("/").pop() ?? change.path,
                     projectId,
                     source: "project",

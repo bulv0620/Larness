@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-03 (+08:00)
-> 当前阶段：**M2-5b Git 资源区与审批界面已实现，待 review**
+> 当前阶段：**M2-6 资源身份与布局恢复已实现；M2-7 进行中**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | M2-5b done / M2-6 进行中；最终 G2 |
+| M2 | 开发资源与窗口层 | `in_progress` | M2-6 已实现 / M2-7 进行中；最终 G2 |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -74,9 +74,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：完成 M2-6 后进入 M2-7。
+- 下一步：完成 M2-7 后进入 M2-8。
 - 阻塞项：无。
-- 待 review：无；M2-5b 已验收，M2-6 实施中。
+- 待 review：无；M2-6 已实现，M2-7 实施中。
 
 ## 已冻结
 
@@ -106,7 +106,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 | 日期 | 变更 |
 |---|---|
 | 2026-11-03 | M2-4b 验收通过（人类要求开始 M2-4c）；补跑 check / build / prod 6/6 / Demo 15/15，记录 workspace-write 沙箱 `/bin/ps` 限制 |
-| 2026-11-03 | 完成 M2-5b：Git 资源区、Diff、选择性暂存 / 提交、分支与 pull / push 审批界面；check / build / Demo 通过，状态 review |
+| 2026-11-03 | 完成 M2-6：viewKey、布局 v3 迁移、Diff 身份与 Demo 资源清理；check / build / Git E2E 通过 |
 | 2026-11-02 | M2-P：补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；同步路线图与 Q-021～Q-025。仅文档，M2 仍 draft，待 G-Spec-M2 / G-PoC-M2 |
 | 2026-10-31 | 初始化 spec 工程：宪法、Agent 手册、架构/契约、路线图、S0–M1 详细 spec、M2–M5 草案 |
 | 2026-10-31 | 改用 Passkey / WebAuthn 作为 V1 可信凭据（ADR-021）；移除长期设备 Token / refresh；M0 拆为 9 个任务 |
@@ -371,3 +371,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 真实 GitPanel 接 M2-5 API：状态轮询、staged / unstaged / untracked / conflicts、显式路径暂存、仅暂存内容提交、分支创建 / 切换、L2 pull / push 审批 / 拒绝 / 执行一次；错误重查，不自动 stash / merge / reset。
 - Diff 窗口只读展示统一 Diff；真实模式不显示服务 / Browser 假入口；组件测试 + 真实 Chromium 仓库流程通过，截图 `larness-m2-5b-git.png`。
 - 修复 branches/log 路由未 await 导致服务端 unhandled rejection；最终 check（server 388 / agent 32 / web 39）、build、prod 8/9（唯一 auth 既有抖动）、Demo 15/15。无新依赖 / 迁移 / 配置；git WS 事件仍待 M2-6 统一资源失效。
+
+### M2-6 交付（2026-11-03）
+
+- viewKey / createdAt 覆盖文件 realpath、终端 ID、Git Diff 项目 + 路径；Git staged / worktree 复用同一视图，不同项目同路径独立；布局 v3 迁移补身份、修正 activeTab、移除空窗口，并在真实模式清理 Demo 终端 / 服务 / Browser 与无元数据 Tab。
+- 真实模式顶部仅文件 / 终端并恢复已有窗口；Git Diff 关闭 / 窗口隐藏无资源副作用；Git 区仍 3s 轮询。最终 check（server 388 / agent 32 / web 41）、build、Git 真实浏览器通过；全套 / Demo 在 M2-8 汇总。

@@ -414,3 +414,11 @@ Diff Tab 使用 `kind=git-diff` 与 `{ path, staged }`，按 projectId + path �
 pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / 到期、批准 / 拒绝、批准后“执行一次”；重复点击禁用，执行后重新读取状态。L2 动作未批准不能执行；失败 / 过期 / 快照变化保留可恢复错误，不自动重试远端副作用。模型离线时整个 Git 区仍可用。
 
 真实模式不显示服务 / Browser 假资源；顶部仅保留文件 / 终端入口，Git 从右栏进入。无新 REST / 迁移 / 配置；git WS 失效事件仍未接线，当前依赖查询轮询，M2-6 统一资源失效时补。测试覆盖真实服务器浏览器流程、组件级选择 / 暂存 / 提交 / 审批，以及既有 auth / terminal / file 回归；平台仅 macOS Chromium。
+
+## 22. M2-6 统一资源身份与布局恢复（2026-11-03）
+
+资源 Tab 增加可选 `viewKey` / `createdAt`：文件 `file:<realpath>`、终端 `terminal:<terminalId>`、Git Diff `diff:<projectId>:<path>`；同一 viewKey 跨来源复用并更新展示项目 / 来源，文件 / Git Diff 在同项目内更新已打开 Tab 的 scope / staged 元数据，不复制视图。Git Diff 不再以 staged / worktree 拆成两个身份；不同项目同路径仍各自成 Tab。分组成员保持按首次出现顺序，新 Tab 插对应项目组末尾。
+
+本地布局键仍为 `larness.windows.v2`，版本升到 3；迁移补 `viewKey` / `createdAt`、修正失效 activeTab、移除空窗口。真实模式迁移丢弃 `prj_larness`、Demo 终端 / 服务 / Browser、无 file 元数据的文件 Tab 与无 git 元数据的 Diff Tab；服务 / Browser 真实资源在 M3 前不显示假状态。Demo 模式保留旧 Tab。顶部真实模式只枚举文件 / 终端，已有窗口恢复 filter / activeTab / 最小化状态；不因恢复创建或终止资源。
+
+窗口 close / minimize、文件 / Diff 关闭不停止资源；终端 Tab 主动关闭仍走已确认 terminate。Git 区当前 3s 查询轮询，未新增 git WS 事件；其他资源事件保持既有订阅 / 补拉。验证覆盖 viewKey 去重、跨项目 Diff、布局迁移 / Demo 清理、既有文件 realpath 去重与终端关闭 / 恢复；仅 macOS Chromium。

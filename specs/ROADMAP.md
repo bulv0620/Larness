@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
-| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-5 done / M2-5b review，最终 G2 |
+| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-5b done / M2-6 已实现，最终 G2 |
 | M3 | 本机服务与 Preview | [040](040-services-preview/spec.md) | `draft` | G3 |
 | M4 | 部署闭环与权限加固 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
@@ -113,7 +113,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | U0-2 | supervisor 接线与共享配置/统一初始化 | U0-1 | `done` |
 | U0-3 | 同目录模式切换、真实 HMR 与整体交付 | U0-2 | `done`（2026-11-02 人类验收通过） |
 
-## 5. M2 开发资源与窗口层（M2-6 进行中）
+## 5. M2 开发资源与窗口层（M2-6 已实现）
 
 2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。2026-11-03 人类在阅读 [PoC 证据](030-dev-resources/poc.md) 后明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 已获人类“下一步”或“继续”确认并标 done；人类“下一步”确认 M2-3 done；人类“下一步”确认 M2-3b done；人类明确开始 M2-4b，确认 M2-4 done；M2-4b 已验收 done；人类要求开始 M2-4c；M2-4c 已验收 done；人类确认继续 M2-4d；M2-4d 已验收 done；人类确认继续 M2-5；M2-5 已验收 done；M2-5b 已验收，M2-6 起均 todo。
 
@@ -132,7 +132,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M2-4d | AI 终端输入、中断、统一租约与人工接管 | M2-4c | `done` |
 | M2-5 | GitManager、资源动作审批与 Agent 工具 | M2-4d | `done` |
 | M2-5b | Git 资源区、Diff 与审批 UI | M2-5 | `todo` |
-| M2-6 | 真实资源窗口、来源/项目筛选、分组与布局恢复 | M2-2, M2-4b, M2-5b | `todo` |
+| M2-6 | 真实资源窗口、来源/项目筛选、分组与布局恢复 | M2-2, M2-4b, M2-5b | `done` |
 | M2-7 | 跨资源项目锁、fencing、并发与恢复验收 | M2-6 | `todo` |
 | M2-8 | M2 整体验收与 G2 | M2-7 | `todo` |
 

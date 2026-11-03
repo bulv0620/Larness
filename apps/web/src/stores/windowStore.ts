@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { USE_MOCKS } from "@/lib/env";
 import { filterTabs, insertIntoTabGroup, isTabVisible } from "@/lib/windowFilters";
 import { clampRect, defaultRect } from "@/lib/windowGeometry";
 import type {
@@ -69,6 +70,62 @@ function preferredFilter(
   return projectId ? { mode: "project", projectId } : { mode: "global" };
 }
 
+interface PersistedLayout {
+  windows?: ManagedWindow[];
+  focusedId?: string | null;
+  zCounter?: number;
+  lastFilters?: Partial<Record<WindowKind, ProjectFilter>>;
+}
+
+const DEMO_RESOURCE_IDS = new Set(["ter_1", "svc_web_dev", "browser_preview"]);
+
+function isDemoTab(tab: WindowTab): boolean {
+  return (
+    tab.projectId === "prj_larness" ||
+    DEMO_RESOURCE_IDS.has(tab.resourceId) ||
+    tab.kind === "services" ||
+    tab.kind === "browser" ||
+    (tab.kind === "files" && tab.file === undefined) ||
+    (tab.kind === "git-diff" && tab.git === undefined)
+  );
+}
+
+export function migrateWindowLayout(persisted: unknown, _version: number): unknown {
+  const value = (persisted ?? {}) as PersistedLayout;
+  if (!Array.isArray(value.windows)) return persisted;
+  const now = Date.now();
+  let counter = 0;
+  const windows = value.windows.flatMap((win) => {
+    const tabs = win.tabs
+      .filter((tab) => USE_MOCKS || !isDemoTab(tab))
+      .map((tab) => ({
+        ...tab,
+        viewKey:
+          tab.viewKey ??
+          (tab.kind === "files" && tab.file
+            ? `file:${tab.resourceId}`
+            : tab.kind === "git-diff" && tab.git
+              ? `diff:${tab.projectId}:${tab.git.path}`
+              : `${tab.kind}:${tab.resourceId}`),
+        createdAt: tab.createdAt ?? now + counter++,
+      }));
+    if (!tabs.length) return [];
+    const activeTabId = tabs.some((tab) => tab.id === win.activeTabId)
+      ? win.activeTabId
+      : (filterTabs(tabs, win.filter)[0]?.id ?? tabs[0]?.id ?? null);
+    return [{ ...win, tabs, activeTabId }];
+  });
+  const focusedId = windows.some((win) => win.id === value.focusedId)
+    ? (value.focusedId ?? null)
+    : (windows.at(-1)?.id ?? null);
+  return {
+    windows,
+    focusedId,
+    zCounter: value.zCounter ?? 10,
+    lastFilters: value.lastFilters ?? {},
+  };
+}
+
 export const useWindowStore = create<WindowState>()(
   persist(
     (set, get) => ({
@@ -89,33 +146,46 @@ export const useWindowStore = create<WindowState>()(
         activate = true,
       }) => {
         const state = get();
+        const viewKey =
+          kind === "files" && file
+            ? `file:${resourceId}`
+            : kind === "git-diff" && git
+              ? `diff:${projectId}:${git.path}`
+              : `${kind}:${resourceId}`;
         const tabMatch = state.windows.find((win) =>
-          win.tabs.some((tab) => tab.kind === kind && tab.resourceId === resourceId),
+          win.tabs.some((tab) =>
+            tab.viewKey
+              ? tab.viewKey === viewKey
+              : tab.kind === kind && tab.resourceId === resourceId,
+          ),
         );
         const z = Math.max(state.zCounter + 1, topZ(state.windows) + 1);
         const preferred = preferredFilter(source, projectId);
 
         if (tabMatch) {
-          const tab = tabMatch.tabs.find(
-            (item) => item.kind === kind && item.resourceId === resourceId,
+          const tab = tabMatch.tabs.find((item) =>
+            item.viewKey
+              ? item.viewKey === viewKey
+              : item.kind === kind && item.resourceId === resourceId,
           );
-          const updatedFileTab =
-            tab && file
+          const updatedTab =
+            tab && (file || git)
               ? {
                   ...tab,
-                  file,
+                  ...(file ? { file } : {}),
+                  ...(git ? { git } : {}),
                   projectId,
                   sourceSessionId: sessionId,
                   originType: originFor(source),
                 }
               : undefined;
           const updatedTabs =
-            updatedFileTab && tab
+            updatedTab && tab
               ? tab.projectId === projectId
-                ? tabMatch.tabs.map((item) => (item.id === tab.id ? updatedFileTab : item))
+                ? tabMatch.tabs.map((item) => (item.id === tab.id ? updatedTab : item))
                 : insertIntoTabGroup(
                     tabMatch.tabs.filter((item) => item.id !== tab.id),
-                    updatedFileTab,
+                    updatedTab,
                   )
               : tabMatch.tabs;
           const tabVisible = tab ? isTabVisible(tab, tabMatch.filter) : false;
@@ -148,6 +218,8 @@ export const useWindowStore = create<WindowState>()(
           id: uid("tab"),
           kind,
           resourceId,
+          viewKey,
+          createdAt: Date.now(),
           title,
           projectId,
           sourceSessionId: sessionId,
@@ -333,7 +405,8 @@ export const useWindowStore = create<WindowState>()(
     }),
     {
       name: "larness.windows.v2",
-      version: 2,
+      version: 3,
+      migrate: migrateWindowLayout,
       partialize: (state) => ({
         windows: state.windows,
         focusedId: state.focusedId,

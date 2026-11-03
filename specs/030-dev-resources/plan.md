@@ -151,3 +151,7 @@ Git 执行集中到 packages/resources/src/git：execFile 无 Shell、环境过�
 ## M2-5b 实施记录（2026-11-03）
 
 GitPanel 真实模式直接查询 M2-5 REST：状态 3s 轮询、显式路径选择 / add、仅暂存 commit、分支创建 / 切换、L2 pull / push 面板内批准 / 拒绝 / 执行一次。Diff 使用 git-diff Tab + `{path,staged}`，按项目 + 路径复用；二进制 / 超限只读提示。修复 branches/log 路由未 await 的 unhandled rejection。真实模式隐藏服务 / Browser 假入口；git WS 事件留给 M2-6 统一资源失效。契约见 m2-resources §21，证据见 acceptance.md。
+
+## M2-6 实施记录（2026-11-03）
+
+WindowTab 增加 viewKey / createdAt：文件 realpath、终端 ID、Git Diff projectId + path；同一 Git 路径的 staged / worktree 更新同一 Tab 元数据，不同项目同路径独立。持久化版本 3 迁移补身份 / 时间、修正 activeTab、移除空窗口，真实模式清理 Demo 终端 / 服务 / Browser 与无元数据 Tab；真实顶部只枚举文件 / 终端。Git 区继续 3s 轮询，git WS 事件未新增。窗口 / Diff 关闭无资源副作用，终端 Tab 关闭仍走已确认 terminate。契约见 m2-resources §22，证据见 acceptance.md。

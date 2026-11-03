@@ -305,3 +305,24 @@
 ### 边界
 
 仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新依赖 / 迁移 / 配置 / 认证协议。git WS 失效事件尚未接线，Git 区依赖查询轮询；Git hooks / filters 仍是主机代码，不宣称沙箱。M2-6 未启动。
+
+## M2-6 统一资源身份与布局恢复（2026-11-03）
+
+分支 `task/m2-6-resource-windows`。人类授权自动完成 M2 后续任务；本任务统一 viewKey / 布局版本 / 资源对账，不新增后端接口或迁移。
+
+### 实现与失败证据
+
+- WindowTab 增加 `viewKey` / `createdAt`：文件按 realpath、终端按 terminalId、Diff 按 projectId + path；Git Diff staged / worktree 复用同一视图并更新 staged 元数据，不同项目同路径不误复用。既有文件跨 scope realpath 去重测试保留。
+- 布局持久化升到 v3：迁移补身份 / 创建时间、修正失效 activeTab、移除空窗口；真实模式丢弃 `prj_larness`、Demo 终端 / 服务 / Browser、无 file 元数据的文件 Tab、无 git 元数据的 Diff Tab。真实模式顶部只显示文件 / 终端，已有窗口恢复 filter / activeTab / 最小化状态。
+- 首次测试把不同项目 Diff 期望成两个窗口，实际同一 kind 窗口按项目分组插入；修正断言为同一窗口两个项目 Tab，未改产品分组语义。
+- 窗口 close / minimize、文件 / Diff 关闭无终止副作用；终端 Tab 关闭仍走已确认 terminate（M2-4b 既有真实浏览器证据）。Git 区仍以 3s 轮询，未新增 git WS 事件。
+
+### 自动化范围
+
+- `apps/web/src/stores/windowLayout.test.ts` 2 项：v2→v3 迁移补 viewKey / createdAt、丢弃 Demo / 服务 / Browser、移除空窗口；Git Diff 同项目 staged / worktree 复用、跨项目同路径独立。
+- 既有 `files.test.ts` realpath 去重 / 隐藏窗口草稿、`terminals.test.ts` 关闭窗口保留 Tab / 停止确认、M2-4b 双浏览器恢复与 M2-5b Git 真实浏览器流程继续通过。
+- 最终 `pnpm check`：server 388 / agent 32 / web 41；`pnpm build` 通过；`LARNESS_E2E_PORT=3324 pnpm test:e2e:prod -g M2-5b` 通过。全套 / Demo 交由 M2-8 汇总。
+
+### 边界
+
+仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新依赖 / 迁移 / 配置 / 认证协议。服务窗口无 Tab、Browser 预览与 git WS 失效事件仍在 M3 / 后续统一接线；不把筛选当授权，不把布局恢复当资源重建。M2-7 未启动。

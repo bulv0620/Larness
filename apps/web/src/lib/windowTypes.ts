@@ -12,6 +12,8 @@ export interface WindowTab {
   id: string;
   kind: WindowKind;
   resourceId: string;
+  viewKey?: string;
+  createdAt?: number;
   title: string;
   projectId: string | null;
   sourceSessionId: string | null;
