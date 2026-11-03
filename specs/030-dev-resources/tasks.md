@@ -1,6 +1,6 @@
 # 任务：M2 开发资源与窗口层
 
-> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；M2-4b 已验收，M2-4c 已实现待 review。一次一个任务、一任务一提交，先红测试再实现。
+> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；M2-4b / M2-4c 已验收，当前 M2-4d in_progress。一次一个任务、一任务一提交，先红测试再实现。
 
 ## 状态总表
 
@@ -15,15 +15,15 @@
 | M2-3b | Agent 命令工具与实时执行展示 | M2-3 | 1–2 | `done` |
 | M2-4 | TerminalManager 与输入租约后端 | M2-3b | 2 | `done` |
 | M2-4b | xterm 交互与双客户端接管 | M2-4 | 1–2 | `done` |
-| M2-4c | Agent 项目开发终端工具与生命周期 | M2-4b | 1–2 | `review` |
-| M2-4d | AI 终端输入、中断与人工接管 | M2-4c | 1–2 | `todo` |
+| M2-4c | Agent 项目开发终端工具与生命周期 | M2-4b | 1–2 | `done` |
+| M2-4d | AI 终端输入、中断与人工接管 | M2-4c | 1–2 | `in_progress` |
 | M2-5 | GitManager、资源动作与 Agent 工具 | M2-4d | 2 | `todo` |
 | M2-5b | Git 资源区、Diff 与审批界面 | M2-5 | 1–2 | `todo` |
 | M2-6 | 真实资源统一窗口与布局恢复 | M2-5b/M2-2/M2-4b | 1–2 | `todo` |
 | M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
 | M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
 
-保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，M2-3b 已 done，M2-4b 已验收，M2-4c 已实现待 review，后续保持 todo。
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，M2-3b 已 done，M2-4b / M2-4c 已验收，当前 M2-4d in_progress，后续保持 todo。
 
 ## 任务卡
 
@@ -142,7 +142,7 @@
 
 ### M2-4c Agent 项目开发终端工具与生命周期
 
-- 状态：`review`（分支 `task/m2-4c-agent-terminals`，2026-11-03 +08:00 开始）
+- 状态：`done`（2026-11-03 人类确认并继续）
 - 依赖：M2-4b；G-Spec-M2 / ADR-029 / G-PoC-M2。
 - 预估：1–2 天（启动 / 读取 / 停止）；完整输入 / 中断 / 人机交接拆至 M2-4d，避免本卡超范围。
 - [x] 先写失败测试：FakeProvider 启动真实前后端两个进程；角色 / 参数重试；审批篡改；读日志；Turn 取消前后交付竞态；显式停止。
@@ -151,11 +151,11 @@
 - [x] 验证：`pnpm check` / `pnpm build` 与真实浏览器；同步契约 / 状态并逐任务提交。
 - 涉及路径：packages/agent/；apps/server/src/modules/agent / terminals；apps/web/src/components/windows；e2e-auth/。
 
-- 真实资源与浏览器证据见 [acceptance.md](acceptance.md)：check（server 376 / agent 32 / web 37）、build、prod 7/7、Demo 15/15；状态 review，等待人类验收，M2-4d 未启动。
+- 真实资源与浏览器证据见 [acceptance.md](acceptance.md)：check（server 376 / agent 32 / web 37）、build、prod 7/7、Demo 15/15；2026-11-03 人类验收通过。
 
 ### M2-4d AI 终端输入、中断与人工接管
 
-- 状态：`todo`；依赖 M2-4c，完整技术 schema 需 G-Spec-M2；预估 1–2 天。
+- 状态：`in_progress`（分支 `task/m2-4d-agent-control`，2026-11-03 +08:00 开始）；依赖 M2-4c。
 - [ ] 先失败测试：真实 PTY 的 Agent acquire / input / interrupt / release、人机单控制者、旧 generation / 重复输入拒绝、Turn 取消、身份撤销、人工接管后 AI 不抢回。
 - [ ] 按 m2-resources §10 实现 principal 联合、输入工具策略 / 审计、AI 租约续租、人工显式接管与输入序号；读取不抢控制，终止走独立权限。
 - [ ] 验收 A30 / A31；中断不伪报已停止，Turn 结束只释放输入控制，不停止已交付项目资源；不记录输入正文 / 秘密。
