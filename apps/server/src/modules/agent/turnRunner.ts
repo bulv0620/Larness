@@ -11,20 +11,23 @@ import {
   type ToolRegistry,
   type ToolSchema,
 } from "@larness/agent";
+import { FileManagerError } from "@larness/resources";
 import {
   type AssistantDeltaEvent,
   FileResultTargetSchema,
   type ServerEvent,
 } from "@larness/shared";
+import { z } from "zod";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import type { SessionRow, TurnRow, TurnStatus } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { publishAgentEvent } from "../../ws/publisher.js";
+import type { CommandManager } from "../commands/manager.js";
 import { getProjectById } from "../projects/repository.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
-import { type ApprovalDto, getApproval } from "./approvalService.js";
+import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
 import { assembleContext } from "./contextAssembler.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
@@ -70,6 +73,7 @@ export interface TurnRunnerOptions {
   approvalPollMs?: number;
   approvalTtlMs?: number;
   lockTtlMs?: number;
+  commands?: CommandManager;
 }
 
 export type TurnRunResult = {
@@ -92,16 +96,13 @@ function approvalPolicy(value: string): ApprovalPolicy {
 
 function truncateToolMessage(text: string): string {
   const lines = text.split(/\r?\n/);
-
-  if (lines.length > MAX_TOOL_MESSAGE_LINES) {
-    return `${lines.slice(0, MAX_TOOL_MESSAGE_LINES).join("\n")}\n...[truncated]`;
-  }
-
-  if (text.length > MAX_TOOL_MESSAGE_CHARS) {
-    return `${text.slice(0, MAX_TOOL_MESSAGE_CHARS)}...[truncated]`;
-  }
-
-  return text;
+  const limited = lines.slice(0, MAX_TOOL_MESSAGE_LINES).join("\n");
+  return (
+    limited.slice(0, MAX_TOOL_MESSAGE_CHARS) +
+    (lines.length > MAX_TOOL_MESSAGE_LINES || limited.length > MAX_TOOL_MESSAGE_CHARS
+      ? "...[truncated]"
+      : "")
+  );
 }
 
 function toolMessageContent(result: {
@@ -112,7 +113,11 @@ function toolMessageContent(result: {
 }): string {
   const value = result.ok
     ? JSON.stringify(result.data ?? { summary: result.summary })
-    : JSON.stringify({ errorCode: result.errorCode ?? "TOOL_ERROR", message: result.summary });
+    : JSON.stringify({
+        errorCode: result.errorCode ?? "TOOL_ERROR",
+        message: result.summary,
+        data: result.data,
+      });
 
   return truncateToolMessage(value);
 }
@@ -216,7 +221,23 @@ export class TurnRunner {
     const project =
       session.projectId === null ? null : getProjectById(this.#options.db, session.projectId);
     let projectRoot = project?.realPath ?? session.workspacePath;
-    const policy = approvalPolicy(session.approvalPolicyId);
+    let turnInput: unknown;
+    try {
+      turnInput = JSON.parse(turn.inputJson);
+    } catch {
+      turnInput = undefined;
+    }
+    const execution = z
+      .object({
+        executionContext: z.object({
+          clientSessionId: z.string().min(1),
+          policySnapshotId: z.string().min(1),
+          policy: z.enum(["standard", "strict", "readonly"]),
+        }),
+      })
+      .safeParse(turnInput);
+    const snapshot = execution.success ? execution.data.executionContext : undefined;
+    const policy = snapshot?.policy ?? approvalPolicy(session.approvalPolicyId);
     let projectLock: ProjectWriteLock | null = null;
     let usage: ProviderUsage = {};
     let steps = 0;
@@ -234,6 +255,14 @@ export class TurnRunner {
         finishReason?: ProviderFinishReason;
       },
     ): TurnRunResult => {
+      if (lockLost && status === "CANCELLED") {
+        status = "FAILED";
+        options = {
+          eventType: "turn.failed",
+          errorCode: "RESOURCE_LOCKED",
+          message: "Project write lock was lost",
+        };
+      }
       finalized = true;
       return this.#finalize(turn, session, status, {
         ...options,
@@ -279,6 +308,107 @@ export class TurnRunner {
 
     const renewProjectLock = (): boolean => projectLock === null || projectLock.renew() !== null;
 
+    let lockLost = false;
+    const heartbeat = setInterval(
+      () => {
+        try {
+          if (!renewProjectLock()) throw new Error("Lock lost");
+        } catch {
+          lockLost = true;
+          controller.abort();
+        }
+      },
+      Math.max(10, Math.min(1000, (this.#options.lockTtlMs ?? 30_000) / 3)),
+    );
+    heartbeat.unref();
+    const execute = (request: ToolCallRequest, approvalId?: string) =>
+      executeTool(
+        { db: this.#options.db, registry: this.#options.registry, now: this.#options.now },
+        {
+          sessionId: session.id,
+          turnId: turn.id,
+          toolCallId: request.id,
+          toolName: request.name,
+          args: request.args,
+          policy,
+          projectRoot,
+          signal: controller.signal,
+          clientSessionId: snapshot?.clientSessionId,
+          policySnapshotId: snapshot?.policySnapshotId,
+          ...(approvalId ? { approvalId } : {}),
+          ...(this.#options.approvalTtlMs === undefined
+            ? {}
+            : { approvalTtlMs: this.#options.approvalTtlMs }),
+          runCommand: async (params, assertAuthorized) => {
+            if (!snapshot || !this.#options.commands)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Command execution context unavailable",
+              };
+            try {
+              const row = await this.#options.commands.execute(
+                {
+                  sessionId: session.id,
+                  turnId: turn.id,
+                  toolCallId: request.id,
+                  clientSessionId: snapshot.clientSessionId,
+                  policySnapshotId: snapshot.policySnapshotId,
+                  remainingMs: Math.max(
+                    1,
+                    Math.floor(this.#budget.maxDurationMs - (this.#now() - startedAt)),
+                  ),
+                  signal: controller.signal,
+                  ...(projectLock?.handle ? { inheritedLock: projectLock.handle } : {}),
+                  assertAuthorized: () => {
+                    assertAuthorized();
+                    if (checkBudget() !== "ok" || lockLost)
+                      throw new Error("Execution no longer authorized");
+                  },
+                  onCreated: (commandId) =>
+                    this.#emit(turn, session, "tool.command.created", {
+                      turnId: turn.id,
+                      toolCallId: request.id,
+                      commandId,
+                    }),
+                },
+                params,
+              );
+              const output = await this.#options.commands.output(row.id, 0, 500);
+              const completeText = output.chunks.map((chunk) => chunk.data).join("");
+              let text = truncateToolMessage(completeText);
+              // Reserve room for the result envelope, including JSON escaping.
+              while (JSON.stringify(text).length > 12_000)
+                text = `${text.slice(0, Math.floor(text.length * 0.7))}...[truncated]`;
+              const truncated =
+                row.truncated ||
+                output.truncated ||
+                output.resyncRequired ||
+                text !== completeText ||
+                output.chunks.length >= 500;
+              return {
+                ok: row.status === "COMPLETED",
+                summary: `Command ${row.status}; exit code ${row.exitCode ?? "—"}`,
+                errorCode: row.reasonCode ?? undefined,
+                truncated,
+                data: {
+                  commandId: row.id,
+                  status: row.status,
+                  exitCode: row.exitCode,
+                  output: text,
+                  truncated,
+                },
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Command execution failed",
+              };
+            }
+          },
+        },
+      );
     try {
       if (project === null) {
         projectRoot = await realpath(session.workspacePath);
@@ -421,6 +551,8 @@ export class TurnRunner {
         for (const request of toolRequests) {
           const cancelState = checkBudget();
 
+          if (cancelState === "budget")
+            return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
           if (cancelState === "cancel") {
             return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
           }
@@ -445,12 +577,12 @@ export class TurnRunner {
           });
 
           let approvalId: string | undefined;
-          const access =
-            definition === undefined ? "allow" : decideToolAccess(policy, definition.riskLevel);
+          const risk = definition?.classifyRisk?.(request.args) ?? definition?.riskLevel ?? "L2";
+          const access = definition === undefined ? "allow" : decideToolAccess(policy, risk);
           const needsProjectLock =
-            definition !== undefined && definition.riskLevel !== "L0" && session.projectId !== null;
+            definition !== undefined && risk !== "L0" && session.projectId !== null;
 
-          if (needsProjectLock && access !== "require_approval") {
+          if (needsProjectLock && access === "allow") {
             if (!acquireProjectLock() || !renewProjectLock()) {
               const result = {
                 ok: false,
@@ -480,13 +612,7 @@ export class TurnRunner {
             name: request.name,
           });
 
-          const outcome: ToolExecutionOutcome = await this.#execute(
-            turn,
-            session,
-            request,
-            policy,
-            projectRoot,
-          );
+          const outcome: ToolExecutionOutcome = await execute(request);
 
           if (outcome.status === "approval_required") {
             this.#transition(turn, session, "WAITING_APPROVAL");
@@ -495,7 +621,7 @@ export class TurnRunner {
               toolCallId: request.id,
               approvalId: outcome.approval.id,
               toolName: request.name,
-              risk: definition?.riskLevel ?? "L1",
+              risk,
               summary:
                 typeof (outcome.approval.scope as { summary?: unknown }).summary === "string"
                   ? (outcome.approval.scope as { summary: string }).summary
@@ -504,7 +630,11 @@ export class TurnRunner {
               expiresAt: outcome.approval.expiresAt,
             });
 
-            const decision = await this.#waitForApproval(outcome.approval, controller.signal);
+            const decision = await this.#waitForApproval(
+              outcome.approval,
+              controller.signal,
+              startedAt + this.#budget.maxDurationMs,
+            );
 
             if (decision === "cancelled") {
               return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
@@ -537,14 +667,8 @@ export class TurnRunner {
                   },
                 };
               } else {
-                result = await this.#execute(
-                  turn,
-                  session,
-                  request,
-                  policy,
-                  projectRoot,
-                  approvalId,
-                );
+                this.#transition(turn, session, "RUNNING");
+                result = await execute(request, approvalId);
               }
             } else {
               result = {
@@ -652,48 +776,26 @@ export class TurnRunner {
         message: message.slice(0, 500),
       });
     } finally {
+      clearInterval(heartbeat);
+      if (controller.signal.aborted)
+        invalidateTurnApprovals({ db: this.#options.db, now: this.#options.now }, turn.id);
       (projectLock as ProjectWriteLock | null)?.release();
       this.#controllers.delete(turnId);
     }
   }
 
-  #execute(
-    turn: TurnRow,
-    session: SessionRow,
-    request: ToolCallRequest,
-    policy: ApprovalPolicy,
-    projectRoot: string,
-    approvalId?: string,
-  ): Promise<ToolExecutionOutcome> {
-    return executeTool(
-      {
-        db: this.#options.db,
-        registry: this.#options.registry,
-        now: this.#options.now,
-      },
-      {
-        sessionId: session.id,
-        turnId: turn.id,
-        toolCallId: request.id,
-        toolName: request.name,
-        args: request.args,
-        policy,
-        projectRoot,
-        ...(approvalId === undefined ? {} : { approvalId }),
-        ...(this.#options.approvalTtlMs === undefined
-          ? {}
-          : { approvalTtlMs: this.#options.approvalTtlMs }),
-      },
-    );
-  }
-
   async #waitForApproval(
     approval: ApprovalDto,
     signal: AbortSignal,
+    deadline: number,
   ): Promise<"approved" | "denied" | "expired" | "cancelled"> {
     const pollMs = this.#options.approvalPollMs ?? APPROVAL_POLL_MS;
 
     while (!signal.aborted) {
+      if (this.#now() >= deadline) {
+        invalidateTurnApprovals({ db: this.#options.db, now: this.#options.now }, approval.turnId);
+        return "expired";
+      }
       const current = getApproval({ db: this.#options.db, now: this.#options.now }, approval.id);
 
       if (
@@ -710,7 +812,7 @@ export class TurnRunner {
         return "expired";
       }
 
-      await delay(Math.min(pollMs, current.expiresAt - now), signal);
+      await delay(Math.min(pollMs, current.expiresAt - now, deadline - now), signal);
     }
 
     return "cancelled";

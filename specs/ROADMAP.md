@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
-| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-1b done / M2-2 review，最终 G2 |
+| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-3 done / M2-3b review，最终 G2 |
 | M3 | 本机服务与 Preview | [040](040-services-preview/spec.md) | `draft` | G3 |
 | M4 | 部署闭环与权限加固 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
@@ -113,9 +113,9 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | U0-2 | supervisor 接线与共享配置/统一初始化 | U0-1 | `done` |
 | U0-3 | 同目录模式切换、真实 HMR 与整体交付 | U0-2 | `done`（2026-11-02 人类验收通过） |
 
-## 5. M2 开发资源与窗口层（M2-2 待 review）
+## 5. M2 开发资源与窗口层（M2-3b 待 review）
 
-2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。2026-11-03 人类在阅读 [PoC 证据](030-dev-resources/poc.md) 后明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 已获人类“下一步”或“继续”确认并标 done；M2-3 已实现待 review，M2-3b 起均 todo。
+2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。2026-11-03 人类在阅读 [PoC 证据](030-dev-resources/poc.md) 后明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 已获人类“下一步”或“继续”确认并标 done；人类“下一步”确认 M2-3 done；M2-3b 已实现待 review，M2-4 起均 todo。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
@@ -124,8 +124,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M2-1 | FileManager、写锁与资源持久化底座 | M2-0；G-PoC-M2 | `done` |
 | M2-1b | 文件监听与资源事件补拉 | M2-1 | `done` |
 | M2-2 | Monaco 编辑、多 Tab 与冲突恢复 | M2-1b | `done` |
-| M2-3 | CommandRunner 与受管进程协调 | M2-2 | `review` |
-| M2-3b | Agent 命令工具、预算、取消与输出 UI | M2-3 | `todo` |
+| M2-3 | CommandRunner 与受管进程协调 | M2-2 | `done` |
+| M2-3b | Agent 命令工具、预算、取消与输出 UI | M2-3 | `review` |
 | M2-4 | TerminalManager、PTY 与输入租约 | M2-3b | `todo` |
 | M2-4b | xterm 真实交互与双客户端观察 | M2-4 | `todo` |
 | M2-4c | Agent 项目开发终端工具、用途去重与生命周期 | M2-4b | `todo` |

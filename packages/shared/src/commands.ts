@@ -85,3 +85,30 @@ export const CommandStatusEventSchema = z.object({
   type: z.literal("command.status"),
   payload: CommandStatusPayloadSchema,
 });
+
+export const CommandDtoSchema = z.object({
+  id: CommandIdSchema,
+  scope: z
+    .object({ projectId: z.string() })
+    .strict()
+    .or(z.object({ sessionId: z.string() }).strict()),
+  status: CommandStatusSchema,
+  exitCode: z.number().nullable(),
+  reasonCode: z.string().nullable(),
+  truncated: z.boolean(),
+  startedAt: z.number().nullable(),
+  endedAt: z.number().nullable(),
+  currentSequence: z.number().int().nonnegative(),
+});
+export const CommandOutputPageSchema = z.object({
+  chunks: z.array(CommandOutputChunkSchema).max(500),
+  oldestCursor: z.number().int().positive(),
+  nextCursor: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+  resyncRequired: z.boolean(),
+});
+export const CommandOutputEventSchema = CommandOutputChunkSchema.extend({
+  kind: z.literal("command.output"),
+  resourceId: CommandIdSchema,
+}).strict();
+export type CommandOutputEvent = z.infer<typeof CommandOutputEventSchema>;

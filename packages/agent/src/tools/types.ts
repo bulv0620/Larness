@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-export type ToolRiskLevel = "L0" | "L1" | "L2";
+export type ToolRiskLevel = "L0" | "L1" | "L2" | "L3";
 
 export type ApprovalPolicy = "standard" | "strict" | "readonly";
 
@@ -10,6 +10,7 @@ export interface ToolContext {
   projectRoot: string;
   ignore?: string[];
   signal?: AbortSignal;
+  runCommand?: (args: unknown) => Promise<ToolResult>;
 }
 
 export interface ToolResult {
@@ -25,6 +26,7 @@ export interface ToolDefinition {
   readonly description: string;
   readonly riskLevel: ToolRiskLevel;
   readonly schema: z.ZodType;
+  readonly classifyRisk?: (args: unknown) => ToolRiskLevel;
   readonly summarize?: (args: unknown) => string;
   execute(rawArgs: unknown, context: ToolContext): Promise<ToolResult>;
 }
@@ -75,6 +77,7 @@ export function decideToolAccess(
   policy: ApprovalPolicy,
   riskLevel: ToolRiskLevel,
 ): ToolAccessDecision {
+  if (riskLevel === "L3") return "deny";
   if (riskLevel === "L0") {
     return "allow";
   }

@@ -63,6 +63,7 @@ export class CommandOutputFile {
     }
     this.cursor++;
     this.#size += bytes.length;
+    return row;
   }
   close() {
     if (this.#fd === null) return;

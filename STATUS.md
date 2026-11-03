@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-03 (+08:00)
-> 当前阶段：**M2-2 已验收；M2-3 命令执行后端已实现，待 review**
+> 当前阶段：**M2-3 已验收；M2-3b Agent 命令工具与输出卡片已实现，待 review**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-2 done / M2-3 review |
+| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-3 done / M2-3b review |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -261,3 +261,16 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 共同根锁与 inherited Turn 锁 / fencing、持久执行意图及事务事件；重启只读对账，不向持久 PID 发信号。唯一 0006_commands 新表迁移，输出 7 天 / 安全终态元数据 30 天，保留序号；授权状态 / 输出 / 取消 API、command.status 订阅 / 补拉。
 - check（server 340 / agent 32 / web 31，原 live 1 项按环境跳过）、build、生产浏览器最终 3/3；首次 M1 右键菜单未出现，原样全套复跑通过，未改 UI / 断言，原因未证实。真实命令 / 子进程树 / SQLite / REST / WS / 失败注入 / 恢复证据及边界见 acceptance.md。
 - 仅实测当前 macOS / Node 20；不宣称 OS 沙箱、原子 PID 身份或任意脱组清理。无新依赖 / 配置 / 认证 / IPC 变更，未修改用户运行数据。状态 review，M2-3b 工具 / 审批 / 实时卡片未开始。
+
+
+## M2-3b 启动（2026-11-03 +08:00）
+
+- 人类明确“下一步”，M2-3 review 通过并标 done；M2-3b in_progress，分支 `task/m2-3b-agent-commands`。
+- 先失败测试，再接 run_command 的逐次风险 / 参数审批、真实客户端 / Turn 策略快照、预算 / 取消 / inherited lock；命令状态与有界脱敏输出卡片、实时通知 / 游标补拉和显式取消。不创建终端 Tab，不启动 M2-4。
+
+### M2-3b 交付（2026-11-03）
+
+- run_command 已接真实 Turn：窄 L1 项目脚本分类、默认 L2 逐次审批 / L3 拒绝，规范化参数与真实客户端 / 策略快照 / 根绑定，启动前重验；Turn 剩余预算 / AbortSignal / 有效 inherited lock，运行续租与取消审批失效。
+- 持久 tool.command.created 关联先于 spawn；命令结果向模型返回有界脱敏 JSON 摘要。输出落文件后推 command.output，卡片按游标增量读取、250ms 合并失效 / 2s 活动补偿，支持刷新恢复 / 显式取消 / 退出码 / 原因 / 截断 / 缺口；不创建终端 Tab。
+- check（server 354 / agent 32 / web 32，原 live 1 项按环境跳过）、build、生产浏览器最终 4/4、Demo 15/15 通过。新增真实 Agent 命令测试 14 项和卡片组件测试 1 项；运行 / 结果画面人工查看通过，详细证据见 acceptance.md。
+- 无新依赖 / 迁移 / 配置 / 认证 / IPC 协议或通用命令创建接口，未修改用户运行数据。当前 macOS 范围；不宣称沙箱或任意脱组清理。状态 review，下一任务 M2-4 保持 todo。

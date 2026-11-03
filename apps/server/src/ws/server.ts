@@ -3,6 +3,7 @@ import websocket from "@fastify/websocket";
 import { FileManagerError } from "@larness/resources";
 import {
   type AppConfig,
+  type CommandOutputEvent,
   CommandSubscriptionSchema,
   FileSubscriptionSchema,
   type ServerEvent,
@@ -257,6 +258,28 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           }
         };
         deps.resourceEvents.on(onResourceEvent);
+        const onOutput = (event: CommandOutputEvent) => {
+          if (!subscriptions.has(event.resourceId)) return;
+          if (!sessionActive()) {
+            socket.close(1008, "session expired");
+            return;
+          }
+          try {
+            const grant = fileGrants.get(event.resourceId);
+            if (!grant) return;
+            assertFileScopeMetadata(deps.db, grant);
+            send(socket, event);
+          } catch {
+            subscriptions.delete(event.resourceId);
+            fileGrants.delete(event.resourceId);
+            send(socket, {
+              kind: "error",
+              code: "FORBIDDEN",
+              message: "Command subscription is no longer authorized",
+            });
+          }
+        };
+        deps.resourceEvents.onOutput(onOutput);
 
         const processMessage = async (raw: Buffer): Promise<void> => {
           if (closed) return;
@@ -535,6 +558,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           sessionEvents.off("device.revoked", onDeviceRevoked);
           agentEventBus.off("event", onAgentEvent);
           deps.resourceEvents.off(onResourceEvent);
+          deps.resourceEvents.offOutput(onOutput);
           deps.fileWatches.unsubscribe(owner);
           fileGrants.clear();
           subscriptions.clear();

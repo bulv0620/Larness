@@ -466,3 +466,5 @@ M2-1（2026-11-03）：文件与目录接口已落地；精确 scope、幂等、
 M2-1b（2026-11-03）：GET `/api/resource-events?streamId=&after=&limit=` 已落地，仅接受授权文件流，limit 默认 100 / 最大 500。返回 `{ items, currentSequence, resyncRequired }`；after 超前为 400，保留 30 天且不重置序号，缺口重取快照。文件 / 目录 GET 兼作手动刷新。完整恢复 / 背压语义见 [m2-resources §12](m2-resources.md#12-m2-1b-文件监听与事件恢复2026-11-03)。
 
 M2-3（2026-11-03）：GET `/api/commands/:id`、GET `/api/commands/:id/output?after=&limit=`、POST `/api/commands/:id/cancel` 已接现有认证守卫及资源授权；没有通用 POST `/api/commands`。资源事件补拉现也接受 commandId。参数、幂等、停止确认、输出缺口与保留见 [m2-resources §14](m2-resources.md#14-m2-3-命令执行后端2026-11-03)；Agent 创建与 UI 留在 M2-3b。
+
+M2-3b（2026-11-03）：run_command 仅由已授权的 Agent Turn 创建；未增加 POST `/api/commands`。真实命令卡片复用既有状态 / 输出 GET 与空对象 cancel（Cookie / Origin / CSRF）；取消单个命令与取消整个 Turn 分开。刷新 / 重连读状态和输出游标，不重复创建资源；截断 / 过期 / 缺口与停止未确认均显示当前真实状态。见 [资源契约 §15](m2-resources.md#15-m2-3b-agent-命令与执行卡片2026-11-03)。

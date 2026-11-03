@@ -16,6 +16,7 @@ import { TimelineItemView } from "@/features/chat/TimelineItemView";
 import { FileResultCard } from "@/features/files/FileResultCard";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
+import { CommandCard } from "./CommandCard";
 
 function TimelineItems({ items }: { items: TimelineItem[] }) {
   const lastAssistantByTurn = new Map<string, number>();
@@ -44,6 +45,7 @@ function TimelineItems({ items }: { items: TimelineItem[] }) {
         nodes.push(
           <div key={tool.id}>
             <TimelineItemView item={tool} />
+            {tool.commandId ? <CommandCard commandId={tool.commandId} /> : null}
             {tool.resourceTarget ? <FileResultCard target={tool.resourceTarget} /> : null}
           </div>,
         );
@@ -106,6 +108,9 @@ function ToolGroup({ tools }: { tools: ToolItem[] }) {
       </button>
       {tools.map((tool) =>
         tool.resourceTarget ? <FileResultCard key={tool.id} target={tool.resourceTarget} /> : null,
+      )}
+      {tools.map((tool) =>
+        tool.commandId ? <CommandCard key={tool.id} commandId={tool.commandId} /> : null,
       )}
       {expanded ? (
         <div className="space-y-1.5 border-t border-line/80 p-1.5">

@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { FileManagerError } from "@larness/resources";
 import {
   CommandIdSchema,
+  type CommandOutputEvent,
   CommandStatusPayloadSchema,
   FileChangedPayloadSchema,
   FileResyncPayloadSchema,
@@ -66,6 +67,21 @@ export class ResourceEventBus {
   }
   off(listener: (event: ServerEvent) => void) {
     this.#bus.off("event", listener);
+  }
+  onOutput(listener: (event: CommandOutputEvent) => void) {
+    this.#bus.on("output", listener);
+  }
+  offOutput(listener: (event: CommandOutputEvent) => void) {
+    this.#bus.off("output", listener);
+  }
+  publishOutput(event: CommandOutputEvent) {
+    for (const listener of this.#bus.listeners("output")) {
+      try {
+        listener(event);
+      } catch {
+        /* Output remains available by cursor. */
+      }
+    }
   }
   publish(row: ResourceEventRow) {
     const event = resourceEventDto(row);

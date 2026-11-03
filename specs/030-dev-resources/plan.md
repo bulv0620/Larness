@@ -117,3 +117,9 @@ FileWindow 在真实模式使用完整文件 Query，草稿为内存 text / base
 CommandManager 以真实 session / Turn / 活动客户端上下文执行，scope 不从模型参数接收。自有锁与 inherited Turn 锁共用根冲突 / fencing，执行意图先提交，再 spawn；结果与事件 seq 同事务，提交失败保持恢复屏障。执行器 shell:false、过滤环境、有界 UTF-8 跨块脱敏输出，按内存进程启动快照复核后 TERM→KILL；身份或管道无法确认不释放根。启动恢复只对账，不向持久 PID 发信号。
 
 新增唯一 0006_commands 迁移，command_executions 与既有 resource_operations 协作；输出落受限数据目录日志，7 天正文 / 30 天安全终态元数据，流序号保留。授权状态 / 输出 / 取消 REST、command.status WS / REST 补拉已接入；工具注册、审批和卡片属 M2-3b。本任务没有新依赖 / 配置 / 认证协议或 UI。契约见 m2-resources §14，验证与平台边界见 acceptance.md。
+
+## M2-3b 实施记录（2026-11-03）
+
+在现有 ToolDefinition 增加可选动态风险分类，不改文件工具的固定风险。run_command 使用共享参数 schema、窄 L1 开发脚本分类 / 默认 L2 / 直接特权程序 L3 拒绝；审批绑定规范化参数与真实 Turn 执行快照。Turn 创建时把发起客户端和策略写现有 input_json，Runner 注入剩余预算 / AbortSignal / 有效锁与执行前授权断言；执行期续租，等待审批也计预算。缺旧执行身份失败关闭，无新迁移。
+
+先持久 Agent-to-command 关联再 spawn；失败结果也带有界 JSON 输出摘要，完整输出通过资源 GET。输出文件写入后发布独立 command.output，复用授权订阅 / 背压；卡片用 Query 快照与输出页，实时失效 / 轮询补偿，刷新不重执行、不建终端。审批取消、执行取消、预算、参数替换、客户端撤销、关联失败与真实浏览器测试证据见 acceptance.md；M2-4 未开始。

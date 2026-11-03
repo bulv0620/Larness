@@ -183,3 +183,5 @@ PTY 输出不逐字节入库：使用限长环形缓冲 + 可选落盘日志；�
 M2-2（2026-11-03）：文件结果 target 从真实工具上下文生成，点击重新 GET 授权 / realpath 去重，不重新执行工具。文件视图消费订阅 / 补拉只做 Query 失效，草稿不会被通知覆盖；详见 [资源契约 §13](m2-resources.md#13-m2-2-编辑器与文件结果2026-11-03)。
 
 M2-3（2026-11-03）：新增 command 主题，resourceId / streamId 均为真实 commandId；订阅 after 先鉴权并拒绝未来游标。command.status 为持久 ServerEvent，payload 为 status / exitCode / reasonCode / truncated / startedAt / endedAt；GET `/api/resource-events` 补拉。状态事务提交后才推送，每次推送重查客户端与资源归属；关闭 WS 不取消命令。当前逐块输出走授权游标 GET，command.output 推送与实时界面在 M2-3b；见 [资源契约 §14](m2-resources.md#14-m2-3-命令执行后端2026-11-03)。
+
+M2-3b（2026-11-03）：command 订阅已推送 `command.output`，信封为 `{kind:"command.output", resourceId:commandId, cursor, data, channel:"stdout"|"stderr", timestamp}`。脱敏块写入输出文件后才推送，单块 ≤16 KiB、不占 SQLite 关键 seq；缺口走输出 GET，慢连接沿用 8 MiB 背压断开。Session 流新增持久 `tool.command.created`，绑定真实 `{turnId, toolCallId, commandId}`，关联提交失败不启动命令；刷新重放只恢复卡片。状态与输出消费重查授权，页面卸载不 cancel。详见 [资源契约 §15](m2-resources.md#15-m2-3b-agent-命令与执行卡片2026-11-03)。

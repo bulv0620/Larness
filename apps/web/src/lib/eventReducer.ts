@@ -145,6 +145,12 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
             createdAt: event.timestamp,
           });
     }
+    case "tool.command.created": {
+      const commandId = stringField(data, "commandId");
+      return commandId && /^cmd_[a-f0-9-]{36}$/.test(commandId)
+        ? patchTool(items, toolId(event, data), { commandId })
+        : items;
+    }
     case "tool.completed": {
       const id = toolId(event, data);
       const target = FileResultTargetSchema.safeParse(data.resourceTarget);

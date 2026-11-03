@@ -62,6 +62,7 @@ export interface ToolItem {
   status: "running" | "done" | "error";
   output?: string;
   durationMs?: number;
+  commandId?: string;
   resourceTarget?: FileResultTarget;
   createdAt: number;
 }

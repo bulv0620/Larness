@@ -242,7 +242,11 @@ export class CommandManager {
     const secrets = encrypted
       .map((secret) => this.options.secretStore?.decrypt(secret) ?? "")
       .filter(Boolean);
-    if (secrets.some((secret) => JSON.stringify(params).includes(secret)))
+    if (
+      secrets.some((secret) =>
+        [params.executable, params.cwd, ...params.args].some((value) => value.includes(secret)),
+      )
+    )
       throw new FileManagerError("FORBIDDEN", "Protected credentials cannot be command arguments");
     const hash = createHash("sha256")
       .update(
@@ -356,13 +360,9 @@ export class CommandManager {
     });
     const { row, lock: held } = prepared;
     this.options.events.publish(prepared.event);
-    try {
-      context.onCreated?.(id);
-    } catch {
-      /* A failed view callback cannot undo committed creation. */
-    }
     let output: CommandOutputFile;
     try {
+      context.onCreated?.(id);
       output = new CommandOutputFile(this.options.dataDir, id);
     } catch {
       this.#status(
@@ -484,7 +484,15 @@ export class CommandManager {
                 context.clientSessionId,
               );
             },
-            onOutput: (chunk) => output.append(chunk),
+            onOutput: (chunk) => {
+              const stored = output.append(chunk);
+              if (stored)
+                this.options.events.publishOutput({
+                  kind: "command.output",
+                  resourceId: id,
+                  ...stored,
+                });
+            },
           });
           exitCode = result.exitCode;
           stopped = result.stopped;

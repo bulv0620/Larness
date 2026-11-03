@@ -258,7 +258,7 @@ function ApprovalCard({ item }: { item: ApprovalItem }) {
           mono
         />
       </div>
-      <p className="mt-2 text-[11px] leading-5 text-ink-2">
+      <p className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-5 text-ink-2">
         {toolApproval
           ? (item.summary ?? "Agent 请求执行受控工具，需要你的确认。")
           : (item.impact ?? "批准后才会替换生产服务。")}

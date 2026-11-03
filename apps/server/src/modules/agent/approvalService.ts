@@ -366,3 +366,14 @@ export function expirePendingApprovals(options: ApprovalServiceOptions): number 
 
   return expired;
 }
+
+export function invalidateTurnApprovals(options: ApprovalServiceOptions, turnId: string): void {
+  const now = options.now?.() ?? Date.now();
+  immediateTransaction(options.db, (tx) => {
+    const rows = tx.select().from(approvals).where(eq(approvals.turnId, turnId)).all();
+    for (const row of rows) {
+      if (row.status === "pending" || (row.toolName === "run_command" && row.status === "approved"))
+        expireRow(tx, row, now);
+    }
+  });
+}

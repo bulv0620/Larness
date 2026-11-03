@@ -1,16 +1,19 @@
 import {
   type ApprovalPolicy,
   decideToolAccess,
+  type ToolContext,
   type ToolDefinition,
   type ToolRegistry,
   type ToolResult,
 } from "@larness/agent";
+import { OutputRedactor } from "@larness/resources";
 import type { Database } from "../../db/client.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import {
   type ApprovalDto,
   ApprovalError,
   assertApprovalMatches,
+  hashApprovalParams,
   requestApproval,
 } from "./approvalService.js";
 
@@ -32,6 +35,9 @@ export interface ExecuteToolInput {
   approvalId?: string;
   clientSessionId?: string;
   approvalTtlMs?: number;
+  signal?: AbortSignal;
+  policySnapshotId?: string;
+  runCommand?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
 }
 
 export type ToolExecutionOutcome =
@@ -66,7 +72,8 @@ export async function executeTool(
     };
   }
 
-  const access = decideToolAccess(input.policy, tool.riskLevel);
+  const risk = tool.classifyRisk?.(input.args) ?? tool.riskLevel;
+  const access = decideToolAccess(input.policy, risk);
 
   if (access === "deny") {
     appendAudit(options.db, {
@@ -79,7 +86,7 @@ export async function executeTool(
       details: {
         turnId: input.turnId,
         toolName: input.toolName,
-        risk: tool.riskLevel,
+        risk,
         policy: input.policy,
         reason: "policy",
       },
@@ -124,6 +131,36 @@ export async function executeTool(
     };
   }
 
+  const command = input.toolName === "run_command";
+  const params = command ? parsed.data : input.args;
+  const approvalParams = command
+    ? {
+        params,
+        sessionId: input.sessionId,
+        turnId: input.turnId,
+        clientSessionId: input.clientSessionId,
+        policySnapshotId: input.policySnapshotId,
+        policy: input.policy,
+        projectRoot: input.projectRoot,
+      }
+    : params;
+  const assertAuthorized = () => {
+    if (input.signal?.aborted) throw new ApprovalError("APPROVAL_INVALID", "Execution cancelled");
+    if (access === "require_approval" && input.approvalId === undefined)
+      throw new ApprovalError("APPROVAL_INVALID", "Approval required");
+    if (input.approvalId) {
+      const row = assertApprovalMatches(
+        { db: options.db, now: options.now, clientSessionId: input.clientSessionId },
+        { id: input.approvalId, params: approvalParams },
+      );
+      if (
+        row.turnId !== input.turnId ||
+        row.toolCallId !== input.toolCallId ||
+        row.toolName !== input.toolName
+      )
+        throw new ApprovalError("APPROVAL_INVALID", "Approval identity mismatch");
+    }
+  };
   if (access === "require_approval" && input.approvalId === undefined) {
     const approval = requestApproval(
       { db: options.db, now: () => now },
@@ -131,13 +168,15 @@ export async function executeTool(
         turnId: input.turnId,
         toolCallId: input.toolCallId,
         toolName: input.toolName,
-        risk: tool.riskLevel,
+        risk,
         scope: {
-          summary: summarizeTool(tool, input.args),
-          risk: tool.riskLevel,
+          summary: command
+            ? `${summarizeTool(tool, params)}\n${new OutputRedactor([]).push(JSON.stringify(params), true)}`
+            : summarizeTool(tool, params),
+          risk,
           toolName: input.toolName,
         },
-        params: input.args,
+        params: approvalParams,
         clientSessionId: input.clientSessionId,
         ...(input.approvalTtlMs === undefined ? {} : { ttlMs: input.approvalTtlMs }),
       },
@@ -153,7 +192,7 @@ export async function executeTool(
       details: {
         turnId: input.turnId,
         toolName: input.toolName,
-        risk: tool.riskLevel,
+        risk,
         approvalId: approval.id,
       },
       now,
@@ -166,7 +205,7 @@ export async function executeTool(
     try {
       const approval = assertApprovalMatches(
         { db: options.db, now: () => now, clientSessionId: input.clientSessionId },
-        { id: input.approvalId, params: input.args },
+        { id: input.approvalId, params: approvalParams },
       );
 
       if (
@@ -213,16 +252,31 @@ export async function executeTool(
     details: {
       turnId: input.turnId,
       toolName: input.toolName,
-      risk: tool.riskLevel,
+      risk,
       ...(input.approvalId === undefined ? {} : { approvalId: input.approvalId }),
     },
     now,
   });
 
-  const result = await options.registry.execute(input.toolName, input.args, {
+  const context: ToolContext = {
+    ...(input.signal ? { signal: input.signal } : {}),
+    ...(input.runCommand
+      ? {
+          runCommand: async (args: unknown) => {
+            if (hashApprovalParams(args) !== hashApprovalParams(params))
+              return denied("APPROVAL_INVALID", "Command parameters changed");
+            assertAuthorized();
+            return (
+              input.runCommand?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Command context unavailable")
+            );
+          },
+        }
+      : {}),
     projectRoot: input.projectRoot,
     ...(input.ignore === undefined ? {} : { ignore: input.ignore }),
-  });
+  };
+  const result = await options.registry.execute(input.toolName, params, context);
 
   appendAudit(options.db, {
     action: result.ok ? "tool.completed" : "tool.denied",

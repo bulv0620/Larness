@@ -1,4 +1,5 @@
 import type { Database } from "../../db/client.js";
+import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import type { TurnRow, TurnStatus } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
@@ -203,7 +204,14 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       provider: null,
       model: null,
       status: "QUEUED",
-      inputJson: JSON.stringify({ text: validated.text }),
+      inputJson: JSON.stringify({
+        text: validated.text,
+        executionContext: {
+          clientSessionId: input.clientSessionId,
+          policySnapshotId: newId("pol"),
+          policy: session.approvalPolicyId,
+        },
+      }),
       idempotencyKey: validated.idempotencyKey,
       now,
     });

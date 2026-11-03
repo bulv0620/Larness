@@ -17,6 +17,7 @@ import { managedWebFiles } from "../dev-web/managed.js";
 import { recoverInitialization } from "../init/recovery.js";
 import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
+import { createCommandTool } from "../modules/agent/commandTool.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
@@ -200,9 +201,12 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     ipc = ipcServer;
 
     if (options.turnRunner !== false) {
+      const registry = createFileToolRegistry();
+      registry.register(createCommandTool({ db: opened.db, secretStore }));
       const runner = new TurnRunner({
         db: opened.db,
-        registry: createFileToolRegistry(),
+        registry,
+        commands,
         resolveProvider:
           options.providerResolver ?? createDefaultProviderResolver(opened.db, secretStore),
         publish: publishAgentEvent,

@@ -49,6 +49,23 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
     }
   })();
 
+  if (input.startsWith("command ")) {
+    const code = input.includes("cancel")
+      ? "const fs=require('node:fs');let n=0;console.log('running '+'.'.repeat(300));setInterval(()=>fs.writeFileSync('ticks',String(++n)),100)"
+      : "require('node:fs').appendFileSync('command-effect','once');process.stdout.write('public start '+'.'.repeat(300)+'\\n');process.stderr.write('token=fixture-command-secret\\n');setTimeout(()=>{console.log('public finish');process.exitCode=7},6000)";
+    return {
+      adapter: createFakeProvider([
+        toolStep({
+          id: "call_command",
+          name: "run_command",
+          args: { executable: process.execPath, args: ["-e", code], timeoutMs: 10000 },
+        }),
+        textStep("命令结果已读取。"),
+      ]),
+      model: "fake",
+    };
+  }
+
   if (input.includes("cancel")) {
     return {
       adapter: createFakeProvider([

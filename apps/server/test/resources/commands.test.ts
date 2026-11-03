@@ -657,6 +657,13 @@ it("authorizes command subscriptions and replays committed command status events
             JSON.stringify(message.payload).includes("COMPLETED"),
         ),
       );
+      await waitForCommand(() => messages.some((message) => message.kind === "command.output"));
+      const streamed = messages.filter((message) => message.kind === "command.output");
+      expect(streamed.map((message) => message.data).join("")).toBe("completed\n");
+      const stored = await f.started.running.commands.output(id, 0, 500);
+      expect(streamed.map((message) => message.cursor)).toEqual(
+        stored.chunks.map((chunk) => chunk.cursor),
+      );
       const replay = await f.started.running.app.inject({
         url: `/api/resource-events?streamId=${id}`,
         headers: f.headers,

@@ -1,6 +1,6 @@
 # M2 资源契约（设计已批准，按任务实施）
 
-> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；M2-1b 文件监听 / 订阅 / 补拉已实施，详见 §12；M2-2 文件编辑与结果卡片已实施，详见 §13；M2-3 命令执行后端已实施，详见 §14；后续接口仍按任务逐步落地。
+> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；M2-1b 文件监听 / 订阅 / 补拉已实施，详见 §12；M2-2 文件编辑与结果卡片已实施，详见 §13；M2-3 命令执行后端已实施，详见 §14；M2-3b Agent 命令与实时卡片已实施，详见 §15；后续接口仍按任务逐步落地。
 
 ## 1. 共同约定
 
@@ -258,3 +258,22 @@ stdout / stderr 分别流式 UTF-8 解码、按已知秘密与敏感字段跨块
 - Server / TUI 关闭停止当前 Runtime，再关数据库；浏览器断线、窗口隐藏不取消命令。实际支持范围仅为已测试 macOS；Windows 入口失败关闭，不宣称跨平台清理已完成。
 
 唯一新迁移为 0006_commands，新增 §7 command_executions 与 output_cursor（保存已知输出末游标以识别缺口）；不改已应用迁移 / 旧数据 / 配置 / IPC / 认证，未新增依赖。回退前排空受管进程并核实待对账项，保留新表、事件和用户源码，不做破坏性 down migration。
+
+## 15. M2-3b Agent 命令与执行卡片（2026-11-03）
+
+`run_command` 已注册到真实 Turn 工具集合，schema 复用 §14，严格拒绝 env / scope 等额外字段。创建 Turn 时由后端把真实发起 clientSessionId、随机 policySnapshotId 和当前审批策略写入 turns.input_json.executionContext；不接受模型或请求正文覆盖身份。DTO / 模型输入仍只取 text。旧 Turn 缺执行身份时命令失败关闭，不猜测客户端；无数据库迁移或新配置。
+
+### 风险与审批绑定
+
+- 只有程序名严格为 npm / pnpm / yarn，参数严格为 `[test|build|lint]` 或 `[run, test|build|lint]` 的调用分类 L1；绝对路径同名程序、额外参数 / flags、任意脚本与显式 Shell 均为 L2。直接调用 sudo / su / doas / chmod / chown / useradd / userdel / dscl / pfctl 分类 L3 并拒绝；这只是审批分类，不是完备风险检测或命令沙箱。
+- standard 允许 L1，strict 要求审批，readonly 拒绝所有命令；L2 逐次批准，L3 即使提供批准也不放行。项目脚本依然可以执行主机代码，确认文案明确 Larness OS 账户与项目目录不是沙箱；常驻 dev 任务留给后续开发终端工具。
+- 参数经 Zod 默认值 / 路径分隔符规范化后，审批哈希同时绑定参数、真实 session / Turn / client、策略快照与根。批准后重新取有效锁，真正 spawn 前再次校验同一审批与参数、客户端、Turn / 预算；批准 A 不能执行 B。审批摘要包含脱敏后的规范化程序 / 参数 / cwd / timeout，审计只记关联标识与风险，不保存原始命令正文。已知凭据字面量在产生摘要前拒绝，包括含引号的凭据；不声称识别任意编码 / 未知秘密。
+- Turn 取消使待审批失效，不启动进程或后续工具；等待审批也消耗 Turn 时长，到期失效并结束预算。执行中的 Turn AbortSignal 传给 CommandManager；运行期间 Turn 持有的锁持续续租，命令只借用有效 handle，停止 / 结果不确定仍保留 §14 冲突屏障。卡片“取消命令”只取消该资源；“停止执行”取消 Turn 并阻止后续工具。
+
+### 结果、实时输出与界面
+
+- 创建 command 后先持久化 Agent `tool.command.created`，payload 为 `{turnId, toolCallId, commandId}`，沿用 Session seq；此关联提交失败不得 spawn。重放恢复同一资源卡片，不能重新执行或自动创建 Terminal / Tab。
+- 工具结果包含 commandId、status、exitCode、有界脱敏输出摘要与 truncated；失败也可向模型返回摘要作诊断。摘要先限行 / 字符，再限制 JSON 转义后的尺寸，为 20,000 字符的工具消息预算保留包络空间；读取只取前 500 块，达到该页上限也保守标 truncated。完整有界输出仍由授权 GET 获取，不反复送入模型。
+- 同一 command 订阅新增 `{kind:"command.output", resourceId, cursor, data, channel, timestamp}`；只推送已脱敏且写入输出文件的块，每块不超过 16 KiB，不占关键状态 seq、不存 SQLite。推送与状态均重查客户端 / 资源授权，复用 8 MiB 背压断连；遗漏块以 GET 输出游标补拉，实时帧不作权威历史。
+- 单工具与折叠工具组均展示独立命令卡片：运行 / 停止 / 终态、退出码、原因、脱敏输出、截断 / 缺口、刷新与显式取消。服务端状态与输出只存 TanStack Query；WS 增量合并为 250ms 输出 Query 失效（状态事件另失效状态），输出 Query 按游标追加已获取的块，活动命令另有 2s 查询补偿。重连重新读快照并从输出游标读取，历史状态无需逐帧渲染；连接 / 页面卸载不取消进程。
+- 输出读取最多 64 页 × 500 块，对应受限 2 MiB 日志快照；达到客户端页限明确截断，不无界循环。视图输出按文本渲染，不执行 HTML / ANSI；停止未确认明确显示中断与可能受阻，不把 HTTP 200 或取消请求当作已停止证明。
