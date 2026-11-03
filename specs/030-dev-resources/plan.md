@@ -129,3 +129,7 @@ CommandManager 以真实 session / Turn / 活动客户端上下文执行，scope
 真实 node-pty 仍使用 M2-0 冻结依赖及 native 寻址；packages/resources 以结构化 NativePty 接口管理本代会话 / 后代进程组、短提示符与跨块脱敏，Server 注入真实 node-pty。TerminalManager 持久化创建 / 状态 / 事件，scope / 全局 workspace、内部 dev role 去重、非长持源码锁和失败屏障；唯一 0007_terminals / terminal_leases 迁移。终态与屏障双重写库失败时另有内存根受阻标记，参与既有冲突检测；恢复从未完成记录重新对账。
 
 人工输入控制绑定认证客户端与活 WS 连接 / 订阅，数据库单控制者 generation + TTL / 序号去重；续租 / resize / input 重验，断线 / 登出 / 过期释放输入权而不停止 PTY。输出按受限分段文件轮转 / 游标补拉，关键事件与输出分流；Shell 前台任务独立进程组也需出生快照复核后停止。当前只验 macOS，无法确认即受阻，不按存储 PID 杀进程。xterm / Tab、Agent dev 工具、AI 控制留在 M2-4b / 4c / 4d，证据见 acceptance.md，精确实施契约见 m2-resources §16。
+
+## M2-4b 实施记录（2026-11-03）
+
+真实模式接既有 xterm / FitAddon，Demo 路径保留。顶部枚举和项目/独立会话列表通过 Query，创建确认使用稳定幂等键；打开/恢复无创建副作用。WS 先订阅再申请输入租约，10s 续租、ACK 顺序发送与有界队列；重连只读，输出通知触发有界 REST 回放，缺口提示。窗口 close/hide 保留 Tab，主动 Tab close 确认停止后才移除。新增只读 writeBlocked DTO 复用共同根冲突判断；无依赖/迁移/配置变更。续租失败释放与未知停止保留的先红后绿证据、双浏览器验收见 acceptance.md。

@@ -20,6 +20,7 @@ import type { SecretStore } from "../../security/secretStore.js";
 import { activeCommandClient } from "../commands/repository.js";
 import { assertFileScopeMetadata, authorizeFileTarget, resolveFileScope } from "../files/scope.js";
 import { clearRootQuarantine, quarantineRoot, rootIsQuarantined } from "../locks/quarantine.js";
+import { rootHasWriter } from "../locks/repository.js";
 import { listEncryptedSecrets } from "../models/repository.js";
 import { getProjectById } from "../projects/repository.js";
 import type { ResourceEventBus } from "../resources/events.js";
@@ -152,7 +153,11 @@ export class TerminalManager {
     };
   }
   dto(row: TerminalRow) {
+    const operation = findOperationById(this.options.db, row.operationId);
     return {
+      writeBlocked: operation
+        ? rootHasWriter(this.options.db, operation.rootRealPath, this.#now())
+        : true,
       id: row.id,
       projectId: row.projectId,
       workspaceSessionId: row.workspaceSessionId,

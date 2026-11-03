@@ -322,3 +322,11 @@ native spawn 抛异常不等于“没有进程”：WRITING 之后若拿不到�
 
 
 principal 预留兼容：公共人工 acquire 不会因为 agent owner 没有浏览器 connectionId 就覆盖其未过期租约；公共 input / renew / release 仍只认 human principal。agent 字段不构成已授予 AI 工具能力，显式人机交接、真实 Agent 执行上下文校验与工具接线继续归 M2-4d。
+
+## 17. M2-4b 真实终端界面（2026-11-03）
+
+Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical root 查询既有重叠根写锁 / 待恢复屏障；未知记录保守返回 true。只提供状态提示，不授予写入权限；PTY 不长期占源码写锁。列表与 detail / lease / resize / terminate 使用同一 DTO，公共前端响应使用 shared Zod schema 校验；无新路由、迁移或配置。
+
+前端使用既有订阅连接 ID 与租约接口、10s 续租；重连不自动申请控制。输出以 WS 通知触发有界 REST 游标页，xterm 保留 2000 行、可访问文本摘要最多 16,384 字符，缺口明确提示。窗口 close 保留视图，Tab close 确认终态才移除，失败保留。真实双浏览器验收见 030 acceptance，当前待人类 UI review。
+
+续租 / resize / 输入失败即关闭本地输入能力，但仍可显式释放当前连接在服务器上尚未过期的租约；同代重新申请不重置已发送序号，断线丢弃未确认输入且不自动重放。未知停止 / 恢复 / 输出故障状态保留 Tab 和原因；明确 EXITED / TERMINATED 或 INTERRUPTED + NOT_STARTED 才确认移除。列表 / 终端状态用 Query，输入队列与连接状态仅在当前视图内存；布局不持久化输出、输入或租约。

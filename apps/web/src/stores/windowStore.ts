@@ -205,7 +205,16 @@ export const useWindowStore = create<WindowState>()(
 
       close: (id) => {
         const state = get();
-        if (state.windows.find((win) => win.id === id)?.tabs.some((tab) => tab.file)) {
+        if (
+          state.windows
+            .find((win) => win.id === id)
+            ?.tabs.some(
+              (tab) =>
+                tab.file ||
+                (tab.kind === "terminal" &&
+                  (tab.resourceId.startsWith("term_") || tab.resourceId === "terminal:empty")),
+            )
+        ) {
           get().hide(id);
           return;
         }

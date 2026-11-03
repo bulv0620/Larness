@@ -113,3 +113,45 @@ export const TerminalEventSchema = z.object({
   payload: TerminalPayloadSchema,
 });
 export const TERMINAL_LEASE_TTL_MS = 30000;
+
+export const TerminalSchema = z.object({
+  writeBlocked: z.boolean(),
+  id: TerminalIdSchema,
+  projectId: z.string().nullable(),
+  workspaceSessionId: z.string().nullable(),
+  sourceSessionId: z.string().nullable(),
+  cwd: z.string(),
+  shell: z.string(),
+  mode: z.enum(["shell", "dev"]),
+  role: z.string().nullable(),
+  status: TerminalStatusSchema,
+  exitCode: z.number().nullable(),
+  reasonCode: z.string().nullable(),
+  currentSequence: z.number().int(),
+  lease: TerminalLeaseViewSchema.nullable(),
+});
+export type LiveTerminal = z.infer<typeof TerminalSchema>;
+export const OutputSchema = z.object({
+  chunks: z.array(TerminalOutputChunkSchema).max(500),
+  nextCursor: z.number().int(),
+  oldestCursor: z.number().int(),
+  truncated: z.boolean(),
+  resyncRequired: z.boolean(),
+});
+
+export const TerminalSubscribeAckSchema = z.object({
+  kind: z.literal("subscribed"),
+  connectionId: z.string().uuid(),
+  subscription: z.object({ topic: z.literal("terminal"), resourceId: z.string() }),
+});
+export const TerminalInputAckSchema = z.object({
+  kind: z.literal("terminal.input.ack"),
+  inputSequence: z.number().int(),
+  accepted: z.boolean(),
+});
+export const TerminalErrorSchema = z.object({ kind: z.literal("error"), code: z.string() });
+
+export const TerminalListSchema = z.object({
+  items: z.array(TerminalSchema),
+  nextCursor: TerminalIdSchema.nullable(),
+});

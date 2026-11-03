@@ -133,7 +133,10 @@ export function TopBar() {
         {
           <div className="hidden items-center gap-0.5 rounded-xl border border-line bg-surface-2/70 p-0.5 lg:flex">
             {launchers
-              .filter((launcher) => USE_MOCKS || launcher.kind === "files")
+              .filter(
+                (launcher) =>
+                  USE_MOCKS || launcher.kind === "files" || launcher.kind === "terminal",
+              )
               .map((launcher) => {
                 const Icon = launcher.icon;
                 const active = Boolean(anyWindow(windows, launcher.kind));
@@ -150,9 +153,9 @@ export function TopBar() {
                         if (existing) useWindowStore.getState().restore(existing.id);
                         else
                           open({
-                            kind: "files",
-                            resourceId: "files:empty",
-                            title: "文件",
+                            kind: launcher.kind,
+                            resourceId: `${launcher.kind}:empty`,
+                            title: launcher.label,
                             source: "header",
                           });
                       }}

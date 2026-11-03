@@ -1,6 +1,9 @@
 import { cn } from "@larness/ui";
 import { FileCode2, FolderTree, GitCompare, Globe2, Server, SquareTerminal, X } from "lucide-react";
+import { useState } from "react";
 import { useFileDraftStore } from "@/features/files/drafts";
+import { ended, readTerminal, stopConfirmed, terminalAction } from "@/features/terminals/api";
+import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { filterFromValue, filterTabs, filterValue } from "@/lib/windowFilters";
 import type { ManagedWindow, WindowKind } from "@/lib/windowTypes";
@@ -27,6 +30,8 @@ function projectLabel(projectId: string | null, originType: string, name?: strin
 }
 
 export function WindowTabs({ window: win }: { window: ManagedWindow }) {
+  const [closing, setClosing] = useState<string | null>(null);
+  const [terminalError, setTerminalError] = useState("");
   const saving = useFileDraftStore((state) => state.saving);
   const drafts = useFileDraftStore((state) => state.drafts);
   const setActiveTab = useWindowStore((state) => state.setActiveTab);
@@ -40,7 +45,15 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
     win.filter.mode === "all" && new Set(visible.map((tab) => tab.projectId)).size > 1;
 
   return (
-    <div className="flex h-8 shrink-0 items-stretch border-b border-line bg-surface-2/35">
+    <div className="relative flex h-8 shrink-0 items-stretch border-b border-line bg-surface-2/35">
+      {terminalError ? (
+        <p
+          role="alert"
+          className="absolute top-full left-0 z-50 rounded bg-surface p-2 text-xs text-danger"
+        >
+          {terminalError}
+        </p>
+      ) : null}
       {supportsFilter ? (
         <div className="flex shrink-0 items-center gap-1.5 border-r border-line px-2">
           <FolderTree size={12} className="shrink-0 text-ink-3" />
@@ -99,9 +112,30 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
                 <button
                   type="button"
                   aria-label={`关闭 ${tab.title}`}
-                  disabled={saving[tab.resourceId] ?? false}
-                  onClick={(event) => {
+                  disabled={!!closing || (saving[tab.resourceId] ?? false)}
+                  onClick={async (event) => {
                     event.stopPropagation();
+                    if (
+                      !USE_MOCKS &&
+                      tab.kind === "terminal" &&
+                      tab.resourceId !== "terminal:empty"
+                    ) {
+                      setClosing(tab.id);
+                      setTerminalError("");
+                      try {
+                        const row = await readTerminal(tab.resourceId);
+                        const result = ended(row.status)
+                          ? row
+                          : await terminalAction(tab.resourceId, "terminate", { confirmed: true });
+                        if (!stopConfirmed(result)) throw new Error("Termination unconfirmed");
+                        closeTab(win.id, tab.id);
+                      } catch {
+                        setTerminalError("终止未确认，已保留 Tab；请核对状态后重试。");
+                      } finally {
+                        setClosing(null);
+                      }
+                      return;
+                    }
                     if (tab.file && drafts[tab.resourceId])
                       useFileDraftStore.setState({
                         closeRequest: { windowId: win.id, tabId: tab.id },

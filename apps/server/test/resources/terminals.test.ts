@@ -1,6 +1,7 @@
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, it } from "vitest";
+import { acquireResourceLock, releaseResourceLock } from "../../src/modules/locks/service.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { TerminalManager } from "../../src/modules/terminals/manager.js";
 import { withTempDir } from "../helpers.js";
@@ -37,6 +38,24 @@ it("creates one real PTY by idempotency key, lists shared resources, and termina
       const first = await create();
       expect(first.statusCode).toBe(201);
       const terminal = first.json();
+      expect(terminal.writeBlocked).toBe(false);
+      const lock = acquireResourceLock(
+        { db: f.running.db },
+        {
+          resourceType: "project",
+          resourceId: p.id,
+          owner: "test",
+          executionId: "write-fixture",
+          ttlMs: 30000,
+        },
+      );
+      if (!lock) throw new Error("Expected project write lock");
+      expect(
+        (await f.running.app.inject({ url: `/api/terminals/${terminal.id}`, headers })).json()
+          .writeBlocked,
+      ).toBe(true);
+      releaseResourceLock({ db: f.running.db }, { id: lock.id, fencingToken: lock.fencingToken });
+
       expect((await create()).json().id).toBe(terminal.id);
       expect(
         (await f.running.app.inject({ url: "/api/terminals", headers }))

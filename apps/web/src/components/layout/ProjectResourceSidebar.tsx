@@ -43,7 +43,7 @@ export function ProjectResourceSidebar() {
   const counts = {
     files: USE_MOCKS ? (projectId === "prj_larness" ? 22 : 0) : undefined,
     services: projectServices.length,
-    terminals: projectTerminals.length,
+    terminals: USE_MOCKS ? projectTerminals.length : undefined,
     git: projectChanges.length,
   };
 

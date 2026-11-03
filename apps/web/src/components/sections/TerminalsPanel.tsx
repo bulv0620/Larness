@@ -1,9 +1,23 @@
 import { SquareTerminal } from "lucide-react";
 import { StatusDot } from "@/components/common/StatusDot";
+import { TerminalPicker } from "@/features/terminals/TerminalPicker";
+import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
+import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore } from "@/stores/windowStore";
 
 export function TerminalsPanel({ projectId }: { projectId: string | null }) {
+  const sessionId = useNavigationStore((state) => state.sessionId);
+  if (!USE_MOCKS)
+    return (
+      <TerminalPicker
+        projectId={projectId}
+        sessionId={!projectId && sessionId.startsWith("ses_") ? sessionId : undefined}
+      />
+    );
+  return <DemoTerminalsPanel projectId={projectId} />;
+}
+function DemoTerminalsPanel({ projectId }: { projectId: string | null }) {
   const { data } = useSnapshot();
   const open = useWindowStore((state) => state.open);
   const terminals = data.terminals.filter((terminal) => terminal.projectId === projectId);

@@ -1,9 +1,21 @@
 import type { TerminalInfo } from "@larness/shared";
+import { LiveTerminalView } from "@/features/terminals/LiveTerminalView";
+import { TerminalPicker } from "@/features/terminals/TerminalPicker";
 import { TerminalView } from "@/features/windows/TerminalView";
+import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import type { WindowTab } from "@/lib/windowTypes";
 
 export function TerminalWindow({ tab }: { tab: WindowTab }) {
+  if (!USE_MOCKS)
+    return tab.resourceId === "terminal:empty" ? (
+      <TerminalPicker />
+    ) : (
+      <LiveTerminalView key={tab.resourceId} id={tab.resourceId} />
+    );
+  return <DemoTerminalWindow tab={tab} />;
+}
+function DemoTerminalWindow({ tab }: { tab: WindowTab }) {
   const { data } = useSnapshot();
   const terminal: TerminalInfo =
     data.terminals.find((item) => item.id === tab.resourceId) ?? data.terminals[0];
