@@ -7,6 +7,7 @@ import { registerBootstrapRoutes } from "./api/bootstrap.js";
 import { registerCommandRoutes } from "./api/commands.js";
 import { registerFileRoutes } from "./api/files.js";
 import { registerFsRoutes } from "./api/fs.js";
+import { registerGitRoutes } from "./api/git.js";
 import { registerHealthRoute } from "./api/health.js";
 import { registerModelRoutes } from "./api/models.js";
 import { registerPairingRoutes } from "./api/pairing.js";
@@ -24,6 +25,7 @@ import { registerErrorHandler } from "./errors.js";
 import { CommandManager } from "./modules/commands/manager.js";
 import { knownCredentialGuard } from "./modules/files/credentials.js";
 import { FileWatchManager } from "./modules/files/watcher.js";
+import { GitManager } from "./modules/git/manager.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
 import { TerminalManager } from "./modules/terminals/manager.js";
 import { resolveRequestId } from "./request-id.js";
@@ -42,6 +44,7 @@ export interface AppServices {
   turnControls?: TurnControls;
   commands?: CommandManager;
   terminals?: TerminalManager;
+  git?: GitManager;
   resourceEvents?: ResourceEventBus;
 }
 
@@ -98,6 +101,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         secretStore: options.services.secretStore,
         idleTtlMinutes: options.services.config.auth.idleTtlMinutes,
       });
+    const git = options.services.git ?? new GitManager({ db: options.services.db });
     const terminals =
       options.services.terminals ??
       new TerminalManager({
@@ -130,6 +134,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerCommandRoutes(app, options.services, commands);
     registerTerminalRoutes(app, options.services, terminals);
     registerFileRoutes(app, options.services, resourceEvents);
+    registerGitRoutes(app, options.services, git);
     registerResourceEventRoutes(app, options.services);
     registerProjectRoutes(app, { db: options.services.db });
     registerSessionRoutes(app, {

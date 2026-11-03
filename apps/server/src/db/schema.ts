@@ -464,6 +464,50 @@ export const terminals = sqliteTable(
   ],
 );
 export type TerminalRow = typeof terminals.$inferSelect;
+export const resourceActions = sqliteTable(
+  "resource_actions",
+  {
+    id: text("id").primaryKey(),
+    operationId: text("operation_id")
+      .notNull()
+      .references(() => resourceOperations.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    kind: text("kind").notNull(),
+    risk: text("risk").$type<"L1" | "L2">().notNull(),
+    status: text("status")
+      .$type<
+        | "PREPARED"
+        | "WAITING_APPROVAL"
+        | "APPROVED"
+        | "RUNNING"
+        | "COMPLETED"
+        | "FAILED"
+        | "REJECTED"
+        | "EXPIRED"
+        | "INTERRUPTED"
+      >()
+      .notNull(),
+    paramsJson: text("params_json").notNull(),
+    paramsHash: text("params_hash").notNull(),
+    snapshotHash: text("snapshot_hash").notNull(),
+    requestedBy: text("requested_by").notNull(),
+    decidedBy: text("decided_by"),
+    expiresAt: integer("expires_at").notNull(),
+    decidedAt: integer("decided_at"),
+    startedAt: integer("started_at"),
+    endedAt: integer("ended_at"),
+    resultJson: text("result_json"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("resource_actions_operation").on(table.operationId),
+    index("resource_actions_project_status").on(table.projectId, table.status),
+  ],
+);
+export type ResourceActionRow = typeof resourceActions.$inferSelect;
+
 export const terminalLeases = sqliteTable("terminal_leases", {
   terminalId: text("terminal_id")
     .primaryKey()

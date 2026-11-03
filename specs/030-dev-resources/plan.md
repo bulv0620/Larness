@@ -143,3 +143,7 @@ CommandManager 以真实 session / Turn / 活动客户端上下文执行，scope
 ## M2-4d 实施记录（2026-11-03）
 
 共享租约扩展为 agent principal：ownerType=agent 绑定真实 client / session / Turn / toolCall，30s TTL，管理器只对活跃 Turn 续租；Turn finalizer、取消、登出、撤销与到期清除，但不停止已交付 PTY。四个工具经 ToolContext 回调进入同一 TerminalManager；send 为 L2、data 只参与审批哈希与 PTY 写入，审批 scope / 审计 / 事件只记字节数；interrupt 写 ETX 并明确未确认退出；acquire / release 为 L1。人工 takeover 由订阅连接原子替换 agent / 空闲租约，generation 递增且拒绝 human-human 强抢；UI 增加 AI 控制状态与接管按钮。无迁移 / 依赖 / 配置；契约见 m2-resources §19，证据见 acceptance.md。
+
+## M2-5 实施记录（2026-11-03）
+
+Git 执行集中到 packages/resources/src/git：execFile 无 Shell、环境过滤、读操作禁 external diff / textconv，结构化 porcelain v2 / log / branches 与路径 / 分支校验。人工动作使用 0008_resource_actions，L1 PREPARED / L2 WAITING_APPROVAL，5 分钟、批准单次消费，执行前快照重验并在项目写锁后再次核对。resource_operations 关联记录创建为 COMPLETED、执行 WRITING，避免未执行意图占住共同根屏障。Agent 10 个 Git 工具按 L0 / L1 / L2 经既有 Turn 审批复用同一 Manager，锁 executionId 含 turn + toolCall。Git 资源区 / Diff / 审批 UI 与 git WS 事件留 M2-5b；契约见 m2-resources §20，证据见 acceptance.md。

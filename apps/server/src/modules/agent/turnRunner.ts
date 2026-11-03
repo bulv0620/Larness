@@ -12,7 +12,7 @@ import {
   type ToolResult,
   type ToolSchema,
 } from "@larness/agent";
-import { FileManagerError } from "@larness/resources";
+import { FileManagerError, GitError } from "@larness/resources";
 import {
   AcquireTerminalControlParamsSchema,
   type AssistantDeltaEvent,
@@ -34,6 +34,7 @@ import type { SessionRow, TurnRow, TurnStatus } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { publishAgentEvent } from "../../ws/publisher.js";
 import type { CommandManager } from "../commands/manager.js";
+import type { GitManager } from "../git/manager.js";
 import { getProjectById } from "../projects/repository.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
 import type { TerminalManager } from "../terminals/manager.js";
@@ -85,6 +86,7 @@ export interface TurnRunnerOptions {
   lockTtlMs?: number;
   commands?: CommandManager;
   terminals?: TerminalManager;
+  git?: GitManager;
 }
 
 export type TurnRunResult = {
@@ -114,6 +116,16 @@ function truncateToolMessage(text: string): string {
       ? "...[truncated]"
       : "")
   );
+}
+
+function gitFailure(error: unknown, summary: string): ToolResult {
+  const code =
+    error instanceof GitError
+      ? error.code
+      : typeof (error as { code?: unknown } | null)?.code === "string"
+        ? ((error as { code: string }).code as string)
+        : "TOOL_ERROR";
+  return { ok: false, errorCode: code, summary };
 }
 
 function terminalFailure(error: unknown, summary: string): ToolResult {
@@ -730,6 +742,96 @@ export class TurnRunner {
               };
             } catch (error) {
               return terminalFailure(error, "Terminal control could not be released");
+            }
+          },
+          gitRead: async (operation, params) => {
+            if (!this.#options.git || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Git context unavailable",
+              };
+            try {
+              if (operation === "status") {
+                const result = await this.#options.git.status(session.projectId);
+                return {
+                  ok: true,
+                  summary: `Git ${result.branch}${result.ahead || result.behind ? ` (+${result.ahead}/-${result.behind})` : ""}`,
+                  data: result,
+                };
+              }
+              if (operation === "diff") {
+                const parsed = params as { path: string; staged?: boolean };
+                const result = await this.#options.git.diff(
+                  session.projectId,
+                  parsed.path,
+                  parsed.staged === true,
+                );
+                return {
+                  ok: true,
+                  summary: `Git diff ${result.path}${result.staged ? " (staged)" : ""}${result.truncated ? " (truncated)" : ""}`,
+                  truncated: result.truncated,
+                  data: result,
+                };
+              }
+              if (operation === "log") {
+                const parsed = params as { limit?: number; cursor?: number };
+                const result = await this.#options.git.log(
+                  session.projectId,
+                  parsed.limit ?? 50,
+                  parsed.cursor ?? 0,
+                );
+                return { ok: true, summary: `${result.length} commits`, data: { items: result } };
+              }
+              const parsed = params as { limit?: number; cursor?: number };
+              const result = await this.#options.git.branches(
+                session.projectId,
+                parsed.limit ?? 100,
+                parsed.cursor ?? 0,
+              );
+              return { ok: true, summary: `${result.length} branches`, data: { items: result } };
+            } catch (error) {
+              return gitFailure(error, "Git query failed");
+            }
+          },
+          gitAction: async (params, assertAuthorized) => {
+            if (!this.#options.git || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Git context unavailable",
+              };
+            try {
+              const args = params as Record<string, unknown>;
+              const action =
+                request.name === "git_add"
+                  ? { action: "add", paths: args.paths }
+                  : request.name === "git_commit"
+                    ? { action: "commit", message: args.message }
+                    : request.name === "git_create_branch"
+                      ? { action: "createBranch", name: args.name }
+                      : request.name === "git_switch_branch"
+                        ? { action: "switchBranch", name: args.name }
+                        : request.name === "git_pull"
+                          ? { action: "pull" }
+                          : { action: "push" };
+              const result = await this.#options.git.runAgentAction(session.projectId, action, {
+                turnId: turn.id,
+                toolCallId: request.id,
+                signal: controller.signal,
+                assertAuthorized: () => {
+                  assertAuthorized();
+                  if (checkBudget() !== "ok" || lockLost)
+                    throw new GitError("GIT_CONFLICT", "Execution no longer authorized");
+                },
+              });
+              return {
+                ok: true,
+                summary: `Git ${(params as { action?: string }).action ?? "action"} completed`,
+                data: result,
+              };
+            } catch (error) {
+              return gitFailure(error, "Git action failed");
             }
           },
         },

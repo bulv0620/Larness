@@ -76,7 +76,7 @@ describe("IPC init integration", () => {
           ipc: { clients: number };
         };
         expect(status.initialized).toBe(true);
-        expect(status.db).toMatchObject({ ok: true, schemaVersion: 7 });
+        expect(status.db).toMatchObject({ ok: true, schemaVersion: 8 });
         expect(status.ipc.clients).toBe(1);
 
         const doctor = (await client.request("system.doctor")) as {

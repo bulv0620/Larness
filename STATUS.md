@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-03 (+08:00)
-> 当前阶段：**M2-4d 已验收；M2-5 GitManager 与 Agent Git 工具进行中**
+> 当前阶段：**M2-5 GitManager 与 Agent Git 工具已实现，待 review**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-4d done / M2-5 进行中 |
+| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-4d done / M2-5 review |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- 当前任务：M2-5 `in_progress`，分支 `task/m2-5-git-manager`，2026-11-03（+08:00）开始。先红测试，再接结构化 Git 读、add / commit / 分支 / ff-only pull / push、人工资源动作审批与 Agent 工具；M2-5b 未启动。
+- 当前任务：M2-5 `review`，分支 `task/m2-5-git-manager`。已交付结构化 Git 读、add / commit / 分支 / ff-only pull / push、人工资源动作审批 / 幂等 / 快照重验与 Agent 工具；M2-5b 未启动。
 - M2-4d 已验收：2026-11-03 人类确认并继续；AI 终端控制 / 人工接管交付完成并标 done。
 - M2-4c 已验收：2026-11-03 人类确认并继续；启动 / 有界读取 / 显式停止、L2 审批与来源 Tab 交付完成并标 done。
 - M2-4b 已验收：2026-11-03 人类在 review 后要求开始 M2-4c，视为验收通过并标 done；真实终端创建/输入/双客户端观察、租约失效、关闭与恢复见 [验收记录](specs/030-dev-resources/acceptance.md)。
@@ -73,9 +73,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：完成 M2-5 后进入 M2-5b；本次未启动后续任务。
+- 下一步：M2-5 人类验收后进入 M2-5b；本次未启动后续任务。
 - 阻塞项：无。
-- 待 review：无；M2-4d 已验收，M2-5 实施中。
+- 待 review：M2-5 GitManager、资源动作审批与 Agent 工具；Git UI / WS 事件属 M2-5b。
 
 ## 已冻结
 
@@ -105,7 +105,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 | 日期 | 变更 |
 |---|---|
 | 2026-11-03 | M2-4b 验收通过（人类要求开始 M2-4c）；补跑 check / build / prod 6/6 / Demo 15/15，记录 workspace-write 沙箱 `/bin/ps` 限制 |
-| 2026-11-03 | M2-4d 验收通过（人类确认并继续）；启动 M2-5：GitManager、资源动作审批与 Agent Git 工具 |
+| 2026-11-03 | 完成 M2-5：Git 结构化读 / 显式写、资源动作审批 / 幂等 / 快照重验、Agent Git 工具与 0008 迁移；check / build / Demo 通过，状态 review |
 | 2026-11-02 | M2-P：补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；同步路线图与 Q-021～Q-025。仅文档，M2 仍 draft，待 G-Spec-M2 / G-PoC-M2 |
 | 2026-10-31 | 初始化 spec 工程：宪法、Agent 手册、架构/契约、路线图、S0–M1 详细 spec、M2–M5 草案 |
 | 2026-10-31 | 改用 Passkey / WebAuthn 作为 V1 可信凭据（ADR-021）；移除长期设备 Token / refresh；M0 拆为 9 个任务 |
@@ -350,5 +350,12 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## M2-5 启动（2026-11-03 +08:00）
 
-- 人类确认 M2-4d 并继续；M2-4d done。分支 `task/m2-5-git-manager`，当前 in_progress。
+- 人类确认 M2-4d 并继续；M2-4d done。分支 `task/m2-5-git-manager`。
 - 计划：先红测试，再实现 Git 结构化读（status / diff / log / branches）、显式 add / commit / 分支 / ff-only pull / push、人工资源动作审批 / 幂等 / 快照重验、Agent 同 Manager 工具与 `resource_actions` 一份迁移；UI 属 M2-5b。
+
+### M2-5 交付（2026-11-03）
+
+- `packages/resources/src/git`：execFile 无 Shell、环境过滤、禁外部 diff / textconv，porcelain v2 / log / branches 解析，路径 / 分支校验，快照版本；错误映射 GIT_UNAVAILABLE / GIT_CONFLICT / GIT_AUTH_REQUIRED。
+- 人工动作 REST：status / diff / log / branches、actions、decision、execute；L1 / L2、5 分钟、单次消费、锁后快照重验、幂等终态；唯一 0008_resource_actions 迁移，v7→v8 保留项目 / 锁 / stream。
+- Agent 10 个 Git 工具：读 L0、add / commit / 分支 L1、pull / push L2，经 Turn 审批与同一 Manager；写锁 executionId 带 turn + toolCall，释放后不阻塞后续写。
+- 真实仓库 / bare remote 测试覆盖特殊文件名、显式暂存、审批 / 过期 / 快照、ff-only / 非快进 / 脏工作区、外部 diff、锁冲突、Git 不可用与 API 鉴权；最终 check（server 388 / agent 32 / web 37，live 1 项跳过）与 build 通过；全套 E2E 7/8，唯一 auth 既有抖动，Demo 15/15。Git UI / WS 事件 / 浏览器证据留在 M2-5b，状态 review。

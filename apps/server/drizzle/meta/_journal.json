@@ -50,6 +50,13 @@
       "when": 1793695129282,
       "tag": "0007_terminals",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793715590302,
+      "tag": "0008_resource_actions",
+      "breakpoints": true
     }
   ]
 }

@@ -259,3 +259,26 @@
 仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新迁移 / 依赖 / 配置 / 认证协议，未修改用户运行数据。中断只发 ETX，不宣称已停止；不宣称沙箱、强 PID 身份或任意脱组清理。人工接管只共享输入控制，终端进程 / 项目所有权不变。
 
 2026-11-03 人类“确认并继续”，M2-4d 验收通过并标 done；M2-5 未启动。
+
+## M2-5 GitManager、资源动作与 Agent Git 工具（2026-11-03）
+
+分支 `task/m2-5-git-manager`。人类确认 M2-4d 后继续；本任务交付 Git 结构化读、显式写、人工资源动作审批 / 幂等 / 快照重验与 Agent Git 工具，不交付 Git 资源区 / Diff / 审批 UI（M2-5b）。
+
+### 实现与失败证据
+
+- Git 执行层使用 `execFile` 无 Shell、环境过滤、`GIT_TERMINAL_PROMPT=0` / `GIT_ASKPASS=/bin/false`，读操作强制 `--no-ext-diff --no-textconv`；porcelain v2 / log / branches 解析结构化数据，路径与分支名显式校验，原始 stderr 不回传。
+- 人工动作 `resource_actions`：L1 创建 PREPARED、L2 创建 WAITING_APPROVAL；5 分钟有效，approve / reject 绑定实际客户端；execute 前重算快照，取项目写锁后再次核对，变化即 FAILED / GIT_CONFLICT；状态单次消费，重复 execute 返回同一结果。唯一 `0008_resource_actions` 迁移，v7→v8 保留项目 / 锁 / stream 数据。
+- 首次实现发现 action 关联的 resource_operations 若保持 PREPARED 会被共同根屏障视为写入而阻塞自身锁；改为创建时 COMPLETED、执行时 WRITING，再收敛终态。另修正 for-each-ref 的 `%x1f` 字面量输出与 Agent 项目锁 executionId 复用 Turn 导致释放后仍阻塞的问题。
+- 无外部 diff 执行、特殊文件名、只暂存显式路径、commit 只含已暂存、L2 推送审批 / 单次消费 / 过期 / 快照变化、ff-only pull、非快进 / 脏工作区、锁冲突重试、Git 不可用、API 401 / CSRF 均有真实测试。
+
+### 自动化范围
+
+- `apps/server/test/git/manager.test.ts` 7 项真实仓库 / 本地 bare remote：status / diff / log / branches 与快照、特殊文件名与显式 add / commit、push 审批 / 单次消费 / 快照变化 / 过期、ff-only pull / 非快进 / 脏分支 / 原文件保留、外部 diff 不执行、锁冲突后重试、Git 不可用、API 鉴权 / CSRF。
+- `apps/server/test/agent/gitTools.test.ts`：FakeProvider 经真实 Turn 执行 git_status → L1 add / commit → L2 push 审批，提交只含暂存内容、远端 ref 更新。
+- `apps/server/test/resources/resource-actions-migration.test.ts`：v7→v8 空 resource_actions、项目 / 锁 / stream 保留、外键检查。
+- 最终 `pnpm check`：server 388 / agent 32 / web 37（live 1 项按环境跳过）；`pnpm build` 通过；`LARNESS_E2E_PORT=3324 pnpm test:e2e:prod` 7/8，唯一失败是既有的 auth 撤销跳转 `/pair` 抖动（auth 单独运行通过，未改认证代码），M2-5 无 UI；Demo 15/15。
+- 本轮未新增真实浏览器 Git UI 证据；Git 资源区 / Diff / 审批界面与 git WS 失效事件按计划在 M2-5b 接线，不把 REST / Agent 工具测试当 UI 验收。
+
+### 边界
+
+仅实测 macOS arm64 / Node 20.19.3；无新依赖 / 配置 / 认证协议，唯一迁移为 0008_resource_actions。Git hooks / filters 仍可能执行主机代码，不宣称 `shell:false` 是沙箱；不提供 reset / clean / force / 删除分支 / rebase / merge / 远端管理。远端认证依赖主机既有配置，不提供网页密码；Git 不可用返回 GIT_UNAVAILABLE，不伪装本地降级。M2-5b 未启动。

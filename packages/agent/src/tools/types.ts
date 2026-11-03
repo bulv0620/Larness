@@ -18,6 +18,11 @@ export interface ToolContext {
   sendTerminalInput?: (args: unknown) => Promise<ToolResult>;
   interruptTerminal?: (args: unknown) => Promise<ToolResult>;
   releaseTerminalControl?: (args: unknown) => Promise<ToolResult>;
+  gitRead?: (
+    operation: "status" | "diff" | "log" | "branches",
+    args: unknown,
+  ) => Promise<ToolResult>;
+  gitAction?: (args: unknown) => Promise<ToolResult>;
 }
 
 export interface ToolResult {

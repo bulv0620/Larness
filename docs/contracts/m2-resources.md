@@ -96,7 +96,7 @@ L1 人工动作创建为 PREPARED，execute 表示显式操作；L2 为 WAITING_
 
 快照覆盖 HEAD、index、相关工作区状态、分支 / 上游 ref、远端配置摘要；远端 URL 含凭据时不得明文返回或记录。M2 不执行远端管理动作。Git hooks / filters 仍可能运行主机代码；写操作走同一执行身份、环境过滤、超时、输出上限和锁，不宣称 shell:false 消除了脚本风险。
 
-Git Agent 工具使用相同 Manager，但通过既有 Turn 审批，不把人工 actionId 伪装成 toolCallId。read 类 L0，add / commit / 分支 L1，pull / push L2；严格 / 宽松策略仍不得放行被定义为逐次批准的远端动作。
+Git Agent 工具使用相同 Manager，但通过既有 Turn 审批，不把人工 actionId 伪装成 toolCallId。read 类 L0，add / commit / 分支 L1，pull / push L2；严格 / 宽松策略仍不得放行被定义为逐次批准的远端动作。M2-5 实施细节见 §20。
 
 ## 6. 事件与回放
 
@@ -376,3 +376,31 @@ Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical
 
 - 真实管理器测试覆盖 acquire / 输入序号 / 重复与跳号 / 中断 / human 原子接管 / 旧 generation 拒绝 / 不自动抢回 / 登出撤销 / Turn 取消只释放控制；FakeProvider 工具测试覆盖 L1/L2 审批、输入不落库、Turn 结束释放租约和终端存活；真实浏览器覆盖 AI 控制 → 人工接管 → 旧 generation 工具失败。
 - 仅实测 macOS arm64 / Node 20.19.3 / Chromium；不宣称 OS 沙箱、强 PID 身份或任意脱组清理。无新迁移 / 依赖 / 配置 / 认证协议。
+
+## 20. M2-5 GitManager、资源动作与 Agent Git 工具（2026-11-03）
+
+本任务实现 Git 结构化读、显式写操作、人工资源动作审批 / 幂等 / 快照重验和 Agent Git 工具；Git 资源区、Diff / 审批 UI 与 git WS 失效事件接线在 M2-5b。无新依赖 / 配置 / 认证协议，唯一迁移为 0008_resource_actions。
+
+### 执行与读取
+
+- `packages/resources/src/git` 使用 `execFile("git", args, { shell:false, cwd, env })`，只继承 PATH / HOME / USER / TMPDIR / locale，固定 `GIT_TERMINAL_PROMPT=0`、`GIT_ASKPASS=/bin/false`、`GIT_PAGER=cat`、`GIT_OPTIONAL_LOCKS=0`；不拼接 Shell 字符串。读操作 `--no-ext-diff --no-textconv --no-color`，外部 diff / textconv 不执行；hooks / filters 在 commit 等写操作中仍可能执行主机代码，不宣称 `shell:false` 是沙箱。
+- status 解析 porcelain v2 `-z --branch`，结构化 branch / HEAD / upstream / ahead / behind / staged / unstaged / untracked / conflicts；snapshotVersion 为 HEAD、branch、upstream、ahead/behind 与原始状态输出的 SHA-256，用于人工动作审批绑定。diff 按显式路径、staged 标志和 1 MiB 上限返回文本 / binary / truncated；log / branches 只返回结构化字段，limit ≤100 / ≤200。
+- 路径必须是项目内相对 POSIX 路径，拒绝绝对路径、NUL、`.` / `..`、`.git` 与越界；分支名先用 schema 基础校验，再执行 `git check-ref-format --branch`，不接受任意 flags。Git 缺失 / 超时 / 认证 / 快进冲突映射为 `GIT_UNAVAILABLE` / `GIT_CONFLICT` / `GIT_AUTH_REQUIRED`，不回传原始 stderr 或含凭据的远端 URL。
+
+### 人工资源动作
+
+- POST actions 支持 `add`（1–200 显式路径）、`commit`（1–4000 字符）、`createBranch` / `switchBranch`、`pull`、`push`；无 reset / clean / force / 删除分支 / rebase / merge / 远端管理。add / commit / 分支为 L1（PREPARED），pull / push 为 L2（WAITING_APPROVAL）；5 分钟有效。
+- `resource_actions` 保存结构化 params / paramsHash / snapshotVersion / requestedBy / decidedBy / 状态 / 结果；`resource_operations` kind=git.action 作为关联记录，创建时 COMPLETED，执行进入 WRITING 并在终态收敛，避免未执行的意图占住共同根屏障。批准状态原子消费；重复 execute 返回同一终态，不重复副作用。
+- execute 前重算仓库快照并在取得项目写锁后再次核对；变化即 FAILED / GIT_CONFLICT，不执行。锁为既有 ProjectWriteLock / resource_locks；并发 execute 或另一项目写作业持锁时返回冲突，释放后可重试。执行状态先 RUNNING 再产生副作用，结果 / 审计与终态事务提交。
+- add 只 `git add -- <paths>`；commit 只提交已暂存内容，不 `-a`；create / switch 要求 staged / unstaged / conflicts 为空（untracked 不自动清理）；pull 要求干净、有 upstream、仅 `--ff-only`；push 只推当前分支到已配置 upstream，不 force / 不改远端。非快进 / 脏工作区 / 无 upstream 返回可恢复 GIT_CONFLICT，原文件保留。
+
+### Agent 工具
+
+- `git_status` / `git_diff` / `git_log` / `git_branches` 为 L0；`git_add` / `git_commit` / `git_create_branch` / `git_switch_branch` 为 L1；`git_pull` / `git_push` 为 L2。工具经 ToolRegistry 与既有 Turn 审批，不创建人工 actionId，也不把 resource_action 伪装成 toolCallId。
+- 工具作用域由真实 session.projectId 注入；参数 mapping 后才进入同一 Manager。写工具 `requiresProjectLock:false`，由 Manager 使用以 Turn + toolCall 唯一 executionId 的项目锁；Agent 写快照在锁前 / 锁后一致才执行。结果只返回结构化 summary / hash / 状态，不返回原始 Git 输出。
+- 严格 / 宽松策略仍不得放行定义为逐次批准的 pull / push；Git 读在模型离线时仍可由 M2-5b UI 直接调用 REST。M2-5 不提供 Git 资源窗口 / Diff / 审批 UI，不新增 WS git 事件；这些在 M2-5b 实施。
+
+### 验证边界
+
+- 真实测试覆盖临时仓库 / 本地 bare remote、特殊文件名、只暂存显式路径、commit 只含已暂存、status / diff / log / branches、外部 diff 不执行、L2 审批 / 单次消费 / 过期 / 快照变化、ff-only pull、非快进 / 脏工作区 / 无 upstream、锁冲突 / 重试、Git 不可用与 API 鉴权 / CSRF。
+- 仅实测 macOS arm64 / Node 20.19.3；不宣称 OS 沙箱、Git hooks / filters 安全、跨平台路径或远端状态强一致。新增 0008_resource_actions 迁移在空库与 v7→v8 升级保留项目 / 锁 / stream 数据；回退保留新表与用户数据，不做破坏性 down migration。
