@@ -8,8 +8,10 @@ import {
   turns,
 } from "../../db/schema.js";
 import { pendingOperations } from "../resources/repository.js";
+import { rootIsQuarantined } from "./quarantine.js";
 
 export function rootHasWriter(db: DbExecutor, root: string, now: number): boolean {
+  if (rootIsQuarantined(root)) return true;
   const overlaps = (other: string) => isInsideRoot(root, other) || isInsideRoot(other, root);
   if (pendingOperations(db).some((operation) => overlaps(operation.rootRealPath))) return true;
   return db

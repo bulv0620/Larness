@@ -1,6 +1,6 @@
 # M2 资源契约（设计已批准，按任务实施）
 
-> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；M2-1b 文件监听 / 订阅 / 补拉已实施，详见 §12；M2-2 文件编辑与结果卡片已实施，详见 §13；M2-3 命令执行后端已实施，详见 §14；M2-3b Agent 命令与实时卡片已实施，详见 §15；后续接口仍按任务逐步落地。
+> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；M2-1b 文件监听 / 订阅 / 补拉已实施，详见 §12；M2-2 文件编辑与结果卡片已实施，详见 §13；M2-3 命令执行后端已实施，详见 §14；M2-3b Agent 命令与实时卡片已实施，详见 §15；M2-4 PTY 与输入租约后端已实施，详见 §16；后续接口仍按任务逐步落地。
 
 ## 1. 共同约定
 
@@ -277,3 +277,48 @@ stdout / stderr 分别流式 UTF-8 解码、按已知秘密与敏感字段跨块
 - 同一 command 订阅新增 `{kind:"command.output", resourceId, cursor, data, channel, timestamp}`；只推送已脱敏且写入输出文件的块，每块不超过 16 KiB，不占关键状态 seq、不存 SQLite。推送与状态均重查客户端 / 资源授权，复用 8 MiB 背压断连；遗漏块以 GET 输出游标补拉，实时帧不作权威历史。
 - 单工具与折叠工具组均展示独立命令卡片：运行 / 停止 / 终态、退出码、原因、脱敏输出、截断 / 缺口、刷新与显式取消。服务端状态与输出只存 TanStack Query；WS 增量合并为 250ms 输出 Query 失效（状态事件另失效状态），输出 Query 按游标追加已获取的块，活动命令另有 2s 查询补偿。重连重新读快照并从输出游标读取，历史状态无需逐帧渲染；连接 / 页面卸载不取消进程。
 - 输出读取最多 64 页 × 500 块，对应受限 2 MiB 日志快照；达到客户端页限明确截断，不无界循环。视图输出按文本渲染，不执行 HTML / ANSI；停止未确认明确显示中断与可能受阻，不把 HTTP 200 或取消请求当作已停止证明。
+
+## 16. M2-4 TerminalManager 与输入租约后端（2026-11-03）
+
+本任务已接真实 node-pty、REST / WS、持久状态、输入租约与输出轮转；xterm / 本地 Tab 接线在 M2-4b，Agent dev 工具与审批在 M2-4c，AI 控制 / 人工接管在 M2-4d。本节不把这些后续功能描述为已交付。
+
+### 创建、范围与恢复
+
+- POST `/api/terminals` 实施 §4，必须确认 riskAcknowledged=true，并提供 1–128 字符 Idempotency-Key；同一真实客户端 / kind / key 相同参数复用原资源，不同参数 CONFLICT。不接受 env、程序、args、owner、policy 等额外字段。人工 Shell 固定 `/bin/sh -i`（当前 POSIX 实现），初始 80×24 / xterm-256color，环境复用白名单并固定 HISTFILE=/dev/null，不继承 Shell 选择 / 管理环境 / SecretStore 明文。
+- 项目 / 独立会话复用 canonical scope 与 cwd 授权；无 scope 使用 `<dataDir>/sessions/global-terminal/workspace`，逐层拒绝目录链接。sourceSessionId 仅用于来源且必须匹配实际 scope；全局终端不接受伪造来源会话。cwd 在 spawn 前重验；登记变化 / 主机最后时刻的路径替换仍不构成 OS 隔离。
+- 内部 createDev 仅作为后续工具底座，需真实活动 Turn / 项目 / 发起客户端与授权断言，程序 / 参数 / cwd / role 使用 Zod；没有公共 dev 创建路由。相同项目 + role 的活跃记录在数据库唯一，相同启动哈希复用，参数不同 CONFLICT。程序参数的已知凭据字面量拒绝，持久 launch_params_json 为脱敏摘要、launch_params_hash 绑定原规范化参数；不把摘要当可恢复启动脚本。
+- 唯一 0007_terminals 迁移新增 terminals / terminal_leases，补 reason_code / output_cursor 和人机 principal 预留列 / input_sequence，不修改旧迁移。终端 ID 为 term_UUID，executionId 为本次资源 ID；进程身份仅作本代关联 / 恢复诊断，不进入 DTO。
+- resource_operations.kind=terminal.create，先事务提交 PREPARED / terminal.created / 审计与 seq，再写 WRITING / spawn；RUNNING 与创建完成同事务。创建操作 COMPLETED 仅表示交付资源，不表示进程退出。按 ADR-029 不长期占源码锁，既有 ledger 的 lock_id=""、fencing_token=0、文件版本空串仅作非文件 / 非持锁占位，不能解释为有效锁。
+- 正常 Shell / dev 运行可与受保护文件写作业并行；活跃终端阻止项目解除关联 / 重叠根登记。未确认停止 / 结果提交失败 / 重启未知进程改 RECONCILIATION_REQUIRED，仍通过共同根屏障阻止受保护写，TTL 不能放行。重启将旧活动终端 INTERRUPTED、作废租约，不重建 PTY、不向存储 PID 发信号；仅 PREPARED 且无启动身份可认定未开始并安全结束意图。
+
+### 生命周期与停止
+
+终态为 EXITED / TERMINATED / INTERRUPTED，非零进程退出保持 EXITED + 真实 exitCode。显式 terminate 要求 confirmed=true，持久 STOPPING / 解除输入权后执行有限 TERM→KILL / 确认退出，再提交终态；重复请求复用同一 Runtime 停止 Promise，已结束资源只返回当前状态。只有实际拥有的本代 PTY 可停止，不按恢复 PID 杀进程。不能确认时 INTERRUPTED / STOP_UNCONFIRMED，最终结果提交失败尝试持久 RESULT_RECORD_FAILED / 屏障，既不能确认 Runtime 又无终态时查询失败关闭，不伪报运行。
+
+PTY 适配器只在内存保存 PID / PPID / PGID / session / 启动时间快照，250ms 对账并在信号前重验；除主 Shell 组，也核对本 session 的前台任务与已知后代组。先处理其他组，再处理组长，300ms 后必要时 KILL、确认阶段 2s 预算（每次 ps 查询另有 2s 上限）。失去进程归属证据即停止发信号并保持受阻。ps / 信号之间仍有竞态，主动脱组且未观察到的后代不保证可发现；只据实支持已验收 macOS，不宣称强 PID 身份、沙箱或任意树清理。
+
+窗口隐藏 / 页面断线 / 已交付资源的 Turn 完成和取消均不 terminate；断线只释放输入权。创建尚未交付时的内部 AbortSignal 会清理资源；成功返回后解绑创建 Turn。Server / TUI 关闭先停止当前 Runtime 并记录终态，再关闭数据库，未清理的情况继续保留恢复屏障。
+
+### 租约与传输
+
+- WS hello / terminal 订阅成功包返回 connectionId；只有实际认证连接订阅过该 terminalId 后，所属客户端才能用它申请 / 续租 / 释放租约。连接 ID 是关联标识，不是认证 Token，不能借其他连接 ID 输入或 resize。
+- 人工租约 30s TTL，客户端按 10s 续租；数据库原子单控制者，generation 只在新授予时递增，释放 / 到期不清零。重复 acquire 本持有者返回当前租约；其他人等待释放 / 到期，无强抢。renew / release / resize 必须匹配当前 generation / 客户端 / 连接，旧请求拒绝。agent principal 的存储字段预留，公共人类路由不接受模型 owner 字段或 AI 接管参数。
+- terminal.input 使用 §4 schema，每条 UTF-8 ≤8 KiB、每连接 ≤64 KiB/s；sequence 从 1 开始递增，事务先记序号与输入长度审计，再交给 PTY。重复序号 accepted=false，不重放；未来跳号拒绝。ACK 为 `{kind:"terminal.input.ack",resourceId,accepted,inputSequence}`，不表示 Shell 命令已执行完成；落盘后至写入前崩溃可能丢输入，但不能重放不确定按键。
+- WS / HTTP 输入前均重新校验认证、scope、活连接 / 订阅、租约与活 Runtime；resize 范围 cols=2–500 / rows=1–300。输入正文不进入审计或关键事件；PTY 正常回显属于统一脱敏输出。断线 / unsubscribe / 登出 / 撤销立即失去输入资格并释放租约；过期每秒对账，迟到输入即时拒绝；PTY 保持运行。
+- terminal.created / status / exit / lease 均先持久事件和 seq 再广播，payload 为状态 / exitCode / reasonCode / 当前租约。terminal 主题按资源授权，GET `/api/resource-events` 补拉并支持全局终端；保留 30 天和序号缺口语义。terminal.output 为 `{kind,resourceId,cursor,data,timestamp}`，只推已脱敏且落盘的数据、不占关键 seq，每块 ≤16 KiB；复用认证检查、控制队列与 8 MiB 背压断连。关闭 WS 不停止 PTY。
+
+### 输出与保留
+
+终端按 UTF-8 文本输出，复用跨块秘密 / 敏感字段脱敏器；只保留可能匹配秘密的尾部，普通短提示符和字段标签即时显示，字段值在后续块正确遮蔽。已知秘密最多 65,536 字符，不承诺识别未知编码 / 任意未知秘密。
+
+每个 Runtime 内存环最多 1 MiB 输出 / 16,384 块；磁盘 `<dataDir>/logs/terminals/term_UUID.N.jsonl` 每段约 1 MiB，0600 / 防链接，按实际文件字节执行每终端 10 MiB / 总量 100 MiB 配额，先到先轮转。输出每块持久 cursor 元数据，不写正文到 SQLite。GET output after 默认 0、limit 默认 100 / 最大 500，但每页数据最多 64 KiB，不跨过未返回块；未来 cursor 拒绝，轮转 / 缺失 / 过期明确 resyncRequired / truncated，不假装完整历史。
+
+输出保留 7 天，读时与每 10 分钟清理；安全终态元数据 / 创建幂等记录 30 天后清理，保留 stream 序号，不清理未知屏障、不删除源码 / workspace。列表默认 50 / 最大 200、cursor 为上页末 terminalId；资源已解除关联的历史项不授权返回，未知 Runtime 不伪报运行。新增错误码 TERMINAL_LEASE_REQUIRED(409)。无新依赖 / 配置 / IPC / 认证协议；回退前排空新资源并核实未知进程，保留新增表和用户数据，不执行破坏性 down migration。
+
+若终态与持久 RECONCILIATION_REQUIRED 都无法写入，运行期另外隔离该 canonical 根：内存受阻标记参与现有根锁判断与新终端创建，停止确认且安全终态提交后才可清除；重启依靠未完成终端记录在监听前重新建立持久屏障。这不是第二套可接管写锁，不因 TTL 过期解除未知状态。没有 Runtime 的非终态查询失败关闭；无法确认清理时不调用 node-pty 的未核验 PID kill，也不依赖非公开 native 清理 API。
+
+
+native spawn 抛异常不等于“没有进程”：WRITING 之后若拿不到可管理句柄，记录 SPAWN_UNCONFIRMED / RECONCILIATION_REQUIRED 并隔离根，不假定 fork 未发生；只有尚未尝试 spawn 的准备失败可记 NOT_STARTED / 安全失败。内部 spawnPty 注入仅用于 native 故障测试，不是配置键或模型参数。
+
+
+principal 预留兼容：公共人工 acquire 不会因为 agent owner 没有浏览器 connectionId 就覆盖其未过期租约；公共 input / renew / release 仍只认 human principal。agent 字段不构成已授予 AI 工具能力，显式人机交接、真实 Agent 执行上下文校验与工具接线继续归 M2-4d。

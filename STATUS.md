@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-03 (+08:00)
-> 当前阶段：**M2-3 已验收；M2-3b Agent 命令工具与输出卡片已实现，待 review**
+> 当前阶段：**M2-3b 已验收；M2-4 TerminalManager 与输入租约后端已实现，待 review**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-3 done / M2-3b review |
+| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-3b done / M2-4 review |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -274,3 +274,18 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 持久 tool.command.created 关联先于 spawn；命令结果向模型返回有界脱敏 JSON 摘要。输出落文件后推 command.output，卡片按游标增量读取、250ms 合并失效 / 2s 活动补偿，支持刷新恢复 / 显式取消 / 退出码 / 原因 / 截断 / 缺口；不创建终端 Tab。
 - check（server 354 / agent 32 / web 32，原 live 1 项按环境跳过）、build、生产浏览器最终 4/4、Demo 15/15 通过。新增真实 Agent 命令测试 14 项和卡片组件测试 1 项；运行 / 结果画面人工查看通过，详细证据见 acceptance.md。
 - 无新依赖 / 迁移 / 配置 / 认证 / IPC 协议或通用命令创建接口，未修改用户运行数据。当前 macOS 范围；不宣称沙箱或任意脱组清理。状态 review，下一任务 M2-4 保持 todo。
+
+
+## M2-4 启动（2026-11-03 +08:00）
+
+- 人类明确“下一步”，M2-3b review 通过并标 done；M2-4 in_progress，分支 `task/m2-4-terminal-manager`。
+- 先失败测试，再实现真实 PTY / 范围与全局 workspace、持久状态 / 游标 / 轮转、连接绑定输入租约与 generation / 重放保护、resize / terminate / 重启恢复；唯一 terminals / terminal_leases 迁移，dev 程序 / 参数 / role 底座。xterm 界面、Agent 启动工具和 AI 输入接管留给后续任务。
+
+
+### M2-4 交付（2026-11-03）
+
+- 真实 PTY / scope / 全局 workspace、持久幂等 / 状态 / 独立输出游标，内部 dev 程序 / 参数与活跃 role 去重；不长期占源码写锁，活跃资源保护项目登记 / 移除。唯一 0007_terminals / terminal_leases 迁移，旧数据 / fencing / seq 保留。
+- 人工输入租约绑定实际客户端 / WS 连接 / 订阅、30s TTL / generation / inputSequence；只接受持有者 input / resize，重放不重复按键；断线 / 登出 / 到期释放输入权而保留 PTY。输出跨块脱敏、短提示符即时显示、1 MiB 环 / 10 MiB 每资源 / 100 MiB 总配额、7 天输出 / 30 天安全终态元数据。
+- 核对 PTY session 中的前台 job / 后代组再 TERM→KILL；未知进程 / 结果提交失败 / 重启均保持屏障，终态和屏障双重落库失败时内存根受阻仍阻止新写，不用持久 PID 杀无关进程。Server 关闭先停止真实 PTY并落库，再关 SQLite。
+- check（server 373 / agent 32 / web 32，原 live 1 项按环境跳过）、build、生产浏览器 4/4、真实 built 受管入口 PTY / 认证 WS 输入输出 / 清理冒烟通过。16 项终端集成、1 项迁移、2 项新增提示符测试与平台边界见 acceptance.md。
+- 无新依赖 / 配置 / IPC / 认证协议，未修改用户运行数据；仅实测 macOS arm64 / Node 20.19.3，不宣称沙箱、强 PID 身份或任意脱组清理。状态 review；M2-4b xterm、M2-4c Agent dev 工具、M2-4d AI 控制 / 接管未开始。

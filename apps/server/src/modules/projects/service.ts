@@ -8,6 +8,7 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { ProjectRow } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { rootHasWriter } from "../locks/repository.js";
+import { rootHasTerminal } from "../terminals/repository.js";
 import {
   createProjectRow,
   deleteProjectRow,
@@ -155,7 +156,7 @@ export async function createProject(
   const gitDetected = await (options.detectGit ?? detectGit)(realPath);
   const settingsJson = JSON.stringify(defaultProjectSettings());
   const row = immediateTransaction(options.db, (tx) => {
-    if (rootHasWriter(tx, realPath, now))
+    if (rootHasWriter(tx, realPath, now) || rootHasTerminal(tx, realPath))
       throw new ProjectError("RESOURCE_LOCKED", "project root has an active writer");
     const created = createProjectRow(tx, {
       name,
@@ -250,7 +251,7 @@ export function deleteProject(
 
   const now = options.now?.() ?? Date.now();
   immediateTransaction(options.db, (tx) => {
-    if (rootHasWriter(tx, current.realPath, now))
+    if (rootHasWriter(tx, current.realPath, now) || rootHasTerminal(tx, current.realPath))
       throw new ProjectError("RESOURCE_LOCKED", "project root has an active writer");
     deleteProjectRow(tx, input.id);
     appendAudit(tx, {

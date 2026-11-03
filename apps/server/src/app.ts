@@ -14,6 +14,7 @@ import { registerProjectRoutes } from "./api/projects.js";
 import { registerResourceEventRoutes } from "./api/resource-events.js";
 import { registerSessionRoutes, type TurnControls } from "./api/sessions.js";
 import { registerStaticRoutes } from "./api/static.js";
+import { registerTerminalRoutes } from "./api/terminals.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
 import { resolveActiveSession } from "./auth/sessions.js";
 import type { Database } from "./db/client.js";
@@ -24,6 +25,7 @@ import { CommandManager } from "./modules/commands/manager.js";
 import { knownCredentialGuard } from "./modules/files/credentials.js";
 import { FileWatchManager } from "./modules/files/watcher.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
+import { TerminalManager } from "./modules/terminals/manager.js";
 import { resolveRequestId } from "./request-id.js";
 import { installSecurityGuard } from "./security/guard.js";
 import { RateLimiter } from "./security/rate-limit.js";
@@ -39,6 +41,7 @@ export interface AppServices {
   secretStore?: SecretStore;
   turnControls?: TurnControls;
   commands?: CommandManager;
+  terminals?: TerminalManager;
   resourceEvents?: ResourceEventBus;
 }
 
@@ -95,6 +98,15 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         secretStore: options.services.secretStore,
         idleTtlMinutes: options.services.config.auth.idleTtlMinutes,
       });
+    const terminals =
+      options.services.terminals ??
+      new TerminalManager({
+        db: options.services.db,
+        dataDir: options.services.dataDir,
+        events: resourceEvents,
+        secretStore: options.services.secretStore,
+        idleTtlMinutes: options.services.config.auth.idleTtlMinutes,
+      });
     const fileWatches = new FileWatchManager({
       db: options.services.db,
       dataDir: options.services.dataDir,
@@ -102,6 +114,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       checkMetadata: knownCredentialGuard(options.services.db, options.services.secretStore),
     });
     app.addHook("onClose", async () => {
+      await terminals.close();
       await commands.close();
       await fileWatches.close();
     });
@@ -115,6 +128,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerApprovalRoutes(app, { db: options.services.db });
     registerFsRoutes(app);
     registerCommandRoutes(app, options.services, commands);
+    registerTerminalRoutes(app, options.services, terminals);
     registerFileRoutes(app, options.services, resourceEvents);
     registerResourceEventRoutes(app, options.services);
     registerProjectRoutes(app, { db: options.services.db });
@@ -127,7 +141,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     });
     registerPairingRoutes(app, options.services);
     registerWebAuthnRoutes(app, options.services);
-    registerWsRoutes(app, { ...options.services, resourceEvents, fileWatches });
+    registerWsRoutes(app, { ...options.services, resourceEvents, fileWatches, terminals });
   }
 
   if (options.devWeb) {

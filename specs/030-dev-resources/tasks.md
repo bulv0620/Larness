@@ -1,6 +1,6 @@
 # 任务：M2 开发资源与窗口层
 
-> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；当前仅 M2-3b 待 review。一次一个任务、一任务一提交，先红测试再实现。
+> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；当前仅 M2-4 待 review。一次一个任务、一任务一提交，先红测试再实现。
 
 ## 状态总表
 
@@ -12,8 +12,8 @@
 | M2-1b | 文件监听与资源事件补拉 | M2-1 | 1–2 | `done` |
 | M2-2 | Monaco 编辑与冲突恢复 | M2-1b | 1–2 | `done` |
 | M2-3 | CommandRunner 与受管进程协调 | M2-2 | 2 | `done` |
-| M2-3b | Agent 命令工具与实时执行展示 | M2-3 | 1–2 | `review` |
-| M2-4 | TerminalManager 与输入租约后端 | M2-3b | 2 | `todo` |
+| M2-3b | Agent 命令工具与实时执行展示 | M2-3 | 1–2 | `done` |
+| M2-4 | TerminalManager 与输入租约后端 | M2-3b | 2 | `review` |
 | M2-4b | xterm 交互与双客户端接管 | M2-4 | 1–2 | `todo` |
 | M2-4c | Agent 项目开发终端工具与生命周期 | M2-4b | 1–2 | `todo` |
 | M2-4d | AI 终端输入、中断与人工接管 | M2-4c | 1–2 | `todo` |
@@ -23,7 +23,7 @@
 | M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
 | M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
 
-保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，当前 M2-3b 待 review，后续保持 todo。
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，M2-3 已 done，M2-3b 已 done，当前 M2-4 待 review，后续保持 todo。
 
 ## 任务卡
 
@@ -100,7 +100,7 @@
 
 ### M2-3b Agent 命令工具与实时执行展示
 
-- 状态：`review`
+- 状态：`done`
 - 依赖：M2-3；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：1–2 天；明显超出则先拆分，不绕过门禁。
 - [x] 先写失败测试并确认失败原因：FakeProvider 驱动真实子进程；等审批取消、执行中取消、超时、参数替换、无后续工具调用。
@@ -114,15 +114,17 @@
 
 ### M2-4 TerminalManager 与输入租约后端
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：M2-3b；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：2 天；明显超出则先拆分，不绕过门禁。
-- [ ] 先写失败测试并确认失败原因：两认证连接争抢 / 重放 / 过期 / 撤销、PTY 退出、隐藏不停止、锁丢失、重启中断和轮转回放。
-- [ ] 交付：真实 PTY 生命周期、范围 / 全局 workspace、持久状态 / 游标；输入租约 generation、连接绑定、resize / terminate；dev 启动程序 / 参数、role 活跃唯一；terminals / terminal_leases 一份迁移。
-- [ ] 验收：A9/A10/A12/A16–A21/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
-- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
-- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- [x] 先写失败测试并确认失败原因：两认证连接争抢 / 重放 / 过期 / 撤销、PTY 退出、隐藏不停止、锁丢失、重启中断和轮转回放。
+- [x] 交付：真实 PTY 生命周期、范围 / 全局 workspace、持久状态 / 游标；输入租约 generation、连接绑定、resize / terminate；dev 启动程序 / 参数、role 活跃唯一；terminals / terminal_leases 一份迁移。
+- [x] 验收：A9/A10/A12/A16–A21/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：packages/resources/src/terminals/；apps/server/src/api / ws / modules/terminals；db/。
+
+- 真实 PTY / 双认证连接 / 文件副作用 / 前台进程树 / 恢复与双重落库失败、check / build / prod 4/4 / built 冒烟见 [acceptance.md](acceptance.md)；xterm 界面留在 M2-4b，未开始后续任务。
 
 ### M2-4b xterm 交互与双客户端接管
 

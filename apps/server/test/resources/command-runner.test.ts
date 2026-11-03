@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { runCommand } from "@larness/resources";
+import { OutputRedactor, runCommand } from "@larness/resources";
 import { expect, it } from "vitest";
 
 it("runs real commands with bounded output, cross-chunk redaction and filtered environment", async () => {
@@ -93,4 +93,20 @@ it("masks sensitive JSON strings and whole authentication headers across every s
     ])
       expect(output).not.toContain(value);
   }
+});
+
+it("streams ordinary terminal prompts immediately while retaining partial secret prefixes", () => {
+  const publicOutput = new OutputRedactor(["sk-terminal-secret"]);
+  expect(publicOutput.push("ready> ")).toBe("ready> ");
+  expect(publicOutput.push("sk-terminal-")).toBe("");
+  expect(publicOutput.push("secret\n")).toBe("[Redacted]\n");
+  const fields = new OutputRedactor([]);
+  expect(fields.push("pass")).toBe("");
+  expect(fields.push("word=hidden\nready> ")).toBe("password=[Redacted]\nready> ");
+});
+
+it("shows a sensitive field prompt before its value arrives without leaking a split quoted value", () => {
+  const redact = new OutputRedactor([]);
+  expect(redact.push("Password: ")).toBe("Password: ");
+  expect(redact.push('"hidden with space"\n')).toBe('"[Redacted]"\n');
 });

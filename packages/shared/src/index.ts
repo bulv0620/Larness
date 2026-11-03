@@ -6,3 +6,4 @@ export * from "./events";
 export * from "./files";
 export * from "./gateway";
 export * from "./resources";
+export * from "./terminals";

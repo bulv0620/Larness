@@ -428,3 +428,55 @@ export const commandExecutions = sqliteTable(
   ],
 );
 export type CommandExecutionRow = typeof commandExecutions.$inferSelect;
+
+export const terminals = sqliteTable(
+  "terminals",
+  {
+    id: text("id").primaryKey(),
+    operationId: text("operation_id")
+      .notNull()
+      .references(() => resourceOperations.id),
+    projectId: text("project_id"),
+    workspaceSessionId: text("workspace_session_id"),
+    sourceSessionId: text("source_session_id"),
+    cwd: text("cwd").notNull(),
+    shell: text("shell").notNull(),
+    mode: text("mode").$type<"shell" | "dev">().notNull(),
+    role: text("role"),
+    launchParamsJson: text("launch_params_json"),
+    launchParamsHash: text("launch_params_hash"),
+    createdByTurnId: text("created_by_turn_id"),
+    status: text("status").$type<import("@larness/shared").TerminalStatus>().notNull(),
+    processIdentityJson: text("process_identity_json"),
+    reasonCode: text("reason_code"),
+    outputCursor: integer("output_cursor").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+    startedAt: integer("started_at"),
+    endedAt: integer("ended_at"),
+    exitCode: integer("exit_code"),
+  },
+  (table) => [
+    uniqueIndex("terminals_operation").on(table.operationId),
+    index("terminals_status").on(table.status),
+    uniqueIndex("terminals_active_role")
+      .on(table.projectId, table.role)
+      .where(sql`${table.mode} = 'dev' AND ${table.status} IN ('CREATED', 'RUNNING', 'STOPPING')`),
+  ],
+);
+export type TerminalRow = typeof terminals.$inferSelect;
+export const terminalLeases = sqliteTable("terminal_leases", {
+  terminalId: text("terminal_id")
+    .primaryKey()
+    .references(() => terminals.id),
+  generation: integer("generation").notNull().default(0),
+  ownerType: text("owner_type").$type<"human" | "agent">(),
+  ownerClientSessionId: text("owner_client_session_id"),
+  ownerConnectionId: text("owner_connection_id"),
+  ownerSessionId: text("owner_session_id"),
+  ownerTurnId: text("owner_turn_id"),
+  ownerExecutionId: text("owner_execution_id"),
+  expiresAt: integer("expires_at").notNull().default(0),
+  heartbeatAt: integer("heartbeat_at").notNull().default(0),
+  inputSequence: integer("input_sequence").notNull().default(0),
+});
+export type TerminalLeaseRow = typeof terminalLeases.$inferSelect;

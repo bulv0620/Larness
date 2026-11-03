@@ -123,3 +123,9 @@ CommandManager 以真实 session / Turn / 活动客户端上下文执行，scope
 在现有 ToolDefinition 增加可选动态风险分类，不改文件工具的固定风险。run_command 使用共享参数 schema、窄 L1 开发脚本分类 / 默认 L2 / 直接特权程序 L3 拒绝；审批绑定规范化参数与真实 Turn 执行快照。Turn 创建时把发起客户端和策略写现有 input_json，Runner 注入剩余预算 / AbortSignal / 有效锁与执行前授权断言；执行期续租，等待审批也计预算。缺旧执行身份失败关闭，无新迁移。
 
 先持久 Agent-to-command 关联再 spawn；失败结果也带有界 JSON 输出摘要，完整输出通过资源 GET。输出文件写入后发布独立 command.output，复用授权订阅 / 背压；卡片用 Query 快照与输出页，实时失效 / 轮询补偿，刷新不重执行、不建终端。审批取消、执行取消、预算、参数替换、客户端撤销、关联失败与真实浏览器测试证据见 acceptance.md；M2-4 未开始。
+
+## M2-4 实施记录（2026-11-03）
+
+真实 node-pty 仍使用 M2-0 冻结依赖及 native 寻址；packages/resources 以结构化 NativePty 接口管理本代会话 / 后代进程组、短提示符与跨块脱敏，Server 注入真实 node-pty。TerminalManager 持久化创建 / 状态 / 事件，scope / 全局 workspace、内部 dev role 去重、非长持源码锁和失败屏障；唯一 0007_terminals / terminal_leases 迁移。终态与屏障双重写库失败时另有内存根受阻标记，参与既有冲突检测；恢复从未完成记录重新对账。
+
+人工输入控制绑定认证客户端与活 WS 连接 / 订阅，数据库单控制者 generation + TTL / 序号去重；续租 / resize / input 重验，断线 / 登出 / 过期释放输入权而不停止 PTY。输出按受限分段文件轮转 / 游标补拉，关键事件与输出分流；Shell 前台任务独立进程组也需出生快照复核后停止。当前只验 macOS，无法确认即受阻，不按存储 PID 杀进程。xterm / Tab、Agent dev 工具、AI 控制留在 M2-4b / 4c / 4d，证据见 acceptance.md，精确实施契约见 m2-resources §16。

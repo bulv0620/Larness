@@ -155,3 +155,23 @@
 - 最终 pnpm check 通过（server 354 / agent 32 / web 32，原 live 1 项按环境跳过；既有 Biome 5 条 warning），pnpm build 通过（既有依赖注释 / bundle 大小提示）。生产浏览器首次 4/4，增量输出改动后最终全套再验 4/4；Demo 15/15。两类浏览器测试使用空闲临时端口串行运行，不复用或停止用户服务。
 - 运行与失败终态截图已查看：`/var/folders/0_/s9y0kyfn4n7bpwb5cdlzs1yc0000gn/T/larness-m2-3b-running.png`、`larness-m2-3b-result.png`，1440×900 无布局溢出，状态 / 退出码 / 原因 / 脱敏输出与取消按钮可见。截图为本机临时验收产物，不进入版本库。
 - 状态 review；M2-4 保持 todo。尚无真实 PTY / 项目 dev 终端交付，本任务不宣称这些后续能力完成；未修改用户运行数据。
+
+## M2-4 TerminalManager 与输入租约后端（2026-11-03）
+
+- 分支 `task/m2-4-terminal-manager`；人类“下一步”确认 M2-3b，并在执行期间明确“继续”。只实现本后端任务；无 xterm / 本地 Tab、Agent dev 工具或 AI 人工接管界面交付，M2-4b / 4c / 4d 未开始。
+- 先写真实创建 / 终止用例，确认缺 TerminalManager 模块失败；短提示符测试确认旧固定尾缓冲无法即时显示，再实现最小前缀保留。新增敏感字段提示符 / 跨块引号边界测试，原跨块秘密 / JSON / Cookie / Authorization 全部分割断言保留并通过。
+- `test/resources/terminals.test.ts` 16 项全部真实资源：人工 Shell 创建 / 持久幂等 / 共享列表 / 显式终止；两个独立配对客户端的真实 WebSocket 连接竞争同一租约，伪造连接拒绝、generation 递增、重复输入不重放、跳号拒绝、实际文件副作用与 stty resize；断线 / 到期 / 登出后输入权释放，旧请求拒绝且 PTY 继续。
+- 真实 Shell 前台任务另建进程组，任务和子进程拒绝 TERM/HUP：终止后独立 ps 检查 Shell / 前台 Node / 子进程均已停止。内部 dev 后端用真实活动 Turn 上下文验证 frontend / backend 两个角色同时存活、同角色参数重试复用 / 不同参数 CONFLICT；运行中真实文件保存成功，活跃资源阻止移除项目，交付后 Turn 完成 / AbortSignal 不停止资源。此处内部授权断言是受控测试上下文，不冒充 M2-4c 工具审批已交付。
+- 真输出文件与小配额故障夹具验证逐终端 / 总量轮转、0600、游标缺口 / 过期 / 未来游标；真实 PTY 读取固定测试秘密并跨块输出，已知秘密 / 敏感字段脱敏、管理环境不继承、非零退出保存真实 exitCode，启动摘要无测试秘密。全局 / 独立 workspace、风险确认 / cwd / env / Origin / CSRF / 客户端归属均有拒绝用例。
+- 真 SQLite 重启验证持久 PID 指向无关活进程时不发信号，旧资源 INTERRUPTED / 租约作废，未知状态在 TTL 后仍阻止根写；测试自行清理其持有的无关 fixture 子进程。创建审计失败无半条资源 / 创建意图；输出失败停止真实 PTY并保留屏障；终态提交失败不广播成功，实际进程已停且记录结果不确定；终态和持久屏障双重写库失败时内存根屏障继续阻止写 / 新终端，查询不伪报运行。
+- Server shutdown 保留活动 WS 的用例验证先停止 PTY / 保存 TERMINATED + SERVER_SHUTDOWN / 清空租约，再关闭 SQLite；重新打开真实 DB 验证终态，独立 ps 验证进程不存在。窗口 / 浏览器断线仅释放输入权，未触发 terminate。
+- 唯一 `0007_terminals` 迁移：新增 terminals / terminal_leases、活跃项目 role 唯一索引与 principal / 序号列；v6→v7 升级保留原项目 / 锁 / fencing / stream 序号，终端表初始为空，外键检查通过。原 v5→v6 测试固定迁移目标，旧库夹具改 repository 填入数据，避免用依赖新表的当前 project service 操作旧 schema；没有改旧 SQL 或削弱原数据保留断言。
+- 新增测试夹具修正了已有 HTTP 契约的返回码（缺 Origin 先 403，带 Origin 后未认证 401；logout=204；移除项目=200），产品接口未改。提示符脱敏的初次实现漏掉“冒号与引号分块”时原测试失败，修正后全部分割断言通过；未跳过、删除或放宽隐私 / 清理断言。
+- 最终 pnpm check 通过：server 373 / agent 32 / web 32，原 live 1 项按环境跳过，既有 Biome 5 条 warning；pnpm build 通过（既有依赖注释 / bundle 大小提示）。生产浏览器 pnpm test:e2e:prod 4/4，回归认证 / 命令 / 文件 / M1，临时端口且不复用用户服务；本任务没有新增 UI，不把这四项当作 xterm 双浏览器验收。
+- 打包产品补充冒烟：`pnpm --filter @larness/server exec tsx /tmp/larness-m2-4-built-smoke.mts`，使用既有 startManagedRuntime(dev:false) 启动真实构建产物，专属临时配置 / 数据、IPC 初始化与测试配对、HTTP 创建 PTY、真实 WS 租约 / 输入 / 输出标记、显式 terminate、受管 Server 清理均通过；脚本与输出 `/tmp/larness-m2-4-built-smoke.log` 为本机临时验收产物，不新增 headless 产品入口。实际为 macOS darwin arm64 / Node v20.19.3，不外推其他平台。
+- 无新依赖、持久配置或 IPC / 认证协议变更；新增 Terminal REST / WS / 错误码和迁移已同步契约。源码与用户运行数据未被测试用作数据目录；临时项目、DB、进程均在 fixture 生命周期清理。不是 OS 沙箱，出生快照 / 最后信号存在竞态；未观察到的主动脱组后代不保证发现或清理，未知或 DB 失败保持受阻，不按存储 PID 误杀。
+- 状态 review；M2-4b 保持 todo，等待人类确认本后端结果后再接真实终端界面。
+
+- 补充验证：实际 WS 输入在 64 KiB/s 边界后拒绝，超过 8 KiB 的 Unicode 输入在 schema 边界拒绝；30 天清理只删除安全终态元数据 / 租约 / 幂等记录，保留活跃资源、stream 序号与 workspace 文件。native 工厂故障注入在创建真实 PTY 后抛异常，后端不能据异常认定未启动：记录 SPAWN_UNCONFIRMED / 根受阻，不继续创建；测试持有原始 native 句柄自行清理该专属 PTY。
+
+- principal 存储负例：在真实 PTY 上预置未过期的 agent 租约记录，人工 acquire / input 均不能覆盖或冒用该 principal，缺浏览器连接不导致自动抢占；此用例只验共享存储的人类边界，不作为 AI 控制 / 审批能力完成证据。

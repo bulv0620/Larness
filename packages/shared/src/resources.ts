@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CommandIdSchema, CommandStatusEventSchema } from "./commands";
 import { FilePathSchema, FileVersionSchema } from "./files";
+import { TerminalEventSchema, TerminalIdSchema } from "./terminals";
 export const RESOURCE_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 
 export const FileResourceIdSchema = z.string().regex(/^(project|session):[a-zA-Z0-9_-]{1,128}$/);
@@ -15,7 +16,7 @@ export const FileSubscriptionSchema = z
   .strict();
 export const ResourceEventsQuerySchema = z
   .object({
-    streamId: z.union([FileStreamIdSchema, CommandIdSchema]),
+    streamId: z.union([FileStreamIdSchema, CommandIdSchema, TerminalIdSchema]),
     after: z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
     limit: z.coerce.number().int().min(1).max(500).default(100),
   })
@@ -56,7 +57,7 @@ export const FileNotificationSchema = z.union([
   }),
 ]);
 export const ResourceReplaySchema = z.object({
-  items: z.array(z.union([FileNotificationSchema, CommandStatusEventSchema])),
+  items: z.array(z.union([FileNotificationSchema, CommandStatusEventSchema, TerminalEventSchema])),
   currentSequence: z.number().int().nonnegative(),
   resyncRequired: z.boolean(),
 });

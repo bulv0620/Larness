@@ -1,11 +1,11 @@
-import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, it } from "vitest";
 import { z } from "zod";
 import { openDatabase } from "../../src/db/client.js";
 import { appliedMigrationCount, migrationsDirectory, runMigrations } from "../../src/db/migrate.js";
 import { acquireResourceLock } from "../../src/modules/locks/service.js";
-import { createProject } from "../../src/modules/projects/service.js";
+import { createProjectRow } from "../../src/modules/projects/repository.js";
 import { withTempDir } from "../helpers.js";
 
 it("upgrades v5 without changing projects, lock fencing or existing resource stream sequences", async () => {
@@ -28,6 +28,7 @@ it("upgrades v5 without changing projects, lock fencing or existing resource str
         ),
       })
       .parse(JSON.parse(await readFile(journalPath, "utf8")));
+    const completeEntries = journal.entries;
     journal.entries = journal.entries.filter((entry) => entry.idx <= 5);
     await writeFile(journalPath, JSON.stringify(journal));
     const opened = openDatabase(path.join(dir, "db"));
@@ -36,7 +37,14 @@ it("upgrades v5 without changing projects, lock fencing or existing resource str
       expect(appliedMigrationCount(opened.sqlite)).toBe(5);
       const root = path.join(dir, "project");
       await mkdir(root);
-      const project = await createProject({ db: opened.db }, { rootPath: root });
+      const project = createProjectRow(opened.db, {
+        name: "Migration fixture",
+        rootPath: root,
+        realPath: await realpath(root),
+        settingsJson: '{"ignore":[]}',
+        gitDetected: false,
+        now: Date.now(),
+      });
       acquireResourceLock(
         { db: opened.db },
         {
@@ -56,7 +64,9 @@ it("upgrades v5 without changing projects, lock fencing or existing resource str
         project: opened.sqlite.prepare("SELECT * FROM projects").all(),
         locks: opened.sqlite.prepare("SELECT * FROM resource_locks").all(),
       };
-      runMigrations(opened.db);
+      journal.entries = completeEntries.filter((entry) => entry.idx <= 6);
+      await writeFile(journalPath, JSON.stringify(journal));
+      runMigrations(opened.db, old);
       expect(appliedMigrationCount(opened.sqlite)).toBe(6);
       expect(opened.sqlite.prepare("SELECT * FROM projects").all()).toEqual(previous.project);
       expect(opened.sqlite.prepare("SELECT * FROM resource_locks").all()).toEqual(previous.locks);

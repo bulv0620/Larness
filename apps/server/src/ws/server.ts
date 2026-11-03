@@ -7,6 +7,9 @@ import {
   CommandSubscriptionSchema,
   FileSubscriptionSchema,
   type ServerEvent,
+  TerminalInputSchema,
+  type TerminalOutputEvent,
+  TerminalSubscriptionSchema,
   type WebAuthnRuntime,
 } from "@larness/shared";
 import { eq, max } from "drizzle-orm";
@@ -29,6 +32,7 @@ import {
 } from "../modules/resources/events.js";
 import { resourceSequence } from "../modules/resources/repository.js";
 import { getSessionById } from "../modules/sessions/repository.js";
+import type { TerminalManager } from "../modules/terminals/manager.js";
 import { sessionEvents } from "../security/session-events.js";
 import { transportAllowed } from "../security/transport.js";
 import { type AgentStreamEvent, agentEventBus } from "./publisher.js";
@@ -46,6 +50,7 @@ export interface WsRouteDeps {
   dataDir: string;
   resourceEvents: ResourceEventBus;
   fileWatches: FileWatchManager;
+  terminals: TerminalManager;
   now?: () => number;
 }
 
@@ -185,8 +190,10 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           send(socket, { kind: "error", code, message });
         };
 
+        deps.terminals.connect(session.id, owner, sessionActive);
         send(socket, {
           kind: "hello",
+          connectionId: owner,
           protocolVersion: PROTOCOL_VERSION,
           clientSessionId: session.id,
           serverTime: Date.now(),
@@ -216,12 +223,22 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
 
         const onSessionRevoked = (event: { sessionId: string; reason: string }): void => {
           if (event.sessionId === session.id) {
+            try {
+              deps.terminals.disconnect(owner);
+            } catch {
+              /* Revoked authentication already blocks input. */
+            }
             socket.close(1008, `session revoked: ${event.reason}`);
           }
         };
 
         const onDeviceRevoked = (event: { deviceId: string; reason: string }): void => {
           if (session.deviceId !== null && event.deviceId === session.deviceId) {
+            try {
+              deps.terminals.disconnect(owner);
+            } catch {
+              /* Revoked authentication already blocks input. */
+            }
             socket.close(1008, `device revoked: ${event.reason}`);
           }
         };
@@ -239,6 +256,21 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           if (!subscriptions.has(event.streamId)) return;
           if (!sessionActive()) {
             socket.close(1008, "session expired");
+            return;
+          }
+          if (event.topic === "terminal") {
+            try {
+              deps.terminals.assertMetadata(event.streamId);
+              send(socket, event);
+            } catch {
+              subscriptions.delete(event.streamId);
+              deps.terminals.unsubscribe(event.streamId, owner);
+              send(socket, {
+                kind: "error",
+                code: "FORBIDDEN",
+                message: "Terminal subscription unavailable",
+              });
+            }
             return;
           }
           const grant = fileGrants.get(event.streamId);
@@ -280,6 +312,26 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           }
         };
         deps.resourceEvents.onOutput(onOutput);
+        const onTerminalOutput = (event: TerminalOutputEvent) => {
+          if (!subscriptions.has(event.resourceId)) return;
+          if (!sessionActive()) {
+            socket.close(1008, "session expired");
+            return;
+          }
+          try {
+            deps.terminals.assertMetadata(event.resourceId);
+            send(socket, event);
+          } catch {
+            subscriptions.delete(event.resourceId);
+            deps.terminals.unsubscribe(event.resourceId, owner);
+            send(socket, {
+              kind: "error",
+              code: "FORBIDDEN",
+              message: "Terminal subscription unavailable",
+            });
+          }
+        };
+        deps.resourceEvents.onTerminalOutput(onTerminalOutput);
 
         const processMessage = async (raw: Buffer): Promise<void> => {
           if (closed) return;
@@ -302,6 +354,32 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             return;
           }
 
+          if (message.type === "terminal.input") {
+            const parsed = TerminalInputSchema.safeParse(message);
+            if (!parsed.success) {
+              fileDenied("VALIDATION_ERROR", "Invalid terminal input", "terminal");
+              return;
+            }
+            try {
+              const data = parsed.data;
+              const result = await deps.terminals.input(
+                data.terminalId,
+                session.id,
+                owner,
+                data.leaseGeneration,
+                data.inputSequence,
+                data.data,
+              );
+              send(socket, { kind: "terminal.input.ack", resourceId: data.terminalId, ...result });
+            } catch (error) {
+              fileDenied(
+                error instanceof FileManagerError ? error.code : "INTERNAL",
+                "Terminal input denied",
+                "terminal",
+              );
+            }
+            return;
+          }
           if (message.type === "pong") {
             lastPong = Date.now();
             return;
@@ -328,7 +406,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             }
 
             const accepted: Array<{
-              topic: "system" | "agent" | "file" | "command";
+              topic: "system" | "agent" | "file" | "command" | "terminal";
               resourceId: string;
               key: string;
               currentSequence: number;
@@ -361,6 +439,34 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
                 });
                 continue;
               }
+              if (entry.topic === "terminal") {
+                const parsed = TerminalSubscriptionSchema.safeParse(entry);
+                if (!parsed.success) {
+                  fileDenied("VALIDATION_ERROR", "Invalid terminal subscription", "terminal");
+                  return;
+                }
+                try {
+                  const row = await deps.terminals.read(parsed.data.resourceId);
+                  if (closed || !sessionActive()) {
+                    socket.close(1008, "session expired");
+                    return;
+                  }
+                  if (parsed.data.after > row.currentSequence) {
+                    fileDenied("VALIDATION_ERROR", "Event cursor is in the future", "terminal");
+                    return;
+                  }
+                  accepted.push({
+                    topic: "terminal",
+                    resourceId: row.id,
+                    key: row.id,
+                    currentSequence: row.currentSequence,
+                  });
+                } catch {
+                  fileDenied("FORBIDDEN", "Terminal subscription denied", "terminal");
+                  return;
+                }
+                continue;
+              }
               if (entry.topic === "command") {
                 const parsed = CommandSubscriptionSchema.safeParse(entry);
                 if (!parsed.success) {
@@ -377,6 +483,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
                     socket.close(1008, "session expired");
                     return;
                   }
+                  if (!grant) throw new Error("Missing command scope");
                   assertFileScopeMetadata(deps.db, grant);
                   const currentSequence = resourceSequence(deps.db, parsed.data.resourceId);
                   if (parsed.data.after > currentSequence) {
@@ -472,6 +579,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
 
             for (const entry of accepted) {
               subscriptions.add(entry.key);
+              if (entry.topic === "terminal") deps.terminals.subscribe(entry.key, owner);
               if (entry.topic === "command" && entry.grant) fileGrants.set(entry.key, entry.grant);
               if (entry.topic === "file" && entry.grant && entry.paths) {
                 fileGrants.set(entry.key, entry.grant);
@@ -502,6 +610,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
                 kind: "subscribed",
                 subscription: { topic: entry.topic, resourceId: entry.resourceId },
                 currentSequence: entry.currentSequence,
+                ...(entry.topic === "terminal" ? { connectionId: owner } : {}),
               });
             }
             return;
@@ -512,6 +621,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
               for (const topic of message.topics) {
                 if (typeof topic === "string") {
                   subscriptions.delete(topic);
+                  if (topic.startsWith("term_")) deps.terminals.unsubscribe(topic, owner);
                   fileGrants.delete(topic);
                   if (topic.startsWith("file:")) {
                     fileGrants.delete(topic);
@@ -559,6 +669,12 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           agentEventBus.off("event", onAgentEvent);
           deps.resourceEvents.off(onResourceEvent);
           deps.resourceEvents.offOutput(onOutput);
+          deps.resourceEvents.offTerminalOutput(onTerminalOutput);
+          try {
+            deps.terminals.disconnect(owner);
+          } catch {
+            /* The absent connection already rejects stale input. */
+          }
           deps.fileWatches.unsubscribe(owner);
           fileGrants.clear();
           subscriptions.clear();

@@ -121,3 +121,6 @@ export function deleteCachedFile(db: DbExecutor, scopeKey: string, path: string)
     .where(and(eq(fileVersions.scopeKey, scopeKey), eq(fileVersions.path, path)))
     .run();
 }
+export function deleteOperation(db: DbExecutor, id: string) {
+  db.delete(resourceOperations).where(eq(resourceOperations.id, id)).run();
+}

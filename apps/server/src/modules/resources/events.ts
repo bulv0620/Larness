@@ -10,10 +10,14 @@ import {
   FileStreamIdSchema,
   RESOURCE_EVENT_RETENTION_MS,
   type ServerEvent,
+  TerminalIdSchema,
+  type TerminalOutputEvent,
+  TerminalPayloadSchema,
 } from "@larness/shared";
 import type { Database } from "../../db/client.js";
 import { commandRow } from "../commands/repository.js";
 import { assertFileScopeMetadata, resolveFileScope } from "../files/scope.js";
+import { terminalRow } from "../terminals/repository.js";
 import { type ResourceEventRow, readResourceEvents, resourceSequence } from "./repository.js";
 
 export const RESOURCE_RETENTION_MS = RESOURCE_EVENT_RETENTION_MS;
@@ -24,6 +28,19 @@ export function fileStreamScope(streamId: string): FileScope {
   return kind === "project" ? { projectId: id } : { sessionId: id };
 }
 export function resourceEventDto(row: ResourceEventRow): ServerEvent {
+  if (TerminalIdSchema.safeParse(row.streamId).success)
+    return {
+      kind: "event",
+      protocolVersion: 1,
+      topic: "terminal",
+      eventId: row.id,
+      streamId: row.streamId,
+      resourceId: row.streamId,
+      sequence: row.seq,
+      timestamp: row.createdAt,
+      type: row.type,
+      payload: TerminalPayloadSchema.parse(JSON.parse(row.payloadJson)),
+    };
   if (CommandIdSchema.safeParse(row.streamId).success && row.type === "command.status") {
     return {
       kind: "event",
@@ -68,6 +85,21 @@ export class ResourceEventBus {
   off(listener: (event: ServerEvent) => void) {
     this.#bus.off("event", listener);
   }
+  onTerminalOutput(listener: (event: TerminalOutputEvent) => void) {
+    this.#bus.on("terminal-output", listener);
+  }
+  offTerminalOutput(listener: (event: TerminalOutputEvent) => void) {
+    this.#bus.off("terminal-output", listener);
+  }
+  publishTerminalOutput(event: TerminalOutputEvent) {
+    for (const listener of this.#bus.listeners("terminal-output")) {
+      try {
+        listener(event);
+      } catch {
+        /* Cursor replay remains available. */
+      }
+    }
+  }
   onOutput(listener: (event: CommandOutputEvent) => void) {
     this.#bus.on("output", listener);
   }
@@ -95,6 +127,18 @@ export class ResourceEventBus {
   }
 }
 export async function resolveResourceStreamScope(db: Database, dataDir: string, streamId: string) {
+  if (TerminalIdSchema.safeParse(streamId).success) {
+    const row = terminalRow(db, streamId);
+    if (!row) throw new FileManagerError("NOT_FOUND", "Terminal not found");
+    if (!row.projectId && !row.workspaceSessionId) return null;
+    return resolveFileScope(
+      db,
+      dataDir,
+      row.projectId
+        ? { projectId: row.projectId }
+        : { sessionId: row.workspaceSessionId as string },
+    );
+  }
   if (CommandIdSchema.safeParse(streamId).success) {
     const row = commandRow(db, streamId);
     if (!row) throw new FileManagerError("NOT_FOUND", "Command not found");
@@ -113,7 +157,7 @@ export async function listResourceEvents(
   input: { streamId: string; after: number; limit: number },
 ) {
   const scope = await resolveResourceStreamScope(options.db, options.dataDir, input.streamId);
-  assertFileScopeMetadata(options.db, scope);
+  if (scope) assertFileScopeMetadata(options.db, scope);
   const currentSequence = resourceSequence(options.db, input.streamId);
   if (input.after > currentSequence)
     throw new FileManagerError("VALIDATION_ERROR", "Event cursor is in the future");
