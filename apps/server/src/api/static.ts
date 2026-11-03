@@ -6,7 +6,8 @@ import { HttpError } from "../errors.js";
 
 export const APP_CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  // Monaco TypeScript worker uses Function/eval internally; no remote scripts are allowed.
+  "script-src 'self' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",

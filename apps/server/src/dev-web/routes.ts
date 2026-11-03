@@ -138,7 +138,11 @@ export function registerDevWeb(app: FastifyInstance, options: DevWebOptions): vo
     if (nonce)
       reply.header(
         "content-security-policy",
-        APP_CSP.replace("script-src 'self'", `script-src 'self' 'nonce-${nonce}'`),
+        APP_CSP.replace(
+          "script-src 'self'",
+          // Vite's dev Monaco worker is created from a blob URL; production stays strict.
+          `script-src 'self' blob: 'unsafe-eval' 'nonce-${nonce}'`,
+        ),
       );
     return payload;
   });

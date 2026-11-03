@@ -217,15 +217,16 @@
 
 ### M2-8 M2 整体交付与 G2
 
-- 状态：`in_progress`（分支 `task/m2-8-acceptance`，2026-11-03 +08:00 开始）
+- 状态：`review`（分支 `task/m2-8-acceptance`，2026-11-03 +08:00 开始；G2 待人类）
 - 依赖：M2-7；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：1–2 天；明显超出则先拆分，不绕过门禁。
 - [ ] 先写失败测试并确认失败原因：check / build / Demo / auth / prod；初始化 / 统一入口 / TUI 回归；模型离线、未授权、双客户端、清理证据；人类验收。
-- [ ] 交付：真实文件 / Git / PTY E2E、Agent 测试命令、dev / built smoke、macOS 平台与 UI 记录、acceptance.md / 契约落地检查。
-- [ ] 验收：A1–A31 / G2；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [x] 交付：真实文件 / Git / PTY E2E、Agent 测试命令、dev / built smoke、macOS 平台与 UI 记录、acceptance.md / 契约落地检查。
+- [x] 验收：A1–A31 / G2；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
 - [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
 - [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：e2e*；scripts/；specs/030-dev-resources/acceptance.md；docs/；STATUS.md。
+- 证据见 [acceptance.md](acceptance.md)：check 389 / 32 / 41、build、Demo 15/15、init / unified / TUI smoke、prod 8/9（auth 既有抖动）；G2 待人类验收。
 
 ## 本次 M2-P 说明
 

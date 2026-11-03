@@ -341,3 +341,44 @@
 
 - `pnpm check`（server 389 / agent 32 / web 41）、`pnpm build` 通过；M2-8 执行全套 check / build / Demo / auth / prod / 初始化 / 统一入口 / TUI 回归。
 - 仅实测 macOS arm64 / Node 20.19.3；不宣称 OS 沙箱、强 PID 身份、原子 PID 回绕防护或任意脱组清理。无进行中的新锁实现，M2-8 未关闭 G2。
+
+## M2-8 M2 整体交付与 G2 候选（2026-11-03）
+
+分支 `task/m2-8-acceptance`。人类授权自动完成 M2 后续任务；本任务汇总真实资源、回归、smoke 与 G2 证据。**未自行通过 G2，等待人类验收 / 纠错。**
+
+### 全部命令结果
+
+- `pnpm check`：server 389 / agent 32（live 1 项按环境跳过）/ web 41；Biome 通过（既有 warning 保留）。
+- `pnpm build`：通过（既有 Monaco / chunk 体积提示）。
+- `pnpm test:smoke:init`：PASS；built runtime 在损坏 config 前恢复已提交设置、历史哈希保留。
+- `pnpm test:smoke:unified`：PASS（HTTP dev/built/dev、HTTPS dev/built、legacy config）。首次 dev 因 Vite 预构建 zod 的 eval、built 因 Monaco TS worker 的 eval 触发 CSP；开发脚本源允许 `blob:` + `unsafe-eval`，生产 `script-src` 增加 `'unsafe-eval'` 以支持本地 Monaco TS worker（无远程脚本；这是安全姿态变更，待人类 review）。
+- `pnpm test:tui:pty`：15 项 PASS（TUI 模式 / 屏幕恢复、子进程 / 锁 / IPC 释放、配对 / 阅读 / 信号）。
+- Demo：15/15。
+- 生产浏览器：8/9。唯一失败为既有 auth 撤销跳转 `/pair` vs `/login` 抖动（连续 4 次全套复跑均出现，auth 单独运行通过；未改认证代码 / 断言）；文件、M1、命令、Git、终端、AI 终端控制全部通过。
+- Git 真实浏览器：临时仓库 / bare remote、Diff、暂存、提交、分支、push 审批 / 远端 ref 通过。
+
+### A1–A31 / G2 映射
+
+| 范围 | 证据 |
+|---|---|
+| A1–A5 文件 | M2-1/1b/2 真实文件、监听、冲突、realpath / 截断测试；文件 E2E |
+| A6–A8 命令 | M2-3/3b 真实进程、审批、取消、输出上限；命令 E2E |
+| A9–A12 终端 / 锁 | M2-4/4b 真实 PTY 双客户端、租约、窗口恢复；跨资源锁测试 |
+| A13–A18 Git / fencing | M2-5/5b 真实 repo / remote、审批 / 快照 / 单次、锁与重启；Git E2E |
+| A19 事件 / 缺口 | M2-1b / 3b / 4 补拉、轮转、缺口测试 |
+| A20 / A21 失败 / 秘密 | 各资源 DB / 审计失败、脱敏扫描、秘密不落库测试 |
+| A22 模型离线 | 文件 / Git / 终端直接 REST + 组件 / 浏览器测试，不依赖 Provider |
+| A23 TUI 退出 | TUI PTY 15 项，子进程 / 锁 / IPC / PTY 清理 |
+| A24 视图去重 | 文件 realpath、Git projectId + path、终端 ID 的 viewKey 测试 |
+| A25–A27 dev 终端 | M2-4c 真实双 PTY、L2 审批、role 复用、Turn 独立生命周期 |
+| A28–A29 Tab / 文件卡片 | M2-4b + 2 关闭失败保留 / 成功终止；文件结果卡片测试 |
+| A30–A31 AI 控制 / 接管 | M2-4d 真实租约、序号、ETX、人工原子接管、旧 generation 拒绝 |
+
+### G2 待人类确认的已知边界
+
+- auth 全套抖动未修复；不宣称认证 E2E 稳定。
+- 生产 CSP 因 Monaco TS worker 允许 `unsafe-eval`；无远程脚本，但削弱 CSP 防护，需人类接受或另立方案。
+- Git WS 失效事件尚未接线（Git 区 3s 轮询）；服务窗口 / Browser 预览 / 临时服务属 M3，不在 M2 验收冒充完成。
+- 仅实测 macOS arm64 / Node 20.19.3 / Chromium；Linux / Windows / CI 未验收。Git hooks / filters、PTY 脱组、PID 回绕仍按既有边界不宣称沙箱 / 强身份。
+
+**G2 状态：候选，等待人类验收 / 纠错；M2 不标 done。**

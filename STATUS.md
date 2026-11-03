@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-03 (+08:00)
-> 当前阶段：**M2-7 已完成；M2-8 整体验收进行中，G2 待人类确认**
+> 当前阶段：**M2 全部实现完成；M2-8 G2 候选，等待人类验收 / 纠错**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | M2-7 done / M2-8 验收中；G2 待人类 |
+| M2 | 开发资源与窗口层 | `in_progress` | M2-8 G2 候选；等待人类验收 |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -74,9 +74,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：M2-8 人工 G2 验收；不自行标记 G2 通过。
+- 下一步：人类 G2 验收；不自行标记 G2 通过。
 - 阻塞项：无。
-- 待 review：M2 整体 G2（人类验收）；M2-8 自动化汇总进行中。
+- 待 review：M2 整体 G2（人类验收 / 纠错）；已知 auth 抖动、CSP unsafe-eval、git WS 未接线。
 
 ## 已冻结
 
@@ -106,7 +106,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 | 日期 | 变更 |
 |---|---|
 | 2026-11-03 | M2-4b 验收通过（人类要求开始 M2-4c）；补跑 check / build / prod 6/6 / Demo 15/15，记录 workspace-write 沙箱 `/bin/ps` 限制 |
-| 2026-11-03 | 完成 M2-7：跨资源锁 / fencing / 恢复证据；启动 M2-8 整体验收 |
+| 2026-11-03 | 完成 M2-8 自动化汇总：check / build / Demo / init / unified / TUI 通过，prod 8/9；G2 候选待人类 |
 | 2026-11-02 | M2-P：补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；同步路线图与 Q-021～Q-025。仅文档，M2 仍 draft，待 G-Spec-M2 / G-PoC-M2 |
 | 2026-10-31 | 初始化 spec 工程：宪法、Agent 手册、架构/契约、路线图、S0–M1 详细 spec、M2–M5 草案 |
 | 2026-10-31 | 改用 Passkey / WebAuthn 作为 V1 可信凭据（ADR-021）；移除长期设备 Token / refresh；M0 拆为 9 个任务 |
@@ -381,3 +381,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - 新增跨资源锁集成测试：同根文件保存 / Git 动作互斥、无重叠根并行、旧 handle 续租 / 释放失败与新 fencing、释放后重试；既有命令 / 终端 / 文件 / 重启 / TUI 用例作为 A12/A17–A20/A23 证据。
 - 无新锁表 / 迁移 / 配置；M2-8 汇总全套并等待人类 G2。
+
+### M2-8 交付汇总（2026-11-03）
+
+- check 389 / agent 32 / web 41、build、Demo 15/15、init / unified / TUI PTY 全部通过；生产浏览器 8/9，唯一失败为既有 auth 撤销 `/pair` 抖动（auth 单独通过，连续全套复跑均出现，未改认证代码）。
+- 统一入口 smoke 首次暴露 dev Vite zod eval 与 built Monaco TS worker eval 的 CSP 冲突；dev 允许 `blob:` + `unsafe-eval`，生产允许 `'unsafe-eval'`（无远程脚本）。这是安全姿态变更，需人类 review；未自行放行 G2。
+- A1–A31 映射、平台边界与 G2 已知项见 [acceptance.md](specs/030-dev-resources/acceptance.md)。M2 状态保持 `in_progress`，M2-8 review，G2 待人类验收 / 纠错。

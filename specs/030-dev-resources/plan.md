@@ -159,3 +159,7 @@ WindowTab 增加 viewKey / createdAt：文件 realpath、终端 ID、Git Diff pr
 ## M2-7 实施记录（2026-11-03）
 
 M2-7 以验证为主，未新增锁实现：新增跨资源集成测试确认文件保存与 Git 动作共享根锁、无重叠根并行、旧 handle 续租 / 释放失败、释放后重试；命令 / 终端 / 重启 / TUI 清理沿用既有真实资源用例。M2-8 统一运行全套命令并汇总 A1–A31 / G2 证据，等待人类验收。
+
+## M2-8 验收记录（2026-11-03）
+
+M2-8 汇总 M2-1 ~ M2-7 的真实资源 / 浏览器 / 单元证据：check 389 / 32 / 41、build、Demo 15/15、init / unified / TUI smoke 通过；生产浏览器 8/9，auth 撤销跳转抖动为唯一失败且 auth 单独通过。统一入口 smoke 需要为 Vite dev 的 zod eval 与 Monaco TS worker 放宽 CSP（dev blob + unsafe-eval，生产 unsafe-eval），作为安全姿态变更列出待人类 review。A1–A31 / G2 映射与已知边界写入 acceptance.md；G2 未自行通过。
