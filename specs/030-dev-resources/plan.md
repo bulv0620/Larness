@@ -155,3 +155,7 @@ GitPanel 真实模式直接查询 M2-5 REST：状态 3s 轮询、显式路径选
 ## M2-6 实施记录（2026-11-03）
 
 WindowTab 增加 viewKey / createdAt：文件 realpath、终端 ID、Git Diff projectId + path；同一 Git 路径的 staged / worktree 更新同一 Tab 元数据，不同项目同路径独立。持久化版本 3 迁移补身份 / 时间、修正 activeTab、移除空窗口，真实模式清理 Demo 终端 / 服务 / Browser 与无元数据 Tab；真实顶部只枚举文件 / 终端。Git 区继续 3s 轮询，git WS 事件未新增。窗口 / Diff 关闭无资源副作用，终端 Tab 关闭仍走已确认 terminate。契约见 m2-resources §22，证据见 acceptance.md。
+
+## M2-7 实施记录（2026-11-03）
+
+M2-7 以验证为主，未新增锁实现：新增跨资源集成测试确认文件保存与 Git 动作共享根锁、无重叠根并行、旧 handle 续租 / 释放失败、释放后重试；命令 / 终端 / 重启 / TUI 清理沿用既有真实资源用例。M2-8 统一运行全套命令并汇总 A1–A31 / G2 证据，等待人类验收。

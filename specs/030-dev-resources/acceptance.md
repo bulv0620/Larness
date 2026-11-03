@@ -326,3 +326,18 @@
 ### 边界
 
 仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新依赖 / 迁移 / 配置 / 认证协议。服务窗口无 Tab、Browser 预览与 git WS 失效事件仍在 M3 / 后续统一接线；不把筛选当授权，不把布局恢复当资源重建。M2-7 未启动。
+
+## M2-7 跨资源锁、fencing 与恢复（2026-11-03）
+
+分支 `task/m2-7-locks-fencing`。人类授权自动完成 M2；本任务以真实集成测试集中验证文件 / Git / 命令 / 终端共享锁边界，未新增迁移 / 依赖 / 配置。
+
+### 实现与证据
+
+- 新增 `apps/server/test/resources/cross-resource-locks.test.ts`：同一根项目持锁时，Git add 与文件保存均被拒绝（GIT_CONFLICT / RESOURCE_LOCKED）且文件未变；无重叠根的另一个项目 Git add 可并行成功；释放后同一 Git 动作可重试成功；旧锁 handle 的 renew / release 返回失败，新写者获得更高 fencing token。
+- 既有证据：`agent/projectWriteLock.test.ts` 续租 / 过期 / 旧 token；`api/files.test.ts` 父子根冲突与项目移除受阻；`resources/commands.test.ts` 真实命令拿锁 / 取消 / 继承锁；`resources/terminals.test.ts` dev 终端不占源码锁、前台进程树停止、重启未知 PID 不发信号、Server 关闭清理；文件事件 / 命令 / 终端缺口语义与 DB/审计失败用例保留。
+- 跨资源固定顺序未新增第二套锁；Git / 文件 / 命令共用 `resource_locks` 与根包含判断，终端继续按 ADR-029 作为非长持锁主机写者。A23 TUI 退出清理沿用既有真实 PTY 回归（`test:tui:pty`）。
+
+### 验证
+
+- `pnpm check`（server 389 / agent 32 / web 41）、`pnpm build` 通过；M2-8 执行全套 check / build / Demo / auth / prod / 初始化 / 统一入口 / TUI 回归。
+- 仅实测 macOS arm64 / Node 20.19.3；不宣称 OS 沙箱、强 PID 身份、原子 PID 回绕防护或任意脱组清理。无进行中的新锁实现，M2-8 未关闭 G2。
