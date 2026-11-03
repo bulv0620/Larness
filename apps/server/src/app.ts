@@ -10,6 +10,7 @@ import { registerHealthRoute } from "./api/health.js";
 import { registerModelRoutes } from "./api/models.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerProjectRoutes } from "./api/projects.js";
+import { registerResourceEventRoutes } from "./api/resource-events.js";
 import { registerSessionRoutes, type TurnControls } from "./api/sessions.js";
 import { registerStaticRoutes } from "./api/static.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
@@ -18,6 +19,9 @@ import type { Database } from "./db/client.js";
 import { appendAudit } from "./db/repositories/audit.js";
 import { type DevWebOptions, registerDevWeb } from "./dev-web/routes.js";
 import { registerErrorHandler } from "./errors.js";
+import { knownCredentialGuard } from "./modules/files/credentials.js";
+import { FileWatchManager } from "./modules/files/watcher.js";
+import { ResourceEventBus } from "./modules/resources/events.js";
 import { resolveRequestId } from "./request-id.js";
 import { installSecurityGuard } from "./security/guard.js";
 import { RateLimiter } from "./security/rate-limit.js";
@@ -77,6 +81,16 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   }
 
   if (options.services) {
+    const resourceEvents = new ResourceEventBus();
+    const fileWatches = new FileWatchManager({
+      db: options.services.db,
+      dataDir: options.services.dataDir,
+      events: resourceEvents,
+      checkMetadata: knownCredentialGuard(options.services.db, options.services.secretStore),
+    });
+    app.addHook("onClose", async () => {
+      await fileWatches.close();
+    });
     registerAuthRoutes(app, options.services);
     if (options.services.secretStore !== undefined) {
       registerModelRoutes(app, {
@@ -86,7 +100,8 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     }
     registerApprovalRoutes(app, { db: options.services.db });
     registerFsRoutes(app);
-    registerFileRoutes(app, options.services);
+    registerFileRoutes(app, options.services, resourceEvents);
+    registerResourceEventRoutes(app, options.services);
     registerProjectRoutes(app, { db: options.services.db });
     registerSessionRoutes(app, {
       db: options.services.db,
@@ -97,7 +112,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     });
     registerPairingRoutes(app, options.services);
     registerWebAuthnRoutes(app, options.services);
-    registerWsRoutes(app, options.services);
+    registerWsRoutes(app, { ...options.services, resourceEvents, fileWatches });
   }
 
   if (options.devWeb) {

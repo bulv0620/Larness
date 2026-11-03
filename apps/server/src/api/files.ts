@@ -11,23 +11,29 @@ import type { AppServices } from "../app.js";
 import { resolveActiveSession } from "../auth/sessions.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { HttpError } from "../errors.js";
+import { knownCredentialGuard } from "../modules/files/credentials.js";
 import {
   type FileServiceOptions,
   getDirectory,
   getFile,
   saveFile,
 } from "../modules/files/service.js";
-import { listEncryptedSecrets } from "../modules/models/repository.js";
+import type { ResourceEventBus } from "../modules/resources/events.js";
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
   if (!result.success) throw new HttpError("VALIDATION_ERROR", "Invalid file request");
   return result.data;
 }
-export function registerFileRoutes(app: FastifyInstance, deps: AppServices) {
+export function registerFileRoutes(
+  app: FastifyInstance,
+  deps: AppServices,
+  events?: ResourceEventBus,
+) {
   const options = (request: FastifyRequest): FileServiceOptions => ({
     db: deps.db,
     dataDir: deps.dataDir,
+    publish: (row) => events?.publish(row),
     assertClient: () => {
       const session = resolveActiveSession(deps.db, request.cookies.larness_session ?? "", {
         idleTtlMinutes: deps.config.auth.idleTtlMinutes,
@@ -35,19 +41,7 @@ export function registerFileRoutes(app: FastifyInstance, deps: AppServices) {
       if (!session || session.id !== request.clientSession?.id)
         throw new FileManagerError("UNAUTHENTICATED", "Client session expired");
     },
-    assertContent: (content) => {
-      const secrets = listEncryptedSecrets(deps.db);
-      if (!deps.secretStore) {
-        if (secrets.length > 0)
-          throw new FileManagerError("INTERNAL", "Credential protection is unavailable");
-        return;
-      }
-      for (const secret of secrets) {
-        const value = deps.secretStore.decrypt(secret);
-        if (value.length > 0 && content.includes(value))
-          throw new FileManagerError("FILE_NOT_EDITABLE", "File contains protected credentials");
-      }
-    },
+    assertContent: knownCredentialGuard(deps.db, deps.secretStore),
   });
   async function run<T>(request: FastifyRequest, action: () => Promise<T>): Promise<T> {
     try {

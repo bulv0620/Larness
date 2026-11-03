@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import {
@@ -77,4 +77,47 @@ export function appendResourceEvent(
   };
   db.insert(resourceEvents).values(row).run();
   return row;
+}
+export type ResourceEventRow = typeof resourceEvents.$inferSelect;
+export function resourceSequence(db: DbExecutor, streamId: string): number {
+  return (
+    db.select().from(resourceStreams).where(eq(resourceStreams.streamId, streamId)).get()
+      ?.lastSeq ?? 0
+  );
+}
+export function readResourceEvents(
+  db: DbExecutor,
+  streamId: string,
+  after: number,
+  limit: number,
+  cutoff: number,
+) {
+  return db
+    .select()
+    .from(resourceEvents)
+    .where(
+      and(
+        eq(resourceEvents.streamId, streamId),
+        gt(resourceEvents.seq, after),
+        gte(resourceEvents.createdAt, cutoff),
+      ),
+    )
+    .orderBy(asc(resourceEvents.seq))
+    .limit(limit)
+    .all();
+}
+export function pruneResourceEvents(db: DbExecutor, cutoff: number) {
+  return db.delete(resourceEvents).where(lt(resourceEvents.createdAt, cutoff)).run().changes;
+}
+export function getCachedFile(db: DbExecutor, scopeKey: string, path: string) {
+  return db
+    .select()
+    .from(fileVersions)
+    .where(and(eq(fileVersions.scopeKey, scopeKey), eq(fileVersions.path, path)))
+    .get();
+}
+export function deleteCachedFile(db: DbExecutor, scopeKey: string, path: string) {
+  db.delete(fileVersions)
+    .where(and(eq(fileVersions.scopeKey, scopeKey), eq(fileVersions.path, path)))
+    .run();
 }

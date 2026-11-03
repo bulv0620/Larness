@@ -219,3 +219,6 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 [资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与拟议接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。产品规则已接受，M2/M3 技术 schema / 迁移 / 代码尚未实施，既有认证和事件权威性不变。
 
 M2-1（2026-11-03）：0005_resources 已落地四张资源表和 resource_locks.root_real_path，现 schemaVersion=5。字段与恢复 / fencing 语义见 [m2-resources §11](m2-resources.md#11-m2-1-实施契约2026-11-03)；旧 M2 目标摘要以该详细契约为准。
+
+
+M2-1b（2026-11-03）：沿用 0005_resources，无新迁移。resource_events 按 created_at 保留 30 天，清理不删除 resource_streams.last_seq；清空历史后继续递增，补拉遇缺口要求刷新。watcher 快照 / 句柄 / 连接引用仅驻内存，不持久化正文。详见 [资源契约 §12](m2-resources.md#12-m2-1b-文件监听与事件恢复2026-11-03)。

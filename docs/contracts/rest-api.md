@@ -461,3 +461,6 @@ Turn 创建成功返回 `202`：
 [资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与拟议接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。产品规则已接受，M2/M3 技术 schema / 迁移 / 代码尚未实施，既有认证和事件权威性不变。
 
 M2-1（2026-11-03）：文件与目录接口已落地；精确 scope、幂等、错误、锁与恢复语义见 [m2-resources §11](m2-resources.md#11-m2-1-实施契约2026-11-03)。本文件早期 M2 草案描述不代表后续 PTY / Git 接口已实现。
+
+
+M2-1b（2026-11-03）：GET `/api/resource-events?streamId=&after=&limit=` 已落地，仅接受授权文件流，limit 默认 100 / 最大 500。返回 `{ items, currentSequence, resyncRequired }`；after 超前为 400，保留 30 天且不重置序号，缺口重取快照。文件 / 目录 GET 兼作手动刷新。完整恢复 / 背压语义见 [m2-resources §12](m2-resources.md#12-m2-1b-文件监听与事件恢复2026-11-03)。

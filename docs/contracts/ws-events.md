@@ -171,3 +171,10 @@ PTY 输出不逐字节入库：使用限长环形缓冲 + 可选落盘日志；�
 ## ADR-030 服务与资源生命周期补充（2026-11-02）
 
 [资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与拟议接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。产品规则已接受，M2/M3 技术 schema / 迁移 / 代码尚未实施，既有认证和事件权威性不变。
+
+
+## M2-1b 已实施补充（2026-11-03）
+
+文件订阅 resourceId 为 `project:<id>` / `session:<id>`，支持 paths（默认 `["."]`、最多 128）与 after；流键为 `file:` + resourceId。确认携带 currentSequence / resyncRequired=true / partial；确认后刷新当前文件快照，历史走 `/api/resource-events`。file.changed / file.resync.required 均先持久化再通知，路径不包含已知凭据，正文不推送。详见 [m2-resources §12](m2-resources.md#12-m2-1b-文件监听与事件恢复2026-11-03)。
+
+资源流使用 `{ items, currentSequence, resyncRequired }`，与既有 Agent 重放分页形状不同。资源事件固定保留 30 天；清理保留流序号，缺口要求快照刷新。本次实现发送缓冲超过 8 MiB 直接关闭 1008，通过持久重放恢复；输入上限 1 MiB，控制队列 64 条，订阅 / 取消串行执行。此为当前实现边界，不将此前“先丢可聚合帧”描述为已实现。

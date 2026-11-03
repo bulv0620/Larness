@@ -31,6 +31,7 @@ import {
   findOperation,
   insertOperation,
   pendingOperations,
+  type ResourceEventRow,
   updateOperation,
 } from "../resources/repository.js";
 import { assertFileScopeMetadata, authorizeFileTarget, resolveFileScope } from "./scope.js";
@@ -41,6 +42,7 @@ export interface FileServiceOptions {
   now?: () => number;
   assertClient?: () => void;
   assertContent?: (content: string) => void;
+  publish?: (event: ResourceEventRow) => void;
 }
 function rejectUnknown(error: unknown): FileManagerError {
   return error instanceof FileManagerError
@@ -54,6 +56,7 @@ export async function getFile(
 ) {
   const resolved = await resolveFileScope(options.db, options.dataDir, scope);
   const relative = await authorizeFileTarget(resolved, input.path);
+  options.assertContent?.(relative);
   const file = await readEditableFile(resolved.root, relative);
   options.assertClient?.();
   assertFileScopeMetadata(options.db, resolved);
@@ -86,6 +89,7 @@ export async function getDirectory(
   });
   options.assertClient?.();
   assertFileScopeMetadata(options.db, resolved);
+  for (const entry of result.items) options.assertContent?.(entry.path);
   return result;
 }
 function replay(operation: ResourceOperationRow, paramsHash: string): FileSaveResult {
@@ -117,7 +121,7 @@ function complete(
   mtime: number,
 ) {
   const now = options.now?.() ?? Date.now();
-  return immediateTransaction(options.db, (tx) => {
+  const committed = immediateTransaction(options.db, (tx) => {
     cacheFileVersion(tx, {
       scopeKey: operation.scopeKey,
       path: result.path,
@@ -153,8 +157,14 @@ function complete(
       details: { scope: operation.scopeKey, path: result.path, sequence: event.seq },
       now,
     });
-    return result;
+    return { result, event };
   });
+  try {
+    options.publish?.(committed.event);
+  } catch {
+    /* Replay remains authoritative if transport fails after commit. */
+  }
+  return committed.result;
 }
 
 export async function saveFile(
@@ -170,6 +180,7 @@ export async function saveFile(
 ) {
   const resolved = await resolveFileScope(options.db, options.dataDir, input.scope);
   const relative = normalizeFilePath(input.path);
+  options.assertContent?.(relative);
   const bytes = encodeEditableContent(input.content);
   options.assertContent?.(input.content);
   const targetVersion = hashContent(bytes);

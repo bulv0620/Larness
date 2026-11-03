@@ -1,11 +1,27 @@
+import { randomUUID } from "node:crypto";
 import websocket from "@fastify/websocket";
-import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
+import { FileManagerError } from "@larness/resources";
+import {
+  type AppConfig,
+  FileSubscriptionSchema,
+  type ServerEvent,
+  type WebAuthnRuntime,
+} from "@larness/shared";
 import { eq, max } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import type { WebSocket } from "ws";
 import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
 import type { Database } from "../db/client.js";
+import { appendAudit } from "../db/repositories/audit.js";
 import { agentEvents } from "../db/schema.js";
+import {
+  assertFileScopeMetadata,
+  type ResolvedFileScope,
+  resolveFileScope,
+} from "../modules/files/scope.js";
+import type { FileWatchManager } from "../modules/files/watcher.js";
+import { fileStreamScope, type ResourceEventBus } from "../modules/resources/events.js";
+import { resourceSequence } from "../modules/resources/repository.js";
 import { getSessionById } from "../modules/sessions/repository.js";
 import { sessionEvents } from "../security/session-events.js";
 import { transportAllowed } from "../security/transport.js";
@@ -21,6 +37,9 @@ export interface WsRouteDeps {
   db: Database;
   config: AppConfig;
   webAuthn: WebAuthnRuntime;
+  dataDir: string;
+  resourceEvents: ResourceEventBus;
+  fileWatches: FileWatchManager;
   now?: () => number;
 }
 
@@ -40,7 +59,10 @@ function readCookie(header: string | undefined, name: string): string {
   return "";
 }
 
-function send(socket: WebSocket, payload: unknown): void {
+export function send(
+  socket: Pick<WebSocket, "readyState" | "OPEN" | "bufferedAmount" | "close" | "send">,
+  payload: unknown,
+): void {
   if (socket.readyState !== socket.OPEN) {
     return;
   }
@@ -50,11 +72,15 @@ function send(socket: WebSocket, payload: unknown): void {
     return;
   }
 
-  socket.send(JSON.stringify(payload));
+  try {
+    socket.send(JSON.stringify(payload));
+  } catch {
+    socket.close(1008, "transport failed");
+  }
 }
 
 export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void {
-  app.register(websocket);
+  app.register(websocket, { options: { maxPayload: 1024 * 1024 } });
 
   app.after(() => {
     app.get(
@@ -119,14 +145,39 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
         }
 
         const subscriptions = new Set<string>();
+        const fileGrants = new Map<string, ResolvedFileScope>();
+        const owner = randomUUID();
+        let closed = false;
         const sessionToken = readCookie(request.headers.cookie, SESSION_COOKIE);
         let lastPong = Date.now();
 
-        const sessionActive = (): boolean =>
-          resolveActiveSession(deps.db, sessionToken, {
-            now: deps.now?.(),
-            idleTtlMinutes: deps.config.auth.idleTtlMinutes,
-          }) !== null;
+        const sessionActive = (): boolean => {
+          try {
+            return (
+              resolveActiveSession(deps.db, sessionToken, {
+                now: deps.now?.(),
+                idleTtlMinutes: deps.config.auth.idleTtlMinutes,
+              }) !== null
+            );
+          } catch {
+            return false;
+          }
+        };
+        const fileDenied = (code: string, message: string) => {
+          try {
+            appendAudit(deps.db, {
+              action: "file.subscription.denied",
+              decision: "deny",
+              clientSessionId: session.id,
+              resourceType: "file",
+              details: { code, requestId: request.id },
+            });
+          } catch {
+            socket.close(1008, "authorization unavailable");
+            return;
+          }
+          send(socket, { kind: "error", code, message });
+        };
 
         send(socket, {
           kind: "hello",
@@ -178,8 +229,32 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           }
         };
         agentEventBus.on("event", onAgentEvent);
+        const onResourceEvent = (event: ServerEvent): void => {
+          if (!subscriptions.has(event.streamId)) return;
+          if (!sessionActive()) {
+            socket.close(1008, "session expired");
+            return;
+          }
+          const grant = fileGrants.get(event.streamId);
+          try {
+            if (!grant) return;
+            assertFileScopeMetadata(deps.db, grant);
+            send(socket, event);
+          } catch {
+            subscriptions.delete(event.streamId);
+            fileGrants.delete(event.streamId);
+            deps.fileWatches.unsubscribe(owner, event.streamId);
+            send(socket, {
+              kind: "error",
+              code: "FORBIDDEN",
+              message: "file subscription is no longer authorized",
+            });
+          }
+        };
+        deps.resourceEvents.on(onResourceEvent);
 
-        socket.on("message", (raw: Buffer) => {
+        const processMessage = async (raw: Buffer): Promise<void> => {
+          if (closed) return;
           if (!sessionActive()) {
             socket.close(1008, "session expired");
             return;
@@ -215,12 +290,22 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
               });
               return;
             }
+            if (requested.length > MAX_SUBSCRIPTIONS) {
+              send(socket, {
+                kind: "error",
+                code: "RATE_LIMITED",
+                message: "too many subscriptions",
+              });
+              return;
+            }
 
             const accepted: Array<{
-              topic: "system" | "agent";
+              topic: "system" | "agent" | "file";
               resourceId: string;
               key: string;
               currentSequence: number;
+              paths?: string[];
+              grant?: ResolvedFileScope;
             }> = [];
 
             for (const entry of requested) {
@@ -246,6 +331,38 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
                   key: "system",
                   currentSequence: 0,
                 });
+                continue;
+              }
+              if (entry.topic === "file") {
+                const parsed = FileSubscriptionSchema.safeParse(entry);
+                if (!parsed.success) {
+                  fileDenied("VALIDATION_ERROR", "invalid file subscription");
+                  return;
+                }
+                const key = `file:${parsed.data.resourceId}`;
+                try {
+                  const grant = await resolveFileScope(deps.db, deps.dataDir, fileStreamScope(key));
+                  if (closed || !sessionActive()) {
+                    socket.close(1008, "session expired");
+                    return;
+                  }
+                  const currentSequence = resourceSequence(deps.db, key);
+                  if (parsed.data.after > currentSequence) {
+                    fileDenied("VALIDATION_ERROR", "event cursor is in the future");
+                    return;
+                  }
+                  accepted.push({
+                    topic: "file",
+                    resourceId: parsed.data.resourceId,
+                    key,
+                    currentSequence,
+                    paths: parsed.data.paths,
+                    grant,
+                  });
+                } catch {
+                  fileDenied("FORBIDDEN", "subscription denied");
+                  return;
+                }
                 continue;
               }
 
@@ -292,6 +409,31 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
 
             for (const entry of accepted) {
               subscriptions.add(entry.key);
+              if (entry.topic === "file" && entry.grant && entry.paths) {
+                fileGrants.set(entry.key, entry.grant);
+                try {
+                  const state = await deps.fileWatches.subscribe(owner, entry.key, entry.paths);
+                  if (closed || !sessionActive()) {
+                    deps.fileWatches.unsubscribe(owner);
+                    socket.close(1008, "session expired");
+                    return;
+                  }
+                  send(socket, {
+                    kind: "subscribed",
+                    subscription: { topic: "file", resourceId: entry.resourceId },
+                    ...state,
+                  });
+                } catch (error) {
+                  subscriptions.delete(entry.key);
+                  fileGrants.delete(entry.key);
+                  deps.fileWatches.unsubscribe(owner, entry.key);
+                  fileDenied(
+                    error instanceof FileManagerError ? error.code : "INTERNAL",
+                    "file subscription failed",
+                  );
+                }
+                continue;
+              }
               send(socket, {
                 kind: "subscribed",
                 subscription: { topic: entry.topic, resourceId: entry.resourceId },
@@ -306,6 +448,10 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
               for (const topic of message.topics) {
                 if (typeof topic === "string") {
                   subscriptions.delete(topic);
+                  if (topic.startsWith("file:")) {
+                    fileGrants.delete(topic);
+                    deps.fileWatches.unsubscribe(owner, topic);
+                  }
                 }
               }
             }
@@ -317,14 +463,38 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             code: "VALIDATION_ERROR",
             message: "unknown message type",
           });
+        };
+        let pendingControls = 0;
+        let controls = Promise.resolve();
+        socket.on("message", (raw: Buffer) => {
+          if (++pendingControls > 64) {
+            socket.close(1008, "control queue limit");
+            return;
+          }
+          controls = controls
+            .then(() => processMessage(raw))
+            .catch(() => {
+              send(socket, {
+                kind: "error",
+                code: "INTERNAL",
+                message: "message processing failed",
+              });
+            })
+            .finally(() => {
+              pendingControls--;
+            });
         });
 
         socket.on("close", () => {
+          closed = true;
           clearInterval(heartbeat);
           socket.off("pong", onPong);
           sessionEvents.off("session.revoked", onSessionRevoked);
           sessionEvents.off("device.revoked", onDeviceRevoked);
           agentEventBus.off("event", onAgentEvent);
+          deps.resourceEvents.off(onResourceEvent);
+          deps.fileWatches.unsubscribe(owner);
+          fileGrants.clear();
           subscriptions.clear();
         });
       },

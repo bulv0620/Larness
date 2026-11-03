@@ -1,6 +1,6 @@
 # M2 资源契约（设计已批准，按任务实施）
 
-> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；后续接口仍按任务逐步落地。
+> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；M2-1b 文件监听 / 订阅 / 补拉已实施，详见 §12；后续接口仍按任务逐步落地。
 
 ## 1. 共同约定
 
@@ -184,3 +184,30 @@ G-PoC-M2 已随人类“开始m2-1”确认通过。本节覆盖本任务已实�
 - root_real_path 加到既有 resource_locks；migration 0005 将既有项目锁从 projects.real_path 回填。同根或祖先包含互斥；独立 workspace 同规则；不重叠根可并发。M1 Turn / 文件保存复用同一锁，写前检查有效 fencing；存在活跃写者时登记重叠根或解除项目关联返回 RESOURCE_LOCKED。
 
 0005_resources 为唯一新增迁移：file_versions、resource_streams、resource_events 与 resource_operations，并增加锁的根字段。resource_operations 在 §7 摘要之外增加 root_real_path、path、expected_version、target_version、lock_id、fencing_token、error_code 用于对账 / fencing；不存正文。mtime 记录 Unix ms。无破坏性迁移，不修改 0001–0004；应用回滚保留表 / 数据，需先确认写操作已结束并清理不确定项，不执行 down migration。
+
+
+## 12. M2-1b 文件监听与事件恢复（2026-11-03）
+
+### 订阅与快照
+
+文件订阅为 `{ topic: "file", resourceId: "project:<id>" | "session:<id>", paths?: string[], after?: number }`。paths 默认 `["."]`，1–128 个根内相对路径，代表已展开目录 / 已打开文件，不递归监听整个项目。after 默认为 0，必须为非负安全整数；超过当前流序号返回 VALIDATION_ERROR。目录 / 文件均复用 M2-1 scope 授权、真实路径和运行数据边界；独立会话只能使用其真实 workspace。
+
+流键为 `file:project:<id>` / `file:session:<id>`。订阅确认 `{ kind: "subscribed", subscription: { topic: "file", resourceId }, currentSequence, resyncRequired: true, partial }`：每次订阅建立当前基线，确认后须重新 GET 文件 / 目录快照；不能假设未监听或断线期间的外部修改都有事件。partial 表示当前存在监控降级。历史通过 REST 补拉，实时事件可在确认之前到达，客户端按 sequence 去重、缓冲并衔接。取消订阅使用 `topics: [streamId]`；断线 / 撤销释放该连接引用，其他浏览器引用仍保留。两台电脑订阅同目录共用 watcher，文件视图和草稿仍由各浏览器维护。
+
+### 有界监听与通知
+
+每实例最多 128 个原生目录句柄，相同真实目录共享句柄；单次单层扫描最多检查 2000 个条目（含被忽略项）。默认忽略规则、符号链接和受保护数据目录不进入快照；保存暂存文件名不通知。50ms 合并通知，待对账集合最多 256 个，每 2s 轮转扫描已订阅路径；不依赖平台递归 watcher。超限路径不保存详细监听快照，降级后保留手动 GET 刷新和保存时版本校验。
+
+`file.changed` payload 为 `{ path, changeType: "created" | "modified" | "deleted", version?: SHA256 }`；正文不进入事件、缓存或审计。编辑文件可提供版本，不可编辑 / 超限文件只通知元数据。API 保存的相同已提交版本不重复广播。外部变更提示缓存失效，GET 才是当前权威状态，不承诺记录每次中间写入。
+
+`file.resync.required` payload 仅含 reasonCode：WATCH_UNAVAILABLE、WATCH_LIMIT、SCAN_LIMIT、QUEUE_OVERFLOW、ROOT_UNAVAILABLE、DIRECTORY_REPLACED、RECOVERED、SCAN_FAILED。句柄失败、目录身份替换、限额、扫描异常会要求刷新；恢复后重建句柄 / 基线并通知 RECOVERED。事件写入与 stream 序号在同一事务内提交后才广播；数据库失败不广播，失效标记保留并重试。已知凭据不得出现在路径通知中，失败只发通用失效原因，不回传异常原文。
+
+### 补拉、保留与背压
+
+GET `/api/resource-events?streamId=&after=&limit=` 当前仅支持文件流。返回 `{ items: ServerEvent[], currentSequence, resyncRequired }`，limit 默认 100、最大 500；翻页用最后一个 item.sequence，直至追上 currentSequence。未来 after 返回 400；每次解析流归属并授权，返回前重查 Cookie / scope，拒绝未登记或已移除资源。
+
+事件保留 30 天，沿用定时清理；补拉即时过滤过期记录。清理只删 resource_events，保留 resource_streams.last_seq；发现头部 / 中间 / 尾部缺口返回 resyncRequired=true，即使全部清空也不重置序号。客户端收到失效事件或 resyncRequired 时重新查询资源快照。此任务不新增保留期配置键。
+
+WebSocket 输入最大 1 MiB，控制消息串行处理且待处理最多 64 条；每连接最多 64 个主题。发送缓冲超过 8 MiB 时关闭 1008，使用持久事件补拉恢复，不堆积无界内存队列；广播失败不能回滚已完成文件保存。每次文件推送检查浏览器会话和资源归属；关闭时释放监听引用，Server 退出等待在途扫描后再关闭数据库。
+
+本任务无新迁移 / 依赖 / 配置 / UI；手动刷新能力复用文件与目录 GET。编辑器刷新按钮、Query 失效及冲突交互在 M2-2 接线。

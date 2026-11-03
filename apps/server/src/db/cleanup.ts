@@ -1,5 +1,7 @@
+import { RESOURCE_EVENT_RETENTION_MS } from "@larness/shared";
 import { and, inArray, lt } from "drizzle-orm";
 import { expirePendingApprovals } from "../modules/agent/approvalService.js";
+import { pruneResourceEvents } from "../modules/resources/repository.js";
 import type { Database } from "./client.js";
 import { browserSessions, deviceRequests, webauthnChallenges } from "./schema.js";
 
@@ -32,6 +34,7 @@ export function cleanupExpired(db: Database, now = Date.now()): CleanupResult {
     .run().changes;
 
   const approvals = expirePendingApprovals({ db, now: () => now });
+  pruneResourceEvents(db, now - RESOURCE_EVENT_RETENTION_MS);
 
   return { challenges, sessions, requests, approvals };
 }
