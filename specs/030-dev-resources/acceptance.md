@@ -281,4 +281,6 @@
 
 ### 边界
 
-仅实测 macOS arm64 / Node 20.19.3；无新依赖 / 配置 / 认证协议，唯一迁移为 0008_resource_actions。Git hooks / filters 仍可能执行主机代码，不宣称 `shell:false` 是沙箱；不提供 reset / clean / force / 删除分支 / rebase / merge / 远端管理。远端认证依赖主机既有配置，不提供网页密码；Git 不可用返回 GIT_UNAVAILABLE，不伪装本地降级。M2-5b 未启动。
+仅实测 macOS arm64 / Node 20.19.3；无新依赖 / 配置 / 认证协议，唯一迁移为 0008_resource_actions。Git hooks / filters 仍可能执行主机代码，不宣称 `shell:false` 是沙箱；不提供 reset / clean / force / 删除分支 / rebase / merge / 远端管理。远端认证依赖主机既有配置，不提供网页密码；Git 不可用返回 GIT_UNAVAILABLE，不伪装本地降级。
+
+2026-11-03 人类“通过并继续”，M2-5 验收通过并标 done；M2-5b 未启动。
