@@ -275,6 +275,26 @@ export class TerminalManager {
       fail("RESOURCE_UNAVAILABLE", "Terminal execution requires reconciliation");
     return this.dto(row);
   }
+  async activeDevByRole(projectId: string, role: string) {
+    const row = activeTerminals(this.options.db).find(
+      (item) => item.projectId === projectId && item.role === role && item.mode === "dev",
+    );
+    return row ? this.dto(row) : null;
+  }
+  async readProjectDev(id: string, projectId: string) {
+    const row = await this.read(id);
+    if (row.projectId !== projectId || row.mode !== "dev" || this.#row(id).createdByTurnId === null)
+      fail("FORBIDDEN", "Terminal does not belong to this project");
+    return row;
+  }
+  async readProjectDevOutput(id: string, projectId: string, after: number, limit: number) {
+    await this.readProjectDev(id, projectId);
+    return this.output(id, after, limit);
+  }
+  async stopProjectDev(id: string, projectId: string, client: string) {
+    await this.readProjectDev(id, projectId);
+    return this.terminate(id, client);
+  }
   async list(filter: {
     projectId?: string;
     workspaceSessionId?: string;

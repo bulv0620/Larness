@@ -330,3 +330,25 @@ Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical
 前端使用既有订阅连接 ID 与租约接口、10s 续租；重连不自动申请控制。输出以 WS 通知触发有界 REST 游标页，xterm 保留 2000 行、可访问文本摘要最多 16,384 字符，缺口明确提示。窗口 close 保留视图，Tab close 确认终态才移除，失败保留。真实双浏览器验收见 030 acceptance，当前待人类 UI review。
 
 续租 / resize / 输入失败即关闭本地输入能力，但仍可显式释放当前连接在服务器上尚未过期的租约；同代重新申请不重置已发送序号，断线丢弃未确认输入且不自动重放。未知停止 / 恢复 / 输出故障状态保留 Tab 和原因；明确 EXITED / TERMINATED 或 INTERRUPTED + NOT_STARTED 才确认移除。列表 / 终端状态用 Query，输入队列与连接状态仅在当前视图内存；布局不持久化输出、输入或租约。
+
+## 18. M2-4c Agent 项目开发终端工具（2026-11-03）
+
+本任务把 §4.1 的三个工具接入真实 Turn；完整 AI 输入 / 中断 / 人工接管仍属 M2-4d。无新 REST 创建入口、迁移、配置、依赖或认证协议。
+
+### 工具与审批
+
+- `start_project_terminal({ role, executable, args, cwd? })` 复用 `TerminalDevSchema`；role 为 1–64 位受限字符，cwd 默认 `.`。projectId / sourceSessionId / Turn / toolCall / 真实发起 clientSessionId / policySnapshotId / AbortSignal 全部来自执行上下文，模型不能指定 scope、程序之外的 owner 或全局目录。会话无项目时拒绝。
+- 启动固定 L2，逐次审批；standard 要求审批、strict 同样要求、readonly 拒绝。审批哈希绑定规范化程序 / 参数 / cwd / role / 项目根 / 会话 / Turn / toolCall / 客户端 / 策略快照；批准后 spawn 前重验同一审批与 Turn 预算 / AbortSignal。已知 SecretStore 凭据字面量在审批摘要生成前拒绝；摘要展示完整规范化程序 / 参数 / cwd 及“项目目录不是沙箱、dev 进程可能并发写源码”的提示，审计只保存关联 ID / 风险 / 摘要，不保存原始参数或凭据。
+- 同项目 + role 只允许一个活跃 dev 资源：相同 `launchParamsHash` 重试复用原 terminalId 并在工具结果标 `reused: true`；参数不同返回 `CONFLICT`，不自动杀旧进程或重建。启动结果返回 terminalId / role / status / exitCode / reused；立即退出的真实终态可见，不宣称 ready。
+- 三个工具设置 `requiresProjectLock: false`：启动 / 读取 / 停止不长期或临时占用源码写锁，符合 ADR-029；普通文件写、命令与 Git 仍走共同锁 / 版本校验。dev 进程是明确的主机写者，不受源码写锁串行保证，残余风险不宣传为沙箱。
+
+### 读取、停止与生命周期
+
+- `read_terminal_output({ terminalId, after?, limit? })` 为 L0；只允许当前项目、Agent 创建（mode=dev）的终端。复用 TerminalManager 的脱敏游标页，单页最多 500 块 / 64 KiB；工具结果再限制 JSON 转义后约 12,000 字符并返回 truncated / resyncRequired / nextCursor；不申请或改变输入租约。人类 Shell 与其他项目 ID 一律拒绝。
+- `stop_project_terminal({ terminalId })` 为 L1；只允许当前项目、Agent 创建的 dev 终端，human shell 不在此工具范围。复用 `terminate` 的幂等停止并等待确认退出；成功返回 TERMINATED / EXITED，未确认返回 INTERRUPTED / 原因并保持资源可见。Turn 完成 / 取消不调用停止；创建尚未交付时 AbortSignal 仍清理未交付资源。
+- 工具结果事件 `tool.completed` 对成功启动附 `resourceTarget: { kind: "terminal", projectId, terminalId, role }` 与 `originClientSessionId`；发起客户端在实时事件中插入 `origin=agent` 的 Tab，不切 activeTab / 不抢窗口焦点；其他客户端只失效终端列表。历史重放不重新插入已关闭的 Tab；工具卡片提供显式“打开”，点击才聚焦。人工输入仍需 `获取输入权`，M2-4c 不授予 AI 输入。
+
+### 验证边界
+
+- 真实集成覆盖 FakeProvider 启动两个真实 PTY、逐次 L2 审批、role 复用 / 参数冲突、审批篡改、12k 有界读取、显式停止、Turn 取消不停止已交付终端、项目 / 人工 Shell 拒绝与事件来源；Web 单测覆盖非抢焦点插入、发起客户端过滤与 terminal target 解析；生产浏览器覆盖发起客户端两个来源 Tab、真实输出、只读观察。
+- 仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新迁移 / 依赖 / 配置，未修改用户运行数据。平台进程清理、PID 身份与沙箱边界承接 §16，不因本任务扩大承诺。

@@ -1,4 +1,4 @@
-import type { FileResultTarget } from "./files";
+import type { ResourceTarget } from "./terminals";
 export type EventTopic = "command" | "agent" | "terminal" | "service" | "git" | "file" | "system";
 
 export interface ServerEvent<T = unknown> {
@@ -63,7 +63,7 @@ export interface ToolItem {
   output?: string;
   durationMs?: number;
   commandId?: string;
-  resourceTarget?: FileResultTarget;
+  resourceTarget?: ResourceTarget;
   createdAt: number;
 }
 
@@ -90,7 +90,7 @@ export interface ArtifactItem {
   description: string;
   meta: string;
   href?: string;
-  resourceTarget?: FileResultTarget;
+  resourceTarget?: ResourceTarget;
   createdAt: number;
 }
 

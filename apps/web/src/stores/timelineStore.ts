@@ -6,6 +6,7 @@ import type {
   TimelineItem,
 } from "@larness/shared";
 import { create } from "zustand";
+import { applyAgentTerminalEvent } from "@/features/terminals/api";
 import { USE_MOCKS } from "@/lib/env";
 import {
   applyAssistantDelta,
@@ -115,7 +116,7 @@ function applyDeltaToState(event: AssistantDeltaEvent): void {
   });
 }
 
-function applyEventToState(event: ServerEvent): void {
+function applyEventToState(event: ServerEvent, live = false): void {
   const state = useTimelineStore.getState();
 
   if (event.sessionId !== undefined && event.sessionId !== state.sessionId) {
@@ -177,6 +178,16 @@ function applyEventToState(event: ServerEvent): void {
           : (state.turnStartedAt ?? event.timestamp)
         : state.turnStartedAt,
   });
+
+  if (
+    live &&
+    event.type === "tool.completed" &&
+    typeof payload.originClientSessionId === "string"
+  ) {
+    void queryClient.invalidateQueries({ queryKey: ["terminals"] });
+    const session = queryClient.getQueryData<{ clientSessionId?: string }>(["session"]);
+    applyAgentTerminalEvent(payload, session?.clientSessionId);
+  }
 }
 
 function connectSocket(sessionId: string): void {
@@ -228,7 +239,7 @@ function connectSocket(sessionId: string): void {
     }
 
     if (value.kind === "event" && value.topic === "agent") {
-      applyEventToState(value as unknown as ServerEvent);
+      applyEventToState(value as unknown as ServerEvent, true);
     }
   });
 

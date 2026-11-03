@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { CommandParamsSchema } from "./commands";
-import { FilePathSchema, FileScopeSchema } from "./files";
+import { FilePathSchema, FileResultTargetSchema, FileScopeSchema } from "./files";
 export const TerminalIdSchema = z.string().regex(/^term_[a-f0-9-]{36}$/);
+export const TerminalRoleSchema = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/);
 export const TerminalStatusSchema = z.enum([
   "CREATED",
   "RUNNING",
@@ -21,7 +22,7 @@ export const TerminalCreateSchema = z
   .strict();
 export const TerminalDevSchema = z
   .object({
-    role: z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/),
+    role: TerminalRoleSchema,
     executable: z.string(),
     args: z.array(z.string()),
     cwd: FilePathSchema.default("."),
@@ -35,6 +36,25 @@ export const TerminalDevSchema = z
     )
       ctx.addIssue({ code: "custom", message: "Invalid program parameters" });
   });
+export const ReadTerminalOutputParamsSchema = z
+  .object({
+    terminalId: TerminalIdSchema,
+    after: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).default(0),
+    limit: z.number().int().min(1).max(500).default(100),
+  })
+  .strict();
+export const StopProjectTerminalParamsSchema = z.object({ terminalId: TerminalIdSchema }).strict();
+export const TerminalResultTargetSchema = z
+  .object({
+    kind: z.literal("terminal"),
+    projectId: z.string().min(1),
+    terminalId: TerminalIdSchema,
+    role: TerminalRoleSchema.nullable(),
+  })
+  .strict();
+export type TerminalResultTarget = z.infer<typeof TerminalResultTargetSchema>;
+export const ResourceTargetSchema = z.union([FileResultTargetSchema, TerminalResultTargetSchema]);
+export type ResourceTarget = z.infer<typeof ResourceTargetSchema>;
 export const TerminalLeaseSchema = z
   .object({
     action: z.enum(["acquire", "renew", "release"]),

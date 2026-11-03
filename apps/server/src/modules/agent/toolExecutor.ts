@@ -38,6 +38,9 @@ export interface ExecuteToolInput {
   signal?: AbortSignal;
   policySnapshotId?: string;
   runCommand?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  startTerminal?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  readTerminalOutput?: (args: unknown) => Promise<ToolResult>;
+  stopTerminal?: (args: unknown) => Promise<ToolResult>;
 }
 
 export type ToolExecutionOutcome =
@@ -131,9 +134,10 @@ export async function executeTool(
     };
   }
 
-  const command = input.toolName === "run_command";
-  const params = command ? parsed.data : input.args;
-  const approvalParams = command
+  const contextBound =
+    input.toolName === "run_command" || input.toolName === "start_project_terminal";
+  const params = contextBound ? parsed.data : input.args;
+  const approvalParams = contextBound
     ? {
         params,
         sessionId: input.sessionId,
@@ -170,7 +174,7 @@ export async function executeTool(
         toolName: input.toolName,
         risk,
         scope: {
-          summary: command
+          summary: contextBound
             ? `${summarizeTool(tool, params)}\n${new OutputRedactor([]).push(JSON.stringify(params), true)}`
             : summarizeTool(tool, params),
           risk,
@@ -269,6 +273,40 @@ export async function executeTool(
             return (
               input.runCommand?.(args, assertAuthorized) ??
               denied("FORBIDDEN", "Command context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.startTerminal
+      ? {
+          startTerminal: async (args: unknown) => {
+            if (hashApprovalParams(args) !== hashApprovalParams(params))
+              return denied("APPROVAL_INVALID", "Terminal parameters changed");
+            assertAuthorized();
+            return (
+              input.startTerminal?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Terminal context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.readTerminalOutput
+      ? {
+          readTerminalOutput: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.readTerminalOutput?.(args) ??
+              denied("FORBIDDEN", "Terminal read context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.stopTerminal
+      ? {
+          stopTerminal: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.stopTerminal?.(args) ?? denied("FORBIDDEN", "Terminal stop context unavailable")
             );
           },
         }

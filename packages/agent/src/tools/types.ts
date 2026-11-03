@@ -11,6 +11,9 @@ export interface ToolContext {
   ignore?: string[];
   signal?: AbortSignal;
   runCommand?: (args: unknown) => Promise<ToolResult>;
+  startTerminal?: (args: unknown) => Promise<ToolResult>;
+  readTerminalOutput?: (args: unknown) => Promise<ToolResult>;
+  stopTerminal?: (args: unknown) => Promise<ToolResult>;
 }
 
 export interface ToolResult {
@@ -28,6 +31,8 @@ export interface ToolDefinition {
   readonly schema: z.ZodType;
   readonly classifyRisk?: (args: unknown) => ToolRiskLevel;
   readonly summarize?: (args: unknown) => string;
+  /** Source writes need the shared project lock; read/process tools can opt out. */
+  readonly requiresProjectLock?: boolean;
   execute(rawArgs: unknown, context: ToolContext): Promise<ToolResult>;
 }
 
@@ -37,6 +42,7 @@ export interface ToolDefinitionInput<Schema extends z.ZodType> {
   riskLevel: ToolRiskLevel;
   schema: Schema;
   summarize?: (args: z.infer<Schema>) => string;
+  requiresProjectLock?: boolean;
   handler: (args: z.infer<Schema>, context: ToolContext) => Promise<ToolResult>;
 }
 
@@ -48,6 +54,7 @@ export function defineTool<Schema extends z.ZodType>(
     description: input.description,
     riskLevel: input.riskLevel,
     schema: input.schema,
+    requiresProjectLock: input.requiresProjectLock ?? true,
     ...(input.summarize === undefined
       ? {}
       : { summarize: (args: unknown) => input.summarize?.(args as z.infer<Schema>) ?? "" }),

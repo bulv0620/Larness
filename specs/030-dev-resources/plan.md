@@ -133,3 +133,9 @@ CommandManager 以真实 session / Turn / 活动客户端上下文执行，scope
 ## M2-4b 实施记录（2026-11-03）
 
 真实模式接既有 xterm / FitAddon，Demo 路径保留。顶部枚举和项目/独立会话列表通过 Query，创建确认使用稳定幂等键；打开/恢复无创建副作用。WS 先订阅再申请输入租约，10s 续租、ACK 顺序发送与有界队列；重连只读，输出通知触发有界 REST 回放，缺口提示。窗口 close/hide 保留 Tab，主动 Tab close 确认停止后才移除。新增只读 writeBlocked DTO 复用共同根冲突判断；无依赖/迁移/配置变更。续租失败释放与未知停止保留的先红后绿证据、双浏览器验收见 acceptance.md。
+
+## M2-4c 实施记录（2026-11-03）
+
+三个工具经 ToolRegistry 注册到真实 Turn，执行回调只在 server 注入：模型参数仅 role / 程序 / 参数 / cwd 或 terminalId，项目、会话、Turn、toolCall、客户端与策略快照不可覆盖。start 使用 L2 审批，摘要展示规范化完整参数与并发写风险；审批哈希绑定执行身份，spawn 前重验预算 / AbortSignal。同项目 role 同参数复用并标 reused，不同参数 CONFLICT；read 复用脱敏游标页并把模型结果限制在约 12k JSON；stop 只接受当前项目 Agent 创建且已确认退出的 dev 终端。
+
+终端工具设置 `requiresProjectLock:false`，不占源码写锁；dev 进程仍按 ADR-029 是主机写者。工具 completed 事件附 terminal target 与发起客户端 ID，前端只在该客户端实时插入非聚焦 Tab，其他客户端仅失效列表；历史重放不复活已关闭 Tab。无新依赖 / 迁移 / 配置 / REST 创建入口；M2-4d 的 AI 输入 / 中断 / 人工接管未开始。测试与浏览器证据见 acceptance.md，契约见 m2-resources §18。

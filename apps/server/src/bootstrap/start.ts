@@ -20,6 +20,7 @@ import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { createCommandTool } from "../modules/agent/commandTool.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
+import { createTerminalTools } from "../modules/agent/terminalTool.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
 import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileOperations } from "../modules/files/service.js";
@@ -215,10 +216,13 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     if (options.turnRunner !== false) {
       const registry = createFileToolRegistry();
       registry.register(createCommandTool({ db: opened.db, secretStore }));
+      for (const tool of createTerminalTools({ db: opened.db, secretStore }))
+        registry.register(tool);
       const runner = new TurnRunner({
         db: opened.db,
         registry,
         commands,
+        terminals,
         resolveProvider:
           options.providerResolver ?? createDefaultProviderResolver(opened.db, secretStore),
         publish: publishAgentEvent,

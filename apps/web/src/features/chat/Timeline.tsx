@@ -14,9 +14,18 @@ import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { TimelineItemView } from "@/features/chat/TimelineItemView";
 import { FileResultCard } from "@/features/files/FileResultCard";
+import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { CommandCard } from "./CommandCard";
+
+function ResultTargetCard({ target }: { target: NonNullable<ToolItem["resourceTarget"]> }) {
+  return target.kind === "file" ? (
+    <FileResultCard target={target} />
+  ) : (
+    <TerminalResultCard target={target} />
+  );
+}
 
 function TimelineItems({ items }: { items: TimelineItem[] }) {
   const lastAssistantByTurn = new Map<string, number>();
@@ -46,7 +55,7 @@ function TimelineItems({ items }: { items: TimelineItem[] }) {
           <div key={tool.id}>
             <TimelineItemView item={tool} />
             {tool.commandId ? <CommandCard commandId={tool.commandId} /> : null}
-            {tool.resourceTarget ? <FileResultCard target={tool.resourceTarget} /> : null}
+            {tool.resourceTarget ? <ResultTargetCard target={tool.resourceTarget} /> : null}
           </div>,
         );
     } else if (tools.length > 1) {
@@ -107,7 +116,9 @@ function ToolGroup({ tools }: { tools: ToolItem[] }) {
         />
       </button>
       {tools.map((tool) =>
-        tool.resourceTarget ? <FileResultCard key={tool.id} target={tool.resourceTarget} /> : null,
+        tool.resourceTarget ? (
+          <ResultTargetCard key={tool.id} target={tool.resourceTarget} />
+        ) : null,
       )}
       {tools.map((tool) =>
         tool.commandId ? <CommandCard key={tool.id} commandId={tool.commandId} /> : null,

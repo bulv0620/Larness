@@ -21,6 +21,8 @@ interface OpenInput {
   sessionId?: string | null;
   source?: OpenSource;
   file?: WindowTab["file"];
+  /** Agent-created resources are inserted without taking focus unless explicitly opened. */
+  activate?: boolean;
 }
 
 interface WindowState {
@@ -82,6 +84,7 @@ export const useWindowStore = create<WindowState>()(
         sessionId = null,
         source = "header",
         file,
+        activate = true,
       }) => {
         const state = get();
         const tabMatch = state.windows.find((win) =>
@@ -113,24 +116,27 @@ export const useWindowStore = create<WindowState>()(
                     updatedFileTab,
                   )
               : tabMatch.tabs;
-          const nextFilter =
-            preferred ??
-            (tab && isTabVisible(tab, tabMatch.filter) ? tabMatch.filter : { mode: "all" });
+          const tabVisible = tab ? isTabVisible(tab, tabMatch.filter) : false;
+          const nextFilter: ProjectFilter = activate
+            ? (preferred ?? (tabVisible ? tabMatch.filter : { mode: "all" }))
+            : tabVisible
+              ? tabMatch.filter
+              : { mode: "all" };
           set({
             windows: state.windows.map((win) =>
               win.id === tabMatch.id
                 ? {
                     ...win,
-                    minimized: false,
-                    activeTabId: tab?.id ?? win.activeTabId,
-                    z,
+                    ...(activate
+                      ? { minimized: false, activeTabId: tab?.id ?? win.activeTabId, z }
+                      : {}),
                     filter: nextFilter,
                     tabs: updatedTabs,
                   }
                 : win,
             ),
-            focusedId: tabMatch.id,
-            zCounter: z,
+            ...(activate ? { focusedId: tabMatch.id } : {}),
+            zCounter: activate ? z : state.zCounter,
             lastFilters: { ...state.lastFilters, [kind]: nextFilter },
           });
           return;
@@ -155,11 +161,16 @@ export const useWindowStore = create<WindowState>()(
           set({
             windows: state.windows.map((win) =>
               win.id === sameKind.id
-                ? { ...win, tabs, activeTabId: tab.id, filter, minimized: false, z }
+                ? {
+                    ...win,
+                    tabs,
+                    ...(activate ? { activeTabId: tab.id, minimized: false, z } : {}),
+                    filter,
+                  }
                 : win,
             ),
-            focusedId: sameKind.id,
-            zCounter: z,
+            ...(activate ? { focusedId: sameKind.id } : {}),
+            zCounter: activate ? z : state.zCounter,
             lastFilters: { ...state.lastFilters, [kind]: filter },
           });
           return;
@@ -182,7 +193,7 @@ export const useWindowStore = create<WindowState>()(
         };
         set({
           windows: [...state.windows, managed],
-          focusedId: managed.id,
+          ...(activate ? { focusedId: managed.id } : {}),
           zCounter: z,
           lastFilters: { ...state.lastFilters, [kind]: filter },
         });

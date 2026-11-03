@@ -92,6 +92,29 @@ describe("event reducer", () => {
 
     items = applyServerEvent(
       items,
+      event("tool.completed", {
+        turnId: "trn_1",
+        toolCallId: "call_1",
+        resultSummary: "terminal started",
+        resourceTarget: {
+          kind: "terminal",
+          projectId: "prj_1",
+          terminalId: "term_00000000-0000-0000-0000-000000000001",
+          role: "frontend",
+        },
+      }),
+    );
+    expect(items[0]).toMatchObject({
+      resourceTarget: {
+        kind: "terminal",
+        projectId: "prj_1",
+        terminalId: "term_00000000-0000-0000-0000-000000000001",
+        role: "frontend",
+      },
+    });
+
+    items = applyServerEvent(
+      items,
       event("tool.failed", {
         turnId: "trn_1",
         toolCallId: "call_1",

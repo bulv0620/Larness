@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-03 (+08:00)
-> 当前阶段：**M2-4b 已验收；M2-4c Agent 项目开发终端工具进行中**
+> 当前阶段：**M2-4c Agent 项目开发终端工具已实现，待 review**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-4b done / M2-4c 进行中 |
+| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-4b done / M2-4c review |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- 当前任务：M2-4c `in_progress`，分支 `task/m2-4c-agent-terminals`，2026-11-03（+08:00）开始。先红测试，再接 start_project_terminal / read_terminal_output / stop_project_terminal、逐次 L2 启动审批、项目绑定、role 去重、有界读取、显式停止与来源 Tab；M2-4d 未启动。
+- 当前任务：M2-4c `review`，分支 `task/m2-4c-agent-terminals`。已交付 start_project_terminal / read_terminal_output / stop_project_terminal、逐次 L2 启动审批、项目绑定、role 去重、有界读取、显式停止与发起客户端来源 Tab；M2-4d 未启动。
 - M2-4b 已验收：2026-11-03 人类在 review 后要求开始 M2-4c，视为验收通过并标 done；真实终端创建/输入/双客户端观察、租约失效、关闭与恢复见 [验收记录](specs/030-dev-resources/acceptance.md)。
 
 - M2-P（仅文档）已完成起草：2026-11-02（+08:00），分支 `task/m2-spec-draft`。按人类“起草一下 m2 阶段”补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；check（server 297 / agent 32 / web 26）及文档链接 / 依赖检查通过；不启动功能实现、不安装依赖、不修改运行数据。
@@ -71,9 +71,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：完成 M2-4c 后按顺序进入 M2-4d；本次未启动后续任务。
+- 下一步：M2-4c 人类验收后进入 M2-4d；本次未启动后续任务。
 - 阻塞项：无。
-- 待 review：无；M2-4b 已验收，M2-4c 实施中。
+- 待 review：M2-4c Agent 项目开发终端工具、审批与来源 Tab；无新增设计阻塞。
 
 ## 已冻结
 
@@ -103,7 +103,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 | 日期 | 变更 |
 |---|---|
 | 2026-11-03 | M2-4b 验收通过（人类要求开始 M2-4c）；补跑 check / build / prod 6/6 / Demo 15/15，记录 workspace-write 沙箱 `/bin/ps` 限制 |
-| 2026-11-03 | 启动 M2-4c：Agent 项目开发终端工具与生命周期 |
+| 2026-11-03 | 完成 M2-4c：Agent 项目开发终端启动 / 有界读取 / 显式停止、L2 审批与来源 Tab；check / build / prod 7/7 / Demo 15/15，状态 review |
 | 2026-11-02 | M2-P：补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；同步路线图与 Q-021～Q-025。仅文档，M2 仍 draft，待 G-Spec-M2 / G-PoC-M2 |
 | 2026-10-31 | 初始化 spec 工程：宪法、Agent 手册、架构/契约、路线图、S0–M1 详细 spec、M2–M5 草案 |
 | 2026-10-31 | 改用 Passkey / WebAuthn 作为 V1 可信凭据（ADR-021）；移除长期设备 Token / refresh；M0 拆为 9 个任务 |
@@ -324,3 +324,10 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - 人类明确“开始m2-4c”；M2-4b 验收通过并标 done。分支 `task/m2-4c-agent-terminals`，当前 in_progress。
 - 计划：先红测试，再注册 `start_project_terminal` / `read_terminal_output` / `stop_project_terminal`，接真实 Turn 上下文、逐次 L2 启动审批、项目绑定、role 去重、有界游标读取、显式停止确认与发起客户端来源 Tab；不启动 M2-4d。
+
+### M2-4c 交付（2026-11-03）
+
+- 三个工具接入真实 Turn：start L2 逐次审批并绑定规范化程序 / 参数 / cwd / role / 项目 / 会话 / Turn / 客户端 / 策略；read L0 返回脱敏游标页并限制工具 JSON；stop L1 只停止当前项目 Agent 创建的 dev 终端。同项目 role 同参数复用并标 `reused`，不同参数 CONFLICT；human Shell / 跨项目 ID 拒绝。
+- 终端工具 opt out 源码写锁（`requiresProjectLock:false`），dev 进程仍按 ADR-029 是主机写者；已交付终端不随 Turn 完成 / 取消停止，创建未交付时 AbortSignal 清理。工具事件附 terminal target 与 `originClientSessionId`；发起客户端实时插入非聚焦 Tab，其他客户端只失效列表，历史重放不复活已关闭 Tab，卡片点击才聚焦。
+- 先红后绿：Server 3 项真实 PTY 集成；Web 新增 terminal target / 非聚焦 / 发起客户端过滤测试；新增 `e2e-auth/agent-terminals.spec.ts` 真实双审批、两个来源 Tab、FRONT_READY、只读观察，并在结束时终止 PTY / 移除临时项目。
+- 最终：check（server 376 / agent 32 / web 37，live 1 项跳过）、build、生产浏览器 7/7、Demo 15/15。全套复跑出现 auth 撤销跳转 `/pair` 时序抖动（auth 单独稳定，未改认证代码），第 3 次全套 7/7 通过并记录。无新迁移 / 依赖 / 配置，未改用户数据；仅 macOS arm64 / Node 20.19.3 / Chromium。状态 review，M2-4d 未启动。

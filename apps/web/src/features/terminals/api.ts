@@ -2,6 +2,8 @@ import {
   type FileScope,
   type LiveTerminal,
   TerminalListSchema,
+  type TerminalResultTarget,
+  TerminalResultTargetSchema,
   TerminalSchema,
 } from "@larness/shared";
 
@@ -65,6 +67,33 @@ export function openTerminal(item: LiveTerminal) {
           : item.workspaceSessionId
             ? "session"
             : "global",
+  });
+}
+
+export function applyAgentTerminalEvent(
+  payload: Record<string, unknown>,
+  clientSessionId: string | undefined,
+): boolean {
+  const target = TerminalResultTargetSchema.safeParse(payload.resourceTarget);
+  if (
+    !target.success ||
+    typeof payload.originClientSessionId !== "string" ||
+    payload.originClientSessionId !== clientSessionId
+  )
+    return false;
+  openAgentTerminal(target.data);
+  return true;
+}
+
+export function openAgentTerminal(target: TerminalResultTarget, activate = false) {
+  void queryClient.invalidateQueries({ queryKey: ["terminals"] });
+  useWindowStore.getState().open({
+    kind: "terminal",
+    resourceId: target.terminalId,
+    title: target.role ?? "终端",
+    projectId: target.projectId,
+    source: "agent",
+    activate,
   });
 }
 

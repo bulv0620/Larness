@@ -9,13 +9,18 @@ import {
   type ProviderUsage,
   type ToolCallRequest,
   type ToolRegistry,
+  type ToolResult,
   type ToolSchema,
 } from "@larness/agent";
 import { FileManagerError } from "@larness/resources";
 import {
   type AssistantDeltaEvent,
   FileResultTargetSchema,
+  ReadTerminalOutputParamsSchema,
   type ServerEvent,
+  StopProjectTerminalParamsSchema,
+  TerminalDevSchema,
+  TerminalResultTargetSchema,
 } from "@larness/shared";
 import { z } from "zod";
 import type { Database } from "../../db/client.js";
@@ -27,6 +32,7 @@ import { publishAgentEvent } from "../../ws/publisher.js";
 import type { CommandManager } from "../commands/manager.js";
 import { getProjectById } from "../projects/repository.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
+import type { TerminalManager } from "../terminals/manager.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
 import { assembleContext } from "./contextAssembler.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
@@ -74,6 +80,7 @@ export interface TurnRunnerOptions {
   approvalTtlMs?: number;
   lockTtlMs?: number;
   commands?: CommandManager;
+  terminals?: TerminalManager;
 }
 
 export type TurnRunResult = {
@@ -103,6 +110,27 @@ function truncateToolMessage(text: string): string {
       ? "...[truncated]"
       : "")
   );
+}
+
+function terminalFailure(error: unknown, summary: string): ToolResult {
+  return {
+    ok: false,
+    errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+    summary,
+  };
+}
+
+function boundedTerminalOutput(
+  text: string,
+  maxJsonChars = 12_000,
+): {
+  text: string;
+  truncated: boolean;
+} {
+  let bounded = truncateToolMessage(text);
+  while (JSON.stringify(bounded).length > maxJsonChars)
+    bounded = `${bounded.slice(0, Math.max(1, Math.floor(bounded.length * 0.7)))}...[truncated]`;
+  return { text: bounded, truncated: bounded !== text };
 }
 
 function toolMessageContent(result: {
@@ -407,6 +435,144 @@ export class TurnRunner {
               };
             }
           },
+          startTerminal: async (params, assertAuthorized) => {
+            const parsed = TerminalDevSchema.safeParse(params);
+            if (!parsed.success)
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid terminal parameters",
+              };
+            if (!snapshot || !this.#options.terminals || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Project terminal context unavailable",
+              };
+            try {
+              const before = await this.#options.terminals.activeDevByRole(
+                session.projectId,
+                parsed.data.role,
+              );
+              const row = await this.#options.terminals.createDev(
+                {
+                  clientSessionId: snapshot.clientSessionId,
+                  projectId: session.projectId,
+                  sessionId: session.id,
+                  turnId: turn.id,
+                  toolCallId: request.id,
+                  policySnapshotId: snapshot.policySnapshotId,
+                  signal: controller.signal,
+                  assertAuthorized: () => {
+                    assertAuthorized();
+                    if (checkBudget() !== "ok" || lockLost)
+                      throw new Error("Execution no longer authorized");
+                  },
+                },
+                parsed.data,
+              );
+              return {
+                ok: true,
+                summary: `开发终端 ${row.role ?? "dev"} ${row.status}`,
+                data: {
+                  terminalId: row.id,
+                  role: row.role,
+                  status: row.status,
+                  exitCode: row.exitCode,
+                  reused: before?.id === row.id,
+                },
+              };
+            } catch (error) {
+              return terminalFailure(error, "Project terminal could not be started");
+            }
+          },
+          readTerminalOutput: async (params) => {
+            const parsed = ReadTerminalOutputParamsSchema.safeParse(params);
+            if (!parsed.success)
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid terminal read parameters",
+              };
+            if (!this.#options.terminals || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Project terminal context unavailable",
+              };
+            try {
+              const row = await this.#options.terminals.readProjectDev(
+                parsed.data.terminalId,
+                session.projectId,
+              );
+              const page = await this.#options.terminals.readProjectDevOutput(
+                parsed.data.terminalId,
+                session.projectId,
+                parsed.data.after,
+                parsed.data.limit,
+              );
+              const complete = page.chunks.map((chunk) => chunk.data).join("");
+              const bounded = boundedTerminalOutput(complete);
+              const truncated =
+                page.truncated ||
+                page.resyncRequired ||
+                bounded.truncated ||
+                complete !== bounded.text;
+              return {
+                ok: true,
+                summary: `读取终端 ${row.role ?? row.id.slice(-6)} 输出（${page.chunks.length} 块）`,
+                truncated,
+                data: {
+                  terminalId: row.id,
+                  role: row.role,
+                  status: row.status,
+                  output: bounded.text,
+                  nextCursor: page.nextCursor,
+                  truncated,
+                  resyncRequired: page.resyncRequired,
+                },
+              };
+            } catch (error) {
+              return terminalFailure(error, "Terminal output could not be read");
+            }
+          },
+          stopTerminal: async (params) => {
+            const parsed = StopProjectTerminalParamsSchema.safeParse(params);
+            if (!parsed.success)
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid terminal stop parameters",
+              };
+            if (!snapshot || !this.#options.terminals || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Project terminal context unavailable",
+              };
+            try {
+              const row = await this.#options.terminals.stopProjectDev(
+                parsed.data.terminalId,
+                session.projectId,
+                snapshot.clientSessionId,
+              );
+              const stopped = row.status === "TERMINATED" || row.status === "EXITED";
+              return {
+                ok: stopped,
+                summary: `项目终端 ${row.role ?? row.id.slice(-6)} ${row.status}`,
+                ...(stopped ? {} : { errorCode: row.reasonCode ?? "STOP_UNCONFIRMED" }),
+                data: {
+                  terminalId: row.id,
+                  role: row.role,
+                  status: row.status,
+                  exitCode: row.exitCode,
+                  reasonCode: row.reasonCode,
+                },
+              };
+            } catch (error) {
+              return terminalFailure(error, "Project terminal could not be stopped");
+            }
+          },
         },
       );
     try {
@@ -580,7 +746,10 @@ export class TurnRunner {
           const risk = definition?.classifyRisk?.(request.args) ?? definition?.riskLevel ?? "L2";
           const access = definition === undefined ? "allow" : decideToolAccess(policy, risk);
           const needsProjectLock =
-            definition !== undefined && risk !== "L0" && session.projectId !== null;
+            definition !== undefined &&
+            definition.requiresProjectLock !== false &&
+            risk !== "L0" &&
+            session.projectId !== null;
 
           if (needsProjectLock && access === "allow") {
             if (!acquireProjectLock() || !renewProjectLock()) {
@@ -697,7 +866,7 @@ export class TurnRunner {
               request.name === "apply_patch"
                 ? (result.result.data as { path?: unknown; version?: unknown } | undefined)
                 : undefined;
-            const target = FileResultTargetSchema.safeParse({
+            const fileTarget = FileResultTargetSchema.safeParse({
               kind: "file",
               scope: session.projectId
                 ? { projectId: session.projectId }
@@ -705,11 +874,33 @@ export class TurnRunner {
               path: fileResult?.path,
               version: fileResult?.version,
             });
+            const terminalResult =
+              request.name === "start_project_terminal"
+                ? (result.result.data as { terminalId?: unknown; role?: unknown } | undefined)
+                : undefined;
+            const terminalTarget =
+              session.projectId === null
+                ? undefined
+                : TerminalResultTargetSchema.safeParse({
+                    kind: "terminal",
+                    projectId: session.projectId,
+                    terminalId: terminalResult?.terminalId,
+                    role: terminalResult?.role ?? null,
+                  });
+            const target =
+              fileTarget.success && fileResult
+                ? fileTarget.data
+                : terminalTarget?.success
+                  ? terminalTarget.data
+                  : undefined;
             this.#emit(turn, session, "tool.completed", {
               turnId: turn.id,
               toolCallId: request.id,
               resultSummary: result.result.summary,
-              ...(target.success ? { resourceTarget: target.data } : {}),
+              ...(target === undefined ? {} : { resourceTarget: target }),
+              ...(terminalTarget?.success && snapshot
+                ? { originClientSessionId: snapshot.clientSessionId }
+                : {}),
               ...(result.result.truncated === undefined
                 ? {}
                 : { truncated: result.result.truncated }),

@@ -212,3 +212,25 @@
 - 人类要求开始 M2-4c，M2-4b 验收通过并标 done。按原清单复跑：`pnpm check`（server 373 / agent 32 / web 34，live 1 项按环境跳过）、`pnpm build`、生产浏览器 6/6、Demo 15/15；真实双浏览器输入 / 只读观察 / 换手 / 刷新与窗口恢复与前述一致。
 - 环境注意：DSH `workspace-write` 沙箱禁止子进程启动 `/bin/ps`（EPERM）。`ManagedPty` 的进程快照与命令停止确认依赖该检查，故在此环境会误报“创建结果未确认 / INTERRUPTED / STOP_UNCONFIRMED”；在允许进程检查的环境重跑后全部通过。这不是产品回归，后续验收应避免在禁止 `ps` 的沙箱中判断终端 / 命令结果。
 - 人工抽查第 4 项的项目筛选与写占用由真实集成用例覆盖；浏览器场景使用全局终端，不将两者混为同一证据。无源码 / 配置 / 用户数据变化。
+
+## M2-4c Agent 项目开发终端工具（2026-11-03）
+
+分支 `task/m2-4c-agent-terminals`。人类明确“开始m2-4c”后，按先红测试再实现推进；本任务交付启动 / 有界读取 / 显式停止三个工具与来源 Tab，不接 AI 输入 / 人工接管，后者仍属 M2-4d。
+
+### 实现与失败证据
+
+- 先红：Server 测试导入缺失的 `terminalTool` 模块；Web 测试导入缺失的 `openAgentTerminal` 并确认 terminal target 解析失败；E2E 在 FakeProvider 尚无 dev 分支时无法得到启动审批。补齐实现后再逐项转绿，未删除或放宽断言。
+- `start_project_terminal` 复用 TerminalDevSchema 与 M2-4 的 `createDev`；L2 逐次审批绑定规范化参数和执行身份，已知凭据在摘要前拒绝；同项目 role 同参数复用并标 `reused`，不同参数 CONFLICT。`read_terminal_output` L0、`stop_project_terminal` L1，均只接受当前项目、Agent 创建的 dev 终端；human Shell 与其他项目 ID 拒绝。
+- 工具结果 `tool.completed` 附 terminal resourceTarget 与发起客户端 ID；发起客户端实时插入非聚焦 `origin=agent` Tab，其他客户端仅失效终端列表；历史重放不复活已关闭 Tab，卡片点击才聚焦。修复浏览器测试清理：先终止 dev 终端并移除临时项目，再删除目录，避免后续终端列表因已删根失效（该失败是本任务 E2E 清理造成的测试隔离问题，不是产品回归）。
+
+### 自动化范围
+
+- `apps/server/test/agent/terminalTools.test.ts` 3 项真实资源：两个真实 PTY 经两次 L2 审批启动、模型只得到 terminalId / status、无源码锁残留；role 复用 / 冲突 / 12k 有界读取 / 显式停止 / Turn 取消保留已交付终端；审批参数篡改、human Shell 与跨项目访问拒绝。
+- Web 新增 4 项终端测试：terminal target 解析、非聚焦插入、发起客户端过滤、首窗口不抢焦点；既有断线 / 停止确认断言保留。
+- `e2e-auth/agent-terminals.spec.ts`：真实配对、临时项目 / 会话、两次真实启动审批、两个来源 Tab、真实 `FRONT_READY` 输出、只读观察与“获取输入权”；测试结束终止真实 PTY 并移除项目。
+- 最终 `pnpm check`：server 376 / agent 32 / web 37，live 1 项按环境跳过；`pnpm build` 通过；`LARNESS_E2E_PORT=3324 pnpm test:e2e:prod` 7/7；`LARNESS_E2E_WEB_PORT=5324 pnpm test:e2e` Demo 15/15。全套复跑中 auth 撤销跳转出现 `/pair` 与 `/login` 的既有时序抖动（auth 单独连续 4 次通过，未改认证代码）；第 3 次全套 7/7 通过，M2-4c 与终端场景每次均通过。保留抖动记录，不宣称认证测试完全稳定。
+- 浏览器截图 `larness-m2-4c-agent-terminals.png` 已目视检查：终端窗口显示 frontend / backend 两个 Tab、`FRONT_READY`、只读观察、输入权按钮与源码写占用提示。
+
+### 边界
+
+仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新依赖 / 迁移 / 配置 / 认证协议，未修改用户运行数据。dev 进程仍是主机写者，不占源码写锁的例外按 ADR-029 执行；不宣称沙箱、服务 ready、端口 / 健康检查或 AI 输入已交付。M2-4c 状态 review，等待人类 UI / 行为验收；M2-4d 未启动。

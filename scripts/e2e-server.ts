@@ -49,6 +49,44 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
     }
   })();
 
+  if (input.startsWith("dev ")) {
+    return {
+      adapter: createFakeProvider([
+        {
+          chunks: [
+            {
+              type: "tool-call",
+              toolCall: {
+                id: "dev-frontend",
+                name: "start_project_terminal",
+                args: {
+                  role: "frontend",
+                  executable: process.execPath,
+                  args: ["-e", "process.stdout.write('FRONT_READY\\n');setInterval(()=>{},1000)"],
+                },
+              },
+            },
+            {
+              type: "tool-call",
+              toolCall: {
+                id: "dev-backend",
+                name: "start_project_terminal",
+                args: {
+                  role: "backend",
+                  executable: process.execPath,
+                  args: ["-e", "process.stdout.write('BACK_READY\\n');setInterval(()=>{},1000)"],
+                },
+              },
+            },
+            { type: "finish", finishReason: "tool-calls" },
+          ],
+        },
+        textStep("开发终端已启动。"),
+      ]),
+      model: "fake",
+    };
+  }
+
   if (input.startsWith("command ")) {
     const code = input.includes("cancel")
       ? "const fs=require('node:fs');let n=0;console.log('running '+'.'.repeat(300));setInterval(()=>fs.writeFileSync('ticks',String(++n)),100)"
