@@ -25,7 +25,8 @@
     "test:e2e:prod": "playwright test -c playwright.prod.config.ts",
     "test:smoke:init": "pnpm --filter @larness/server exec tsx scripts/smoke-init.ts",
     "test:tui:pty": "python3 scripts/test-tui-pty.py",
-    "test:smoke:unified": "pnpm --filter @larness/server exec tsx scripts/smoke-unified.ts"
+    "test:smoke:unified": "pnpm --filter @larness/server exec tsx scripts/smoke-unified.ts",
+    "test:poc:m2": "pnpm --filter @larness/server exec tsx scripts/run-m2-poc.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.4",

@@ -5,3 +5,7 @@ packages:
 onlyBuiltDependencies:
   - esbuild
   - better-sqlite3
+  - node-pty
+
+patchedDependencies:
+  node-pty@1.1.0: patches/node-pty@1.1.0.patch

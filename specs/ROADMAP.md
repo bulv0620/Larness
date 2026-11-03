@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
-| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `draft` | 待 G-Spec-M2 / G-PoC-M2，最终 G2 |
+| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `in_progress` | G-Spec-M2 已通过；M2-0 review，待 G-PoC-M2，最终 G2 |
 | M3 | 本机服务与 Preview | [040](040-services-preview/spec.md) | `draft` | G3 |
 | M4 | 部署闭环与权限加固 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
@@ -113,14 +113,14 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | U0-2 | supervisor 接线与共享配置/统一初始化 | U0-1 | `done` |
 | U0-3 | 同目录模式切换、真实 HMR 与整体交付 | U0-2 | `done`（2026-11-02 人类验收通过） |
 
-## 5. M2 开发资源与窗口层（评审草案）
+## 5. M2 开发资源与窗口层（M2-0 待验收）
 
-2026-11-02 按人类要求完成 M2-P 文档起草；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [review](030-dev-resources/review.md) 保持 draft。以下拆分与执行顺序待 G-Spec-M2 / ADR-029 确认；G-PoC-M2 通过前不启动 M2-1，不把 todo 当作已就绪授权。
+2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。仅先实施 M2-0，[PoC 证据](030-dev-resources/poc.md) 待人类确认 G-PoC-M2；此前不启动 M2-1。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M2-P | M2 评审草案（仅文档） | 人类起草指令 | `done`（不代表门禁通过） |
-| M2-0 | 原生 PTY、进程清理、文件与锁边界 PoC | G1 / 015 / 016 / 017 done；G-Spec-M2 / ADR-029 | `todo` |
+| M2-0 | 原生 PTY、进程清理、文件与锁边界 PoC | G1 / 015 / 016 / 017 done；G-Spec-M2 / ADR-029 | `review` |
 | M2-1 | FileManager、写锁与资源持久化底座 | M2-0；G-PoC-M2 | `todo` |
 | M2-1b | 文件监听与资源事件补拉 | M2-1 | `todo` |
 | M2-2 | Monaco 编辑、多 Tab 与冲突恢复 | M2-1b | `todo` |
@@ -214,7 +214,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 **状态：通过（2026-11-01，人类验收）。** 记录见 [M1 acceptance](../specs/020-workspace-agent/acceptance.md)。
 
-### G-Spec-M2 / G-PoC-M2（草案，待评审）
+### G-Spec-M2 已通过 / G-PoC-M2 待人类验收
 
 - 先人类确认 030 spec / plan / tasks、资源契约和 ADR-029，含 Agent 项目 dev 终端、开发进程与源码写锁保证边界、Git 操作范围及回放限额，才能启动 M2-0；
 - M2-0 提供真实 PTY / built 寻址、进程树清理、锁失效 / 重启、文件竞争 / 监听、重叠根冲突域证据；人类确认 G-PoC-M2 后才能启动 M2-1；

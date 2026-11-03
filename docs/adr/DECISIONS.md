@@ -54,7 +54,7 @@
 
 ## M2 开发资源补充决策（待评审）
 
-- [ADR-029 开发资源的执行、审批与锁边界](ADR-029-development-resource-execution.md)：proposed，2026-11-02 仅起草；Agent 项目开发终端及其并发写边界、人工 Git 资源动作、输出回放与原生 PoC 待 G-Spec-M2 确认。
+- [ADR-029 开发资源的执行、审批与锁边界](ADR-029-development-resource-execution.md)：accepted（2026-11-02 人类要求开始 M2，并明确按最新 spec）；含完整 AI 终端交互、并发写边界、人工 Git 审批与回放限额，先 M2-0，G-PoC-M2 待人类确认。
 
 ## 资源生命周期与服务分工补充决策
 

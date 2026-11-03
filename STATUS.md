@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-02 (+08:00)
-> 当前阶段：**M1 / G1、TUI 页面化已验收；统一入口与初始化文案修正已通过人类验收；M2 保持 draft**
+> 最后更新：2026-11-03 (+08:00)
+> 当前阶段：**M2 已启动，M2-0 PoC 实验完成待 review；G-Spec-M2 / ADR-029 已批准，G-PoC-M2 待人类确认**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `draft` | 详细评审草案已补齐，待 G-Spec-M2 / G-PoC-M2 |
+| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 已批准；M2-0 review，待 G-PoC-M2 |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -59,6 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- 当前任务：M2-0 `review`，分支 `task/m2-0-native-resource-poc`，2026-11-02（+08:00）开始；先红测试、再实现，实验与回归已完成。Q-028 经人类“按最新spec来”确认已解决，G-Spec-M2 / ADR-029 通过。详见 [PoC 记录](specs/030-dev-resources/poc.md)。
+
 - M2-P（仅文档）已完成起草：2026-11-02（+08:00），分支 `task/m2-spec-draft`。按人类“起草一下 m2 阶段”补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；check（server 297 / agent 32 / web 26）及文档链接 / 依赖检查通过；不启动功能实现、不安装依赖、不修改运行数据。
 
 - U0-0（仅文档）已完成：task/u0-0-unified-entry-spec，2026-11-02（+08:00）开始并完成。人类要求“先补充文档”；新增 ADR-028 / 017 spec / runtime-entry 契约草案和任务，不修改运行代码、配置/数据，不把方向认可当成具体设计或实施门禁已批准。
@@ -68,9 +70,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：M2 G-Spec；M2 仍保持 draft，经 G-Spec-M2 / ADR-029 确认后先做 M2-0 PoC，G-PoC-M2 通过后才能开始 M2-1。
+- 下一步：人类确认 G-PoC-M2 后，才将 M2-0 标 done 并开始 M2-1；后续任务均 todo。
 - 阻塞项：无。
-- 待确认：G-Spec-M2 / ADR-029；重点为 Agent 前后端 dev 项目终端、其并发写边界与源码写锁保证范围、回放限额、Git 人工审批与操作范围、重叠根冲突域和任务拆分，见 [M2 review](specs/030-dev-resources/review.md)。无 M2 功能实现授权。
+- 待确认：G-PoC-M2，含原生安装补丁、实测支持范围、外部文件竞争及进程身份 / 清理边界，见 [poc.md](specs/030-dev-resources/poc.md)。
 
 ## 已冻结
 
@@ -186,3 +188,12 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - M2 增 AI 完整输入 / 中断 / 人工接管技术草案，M2-4d 单独任务，现为 15 个实施任务、A1–A31；M3 9 个实施任务、S1–S15，均 todo / draft。
 - ADR-029 及 M2/M3 技术门禁仍待评审。Q-026 终端执行 / 端口身份核验和 Q-027 TUI / PM2 退出边界未决，不将产品分工接受误记为技术方案或实施授权。
 - R0-0 已完成：28 份 Markdown / 136 个本地链接、表格列数、A1–A31 / S1–S15、M2 15 项 / M3 9 项的编号 / todo 状态 / 依赖顺序及 diff 空白检查通过；pnpm check 通过（server 297 / agent 32 / web 26，原 live 测试 1 项按环境跳过）。本次无运行代码 / 依赖 / 数据 / 进程变更，未运行新功能 PoC / build / E2E，不将现有回归视为新功能已实现。
+
+## M2-0 原生资源 PoC（2026-11-02 +08:00）
+
+- 分支 `task/m2-0-native-resource-poc`；先写失败测试，再安装 node-pty 1.1.0 并实施隔离实验。通过安装期 pnpm 补丁修正 macOS spawn-helper 执行位，未替换原生依赖。
+- 真实 PTY 输入 / resize / 中断 / 退出、受控进程树 TERM→KILL、取消 / 超时 / 续租失败、文件身份 / 版本 / 最终竞争窗口、watcher 重扫 / 128 句柄限额、重叠根 / workspace、持久恢复阻塞及旧 fencing 保护通过；源码与复制依赖后的临时 built 产物结果一致。
+- check（server 301 / agent 32 / web 26，原 live 1 项按环境跳过）、build、真实 TUI 15 场景回归通过。仅实测当前 macOS arm64 / Node 20；无产品 UI / REST / WS / 配置 / 数据迁移变化，运行数据未改。
+- M2-0 `review`，G-PoC-M2 待人类确认；不启动 M2-1。PoC 为原型，不宣称终端产品接线、任意脱组清理、外部原子 CAS 或 PID 复用强身份已完成。
+
+2026-11-03（+08:00）完成 M2-0 文档、差异与清理收尾；G-PoC-M2 仍待人类确认具体报告。

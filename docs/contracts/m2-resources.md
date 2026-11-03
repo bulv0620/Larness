@@ -1,6 +1,6 @@
-# M2 资源契约（draft）
+# M2 资源契约（设计已批准，按任务实施）
 
-> 2026-11-02。配套 [030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md)，待 G-Spec-M2。以下是计划新增 / 细化的接口，不代表服务器已有能力。已冻结认证、资源视图、M1 Agent 事件不变；G-Spec 通过后实施任务逐步落实 schema 与测试。
+> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。M2-0 仅做隔离 PoC，不新增产品 REST / WS / 数据迁移；G-PoC-M2 待人类确认。
 
 ## 1. 共同约定
 
@@ -63,7 +63,7 @@ Terminal：`{ id, projectId, workspaceSessionId, sourceSessionId, executionId, c
 
 服务端按当前连接验证持有者与 generation；inputSequence 在该租约内递增，重复不重放按键，未来跳号拒绝并要求重同步。每条 ≤ 8 KiB，单连接 ≤ 64 KiB/s；粘贴也受同一限制。禁止把输入正文记日志。身份过期 / 撤销 / 断线立即释放输入租约，PTY 仍运行；输入租约与源码写锁不绑定。不提供人工之间的 force takeover；人工显式接管 AI 控制按 §10 原子交接。
 
-### 4.1 Agent 项目开发终端工具（draft）
+### 4.1 Agent 项目开发终端工具（设计已批准）
 
 - `start_project_terminal({ role, executable, args, cwd? })`：projectId、sourceSessionId、Turn / ToolCall / 策略从执行上下文注入，不能改为其他项目或全局目录。role 为 1–64 个受限字符的用途标识（如 frontend / backend），不是授权范围。开发常驻执行逐次 L2 批准，参数规范化后绑定程序 / 参数 / cwd / 项目 / role；后端 PTY 直接 spawn 程序及参数，不靠向用户已有 Shell 模拟键入启动。显式 Shell 仍须批准其完整参数。
 - `read_terminal_output({ terminalId, after?, limit? })`：按资源归属授权，返回与 REST 相同的脱敏游标页；单次最多 64 KiB，并受工具输出预算约束。不隐式抢输入租约。
@@ -75,7 +75,7 @@ Terminal：`{ id, projectId, workspaceSessionId, sourceSessionId, executionId, c
 
 创建成功持久化资源、创建结果与 `terminal.created` 事件后返回 `{ terminalId, role, status, reused }`；立即退出通过终态反馈，不宣称 ready。发起客户端据 origin=agent 在项目组插入 Tab（不抢焦点），其余客户端仅更新全局资源列表。真正 Tab / 窗口仍是各客户端本地状态。创建成功交付前取消需清理未交付进程；交付后终端属于项目，Turn 结束 / 取消不自动停止，需独立停止操作。服务端崩溃仍按 INTERRUPTED 对账。
 
-锁例外待 ADR-029 批准：dev / 交互终端不持续持有源码写锁，可与编辑并行；受管源码写任务仍串行，不能把安装 / 格式化 / 迁移等写任务送入 dev 路径规避锁。用途校验 / 审批不构成 OS 隔离；脚本仍可能修改源码或脱组，明确残余风险。M3 的服务登记、端口、健康与预览另行实施。
+锁例外已按 ADR-029 批准：dev / 交互终端不持续持有源码写锁，可与编辑并行；受管源码写任务仍串行，不能把安装 / 格式化 / 迁移等写任务送入 dev 路径规避锁。用途校验 / 审批不构成 OS 隔离；脚本仍可能修改源码或脱组，明确残余风险。M3 的服务登记、端口、健康与预览另行实施。
 
 ## 5. Git 与人工资源动作
 
@@ -127,7 +127,7 @@ GET `/api/resource-events?streamId=&after=&limit=` 返回 `{ items, currentSeque
 
 每任务至多一个新增迁移，编号实施时取当时下一号；空库 / 升级库均测。M2-7 不新造第二套锁 / 表。数据不放源码目录；新增全局终端 workspace 位于 `<dataDir>/sessions/global-terminal/workspace`，避免新增顶层数据目录。该目录与独立会话 workspace 同样授权。
 
-文件写、命令、PTY、Git 统一复用 resource_operations 幂等及写意图记录；结果不存文件全文 / 原始输出。参数哈希绑定请求，活动资源记录关联实际进程。既有项目写锁扩展为规范化根冲突域：根相同或互为祖先的受管源码写作业不能并发，独立 workspace 同规则；不能用不同 projectId 绕开。开发 / 交互终端是拟议例外，可能并行写入，边界须 ADR-029 批准。M2-0 验证算法 / 身份恢复后在 plan 固化细节。
+文件写、命令、PTY、Git 统一复用 resource_operations 幂等及写意图记录；结果不存文件全文 / 原始输出。参数哈希绑定请求，活动资源记录关联实际进程。既有项目写锁扩展为规范化根冲突域：根相同或互为祖先的受管源码写作业不能并发，独立 workspace 同规则；不能用不同 projectId 绕开。开发 / 交互终端是拟议例外，可能并行写入，边界已按 ADR-029 批准。M2-0 验证算法 / 身份恢复后在 plan 固化细节。
 
 事件默认 30 天、终端与执行元数据 30 天；过期仅清理非活跃元数据 / 输出和已失效幂等记录，不自动删除 workspace 源码或会话 artifacts。输出不进备份，业务 DB 沿用既有一致性备份。回滚应用前先确保没有活跃新资源；不删列 / 表 / 用户数据来回退。
 
@@ -155,7 +155,7 @@ GET `/api/resource-events?streamId=&after=&limit=` 返回 `{ items, currentSeque
 
 M2 文件工具结果与 artifact 事件补结构化 `resourceTarget`，file target / 点击解析见 [services-preview §6](services-preview.md)。预览 target 属 M3，须登记验证后才可生成，不以任意 URL 直接 iframe。
 
-完整 AI 终端交互技术草案见 §10：输入 / 中断、principal 联合、generation、人工接管、审计与取消；M2-4d 负责接线与验收，schema 仍待 G-Spec-M2 冻结。
+完整 AI 终端交互技术草案见 §10：输入 / 中断、principal 联合、generation、人工接管、审计与取消；M2-4d 负责接线与验收，schema 已通过 G-Spec-M2，按所属任务落地。
 
 ## 10. AI 终端输入与人工接管（技术草案）
 
@@ -167,4 +167,4 @@ M2 文件工具结果与 artifact 事件补结构化 `resourceTarget`，file tar
 
 inputSequence 在该租约中递增，重复包不重放，迟到 generation 拒绝；每次输入 ≤ 8 KiB、速率沿人工 64 KiB/s 上限，工具调用 / Turn 预算另行限制。interrupt 发送当前终端的中断控制（例如 ETX），不将“已发中断”报告为“进程已退出”；需重读输出 / 状态确认。输入 / 中断前按实际程序 / 操作风险沿工具策略审批，不能在取得一次租约后无限绕过工具策略。原始输入正文、密码、Token 不进入日志 / 事件；只记长度、资源、执行关联和允许 / 拒绝，不引入自动填写主机凭据能力。
 
-M2-4 定义共享 principal 租约存储 / 校验；M2-4d 接工具、人机交接和假时钟 / 真实 PTY 验证；全部仍待 G-Spec-M2 冻结 schema，不把本文当作已经上线协议。
+M2-4 定义共享 principal 租约存储 / 校验；M2-4d 接工具、人机交接和假时钟 / 真实 PTY 验证；schema 已通过 G-Spec-M2，按任务实施，不把本文当作已经上线协议。

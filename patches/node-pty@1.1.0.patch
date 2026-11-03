@@ -1,0 +1,15 @@
+diff --git a/scripts/prebuild.js b/scripts/prebuild.js
+index 17f1d980e62e017d77058627a7a15c4c29f9470c..55f5494a66de9eb06d9290293371facd549b40f0 100644
+--- a/scripts/prebuild.js
++++ b/scripts/prebuild.js
+@@ -31,4 +31,10 @@ if (!fs.existsSync(PREBUILD_DIR)) {
+   process.exit(1);
+ }
+ 
++// The npm 1.1.0 archive ships the macOS spawn helper without execute bits.
++// Repair the packaged helper at installation, before any PTY is created.
++if (process.platform === 'darwin') {
++  fs.chmodSync(path.join(PREBUILD_DIR, 'spawn-helper'), 0o755);
++}
++
+ process.exit(0);
