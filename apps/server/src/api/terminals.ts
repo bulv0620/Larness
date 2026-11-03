@@ -4,6 +4,7 @@ import {
   TerminalIdSchema,
   TerminalLeaseSchema,
   TerminalResizeSchema,
+  TerminalTakeoverSchema,
 } from "@larness/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -109,6 +110,14 @@ export function registerTerminalRoutes(
       if (!parsed.success)
         throw new HttpError("VALIDATION_ERROR", "Invalid terminal resize request");
       return terminals.resize(id(request), client(request), parsed.data);
+    }),
+  );
+  app.post("/api/terminals/:id/takeover", (request) =>
+    run(request, async () => {
+      const parsed = TerminalTakeoverSchema.safeParse(request.body);
+      if (!parsed.success)
+        throw new HttpError("VALIDATION_ERROR", "Invalid terminal takeover request");
+      return terminals.takeover(id(request), client(request), parsed.data.connectionId);
     }),
   );
   app.post("/api/terminals/:id/terminate", (request) =>

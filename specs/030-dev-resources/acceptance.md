@@ -234,3 +234,26 @@
 ### 边界
 
 仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新依赖 / 迁移 / 配置 / 认证协议，未修改用户运行数据。dev 进程仍是主机写者，不占源码写锁的例外按 ADR-029 执行；不宣称沙箱、服务 ready、端口 / 健康检查或 AI 输入已交付。2026-11-03 人类“确认并继续”，M2-4c 验收通过并标 done；M2-4d 未启动。
+
+## M2-4d AI 终端控制与人工接管（2026-11-03）
+
+分支 `task/m2-4d-agent-control`。人类确认 M2-4c 后继续；本任务实现 AI acquire / input / interrupt / release、Turn 结束只释放控制、人工原子接管与 UI，不启动 M2-5。
+
+### 实现与失败证据
+
+- 新增三个真实终端控制测试后首次运行：测试把 `connect` 参数顺序写反、provider 延迟步骤缺少 finish，均修正测试 / fixture；随后暴露工具组折叠导致错误码不可见，浏览器测试改为展开工具组后再断言。未删除或放宽租约、输入序号、旧 generation 或终端存活的断言。
+- 管理器新增 agent principal 租约：30s TTL、活跃 Turn 续租、Turn 结束 / 取消 / 登出 / 过期清除；输入按 generation + inputSequence 校验，重复不重放、跳号拒绝、单 Turn 64 KiB/s 窗口；输入正文只用于 PTY 写入和审批哈希，不进入审批 scope / 审计 / Agent 事件 / 日志。
+- 新增 `acquire_terminal_control`（L1）、`send_terminal_input`（L2）、`interrupt_terminal`（L2）、`release_terminal_control`（L1）并接入真实 Turn；输入 / 中断审批摘要只显示目标与字节数。人工接管新增 `POST /api/terminals/:id/takeover`，只允许当前终端订阅的活连接；agent / 空闲租约原子转 human，另一 human 持有拒绝。
+- 前端在 agent 持有时显示“AI 控制中”与“接管控制”；成功后显示“你正在控制”。旧 generation 的 Agent 输入 / 中断 / acquire 被拒绝，AI 不自动抢回；Turn 完成 / 取消不停止终端。M2-4c 的读取 / 停止 / 来源 Tab 行为保留。
+
+### 自动化范围
+
+- `apps/server/test/agent/terminalControl.test.ts` 3 项真实 PTY：acquire / 输入序号 / 重复与跳号 / ETX 中断 / 真实 human 原子接管 / 旧 generation 拒绝 / 不自动抢回 / 登出撤销；FakeProvider 工具链 acquire → 审批输入 → 读取 → 中断，Turn 结束租约清空且终端 RUNNING；Turn 取消只释放控制。
+- 输入正文扫描：审批 `scope_json`、审计 `details_json`、Agent 事件 `payload_json` 均不含测试输入明文，只记录 bytes / generation / sequence / ownerType。
+- `e2e-auth/agent-terminals.spec.ts` 新增真实浏览器场景：两个启动审批后 Agent acquire，终端显示“AI 控制中”；人工点击“接管控制”显示“你正在控制”；延迟后的旧 generation 输入审批通过后被拒绝（展开工具组可见 `TERMINAL_LEASE_REQUIRED`），最终文本仍完成。
+- 最终 `pnpm check`：server 379 / agent 32 / web 37，live 1 项按环境跳过；`pnpm build` 通过；`LARNESS_E2E_PORT=3324 pnpm test:e2e:prod` 8/8；`LARNESS_E2E_WEB_PORT=5324 pnpm test:e2e` Demo 15/15。截图 `larness-m2-4d-takeover.png` 已目视检查：AI 控制后人工接管、持有者 / 到期、释放输入权、Agent 仍在思考。
+- 全套 8/8 本次首次通过；M2-4c 验收记录中的 auth 撤销 `/pair` 抖动未在本次出现，仍不宣称认证测试完全稳定。
+
+### 边界
+
+仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新迁移 / 依赖 / 配置 / 认证协议，未修改用户运行数据。中断只发 ETX，不宣称已停止；不宣称沙箱、强 PID 身份或任意脱组清理。人工接管只共享输入控制，终端进程 / 项目所有权不变；M2-5 Git 未启动。

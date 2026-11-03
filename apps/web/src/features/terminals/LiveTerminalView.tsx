@@ -32,9 +32,11 @@ export function LiveTerminalView({ id }: { id: string }) {
   const snapshot = useRef(query.data);
   snapshot.current = query.data;
   const container = useRef<HTMLDivElement>(null);
-  const control = useRef<{ acquire: () => Promise<void>; release: () => Promise<void> } | null>(
-    null,
-  );
+  const control = useRef<{
+    acquire: () => Promise<void>;
+    takeover: () => Promise<void>;
+    release: () => Promise<void>;
+  } | null>(null);
   const [inputReady, setInputReady] = useState(false);
   const [connection, setConnection] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -51,6 +53,11 @@ export function LiveTerminalView({ id }: { id: string }) {
     !query.isError;
 
   const ours = held && inputReady;
+  const aiControlled =
+    lease?.ownerType === "agent" &&
+    lease.expiresAt > now &&
+    query.data?.status === "RUNNING" &&
+    !query.isError;
 
   useEffect(() => {
     const element = container.current;
@@ -259,6 +266,20 @@ export function LiveTerminalView({ id }: { id: string }) {
         delay = Math.min(delay * 2, 10000);
       };
     };
+    const applyLease = (row: Awaited<ReturnType<typeof terminalAction>>) => {
+      if (!row.lease) return;
+      snapshot.current = row;
+      queryClient.setQueryData(terminalKey(id), row);
+      generation = row.lease.generation;
+      if (lastGeneration !== generation) sequence = 0;
+      lastGeneration = generation;
+      setInputReady(true);
+      pending = null;
+      term.options.disableStdin = false;
+      term.focus();
+      resize();
+      setError("");
+    };
     control.current = {
       acquire: async () => {
         if (!cid) throw new Error("Disconnected");
@@ -268,17 +289,14 @@ export function LiveTerminalView({ id }: { id: string }) {
           connectionId: expected,
         });
         if (disposed || cid !== expected || row.lease?.ownerConnectionId !== expected) return;
-        snapshot.current = row;
-        queryClient.setQueryData(terminalKey(id), row);
-        generation = row.lease.generation;
-        if (lastGeneration !== generation) sequence = 0;
-        lastGeneration = generation;
-        setInputReady(true);
-        pending = null;
-        term.options.disableStdin = false;
-        term.focus();
-        resize();
-        setError("");
+        applyLease(row);
+      },
+      takeover: async () => {
+        if (!cid) throw new Error("Disconnected");
+        const expected = cid;
+        const row = await terminalAction(id, "takeover", { connectionId: expected });
+        if (disposed || cid !== expected || row.lease?.ownerConnectionId !== expected) return;
+        applyLease(row);
       },
       release: async () => {
         const current = snapshot.current?.lease;
@@ -354,11 +372,13 @@ export function LiveTerminalView({ id }: { id: string }) {
     >
       <div className="flex flex-wrap items-center gap-3 border-b border-white/10 p-2 text-[11px]">
         <span role="status">{query.data ? labels[query.data.status] : "读取终端…"}</span>
-        <span>{ours ? "你正在控制" : "只读观察"}</span>
+        <span>{ours ? "你正在控制" : aiControlled ? "AI 控制中" : "只读观察"}</span>
         {lease && lease.expiresAt > now ? (
           <span>
-            持有者 {lease.ownerClientSessionId.slice(-8)} · 到期{" "}
-            {new Date(lease.expiresAt).toLocaleTimeString()}
+            {lease.ownerType === "agent"
+              ? "AI 控制"
+              : `持有者 ${lease.ownerClientSessionId.slice(-8)}`}{" "}
+            · 到期 {new Date(lease.expiresAt).toLocaleTimeString()}
           </span>
         ) : null}
         <button
@@ -369,16 +389,17 @@ export function LiveTerminalView({ id }: { id: string }) {
             !query.data ||
             query.isError ||
             query.data.status !== "RUNNING" ||
-            (!held && !!lease && lease.expiresAt > now)
+            (!held && !aiControlled && !!lease && lease.expiresAt > now)
           }
           onClick={() =>
             void act(async () => {
               if (held) await control.current?.release();
+              else if (aiControlled) await control.current?.takeover();
               else await control.current?.acquire();
             })
           }
         >
-          {held ? "释放输入权" : "获取输入权"}
+          {held ? "释放输入权" : aiControlled ? "接管控制" : "获取输入权"}
         </button>
         <button
           type="button"

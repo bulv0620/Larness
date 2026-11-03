@@ -38,7 +38,7 @@ export async function createTerminal(scope: FileScope | undefined, key: string) 
 }
 export async function terminalAction(
   id: string,
-  action: "lease" | "resize" | "terminate",
+  action: "lease" | "resize" | "terminate" | "takeover",
   body: unknown,
 ) {
   const result = TerminalSchema.parse(

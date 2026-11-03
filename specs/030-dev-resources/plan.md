@@ -139,3 +139,7 @@ CommandManager 以真实 session / Turn / 活动客户端上下文执行，scope
 三个工具经 ToolRegistry 注册到真实 Turn，执行回调只在 server 注入：模型参数仅 role / 程序 / 参数 / cwd 或 terminalId，项目、会话、Turn、toolCall、客户端与策略快照不可覆盖。start 使用 L2 审批，摘要展示规范化完整参数与并发写风险；审批哈希绑定执行身份，spawn 前重验预算 / AbortSignal。同项目 role 同参数复用并标 reused，不同参数 CONFLICT；read 复用脱敏游标页并把模型结果限制在约 12k JSON；stop 只接受当前项目 Agent 创建且已确认退出的 dev 终端。
 
 终端工具设置 `requiresProjectLock:false`，不占源码写锁；dev 进程仍按 ADR-029 是主机写者。工具 completed 事件附 terminal target 与发起客户端 ID，前端只在该客户端实时插入非聚焦 Tab，其他客户端仅失效列表；历史重放不复活已关闭 Tab。无新依赖 / 迁移 / 配置 / REST 创建入口；M2-4d 的 AI 输入 / 中断 / 人工接管未开始。测试与浏览器证据见 acceptance.md，契约见 m2-resources §18。
+
+## M2-4d 实施记录（2026-11-03）
+
+共享租约扩展为 agent principal：ownerType=agent 绑定真实 client / session / Turn / toolCall，30s TTL，管理器只对活跃 Turn 续租；Turn finalizer、取消、登出、撤销与到期清除，但不停止已交付 PTY。四个工具经 ToolContext 回调进入同一 TerminalManager；send 为 L2、data 只参与审批哈希与 PTY 写入，审批 scope / 审计 / 事件只记字节数；interrupt 写 ETX 并明确未确认退出；acquire / release 为 L1。人工 takeover 由订阅连接原子替换 agent / 空闲租约，generation 递增且拒绝 human-human 强抢；UI 增加 AI 控制状态与接管按钮。无迁移 / 依赖 / 配置；契约见 m2-resources §19，证据见 acceptance.md。

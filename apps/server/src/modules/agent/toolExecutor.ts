@@ -41,6 +41,10 @@ export interface ExecuteToolInput {
   startTerminal?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   readTerminalOutput?: (args: unknown) => Promise<ToolResult>;
   stopTerminal?: (args: unknown) => Promise<ToolResult>;
+  acquireTerminalControl?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  sendTerminalInput?: (args: unknown) => Promise<ToolResult>;
+  interruptTerminal?: (args: unknown) => Promise<ToolResult>;
+  releaseTerminalControl?: (args: unknown) => Promise<ToolResult>;
 }
 
 export type ToolExecutionOutcome =
@@ -307,6 +311,50 @@ export async function executeTool(
             assertAuthorized();
             return (
               input.stopTerminal?.(args) ?? denied("FORBIDDEN", "Terminal stop context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.acquireTerminalControl
+      ? {
+          acquireTerminalControl: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.acquireTerminalControl?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Terminal control context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.sendTerminalInput
+      ? {
+          sendTerminalInput: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.sendTerminalInput?.(args) ??
+              denied("FORBIDDEN", "Terminal input context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.interruptTerminal
+      ? {
+          interruptTerminal: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.interruptTerminal?.(args) ??
+              denied("FORBIDDEN", "Terminal interrupt context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.releaseTerminalControl
+      ? {
+          releaseTerminalControl: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.releaseTerminalControl?.(args) ??
+              denied("FORBIDDEN", "Terminal release context unavailable")
             );
           },
         }

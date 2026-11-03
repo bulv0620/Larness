@@ -87,6 +87,53 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
     };
   }
 
+  if (input === "ai control") {
+    const projectId = session.projectId;
+    const terminal =
+      projectId === null
+        ? undefined
+        : (running.sqlite
+            .prepare(
+              "SELECT id FROM terminals WHERE project_id = ? AND role = 'frontend' AND status = 'RUNNING' ORDER BY created_at DESC LIMIT 1",
+            )
+            .get(projectId) as { id: string } | undefined);
+    if (!terminal) return { adapter: createFakeProvider([textStep("no terminal")]), model: "fake" };
+    const lease = running.sqlite
+      .prepare("SELECT generation FROM terminal_leases WHERE terminal_id = ?")
+      .get(terminal.id) as { generation: number } | undefined;
+    const nextGeneration = (lease?.generation ?? 0) + 1;
+    return {
+      adapter: createFakeProvider([
+        toolStep({
+          id: "acquire-control",
+          name: "acquire_terminal_control",
+          args: { terminalId: terminal.id },
+        }),
+        {
+          delayMs: 10_000,
+          chunks: [
+            {
+              type: "tool-call",
+              toolCall: {
+                id: "stale-input",
+                name: "send_terminal_input",
+                args: {
+                  terminalId: terminal.id,
+                  leaseGeneration: nextGeneration,
+                  inputSequence: 1,
+                  data: "printf 'STALE\\n'\n",
+                },
+              },
+            },
+            { type: "finish", finishReason: "tool-calls" },
+          ],
+        },
+        textStep("done"),
+      ]),
+      model: "fake",
+    };
+  }
+
   if (input.startsWith("command ")) {
     const code = input.includes("cancel")
       ? "const fs=require('node:fs');let n=0;console.log('running '+'.'.repeat(300));setInterval(()=>fs.writeFileSync('ticks',String(++n)),100)"

@@ -81,6 +81,15 @@ export interface DevContext {
   assertAuthorized: () => void;
   signal?: AbortSignal;
 }
+export interface AgentTerminalContext {
+  clientSessionId: string;
+  projectId: string;
+  sessionId: string;
+  turnId: string;
+  toolCallId: string;
+  assertAuthorized?: () => void;
+  signal?: AbortSignal;
+}
 const CLEARED = {
   ownerType: null,
   ownerClientSessionId: null,
@@ -99,6 +108,7 @@ export class TerminalManager {
   readonly #active = new Map<string, Runtime>();
   readonly #connections = new Map<string, Connection>();
   readonly #creating = new Map<string, Promise<ReturnType<TerminalManager["dto"]>>>();
+  readonly #agentRate = new Map<string, { bytes: number; resetAt: number }>();
   readonly #instance = randomUUID();
   readonly #timer: ReturnType<typeof setInterval>;
   #closed = false;
@@ -107,6 +117,7 @@ export class TerminalManager {
     this.#timer = setInterval(() => {
       try {
         this.expireLeases();
+        this.renewAgentLeases();
         if (this.#now() - this.#lastCleanup > 600000) {
           this.#lastCleanup = this.#now();
           void this.cleanup().catch(() => {});
@@ -294,6 +305,266 @@ export class TerminalManager {
   async stopProjectDev(id: string, projectId: string, client: string) {
     await this.readProjectDev(id, projectId);
     return this.terminate(id, client);
+  }
+  #agentContext(context: AgentTerminalContext) {
+    const turn = getTurnById(this.options.db, context.turnId);
+    const session = getSessionById(this.options.db, context.sessionId);
+    if (
+      !turn ||
+      !["RUNNING", "PREPARING", "WAITING_APPROVAL"].includes(turn.status) ||
+      turn.sessionId !== context.sessionId ||
+      session?.projectId !== context.projectId
+    )
+      fail("FORBIDDEN", "Invalid terminal control context");
+    this.#client(context.clientSessionId);
+    if (context.signal?.aborted) fail("RESOURCE_UNAVAILABLE", "Terminal control cancelled");
+  }
+  #agentHeld(id: string, context: AgentTerminalContext, generation: number) {
+    const lease = leaseRow(this.options.db, id);
+    if (
+      lease?.ownerType !== "agent" ||
+      lease.ownerTurnId !== context.turnId ||
+      lease.ownerSessionId !== context.sessionId ||
+      lease.ownerClientSessionId !== context.clientSessionId ||
+      lease.expiresAt <= this.#now() ||
+      lease.generation !== generation
+    )
+      fail("TERMINAL_LEASE_REQUIRED", "Current agent terminal lease required");
+    if (this.#row(id).status !== "RUNNING" || !this.#active.get(id)?.pty.controlAvailable)
+      fail("RESOURCE_UNAVAILABLE", "Terminal is not running");
+    return lease;
+  }
+  async acquireAgent(id: string, context: AgentTerminalContext) {
+    await this.readProjectDev(id, context.projectId);
+    this.#agentContext(context);
+    if (this.#row(id).status !== "RUNNING" || !this.#active.get(id)?.pty.controlAvailable)
+      fail("RESOURCE_UNAVAILABLE", "Terminal is not running");
+    const event = immediateTransaction(this.options.db, (tx) => {
+      context.assertAuthorized?.();
+      const current = leaseRow(tx, id);
+      if (!current) throw new Error("Missing terminal lease");
+      if (current.expiresAt > this.#now() && current.ownerType) {
+        if (
+          current.ownerType !== "agent" ||
+          current.ownerTurnId !== context.turnId ||
+          current.ownerClientSessionId !== context.clientSessionId
+        )
+          fail("TERMINAL_LEASE_REQUIRED", "Terminal is controlled by another principal");
+        updateLease(tx, id, {
+          expiresAt: this.#now() + TERMINAL_LEASE_TTL_MS,
+          heartbeatAt: this.#now(),
+        });
+      } else
+        updateLease(tx, id, {
+          ownerType: "agent",
+          ownerClientSessionId: context.clientSessionId,
+          ownerConnectionId: null,
+          ownerSessionId: context.sessionId,
+          ownerTurnId: context.turnId,
+          ownerExecutionId: context.toolCallId,
+          generation: current.generation + 1,
+          expiresAt: this.#now() + TERMINAL_LEASE_TTL_MS,
+          heartbeatAt: this.#now(),
+          inputSequence: 0,
+        });
+      return this.#event(
+        tx,
+        id,
+        "terminal.lease",
+        "terminal.lease.acquired",
+        context.clientSessionId,
+      );
+    });
+    this.options.events.publish(event);
+    return this.read(id);
+  }
+  async inputAgent(
+    id: string,
+    context: AgentTerminalContext,
+    generation: number,
+    sequence: number,
+    data: string,
+  ) {
+    await this.readProjectDev(id, context.projectId);
+    this.#agentContext(context);
+    if (Buffer.byteLength(data) > 8192) fail("PAYLOAD_TOO_LARGE", "Terminal input exceeds limit");
+    const rateKey = `${context.turnId}:${id}`;
+    const now = this.#now();
+    let rate = this.#agentRate.get(rateKey);
+    if (!rate || now - rate.resetAt >= 1000) {
+      rate = { bytes: 0, resetAt: now };
+      this.#agentRate.set(rateKey, rate);
+    }
+    if (rate.bytes + Buffer.byteLength(data) > 65536)
+      fail("RATE_LIMITED", "Terminal input rate exceeded");
+    const accepted = immediateTransaction(this.options.db, (tx) => {
+      const lease = this.#agentHeld(id, context, generation);
+      if (sequence <= lease.inputSequence) return false;
+      if (sequence !== lease.inputSequence + 1)
+        fail("VALIDATION_ERROR", "Terminal input sequence has a gap");
+      appendAudit(tx, {
+        action: "terminal.input",
+        decision: "allow",
+        clientSessionId: context.clientSessionId,
+        sessionId: context.sessionId,
+        resourceType: "terminal",
+        resourceId: id,
+        details: {
+          bytes: Buffer.byteLength(data),
+          generation,
+          sequence,
+          ownerType: "agent",
+        },
+        now: this.#now(),
+      });
+      updateLease(tx, id, {
+        inputSequence: sequence,
+        expiresAt: this.#now() + TERMINAL_LEASE_TTL_MS,
+        heartbeatAt: this.#now(),
+      });
+      return true;
+    });
+    if (accepted) {
+      rate.bytes += Buffer.byteLength(data);
+      try {
+        this.#active.get(id)?.pty.native.write(data);
+      } catch {
+        fail("RESOURCE_UNAVAILABLE", "Terminal input failed");
+      }
+    }
+    return { accepted, inputSequence: sequence };
+  }
+  async interruptAgent(id: string, context: AgentTerminalContext, generation: number) {
+    await this.readProjectDev(id, context.projectId);
+    this.#agentContext(context);
+    const lease = this.#agentHeld(id, context, generation);
+    immediateTransaction(this.options.db, (tx) => {
+      appendAudit(tx, {
+        action: "terminal.interrupt",
+        decision: "allow",
+        clientSessionId: context.clientSessionId,
+        sessionId: context.sessionId,
+        resourceType: "terminal",
+        resourceId: id,
+        details: { bytes: 1, generation: lease.generation, ownerType: "agent" },
+        now: this.#now(),
+      });
+    });
+    try {
+      this.#active.get(id)?.pty.native.write("\u0003");
+    } catch {
+      fail("RESOURCE_UNAVAILABLE", "Terminal interrupt failed");
+    }
+    return { sent: true as const, status: this.#row(id).status };
+  }
+  async releaseAgent(id: string, context: AgentTerminalContext, generation: number) {
+    await this.readProjectDev(id, context.projectId);
+    this.#agentContext(context);
+    const event = immediateTransaction(this.options.db, (tx) => {
+      this.#agentHeld(id, context, generation);
+      updateLease(tx, id, { ...CLEARED });
+      appendAudit(tx, {
+        action: "terminal.control.released",
+        decision: "allow",
+        clientSessionId: context.clientSessionId,
+        sessionId: context.sessionId,
+        resourceType: "terminal",
+        resourceId: id,
+        details: { generation, ownerType: "agent" },
+        now: this.#now(),
+      });
+      return this.#event(
+        tx,
+        id,
+        "terminal.lease",
+        "terminal.lease.released",
+        context.clientSessionId,
+      );
+    });
+    this.options.events.publish(event);
+    this.#agentRate.delete(`${context.turnId}:${id}`);
+    return this.read(id);
+  }
+  releaseAgentLeases(turnId: string) {
+    for (const row of allTerminals(this.options.db)) {
+      const lease = leaseRow(this.options.db, row.id);
+      if (lease?.ownerType !== "agent" || lease.ownerTurnId !== turnId) continue;
+      this.#agentRate.delete(`${turnId}:${row.id}`);
+      this.#clearLease(row.id);
+    }
+  }
+  async takeover(id: string, client: string, connectionId: string) {
+    await this.authorize(id);
+    this.#connection(connectionId, client, id);
+    if (this.#row(id).status !== "RUNNING" || !this.#active.get(id)?.pty.controlAvailable)
+      fail("RESOURCE_UNAVAILABLE", "Terminal is not running");
+    const event = immediateTransaction(this.options.db, (tx) => {
+      const current = leaseRow(tx, id);
+      if (!current) throw new Error("Missing terminal lease");
+      if (current.expiresAt > this.#now() && current.ownerType === "human") {
+        if (current.ownerConnectionId !== connectionId || current.ownerClientSessionId !== client)
+          fail("TERMINAL_LEASE_REQUIRED", "Terminal is controlled by another human connection");
+        updateLease(tx, id, {
+          expiresAt: this.#now() + TERMINAL_LEASE_TTL_MS,
+          heartbeatAt: this.#now(),
+        });
+      } else {
+        if (current.ownerType === "agent" && current.ownerTurnId)
+          this.#agentRate.delete(`${current.ownerTurnId}:${id}`);
+        updateLease(tx, id, {
+          ownerType: "human",
+          ownerClientSessionId: client,
+          ownerConnectionId: connectionId,
+          ownerSessionId: null,
+          ownerTurnId: null,
+          ownerExecutionId: null,
+          generation: current.generation + 1,
+          expiresAt: this.#now() + TERMINAL_LEASE_TTL_MS,
+          heartbeatAt: this.#now(),
+          inputSequence: 0,
+        });
+        appendAudit(tx, {
+          action: "terminal.takeover",
+          decision: "allow",
+          clientSessionId: client,
+          resourceType: "terminal",
+          resourceId: id,
+          details: { generation: current.generation + 1, previous: current.ownerType ?? "none" },
+          now: this.#now(),
+        });
+      }
+      return this.#event(tx, id, "terminal.lease", "terminal.lease.takeover", client);
+    });
+    this.options.events.publish(event);
+    return this.read(id);
+  }
+  renewAgentLeases() {
+    const now = this.#now();
+    for (const row of allTerminals(this.options.db)) {
+      const lease = leaseRow(this.options.db, row.id);
+      if (lease?.ownerType !== "agent") continue;
+      const turn = lease.ownerTurnId ? getTurnById(this.options.db, lease.ownerTurnId) : null;
+      if (
+        !turn ||
+        !["QUEUED", "PREPARING", "RUNNING", "WAITING_APPROVAL"].includes(turn.status) ||
+        !activeCommandClient(
+          this.options.db,
+          lease.ownerClientSessionId ?? "",
+          now,
+          this.options.idleTtlMinutes,
+        )
+      ) {
+        this.#clearLease(row.id);
+        continue;
+      }
+      if (lease.expiresAt <= now + TERMINAL_LEASE_TTL_MS / 2)
+        immediateTransaction(this.options.db, (tx) =>
+          updateLease(tx, row.id, {
+            expiresAt: now + TERMINAL_LEASE_TTL_MS,
+            heartbeatAt: now,
+          }),
+        );
+    }
   }
   async list(filter: {
     projectId?: string;
@@ -740,6 +1011,8 @@ export class TerminalManager {
     }
   }
   #clearLease(id: string) {
+    const current = leaseRow(this.options.db, id);
+    if (current?.ownerTurnId) this.#agentRate.delete(`${current.ownerTurnId}:${id}`);
     const event = immediateTransaction(this.options.db, (tx) => {
       updateLease(tx, id, { ...CLEARED });
       return this.#event(tx, id, "terminal.lease", "terminal.lease.released");

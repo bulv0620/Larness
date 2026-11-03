@@ -167,7 +167,7 @@ M2 文件工具结果与 artifact 事件补结构化 `resourceTarget`，file tar
 
 inputSequence 在该租约中递增，重复包不重放，迟到 generation 拒绝；每次输入 ≤ 8 KiB、速率沿人工 64 KiB/s 上限，工具调用 / Turn 预算另行限制。interrupt 发送当前终端的中断控制（例如 ETX），不将“已发中断”报告为“进程已退出”；需重读输出 / 状态确认。输入 / 中断前按实际程序 / 操作风险沿工具策略审批，不能在取得一次租约后无限绕过工具策略。原始输入正文、密码、Token 不进入日志 / 事件；只记长度、资源、执行关联和允许 / 拒绝，不引入自动填写主机凭据能力。
 
-M2-4 定义共享 principal 租约存储 / 校验；M2-4d 接工具、人机交接和假时钟 / 真实 PTY 验证；schema 已通过 G-Spec-M2，按任务实施，不把本文当作已经上线协议。
+M2-4 定义共享 principal 租约存储 / 校验；M2-4d 已接工具、人机交接和真实 PTY 验证，实施细节见 §19。schema 在 M2-4d 已按 G-Spec-M2 落地。
 
 ## 11. M2-1 实施契约（2026-11-03）
 
@@ -352,3 +352,27 @@ Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical
 
 - 真实集成覆盖 FakeProvider 启动两个真实 PTY、逐次 L2 审批、role 复用 / 参数冲突、审批篡改、12k 有界读取、显式停止、Turn 取消不停止已交付终端、项目 / 人工 Shell 拒绝与事件来源；Web 单测覆盖非抢焦点插入、发起客户端过滤与 terminal target 解析；生产浏览器覆盖发起客户端两个来源 Tab、真实输出、只读观察。
 - 仅实测 macOS arm64 / Node 20.19.3 / Chromium；无新迁移 / 依赖 / 配置，未修改用户运行数据。平台进程清理、PID 身份与沙箱边界承接 §16，不因本任务扩大承诺。
+
+## 19. M2-4d AI 终端控制与人工接管（2026-11-03）
+
+本任务实现 §10 的四个控制工具、共享 principal 租约、人工原子接管和 UI；不新增迁移 / 依赖 / 配置 / 公开执行入口。M2-5 Git 与 M3 服务 / 预览不在此范围。
+
+### 工具、身份与审批
+
+- `acquire_terminal_control({ terminalId })` L1；projectId / sessionId / turnId / toolCallId / 真实 clientSessionId / AbortSignal 由 Turn 注入。只接受当前项目、Agent 创建的运行中 dev 终端。同 Turn 重复 acquire 复用当前 generation；human 或其他 Turn 持有时返回 `TERMINAL_LEASE_REQUIRED`，不强抢。
+- `send_terminal_input({ terminalId, leaseGeneration, inputSequence, data })` L2 逐次审批。data 单次 1–8192 UTF-8 字节；schema 拒绝已知 SecretStore 明文。审批哈希绑定 terminalId / generation / sequence / data，但 scope 摘要只显示目标与字节数，正文不进入审批记录、审计、Agent 事件或日志；审计只记 bytes / generation / sequence / ownerType。
+- `interrupt_terminal({ terminalId, leaseGeneration })` L2，向当前租约终端写入 ETX（Ctrl-C），只返回“中断已发送”和当前状态，不宣称进程退出；需重读输出 / 状态。`release_terminal_control({ terminalId, leaseGeneration })` L1，释放租约但保留 PTY。
+- 输入只接受当前 agent principal：ownerType=agent、ownerTurnId / ownerSessionId / ownerClientSessionId / generation 全部匹配且未过期；重复或更小 inputSequence 返回 accepted=false 不重放，跳号 VALIDATION_ERROR；单 Turn 每终端另有 64 KiB/s 窗口。旧 generation / human 接管后 / Turn 结束后输入一律拒绝。
+- Agent 租约 30s TTL，管理器对活跃 Turn 续租；Turn 完成 / 取消 / 失败、客户端登出或撤销、租约到期即清除。Turn 结束只释放输入控制，已交付终端继续运行；显式 stop / 关闭终端 Tab 才终止进程。创建未交付时仍由 M2-4c AbortSignal 清理。
+- 输入工具共用 `ToolContext` 注入的 manager 回调；不新增直接 PTY / WS 逃逸路径。所有工具 `requiresProjectLock:false`，不占源码写锁；dev 进程仍按 ADR-029 是主机写者。
+
+### 人工接管与 UI
+
+- 新增 `POST /api/terminals/:id/takeover`，body `{ connectionId }`；必须来自该终端订阅的活 WS 连接。当前无租约 / 已过期 / agent 持有时原子授予 human，generation 递增、inputSequence 归零；另一 human 持有则拒绝，不提供 human-human 强抢。接管写审计 `terminal.takeover` 并广播 `terminal.lease`。
+- 前端在 agent 持有时显示“AI 控制中”和“接管控制”；成功后本连接获得新 generation 并显示“你正在控制”。旧 Agent 后续 input / interrupt / acquire 使用旧 generation 或 human 持有均失败，不自动抢回；人工释放后 Agent 可显式重新 acquire。人工断线 / 过期仍只释放输入权，PTY 保持。
+- 读取输出不改变租约；终止按钮独立于控制权，继续走既有显式 terminate 权限。UI 不持久化输入正文、租约或控制状态。
+
+### 验证边界
+
+- 真实管理器测试覆盖 acquire / 输入序号 / 重复与跳号 / 中断 / human 原子接管 / 旧 generation 拒绝 / 不自动抢回 / 登出撤销 / Turn 取消只释放控制；FakeProvider 工具测试覆盖 L1/L2 审批、输入不落库、Turn 结束释放租约和终端存活；真实浏览器覆盖 AI 控制 → 人工接管 → 旧 generation 工具失败。
+- 仅实测 macOS arm64 / Node 20.19.3 / Chromium；不宣称 OS 沙箱、强 PID 身份或任意脱组清理。无新迁移 / 依赖 / 配置 / 认证协议。

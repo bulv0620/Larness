@@ -14,6 +14,10 @@ export interface ToolContext {
   startTerminal?: (args: unknown) => Promise<ToolResult>;
   readTerminalOutput?: (args: unknown) => Promise<ToolResult>;
   stopTerminal?: (args: unknown) => Promise<ToolResult>;
+  acquireTerminalControl?: (args: unknown) => Promise<ToolResult>;
+  sendTerminalInput?: (args: unknown) => Promise<ToolResult>;
+  interruptTerminal?: (args: unknown) => Promise<ToolResult>;
+  releaseTerminalControl?: (args: unknown) => Promise<ToolResult>;
 }
 
 export interface ToolResult {

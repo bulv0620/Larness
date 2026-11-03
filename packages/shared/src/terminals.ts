@@ -55,6 +55,28 @@ export const TerminalResultTargetSchema = z
 export type TerminalResultTarget = z.infer<typeof TerminalResultTargetSchema>;
 export const ResourceTargetSchema = z.union([FileResultTargetSchema, TerminalResultTargetSchema]);
 export type ResourceTarget = z.infer<typeof ResourceTargetSchema>;
+export const TerminalTakeoverSchema = z.object({ connectionId: z.string().uuid() }).strict();
+export const AcquireTerminalControlParamsSchema = z
+  .object({ terminalId: TerminalIdSchema })
+  .strict();
+export const SendTerminalInputParamsSchema = z
+  .object({
+    terminalId: TerminalIdSchema,
+    leaseGeneration: z.number().int().positive(),
+    inputSequence: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    data: z
+      .string()
+      .min(1)
+      .max(8192)
+      .refine((data) => new TextEncoder().encode(data).length <= 8192),
+  })
+  .strict();
+export const InterruptTerminalParamsSchema = z
+  .object({ terminalId: TerminalIdSchema, leaseGeneration: z.number().int().positive() })
+  .strict();
+export const ReleaseTerminalControlParamsSchema = z
+  .object({ terminalId: TerminalIdSchema, leaseGeneration: z.number().int().positive() })
+  .strict();
 export const TerminalLeaseSchema = z
   .object({
     action: z.enum(["acquire", "renew", "release"]),

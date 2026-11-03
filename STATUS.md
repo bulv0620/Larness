@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-03 (+08:00)
-> 当前阶段：**M2-4c 已验收；M2-4d AI 终端控制与人工接管进行中**
+> 当前阶段：**M2-4d AI 终端控制与人工接管已实现，待 review**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-4c done / M2-4d 进行中 |
+| M2 | 开发资源与窗口层 | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-4c done / M2-4d review |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- 当前任务：M2-4d `in_progress`，分支 `task/m2-4d-agent-control`，2026-11-03（+08:00）开始。先红测试，再接 Agent 终端 acquire / input / interrupt / release、Turn 结束只释放控制、人工原子接管与 UI；M2-5 未启动。
+- 当前任务：M2-4d `review`，分支 `task/m2-4d-agent-control`。已交付 Agent 终端 acquire / input / interrupt / release、Turn 结束只释放控制、人工原子接管与 UI；M2-5 未启动。
 - M2-4c 已验收：2026-11-03 人类确认并继续；启动 / 有界读取 / 显式停止、L2 审批与来源 Tab 交付完成并标 done。
 - M2-4b 已验收：2026-11-03 人类在 review 后要求开始 M2-4c，视为验收通过并标 done；真实终端创建/输入/双客户端观察、租约失效、关闭与恢复见 [验收记录](specs/030-dev-resources/acceptance.md)。
 
@@ -72,9 +72,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
   - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
   - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
   - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：完成 M2-4d 后按顺序进入 M2-5；本次未启动后续任务。
+- 下一步：M2-4d 人类验收后进入 M2-5；本次未启动后续任务。
 - 阻塞项：无。
-- 待 review：无；M2-4c 已验收，M2-4d 实施中。
+- 待 review：M2-4d AI 终端控制、人工接管与 UI；无新增设计阻塞。
 
 ## 已冻结
 
@@ -104,7 +104,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 | 日期 | 变更 |
 |---|---|
 | 2026-11-03 | M2-4b 验收通过（人类要求开始 M2-4c）；补跑 check / build / prod 6/6 / Demo 15/15，记录 workspace-write 沙箱 `/bin/ps` 限制 |
-| 2026-11-03 | M2-4c 验收通过（人类确认并继续）；启动 M2-4d：AI 终端控制、中断与人工接管 |
+| 2026-11-03 | 完成 M2-4d：Agent 终端 acquire / input / interrupt / release、人工原子接管与 UI；check / build / prod 8/8 / Demo 15/15，状态 review |
 | 2026-11-02 | M2-P：补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；同步路线图与 Q-021～Q-025。仅文档，M2 仍 draft，待 G-Spec-M2 / G-PoC-M2 |
 | 2026-10-31 | 初始化 spec 工程：宪法、Agent 手册、架构/契约、路线图、S0–M1 详细 spec、M2–M5 草案 |
 | 2026-10-31 | 改用 Passkey / WebAuthn 作为 V1 可信凭据（ADR-021）；移除长期设备 Token / refresh；M0 拆为 9 个任务 |
@@ -336,5 +336,12 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## M2-4d 启动（2026-11-03 +08:00）
 
-- 人类确认 M2-4c 并继续；M2-4c done。分支 `task/m2-4d-agent-control`，当前 in_progress。
+- 人类确认 M2-4c 并继续；M2-4c done。分支 `task/m2-4d-agent-control`。
 - 计划：先红测试，再接 `acquire_terminal_control` / `send_terminal_input` / `interrupt_terminal` / `release_terminal_control`、agent principal、Turn 结束释放控制、人工原子接管、UI 控制状态；不启动 M2-5。
+
+### M2-4d 交付（2026-11-03）
+
+- Agent principal 租约：30s TTL、活跃 Turn 续租、Turn 完成 / 取消 / 登出 / 过期清除；输入按 generation + inputSequence 去重 / 跳号拒绝，单 Turn 64 KiB/s；输入正文不进审批 scope / 审计 / 事件 / 日志。
+- 四个工具接入真实 Turn：acquire L1、send L2、interrupt L2（ETX，不伪报退出）、release L1；中断 / 输入摘要只显示目标与字节数，审批哈希绑定实际 data。Turn 结束只释放控制，PTY 继续；创建未交付仍由 M2-4c 清理。
+- 人工接管 `POST /api/terminals/:id/takeover`：仅当前订阅活连接，agent / 空闲租约原子转 human，generation 递增、序号归零；另一 human 拒绝强抢。UI 显示“AI 控制中 / 接管控制 / 你正在控制”，旧 Agent generation 失败且不自动抢回。
+- 新增 3 项真实终端控制测试与真实浏览器接管场景；最终 check（server 379 / agent 32 / web 37，live 1 项跳过）、build、生产浏览器 8/8、Demo 15/15。无新迁移 / 依赖 / 配置 / 认证协议，未改用户数据；仅 macOS arm64 / Node 20.19.3 / Chromium。状态 review，M2-5 未启动。

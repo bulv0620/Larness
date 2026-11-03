@@ -115,3 +115,49 @@ test("M2-4c agent starts two approved project dev terminals and exposes non-focu
     if (await cleanupProject(page, root)) rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("M2-4d human takes over agent terminal control and the old generation is rejected", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  const root = mkdtempSync(path.join(tmpdir(), "larness-control-e2e-"));
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await pair(page);
+    await page.getByRole("button", { name: "添加项目" }).click();
+    await page.getByLabel("项目目录").fill(root);
+    await page.getByRole("dialog").getByRole("button", { name: "添加项目" }).click();
+    await page.getByRole("button", { name: `在 ${path.basename(root)} 中新建会话` }).click();
+    const composer = page.getByLabel("对话输入");
+    await composer.fill("dev start");
+    await page.getByRole("button", { name: "发送消息" }).click();
+    await page.getByRole("button", { name: "批准执行" }).click();
+    await expect(page.getByRole("button", { name: "批准执行" })).toBeVisible();
+    await page.getByRole("button", { name: "批准执行" }).click();
+    await expect(page.getByText("开发终端已启动。", { exact: true })).toBeVisible();
+
+    const terminalWindow = page.getByRole("dialog", { name: "frontend", exact: true });
+    await expect(terminalWindow).toBeVisible();
+    await composer.fill("ai control");
+    await page.getByRole("button", { name: "发送消息" }).click();
+    await expect(terminalWindow).toContainText("AI 控制中", { timeout: 15000 });
+    await terminalWindow.getByRole("button", { name: "接管控制" }).click();
+    await expect(terminalWindow).toContainText("你正在控制");
+    await page.screenshot({ path: path.join(tmpdir(), "larness-m2-4d-takeover.png") });
+
+    await terminalWindow.getByRole("button", { name: "隐藏窗口" }).click();
+    await expect(page.getByRole("button", { name: "批准执行" })).toBeVisible({ timeout: 20000 });
+    await page.getByRole("button", { name: "批准执行" }).click();
+    await expect(page.getByText("done", { exact: true })).toBeVisible({ timeout: 15000 });
+    await page.getByRole("button", { name: /执行了 2 个工具 acquire_terminal_control/ }).click();
+    await page.getByRole("button", { name: /send_terminal_input 向终端/ }).click();
+    await expect(page.getByText(/TERMINAL_LEASE_REQUIRED/).first()).toBeVisible({
+      timeout: 15000,
+    });
+    expect(errors).toEqual([]);
+  } finally {
+    if (await cleanupProject(page, root)) rmSync(root, { recursive: true, force: true });
+  }
+});

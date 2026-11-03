@@ -14,9 +14,13 @@ import {
 } from "@larness/agent";
 import { FileManagerError } from "@larness/resources";
 import {
+  AcquireTerminalControlParamsSchema,
   type AssistantDeltaEvent,
   FileResultTargetSchema,
+  InterruptTerminalParamsSchema,
   ReadTerminalOutputParamsSchema,
+  ReleaseTerminalControlParamsSchema,
+  SendTerminalInputParamsSchema,
   type ServerEvent,
   StopProjectTerminalParamsSchema,
   TerminalDevSchema,
@@ -573,6 +577,161 @@ export class TurnRunner {
               return terminalFailure(error, "Project terminal could not be stopped");
             }
           },
+          acquireTerminalControl: async (params, assertAuthorized) => {
+            const parsed = AcquireTerminalControlParamsSchema.safeParse(params);
+            if (!parsed.success)
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid terminal control parameters",
+              };
+            if (!snapshot || !this.#options.terminals || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Project terminal context unavailable",
+              };
+            try {
+              const row = await this.#options.terminals.acquireAgent(parsed.data.terminalId, {
+                clientSessionId: snapshot.clientSessionId,
+                projectId: session.projectId,
+                sessionId: session.id,
+                turnId: turn.id,
+                toolCallId: request.id,
+                signal: controller.signal,
+                assertAuthorized: () => {
+                  assertAuthorized();
+                  if (checkBudget() !== "ok" || lockLost)
+                    throw new Error("Execution no longer authorized");
+                },
+              });
+              return {
+                ok: true,
+                summary: `终端 ${row.role ?? row.id.slice(-6)} 控制权已获取`,
+                data: {
+                  terminalId: row.id,
+                  role: row.role,
+                  generation: row.lease?.generation ?? null,
+                  expiresAt: row.lease?.expiresAt ?? null,
+                  ownerType: row.lease?.ownerType ?? null,
+                },
+              };
+            } catch (error) {
+              return terminalFailure(error, "Terminal control could not be acquired");
+            }
+          },
+          sendTerminalInput: async (params) => {
+            const parsed = SendTerminalInputParamsSchema.safeParse(params);
+            if (!parsed.success)
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid terminal input parameters",
+              };
+            if (!snapshot || !this.#options.terminals || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Project terminal context unavailable",
+              };
+            try {
+              const result = await this.#options.terminals.inputAgent(
+                parsed.data.terminalId,
+                {
+                  clientSessionId: snapshot.clientSessionId,
+                  projectId: session.projectId,
+                  sessionId: session.id,
+                  turnId: turn.id,
+                  toolCallId: request.id,
+                  signal: controller.signal,
+                },
+                parsed.data.leaseGeneration,
+                parsed.data.inputSequence,
+                parsed.data.data,
+              );
+              return {
+                ok: true,
+                summary: result.accepted
+                  ? `已向终端发送 ${Buffer.byteLength(parsed.data.data)} 字节输入`
+                  : `输入序号 ${result.inputSequence} 已处理，未重复发送`,
+                data: { terminalId: parsed.data.terminalId, ...result },
+              };
+            } catch (error) {
+              return terminalFailure(error, "Terminal input could not be sent");
+            }
+          },
+          interruptTerminal: async (params) => {
+            const parsed = InterruptTerminalParamsSchema.safeParse(params);
+            if (!parsed.success)
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid terminal interrupt parameters",
+              };
+            if (!snapshot || !this.#options.terminals || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Project terminal context unavailable",
+              };
+            try {
+              const result = await this.#options.terminals.interruptAgent(
+                parsed.data.terminalId,
+                {
+                  clientSessionId: snapshot.clientSessionId,
+                  projectId: session.projectId,
+                  sessionId: session.id,
+                  turnId: turn.id,
+                  toolCallId: request.id,
+                  signal: controller.signal,
+                },
+                parsed.data.leaseGeneration,
+              );
+              return {
+                ok: true,
+                summary: "终端中断已发送；未确认进程退出，请重读输出 / 状态",
+                data: { terminalId: parsed.data.terminalId, ...result },
+              };
+            } catch (error) {
+              return terminalFailure(error, "Terminal interrupt could not be sent");
+            }
+          },
+          releaseTerminalControl: async (params) => {
+            const parsed = ReleaseTerminalControlParamsSchema.safeParse(params);
+            if (!parsed.success)
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid terminal release parameters",
+              };
+            if (!snapshot || !this.#options.terminals || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Project terminal context unavailable",
+              };
+            try {
+              const row = await this.#options.terminals.releaseAgent(
+                parsed.data.terminalId,
+                {
+                  clientSessionId: snapshot.clientSessionId,
+                  projectId: session.projectId,
+                  sessionId: session.id,
+                  turnId: turn.id,
+                  toolCallId: request.id,
+                  signal: controller.signal,
+                },
+                parsed.data.leaseGeneration,
+              );
+              return {
+                ok: true,
+                summary: `终端 ${row.role ?? row.id.slice(-6)} 控制权已释放`,
+                data: { terminalId: row.id, role: row.role, status: row.status },
+              };
+            } catch (error) {
+              return terminalFailure(error, "Terminal control could not be released");
+            }
+          },
         },
       );
     try {
@@ -968,6 +1127,11 @@ export class TurnRunner {
       });
     } finally {
       clearInterval(heartbeat);
+      try {
+        this.#options.terminals?.releaseAgentLeases(turn.id);
+      } catch {
+        // A failed release is cleared by the manager timer when the Turn is no longer active.
+      }
       if (controller.signal.aborted)
         invalidateTurnApprovals({ db: this.#options.db, now: this.#options.now }, turn.id);
       (projectLock as ProjectWriteLock | null)?.release();
