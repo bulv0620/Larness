@@ -1,6 +1,6 @@
 # 任务：M2 开发资源与窗口层
 
-> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；当前仅 M2-2。一次一个任务、一任务一提交，先红测试再实现。
+> 2026-11-02 G-Spec-M2 / ADR-029 已批准；M2-0 / G-PoC-M2 已确认通过；当前仅 M2-3 待 review。一次一个任务、一任务一提交，先红测试再实现。
 
 ## 状态总表
 
@@ -10,8 +10,8 @@
 | M2-0 | 执行与原生资源 PoC | G-Spec-M2 / ADR-029；G1 / 015 / 016 / 017 done | 1–2 | `done` |
 | M2-1 | FileManager 与资源持久化底座 | M2-0 done；G-PoC-M2 | 2 | `done` |
 | M2-1b | 文件监听与资源事件补拉 | M2-1 | 1–2 | `done` |
-| M2-2 | Monaco 编辑与冲突恢复 | M2-1b | 1–2 | `review` |
-| M2-3 | CommandRunner 与受管进程协调 | M2-2 | 2 | `todo` |
+| M2-2 | Monaco 编辑与冲突恢复 | M2-1b | 1–2 | `done` |
+| M2-3 | CommandRunner 与受管进程协调 | M2-2 | 2 | `review` |
 | M2-3b | Agent 命令工具与实时执行展示 | M2-3 | 1–2 | `todo` |
 | M2-4 | TerminalManager 与输入租约后端 | M2-3b | 2 | `todo` |
 | M2-4b | xterm 交互与双客户端接管 | M2-4 | 1–2 | `todo` |
@@ -23,7 +23,7 @@
 | M2-7 | 跨资源锁、fencing 与恢复验收 | M2-6 | 1–2 | `todo` |
 | M2-8 | M2 整体交付与 G2 | M2-7 | 1–2 | `todo` |
 
-保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 已 done，当前仅 M2-2，后续保持 todo。
+保留既有 M2-1～M2-8 ID；新增 M2-0 为前置 PoC，M2-1b / 3b / 4b / 4c / 5b 分离事件、Agent 或 UI 接线，避免同一任务吞下整个子系统。拆分与顺序已通过 G-Spec-M2；M2-1 / M2-1b / M2-2 已 done，当前 M2-3 待 review，后续保持 todo。
 
 ## 任务卡
 
@@ -71,7 +71,7 @@
 
 ### M2-2 Monaco 编辑与冲突恢复
 
-- 状态：`review`
+- 状态：`done`
 - 依赖：M2-1b；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：1–2 天；明显超出则先拆分，不绕过门禁。
 - [x] 先写失败测试并确认失败原因：组件草稿 / 冲突与真实服务器浏览器保存回读；大文件不能编辑、源内容不被截断。
@@ -86,15 +86,17 @@
 
 ### M2-3 CommandRunner 与受管进程协调
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：M2-2；全局还需 G-Spec-M2 / ADR-029；M2-1 起还需 G-PoC-M2。
 - 预估：2 天；明显超出则先拆分，不绕过门禁。
-- [ ] 先写失败测试并确认失败原因：真实非零退出、海量输出、spawn 失败、子进程树、重复 cancel、续租失败、重启 / 残留处理与秘密跨块。
-- [ ] 交付：进程组、环境过滤、超时 / 取消、输出上限与游标；真实命令状态 / repository / REST；command_executions 一份迁移；共用锁协调。
-- [ ] 验收：A7/A17/A18/A20/A21/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
-- [ ] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
-- [ ] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
+- [x] 先写失败测试并确认失败原因：真实非零退出、海量输出、spawn 失败、子进程树、重复 cancel、续租失败、重启 / 残留处理与秘密跨块。
+- [x] 交付：进程组、环境过滤、超时 / 取消、输出上限与游标；真实命令状态 / repository / REST；command_executions 一份迁移；共用锁协调。
+- [x] 验收：A7/A17/A18/A20/A21/A23；完成本任务的真实资源 / 权限 / 失败 / 并发用例。
+- [x] 验证：`pnpm check`、`pnpm build`；UI 增加相关真实浏览器证据；M2-8 执行全套命令。
+- [x] 同步所属 REST / WS / 数据模型 / 测试 / tasks / ROADMAP / STATUS；记录迁移与回滚影响，逐任务提交。
 - 涉及路径（计划）：packages/resources/src/commands/；apps/server/src/modules/commands / locks；db/。
+
+- 真实子进程 / 文件 / SQLite / REST / WS、故障与重启证据见 [acceptance.md](acceptance.md)；仅本后端任务，Agent / 审批 / 卡片留给 M2-3b。
 
 ### M2-3b Agent 命令工具与实时执行展示
 

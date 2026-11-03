@@ -1,5 +1,5 @@
 import type { FileResultTarget } from "./files";
-export type EventTopic = "agent" | "terminal" | "service" | "git" | "file" | "system";
+export type EventTopic = "command" | "agent" | "terminal" | "service" | "git" | "file" | "system";
 
 export interface ServerEvent<T = unknown> {
   kind: "event";

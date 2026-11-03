@@ -1,6 +1,6 @@
 # M2 资源契约（设计已批准，按任务实施）
 
-> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；M2-1b 文件监听 / 订阅 / 补拉已实施，详见 §12；M2-2 文件编辑与结果卡片已实施，详见 §13；后续接口仍按任务逐步落地。
+> 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；M2-1b 文件监听 / 订阅 / 补拉已实施，详见 §12；M2-2 文件编辑与结果卡片已实施，详见 §13；M2-3 命令执行后端已实施，详见 §14；后续接口仍按任务逐步落地。
 
 ## 1. 共同约定
 
@@ -226,3 +226,35 @@ WebSocket 输入最大 1 MiB，控制消息串行处理且待处理最多 64 条
 `tool.completed` 增可选 `resourceTarget: { kind: "file", scope: { projectId } | { sessionId }, path, version? }`，当前由成功 apply_patch 的真实执行上下文 / 结果生成；模型不能选择授权 scope。目标不含正文 / 绝对路径 / 执行命令。卡片在工具组折叠时也可点击；点击只重新授权读取并打开 / 聚焦文件，不重复执行修改。文件已变化则打开当前版本并提示，已失效 / 无权访问显示错误。
 
 无 REST 路径、数据库迁移、配置键、认证 / IPC 或依赖变更；Monaco / Query / Zustand 复用已冻结依赖。完整资源布局 schema 升级及其他资源窗口在 M2-6，不将文件接线视为终端 / Git / 服务已完成。
+
+## 14. M2-3 命令执行后端（2026-11-03）
+
+本任务只接执行底座、授权状态 / 输出 / 取消 API 及 command 状态订阅 / 补拉；`run_command` 工具注册、风险 / 审批接线和实时卡片由 M2-3b 实施。不开放 POST `/api/commands`，没有通用 Web 执行入口。内部执行上下文必须来自真实 session / Turn / 活动客户端，提供授权断言、policySnapshotId、toolCallId、剩余预算及可选 AbortSignal；scope 由会话归属推导，不能由模型指定。
+
+### 参数、锁与状态
+
+- 参数沿 §3：executable、args、cwd、timeoutMs；严格拒绝 env 等额外字段。程序名最多 4096 字符，参数最多 256 个、每个最多 8192 字符，合计字符上限 65536；拒绝 NUL。cwd 为根内规范化相对目录，拒绝链接 / 越界 / 受保护运行数据，执行前重新核验。
+- 默认 120s / 最大 600s，启动前扣除准备耗时并取 Turn 剩余预算的较小值。到期开始有限停止流程，停止确认前保持冲突屏障；不把超时视为已停止。
+- resource_operations 的 kind 为 command.run，幂等键为真实 Turn ID + toolCallId 的 SHA-256，仍按实际 client_session_id + kind + key 唯一；参数哈希绑定会话、Turn、策略、根及规范化参数。相同执行复用记录 / 等待原执行，参数不同 CONFLICT；不同 Turn 可复用供应商的同名 toolCallId。没有活动 Runtime 的未完成记录返回 RESOURCE_UNAVAILABLE，不伪报运行或重启进程。
+- 先在事务内取共同根写锁、提交 PREPARED / CREATED、审计与递增序号，再准备输出与执行。command 的 operation.path 为 cwd，非文件操作的 expected_version / target_version 使用空字符串，不解释为文件版本。WRITING 在 spawn 前持久化；onSpawn 记录 RUNNING 和本代进程身份。状态 / 结果 / 序号事务提交后才广播。
+- 自有锁在执行期间续租，直到进程组确认停止、最终状态落库后释放；可验证并复用相同 Turn / canonical root 的有效 inheritedLock，不重复获取或代替 Turn 释放。续租失败、Turn 取消、AbortSignal 均先停止；未确认停止或最终状态提交失败保留 RECONCILIATION_REQUIRED，TTL 不能解除根冲突。
+
+### 进程与输出
+
+使用 Node spawn、shell:false 和独立 POSIX 进程组；环境仅继承 PATH / HOME / 临时目录 / locale / TERM，不继承 NODE_OPTIONS、管理环境或 SecretStore 明文。显式 Shell 由后续审批层按 L2 处理，执行器不宣称命令名白名单或 cwd 是沙箱。
+
+取消 / 超时先向本代受管组发 TERM，默认等待 300ms 后必要时 KILL，强制阶段轮询预算 2s（每次系统查询另有 2s 上限）。每次发信号前通过内存中的 PID / 启动时间 / 可执行文件快照复核本代成员；只在原组长仍存活时登记新增同组成员。组长退出后，必须仍有已登记成员匹配，不能只凭旧 PGID 发信号；无法确认归属时保守阻塞。这仍存在最后一次检查至发信号的竞态，不宣称原子进程身份。管道关闭额外等待有界 200ms。组 / 管道状态无法确认时返回 INTERRUPTED / STOP_UNCONFIRMED，输出标 truncated，保留根阻塞。主动脱组且关闭管道的主机进程不保证可追踪或约束；不能把进程组检查宣传为 OS 隔离。
+
+stdout / stderr 分别流式 UTF-8 解码、按已知秘密与敏感字段跨块脱敏，再输出 / 落盘；认证头、Cookie、JSON 引号与转义均覆盖。每路保留有限匹配尾部，已知秘密超过 64 Ki 字符时执行前失败关闭。合计脱敏数据最多 1 MiB，每块最多 16 KiB；超限持续排空但不继续存储。输出落盘为 `<dataDir>/logs/commands/<commandId>.jsonl`，wx / 0600、目录防链接，含框架元数据最多 2 MiB；触及任一限额标 truncated。正文 / 原始环境 / 原始参数 / 输出不进入 SQLite、状态事件或审计。
+
+### 查询、取消与恢复
+
+- GET `/api/commands/:id` 返回 §3 的状态 DTO，不返回进程身份、参数正文或根绝对路径；查询和订阅均重新解析当前 scope 授权。
+- GET `/api/commands/:id/output?after=&limit=` 返回 §6 输出页，after 默认 0、limit 默认 100 / 最大 500；未来游标 400。检测缺失 / 不连续 / 过期，resyncRequired=true；无可用记录时 nextCursor 推进到已知末尾，不伪造完整输出。
+- POST `/api/commands/:id/cancel` 接受空对象，校验 Cookie / Origin / CSRF，真正停止前再检查客户端。持久的 CANCELLING / 终态使重复取消收敛，不重复发信号；Idempotency-Key 可选并校验长度，返回当前状态。200 只表示请求得到处理，STOP_UNCONFIRMED 不代表停止成功。
+- WS `{ topic: "command", resourceId: commandId, after }` 订阅持久 command.status；未来 after 拒绝。GET `/api/resource-events` 已支持 commandId，复用 30 天保留 / 缺口语义。逐块 command.output 推送及 UI 在 M2-3b 接线，当前完整输出通过游标 GET 获取。
+- 输出最多保留 7 天；安全终态元数据 / command.run 幂等记录 30 天后清理，保留流序号。不清理活动记录或待对账屏障，不删除源码 / workspace。
+- 重启在监听前将未完成记录标 INTERRUPTED。仅 PREPARED 且无启动身份时可认定未启动并安全释放；WRITING 或已记录身份均保持 RECOVERY_UNCONFIRMED / 根阻塞，绝不按存储 PID 杀进程或重执行。未知情况由本机核实，后续恢复验收归 M2-7；本任务不新增强制解除接口。
+- Server / TUI 关闭停止当前 Runtime，再关数据库；浏览器断线、窗口隐藏不取消命令。实际支持范围仅为已测试 macOS；Windows 入口失败关闭，不宣称跨平台清理已完成。
+
+唯一新迁移为 0006_commands，新增 §7 command_executions 与 output_cursor（保存已知输出末游标以识别缺口）；不改已应用迁移 / 旧数据 / 配置 / IPC / 认证，未新增依赖。回退前排空受管进程并核实待对账项，保留新表、事件和用户源码，不做破坏性 down migration。

@@ -464,3 +464,5 @@ M2-1（2026-11-03）：文件与目录接口已落地；精确 scope、幂等、
 
 
 M2-1b（2026-11-03）：GET `/api/resource-events?streamId=&after=&limit=` 已落地，仅接受授权文件流，limit 默认 100 / 最大 500。返回 `{ items, currentSequence, resyncRequired }`；after 超前为 400，保留 30 天且不重置序号，缺口重取快照。文件 / 目录 GET 兼作手动刷新。完整恢复 / 背压语义见 [m2-resources §12](m2-resources.md#12-m2-1b-文件监听与事件恢复2026-11-03)。
+
+M2-3（2026-11-03）：GET `/api/commands/:id`、GET `/api/commands/:id/output?after=&limit=`、POST `/api/commands/:id/cancel` 已接现有认证守卫及资源授权；没有通用 POST `/api/commands`。资源事件补拉现也接受 commandId。参数、幂等、停止确认、输出缺口与保留见 [m2-resources §14](m2-resources.md#14-m2-3-命令执行后端2026-11-03)；Agent 创建与 UI 留在 M2-3b。

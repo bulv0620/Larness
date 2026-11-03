@@ -110,3 +110,10 @@ M2-2 / M2-3b 补文件结果 target 卡片，M2-4 / 4b 补精确执行身份 / �
 ## M2-2 落地补充
 
 FileWindow 在真实模式使用完整文件 Query，草稿为内存 text / baseVersion；布局仅存文件目标与身份。授权打开后 realPath 去重，跨来源更新分组而非复制正文。文件 / 目录监听失效、有限补拉与手动刷新使用 M2-1b 后端；脏 Tab 始终以草稿版本提交。Diff 明确重载 / 手工合并，不静默覆盖；保存失败与资源失效保留草稿。Monaco 模型按文件保留，Diff 在卸载时先脱离再释放模型。已有成功 apply_patch 事件附结构化文件 target；点击重新授权打开，不重新执行。无新迁移 / 依赖 / 配置，契约细节见 m2-resources §13。
+
+
+## M2-3 实施记录（2026-11-03）
+
+CommandManager 以真实 session / Turn / 活动客户端上下文执行，scope 不从模型参数接收。自有锁与 inherited Turn 锁共用根冲突 / fencing，执行意图先提交，再 spawn；结果与事件 seq 同事务，提交失败保持恢复屏障。执行器 shell:false、过滤环境、有界 UTF-8 跨块脱敏输出，按内存进程启动快照复核后 TERM→KILL；身份或管道无法确认不释放根。启动恢复只对账，不向持久 PID 发信号。
+
+新增唯一 0006_commands 迁移，command_executions 与既有 resource_operations 协作；输出落受限数据目录日志，7 天正文 / 30 天安全终态元数据，流序号保留。授权状态 / 输出 / 取消 REST、command.status WS / REST 补拉已接入；工具注册、审批和卡片属 M2-3b。本任务没有新依赖 / 配置 / 认证协议或 UI。契约见 m2-resources §14，验证与平台边界见 acceptance.md。

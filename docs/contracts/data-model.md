@@ -222,3 +222,5 @@ M2-1（2026-11-03）：0005_resources 已落地四张资源表和 resource_locks
 
 
 M2-1b（2026-11-03）：沿用 0005_resources，无新迁移。resource_events 按 created_at 保留 30 天，清理不删除 resource_streams.last_seq；清空历史后继续递增，补拉遇缺口要求刷新。watcher 快照 / 句柄 / 连接引用仅驻内存，不持久化正文。详见 [资源契约 §12](m2-resources.md#12-m2-1b-文件监听与事件恢复2026-11-03)。
+
+M2-3（2026-11-03）：0006_commands 唯一新增 command_executions，operation_id 唯一外键指向共同 resource_operations；保存项目 / 独立 workspace / session / Turn / toolCall / policy、参数哈希、状态、退出信息、有限进程身份与 output_cursor，原始参数 / 环境 / 输出不入库。command.run 复用共同根锁与写意图，Turn + toolCall 派生幂等键；文件版本字段为空且不参与命令语义。输出 7 天、安全终态元数据 30 天，未知执行屏障不清除；回滚保留新表 / 数据。详见 [资源契约 §14](m2-resources.md#14-m2-3-命令执行后端2026-11-03)。

@@ -1,6 +1,8 @@
 import { EventEmitter } from "node:events";
 import { FileManagerError } from "@larness/resources";
 import {
+  CommandIdSchema,
+  CommandStatusPayloadSchema,
   FileChangedPayloadSchema,
   FileResyncPayloadSchema,
   type FileScope,
@@ -9,6 +11,7 @@ import {
   type ServerEvent,
 } from "@larness/shared";
 import type { Database } from "../../db/client.js";
+import { commandRow } from "../commands/repository.js";
 import { assertFileScopeMetadata, resolveFileScope } from "../files/scope.js";
 import { type ResourceEventRow, readResourceEvents, resourceSequence } from "./repository.js";
 
@@ -20,6 +23,20 @@ export function fileStreamScope(streamId: string): FileScope {
   return kind === "project" ? { projectId: id } : { sessionId: id };
 }
 export function resourceEventDto(row: ResourceEventRow): ServerEvent {
+  if (CommandIdSchema.safeParse(row.streamId).success && row.type === "command.status") {
+    return {
+      kind: "event",
+      protocolVersion: 1,
+      topic: "command",
+      eventId: row.id,
+      streamId: row.streamId,
+      resourceId: row.streamId,
+      sequence: row.seq,
+      timestamp: row.createdAt,
+      type: row.type,
+      payload: CommandStatusPayloadSchema.parse(JSON.parse(row.payloadJson)),
+    };
+  }
   const scope = fileStreamScope(row.streamId);
   const payload =
     row.type === "file.changed"
@@ -61,15 +78,25 @@ export class ResourceEventBus {
     }
   }
 }
+export async function resolveResourceStreamScope(db: Database, dataDir: string, streamId: string) {
+  if (CommandIdSchema.safeParse(streamId).success) {
+    const row = commandRow(db, streamId);
+    if (!row) throw new FileManagerError("NOT_FOUND", "Command not found");
+    return resolveFileScope(
+      db,
+      dataDir,
+      row.projectId
+        ? { projectId: row.projectId }
+        : { sessionId: row.workspaceSessionId ?? row.sessionId },
+    );
+  }
+  return resolveFileScope(db, dataDir, fileStreamScope(streamId));
+}
 export async function listResourceEvents(
   options: { db: Database; dataDir: string; now?: () => number },
   input: { streamId: string; after: number; limit: number },
 ) {
-  const scope = await resolveFileScope(
-    options.db,
-    options.dataDir,
-    fileStreamScope(input.streamId),
-  );
+  const scope = await resolveResourceStreamScope(options.db, options.dataDir, input.streamId);
   assertFileScopeMetadata(options.db, scope);
   const currentSequence = resourceSequence(options.db, input.streamId);
   if (input.after > currentSequence)

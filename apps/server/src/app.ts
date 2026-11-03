@@ -4,6 +4,7 @@ import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { registerApprovalRoutes } from "./api/approvals.js";
 import { registerAuthRoutes } from "./api/auth.js";
 import { registerBootstrapRoutes } from "./api/bootstrap.js";
+import { registerCommandRoutes } from "./api/commands.js";
 import { registerFileRoutes } from "./api/files.js";
 import { registerFsRoutes } from "./api/fs.js";
 import { registerHealthRoute } from "./api/health.js";
@@ -19,6 +20,7 @@ import type { Database } from "./db/client.js";
 import { appendAudit } from "./db/repositories/audit.js";
 import { type DevWebOptions, registerDevWeb } from "./dev-web/routes.js";
 import { registerErrorHandler } from "./errors.js";
+import { CommandManager } from "./modules/commands/manager.js";
 import { knownCredentialGuard } from "./modules/files/credentials.js";
 import { FileWatchManager } from "./modules/files/watcher.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
@@ -36,6 +38,8 @@ export interface AppServices {
   csrfKey: Buffer;
   secretStore?: SecretStore;
   turnControls?: TurnControls;
+  commands?: CommandManager;
+  resourceEvents?: ResourceEventBus;
 }
 
 export interface CreateAppOptions {
@@ -81,7 +85,16 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   }
 
   if (options.services) {
-    const resourceEvents = new ResourceEventBus();
+    const resourceEvents = options.services.resourceEvents ?? new ResourceEventBus();
+    const commands =
+      options.services.commands ??
+      new CommandManager({
+        db: options.services.db,
+        dataDir: options.services.dataDir,
+        events: resourceEvents,
+        secretStore: options.services.secretStore,
+        idleTtlMinutes: options.services.config.auth.idleTtlMinutes,
+      });
     const fileWatches = new FileWatchManager({
       db: options.services.db,
       dataDir: options.services.dataDir,
@@ -89,6 +102,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       checkMetadata: knownCredentialGuard(options.services.db, options.services.secretStore),
     });
     app.addHook("onClose", async () => {
+      await commands.close();
       await fileWatches.close();
     });
     registerAuthRoutes(app, options.services);
@@ -100,6 +114,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     }
     registerApprovalRoutes(app, { db: options.services.db });
     registerFsRoutes(app);
+    registerCommandRoutes(app, options.services, commands);
     registerFileRoutes(app, options.services, resourceEvents);
     registerResourceEventRoutes(app, options.services);
     registerProjectRoutes(app, { db: options.services.db });

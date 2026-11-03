@@ -20,9 +20,11 @@ import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
+import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileOperations } from "../modules/files/service.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
+import { ResourceEventBus } from "../modules/resources/events.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import { SecretStore } from "../security/secretStore.js";
 import { SERVER_VERSION } from "../version.js";
@@ -58,6 +60,7 @@ export interface RunningServer {
   logger: Logger;
   shutdown: Shutdown;
   turnQueue: TurnQueue | null;
+  commands: CommandManager;
 }
 
 function createDefaultProviderResolver(db: Database, secretStore: SecretStore): ProviderResolver {
@@ -116,6 +119,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   let ipc: IpcServer | null = null;
   let app: FastifyInstance | null = null;
   let turnQueue: TurnQueue | null = null;
+  let commandManager: CommandManager | null = null;
   let requestShutdown: ((reason: string) => void) | null = null;
 
   try {
@@ -162,6 +166,16 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
     const secretStore = await SecretStore.open(dataDir, listEncryptedSecrets(opened.db));
     await reconcileFileOperations({ db: opened.db, dataDir });
+    const resourceEvents = new ResourceEventBus();
+    const commands = new CommandManager({
+      db: opened.db,
+      dataDir,
+      events: resourceEvents,
+      secretStore,
+      idleTtlMinutes: loaded.config.auth.idleTtlMinutes,
+    });
+    commandManager = commands;
+    await commands.recover();
     ensureDefaultModelProfiles(opened.db);
 
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger: activeLogger });
@@ -210,6 +224,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         webAuthn: loaded.webAuthn,
         csrfKey,
         secretStore,
+        commands,
+        resourceEvents,
         ...(turnQueue === null
           ? {}
           : {
@@ -298,6 +314,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       logger: activeLogger,
       shutdown,
       turnQueue,
+      commands,
     };
   } catch (error) {
     logger?.error({ err: error }, "server failed to start");
@@ -309,11 +326,12 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     cleanup?.stop();
     await logRetention?.stop();
 
-    if (database !== null) {
-      database.close();
-    }
+    await commandManager?.close();
     if (app !== null) {
       await app.close().catch(() => undefined);
+    }
+    if (database !== null) {
+      database.close();
     }
     if (lock !== null) {
       await releaseInstanceLock(lock).catch(() => undefined);

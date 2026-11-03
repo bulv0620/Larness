@@ -115,7 +115,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 ## 5. M2 开发资源与窗口层（M2-2 待 review）
 
-2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。2026-11-03 人类在阅读 [PoC 证据](030-dev-resources/poc.md) 后明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b 已获人类“下一步”确认并标 done；M2-2 已实现待 review，M2-3 起均 todo。
+2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。2026-11-03 人类在阅读 [PoC 证据](030-dev-resources/poc.md) 后明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 已获人类“下一步”或“继续”确认并标 done；M2-3 已实现待 review，M2-3b 起均 todo。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
@@ -123,8 +123,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M2-0 | 原生 PTY、进程清理、文件与锁边界 PoC | G1 / 015 / 016 / 017 done；G-Spec-M2 / ADR-029 | `done` |
 | M2-1 | FileManager、写锁与资源持久化底座 | M2-0；G-PoC-M2 | `done` |
 | M2-1b | 文件监听与资源事件补拉 | M2-1 | `done` |
-| M2-2 | Monaco 编辑、多 Tab 与冲突恢复 | M2-1b | `review` |
-| M2-3 | CommandRunner 与受管进程协调 | M2-2 | `todo` |
+| M2-2 | Monaco 编辑、多 Tab 与冲突恢复 | M2-1b | `done` |
+| M2-3 | CommandRunner 与受管进程协调 | M2-2 | `review` |
 | M2-3b | Agent 命令工具、预算、取消与输出 UI | M2-3 | `todo` |
 | M2-4 | TerminalManager、PTY 与输入租约 | M2-3b | `todo` |
 | M2-4b | xterm 真实交互与双客户端观察 | M2-4 | `todo` |

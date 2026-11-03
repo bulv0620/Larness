@@ -11,7 +11,7 @@ updated: 2026-11-03
 
 # M2 开发资源与窗口层
 
-> 2026-11-02 人类要求开始 M2，并明确“按最新spec来”；G-Spec-M2 / ADR-029 已批准。2026-11-03 人类明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b 已验收，M2-2 已实现待 review，后续任务未启动。配套：[plan](plan.md)、[tasks](tasks.md)、[review](review.md)、[资源契约](../../docs/contracts/m2-resources.md)、[ADR-029](../../docs/adr/ADR-029-development-resource-execution.md)、[PoC 记录](poc.md)。
+> 2026-11-02 人类要求开始 M2，并明确“按最新spec来”；G-Spec-M2 / ADR-029 已批准。2026-11-03 人类明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 已验收，M2-3 命令执行后端已实现待 review，后续任务未启动。配套：[plan](plan.md)、[tasks](tasks.md)、[review](review.md)、[资源契约](../../docs/contracts/m2-resources.md)、[ADR-029](../../docs/adr/ADR-029-development-resource-execution.md)、[PoC 记录](poc.md)。
 
 ## 1. 背景与用户目标
 

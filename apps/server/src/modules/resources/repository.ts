@@ -9,7 +9,7 @@ import {
   resourceStreams,
 } from "../../db/schema.js";
 
-export function findOperation(db: DbExecutor, client: string, key: string) {
+export function findOperation(db: DbExecutor, client: string, key: string, kind = "file.save") {
   return (
     db
       .select()
@@ -17,7 +17,7 @@ export function findOperation(db: DbExecutor, client: string, key: string) {
       .where(
         and(
           eq(resourceOperations.clientSessionId, client),
-          eq(resourceOperations.kind, "file.save"),
+          eq(resourceOperations.kind, kind),
           eq(resourceOperations.idempotencyKey, key),
         ),
       )

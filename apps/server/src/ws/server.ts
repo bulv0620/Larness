@@ -3,6 +3,7 @@ import websocket from "@fastify/websocket";
 import { FileManagerError } from "@larness/resources";
 import {
   type AppConfig,
+  CommandSubscriptionSchema,
   FileSubscriptionSchema,
   type ServerEvent,
   type WebAuthnRuntime,
@@ -20,7 +21,11 @@ import {
   resolveFileScope,
 } from "../modules/files/scope.js";
 import type { FileWatchManager } from "../modules/files/watcher.js";
-import { fileStreamScope, type ResourceEventBus } from "../modules/resources/events.js";
+import {
+  fileStreamScope,
+  type ResourceEventBus,
+  resolveResourceStreamScope,
+} from "../modules/resources/events.js";
 import { resourceSequence } from "../modules/resources/repository.js";
 import { getSessionById } from "../modules/sessions/repository.js";
 import { sessionEvents } from "../security/session-events.js";
@@ -163,13 +168,13 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             return false;
           }
         };
-        const fileDenied = (code: string, message: string) => {
+        const fileDenied = (code: string, message: string, resourceType = "file") => {
           try {
             appendAudit(deps.db, {
-              action: "file.subscription.denied",
+              action: `${resourceType}.subscription.denied`,
               decision: "deny",
               clientSessionId: session.id,
-              resourceType: "file",
+              resourceType,
               details: { code, requestId: request.id },
             });
           } catch {
@@ -300,7 +305,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             }
 
             const accepted: Array<{
-              topic: "system" | "agent" | "file";
+              topic: "system" | "agent" | "file" | "command";
               resourceId: string;
               key: string;
               currentSequence: number;
@@ -331,6 +336,41 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
                   key: "system",
                   currentSequence: 0,
                 });
+                continue;
+              }
+              if (entry.topic === "command") {
+                const parsed = CommandSubscriptionSchema.safeParse(entry);
+                if (!parsed.success) {
+                  fileDenied("VALIDATION_ERROR", "invalid command subscription", "command");
+                  return;
+                }
+                try {
+                  const grant = await resolveResourceStreamScope(
+                    deps.db,
+                    deps.dataDir,
+                    parsed.data.resourceId,
+                  );
+                  if (closed || !sessionActive()) {
+                    socket.close(1008, "session expired");
+                    return;
+                  }
+                  assertFileScopeMetadata(deps.db, grant);
+                  const currentSequence = resourceSequence(deps.db, parsed.data.resourceId);
+                  if (parsed.data.after > currentSequence) {
+                    fileDenied("VALIDATION_ERROR", "event cursor is in the future", "command");
+                    return;
+                  }
+                  accepted.push({
+                    topic: "command",
+                    resourceId: parsed.data.resourceId,
+                    key: parsed.data.resourceId,
+                    currentSequence,
+                    grant,
+                  });
+                } catch {
+                  fileDenied("FORBIDDEN", "command subscription denied", "command");
+                  return;
+                }
                 continue;
               }
               if (entry.topic === "file") {
@@ -409,6 +449,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
 
             for (const entry of accepted) {
               subscriptions.add(entry.key);
+              if (entry.topic === "command" && entry.grant) fileGrants.set(entry.key, entry.grant);
               if (entry.topic === "file" && entry.grant && entry.paths) {
                 fileGrants.set(entry.key, entry.grant);
                 try {
@@ -448,6 +489,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
               for (const topic of message.topics) {
                 if (typeof topic === "string") {
                   subscriptions.delete(topic);
+                  fileGrants.delete(topic);
                   if (topic.startsWith("file:")) {
                     fileGrants.delete(topic);
                     deps.fileWatches.unsubscribe(owner, topic);

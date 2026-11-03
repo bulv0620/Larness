@@ -397,3 +397,34 @@ export type WebAuthnCredentialRow = typeof webauthnCredentials.$inferSelect;
 export type WebAuthnChallengeRow = typeof webauthnChallenges.$inferSelect;
 export type BrowserSessionRow = typeof browserSessions.$inferSelect;
 export type AuditLogRow = typeof auditLogs.$inferSelect;
+
+export const commandExecutions = sqliteTable(
+  "command_executions",
+  {
+    id: text("id").primaryKey(),
+    operationId: text("operation_id")
+      .notNull()
+      .references(() => resourceOperations.id),
+    projectId: text("project_id"),
+    workspaceSessionId: text("workspace_session_id"),
+    sessionId: text("session_id").notNull(),
+    turnId: text("turn_id").notNull(),
+    toolCallId: text("tool_call_id").notNull(),
+    policySnapshotId: text("policy_snapshot_id").notNull(),
+    paramsHash: text("params_hash").notNull(),
+    status: text("status").$type<import("@larness/shared").CommandStatus>().notNull(),
+    exitCode: integer("exit_code"),
+    reasonCode: text("reason_code"),
+    truncated: integer("truncated", { mode: "boolean" }).notNull().default(false),
+    processIdentityJson: text("process_identity_json"),
+    outputCursor: integer("output_cursor").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+    startedAt: integer("started_at"),
+    endedAt: integer("ended_at"),
+  },
+  (table) => [
+    uniqueIndex("command_executions_operation").on(table.operationId),
+    index("command_executions_status").on(table.status),
+  ],
+);
+export type CommandExecutionRow = typeof commandExecutions.$inferSelect;
