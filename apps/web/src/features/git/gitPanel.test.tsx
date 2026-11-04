@@ -53,7 +53,7 @@ function renderPanel() {
   );
 }
 
-it("shows real Git status, stages selected paths and commits staged content", async () => {
+it("shows real Git status, stages explicit row paths and commits staged content", async () => {
   useWindowStore.setState({ windows: [], focusedId: null, lastFilters: {} });
   let staged = false;
   const fetchMock = vi.fn(async (url: string, options?: RequestInit) => {
@@ -84,20 +84,40 @@ it("shows real Git status, stages selected paths and commits staged content", as
   renderPanel();
   await waitFor(() => expect(screen.getAllByText("main").length).toBeGreaterThan(0));
   expect(screen.getByText("a.txt")).toBeVisible();
-  fireEvent.click(screen.getByLabelText("选择 a.txt"));
-  fireEvent.click(screen.getByRole("button", { name: /暂存选中/ }));
+  expect(screen.getByRole("button", { name: /提交已暂存/ })).toBeDisabled();
+  expect(screen.queryByLabelText("新分支名")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "管理分支" }));
+  expect(screen.getByLabelText("切换分支")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "关闭分支管理" }));
+  fireEvent.click(screen.getByRole("button", { name: "查看差异 a.txt" }));
+  expect(useWindowStore.getState().windows[0]?.tabs[0]).toMatchObject({
+    projectId,
+    git: { path: "a.txt", staged: false },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "暂存 a.txt" }));
   await waitFor(() =>
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/git/actions"),
       expect.anything(),
     ),
   );
-  await waitFor(() => expect(screen.getByText("staged")).toBeVisible());
+  await waitFor(() => expect(screen.getByText("已暂存")).toBeVisible());
+  const stagedRequest = fetchMock.mock.calls.find(
+    ([url, options]) =>
+      url.includes("/git/actions") && JSON.parse(String(options?.body)).action === "add",
+  );
+  expect(JSON.parse(String(stagedRequest?.[1]?.body))).toEqual({ action: "add", paths: ["a.txt"] });
   fireEvent.change(screen.getByLabelText("提交信息"), { target: { value: "commit from ui" } });
   fireEvent.click(screen.getByRole("button", { name: /提交已暂存/ }));
-  await waitFor(() =>
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/execute"))).toBe(true),
+  await waitFor(() => expect(screen.getByLabelText("提交信息")).toHaveValue(""));
+  const commitRequest = fetchMock.mock.calls.find(
+    ([url, options]) =>
+      url.includes("/git/actions") && JSON.parse(String(options?.body)).action === "commit",
   );
+  expect(JSON.parse(String(commitRequest?.[1]?.body))).toEqual({
+    action: "commit",
+    message: "commit from ui",
+  });
 });
 
 it("creates a pull/push plan, approves it once and executes the approved action", async () => {

@@ -449,3 +449,5 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - M2-24 完成：三种文档窗口关闭全部 Tab（确认/草稿保护），所有最小化共用 200ms 收起动画/减少动态兼容；16 项组件和状态测试、Web 类型/Biome/diff 通过，待统一验收。
 - M2-25 in_progress：task/m2-25-autonomous-policy；风险确认后的完全自主策略，新 Turn 快照、后端执行与必要边界测试。
 - M2-25 完成：完全自主盾牌/风险确认，后端 autonomous 枚举/策略/Turn快照接入；Agent 7、Server 15、Web 10项及三包类型/Biome/diff通过。仍有鉴权/范围/锁/租约/审计与秘密保护，待用户统一安全验收。
+- M2-26 in_progress：task/m2-26-compact-git，文件/Git互斥展开、Git目录树/行暂存和底部操作栏。
+- M2-26 完成：互斥 flex 分区/折叠动画，Git提交区/分组目录树/行暂存/底部推拉分支刷新，非仓库灰占位；6项相关测试及Web类型/Biome/diff通过。四项均为实现完成待统一验收，README/G2未改，不合并/push。

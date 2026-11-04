@@ -1,19 +1,11 @@
-import { Files, GitBranch } from "lucide-react";
-import { Fragment } from "react";
+import { ChevronDown, Files, GitBranch } from "lucide-react";
+import { useState } from "react";
 import { FileTreePanel } from "@/components/sections/FileTreePanel";
 import { GitPanel } from "@/components/sections/GitPanel";
-import { ResizableSection } from "@/components/sections/ResizableSection";
-import { SectionSplitter } from "@/components/sections/SectionSplitter";
-import { useSectionResizer } from "@/components/sections/useSectionResizer";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
-
-const initialSections = [
-  { id: "files", title: "文件", size: 0.65, expanded: true },
-  { id: "git", title: "Git", size: 0.35, expanded: true },
-];
 
 const icons = {
   files: Files,
@@ -27,18 +19,11 @@ export function ProjectResourceSidebar() {
   const resourceWidth = useNavigationStore((state) => state.resourceWidth);
   const project = data.projects.find((item) => item.id === projectId) ?? null;
   const projectChanges = projectId === "prj_larness" ? data.gitChanges : [];
-  const { sections, containerRef, toggle, onPointerDown, equalize, nudge } =
-    useSectionResizer(initialSections);
-
+  const [expanded, setExpanded] = useState<string | null>("files");
   const counts = {
     files: USE_MOCKS ? (projectId === "prj_larness" ? 22 : 0) : undefined,
-    git: projectChanges.length,
+    git: USE_MOCKS ? projectChanges.length : undefined,
   };
-
-  const expandedTotal = Math.max(
-    0.0001,
-    sections.reduce((sum, section) => sum + (section.expanded ? section.size : 0), 0),
-  );
 
   const renderPanel = (id: string) => {
     if (id === "files") return <FileTreePanel projectId={projectId} />;
@@ -60,37 +45,42 @@ export function ProjectResourceSidebar() {
         </span>
       </div>
 
-      <div ref={containerRef} className="flex min-h-0 flex-1 flex-col px-2 pb-2">
-        {sections.map((section, index) => {
-          const next = sections[index + 1];
+      <div className="flex min-h-0 flex-1 flex-col px-2 pb-2">
+        {(["files", "git"] as const).map((id) => {
+          const Icon = icons[id];
+          const active = expanded === id;
           return (
-            <Fragment key={section.id}>
-              <ResizableSection
-                title={section.title}
-                icon={icons[section.id as keyof typeof icons]}
-                count={counts[section.id as keyof typeof counts]}
-                expanded={section.expanded}
-                size={section.size / expandedTotal}
-                onToggle={() => toggle(section.id)}
+            <section
+              key={id}
+              className="flex min-h-0 flex-col overflow-hidden transition-[flex-grow] duration-200 motion-reduce:transition-none"
+              style={{ flexGrow: active ? 1 : 0, flexBasis: 36, flexShrink: 0 }}
+            >
+              <button
+                type="button"
+                aria-expanded={active}
+                aria-controls={`resource-${id}`}
+                onClick={() => setExpanded(active ? null : id)}
+                className="flex h-9 shrink-0 items-center gap-2 rounded-lg px-2.5 text-left text-[11.5px] font-medium text-ink-2 hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
               >
-                {renderPanel(section.id)}
-              </ResizableSection>
-
-              {next?.expanded && section.expanded ? (
-                <SectionSplitter
-                  value={section.size / expandedTotal}
-                  onPointerDown={(event) => onPointerDown(index, event)}
-                  onDoubleClick={() => equalize(index)}
-                  onKeyDown={(event) => {
-                    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-                      event.preventDefault();
-                      const step = event.shiftKey ? 64 : 16;
-                      nudge(index, event.key === "ArrowDown" ? step : -step);
-                    }
-                  }}
+                <Icon size={14} className="text-ink-3" />
+                <span>{id === "files" ? "文件" : "Git"}</span>
+                {typeof counts[id] === "number" ? (
+                  <span className="rounded-full bg-surface-2 px-1.5 text-[10px]">{counts[id]}</span>
+                ) : null}
+                <ChevronDown
+                  size={13}
+                  className={`ml-auto text-ink-3 transition-transform duration-200 motion-reduce:transition-none ${active ? "" : "-rotate-90"}`}
                 />
-              ) : null}
-            </Fragment>
+              </button>
+              <div
+                id={`resource-${id}`}
+                inert={!active}
+                aria-hidden={!active}
+                className={`min-h-0 flex-1 overflow-auto transition-opacity duration-200 motion-reduce:transition-none ${active ? "opacity-100" : "opacity-0"}`}
+              >
+                {renderPanel(id)}
+              </div>
+            </section>
           );
         })}
       </div>

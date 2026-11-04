@@ -1,7 +1,18 @@
 import type { GitAction, GitActionView } from "@larness/shared";
 import { useQuery } from "@tanstack/react-query";
-import { GitBranch, GitCommitHorizontal, GitPullRequest, Loader2 } from "lucide-react";
-import { useState } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  GitBranch,
+  GitCommitHorizontal,
+  GitPullRequest,
+  Loader2,
+  Plus,
+  RefreshCw,
+  X,
+} from "lucide-react";
+import { useRef, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
 import {
   createGitAction,
@@ -10,6 +21,7 @@ import {
   readGitBranches,
   readGitStatus,
 } from "@/features/git/api";
+import { GitChangeTree } from "@/features/git/GitChangeTree";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useWindowStore } from "@/stores/windowStore";
@@ -22,7 +34,7 @@ const statusTone = {
 } as const;
 
 export function GitPanel({ projectId }: { projectId: string | null }) {
-  if (!USE_MOCKS) return <RealGitPanel projectId={projectId} />;
+  if (!USE_MOCKS) return <RealGitPanel key={projectId ?? "none"} projectId={projectId} />;
   return <DemoGitPanel projectId={projectId} />;
 }
 
@@ -32,8 +44,9 @@ function diffId(projectId: string, path: string) {
 
 function RealGitPanel({ projectId }: { projectId: string | null }) {
   const open = useWindowStore((state) => state.open);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [branchOpen, setBranchOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const running = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<GitActionView | null>(null);
@@ -55,7 +68,19 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
   if (projectId === null)
     return <p className="px-2 py-3 text-[10.5px] text-ink-3">暂无 Git 仓库</p>;
   if (status.isPending) return <p className="px-2 py-3 text-[10.5px] text-ink-3">读取 Git 状态…</p>;
-  if (status.isError) return <p className="px-2 py-3 text-[10.5px] text-ink-3">Git 暂不可用</p>;
+  if (status.isError && !status.data)
+    return (
+      <div className="px-2 py-3 text-[10.5px] text-ink-3">
+        <p className="text-ink-3">Git 暂不可用</p>
+        <button
+          type="button"
+          onClick={() => void status.refetch()}
+          className="mt-1 hover:text-accent"
+        >
+          重试
+        </button>
+      </div>
+    );
   const data = status.data;
   if (!data) return null;
   const changes = [
@@ -74,6 +99,8 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
     await Promise.all([status.refetch(), branches.refetch()]);
   };
   const run = async (action: () => Promise<void>) => {
+    if (running.current) return;
+    running.current = true;
     setBusy(true);
     setError("");
     try {
@@ -83,6 +110,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       setError(failure instanceof Error ? failure.message : "Git 操作失败");
       await refresh();
     } finally {
+      running.current = false;
       setBusy(false);
     }
   };
@@ -91,6 +119,8 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       const created = await createGitAction(projectId, action);
       const done = await executeGitAction(created.id);
       if (done.status !== "COMPLETED") throw new Error("Git 操作未完成，请重试核对。");
+      if (action.action === "commit") setMessage("");
+      if (action.action === "createBranch") setBranchName("");
     });
   const planL2 = (action: GitAction) =>
     run(async () => {
@@ -111,167 +141,199 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       setPending(result.status === "COMPLETED" || result.status === "FAILED" ? null : result);
       if (result.status !== "COMPLETED") throw new Error("Git 操作未完成，请核对状态后重试。");
     });
-  const unstagedPaths = [...data.unstaged.map((item) => item.path), ...data.untracked].filter(
-    (path) => selected.has(path),
-  );
-
+  const staged = changes.filter((item) => item.staged);
+  const worktree = [
+    ...new Map(changes.filter((item) => !item.staged).map((item) => [item.path, item])).values(),
+  ];
+  const disabled = busy || pending !== null || status.isError;
+  const openDiff = (change: { path: string; staged: boolean }) =>
+    open({
+      kind: "git-diff",
+      resourceId: diffId(projectId, change.path),
+      title: change.path.split("/").pop() ?? change.path,
+      projectId,
+      source: "project",
+      git: { path: change.path, staged: change.staged },
+    });
+  const commit = () => {
+    if (!disabled && message.trim() && staged.length)
+      void runL1({ action: "commit", message: message.trim() });
+  };
   return (
-    <div data-testid="git-panel" className="max-h-[420px] space-y-2 overflow-auto px-1.5 pb-2">
-      <div className="flex items-center gap-2 rounded-lg px-2 py-1.5">
-        <GitBranch size={13} className="text-ink-3" />
-        <span className="font-mono text-[10.5px] text-ink-2">{data.branch}</span>
-        <span className="truncate font-mono text-[9.5px] text-ink-3">
-          {data.upstream ?? "无上游"}
-        </span>
-        <span className="ml-auto shrink-0 rounded-full bg-surface-2 px-1.5 py-[1px] text-[9px] text-ink-3">
-          +{data.ahead}/-{data.behind}
-        </span>
-      </div>
-
-      <div className="space-y-px">
-        {changes.map((change) => {
-          const key = `${change.staged ? "staged" : "worktree"}:${change.path}`;
-          return (
-            <div
-              key={key}
-              className="flex items-center gap-1.5 rounded-md px-2 py-1 hover:bg-black/[.035] dark:hover:bg-white/[.05]"
-            >
-              {!change.staged && change.status !== "deleted" && change.status !== "conflicted" ? (
-                <input
-                  type="checkbox"
-                  aria-label={`选择 ${change.path}`}
-                  checked={selected.has(change.path)}
-                  onChange={() =>
-                    setSelected((old) => {
-                      const next = new Set(old);
-                      if (next.has(change.path)) next.delete(change.path);
-                      else next.add(change.path);
-                      return next;
-                    })
-                  }
-                  className="h-3 w-3"
-                />
-              ) : (
-                <span className="w-3" />
-              )}
-              <StatusDot tone={statusTone[change.status as keyof typeof statusTone] ?? "idle"} />
-              <button
-                type="button"
-                onClick={() =>
-                  open({
-                    kind: "git-diff",
-                    resourceId: diffId(projectId, change.path),
-                    title: change.path.split("/").pop() ?? change.path,
-                    projectId,
-                    source: "project",
-                    git: { path: change.path, staged: change.staged },
-                  })
-                }
-                className="min-w-0 flex-1 truncate text-left font-mono text-[10.5px] text-ink-2"
-              >
-                {change.path}
-              </button>
-              <span className="shrink-0 font-mono text-[9px] text-ink-3">
-                {change.staged ? "staged" : change.status}
-              </span>
-            </div>
-          );
-        })}
-        {!changes.length ? (
-          <p className="px-2 py-2 text-[10px] text-ink-3">工作区干净，没有可提交改动。</p>
-        ) : null}
-      </div>
-
-      <div className="flex items-center gap-2 px-2">
-        <button
-          type="button"
-          disabled={busy || unstagedPaths.length === 0}
-          onClick={() => runL1({ action: "add", paths: unstagedPaths })}
-          className="rounded border border-line px-2 py-1 text-[10px] disabled:opacity-45"
-        >
-          暂存选中 ({unstagedPaths.length})
-        </button>
-        <span className="text-[9.5px] text-ink-3">只加入显式路径</span>
-      </div>
-
-      <div className="space-y-1 px-2">
+    <div data-testid="git-panel" className="relative flex h-full min-h-0 flex-col px-1 pb-1">
+      <div className="shrink-0 space-y-2 px-1 pb-2">
         <textarea
           aria-label="提交信息"
           value={message}
+          disabled={busy}
           onChange={(event) => setMessage(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              commit();
+            }
+          }}
           rows={2}
-          placeholder="提交信息；只提交已暂存内容"
-          className="w-full resize-none rounded border border-line bg-surface px-2 py-1 text-[10.5px]"
+          placeholder="提交信息（⌘ / Ctrl + Enter）"
+          className="w-full resize-none rounded-lg border border-line bg-surface px-2.5 py-2 text-[11px] focus:border-accent focus:outline-none"
         />
         <button
           type="button"
-          disabled={busy || !message.trim() || data.staged.length === 0}
-          onClick={() => runL1({ action: "commit", message: message.trim() })}
-          className="w-full rounded border border-line px-2 py-1 text-[10px] disabled:opacity-45"
+          title="仅提交已暂存的更改"
+          aria-label={`提交已暂存 (${staged.length})`}
+          disabled={disabled || !message.trim() || !staged.length}
+          onClick={commit}
+          className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-accent text-[11px] font-medium text-white transition-opacity disabled:opacity-40"
         >
-          <GitCommitHorizontal size={11} className="mr-1 inline" />
-          提交已暂存 ({data.staged.length})
+          <Check size={14} />
+          提交
         </button>
       </div>
-
-      <div className="space-y-1 border-t border-line/80 px-2 pt-2">
-        <div className="flex items-center gap-1.5">
-          <select
-            aria-label="切换分支"
-            value={data.branch}
-            disabled={busy}
-            onChange={(event) => {
-              const name = event.target.value;
-              if (name !== data.branch) void runL1({ action: "switchBranch", name });
-            }}
-            className="min-w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 font-mono text-[10px]"
+      <div className="min-h-0 flex-1 overflow-auto">
+        {(
+          [
+            { title: "已暂存", rows: staged },
+            { title: "更改", rows: worktree },
+          ] as const
+        ).map((group) =>
+          group.rows.length ? (
+            <details key={group.title} open className="mb-1">
+              <summary className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-[11px] font-medium text-ink-2">
+                <span>{group.title}</span>
+                <span className="ml-auto rounded-full bg-accent-soft px-1.5 text-[10px] text-accent">
+                  {group.rows.length}
+                </span>
+              </summary>
+              <GitChangeTree
+                changes={group.rows}
+                disabled={disabled}
+                onOpen={openDiff}
+                onStage={(path) => void runL1({ action: "add", paths: [path] })}
+              />
+            </details>
+          ) : null,
+        )}
+        {!changes.length ? <p className="px-2 py-3 text-[11px] text-ink-3">工作区干净</p> : null}
+      </div>
+      <div
+        className="relative mt-1 flex shrink-0 items-center gap-1 border-t border-line px-1 pt-1.5 text-ink-3"
+        role="toolbar"
+        aria-label="Git 操作"
+      >
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label="管理分支"
+          title={data.upstream ?? "未设置上游"}
+          onClick={() => setBranchOpen((value) => !value)}
+          aria-expanded={branchOpen}
+          className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-[10.5px] hover:bg-surface-2 disabled:opacity-40"
+        >
+          <GitBranch size={13} />
+          <span className="truncate">{data.branch}</span>
+        </button>
+        <span className="shrink-0 font-mono text-[9px]" title="传入 / 传出提交">
+          ↓{data.behind} ↑{data.ahead}
+        </span>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label="拉取（仅快进）"
+          title="拉取（仅快进）"
+          onClick={() => void planL2({ action: "pull" })}
+          className="rounded p-1.5 hover:bg-surface-2 disabled:opacity-40"
+        >
+          <ArrowDown size={13} />
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label="推送"
+          title="推送"
+          onClick={() => void planL2({ action: "push" })}
+          className="rounded p-1.5 hover:bg-surface-2 disabled:opacity-40"
+        >
+          <ArrowUp size={13} />
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          aria-label="刷新 Git"
+          title="刷新 Git"
+          onClick={() => void run(async () => {})}
+          className="rounded p-1.5 hover:bg-surface-2 disabled:opacity-40"
+        >
+          <RefreshCw size={12} className={busy ? "animate-spin motion-reduce:animate-none" : ""} />
+        </button>
+        {branchOpen ? (
+          <section
+            aria-label="分支管理"
+            className="absolute bottom-full left-0 right-0 z-10 mb-2 space-y-2 rounded-xl border border-line bg-surface p-3 shadow-lg"
           >
-            {(branches.data ?? []).map((branch) => (
-              <option key={branch.name} value={branch.name}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
-          <span className="text-[9px] text-ink-3">本地</span>
-        </div>
-        <div className="flex gap-1">
-          <input
-            aria-label="新分支名"
-            value={branchName}
-            onChange={(event) => setBranchName(event.target.value)}
-            placeholder="新分支名"
-            className="min-w-0 flex-1 rounded border border-line bg-surface px-1 py-0.5 font-mono text-[10px]"
-          />
-          <button
-            type="button"
-            disabled={busy || !branchName.trim()}
-            onClick={() => runL1({ action: "createBranch", name: branchName.trim() })}
-            className="rounded border border-line px-1.5 py-0.5 text-[9.5px] disabled:opacity-45"
-          >
-            创建
-          </button>
-        </div>
-        <div className="flex gap-1">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => planL2({ action: "pull" })}
-            className="flex-1 rounded border border-line px-2 py-1 text-[10px] disabled:opacity-45"
-          >
-            <GitPullRequest size={10} className="mr-1 inline" />
-            拉取（仅快进）
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => planL2({ action: "push" })}
-            className="flex-1 rounded border border-line px-2 py-1 text-[10px] disabled:opacity-45"
-          >
-            推送
-          </button>
-        </div>
+            <div className="flex items-center justify-between text-[11px] font-medium text-ink-2">
+              分支
+              <button type="button" aria-label="关闭分支管理" onClick={() => setBranchOpen(false)}>
+                <X size={12} />
+              </button>
+            </div>
+            {branches.isError ? (
+              <p role="alert" className="text-[10px] text-danger">
+                分支读取失败，请刷新重试。
+              </p>
+            ) : null}
+            <select
+              aria-label="切换分支"
+              value={data.branch}
+              disabled={disabled || !branches.data}
+              onChange={(event) => {
+                const name = event.target.value;
+                if (name !== data.branch) void runL1({ action: "switchBranch", name });
+              }}
+              className="w-full rounded border border-line bg-surface px-2 py-1 text-[11px]"
+            >
+              {!branches.data?.some((item) => item.name === data.branch) ? (
+                <option value={data.branch}>{data.branch}</option>
+              ) : null}
+              {(branches.data ?? []).map((branch) => (
+                <option key={branch.name} value={branch.name}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+            <form
+              className="flex gap-1"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!disabled && branchName.trim())
+                  void runL1({ action: "createBranch", name: branchName.trim() });
+              }}
+            >
+              <input
+                aria-label="新分支名"
+                value={branchName}
+                onChange={(event) => setBranchName(event.target.value)}
+                placeholder="新分支名"
+                className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1 text-[11px]"
+              />
+              <button
+                type="submit"
+                aria-label="创建分支"
+                title="创建分支"
+                disabled={disabled || !branchName.trim()}
+                className="rounded border border-line px-2 disabled:opacity-40"
+              >
+                <Plus size={13} />
+              </button>
+            </form>
+          </section>
+        ) : null}
       </div>
 
+      {status.isError ? (
+        <p role="status" className="px-2 text-[10px] text-ink-3">
+          Git 状态读取失败，请刷新后继续。
+        </p>
+      ) : null}
       {busy ? (
         <p role="status" className="flex items-center gap-1 px-2 text-[10px] text-ink-3">
           <Loader2 size={11} className="animate-spin" /> 正在处理…
@@ -279,13 +341,13 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       ) : null}
       {error ? (
         <p role="alert" className="px-2 text-[10.5px] leading-4 text-danger">
-          {error}；仓库已重新读取，未自动 stash / merge / reset。
+          {error}
         </p>
       ) : null}
       {pending ? (
         <section
           aria-label="Git 操作审批"
-          className="space-y-1.5 rounded border border-warning/30 bg-warning/[.05] p-2"
+          className="max-h-56 shrink-0 space-y-1.5 overflow-auto rounded border border-warning/30 bg-warning/[.05] p-2"
         >
           <div className="flex items-center gap-2 text-[10.5px] font-medium text-ink">
             <span>Git 操作审批</span>
