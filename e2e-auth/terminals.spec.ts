@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
@@ -29,6 +30,39 @@ async function pair(page: Page) {
   await expect(page.getByTestId("workspace-home")).toBeVisible();
 }
 
+async function prepareProject(page: Page, other: Page): Promise<string> {
+  const root = mkdtempSync(path.join(tmpdir(), "larness-terminal-e2e-"));
+  await page.getByRole("button", { name: "添加项目" }).click();
+  await page.getByLabel("项目目录").fill(root);
+  await page.getByRole("dialog").getByRole("button", { name: "添加项目" }).click();
+  await page.getByRole("button", { name: `在 ${path.basename(root)} 中新建会话` }).click();
+  await other.reload();
+  await other.getByRole("button", { name: `在 ${path.basename(root)} 中新建会话` }).click();
+  return root;
+}
+async function cleanupTerminalProject(page: Page, root: string): Promise<void> {
+  const cleaned = await page
+    .evaluate(async (rootPath) => {
+      const auth = await (await fetch("/api/auth/session")).json();
+      const headers = { "content-type": "application/json", "x-csrf-token": auth.csrfToken };
+      const projects = await (await fetch("/api/projects")).json();
+      const project = projects.projects.find(
+        (item: { rootPath: string }) => item.rootPath === rootPath,
+      );
+      if (!project) return true;
+      const rows = await (await fetch(`/api/terminals?projectId=${project.id}&limit=200`)).json();
+      for (const row of rows.items)
+        await fetch(`/api/terminals/${row.id}/terminate`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ confirmed: true }),
+        });
+      return (await fetch(`/api/projects/${project.id}`, { method: "DELETE", headers })).ok;
+    }, root)
+    .catch(() => false);
+  if (cleaned) rmSync(root, { recursive: true, force: true });
+}
+
 test("M2 terminals: two authenticated observers, exclusive input, replay and explicit tab termination", async ({
   page,
   browser,
@@ -36,6 +70,7 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
   test.setTimeout(90000);
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const other = await context.newPage();
+  let root = "";
   const errors: string[] = [];
   let creates = 0;
   for (const p of [page, other]) {
@@ -49,6 +84,7 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
     await page.setViewportSize({ width: 1440, height: 900 });
     await pair(page);
     await pair(other);
+    root = await prepareProject(page, other);
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await page
       .getByRole("dialog", { name: "终端", exact: true })
@@ -111,6 +147,7 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
     expect(creates).toBe(1);
     expect(errors).toEqual([]);
   } finally {
+    if (root) await cleanupTerminalProject(page, root);
     await context.close();
   }
 });
@@ -122,10 +159,12 @@ test("M2 terminal lease failures, expiry and logout preserve the PTY and permit 
   test.setTimeout(90000);
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const other = await context.newPage();
+  let root = "";
   try {
     await page.setViewportSize({ width: 1440, height: 900 });
     await pair(page);
     await pair(other);
+    root = await prepareProject(page, other);
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await page
       .getByRole("dialog", { name: "终端", exact: true })
@@ -186,6 +225,115 @@ test("M2 terminal lease failures, expiry and logout preserve the PTY and permit 
     await terminal.getByRole("button", { name: "终止终端" }).click();
     await expect(terminal).toContainText("已终止");
   } finally {
+    if (root) await cleanupTerminalProject(page, root);
     await context.close();
+  }
+});
+
+test("M2-9 project terminal rename, tab overflow and dock restoration", async ({ page }) => {
+  test.setTimeout(90000);
+  const root = mkdtempSync(path.join(tmpdir(), "larness-window-e2e-"));
+  let projectId = "";
+  try {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await pair(page);
+    await page.getByRole("button", { name: "添加项目" }).click();
+    await page.getByLabel("项目目录").fill(root);
+    await page.getByRole("dialog").getByRole("button", { name: "添加项目" }).click();
+    await page.getByRole("button", { name: `在 ${path.basename(root)} 中新建会话` }).click();
+    projectId = await page.evaluate(async (rootPath) => {
+      const data = await (await fetch("/api/projects")).json();
+      return (
+        data.projects.find((item: { rootPath: string }) => item.rootPath === rootPath)?.id ?? ""
+      );
+    }, root);
+    expect(projectId).not.toBe("");
+    await expect(page.locator("header").getByRole("button", { name: "打开终端窗口" })).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByLabel("项目资源", { exact: true }).getByRole("tab", { name: "终端" }),
+    ).toHaveCount(0);
+    await page.getByRole("button", { name: "打开终端窗口" }).click();
+    await page.getByRole("button", { name: "新建终端", exact: true }).click();
+    await page.getByRole("button", { name: "确认创建" }).click();
+    const terminal = page.getByTestId("live-terminal");
+    await expect(terminal).toHaveAttribute("data-terminal-id", /^term_/);
+    const id = (await terminal.getAttribute("data-terminal-id")) ?? "";
+    const first = page.getByRole("tab", { name: `Shell ${id.slice(-6)}`, exact: true });
+    await first.dblclick();
+    await page.getByLabel("终端名称", { exact: true }).fill("我的开发终端");
+    await page.getByLabel("终端名称", { exact: true }).press("Enter");
+    await expect(page.getByRole("tab", { name: "我的开发终端", exact: true })).toBeVisible();
+    await terminal.getByRole("button", { name: "获取输入权" }).click();
+    await expect(terminal).toContainText("你正在控制");
+    await terminal.locator(".xterm-helper-textarea").pressSequentially("pwd");
+    await terminal.locator(".xterm-helper-textarea").press("Enter");
+    await expect(terminal.getByRole("log")).toContainText(realpathSync(root));
+    await terminal.getByRole("button", { name: "释放输入权" }).click();
+    await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
+    await page.getByRole("button", { name: "打开终端窗口" }).click();
+    await expect(terminal).toHaveAttribute("data-terminal-id", id);
+    await page.reload();
+    await expect(page.getByRole("tab", { name: "我的开发终端", exact: true })).toBeVisible();
+    // Real terminals with long names exercise the same fixed-height strip without CSS mocks.
+    for (let index = 0; index < 7; index++) {
+      await page.getByRole("button", { name: "新建终端 Tab" }).click();
+      await page.getByRole("button", { name: "新建终端", exact: true }).click();
+      await page.getByRole("button", { name: "确认创建" }).click();
+      await expect(terminal).toHaveAttribute("data-terminal-id", /^term_/);
+      const currentId = (await terminal.getAttribute("data-terminal-id")) ?? "";
+      await page.getByRole("tab", { name: `Shell ${currentId.slice(-6)}`, exact: true }).dblclick();
+      await page
+        .getByLabel("终端名称", { exact: true })
+        .fill(`开发终端 ${index + 1} · frontend watch`);
+      await page.getByLabel("终端名称", { exact: true }).press("Enter");
+      await expect(
+        page.getByRole("tab", { name: `开发终端 ${index + 1} · frontend watch`, exact: true }),
+      ).toBeVisible();
+    }
+    const tabs = page.getByRole("tablist", { name: "窗口 Tab" });
+    await expect(tabs.getByRole("tab")).toHaveCount(8);
+    await expect(page.getByRole("button", { name: "向左滚动 Tab" })).toBeVisible();
+    const geometry = await tabs.evaluate((el) => ({
+      height: el.getBoundingClientRect().height,
+      innerHeight: el.clientHeight,
+      scroll: getComputedStyle(el).scrollbarWidth,
+      overflow: el.scrollWidth > el.clientWidth,
+    }));
+    expect(geometry).toEqual({ height: 32, innerHeight: 32, scroll: "none", overflow: true });
+    await tabs.evaluate((el) => {
+      el.scrollLeft = 0;
+    });
+    await page.getByRole("tab", { name: "我的开发终端", exact: true }).click();
+    await expect(terminal).toHaveAttribute("data-terminal-id", id);
+    await page.screenshot({ path: path.join(tmpdir(), "larness-m2-9-terminal-tabs.png") });
+    await page.getByRole("button", { name: "关闭 我的开发终端", exact: true }).click();
+    await expect(tabs.getByRole("tab")).toHaveCount(7);
+    expect(
+      await page.evaluate(
+        async (id) => (await (await fetch(`/api/terminals/${id}`)).json()).status,
+        id,
+      ),
+    ).toBe("TERMINATED");
+    await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
+    await page.screenshot({ path: path.join(tmpdir(), "larness-m2-9-dock.png") });
+  } finally {
+    const cleaned = await page
+      .evaluate(async (projectId) => {
+        if (!projectId) return false;
+        const session = await (await fetch("/api/auth/session")).json();
+        const headers = { "content-type": "application/json", "x-csrf-token": session.csrfToken };
+        const rows = await (await fetch(`/api/terminals?projectId=${projectId}&limit=200`)).json();
+        for (const row of rows.items)
+          await fetch(`/api/terminals/${row.id}/terminate`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ confirmed: true }),
+          });
+        return (await fetch(`/api/projects/${projectId}`, { method: "DELETE", headers })).ok;
+      }, projectId)
+      .catch(() => false);
+    if (cleaned) rmSync(root, { recursive: true, force: true });
   }
 });

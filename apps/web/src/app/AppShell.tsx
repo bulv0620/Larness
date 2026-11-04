@@ -10,13 +10,12 @@ import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useNewSession } from "@/lib/useNewSession";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useWindowStore } from "@/stores/windowStore";
+import { resourceScopeKey, useWindowStore, windowScopeKey } from "@/stores/windowStore";
 
 export function AppShell() {
-  const { data } = useSnapshot();
+  const { data, isPending, isError } = useSnapshot();
   const sessionId = useNavigationStore((state) => state.sessionId);
-  const draftSession = useNavigationStore((state) => state.draftSession);
-  const selectSession = useNavigationStore((state) => state.selectSession);
+  const reconcileWorkspace = useNavigationStore((state) => state.reconcileWorkspace);
   const sidebarCollapsed = useNavigationStore((state) => state.sidebarCollapsed);
   const sidebarWidth = useNavigationStore((state) => state.sidebarWidth);
   const resourceWidth = useNavigationStore((state) => state.resourceWidth);
@@ -42,21 +41,12 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (USE_MOCKS) return;
-    if (draftSession !== null && draftSession.id === sessionId) return;
-
-    if (data.sessions.length === 0) {
-      if (sessionId !== "") {
-        selectSession("", data.projects[0]?.id ?? null);
-      }
-      return;
-    }
-
-    if (!data.sessions.some((session) => session.id === sessionId)) {
-      const latest = [...data.sessions].sort((left, right) => right.updatedAt - left.updatedAt)[0];
-      if (latest) selectSession(latest.id, latest.projectId);
-    }
-  }, [data.projects, data.sessions, draftSession, selectSession, sessionId]);
+    if (USE_MOCKS || isPending || isError) return;
+    reconcileWorkspace(
+      data.projects.map((project) => project.id),
+      data.sessions,
+    );
+  }, [data.projects, data.sessions, isPending, isError, reconcileWorkspace]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -78,7 +68,16 @@ export function AppShell() {
 
       if (event.key === "Escape" && !modifier) {
         const state = useWindowStore.getState();
-        const top = state.windows.filter((win) => !win.minimized).sort((a, b) => b.z - a.z)[0];
+        const nav = useNavigationStore.getState();
+        const scope = resourceScopeKey(nav.projectId, nav.projectId ? null : nav.sessionId);
+        const top = state.windows
+          .filter(
+            (win) =>
+              !win.minimized &&
+              (windowScopeKey(win) === scope ||
+                (!nav.projectId && windowScopeKey(win) === "global")),
+          )
+          .sort((a, b) => b.z - a.z)[0];
         if (top) {
           event.preventDefault();
           state.hide(top.id);

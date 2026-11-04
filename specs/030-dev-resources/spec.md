@@ -11,6 +11,8 @@ updated: 2026-11-03
 
 # M2 开发资源与窗口层
 
+> 2026-11-04 人类指定的窗口 / 终端交互纠错以 [031 spec](../031-project-windows/spec.md) / ADR-031 为准，取代本文跨项目窗口筛选展示；G2 仍待验收。
+
 > 2026-11-02 人类要求开始 M2，并明确“按最新spec来”；G-Spec-M2 / ADR-029 已批准。2026-11-03 人类明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 / M2-3 / M2-3b 已验收，M2-4 PTY 与输入租约后端已确认，M2-4b 真实终端界面已实现待 review，后续任务未启动。配套：[plan](plan.md)、[tasks](tasks.md)、[review](review.md)、[资源契约](../../docs/contracts/m2-resources.md)、[ADR-029](../../docs/adr/ADR-029-development-resource-execution.md)、[PoC 记录](poc.md)。
 
 ## 1. 背景与用户目标

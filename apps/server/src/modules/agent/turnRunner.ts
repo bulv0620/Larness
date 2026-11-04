@@ -517,11 +517,11 @@ export class TurnRunner {
                 summary: "Project terminal context unavailable",
               };
             try {
-              const row = await this.#options.terminals.readProjectDev(
+              const row = await this.#options.terminals.readProjectTerminal(
                 parsed.data.terminalId,
                 session.projectId,
               );
-              const page = await this.#options.terminals.readProjectDevOutput(
+              const page = await this.#options.terminals.readProjectTerminalOutput(
                 parsed.data.terminalId,
                 session.projectId,
                 parsed.data.after,

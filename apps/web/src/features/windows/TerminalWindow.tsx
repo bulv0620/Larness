@@ -9,7 +9,7 @@ import type { WindowTab } from "@/lib/windowTypes";
 export function TerminalWindow({ tab }: { tab: WindowTab }) {
   if (!USE_MOCKS)
     return tab.resourceId === "terminal:empty" ? (
-      <TerminalPicker />
+      <TerminalPicker projectId={tab.projectId} sessionId={tab.sourceSessionId ?? undefined} />
     ) : (
       <LiveTerminalView key={tab.resourceId} id={tab.resourceId} />
     );

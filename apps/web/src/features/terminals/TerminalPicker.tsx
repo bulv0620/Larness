@@ -1,7 +1,7 @@
 import type { FileScope } from "@larness/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { queryClient, useSnapshot } from "@/lib/queries";
+import { queryClient } from "@/lib/queries";
 import { createTerminal, listTerminals, openTerminal, terminalTitle } from "./api";
 
 export function TerminalPicker({
@@ -11,10 +11,10 @@ export function TerminalPicker({
   projectId?: string | null;
   sessionId?: string;
 }) {
-  const { data: snapshot } = useSnapshot();
+  const scope = projectId ? { projectId } : sessionId ? { sessionId } : undefined;
   const query = useInfiniteQuery({
-    queryKey: ["terminals", "list"],
-    queryFn: ({ pageParam }) => listTerminals(pageParam),
+    queryKey: ["terminals", "list", projectId, sessionId],
+    queryFn: ({ pageParam }) => listTerminals(pageParam, scope),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     refetchInterval: 3000,
@@ -54,7 +54,7 @@ export function TerminalPicker({
         </button>
       </div>
       {query.isError ? <p role="alert">终端列表读取失败，请重试。</p> : null}
-      {!items.length ? <p className="text-ink-3">暂无终端；打开窗口不会创建进程。</p> : null}
+      {!items.length ? <p className="text-ink-3">暂无终端</p> : null}
       {items.map((item) => (
         <button
           className="block w-full rounded border border-line p-2 text-left hover:bg-surface-2"
@@ -63,11 +63,7 @@ export function TerminalPicker({
           aria-label={`打开终端 ${item.id}`}
           onClick={() => openTerminal(item)}
         >
-          <span>
-            {snapshot.projects.find((p) => p.id === item.projectId)?.name ??
-              (item.workspaceSessionId ? "独立会话" : "全局")}{" "}
-            · {terminalTitle(item)}
-          </span>
+          <span>{terminalTitle(item)}</span>
           <span className="ml-2 text-ink-3">{item.status}</span>
           <span className="block truncate text-ink-3">{item.cwd}</span>
         </button>
@@ -87,11 +83,7 @@ export function TerminalPicker({
           aria-label="创建终端确认"
           className="space-y-3 rounded border border-line bg-surface p-3"
         >
-          <p>
-            以 Larness 系统账户执行，项目目录不是沙箱。Shell
-            可访问主机文件和凭据，也可能并发修改源码。
-          </p>
-          <p>{confirmation.scope ? "在当前项目或独立会话工作区创建" : "在全局专用工作区创建"}</p>
+          <p>终端以本机账户运行，项目目录不是沙箱。</p>
           <button
             type="button"
             disabled={busy}

@@ -422,3 +422,11 @@ pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / �
 本地布局键仍为 `larness.windows.v2`，版本升到 3；迁移补 `viewKey` / `createdAt`、修正失效 activeTab、移除空窗口。真实模式迁移丢弃 `prj_larness`、Demo 终端 / 服务 / Browser、无 file 元数据的文件 Tab 与无 git 元数据的 Diff Tab；服务 / Browser 真实资源在 M3 前不显示假状态。Demo 模式保留旧 Tab。顶部真实模式只枚举文件 / 终端，已有窗口恢复 filter / activeTab / 最小化状态；不因恢复创建或终止资源。
 
 窗口 close / minimize、文件 / Diff 关闭不停止资源；终端 Tab 主动关闭仍走已确认 terminate。Git 区当前 3s 查询轮询，未新增 git WS 事件；其他资源事件保持既有订阅 / 补拉。验证覆盖 viewKey 去重、跨项目 Diff、布局迁移 / Demo 清理、既有文件 realpath 去重与终端关闭 / 恢复；仅 macOS Chromium。
+
+## 23. M2-9 项目窗口与终端交互（2026-11-04）
+
+- ADR-031 / specs/031-project-windows/spec.md 明确替代原跨项目展示；按项目浮栏恢复窗口，无 header 入口 / 项目筛选器。窗口关闭不关闭 Tab。
+- POST `/api/terminals/:id/rename`：`{ title: string }`，1–80 字符、trim 后非空、拒绝控制字符 / 已知 SecretStore 凭据；鉴权 / CSRF / scope 与既有终端相同。返回 Terminal DTO（新增 `title: string | null`），空值使用 role / Shell 短名。
+- 改名写入 `terminals.title`，不修改 role / 启动参数 / 去重身份；事务内写 terminal.status 事件与 terminal.renamed 审计，提交后广播；审计与事件 payload 不含名称。多客户端重新查询名称，不启动或停止进程。
+- Agent acquire / input / interrupt / release 与 read_terminal_output 可作用同项目手动 Shell 和 dev；stop_project_terminal 仍只停止 Agent dev。旧 generation / 跨项目 / 人工持权拒绝规则保留。Turn 上下文含最多 50 个当前项目 RUNNING 终端的 ID / 名称 / mode（标签视为不可信元数据，计入上下文预算），不自动获取输入权。
+- 数据迁移 0009_terminal_title 只新增 nullable title 列。旧名称默认 null，原资源和 lease 不变；无新依赖 / 配置 / 认证协议。回滚旧程序须保留扩展列，勿删除业务数据；布局 v4 仅本地视图拆分。

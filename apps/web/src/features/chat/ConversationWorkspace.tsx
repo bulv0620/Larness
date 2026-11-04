@@ -11,6 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal, PanelRight, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
+import { ResourceDock } from "@/components/windows/ResourceDock";
 import { Composer } from "@/features/chat/Composer";
 import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
 import { Timeline } from "@/features/chat/Timeline";
@@ -126,6 +127,7 @@ export function ConversationWorkspace() {
           className="pointer-events-none absolute inset-x-0 -top-5 h-5 bg-gradient-to-t from-canvas via-canvas/70 to-transparent"
         />
         <div className="relative mx-auto w-full max-w-[880px]">
+          <ResourceDock />
           <div className="mb-2 flex items-center gap-1.5 px-0.5 text-[10.5px] text-ink-3">
             <Sparkles size={11.5} className="text-accent" />
             <span className="font-medium text-ink-2">项目上下文</span>

@@ -59,6 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M2-9 `done`：2026-11-04，分支 `task/m2-9-project-windows`；项目窗口 / 浮栏 / Tab 滚动、终端名称与人工 Shell AI 控制、草稿刷新项目恢复完成。check（392 / 32 / 46）、build、Demo 15/15、生产终端 3/3；验收见 specs/031-project-windows/acceptance.md。下一步按人类确认实施共享默认工作区（旧独立会话文件保留）。
+
 - M2-8 测试修复 `done`：2026-11-04（+08:00），分支 `task/m2-8-git-approval-test`；修复 Git 审批组件测试在响应 / React 更新完成前查找执行按钮的竞态，保持审批行为；新增单次执行与面板关闭断言。针对性 2/2、check（server 389 / agent 32 / web 41）、build 通过。README 进度同步另行提交，G2 仍待人类。
 
 - 当前任务：M2-5b `done`，分支 `task/m2-5b-git-ui`。Git 资源区 / Diff / 选择性暂存与提交 / 分支 / pull / push 审批已交付；M2-6 未启动。

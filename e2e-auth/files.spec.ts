@@ -81,7 +81,7 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await replaceEditor(page, "unsaved draft\r\n");
     await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
     await expect(editor).toHaveCount(0);
-    await page.getByRole("button", { name: "打开文件窗口", exact: true }).click();
+    await page.getByRole("button", { name: "恢复 note.txt", exact: true }).click();
     await expect(editor).toBeVisible();
     await expect(page.locator(".view-lines").first()).toContainText("unsaved draft");
     let injectedConflict = false;
@@ -138,7 +138,7 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await page.getByRole("button", { name: "目录 sub", exact: true }).click();
     await page.getByRole("button", { name: "打开文件 child.txt", exact: true }).click();
     await expect(editor).toBeVisible();
-    await page.getByRole("button", { name: /^bom\.txt/ }).click();
+    await page.getByRole("tab", { name: /^bom\.txt/ }).click();
     await expect(page.locator(".view-lines").first()).toContainText("BOM draft");
     await page.getByRole("button", { name: "关闭 bom.txt", exact: true }).click();
     await confirm.getByRole("button", { name: "放弃改动", exact: true }).click();

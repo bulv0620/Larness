@@ -86,3 +86,71 @@ it("upgrades v6 without changing projects, lock fencing or existing resource str
     }
   });
 });
+
+it("adds nullable terminal names to a populated v8 database without changing resources or leases", async () => {
+  await withTempDir(async (dir) => {
+    const old = path.join(dir, "v8");
+    await cp(migrationsDirectory(), old, { recursive: true });
+    const journalPath = path.join(old, "meta", "_journal.json");
+    const journal = z
+      .object({ entries: z.array(z.object({ idx: z.number() }).passthrough()) })
+      .passthrough()
+      .parse(JSON.parse(await readFile(journalPath, "utf8")));
+    const complete = journal.entries;
+    journal.entries = complete.filter((entry) => entry.idx <= 8);
+    await writeFile(journalPath, JSON.stringify(journal));
+    const opened = openDatabase(path.join(dir, "db"));
+    try {
+      runMigrations(opened.db, old);
+      opened.sqlite
+        .prepare(
+          "INSERT INTO resource_operations (id, scope_key, root_real_path, kind, status, params_hash, idempotency_key, client_session_id, path, expected_version, target_version, lock_id, fencing_token, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .run(
+          "op_1",
+          "project:a",
+          dir,
+          "terminal.create",
+          "COMPLETED",
+          "hash",
+          "key",
+          "client",
+          ".",
+          "",
+          "",
+          "",
+          7,
+          1,
+          1,
+        );
+      opened.sqlite
+        .prepare(
+          "INSERT INTO terminals (id, operation_id, project_id, cwd, shell, mode, status, created_at, output_cursor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .run("term_legacy", "op_1", "project-a", dir, "/bin/sh", "shell", "EXITED", 1, 12);
+      opened.sqlite
+        .prepare(
+          "INSERT INTO terminal_leases (terminal_id, generation, input_sequence) VALUES (?, ?, ?)",
+        )
+        .run("term_legacy", 8, 3);
+      const before = opened.sqlite.prepare("SELECT * FROM terminals").get() as Record<
+        string,
+        unknown
+      >;
+      const leases = opened.sqlite.prepare("SELECT * FROM terminal_leases").all();
+      journal.entries = complete;
+      await writeFile(journalPath, JSON.stringify(journal));
+      runMigrations(opened.db, old);
+      expect(opened.sqlite.prepare("SELECT * FROM terminals").get()).toEqual({
+        ...before,
+        title: null,
+      });
+      expect(opened.sqlite.prepare("SELECT * FROM terminal_leases").all()).toEqual(leases);
+      runMigrations(opened.db, old);
+      expect(appliedMigrationCount(opened.sqlite)).toBe(9);
+      expect(opened.sqlite.pragma("foreign_key_check")).toEqual([]);
+    } finally {
+      opened.close();
+    }
+  });
+});

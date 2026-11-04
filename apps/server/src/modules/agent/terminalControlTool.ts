@@ -39,7 +39,7 @@ export function createTerminalControlTools(options: {
     defineTool({
       name: "acquire_terminal_control",
       description:
-        "Acquire exclusive input control of a project dev terminal for the current Turn. Fails if a human or another Turn currently controls it; do not try to force a human takeover. Release control or end the Turn to hand it back.",
+        "Acquire exclusive input control of a project terminal (human Shell or agent dev) for the current Turn. Fails if a human or another Turn currently controls it; do not try to force a human takeover. Release control or end the Turn to hand it back.",
       riskLevel: "L1",
       requiresProjectLock: false,
       schema: AcquireTerminalControlParamsSchema,
@@ -52,7 +52,7 @@ export function createTerminalControlTools(options: {
     defineTool({
       name: "send_terminal_input",
       description:
-        "Type bounded input into the controlled dev terminal. Requires the current agent lease generation and the next input sequence. Input is not logged; retries with the same sequence are not replayed. Use interrupt_terminal for Ctrl-C.",
+        "Type bounded input into the controlled project terminal. Requires the current agent lease generation and the next input sequence. Input is not logged; retries with the same sequence are not replayed. Use interrupt_terminal for Ctrl-C.",
       riskLevel: "L2",
       requiresProjectLock: false,
       schema: inputSchema,

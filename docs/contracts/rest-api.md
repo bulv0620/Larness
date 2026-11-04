@@ -470,3 +470,7 @@ M2-3（2026-11-03）：GET `/api/commands/:id`、GET `/api/commands/:id/output?a
 M2-3b（2026-11-03）：run_command 仅由已授权的 Agent Turn 创建；未增加 POST `/api/commands`。真实命令卡片复用既有状态 / 输出 GET 与空对象 cancel（Cookie / Origin / CSRF）；取消单个命令与取消整个 Turn 分开。刷新 / 重连读状态和输出游标，不重复创建资源；截断 / 过期 / 缺口与停止未确认均显示当前真实状态。见 [资源契约 §15](m2-resources.md#15-m2-3b-agent-命令与执行卡片2026-11-03)。
 
 M2-4（2026-11-03）：已实现 `/api/terminals` 列表 / 人工创建及 `/:id` 状态、output、lease、resize、terminate，全部沿既有 Cookie / Origin / CSRF 守卫；创建要求风险确认与 Idempotency-Key，输入连接 ID 由真实 WS 产生。新增 TERMINAL_LEASE_REQUIRED(409)，后端校验 generation / 连接 / scope，不以输入前端状态授权。终端进程与浏览器布局 / 输入租约独立；完整参数与失败 / 保留边界见 [资源契约 §16](m2-resources.md#16-m2-4-terminalmanager-与输入租约后端2026-11-03)。
+
+### M2-9 终端改名（2026-11-04）
+
+`POST /api/terminals/:id/rename`：已认证 + Origin / CSRF，body `{ title: string }`，返回新增 nullable title 的 Terminal DTO；1–80 字符、非空、无控制字符 / 已知秘密。失败使用 VALIDATION_ERROR / UNAUTHENTICATED / FORBIDDEN / RESOURCE_UNAVAILABLE，审计不记录标题正文。详见 m2-resources §23。

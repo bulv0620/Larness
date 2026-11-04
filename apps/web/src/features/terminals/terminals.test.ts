@@ -7,6 +7,7 @@ it("closing a real terminal window preserves its tabs for restoration", () => {
     kind: "terminal",
     resourceId: "term_00000000-0000-0000-0000-000000000000",
     title: "Shell",
+    projectId: "prj_1",
   });
   const win = useWindowStore.getState().windows[0];
   if (!win) throw new Error("Missing window");
@@ -22,6 +23,7 @@ it("inserts an agent terminal tab without taking focus or changing the active ta
     kind: "terminal",
     resourceId: "term_00000000-0000-0000-0000-000000000001",
     title: "Shell",
+    projectId: "prj_1",
   });
   const before = useWindowStore.getState();
   const activeTab = before.windows[0]?.activeTabId;

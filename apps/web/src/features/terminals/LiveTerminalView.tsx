@@ -11,7 +11,15 @@ import { Terminal } from "@xterm/xterm";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { queryClient } from "@/lib/queries";
-import { ended, OutputSchema, readTerminal, terminalAction, terminalKey } from "./api";
+import { useWindowStore } from "@/stores/windowStore";
+import {
+  ended,
+  OutputSchema,
+  readTerminal,
+  terminalAction,
+  terminalKey,
+  terminalTitle,
+} from "./api";
 import "@xterm/xterm/css/xterm.css";
 
 const labels = {
@@ -29,6 +37,25 @@ export function LiveTerminalView({ id }: { id: string }) {
     queryFn: () => readTerminal(id),
     refetchInterval: 2000,
   });
+  const title = query.data ? terminalTitle(query.data) : null;
+  useEffect(() => {
+    if (title === null) return;
+    const state = useWindowStore.getState();
+    if (
+      !state.windows.some((win) =>
+        win.tabs.some((tab) => tab.resourceId === id && tab.title !== title),
+      )
+    )
+      return;
+    useWindowStore.setState({
+      windows: state.windows.map((win) => ({
+        ...win,
+        tabs: win.tabs.map((tab) =>
+          tab.resourceId === id && tab.title !== title ? { ...tab, title } : tab,
+        ),
+      })),
+    });
+  }, [id, title]);
   const snapshot = useRef(query.data);
   snapshot.current = query.data;
   const container = useRef<HTMLDivElement>(null);
@@ -373,16 +400,10 @@ export function LiveTerminalView({ id }: { id: string }) {
       <div className="flex flex-wrap items-center gap-3 border-b border-white/10 p-2 text-[11px]">
         <span role="status">{query.data ? labels[query.data.status] : "读取终端…"}</span>
         <span>{ours ? "你正在控制" : aiControlled ? "AI 控制中" : "只读观察"}</span>
-        {lease && lease.expiresAt > now ? (
-          <span>
-            {lease.ownerType === "agent"
-              ? "AI 控制"
-              : `持有者 ${lease.ownerClientSessionId.slice(-8)}`}{" "}
-            · 到期 {new Date(lease.expiresAt).toLocaleTimeString()}
-          </span>
-        ) : null}
         <button
           type="button"
+          aria-label={held ? "释放输入权" : aiControlled ? "接管控制" : "获取输入权"}
+          title={held ? "释放输入，允许 AI 获取控制" : "点击终端也可开始输入"}
           disabled={
             busy ||
             !connection ||
@@ -399,7 +420,7 @@ export function LiveTerminalView({ id }: { id: string }) {
             })
           }
         >
-          {held ? "释放输入权" : aiControlled ? "接管控制" : "获取输入权"}
+          {held ? "交给 AI" : aiControlled ? "接管控制" : "开始输入"}
         </button>
         <button
           type="button"
@@ -410,11 +431,6 @@ export function LiveTerminalView({ id }: { id: string }) {
         >
           终止终端
         </button>
-      </div>
-      <div className="truncate px-2 py-1 text-[10px] text-white/50">
-        {query.data?.cwd} · 源码写入：
-        {query.data ? (query.data.writeBlocked ? "占用或待恢复" : "未占用") : "未知"}
-        。终端不占源码写锁；Shell 写入不受该锁串行保护。
       </div>
       {query.data?.reasonCode ? (
         <p className="px-2 text-xs">状态原因：{query.data.reasonCode}</p>
@@ -437,6 +453,19 @@ export function LiveTerminalView({ id }: { id: string }) {
         role="application"
         aria-label="交互终端"
         className="min-h-0 flex-1 p-2"
+        onPointerDown={() => {
+          if (
+            !held &&
+            !aiControlled &&
+            connection &&
+            !busy &&
+            (!lease || lease.expiresAt <= Date.now()) &&
+            query.data?.status === "RUNNING"
+          )
+            void act(async () => {
+              await control.current?.acquire();
+            });
+        }}
       />
       <pre role="log" aria-label="终端输出" aria-live="off" className="sr-only">
         {log}

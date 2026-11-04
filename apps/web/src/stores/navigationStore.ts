@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { USE_MOCKS } from "@/lib/env";
 
 interface DraftSession {
   id: string;
@@ -17,6 +18,10 @@ interface NavigationState {
   mobileSidebarOpen: boolean;
   expandedProjects: Record<string, boolean>;
   focusComposerNonce: number;
+  reconcileWorkspace: (
+    projectIds: string[],
+    sessions: { id: string; projectId: string | null }[],
+  ) => void;
   selectSession: (sessionId: string, projectId: string | null) => void;
   startDraft: (projectId: string | null) => void;
   commitDraft: (sessionId: string, projectId: string | null) => void;
@@ -31,9 +36,9 @@ interface NavigationState {
 
 export const useNavigationStore = create<NavigationState>()(
   persist(
-    (set) => ({
-      projectId: "prj_larness",
-      sessionId: "ses_1",
+    (set, get) => ({
+      projectId: USE_MOCKS ? "prj_larness" : null,
+      sessionId: USE_MOCKS ? "ses_1" : "",
       draftSession: null,
       sidebarWidth: 268,
       resourceWidth: 340,
@@ -42,6 +47,29 @@ export const useNavigationStore = create<NavigationState>()(
       mobileSidebarOpen: false,
       expandedProjects: { prj_larness: true, prj_docs: true },
       focusComposerNonce: 0,
+
+      reconcileWorkspace: (projectIds, sessions) => {
+        const state = get();
+        const validProject = state.projectId === null || projectIds.includes(state.projectId);
+        if (
+          validProject &&
+          state.draftSession?.id === state.sessionId &&
+          state.draftSession.projectId === state.projectId
+        )
+          return;
+        const current = sessions.find((session) => session.id === state.sessionId);
+        if (current) {
+          if (current.projectId !== state.projectId || state.draftSession)
+            get().selectSession(current.id, current.projectId);
+          return;
+        }
+        const projectId = validProject ? state.projectId : null;
+        if (validProject && state.sessionId.startsWith("draft_")) {
+          set({ draftSession: { id: state.sessionId, projectId } });
+          return;
+        }
+        get().startDraft(projectId);
+      },
 
       selectSession: (sessionId, projectId) =>
         set({ sessionId, projectId, draftSession: null, mobileSidebarOpen: false }),
@@ -94,6 +122,7 @@ export const useNavigationStore = create<NavigationState>()(
       partialize: (state) => ({
         projectId: state.projectId,
         sessionId: state.sessionId,
+        draftSession: state.draftSession,
         sidebarWidth: state.sidebarWidth,
         resourceWidth: state.resourceWidth,
         sidebarCollapsed: state.sidebarCollapsed,

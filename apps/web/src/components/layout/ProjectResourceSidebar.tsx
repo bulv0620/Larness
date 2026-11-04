@@ -1,30 +1,24 @@
 import { cn } from "@larness/ui";
-import { Files, GitBranch, Server, SquareTerminal } from "lucide-react";
+import { Files, GitBranch } from "lucide-react";
 import { Fragment, useState } from "react";
 import { FileTreePanel } from "@/components/sections/FileTreePanel";
 import { GitPanel } from "@/components/sections/GitPanel";
 import { ResizableSection } from "@/components/sections/ResizableSection";
 import { SectionSplitter } from "@/components/sections/SectionSplitter";
-import { ServicesPanel } from "@/components/sections/ServicesPanel";
-import { TerminalsPanel } from "@/components/sections/TerminalsPanel";
 import { useSectionResizer } from "@/components/sections/useSectionResizer";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useNavigationStore } from "@/stores/navigationStore";
 
 const initialSections = [
-  { id: "files", title: "文件", size: 0.34, expanded: true },
-  { id: "services", title: "服务", size: 0.22, expanded: true },
-  { id: "terminals", title: "终端", size: 0.22, expanded: true },
-  { id: "git", title: "Git", size: 0.22, expanded: true },
+  { id: "files", title: "文件", size: 0.65, expanded: true },
+  { id: "git", title: "Git", size: 0.35, expanded: true },
 ];
 
-type ResourceView = "all" | "files" | "services" | "terminals" | "git";
+type ResourceView = "all" | "files" | "git";
 
 const icons = {
   files: Files,
-  services: Server,
-  terminals: SquareTerminal,
   git: GitBranch,
 } as const;
 
@@ -33,8 +27,6 @@ export function ProjectResourceSidebar() {
   const projectId = useNavigationStore((state) => state.projectId);
   const resourceWidth = useNavigationStore((state) => state.resourceWidth);
   const project = data.projects.find((item) => item.id === projectId) ?? null;
-  const projectServices = data.services.filter((service) => service.projectId === projectId);
-  const projectTerminals = data.terminals.filter((terminal) => terminal.projectId === projectId);
   const projectChanges = projectId === "prj_larness" ? data.gitChanges : [];
   const [view, setView] = useState<ResourceView>("all");
   const { sections, containerRef, toggle, onPointerDown, equalize, nudge } =
@@ -42,26 +34,12 @@ export function ProjectResourceSidebar() {
 
   const counts = {
     files: USE_MOCKS ? (projectId === "prj_larness" ? 22 : 0) : undefined,
-    services: projectServices.length,
-    terminals: USE_MOCKS ? projectTerminals.length : undefined,
     git: projectChanges.length,
   };
 
   const tabs: Array<{ id: ResourceView; label: string; count?: number; running?: boolean }> = [
     { id: "all", label: "全部" },
     { id: "files", label: "文件", count: counts.files },
-    {
-      id: "services",
-      label: "服务",
-      count: counts.services,
-      running: projectServices.some((service) => service.status === "running"),
-    },
-    {
-      id: "terminals",
-      label: "终端",
-      count: counts.terminals,
-      running: projectTerminals.some((terminal) => terminal.status === "running"),
-    },
     { id: "git", label: "Git", count: counts.git },
   ];
 
@@ -73,8 +51,6 @@ export function ProjectResourceSidebar() {
 
   const renderPanel = (id: string) => {
     if (id === "files") return <FileTreePanel projectId={projectId} />;
-    if (id === "services") return <ServicesPanel projectId={projectId} />;
-    if (id === "terminals") return <TerminalsPanel projectId={projectId} />;
     return <GitPanel projectId={projectId} />;
   };
 

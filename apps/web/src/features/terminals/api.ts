@@ -15,14 +15,15 @@ import { useWindowStore } from "@/stores/windowStore";
 
 export const terminalKey = (id: string) => ["terminals", "detail", id] as const;
 export const ended = (status: string) => ["EXITED", "TERMINATED", "INTERRUPTED"].includes(status);
-export const terminalTitle = (item: LiveTerminal) => item.role ?? `Shell ${item.id.slice(-6)}`;
+export const terminalTitle = (item: LiveTerminal) =>
+  item.title ?? item.role ?? `Shell ${item.id.slice(-6)}`;
 export async function readTerminal(id: string) {
   return TerminalSchema.parse(await apiFetch(`/api/terminals/${encodeURIComponent(id)}`));
 }
-export async function listTerminals(cursor?: string) {
+export async function listTerminals(cursor?: string, scope?: FileScope) {
   return TerminalListSchema.parse(
     await apiFetch(
-      `/api/terminals?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
+      `/api/terminals?limit=50${scope && "projectId" in scope ? `&projectId=${encodeURIComponent(scope.projectId)}` : scope && "sessionId" in scope ? `&workspaceSessionId=${encodeURIComponent(scope.sessionId)}` : "&global=true"}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`,
     ),
   );
 }
@@ -38,7 +39,7 @@ export async function createTerminal(scope: FileScope | undefined, key: string) 
 }
 export async function terminalAction(
   id: string,
-  action: "lease" | "resize" | "terminate" | "takeover",
+  action: "lease" | "resize" | "terminate" | "takeover" | "rename",
   body: unknown,
 ) {
   const result = TerminalSchema.parse(
@@ -48,6 +49,17 @@ export async function terminalAction(
       body,
     }),
   );
+  queryClient.setQueryData(terminalKey(id), result);
+  if (action === "rename") {
+    useWindowStore.setState((state) => ({
+      windows: state.windows.map((win) => ({
+        ...win,
+        tabs: win.tabs.map((tab) =>
+          tab.resourceId === id ? { ...tab, title: terminalTitle(result) } : tab,
+        ),
+      })),
+    }));
+  }
   await queryClient.invalidateQueries({ queryKey: ["terminals"] });
   return result;
 }
@@ -58,7 +70,9 @@ export function openTerminal(item: LiveTerminal) {
     resourceId: item.id,
     title: terminalTitle(item),
     projectId: item.projectId,
-    sessionId: item.sourceSessionId,
+    sessionId: item.projectId
+      ? item.sourceSessionId
+      : (item.workspaceSessionId ?? item.sourceSessionId),
     source:
       item.mode === "dev"
         ? "agent"
@@ -68,6 +82,11 @@ export function openTerminal(item: LiveTerminal) {
             ? "session"
             : "global",
   });
+  for (const win of useWindowStore.getState().windows) {
+    if (!win.tabs.some((tab) => tab.resourceId === item.id)) continue;
+    for (const tab of win.tabs)
+      if (tab.resourceId === "terminal:empty") useWindowStore.getState().closeTab(win.id, tab.id);
+  }
 }
 
 export function applyAgentTerminalEvent(

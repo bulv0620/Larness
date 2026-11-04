@@ -88,6 +88,9 @@ export function registerTerminalRoutes(
     });
     return reply.code(201).send(result);
   });
+  app.post("/api/terminals/:id/rename", (request) =>
+    run(request, () => terminals.rename(id(request), client(request), request.body)),
+  );
   app.get("/api/terminals/:id", (request) => run(request, () => terminals.read(id(request))));
   app.get("/api/terminals/:id/output", (request) =>
     run(request, async () => {

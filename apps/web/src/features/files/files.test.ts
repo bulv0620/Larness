@@ -27,7 +27,8 @@ it("authorizes each source before deduplicating a real file and never persists i
   await openFile({ projectId: "project-b" }, "note.txt", "agent");
   expect(read).toHaveBeenCalledTimes(2);
   expect(useWindowStore.getState().windows[0]?.tabs).toHaveLength(1);
-  expect(useWindowStore.getState().windows[0]?.tabs[0]?.projectId).toBe("project-b");
+  expect(useWindowStore.getState().windows).toHaveLength(2);
+  expect(useWindowStore.getState().windows[1]?.tabs[0]?.projectId).toBe("project-b");
   useFileDraftStore.getState().edit(document.realPath, "private draft", version);
   const win = useWindowStore.getState().windows[0];
   if (!win) throw new Error("Missing file window");

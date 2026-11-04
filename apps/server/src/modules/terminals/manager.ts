@@ -9,7 +9,12 @@ import {
   OutputRedactor,
   resolveFilePath,
 } from "@larness/resources";
-import { TERMINAL_LEASE_TTL_MS, TerminalCreateSchema, TerminalDevSchema } from "@larness/shared";
+import {
+  TERMINAL_LEASE_TTL_MS,
+  TerminalCreateSchema,
+  TerminalDevSchema,
+  TerminalRenameSchema,
+} from "@larness/shared";
 import { spawn } from "node-pty";
 import type { Database, DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
@@ -178,6 +183,7 @@ export class TerminalManager {
       shell: row.shell,
       mode: row.mode,
       role: row.role,
+      title: row.title,
       status: row.status,
       createdAt: row.createdAt,
       startedAt: row.startedAt,
@@ -292,6 +298,34 @@ export class TerminalManager {
     );
     return row ? this.dto(row) : null;
   }
+  async rename(id: string, client: string, input: unknown) {
+    const parsed = TerminalRenameSchema.safeParse(input);
+    if (!parsed.success) fail("VALIDATION_ERROR", "Invalid terminal title");
+    const title = parsed.data.title;
+    this.#client(client);
+    await this.authorize(id);
+    for (const secret of listEncryptedSecrets(this.options.db)) {
+      const value = this.options.secretStore?.decrypt(secret);
+      if (!value) fail("RESOURCE_UNAVAILABLE", "Terminal title protection unavailable");
+      if (title.includes(value)) fail("VALIDATION_ERROR", "Protected title rejected");
+    }
+    const event = immediateTransaction(this.options.db, (tx) => {
+      this.#client(client);
+      updateTerminal(tx, id, { title });
+      return this.#event(tx, id, "terminal.status", "terminal.renamed", client);
+    });
+    this.options.events.publish(event);
+    return this.read(id);
+  }
+  async readProjectTerminal(id: string, projectId: string) {
+    const row = await this.read(id);
+    if (row.projectId !== projectId) fail("FORBIDDEN", "Terminal does not belong to this project");
+    return row;
+  }
+  async readProjectTerminalOutput(id: string, projectId: string, after: number, limit: number) {
+    await this.readProjectTerminal(id, projectId);
+    return this.output(id, after, limit);
+  }
   async readProjectDev(id: string, projectId: string) {
     const row = await this.read(id);
     if (row.projectId !== projectId || row.mode !== "dev" || this.#row(id).createdByTurnId === null)
@@ -335,7 +369,7 @@ export class TerminalManager {
     return lease;
   }
   async acquireAgent(id: string, context: AgentTerminalContext) {
-    await this.readProjectDev(id, context.projectId);
+    await this.readProjectTerminal(id, context.projectId);
     this.#agentContext(context);
     if (this.#row(id).status !== "RUNNING" || !this.#active.get(id)?.pty.controlAvailable)
       fail("RESOURCE_UNAVAILABLE", "Terminal is not running");
@@ -385,7 +419,7 @@ export class TerminalManager {
     sequence: number,
     data: string,
   ) {
-    await this.readProjectDev(id, context.projectId);
+    await this.readProjectTerminal(id, context.projectId);
     this.#agentContext(context);
     if (Buffer.byteLength(data) > 8192) fail("PAYLOAD_TOO_LARGE", "Terminal input exceeds limit");
     const rateKey = `${context.turnId}:${id}`;
@@ -435,7 +469,7 @@ export class TerminalManager {
     return { accepted, inputSequence: sequence };
   }
   async interruptAgent(id: string, context: AgentTerminalContext, generation: number) {
-    await this.readProjectDev(id, context.projectId);
+    await this.readProjectTerminal(id, context.projectId);
     this.#agentContext(context);
     const lease = this.#agentHeld(id, context, generation);
     immediateTransaction(this.options.db, (tx) => {
@@ -458,7 +492,7 @@ export class TerminalManager {
     return { sent: true as const, status: this.#row(id).status };
   }
   async releaseAgent(id: string, context: AgentTerminalContext, generation: number) {
-    await this.readProjectDev(id, context.projectId);
+    await this.readProjectTerminal(id, context.projectId);
     this.#agentContext(context);
     const event = immediateTransaction(this.options.db, (tx) => {
       this.#agentHeld(id, context, generation);
@@ -786,6 +820,7 @@ export class TerminalManager {
           : null,
         launchParamsHash: launchHash,
         createdByTurnId: dev?.context.turnId ?? null,
+        title: null,
         status: "CREATED",
         processIdentityJson: null,
         reasonCode: null,

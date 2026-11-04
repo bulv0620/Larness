@@ -114,13 +114,13 @@ export function WindowFrame({ window: win }: { window: ManagedWindow }) {
         </div>
       </div>
 
-      <WindowTabs window={win} />
+      {activeTab?.kind !== "services" ? <WindowTabs window={win} /> : null}
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab ? (
           <WindowContent tab={activeTab} />
         ) : (
           <div className="flex h-full items-center justify-center text-[11px] text-ink-3">
-            当前筛选下没有 Tab
+            暂无打开的 Tab
           </div>
         )}
       </div>

@@ -39,6 +39,28 @@ it("creates one real PTY by idempotency key, lists shared resources, and termina
       expect(first.statusCode).toBe(201);
       const terminal = first.json();
       expect(terminal.writeBlocked).toBe(false);
+      const rename = (title: string, h = headers) =>
+        f.running.app.inject({
+          method: "POST",
+          url: `/api/terminals/${terminal.id}/rename`,
+          headers: h,
+          payload: { title },
+        });
+      expect(
+        (await rename("frontend shell", { origin: f.origin } as typeof headers)).statusCode,
+      ).toBe(401);
+      expect((await rename("bad\u001bname")).statusCode).toBe(400);
+      expect((await rename("   ")).statusCode).toBe(400);
+      expect((await rename("x".repeat(81))).statusCode).toBe(400);
+      expect((await rename("frontend shell")).json().title).toBe("frontend shell");
+      expect(
+        (await f.running.app.inject({ url: `/api/terminals/${terminal.id}`, headers })).json()
+          .title,
+      ).toBe("frontend shell");
+      expect(
+        f.running.sqlite.prepare("SELECT title FROM terminals WHERE id = ?").get(terminal.id),
+      ).toEqual({ title: "frontend shell" });
+
       const lock = acquireResourceLock(
         { db: f.running.db },
         {

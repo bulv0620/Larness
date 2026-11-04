@@ -1,0 +1,1 @@
+ALTER TABLE `terminals` ADD `title` text;

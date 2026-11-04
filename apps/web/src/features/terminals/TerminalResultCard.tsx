@@ -13,7 +13,7 @@ export function TerminalResultCard({ target }: { target: TerminalResultTarget })
         <div className="truncate text-[11.5px] font-semibold text-ink">
           已启动 {target.role ?? "开发终端"}
         </div>
-        <div className="truncate text-[10.5px] text-ink-2">项目终端 · 输入由人工显式获取</div>
+        <div className="truncate text-[10.5px] text-ink-2">项目终端</div>
         <div className="mt-0.5 truncate font-mono text-[9.5px] text-ink-3">{target.terminalId}</div>
       </div>
       <Button

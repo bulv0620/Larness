@@ -20,6 +20,8 @@
 | ADR-011 | 内嵌预览仅限本机已登记 Web 服务 | 地址栏可输 `localhost:5173`；不做 Electron 窗口远控 |
 | ADR-012 | 开发服务 Native、长期服务 PM2 | Larness 自身由 OS 服务管理器 / Launcher 守护 |
 
+- [ADR-031 项目窗口与终端交互](ADR-031-project-resource-windows.md)：accepted（2026-11-04 人类直接指定），项目浮栏 / 窗口归属 / 手动 Shell AI 交接。
+
 ## 2. 实现决策（本仓库冻结）
 
 | ID | 决策 | 说明 |
