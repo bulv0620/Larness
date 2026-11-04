@@ -99,7 +99,7 @@ it("deduplicates Git diffs by project and path and updates staged metadata in pl
   expect(windows.map((item) => item.tabs[0]?.projectId)).toEqual(["project-a", "project-b"]);
 });
 
-it("closing every window kind preserves its tabs and restores the same view", () => {
+it("minimizing every window kind preserves its tabs and restores the same view", () => {
   useWindowStore.setState({ windows: [], focusedId: null, lastFilters: {} });
   for (const kind of ["files", "terminal", "browser", "git-diff"] as const) {
     useWindowStore
@@ -107,7 +107,7 @@ it("closing every window kind preserves its tabs and restores the same view", ()
       .open({ kind, resourceId: kind, title: kind, projectId: "a", source: "project" });
   }
   const previous = useWindowStore.getState().windows;
-  for (const item of previous) useWindowStore.getState().close(item.id);
+  for (const item of previous) useWindowStore.getState().hide(item.id);
   expect(useWindowStore.getState().windows).toHaveLength(previous.length);
   expect(useWindowStore.getState().windows.every((item) => item.minimized)).toBe(true);
   for (const item of previous) {

@@ -47,6 +47,7 @@ export function WindowFrame({ window: win }: { window: ManagedWindow }) {
         })
       }
       style={{ zIndex: win.z, display: "flex", flexDirection: "column" }}
+      data-window-frame={win.id}
       role="dialog"
       aria-label={title}
       className={cn(

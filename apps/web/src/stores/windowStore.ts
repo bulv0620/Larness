@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { USE_MOCKS } from "@/lib/env";
+import { animateMinimize, cancelMinimize } from "@/lib/minimizeWindow";
 import { filterTabs, insertIntoTabGroup, isTabVisible } from "@/lib/windowFilters";
 import { clampRect, defaultRect } from "@/lib/windowGeometry";
 import type {
@@ -39,6 +40,7 @@ interface OpenInput {
 }
 
 interface WindowState {
+  closeRequest: { windowId: string; tabIds: string[] } | null;
   windows: ManagedWindow[];
   focusedId: string | null;
   zCounter: number;
@@ -153,6 +155,7 @@ export function migrateWindowLayout(persisted: unknown, _version: number): unkno
 export const useWindowStore = create<WindowState>()(
   persist(
     (set, get) => ({
+      closeRequest: null,
       windows: [],
       focusedId: null,
       zCounter: 10,
@@ -304,6 +307,7 @@ export const useWindowStore = create<WindowState>()(
       },
 
       focus: (id) => {
+        cancelMinimize(id);
         const state = get();
         const target = state.windows.find((win) => win.id === id);
         if (!target) return;
@@ -319,14 +323,25 @@ export const useWindowStore = create<WindowState>()(
       },
 
       close: (id) => {
-        get().hide(id);
+        const win = get().windows.find((item) => item.id === id);
+        if (!win) return;
+        if (win.tabs.some((tab) => ["files", "git-diff", "browser"].includes(tab.kind)))
+          set({ closeRequest: { windowId: id, tabIds: win.tabs.map((tab) => tab.id) } });
+        else get().hide(id);
       },
 
       hide: (id) => {
-        const state = get();
-        set({
-          windows: state.windows.map((win) => (win.id === id ? { ...win, minimized: true } : win)),
-          focusedId: state.windows.find((win) => win.id !== id && !win.minimized)?.id ?? null,
+        animateMinimize(id, () => {
+          const state = get();
+          set({
+            windows: state.windows.map((win) =>
+              win.id === id ? { ...win, minimized: true } : win,
+            ),
+            focusedId:
+              state.focusedId === id
+                ? (state.windows.find((win) => win.id !== id && !win.minimized)?.id ?? null)
+                : state.focusedId,
+          });
         });
       },
 

@@ -164,7 +164,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M2-22 | [Agent 终端保留 Shell](044-agent-shell/spec.md) | M2-21 done；用户直接要求 | `done`（用户自行界面验收） |
 
 | M2-23 | [欢迎区与建议](045-workspace-polish/spec.md) | M2-22 done | `done`（待统一验收） |
-| M2-24 | 窗口关闭与动画 | M2-23 | `todo` |
+| M2-24 | 窗口关闭与动画 | M2-23 | `done`（待统一验收） |
 | M2-25 | 完全自主策略 | M2-24 | `todo` |
 | M2-26 | 互斥侧栏与 Git 精简 | M2-25 | `todo` |
 

@@ -6,6 +6,7 @@ import { useSnapshot } from "@/lib/queries";
 import { activeWindowScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
+import { WindowCloseDialog } from "./WindowCloseDialog";
 
 export function WindowLayer() {
   const { projectId, sessionId } = useNavigationStore();
@@ -39,6 +40,7 @@ export function WindowLayer() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
+      <WindowCloseDialog />
       {!USE_MOCKS ? <FileLifecycle /> : null}
       {windows
         .filter((win) => !win.minimized && windowScopeKey(win) === scope)
