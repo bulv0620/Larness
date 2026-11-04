@@ -8,6 +8,7 @@ import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { CommandCard } from "./CommandCard";
 import { TimelineItemView } from "./TimelineItemView";
+import { Welcome } from "./Welcome";
 
 interface TurnGroup {
   id: string;
@@ -217,12 +218,7 @@ export function Timeline() {
               正在加载对话…
             </div>
           ) : !items.length ? (
-            <div className="flex min-h-[260px] flex-col items-center justify-center gap-2 text-center">
-              <h2 className="text-[21px] font-medium text-ink">有什么想一起完成？</h2>
-              <span className="text-[12px] text-ink-3">
-                {sessionId ? "描述你想完成的任务" : "新建或选择一个会话开始"}
-              </span>
-            </div>
+            <Welcome />
           ) : (
             groups.map((group, index) => (
               <TurnView
