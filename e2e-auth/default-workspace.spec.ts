@@ -38,6 +38,17 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await page.getByLabel("配对码").fill(approved.code);
     await page.getByRole("button", { name: "兑换配对码" }).click();
     await expect(page.getByTestId("workspace-home")).toBeVisible();
+    const defaultProject = page.locator('[data-project-id="prj_default"]');
+    await expect(defaultProject).toBeVisible();
+    await page.screenshot({ path: path.join(tmpdir(), "larness-m2-13-default-project.png") });
+    await expect(
+      defaultProject.getByRole("button", { name: "在 默认工作区 中新建会话" }),
+    ).toBeVisible();
+    await defaultProject
+      .getByRole("button", { name: "默认工作区", exact: true })
+      .click({ button: "right" });
+    await expect(page.getByRole("menu", { name: "会话或项目操作" })).toHaveCount(0);
+    await expect(page.getByText("还没有登记项目。", { exact: false })).toHaveCount(0);
     await page.getByRole("button", { name: "默认工作区", exact: true }).click();
     await expect(page.locator("header")).toContainText("默认工作区");
     await expect(page.getByLabel("对话输入")).toBeEnabled();
@@ -93,7 +104,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     const a = await (await createA).json();
     expect(a.workspaceKind).toBe("default");
     await expect(page.getByText("项目文件已列出。", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "默认工作区", exact: true }).click();
+    await defaultProject.getByRole("button", { name: "在 默认工作区 中新建会话" }).click();
     const createB = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === "/api/sessions" &&
@@ -115,6 +126,16 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await page.getByLabel("项目目录").fill(root);
     await page.getByRole("dialog").getByRole("button", { name: "添加项目", exact: true }).click();
     await page.getByRole("button", { name: `在 ${path.basename(root)} 中新建会话` }).click();
+    const ordinaryProject = page
+      .locator("[data-project-id]")
+      .filter({ has: page.getByRole("button", { name: `在 ${path.basename(root)} 中新建会话` }) });
+    await ordinaryProject.getByRole("button", { expanded: true }).click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: "重命名项目" })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "移除项目" })).toBeVisible();
+    await defaultProject
+      .getByRole("button", { name: "默认工作区", exact: true })
+      .click({ button: "right" });
+    await expect(page.getByRole("menu", { name: "会话或项目操作" })).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "恢复 default-note.txt", exact: true }),
     ).toHaveCount(0);

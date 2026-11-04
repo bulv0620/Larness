@@ -79,7 +79,7 @@ Web：http://localhost:3210
 
 数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 默认使用真实本机 API（`/login`、`/pair`、工作台空态）。仅做 S0 Mock Demo 时使用 `VITE_USE_MOCKS=1 pnpm --filter @larness/web dev`，不是产品入口。
 
-未选择项目时进入左侧“默认工作区”，可直接聊天、访问文件和使用终端。新建的未关联项目会话共享 `数据目录/sessions/global-terminal/workspace`；窗口和终端在切换默认会话、切项目后返回及刷新时保留。旧独立会话继续使用原目录，不自动搬移文件。
+左侧项目列表内置“默认工作区”，名称和目录固定，不能修改或删除项目；可以正常新建会话、编辑文件和使用终端。新建的未关联项目会话共享 `数据目录/sessions/global-terminal/workspace`；窗口和终端在切换默认会话、切项目后返回及刷新时保留。旧独立会话继续使用原目录，不自动搬移文件。
 
 空闲的手动终端打开即可输入，优先使用本机账户默认 Shell；Tab 右侧菜单可交给 AI 或接管控制，双击 / F2 改名，＋新建，× 关闭并终止终端。关闭或最小化窗口保留终端；AI 输入审批保持不变。
 

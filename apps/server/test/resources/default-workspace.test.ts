@@ -318,3 +318,100 @@ it("runs approved Agent control and file tools in the default workspace while is
     }
   });
 });
+
+it("exposes a fixed default project, rejects mutations and preserves the default resource domain", async () => {
+  await withTempDir(async (dir) => {
+    const f = await startAuthorizedServer(path.join(dir, "data"));
+    const headers = { cookie: f.cookie, origin: f.origin, "x-csrf-token": f.csrf };
+    try {
+      const project = (
+        await f.running.app.inject({ url: "/api/projects/prj_default", headers })
+      ).json();
+      expect(project).toMatchObject({ id: "prj_default", name: "默认工作区", kind: "default" });
+      await writeFile(path.join(project.realPath, "keep.txt"), "keep");
+      for (const mutation of [
+        { method: "PATCH" as const, payload: { name: "changed" } },
+        { method: "PATCH" as const, payload: { settings: { instructions: "changed" } } },
+        { method: "DELETE" as const },
+      ]) {
+        const denied = await f.running.app.inject({
+          ...mutation,
+          url: "/api/projects/prj_default",
+          headers,
+        });
+        expect(denied.statusCode).toBe(403);
+        expect(denied.json()).toMatchObject({ error: { code: "FORBIDDEN" } });
+      }
+      expect(
+        (
+          await f.running.app.inject({
+            method: "DELETE",
+            url: "/api/projects/prj_default",
+            headers: { origin: f.origin },
+          })
+        ).statusCode,
+      ).toBe(401);
+      expect(
+        (
+          await f.running.app.inject({
+            method: "POST",
+            url: "/api/projects",
+            headers,
+            payload: { rootPath: project.realPath },
+          })
+        ).statusCode,
+      ).toBe(409);
+      const session = (
+        await f.running.app.inject({
+          method: "POST",
+          url: "/api/sessions",
+          headers,
+          payload: { projectId: "prj_default" },
+        })
+      ).json();
+      expect(session).toMatchObject({ projectId: null, workspaceKind: "default" });
+      expect(await realpath(session.workspacePath)).toBe(project.realPath);
+      const file = await f.running.app.inject({
+        url: "/api/files?projectId=prj_default&path=keep.txt",
+        headers,
+      });
+      expect(file.statusCode).toBe(200);
+      expect(file.json().content).toBe("keep");
+      expect(
+        (
+          await f.running.app.inject({
+            url: "/api/files?projectId=prj_default&path=../../../config.json",
+            headers,
+          })
+        ).statusCode,
+      ).not.toBe(200);
+      expect(
+        (await f.running.app.inject({ url: "/api/projects/prj_default/files", headers }))
+          .statusCode,
+      ).toBe(200);
+      const terminal = await f.running.app.inject({
+        method: "POST",
+        url: "/api/terminals",
+        headers: { ...headers, "idempotency-key": "default-project" },
+        payload: { scope: { projectId: "prj_default" }, riskAcknowledged: true },
+      });
+      expect(terminal.statusCode).toBe(201);
+      expect(terminal.json()).toMatchObject({
+        projectId: null,
+        workspaceSessionId: null,
+        cwd: project.realPath,
+      });
+      const list = await f.running.app.inject({
+        url: "/api/terminals?projectId=prj_default",
+        headers,
+      });
+      expect(list.json().items.map((row: { id: string }) => row.id)).toContain(terminal.json().id);
+      expect(
+        (await f.running.app.inject({ url: "/api/projects/prj_default", headers })).json(),
+      ).toEqual(project);
+      expect(await readFile(path.join(project.realPath, "keep.txt"), "utf8")).toBe("keep");
+    } finally {
+      await f.running.shutdown("test");
+    }
+  });
+});

@@ -24,6 +24,8 @@
 
 - [ADR-032 共享默认工作区](ADR-032-shared-default-workspace.md)：accepted（2026-11-04 人类确认），新未关联会话共享目录、旧独立目录不变。
 - [ADR-033 纯终端体验](ADR-033-terminal-experience.md)：accepted（2026-11-04 人类要求继续优化）；Tab 控制菜单、空闲人工 Shell 直接输入、本机账户默认 Shell。
+- [ADR-034 固定默认项目](ADR-034-default-system-project.md)：accepted（2026-11-04 人类明确要求）；默认工作区进入项目树，服务端禁止修改 / 删除，保留旧资源域。
+
 
 
 ## 2. 实现决策（本仓库冻结）

@@ -6,7 +6,7 @@ import {
   normalizeFilePath,
   resolveFilePath,
 } from "@larness/resources";
-import type { FileScope } from "@larness/shared";
+import { DEFAULT_PROJECT_ID, type FileScope } from "@larness/shared";
 import type { Database } from "../../db/client.js";
 import { getProjectById } from "../projects/repository.js";
 import { parseProjectSettings } from "../projects/service.js";
@@ -17,7 +17,11 @@ import {
   isDefaultWorkspace,
 } from "../workspaces/default.js";
 
-export async function resolveFileScope(db: Database, dataDir: string, scope: FileScope) {
+export async function resolveFileScope(db: Database, dataDir: string, requestedScope: FileScope) {
+  const scope: FileScope =
+    "projectId" in requestedScope && requestedScope.projectId === DEFAULT_PROJECT_ID
+      ? { workspace: "default" }
+      : requestedScope;
   let root: string;
   let key: string;
   let ignore: string[] = [];

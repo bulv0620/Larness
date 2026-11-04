@@ -236,3 +236,6 @@ M2-4（2026-11-03）：唯一 0007_terminals 新增 terminals / terminal_leases�
 ### M2-10 共享默认目录（无迁移）
 
 新 sessions.project_id=null 行使用既有全局终端目录 dataDir/sessions/global-terminal/workspace；多个会话的 workspace_path 可以相同。原独立会话行、目录与文件保持不变。DTO workspaceKind 是派生字段，无新增列。File cache / operation / stream 的 scope_key 可为 workspace:default；真实默认写作业按相同根互斥。默认终端 workspace_session_id 为 null，创建来源与资源生命周期不变。共享目录不可随创建失败、归档、草稿切换或隐藏视图删除。
+
+## M2-13 内建默认项目
+prj_default 由固定系统描述提供，不插入可修改 / 删除的 projects 用户登记行；kind=default，固定名称 / 默认共享根，createdAt / updatedAt 为 0。默认 sessions.project_id / terminals.project_id 的 null 值、workspace:default 事件与资源操作键保持。默认项目 HTTP scope 别名规范化到该既有域，无数据库迁移。

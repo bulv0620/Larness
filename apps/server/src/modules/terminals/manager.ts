@@ -10,6 +10,7 @@ import {
   resolveFilePath,
 } from "@larness/resources";
 import {
+  DEFAULT_PROJECT_ID,
   type FileScope,
   TERMINAL_LEASE_TTL_MS,
   TerminalCreateSchema,
@@ -622,7 +623,10 @@ export class TerminalManager {
   }) {
     let rows = allTerminals(this.options.db).filter(
       (row) =>
-        (!filter.projectId || row.projectId === filter.projectId) &&
+        (!filter.projectId ||
+          (filter.projectId === DEFAULT_PROJECT_ID
+            ? !row.projectId && !row.workspaceSessionId
+            : row.projectId === filter.projectId)) &&
         (!filter.workspaceSessionId || row.workspaceSessionId === filter.workspaceSessionId) &&
         (!filter.global || (!row.projectId && !row.workspaceSessionId)),
     );
@@ -710,6 +714,12 @@ export class TerminalManager {
     const parsed = TerminalCreateSchema.safeParse(input);
     if (!parsed.success) fail("VALIDATION_ERROR", "Invalid terminal request");
     const params = parsed.data;
+    if (
+      params.scope &&
+      "projectId" in params.scope &&
+      params.scope.projectId === DEFAULT_PROJECT_ID
+    )
+      params.scope = { workspace: "default" };
     const scope = await this.#scope(params.scope);
     const cwd = scope.scope
       ? await authorizeFileTarget(scope as Awaited<ReturnType<typeof resolveFileScope>>, params.cwd)

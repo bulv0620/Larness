@@ -1,3 +1,4 @@
+import { DEFAULT_PROJECT_ID } from "@larness/shared";
 import {
   Button,
   cn,
@@ -10,7 +11,6 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
-  Boxes,
   ChevronDown,
   ChevronRight,
   Clock3,
@@ -102,6 +102,10 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   ): void => {
     event.preventDefault();
     event.stopPropagation();
+    if (kind === "project" && id === DEFAULT_PROJECT_ID) {
+      setContext(null);
+      return;
+    }
     setContext({ kind, id, title, x: event.clientX, y: event.clientY });
   };
 
@@ -111,7 +115,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   );
 
   const newProjectSession = (projectId: string): void => {
-    startDraft(projectId);
+    startDraft(projectId === DEFAULT_PROJECT_ID ? null : projectId);
     focusComposer();
   };
 
@@ -121,7 +125,11 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const normalized = query.trim().toLowerCase();
   const projects = data.projects.map((project) => ({
     ...project,
-    sessions: sessions.filter((session) => session.projectId === project.id),
+    sessions: sessions.filter((session) =>
+      project.kind === "default"
+        ? session.workspaceKind === "default"
+        : session.projectId === project.id,
+    ),
   }));
   const visibleProjects = normalized
     ? projects.filter(
@@ -178,55 +186,6 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto px-1.5 pb-2">
-        {!USE_MOCKS ? (
-          <div className="mb-3">
-            <button
-              type="button"
-              aria-label="默认工作区"
-              aria-pressed={defaultSelected}
-              onClick={() => {
-                startDraft(null);
-                focusComposer();
-              }}
-              className={cn(
-                "flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[11.5px] font-medium",
-                defaultSelected ? "bg-accent-soft text-accent" : "text-ink-2 hover:bg-surface-2",
-              )}
-            >
-              <Boxes size={13} />
-              <span>默认工作区</span>
-            </button>
-            <div className="ml-[13px] border-l border-line/70 pl-1">
-              {draftSession?.projectId === null ? (
-                <SessionRow
-                  title="新会话"
-                  draft
-                  active={draftSession.id === sessionId}
-                  running={false}
-                  onClick={() => startDraft(null)}
-                />
-              ) : null}
-              {sessions
-                .filter(
-                  (item) =>
-                    item.workspaceKind === "default" &&
-                    (!normalized || item.title.toLowerCase().includes(normalized)),
-                )
-                .map((session) => (
-                  <SessionRow
-                    key={session.id}
-                    title={session.title}
-                    active={session.id === sessionId}
-                    running={session.id === sessionId && isStreaming}
-                    onClick={() => selectSession(session.id, null)}
-                    onContextMenu={(event) =>
-                      openContext(event, "session", session.id, session.title)
-                    }
-                  />
-                ))}
-            </div>
-          </div>
-        ) : null}
         <div className="flex items-center px-2 pb-1 text-[10px] font-semibold uppercase tracking-[.08em] text-ink-3">
           项目
           {!USE_MOCKS ? (
@@ -243,12 +202,22 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
         {visibleProjects.map((project) => {
           const expanded = expandedProjects[project.id] ?? true;
+          const isDefault = project.kind === "default";
+          const navigationProjectId = isDefault ? null : project.id;
+          const hasDraft = draftSession?.projectId === navigationProjectId;
           return (
-            <div key={project.id} className="mb-0.5">
+            <div key={project.id} data-project-id={project.id} className="mb-0.5">
               <div className="flex items-center gap-0.5">
                 <button
                   type="button"
-                  onClick={() => toggleProject(project.id)}
+                  aria-label={isDefault ? "默认工作区" : undefined}
+                  aria-pressed={isDefault ? defaultSelected : undefined}
+                  onClick={() => {
+                    if (isDefault && !defaultSelected) {
+                      startDraft(null);
+                      focusComposer();
+                    } else toggleProject(project.id);
+                  }}
                   onContextMenu={(event) => openContext(event, "project", project.id, project.name)}
                   aria-expanded={expanded}
                   className="flex h-[27px] min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 text-left text-[11.5px] text-ink-2 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"
@@ -265,7 +234,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                     <Folder size={10} />
                   </span>
                   <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
-                  {project.git ? (
+                  {isDefault ? (
+                    <span className="text-[9px] text-ink-3">内置</span>
+                  ) : project.git ? (
                     <span className="font-mono text-[9px] text-ink-3">
                       {project.branch ?? "git"}
                     </span>
@@ -287,13 +258,13 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
               {expanded ? (
                 <div className="ml-[13px] border-l border-line/70 pl-1">
-                  {draftSession?.projectId === project.id ? (
+                  {hasDraft ? (
                     <SessionRow
                       title="新会话"
                       draft
-                      active={draftSession.id === sessionId}
+                      active={draftSession?.id === sessionId}
                       running={false}
-                      onClick={() => startDraft(project.id)}
+                      onClick={() => startDraft(navigationProjectId)}
                     />
                   ) : null}
                   {project.sessions.length ? (
@@ -303,13 +274,13 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                         title={session.title}
                         active={session.id === sessionId}
                         running={session.id === sessionId && isStreaming}
-                        onClick={() => selectSession(session.id, project.id)}
+                        onClick={() => selectSession(session.id, navigationProjectId)}
                         onContextMenu={(event) =>
                           openContext(event, "session", session.id, session.title)
                         }
                       />
                     ))
-                  ) : draftSession?.projectId === project.id ? null : (
+                  ) : hasDraft ? null : (
                     <div className="px-2 py-1 text-[10.5px] text-ink-3">暂无会话</div>
                   )}
                 </div>
@@ -320,7 +291,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
         {visibleProjects.length === 0 ? (
           <div className="mx-1 rounded-lg border border-dashed border-line px-2.5 py-3 text-[10.5px] text-ink-3">
-            还没有登记项目。点击项目标题旁的 + 添加本机目录。
+            {normalized
+              ? "没有匹配的项目或会话"
+              : "还没有登记项目。点击项目标题旁的 + 添加本机目录。"}
           </div>
         ) : null}
 

@@ -202,3 +202,6 @@ ACTIVE → REVOKED
 ## 默认工作区（ADR-032 / M2-10）
 
 默认工作区只授权 dataDir/sessions/global-terminal/workspace 的精确根，绝不授权它的 sessions 父目录或其他配置 / 密钥 / 日志目录。创建和访问逐级拒绝目录符号链接，文件路径仍做根内 realpath 校验；相同 scope 的缓存 / 事件 / 项目写锁按共同根处理。默认会话与 Shell 的 Agent 交接必须比较真实会话的授权根和终端操作根，不能只检查 projectId=null。历史独立目录只由原会话 scope 访问，禁止静默搬移。Shell 仍为可信开发机执行模式，应用文件授权不是 OS 沙箱。
+
+## 固定默认项目（ADR-034 / M2-13）
+prj_default 是固定系统项目描述，服务层拒绝更新 / 删除并审计，不只依赖前端菜单隐藏。默认项目文件 / 终端别名归一至现有精确 workspace:default 授权，仍逐级拒绝目录 symlink，禁止穿越运行数据目录；不为整个 dataDir 授权。历史 session / terminal / file stream 身份保留，无数据迁移，普通项目、租约与 AI 输入审批不变。

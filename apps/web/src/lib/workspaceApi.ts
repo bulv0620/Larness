@@ -2,6 +2,7 @@ import { type ModelProfile, type ServerEvent, WorkspaceKindSchema } from "@larne
 import { apiFetch } from "./api";
 
 export interface ApiProject {
+  kind?: "project" | "default";
   id: string;
   name: string;
   rootPath: string;
@@ -278,6 +279,7 @@ export function toProjectView(project: ApiProject) {
   const index = Array.from(project.id).reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return {
     id: project.id,
+    kind: project.kind,
     name: project.name,
     rootPath: project.realPath,
     branch: null,

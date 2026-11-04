@@ -1,3 +1,4 @@
+import { DEFAULT_PROJECT_ID } from "@larness/shared";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
@@ -199,7 +200,7 @@ export async function createSession(
   let modelProfileId: string | null = null;
   let workspacePath: string;
 
-  if (input.projectId !== undefined) {
+  if (input.projectId !== undefined && input.projectId !== DEFAULT_PROJECT_ID) {
     const project = getProjectById(options.db, input.projectId);
 
     if (project === null) {

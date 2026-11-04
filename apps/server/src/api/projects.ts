@@ -1,4 +1,4 @@
-import { ERROR_HTTP_STATUS } from "@larness/shared";
+import { DEFAULT_PROJECT_ID, ERROR_HTTP_STATUS } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Database } from "../db/client.js";
@@ -6,6 +6,7 @@ import { HttpError } from "../errors.js";
 import {
   createProject,
   deleteProject,
+  getDefaultProjectDto,
   getProjectDto,
   listProjectDtos,
   ProjectError,
@@ -32,6 +33,7 @@ const ProjectIdSchema = z.string().min(1).max(128);
 
 export interface ProjectApiDeps {
   db: Database;
+  dataDir: string;
   now?: () => number;
 }
 
@@ -63,7 +65,7 @@ function throwProject(error: unknown): never {
 
 export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps): void {
   app.get("/api/projects", async () => {
-    return { projects: listProjectDtos(deps.db) };
+    return { projects: [await getDefaultProjectDto(deps.dataDir), ...listProjectDtos(deps.db)] };
   });
 
   app.post("/api/projects", async (request, reply) => {
@@ -71,7 +73,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
 
     try {
       const project = await createProject(
-        { db: deps.db, now: deps.now },
+        { db: deps.db, now: deps.now, dataDir: deps.dataDir },
         {
           name: body.name,
           rootPath: body.rootPath,
@@ -88,7 +90,9 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
     const id = parse(ProjectIdSchema, request.params.id);
 
     try {
-      return getProjectDto(deps.db, id);
+      return id === DEFAULT_PROJECT_ID
+        ? await getDefaultProjectDto(deps.dataDir)
+        : getProjectDto(deps.db, id);
     } catch (error) {
       throwProject(error);
     }
@@ -100,7 +104,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
 
     try {
       return updateProject(
-        { db: deps.db, now: deps.now },
+        { db: deps.db, now: deps.now, dataDir: deps.dataDir },
         {
           id,
           name: body.name,
@@ -118,7 +122,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
 
     try {
       deleteProject(
-        { db: deps.db, now: deps.now },
+        { db: deps.db, now: deps.now, dataDir: deps.dataDir },
         { id, clientSessionId: request.clientSession?.id },
       );
       return { ok: true };

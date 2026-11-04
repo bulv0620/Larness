@@ -481,3 +481,7 @@ M2-4（2026-11-03）：已实现 `/api/terminals` 列表 / 人工创建及 `/:id
 - GET `/api/files?workspace=default&path=...`、PUT `/api/files` 的 scope `{ workspace: "default" }`：仅固定默认目录，不开放任意 dataDir 路径；鉴权、Origin / CSRF、相对路径 / 符号链接、秘密扫描、版本 / 幂等与审计沿用现有文件接口。
 - POST `/api/sessions` 不提供 projectId 时，新会话共用默认目录；Session DTO 增加 workspaceKind（project/default/session），旧独立会话仍返回原 workspacePath。
 - POST `/api/terminals` 支持默认 scope；默认会话别名归并为共享终端，workspaceSessionId=null。cwd 响应为实际绝对目录，执行入参仍相对授权根。详见 m2-resources §24。
+
+## M2-13 默认系统项目
+GET /api/projects 在列表首位返回固定系统项目 `{ id: "prj_default", kind: "default", name: "默认工作区", rootPath, realPath, ... }`；kind 为可选新增字段，普通登记项目沿用原结构。GET /api/projects/prj_default 可读固定描述；系统元数据时间 createdAt / updatedAt 为 0，表示内建资源而非用户登记时间。PATCH 合法名称 / settings 或 DELETE 该 ID 返回 FORBIDDEN（403）并审计；无认证仍 401，非法请求仍按 schema 拒绝。目录和内容不删除、不只读；不能将默认目录重复登记为普通项目（409）。
+POST /api/sessions 的 projectId=prj_default 归一为现有默认会话域（DTO projectId=null、workspaceKind=default）。文件 projectId=prj_default 是 workspace:default 的 HTTP scope 别名；终端 create scope 及 list projectId 同样归一为默认域，返回原 null 归属 / ID。文件事件 / WS 订阅仍使用 workspace:default，不创建新的事件流、窗口分组或租约。历史独立会话不归入默认项目，无数据库迁移。
