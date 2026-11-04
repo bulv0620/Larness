@@ -451,3 +451,6 @@ pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / �
 
 ## 27. M2-13 固定默认项目
 默认工作区作为 kind=default / id=prj_default 的内建项目进入项目树并置顶，后端描述来自原共享目录，项目更新 / 删除返回 FORBIDDEN 并审计，目录不可重复登记。名称 / 目录 / settings 固定，项目内容仍可编辑，默认会话 / 文件 / 终端保持原资源域和窗口身份。session / file / terminal 创建的默认项目别名归一至既有 workspace:default，文件 WS 继续使用其规范 resourceId / streamId。无需数据库迁移，不改写历史会话或终端。见 ADR-034、REST / data-model 契约；Git / M3 / dev 工具范围不扩展。
+
+### M2-21 终端停止完成元数据
+成功 stop_project_terminal 的持久化 tool.completed 附 closedTerminalTarget（既有 TerminalResultTarget 结构）及 originClientSessionId。只用于发起客户端核对真实终态后移除本地 Tab，实时 / 历史补拉均幂等处理；不改变其他客户端布局或触发新的资源操作。详见 ws-events / resource-views 的 M2-21。

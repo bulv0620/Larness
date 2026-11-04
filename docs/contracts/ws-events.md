@@ -94,7 +94,7 @@ interface ServerEvent<T = unknown> {
 | `tool.approval.required` | `toolCallId, approvalId, summary, scope, expiresAt` | 是 |
 | `tool.approval.resolved` | `approvalId, decision` | 是 |
 | `tool.started` | `toolCallId, name` | 是 |
-| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?`（M2-2 成功文件修改附授权 scope / path / version） | 是 |
+| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?`（M2-2 成功文件修改附授权 scope / path / version） | 是 |
 | `tool.failed` | `toolCallId, errorCode, message` | 是 |
 | `file.changed` | `path, changeType, version` | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
@@ -197,3 +197,7 @@ Agent工具 `update_plan({title,steps:[{id,title,status,detail?}]})` 为L0元数
 
 ## M2-15 对话呈现补充
 `tool.command.created`新增可选`command`（CommandParamsSchema：executable/args/cwd/timeoutMs），仅在已授权Manager验证参数及凭据后、启动前写入；字段经输出脱敏器处理，敏感选项后的值隐藏，不包含环境。客户端Zod验证后用于折叠详情。命令输出仍经授权游标接口读取，不复制进消息。UI按turnId分轮，工具视图身份为turnId+toolCallId，防止Provider在不同轮复用call ID覆盖历史；历史无turnId按用户消息边界分组。Turn终态及durationMs从既有持久事件恢复。审批只在输入框上方可操作，后端确认前不乐观标成功，失败保留。
+
+## M2-21 Agent 终端关闭视图同步
+成功 `stop_project_terminal` 的 `tool.completed` 可附 `closedTerminalTarget: { kind: "terminal", projectId, terminalId, role }` 和 `originClientSessionId`。字段来自经过授权的真实 stop 结果（EXITED / TERMINATED）与 Turn 快照；失败 / 中断未知结果不附。事件先持久化再广播，兼容旧客户端忽略可选字段。不是打开资源的 resourceTarget，不生成“打开”结果卡或创建终端。
+发起客户端实时、补拉或初次历史加载时核对该目标；GET 最新资源确认 ID / 项目和已确认终态后移除对应本地 Tab，最后一个 Tab 移除时收起窗口。其他客户端保持结束视图，读取失败或未确认停止保留 Tab。重复通知 / 重放幂等，不发送第二次 terminate、不清除历史输出。

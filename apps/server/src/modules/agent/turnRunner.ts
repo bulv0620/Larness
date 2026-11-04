@@ -1197,12 +1197,32 @@ export class TurnRunner {
                 : terminalTarget?.success
                   ? terminalTarget.data
                   : undefined;
+            const stoppedTerminal =
+              request.name === "stop_project_terminal"
+                ? z
+                    .object({
+                      terminalId: z.string(),
+                      role: z.string().nullable(),
+                      status: z.enum(["EXITED", "TERMINATED"]),
+                    })
+                    .safeParse(result.result.data)
+                : undefined;
+            const closedTarget =
+              stoppedTerminal?.success && session.projectId !== null
+                ? TerminalResultTargetSchema.safeParse({
+                    kind: "terminal",
+                    projectId: session.projectId,
+                    terminalId: stoppedTerminal.data.terminalId,
+                    role: stoppedTerminal.data.role,
+                  })
+                : undefined;
             this.#emit(turn, session, "tool.completed", {
               turnId: turn.id,
               toolCallId: request.id,
               resultSummary: result.result.summary,
               ...(target === undefined ? {} : { resourceTarget: target }),
-              ...(terminalTarget?.success && snapshot
+              ...(closedTarget?.success ? { closedTerminalTarget: closedTarget.data } : {}),
+              ...((terminalTarget?.success || closedTarget?.success) && snapshot
                 ? { originClientSessionId: snapshot.clientSessionId }
                 : {}),
               ...(result.result.truncated === undefined

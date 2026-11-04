@@ -335,6 +335,21 @@ it("reuses an active role, rejects changed arguments, reads bounded output, stop
       expect(f.terminals().find((row) => row.role === "backend")?.status).toBe("TERMINATED");
       expect(f.terminals().find((row) => row.role === "frontend")?.status).toBe("RUNNING");
       expect(toolContents(f).at(-1)?.status).toBe("TERMINATED");
+      expect(
+        f.events.find(
+          (event) =>
+            event.type === "tool.completed" &&
+            (event.payload as { toolCallId?: string }).toolCallId === "stop-backend",
+        )?.payload,
+      ).toMatchObject({
+        closedTerminalTarget: {
+          kind: "terminal",
+          projectId: f.projectId,
+          terminalId: backend?.id,
+          role: "backend",
+        },
+        originClientSessionId: f.clientId,
+      });
 
       const cancel = f.newTurn("start another terminal");
       const cancelRunner = f.runnerFor([

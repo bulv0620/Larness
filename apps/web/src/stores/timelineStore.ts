@@ -6,7 +6,7 @@ import type {
   TimelineItem,
 } from "@larness/shared";
 import { create } from "zustand";
-import { applyAgentTerminalEvent } from "@/features/terminals/api";
+import { applyAgentTerminalClosedEvent, applyAgentTerminalEvent } from "@/features/terminals/api";
 import { USE_MOCKS } from "@/lib/env";
 import {
   applyAssistantDelta,
@@ -179,6 +179,11 @@ function applyEventToState(event: ServerEvent, live = false): void {
         : state.turnStartedAt,
   });
 
+  if (event.type === "tool.completed") {
+    const session = queryClient.getQueryData<{ clientSessionId?: string }>(["session"]);
+    void applyAgentTerminalClosedEvent(payload, session?.clientSessionId);
+  }
+
   if (
     live &&
     event.type === "tool.completed" &&
@@ -325,6 +330,18 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         turnStartedAt: detail.activeTurn?.createdAt ?? null,
         contextTokens: contextTokensFromEvents(events),
       });
+      const client = queryClient.getQueryData<{ clientSessionId?: string }>(["session"]);
+      for (const event of events) {
+        if (
+          event.type === "tool.completed" &&
+          typeof event.payload === "object" &&
+          event.payload !== null
+        )
+          void applyAgentTerminalClosedEvent(
+            event.payload as Record<string, unknown>,
+            client?.clientSessionId,
+          );
+      }
       connectSocket(sessionId);
     } catch (error) {
       if (token !== loadToken) return;

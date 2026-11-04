@@ -121,3 +121,42 @@ export function stopConfirmed(item: Pick<LiveTerminal, "status" | "reasonCode">)
     (item.status === "INTERRUPTED" && item.reasonCode === "NOT_STARTED")
   );
 }
+
+export async function applyAgentTerminalClosedEvent(
+  payload: Record<string, unknown>,
+  clientSessionId: string | undefined,
+): Promise<boolean> {
+  const target = TerminalResultTargetSchema.safeParse(payload.closedTerminalTarget);
+  if (!target.success || !clientSessionId || payload.originClientSessionId !== clientSessionId)
+    return false;
+  const { terminalId, projectId } = target.data;
+  const matches = () =>
+    useWindowStore
+      .getState()
+      .windows.flatMap((win) =>
+        win.tabs
+          .filter(
+            (tab) =>
+              tab.kind === "terminal" &&
+              tab.resourceId === terminalId &&
+              tab.projectId === projectId,
+          )
+          .map((tab) => ({ windowId: win.id, tabId: tab.id })),
+      );
+  if (!matches().length) return false;
+  try {
+    const row = await readTerminal(terminalId);
+    if (row.id !== terminalId || row.projectId !== projectId || !stopConfirmed(row)) return false;
+    queryClient.setQueryData(terminalKey(terminalId), row);
+    const focusedId = useWindowStore.getState().focusedId;
+    for (const tab of matches()) useWindowStore.getState().closeTab(tab.windowId, tab.tabId);
+    // Closing the last tab in a background window must preserve the foreground window.
+    if (focusedId && useWindowStore.getState().windows.some((win) => win.id === focusedId))
+      useWindowStore.setState({ focusedId });
+    void queryClient.invalidateQueries({ queryKey: ["terminals"] });
+    return true;
+  } catch {
+    // A notification is not proof of current resource state. Keep the view on read failure.
+    return false;
+  }
+}
