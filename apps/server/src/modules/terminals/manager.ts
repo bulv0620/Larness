@@ -53,7 +53,7 @@ import {
   updateLease,
   updateTerminal,
 } from "./repository.js";
-import { resolveManualShell } from "./shell.js";
+import { resolveManualShell, terminalLaunch } from "./shell.js";
 
 interface Connection {
   clientId: string;
@@ -741,7 +741,8 @@ export class TerminalManager {
       )
         fail("FORBIDDEN", "Terminal source does not match scope");
     }
-    const executable = dev?.params.executable ?? (await resolveManualShell()),
+    const shell = await resolveManualShell();
+    const executable = dev?.params.executable ?? shell,
       args = dev?.params.args ?? ["-i"];
     const secrets = listEncryptedSecrets(this.options.db).map(
       (secret) =>
@@ -836,7 +837,7 @@ export class TerminalManager {
             : null,
         sourceSessionId: params.sourceSessionId ?? null,
         cwd,
-        shell: executable,
+        shell,
         mode: dev ? "dev" : "shell",
         role: dev?.params.role ?? null,
         launchParamsJson: dev
@@ -878,7 +879,8 @@ export class TerminalManager {
         throw new Error("Terminal creation cancelled");
       updateOperation(this.options.db, operationId, { status: "WRITING", updatedAt: this.#now() });
       spawnAttempted = true;
-      const native = (this.options.spawnPty ?? spawn)(executable, args, {
+      const launch = terminalLaunch(shell, dev ? { executable, args } : undefined);
+      const native = (this.options.spawnPty ?? spawn)(launch.executable, launch.args, {
         cwd: absolute,
         cols: 80,
         rows: 24,

@@ -21,3 +21,15 @@ export async function resolveManualShell(accountShell?: string | null): Promise<
     return "/bin/sh";
   }
 }
+
+// argv stays data: no command text is interpolated into this fixed bootstrap.
+// Catch INT only in the waiting parent; exec resets the child's signal handler.
+const DEV_SHELL_BOOTSTRAP = `trap ':' INT; (exec -- "$@"); exec "$0" -i`;
+export function terminalLaunch(shell: string, program?: { executable: string; args: string[] }) {
+  return program
+    ? {
+        executable: "/bin/sh",
+        args: ["-i", "-c", DEV_SHELL_BOOTSTRAP, shell, program.executable, ...program.args],
+      }
+    : { executable: shell, args: ["-i"] };
+}

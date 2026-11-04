@@ -454,3 +454,9 @@ pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / �
 
 ### M2-21 终端停止完成元数据
 成功 stop_project_terminal 的持久化 tool.completed 附 closedTerminalTarget（既有 TerminalResultTarget 结构）及 originClientSessionId。只用于发起客户端核对真实终态后移除本地 Tab，实时 / 历史补拉均幂等处理；不改变其他客户端布局或触发新的资源操作。详见 ws-events / resource-views 的 M2-21。
+
+## M2-22 Agent 终端 Shell 生命周期（2026-11-04 / ADR-038）
+新建 mode=dev 终端由 Shell 承载初始批准程序；Ctrl+C / 程序正常或非零结束后，在同一 PTY / terminalId / PID 进入账户默认交互 Shell。Tab 保留，终端保持 RUNNING，人工可继续输入，AI 仍按原租约 / 逐次审批输入。RUNNING 只表示终端存活，不证明服务进程或 endpoint 仍在运行；服务失败/不存在通过原始输出核对，不能以创建成功宣称 ready。
+显式 stop_project_terminal / Tab 关闭仍终止整个终端和受管后代，确认后按 M2-21 移除发起客户端视图。窗口隐藏 / 最小化 / Turn 结束不停止资源。自然 Shell exit 才产生 terminal.exit 和终端退出码；初始程序返回值不再冒充终端退出码。
+已有资源不迁移/重启；同 role 同参数仍只复用终端，不重新执行初始命令，Agent 需先读输出、再通过批准输入在原终端启动所需命令，不得绕过人工持权。初始命令的 executable/args/cwd 与去重/幂等/审批绑定保持，shell 字段对新资源表示后续交互 Shell，旧行保留原值。
+实现采用固定 /bin/sh 交互引导脚本与位置参数：子 Shell exec -- 执行外部程序，父 Shell 捕获 INT，子命令正常接收 INT；随后 exec 已校验账户 Shell -i。不拼用户脚本、不注入按键或伪造租约。环境过滤、HISTFILE=/dev/null、输出脱敏、取消清理、未知停止隔离仍保留。无新接口 / 事件字段 / 数据迁移 / 依赖。未来临时服务必须核对真实子执行，不能仅看 PTY RUNNING。

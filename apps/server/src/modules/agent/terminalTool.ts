@@ -40,7 +40,7 @@ export function createTerminalTools(options: {
     defineTool({
       name: "start_project_terminal",
       description:
-        "Start a persistent project dev process (for example pnpm dev) as a real PTY. Use a stable role such as frontend or backend; an active role with different parameters is a conflict. Requires per-call approval. Use run_command for finite tests/builds. The project directory is not a sandbox and the process may write files concurrently.",
+        "Create a persistent project terminal and run the approved dev program (for example pnpm dev) in the foreground. Ctrl+C or program exit returns to an interactive shell in the same PTY. RUNNING means the terminal is alive, not that the service is ready or still running; inspect output. Reuse returns the terminal without rerunning the program; use approved terminal input to restart it. Use a stable role such as frontend or backend; an active role with different parameters is a conflict. Requires per-call approval. Use run_command for finite tests/builds. The project directory is not a sandbox and the process may write files concurrently.",
       riskLevel: "L2",
       requiresProjectLock: false,
       schema: startSchema,
@@ -66,7 +66,7 @@ export function createTerminalTools(options: {
     defineTool({
       name: "stop_project_terminal",
       description:
-        "Explicitly stop a dev terminal created by the agent in the current project. Waits for confirmed exit and does not stop human shell terminals. Stopping a Turn does not call this tool.",
+        "Close the entire dev terminal created by the agent in the current project, including its shell and managed descendants. Use interrupt_terminal to stop only the foreground command and keep the terminal usable. Waits for confirmed exit and does not stop human shell terminals. Stopping a Turn does not call this tool.",
       riskLevel: "L1",
       requiresProjectLock: false,
       schema: StopProjectTerminalParamsSchema,

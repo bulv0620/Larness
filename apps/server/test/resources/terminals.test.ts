@@ -770,12 +770,30 @@ it("streams redacted PTY output with filtered environment and persists a real no
           executable: process.execPath,
           args: [
             "-e",
-            "const key=require('node:fs').readFileSync('value.txt','utf8');process.stdout.write(key.slice(0,8));setTimeout(()=>{console.log(key.slice(8));console.log('token=unknown-pty-secret');console.log(process.env.LARNESS_PTY_TEST_SECRET??'filtered');process.exitCode=9},100)",
+            "const key=require('node:fs').readFileSync('value.txt','utf8');process.stdout.write(key.slice(0,8));setTimeout(()=>{console.log(key.slice(8));console.log('token=unknown-pty-secret');console.log(process.env.LARNESS_PTY_TEST_SECRET??'filtered');console.log('COMMAND_EXIT_9');process.exitCode=9},100)",
           ],
         },
       );
-      await until(async () => (await f.running.terminals.read(row.id)).status === "EXITED");
-      expect(await f.running.terminals.read(row.id)).toMatchObject({ exitCode: 9 });
+      await until(async () =>
+        JSON.stringify(await f.running.terminals.output(row.id, 0, 500)).includes("COMMAND_EXIT_9"),
+      );
+      expect(await f.running.terminals.read(row.id)).toMatchObject({
+        status: "RUNNING",
+        exitCode: null,
+      });
+      const connection = await socketFor(f, f.cookie, row.id);
+      try {
+        const lease = await f.running.terminals.lease(row.id, client, {
+          action: "acquire",
+          connectionId: connection.connectionId,
+        });
+        if (!lease.lease) throw new Error("Missing terminal lease");
+        await connection.input(lease.lease.generation, 1, "exit 9\r");
+        await until(async () => (await f.running.terminals.read(row.id)).status === "EXITED");
+        expect(await f.running.terminals.read(row.id)).toMatchObject({ exitCode: 9 });
+      } finally {
+        connection.socket.terminate();
+      }
       const output = await f.running.terminals.output(row.id, 0, 500);
       expect(JSON.stringify(output)).not.toContain(secret);
       expect(JSON.stringify(output)).not.toContain("unknown-pty-secret");

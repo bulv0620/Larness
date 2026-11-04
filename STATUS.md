@@ -436,3 +436,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - `done`；分支 task/m2-21-agent-terminal-close。Agent 成功停止后同步移除发起客户端对应 Tab / 浮栏计数，失败保留；不改变其他客户端布局。按用户要求仅做必要校验，用户自行界面验收。
 - stop 成功完成事件附真实关闭目标与发起客户端；实时/补拉/历史加载均核对 GET 终态后移除本地 Tab，最后一个收起，保留其他项目焦点。停止/查询失败不误删；其他客户端保留结束视图。
 - 必要校验：前端 34/34、服务端终端工具 3/3、Web/Server 类型及改动文件 Biome/diff 通过；见 specs/043-agent-terminal-close/acceptance.md。无全量检查/构建/E2E，G2 仍待人类。
+
+## M2-22 交付（2026-11-04 +08:00）
+- `done`，task/m2-22-agent-shell；Ctrl+C / 初始命令退出后保留终端并进入交互 Shell，显式关闭才清理整个终端。按用户直接授权补 ADR-038；只做相关必要校验，用户自行界面验收。
+- 新 Agent dev 使用固定位置参数 Shell 引导，Ctrl+C/初始命令退出后保留同一 PTY 并进入账户默认 Shell；原有终端不重建。明确终端存活不等于服务 ready，role 复用不重跑初始命令。显式关闭/审批/租约/未知停止隔离不变。
+- 必要验证：Server 相关资源与 Agent 33/33、Web 关闭/入口 32/32、Server 类型、改动 Biome/diff 通过；见 specs/044-agent-shell/acceptance.md。未跑全量检查/构建/E2E；G2仍待用户。

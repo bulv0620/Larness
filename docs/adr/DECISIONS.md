@@ -34,6 +34,8 @@
 
 - [ADR-037 回复消息框与紧凑审批](ADR-037-message-bubbles.md)：accepted（2026-11-04 用户直接要求）；消息框、回复时间、紧凑审批与隐藏记录。
 
+- [ADR-038 Agent 终端的 Shell 生命周期](ADR-038-agent-terminal-shell.md)：accepted（2026-11-04 用户明确要求）；初始命令退出/中断后保留交互 Shell，显式关闭才终止终端。
+
 ## 2. 实现决策（本仓库冻结）
 
 | ID | 决策 | 说明 |

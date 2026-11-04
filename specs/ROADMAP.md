@@ -161,6 +161,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 | M2-21 | [Agent 关闭终端同步 Tab](043-agent-terminal-close/spec.md) | M2-20 done；用户直接要求 | `done`（用户自行界面验收） |
 
+| M2-22 | [Agent 终端保留 Shell](044-agent-shell/spec.md) | M2-21 done；用户直接要求 | `done`（用户自行界面验收） |
+
 ## 5.1 R0-0 资源生命周期与服务文档同步
 
 2026-11-02 人类明确产品规则并要求补文档；ADR-030 accepted，R0-0 为单个文档任务。新增 / 同步资源视图、临时 / 持久服务契约、M2/M3 spec / plan / tasks / review 与历史设计修订入口。仅文档完成，不启动功能实现、不宣称 G-Spec / G2 / G3 通过。

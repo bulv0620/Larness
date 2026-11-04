@@ -528,7 +528,7 @@ export class TurnRunner {
               );
               return {
                 ok: true,
-                summary: `开发终端 ${row.role ?? "dev"} ${row.status}`,
+                summary: `开发终端 ${row.role ?? "dev"} ${row.status}；仅表示终端状态，服务状态请读取输出核对`,
                 data: {
                   terminalId: row.id,
                   role: row.role,
