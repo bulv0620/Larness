@@ -9,7 +9,16 @@ import {
   DropdownMenuTrigger,
   IconButton,
 } from "@larness/ui";
-import { ArrowUp, ChevronDown, MoreHorizontal, Plus, Sparkles, Square } from "lucide-react";
+import {
+  ArrowUp,
+  ChevronDown,
+  Plus,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Square,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useSnapshot } from "@/lib/queries";
@@ -18,9 +27,21 @@ import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 
 const policies = [
-  { id: "standard", label: "标准审批", detail: "L0/L1 自动，L2 询问" },
-  { id: "strict", label: "严格审批", detail: "所有写入都询问" },
-  { id: "readonly", label: "只读", detail: "禁止修改与执行" },
+  {
+    id: "standard",
+    label: "标准审批",
+    detail: "L0/L1 自动，L2 询问",
+    icon: ShieldCheck,
+    tone: "text-accent",
+  },
+  {
+    id: "strict",
+    label: "严格审批",
+    detail: "所有写入都询问",
+    icon: ShieldAlert,
+    tone: "text-warning",
+  },
+  { id: "readonly", label: "只读", detail: "禁止修改与执行", icon: Shield, tone: "text-success" },
 ] as const;
 
 export function Composer() {
@@ -39,6 +60,8 @@ export function Composer() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const model = data.models.find((item) => item.id === modelId) ?? data.models[0];
+  const currentPolicy = policies.find((item) => item.id === policy) ?? policies[0];
+  const PolicyIcon = currentPolicy.icon;
   const contextTokens = useTimelineStore((state) => state.contextTokens);
   const pendingApproval = useTimelineStore((state) => pendingApprovals(state.items).length > 0);
 
@@ -119,7 +142,7 @@ export function Composer() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex h-7 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
+              className="flex h-7 min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
             >
               <Sparkles size={12} className="shrink-0 text-accent" />
               <span className="max-w-[96px] truncate sm:max-w-[128px]">
@@ -145,15 +168,15 @@ export function Composer() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <IconButton label="更多对话设置" className="h-7 w-7">
-              <MoreHorizontal size={15} />
+            <IconButton
+              label={`审批策略：${currentPolicy.label}`}
+              title={`${currentPolicy.label} · ${currentPolicy.detail}`}
+              className="h-7 w-7"
+            >
+              <PolicyIcon size={15} className={currentPolicy.tone} aria-hidden="true" />
             </IconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[230px]">
-            <DropdownMenuLabel>
-              上下文 {contextTokens.toLocaleString()} /{" "}
-              {(model?.maxContextTokens ?? 128000).toLocaleString()}
-            </DropdownMenuLabel>
             <DropdownMenuLabel>审批策略</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={policy}
@@ -172,6 +195,7 @@ export function Composer() {
         </DropdownMenu>
 
         <span className="flex-1" />
+        <ContextUsage used={contextTokens} limit={model?.maxContextTokens ?? 128000} />
         {isStreaming ? (
           <button
             type="button"
@@ -198,6 +222,67 @@ export function Composer() {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function ContextUsage({ used, limit }: { used: number; limit: number }) {
+  const known = Number.isFinite(used) && used > 0 && Number.isFinite(limit) && limit > 0;
+  const percent = known ? Math.min(100, Math.max(0, Math.round((used / limit) * 100))) : 0;
+  const detail = known
+    ? `最近一轮上下文：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）`
+    : `上下文暂无统计 · 模型上限 ${limit.toLocaleString()} tokens`;
+  return (
+    <div
+      role="progressbar"
+      aria-label="上下文用量"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={known ? percent : undefined}
+      aria-valuetext={detail}
+      title={detail}
+      className={cn(
+        "flex h-7 w-7 shrink-0 items-center justify-center",
+        !known
+          ? "text-ink-3"
+          : percent >= 90
+            ? "text-danger"
+            : percent >= 75
+              ? "text-warning"
+              : "text-accent",
+      )}
+    >
+      <svg
+        aria-hidden="true"
+        width="18"
+        height="18"
+        viewBox="0 0 20 20"
+        className="-rotate-90"
+        fill="none"
+      >
+        <circle
+          cx="10"
+          cy="10"
+          r="7"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="text-line-strong"
+        />
+        {known ? (
+          <circle
+            cx="10"
+            cy="10"
+            r="7"
+            pathLength="100"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray="100"
+            strokeDashoffset={100 - percent}
+            className="transition-[stroke-dashoffset] duration-150 motion-reduce:transition-none"
+          />
+        ) : null}
+      </svg>
     </div>
   );
 }

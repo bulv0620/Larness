@@ -125,7 +125,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await sessionRename.getByRole("button", { name: "保存" }).click();
     await expect(sidebar.getByText("Renamed chat").first()).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole("button", { name: "更多对话设置" }).click();
+    await page.getByRole("button", { name: /审批策略：/ }).click();
     await page.getByRole("menuitemradio", { name: /严格审批/ }).click();
 
     await composer.fill("approve");
@@ -152,9 +152,10 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByTestId("workspace-home")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("补丁已应用。")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("button", { name: "批准执行" })).toHaveCount(0);
-    await page.getByRole("button", { name: "更多对话设置" }).click();
-    await expect(page.getByText(/上下文 .*128,000/)).toBeVisible();
-    await page.keyboard.press("Escape");
+    await expect(page.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
+      "aria-valuetext",
+      /128,000/,
+    );
 
     await page.getByRole("button", { name: "设置与模型" }).click();
     const settings = page.getByRole("dialog");
