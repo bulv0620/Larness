@@ -25,7 +25,11 @@ export function fileStreamScope(streamId: string): FileScope {
   const parsed = FileStreamIdSchema.safeParse(streamId);
   if (!parsed.success) throw new FileManagerError("VALIDATION_ERROR", "Invalid file stream");
   const [, kind, id] = streamId.split(":");
-  return kind === "project" ? { projectId: id } : { sessionId: id };
+  return kind === "workspace"
+    ? { workspace: "default" }
+    : kind === "project"
+      ? { projectId: id }
+      : { sessionId: id };
 }
 export function resourceEventDto(row: ResourceEventRow): ServerEvent {
   if (TerminalIdSchema.safeParse(row.streamId).success)
@@ -73,7 +77,7 @@ export function resourceEventDto(row: ResourceEventRow): ServerEvent {
     timestamp: row.createdAt,
     type: row.type,
     payload,
-    ...("projectId" in scope ? { projectId: scope.projectId } : { sessionId: scope.sessionId }),
+    ...scope,
   };
 }
 // One instance per Server; no cross-database/global publication channel.

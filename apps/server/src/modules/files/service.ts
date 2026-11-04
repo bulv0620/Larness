@@ -196,8 +196,7 @@ export async function saveFile(
   const id = newId("op");
   const lock = new ProjectWriteLock({
     db: options.db,
-    projectId:
-      "projectId" in input.scope ? input.scope.projectId : `workspace:${input.scope.sessionId}`,
+    projectId: "projectId" in input.scope ? input.scope.projectId : resolved.key,
     rootRealPath: resolved.root,
     owner: clientSessionId,
     executionId: id,
@@ -338,9 +337,12 @@ export async function saveFile(
 export async function reconcileFileOperations(options: FileServiceOptions) {
   for (const operation of pendingOperations(options.db).filter((row) => row.kind === "file.save")) {
     try {
-      const scope = operation.scopeKey.startsWith("project:")
-        ? { projectId: operation.scopeKey.slice(8) }
-        : { sessionId: operation.scopeKey.slice(8) };
+      const scope =
+        operation.scopeKey === "workspace:default"
+          ? { workspace: "default" as const }
+          : operation.scopeKey.startsWith("project:")
+            ? { projectId: operation.scopeKey.slice(8) }
+            : { sessionId: operation.scopeKey.slice(8) };
       const resolved = await resolveFileScope(options.db, options.dataDir, scope);
       if (resolved.root !== operation.rootRealPath) throw new Error("root changed");
       await authorizeFileTarget(resolved, operation.path);

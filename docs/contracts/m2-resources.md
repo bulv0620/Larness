@@ -430,3 +430,14 @@ pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / �
 - 改名写入 `terminals.title`，不修改 role / 启动参数 / 去重身份；事务内写 terminal.status 事件与 terminal.renamed 审计，提交后广播；审计与事件 payload 不含名称。多客户端重新查询名称，不启动或停止进程。
 - Agent acquire / input / interrupt / release 与 read_terminal_output 可作用同项目手动 Shell 和 dev；stop_project_terminal 仍只停止 Agent dev。旧 generation / 跨项目 / 人工持权拒绝规则保留。Turn 上下文含最多 50 个当前项目 RUNNING 终端的 ID / 名称 / mode（标签视为不可信元数据，计入上下文预算），不自动获取输入权。
 - 数据迁移 0009_terminal_title 只新增 nullable title 列。旧名称默认 null，原资源和 lease 不变；无新依赖 / 配置 / 认证协议。回滚旧程序须保留扩展列，勿删除业务数据；布局 v4 仅本地视图拆分。
+
+## 24. M2-10 默认工作区（2026-11-04）
+
+- 新未关联项目会话使用固定 `dataDir/sessions/global-terminal/workspace`（复用已有全局终端目录）。旧会话 workspacePath 保留；新默认会话不要求目录为空，不在创建 / 归档 / 失败时删除目录内容。
+- FileScope 增加 `{ workspace: "default" }`，严格拒绝其他 workspace / 与 projectId、sessionId 混用。`GET /api/files?workspace=default&path=...`，`GET /api/workspaces/default/files`；PUT /api/files 与 TerminalCreate.scope 接受该 scope。既有鉴权 / CSRF / Origin / 版本 / 秘密扫描完整保留。
+- File resourceId `workspace:default`，streamId `file:workspace:default`；WS subscribe / replay 同既有协议，无需新协议号。新共享会话的 session scope 解析到同一根、scope key / 缓存 / 事件 / 写锁域；直接路径仍只允许根内相对路径。
+- Session DTO 新增 `workspaceKind: "project" | "default" | "session"`，从 projectId / workspacePath 与 dataDir 的固定路径派生；不是授权参数。默认会话终端不使用 workspaceSessionId 作为归属（null），保留创建来源字段；历史会话终端继续带 workspaceSessionId。
+- Terminal DTO.cwd 返回已授权实际绝对工作目录（root + 持久化相对 cwd），不再将 `.` 展示为主机位置；执行参数及数据行保持相对 cwd。
+- Agent read / control 按真实 session 授权根与 terminal operation 根等值匹配，支持默认共享 Shell、同项目 Shell 和历史同会话终端；null projectId 不授予其他历史 / 项目终端权限。默认 Shell 的输入 / 中断保留 L2 审批、人机租约与序号；具名项目 dev 启动 / Git 规则不变。
+- Web 左侧默认入口始终可见；无项目草稿 / 默认会话使用同一 global 视图组，旧独立会话使用 session 组。切换 / 刷新只切视图，不创建进程。默认文件结果卡片使用 workspace scope，精确鉴权后打开。
+- 无数据库迁移、依赖、配置或实际用户数据搬移；目录创建逐级拒绝符号链接 / 非目录，默认根被替换失败关闭。

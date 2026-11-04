@@ -38,6 +38,7 @@ import type { GitManager } from "../git/manager.js";
 import { getProjectById } from "../projects/repository.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
 import type { TerminalManager } from "../terminals/manager.js";
+import { isDefaultWorkspace } from "../workspaces/default.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
 import { assembleContext } from "./contextAssembler.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
@@ -75,6 +76,7 @@ export interface TurnBudget {
 }
 
 export interface TurnRunnerOptions {
+  dataDir?: string;
   db: Database;
   registry: ToolRegistry;
   resolveProvider: ProviderResolver;
@@ -510,20 +512,20 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal read parameters",
               };
-            if (!this.#options.terminals || !session.projectId)
+            if (!this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
                 summary: "Project terminal context unavailable",
               };
             try {
-              const row = await this.#options.terminals.readProjectTerminal(
+              const row = await this.#options.terminals.readSessionTerminal(
                 parsed.data.terminalId,
-                session.projectId,
+                session.id,
               );
-              const page = await this.#options.terminals.readProjectTerminalOutput(
+              const page = await this.#options.terminals.readSessionTerminalOutput(
                 parsed.data.terminalId,
-                session.projectId,
+                session.id,
                 parsed.data.after,
                 parsed.data.limit,
               );
@@ -597,7 +599,7 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal control parameters",
               };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+            if (!snapshot || !this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -640,7 +642,7 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal input parameters",
               };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+            if (!snapshot || !this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -680,7 +682,7 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal interrupt parameters",
               };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+            if (!snapshot || !this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -716,7 +718,7 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal release parameters",
               };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+            if (!snapshot || !this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -854,6 +856,7 @@ export class TurnRunner {
           registry: this.#options.registry,
           maxContextTokens: resolved.adapter.capabilities.maxContextTokens,
           contextRatio: this.#budget.contextRatio,
+          workspaceRoot: projectRoot,
         },
         session,
         turn,
@@ -1131,7 +1134,10 @@ export class TurnRunner {
               kind: "file",
               scope: session.projectId
                 ? { projectId: session.projectId }
-                : { sessionId: session.id },
+                : this.#options.dataDir &&
+                    isDefaultWorkspace(this.#options.dataDir, session.workspacePath)
+                  ? { workspace: "default" }
+                  : { sessionId: session.id },
               path: fileResult?.path,
               version: fileResult?.version,
             });

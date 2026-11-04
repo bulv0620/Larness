@@ -70,9 +70,7 @@ export function openTerminal(item: LiveTerminal) {
     resourceId: item.id,
     title: terminalTitle(item),
     projectId: item.projectId,
-    sessionId: item.projectId
-      ? item.sourceSessionId
-      : (item.workspaceSessionId ?? item.sourceSessionId),
+    sessionId: item.projectId ? item.sourceSessionId : item.workspaceSessionId,
     source:
       item.mode === "dev"
         ? "agent"

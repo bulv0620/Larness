@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, mkdir, realpath } from "node:fs/promises";
+import { lstat } from "node:fs/promises";
 import path from "node:path";
 import {
   commandEnvironment,
@@ -10,6 +10,7 @@ import {
   resolveFilePath,
 } from "@larness/resources";
 import {
+  type FileScope,
   TERMINAL_LEASE_TTL_MS,
   TerminalCreateSchema,
   TerminalDevSchema,
@@ -38,6 +39,7 @@ import {
   updateOperation,
 } from "../resources/repository.js";
 import { getSessionById, getTurnById } from "../sessions/repository.js";
+import { isDefaultWorkspace } from "../workspaces/default.js";
 import { TerminalOutput } from "./output.js";
 import {
   activeTerminals,
@@ -88,7 +90,7 @@ export interface DevContext {
 }
 export interface AgentTerminalContext {
   clientSessionId: string;
-  projectId: string;
+  projectId: string | null;
   sessionId: string;
   turnId: string;
   toolCallId: string;
@@ -179,7 +181,7 @@ export class TerminalManager {
       workspaceSessionId: row.workspaceSessionId,
       sourceSessionId: row.sourceSessionId,
       executionId: row.id,
-      cwd: row.cwd,
+      cwd: operation ? path.resolve(operation.rootRealPath, row.cwd) : row.cwd,
       shell: row.shell,
       mode: row.mode,
       role: row.role,
@@ -240,20 +242,12 @@ export class TerminalManager {
     });
     this.options.events.publish(event);
   }
-  async #scope(scope?: { projectId: string } | { sessionId: string }) {
-    if (scope) return resolveFileScope(this.options.db, this.options.dataDir, scope);
-    const root = await realpath(this.options.dataDir);
-    let directory = path.join(root, "sessions");
-    for (const name of ["global-terminal", "workspace"]) {
-      const info = await lstat(directory);
-      if (!info.isDirectory() || info.isSymbolicLink())
-        fail("PATH_OUTSIDE_PROJECT", "Global workspace changed");
-      directory = path.join(directory, name);
-      await mkdir(directory, { recursive: true, mode: 0o700 });
-    }
-    const canonical = await realpath(directory);
-    if (canonical !== directory) fail("PATH_OUTSIDE_PROJECT", "Global workspace changed");
-    return { root: canonical, key: "global-terminal", scope: undefined, protectedRoot: root };
+  async #scope(scope?: FileScope) {
+    return resolveFileScope(
+      this.options.db,
+      this.options.dataDir,
+      scope ?? { workspace: "default" },
+    );
   }
   assertMetadata(id: string) {
     const row = this.#row(id),
@@ -317,6 +311,24 @@ export class TerminalManager {
     this.options.events.publish(event);
     return this.read(id);
   }
+  async readSessionTerminal(id: string, sessionId: string) {
+    const session = getSessionById(this.options.db, sessionId);
+    if (session?.status !== "active") fail("FORBIDDEN", "Terminal session unavailable");
+    const scope = await resolveFileScope(
+      this.options.db,
+      this.options.dataDir,
+      session.projectId ? { projectId: session.projectId } : { sessionId },
+    );
+    const row = await this.read(id);
+    const operation = findOperationById(this.options.db, this.#row(id).operationId);
+    if (row.projectId !== session.projectId || operation?.rootRealPath !== scope.root)
+      fail("FORBIDDEN", "Terminal does not belong to this workspace");
+    return row;
+  }
+  async readSessionTerminalOutput(id: string, sessionId: string, after: number, limit: number) {
+    await this.readSessionTerminal(id, sessionId);
+    return this.output(id, after, limit);
+  }
   async readProjectTerminal(id: string, projectId: string) {
     const row = await this.read(id);
     if (row.projectId !== projectId) fail("FORBIDDEN", "Terminal does not belong to this project");
@@ -369,7 +381,7 @@ export class TerminalManager {
     return lease;
   }
   async acquireAgent(id: string, context: AgentTerminalContext) {
-    await this.readProjectTerminal(id, context.projectId);
+    await this.readSessionTerminal(id, context.sessionId);
     this.#agentContext(context);
     if (this.#row(id).status !== "RUNNING" || !this.#active.get(id)?.pty.controlAvailable)
       fail("RESOURCE_UNAVAILABLE", "Terminal is not running");
@@ -419,7 +431,7 @@ export class TerminalManager {
     sequence: number,
     data: string,
   ) {
-    await this.readProjectTerminal(id, context.projectId);
+    await this.readSessionTerminal(id, context.sessionId);
     this.#agentContext(context);
     if (Buffer.byteLength(data) > 8192) fail("PAYLOAD_TOO_LARGE", "Terminal input exceeds limit");
     const rateKey = `${context.turnId}:${id}`;
@@ -469,7 +481,7 @@ export class TerminalManager {
     return { accepted, inputSequence: sequence };
   }
   async interruptAgent(id: string, context: AgentTerminalContext, generation: number) {
-    await this.readProjectTerminal(id, context.projectId);
+    await this.readSessionTerminal(id, context.sessionId);
     this.#agentContext(context);
     const lease = this.#agentHeld(id, context, generation);
     immediateTransaction(this.options.db, (tx) => {
@@ -492,7 +504,7 @@ export class TerminalManager {
     return { sent: true as const, status: this.#row(id).status };
   }
   async releaseAgent(id: string, context: AgentTerminalContext, generation: number) {
-    await this.readProjectTerminal(id, context.projectId);
+    await this.readSessionTerminal(id, context.sessionId);
     this.#agentContext(context);
     const event = immediateTransaction(this.options.db, (tx) => {
       this.#agentHeld(id, context, generation);
@@ -711,7 +723,10 @@ export class TerminalManager {
         !params.scope ||
         ("projectId" in params.scope
           ? source.projectId !== params.scope.projectId
-          : source.id !== params.scope.sessionId)
+          : "sessionId" in params.scope
+            ? source.id !== params.scope.sessionId
+            : source.projectId !== null ||
+              !isDefaultWorkspace(this.options.dataDir, source.workspacePath))
       )
         fail("FORBIDDEN", "Terminal source does not match scope");
     }
@@ -805,7 +820,9 @@ export class TerminalManager {
         operationId,
         projectId: params.scope && "projectId" in params.scope ? params.scope.projectId : null,
         workspaceSessionId:
-          params.scope && "sessionId" in params.scope ? params.scope.sessionId : null,
+          params.scope && "sessionId" in params.scope && scope.key !== "workspace:default"
+            ? params.scope.sessionId
+            : null,
         sourceSessionId: params.sourceSessionId ?? null,
         cwd,
         shell: executable,

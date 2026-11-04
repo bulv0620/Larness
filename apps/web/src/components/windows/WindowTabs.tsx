@@ -36,7 +36,7 @@ function TabIcon({ kind }: { kind: WindowKind }) {
 function projectLabel(projectId: string | null, originType: string, name?: string): string {
   if (projectId) return name ?? projectId;
   if (originType === "session") return "独立会话";
-  return "全局";
+  return "默认工作区";
 }
 
 export function WindowTabs({ window: win }: { window: ManagedWindow }) {

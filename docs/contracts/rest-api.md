@@ -474,3 +474,10 @@ M2-4（2026-11-03）：已实现 `/api/terminals` 列表 / 人工创建及 `/:id
 ### M2-9 终端改名（2026-11-04）
 
 `POST /api/terminals/:id/rename`：已认证 + Origin / CSRF，body `{ title: string }`，返回新增 nullable title 的 Terminal DTO；1–80 字符、非空、无控制字符 / 已知秘密。失败使用 VALIDATION_ERROR / UNAUTHENTICATED / FORBIDDEN / RESOURCE_UNAVAILABLE，审计不记录标题正文。详见 m2-resources §23。
+
+### M2-10 默认工作区（2026-11-04）
+
+- GET `/api/workspaces/default/files`：同项目文件树的查询参数 / 响应；其他 workspace ID 返回 VALIDATION_ERROR。
+- GET `/api/files?workspace=default&path=...`、PUT `/api/files` 的 scope `{ workspace: "default" }`：仅固定默认目录，不开放任意 dataDir 路径；鉴权、Origin / CSRF、相对路径 / 符号链接、秘密扫描、版本 / 幂等与审计沿用现有文件接口。
+- POST `/api/sessions` 不提供 projectId 时，新会话共用默认目录；Session DTO 增加 workspaceKind（project/default/session），旧独立会话仍返回原 workspacePath。
+- POST `/api/terminals` 支持默认 scope；默认会话别名归并为共享终端，workspaceSessionId=null。cwd 响应为实际绝对目录，执行入参仍相对授权根。详见 m2-resources §24。

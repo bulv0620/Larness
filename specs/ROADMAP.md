@@ -115,7 +115,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 ## 5. M2 开发资源与窗口层（M2-8 G2 候选）
 
-2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。2026-11-03 人类在阅读 [PoC 证据](030-dev-resources/poc.md) 后明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 已获人类“下一步”或“继续”确认并标 done；人类“下一步”确认 M2-3 done；人类“下一步”确认 M2-3b done；人类明确开始 M2-4b，确认 M2-4 done；M2-4b 已验收 done；人类要求开始 M2-4c；M2-4c 已验收 done；人类确认继续 M2-4d；M2-4d 已验收 done；人类确认继续 M2-5；M2-5 已验收 done；M2-5b 已验收，M2-6 起均 todo。
+2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。2026-11-03 人类在阅读 [PoC 证据](030-dev-resources/poc.md) 后明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 已获人类“下一步”或“继续”确认并标 done；人类“下一步”确认 M2-3 done；人类“下一步”确认 M2-3b done；人类明确开始 M2-4b，确认 M2-4 done；M2-4b 已验收 done；人类要求开始 M2-4c；M2-4c 已验收 done；人类确认继续 M2-4d；M2-4d 已验收 done；人类确认继续 M2-5；M2-5 已验收 done；M2-5b / M2-6 / M2-7 已完成，M2-8 为 G2 候选待人类；后续纠错见 M2-9 / M2-10。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
@@ -131,16 +131,17 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M2-4c | Agent 项目开发终端工具、用途去重与生命周期 | M2-4b | `done` |
 | M2-4d | AI 终端输入、中断、统一租约与人工接管 | M2-4c | `done` |
 | M2-5 | GitManager、资源动作审批与 Agent 工具 | M2-4d | `done` |
-| M2-5b | Git 资源区、Diff 与审批 UI | M2-5 | `todo` |
+| M2-5b | Git 资源区、Diff 与审批 UI | M2-5 | `done` |
 | M2-6 | 真实资源窗口、来源/项目筛选、分组与布局恢复 | M2-2, M2-4b, M2-5b | `done` |
-| M2-7 | 跨资源项目锁、fencing、并发与恢复验收 | M2-6 | `todo` |
-| M2-8 | M2 整体验收与 G2 | M2-7 | `todo` |
+| M2-7 | 跨资源项目锁、fencing、并发与恢复验收 | M2-6 | `done` |
+| M2-8 | M2 整体验收与 G2 | M2-7 | `review`（G2 待人类） |
 
 ## M2 纠错
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M2-9 | [项目窗口、浮栏与终端交互修正](031-project-windows/spec.md) | M2-7 done；人类直接指令 | `done`（2026-11-04） |
+| M2-10 | [共享默认工作区](032-default-workspace/spec.md) | M2-9 done；人类确认共享目录 | `done`（2026-11-04） |
 
 ## 5.1 R0-0 资源生命周期与服务文档同步
 
@@ -237,7 +238,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 - 重启标原 PTY / 命令中断，未知旧进程未清理前不允许冲突写；TUI 退出清理受管进程；
 - check / build / Demo / auth / prod / 初始化 / 统一入口 / TUI 回归通过，真实 macOS dev / built 冒烟及人类 UI / 安全验收通过；其他平台仅据实记录。
 
-**状态：待 G-Spec-M2 确认细化标准，尚未执行 G2。**
+**状态：M2-8 已汇总候选，M2-9 / M2-10 已完成纠错；G2 仍待人类 UI / 安全验收。**
 
 ### G3 服务与预览
 

@@ -634,6 +634,13 @@ it("authorizes genuine standalone/global workspaces and rejects malformed or unc
     const f = await startAuthorizedServer(path.join(dir, "data"));
     const { createSession } = await import("../../src/modules/sessions/service.js");
     const session = await createSession({ db: f.running.db, dataDir: f.running.dataDir }, {});
+    // Preserve coverage for pre-ADR-032 standalone sessions; new sessions now share the default root.
+    const legacyRoot = path.join(f.running.dataDir, "sessions", session.id, "workspace");
+    await mkdir(legacyRoot, { recursive: true });
+    f.running.sqlite
+      .prepare("UPDATE sessions SET workspace_path = ? WHERE id = ?")
+      .run(legacyRoot, session.id);
+
     const headers = {
       cookie: f.cookie,
       origin: f.origin,

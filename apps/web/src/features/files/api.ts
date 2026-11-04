@@ -6,7 +6,11 @@ import {
 } from "@larness/shared";
 import { ApiError, apiFetch } from "@/lib/api";
 export function scopeId(scope: FileScope) {
-  return "projectId" in scope ? `project:${scope.projectId}` : `session:${scope.sessionId}`;
+  return "projectId" in scope
+    ? `project:${scope.projectId}`
+    : "sessionId" in scope
+      ? `session:${scope.sessionId}`
+      : "workspace:default";
 }
 export function fileKey(scope: FileScope, path: string) {
   return ["files", scopeId(scope), "content", path] as const;
@@ -36,7 +40,7 @@ export async function listDirectory(scope: FileScope, path: string, cursor?: str
   const params = new URLSearchParams({ path, ...(cursor ? { cursor } : {}) });
   return FileListResultSchema.parse(
     await apiFetch(
-      `/api/${kind === "project" ? "projects" : "sessions"}/${encodeURIComponent(id)}/files?${params}`,
+      `/api/${kind === "project" ? "projects" : kind === "session" ? "sessions" : "workspaces"}/${encodeURIComponent(id)}/files?${params}`,
     ),
   );
 }

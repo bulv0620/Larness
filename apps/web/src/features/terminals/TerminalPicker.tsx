@@ -11,7 +11,11 @@ export function TerminalPicker({
   projectId?: string | null;
   sessionId?: string;
 }) {
-  const scope = projectId ? { projectId } : sessionId ? { sessionId } : undefined;
+  const scope: FileScope = projectId
+    ? { projectId }
+    : sessionId
+      ? { sessionId }
+      : { workspace: "default" };
   const query = useInfiniteQuery({
     queryKey: ["terminals", "list", projectId, sessionId],
     queryFn: ({ pageParam }) => listTerminals(pageParam, scope),
@@ -43,7 +47,7 @@ export function TerminalPicker({
           onClick={() =>
             setConfirmation({
               key: crypto.randomUUID(),
-              scope: projectId ? { projectId } : sessionId ? { sessionId } : undefined,
+              scope,
             })
           }
         >

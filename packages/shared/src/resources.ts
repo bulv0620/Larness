@@ -4,8 +4,12 @@ import { FilePathSchema, FileVersionSchema } from "./files";
 import { TerminalEventSchema, TerminalIdSchema } from "./terminals";
 export const RESOURCE_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 
-export const FileResourceIdSchema = z.string().regex(/^(project|session):[a-zA-Z0-9_-]{1,128}$/);
-export const FileStreamIdSchema = z.string().regex(/^file:(project|session):[a-zA-Z0-9_-]{1,128}$/);
+export const FileResourceIdSchema = z
+  .string()
+  .regex(/^(?:(?:project|session):[a-zA-Z0-9_-]{1,128}|workspace:default)$/);
+export const FileStreamIdSchema = z
+  .string()
+  .regex(/^file:(?:(?:project|session):[a-zA-Z0-9_-]{1,128}|workspace:default)$/);
 export const FileSubscriptionSchema = z
   .object({
     topic: z.literal("file"),

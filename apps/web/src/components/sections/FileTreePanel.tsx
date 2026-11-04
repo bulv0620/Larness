@@ -7,16 +7,14 @@ import { fileError, listDirectory, scopeId } from "@/features/files/api";
 import { useFileWatch } from "@/features/files/useFileWatch";
 import { USE_MOCKS } from "@/lib/env";
 import { queryClient, useSnapshot } from "@/lib/queries";
+import { activeWorkspaceScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { DemoFileTreePanel } from "./DemoFileTreePanel";
 export function FileTreePanel({ projectId }: { projectId: string | null }) {
   const sessionId = useNavigationStore((state) => state.sessionId);
   const { data } = useSnapshot();
   if (USE_MOCKS) return <DemoFileTreePanel projectId={projectId} />;
-  const standalone = data.sessions.some((item) => item.id === sessionId && item.projectId === null);
-  if (!projectId && !standalone)
-    return <p className="p-3 text-[11px] text-ink-3">选择项目或独立会话后查看文件。</p>;
-  const scope = projectId ? { projectId } : { sessionId };
+  const scope = activeWorkspaceScope(projectId, sessionId, data.sessions);
   return <RealFileTree key={scopeId(scope)} scope={scope} />;
 }
 function RealFileTree({ scope }: { scope: FileScope }) {
@@ -59,9 +57,11 @@ function RealFileTree({ scope }: { scope: FileScope }) {
         }
         open={(path) => {
           setError(null);
-          void openFile(scope, path, "projectId" in scope ? "project" : "session").catch(
-            (error: unknown) => setError(fileError(error)),
-          );
+          void openFile(
+            scope,
+            path,
+            "projectId" in scope ? "project" : "workspace" in scope ? "global" : "session",
+          ).catch((error: unknown) => setError(fileError(error)));
         }}
       />
     </div>

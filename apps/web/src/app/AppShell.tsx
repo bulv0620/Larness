@@ -1,3 +1,4 @@
+import type { GatewaySnapshot } from "@larness/shared";
 import { useEffect, useState } from "react";
 import { ProjectResourceSidebar } from "@/components/layout/ProjectResourceSidebar";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
@@ -7,10 +8,11 @@ import { WindowLayer } from "@/components/windows/WindowLayer";
 import { ConversationWorkspace } from "@/features/chat/ConversationWorkspace";
 import { useSessionEvents } from "@/features/chat/useSessionEvents";
 import { USE_MOCKS } from "@/lib/env";
-import { useSnapshot } from "@/lib/queries";
+import { queryClient, useSnapshot } from "@/lib/queries";
 import { useNewSession } from "@/lib/useNewSession";
+import { activeWindowScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { resourceScopeKey, useWindowStore, windowScopeKey } from "@/stores/windowStore";
+import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
 
 export function AppShell() {
   const { data, isPending, isError } = useSnapshot();
@@ -69,14 +71,10 @@ export function AppShell() {
       if (event.key === "Escape" && !modifier) {
         const state = useWindowStore.getState();
         const nav = useNavigationStore.getState();
-        const scope = resourceScopeKey(nav.projectId, nav.projectId ? null : nav.sessionId);
+        const sessions = queryClient.getQueryData<GatewaySnapshot>(["workspace"])?.sessions ?? [];
+        const scope = activeWindowScope(nav.projectId, nav.sessionId, sessions);
         const top = state.windows
-          .filter(
-            (win) =>
-              !win.minimized &&
-              (windowScopeKey(win) === scope ||
-                (!nav.projectId && windowScopeKey(win) === "global")),
-          )
+          .filter((win) => !win.minimized && windowScopeKey(win) === scope)
           .sort((a, b) => b.z - a.z)[0];
         if (top) {
           event.preventDefault();

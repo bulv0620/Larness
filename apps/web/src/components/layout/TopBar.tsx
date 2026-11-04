@@ -17,13 +17,14 @@ import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useLiveHost } from "@/lib/useLiveHost";
 import { useMediaQuery } from "@/lib/useMediaQuery";
+import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 
 export function TopBar() {
   const { data } = useSnapshot();
   const { theme, resolved, setTheme } = useTheme();
-  const { projectId, toggleSidebar, setMobileSidebar } = useNavigationStore();
+  const { projectId, sessionId, toggleSidebar, setMobileSidebar } = useNavigationStore();
   const mobile = useMediaQuery("(max-width: 767px)");
   const hasPendingApproval = useTimelineStore((state) =>
     state.items.some((item) => item.kind === "approval" && item.status === "pending"),
@@ -56,7 +57,7 @@ export function TopBar() {
 
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="truncate text-[12.5px] font-semibold tracking-[-.01em]">
-          {project?.name ?? "独立会话"}
+          {project?.name ?? unassignedWorkspaceLabel(sessionId, data.sessions)}
         </span>
         <span className="text-ink-3">/</span>
         <span className="flex items-center gap-1.5">

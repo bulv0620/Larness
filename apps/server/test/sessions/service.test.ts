@@ -29,7 +29,7 @@ async function addProject(db: OpenedDatabase["db"], dir: string, name = "demo") 
 }
 
 describe("session service", () => {
-  it("creates a standalone session with an empty workspace under the data directory", async () => {
+  it("creates a default session in the shared workspace under the data directory", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
 
@@ -40,7 +40,9 @@ describe("session service", () => {
         expect(session.title).toBe("New session");
         expect(session.status).toBe("active");
         expect(session.approvalPolicyId).toBe("standard");
-        expect(session.workspacePath).toBe(path.join(dir, "sessions", session.id, "workspace"));
+        expect(session.workspacePath).toBe(
+          path.join(dir, "sessions", "global-terminal", "workspace"),
+        );
         expect((await stat(session.workspacePath)).isDirectory()).toBe(true);
         expect(await readdir(session.workspacePath)).toEqual([]);
 

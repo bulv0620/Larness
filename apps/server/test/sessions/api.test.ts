@@ -37,7 +37,9 @@ describe("sessions API", () => {
           title: string;
         };
         expect(session.title).toBe("New session");
-        expect(session.workspacePath).toBe(path.join(dir, "sessions", session.id, "workspace"));
+        expect(session.workspacePath).toBe(
+          path.join(dir, "sessions", "global-terminal", "workspace"),
+        );
         expect((await stat(session.workspacePath)).isDirectory()).toBe(true);
 
         const list = await started.running.app.inject({

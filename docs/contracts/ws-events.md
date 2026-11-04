@@ -187,3 +187,7 @@ M2-3（2026-11-03）：新增 command 主题，resourceId / streamId 均为真�
 M2-3b（2026-11-03）：command 订阅已推送 `command.output`，信封为 `{kind:"command.output", resourceId:commandId, cursor, data, channel:"stdout"|"stderr", timestamp}`。脱敏块写入输出文件后才推送，单块 ≤16 KiB、不占 SQLite 关键 seq；缺口走输出 GET，慢连接沿用 8 MiB 背压断开。Session 流新增持久 `tool.command.created`，绑定真实 `{turnId, toolCallId, commandId}`，关联提交失败不启动命令；刷新重放只恢复卡片。状态与输出消费重查授权，页面卸载不 cancel。详见 [资源契约 §15](m2-resources.md#15-m2-3b-agent-命令与执行卡片2026-11-03)。
 
 M2-4（2026-11-03）：hello 和 terminal 订阅 ACK 新增 connectionId；订阅 `{topic:"terminal",resourceId:terminalId,after}`，状态 / 租约事件持久化后推送，资源 REST 补拉支持 terminalId（含全局）。新增 terminal.output 游标帧与 terminal.input / terminal.input.ack；输入实际绑定当前认证连接 / 租约 generation，8 KiB / 条、64 KiB/s，重复序号不重放，未来跳号拒绝。每次输入 / 推送重查授权，断线 / unsubscribe / 登出 / 撤销释放输入权，保留 PTY。慢消费者沿既有 8 MiB 背压断开。AI 控制与接管尚未接线，详见 [资源契约 §16](m2-resources.md#16-m2-4-terminalmanager-与输入租约后端2026-11-03)。
+
+### M2-10 默认文件流
+
+文件订阅 resourceId 新增精确值 `workspace:default`，对应 streamId `file:workspace:default`；paths / after / seq / resync 与项目流相同。鉴权后仅解析固定默认目录，未知 workspace 拒绝；事件先事务落库再广播。默认共享会话别名和直接 workspace scope 使用相同持久事件流，不对其他运行数据授权。无协议号变化。

@@ -198,3 +198,7 @@ ACTIVE → REVOKED
 ## 项目终端交接修正（ADR-031 / M2-9）
 
 人类明确要求 AI 可接管项目内手动终端。Agent 控制 / 读取 scope 从 Agent dev 扩展至同项目 Shell，不扩展到全局或其他项目；输入与中断仍 L2 逐次审批，持有人工租约时不抢占，用户释放后才可获取。名称独立校验 / 秘密扫描，审计不保存标题；上下文只传有界 ID / 标签 / mode 并视作不可信元数据。资源关闭 / 并发 / fencing 规则不变。
+
+## 默认工作区（ADR-032 / M2-10）
+
+默认工作区只授权 dataDir/sessions/global-terminal/workspace 的精确根，绝不授权它的 sessions 父目录或其他配置 / 密钥 / 日志目录。创建和访问逐级拒绝目录符号链接，文件路径仍做根内 realpath 校验；相同 scope 的缓存 / 事件 / 项目写锁按共同根处理。默认会话与 Shell 的 Agent 交接必须比较真实会话的授权根和终端操作根，不能只检查 projectId=null。历史独立目录只由原会话 scope 访问，禁止静默搬移。Shell 仍为可信开发机执行模式，应用文件授权不是 OS 沙箱。

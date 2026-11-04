@@ -8,6 +8,8 @@ export interface Project {
 }
 
 export interface SessionSummary {
+  workspaceKind?: "project" | "default" | "session";
+  workspacePath?: string;
   id: string;
   projectId: string | null;
   title: string;

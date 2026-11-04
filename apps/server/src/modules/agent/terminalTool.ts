@@ -53,7 +53,7 @@ export function createTerminalTools(options: {
     defineTool({
       name: "read_terminal_output",
       description:
-        "Read bounded, redacted cursor output from a Shell or dev terminal in the current project. Does not take input control. Pass the returned nextCursor as after to read later output.",
+        "Read bounded, redacted cursor output from an authorized Shell or dev terminal in the current workspace. Does not take input control. Pass the returned nextCursor as after to read later output.",
       riskLevel: "L0",
       requiresProjectLock: false,
       schema: ReadTerminalOutputParamsSchema,

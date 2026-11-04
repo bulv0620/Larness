@@ -115,6 +115,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     focusComposer();
   };
 
+  const activeSession = sessions.find((item) => item.id === sessionId);
+  const defaultSelected =
+    projectId === null && (!activeSession || activeSession.workspaceKind === "default");
   const normalized = query.trim().toLowerCase();
   const projects = data.projects.map((project) => ({
     ...project,
@@ -175,6 +178,55 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-y-auto px-1.5 pb-2">
+        {!USE_MOCKS ? (
+          <div className="mb-3">
+            <button
+              type="button"
+              aria-label="默认工作区"
+              aria-pressed={defaultSelected}
+              onClick={() => {
+                startDraft(null);
+                focusComposer();
+              }}
+              className={cn(
+                "flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[11.5px] font-medium",
+                defaultSelected ? "bg-accent-soft text-accent" : "text-ink-2 hover:bg-surface-2",
+              )}
+            >
+              <Boxes size={13} />
+              <span>默认工作区</span>
+            </button>
+            <div className="ml-[13px] border-l border-line/70 pl-1">
+              {draftSession?.projectId === null ? (
+                <SessionRow
+                  title="新会话"
+                  draft
+                  active={draftSession.id === sessionId}
+                  running={false}
+                  onClick={() => startDraft(null)}
+                />
+              ) : null}
+              {sessions
+                .filter(
+                  (item) =>
+                    item.workspaceKind === "default" &&
+                    (!normalized || item.title.toLowerCase().includes(normalized)),
+                )
+                .map((session) => (
+                  <SessionRow
+                    key={session.id}
+                    title={session.title}
+                    active={session.id === sessionId}
+                    running={session.id === sessionId && isStreaming}
+                    onClick={() => selectSession(session.id, null)}
+                    onContextMenu={(event) =>
+                      openContext(event, "session", session.id, session.title)
+                    }
+                  />
+                ))}
+            </div>
+          </div>
+        ) : null}
         <div className="flex items-center px-2 pb-1 text-[10px] font-semibold uppercase tracking-[.08em] text-ink-3">
           项目
           {!USE_MOCKS ? (
@@ -278,15 +330,6 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
             {recent.length}
           </span>
         </div>
-        {draftSession?.projectId === null ? (
-          <SessionRow
-            title="新会话"
-            draft
-            active={draftSession.id === sessionId}
-            running={false}
-            onClick={() => startDraft(null)}
-          />
-        ) : null}
         {recent.map((session) => {
           const project = data.projects.find((item) => item.id === session.projectId);
           return (
@@ -313,7 +356,10 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                 </span>
               </span>
               <span className="flex items-center gap-1.5 pl-[17px] text-[9.5px] text-ink-3">
-                <span className="truncate">{project?.name ?? "独立会话"}</span>
+                <span className="truncate">
+                  {project?.name ??
+                    (session.workspaceKind === "default" ? "默认工作区" : "独立会话")}
+                </span>
                 <span>·</span>
                 <span className="shrink-0">{relativeTime(session.updatedAt)}</span>
               </span>
@@ -329,7 +375,6 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
           label="设置与模型"
           onClick={USE_MOCKS ? undefined : () => setSettingsOpen(true)}
         />
-        <BottomItem icon={Boxes} label="工作空间" />
         <div className="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-black/[.035] dark:hover:bg-white/[.05]">
           <div className="relative flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#ffd60a] to-[#ff9f0a] text-[10px] font-semibold text-[#1d1d1f]">
             B

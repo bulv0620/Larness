@@ -22,6 +22,8 @@
 
 - [ADR-031 项目窗口与终端交互](ADR-031-project-resource-windows.md)：accepted（2026-11-04 人类直接指定），项目浮栏 / 窗口归属 / 手动 Shell AI 交接。
 
+- [ADR-032 共享默认工作区](ADR-032-shared-default-workspace.md)：accepted（2026-11-04 人类确认），新未关联会话共享目录、旧独立目录不变。
+
 ## 2. 实现决策（本仓库冻结）
 
 | ID | 决策 | 说明 |

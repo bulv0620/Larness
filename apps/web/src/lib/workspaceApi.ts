@@ -1,4 +1,4 @@
-import type { ModelProfile, ServerEvent } from "@larness/shared";
+import { type ModelProfile, type ServerEvent, WorkspaceKindSchema } from "@larness/shared";
 import { apiFetch } from "./api";
 
 export interface ApiProject {
@@ -17,6 +17,7 @@ export interface ApiProject {
 }
 
 export interface ApiSession {
+  workspaceKind?: "project" | "default" | "session";
   id: string;
   projectId: string | null;
   workspacePath: string;
@@ -298,6 +299,10 @@ export function toModelProfileView(model: ApiModelProfile): ModelProfile {
 
 export function toSessionView(session: ApiSession) {
   return {
+    workspaceKind: WorkspaceKindSchema.parse(
+      session.workspaceKind ?? (session.projectId ? "project" : "session"),
+    ),
+    workspacePath: session.workspacePath,
     id: session.id,
     projectId: session.projectId,
     title: session.title,

@@ -8,6 +8,7 @@ import { SectionSplitter } from "@/components/sections/SectionSplitter";
 import { useSectionResizer } from "@/components/sections/useSectionResizer";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
+import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 
 const initialSections = [
@@ -25,6 +26,7 @@ const icons = {
 export function ProjectResourceSidebar() {
   const { data } = useSnapshot();
   const projectId = useNavigationStore((state) => state.projectId);
+  const sessionId = useNavigationStore((state) => state.sessionId);
   const resourceWidth = useNavigationStore((state) => state.resourceWidth);
   const project = data.projects.find((item) => item.id === projectId) ?? null;
   const projectChanges = projectId === "prj_larness" ? data.gitChanges : [];
@@ -65,7 +67,7 @@ export function ProjectResourceSidebar() {
           项目资源
         </span>
         <span className="ml-auto max-w-[140px] truncate rounded-full bg-black/[.045] px-1.5 py-[1px] text-[9.5px] font-medium text-ink-3 dark:bg-white/[.06]">
-          {project?.name ?? "未选择项目"}
+          {project?.name ?? unassignedWorkspaceLabel(sessionId, data.sessions)}
         </span>
       </div>
 

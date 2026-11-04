@@ -2,12 +2,15 @@ import { useEffect } from "react";
 import { WindowFrame } from "@/components/windows/WindowFrame";
 import { FileLifecycle } from "@/features/files/FileLifecycle";
 import { USE_MOCKS } from "@/lib/env";
+import { useSnapshot } from "@/lib/queries";
+import { activeWindowScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { resourceScopeKey, useWindowStore, windowScopeKey } from "@/stores/windowStore";
+import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
 
 export function WindowLayer() {
   const { projectId, sessionId } = useNavigationStore();
-  const scope = resourceScopeKey(projectId, projectId ? null : sessionId);
+  const { data } = useSnapshot();
+  const scope = activeWindowScope(projectId, sessionId, data.sessions);
   const windows = useWindowStore((state) => state.windows);
   const setBounds = useWindowStore((state) => state.setBounds);
 
@@ -38,11 +41,7 @@ export function WindowLayer() {
     <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
       {!USE_MOCKS ? <FileLifecycle /> : null}
       {windows
-        .filter(
-          (win) =>
-            !win.minimized &&
-            (windowScopeKey(win) === scope || (!projectId && windowScopeKey(win) === "global")),
-        )
+        .filter((win) => !win.minimized && windowScopeKey(win) === scope)
         .map((win) => (
           <WindowFrame key={win.id} window={win} />
         ))}

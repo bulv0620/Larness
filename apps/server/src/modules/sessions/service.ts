@@ -1,5 +1,3 @@
-import { mkdir, readdir, rm } from "node:fs/promises";
-import path from "node:path";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
@@ -7,6 +5,7 @@ import type { SessionRow, SessionStatus } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { getProjectById } from "../projects/repository.js";
 import { parseProjectSettings } from "../projects/service.js";
+import { ensureDefaultWorkspace, isDefaultWorkspace } from "../workspaces/default.js";
 import { SessionError } from "./errors.js";
 import {
   createSessionRow,
@@ -25,6 +24,7 @@ export interface SessionDto {
   id: string;
   projectId: string | null;
   workspacePath: string;
+  workspaceKind: "project" | "default" | "session";
   title: string;
   status: SessionStatus;
   modelProfileId: string | null;
@@ -60,11 +60,16 @@ export interface UpdateSessionInput {
 
 export type ApprovalPolicy = "standard" | "strict" | "readonly";
 
-export function sessionDto(row: SessionRow): SessionDto {
+export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
   return {
     id: row.id,
     projectId: row.projectId,
     workspacePath: row.workspacePath,
+    workspaceKind: row.projectId
+      ? "project"
+      : isDefaultWorkspace(dataDir, row.workspacePath)
+        ? "default"
+        : "session",
     title: row.title,
     status: row.status,
     modelProfileId: row.modelProfileId,
@@ -130,7 +135,9 @@ export function listSessionDtos(
   query: { projectId?: string; limit?: number } = {},
 ): SessionDto[] {
   const limit = Math.min(Math.max(Math.trunc(query.limit ?? 50), 1), 100);
-  return listSessionRows(options.db, { projectId: query.projectId, limit }).map(sessionDto);
+  return listSessionRows(options.db, { projectId: query.projectId, limit }).map((row) =>
+    sessionDto(row, options.dataDir),
+  );
 }
 
 export function getSessionDetail(options: SessionServiceOptions, id: string): SessionDetailDto {
@@ -141,32 +148,9 @@ export function getSessionDetail(options: SessionServiceOptions, id: string): Se
   }
 
   return {
-    ...sessionDto(row),
+    ...sessionDto(row, options.dataDir),
     activeTurn: activeTurnForSession(options.db, id),
   };
-}
-
-async function createStandaloneWorkspace(dataDir: string, sessionId: string): Promise<string> {
-  const sessionDir = path.join(dataDir, "sessions", sessionId);
-  const workspacePath = path.join(sessionDir, "workspace");
-
-  try {
-    await mkdir(sessionDir, { recursive: true, mode: 0o700 });
-    await mkdir(workspacePath, { mode: 0o700 });
-  } catch (error) {
-    throw new SessionError(
-      "INTERNAL",
-      `cannot create session workspace: ${(error as NodeJS.ErrnoException).code ?? "unknown"}`,
-    );
-  }
-
-  const entries = await readdir(workspacePath);
-
-  if (entries.length > 0) {
-    throw new SessionError("INTERNAL", "session workspace is not empty");
-  }
-
-  return workspacePath;
 }
 
 function insertSession(
@@ -226,26 +210,10 @@ export async function createSession(
     workspacePath = project.realPath;
     modelProfileId = parseProjectSettings(project.settingsJson).defaultModelProfileId;
   } else {
-    const id = newId("ses");
-    workspacePath = await createStandaloneWorkspace(options.dataDir, id);
-
     try {
-      const row = insertSession(options, {
-        id,
-        projectId: null,
-        workspacePath,
-        title,
-        modelProfileId: null,
-        now,
-        clientSessionId: input.clientSessionId,
-      });
-      return sessionDto(row);
-    } catch (error) {
-      await rm(path.join(options.dataDir, "sessions", id), {
-        recursive: true,
-        force: true,
-      }).catch(() => undefined);
-      throw error;
+      workspacePath = await ensureDefaultWorkspace(options.dataDir);
+    } catch {
+      throw new SessionError("RESOURCE_UNAVAILABLE", "Default workspace unavailable");
     }
   }
 
@@ -259,7 +227,7 @@ export async function createSession(
     clientSessionId: input.clientSessionId,
   });
 
-  return sessionDto(row);
+  return sessionDto(row, options.dataDir);
 }
 
 export function updateSession(
@@ -305,7 +273,7 @@ export function updateSession(
     return updated;
   });
 
-  return sessionDto(row);
+  return sessionDto(row, options.dataDir);
 }
 
 export function archiveSession(

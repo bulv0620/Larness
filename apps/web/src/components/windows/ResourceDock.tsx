@@ -3,8 +3,9 @@ import { FileCode2, GitCompare, Globe2, Server, SquareTerminal } from "lucide-re
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import type { WindowKind } from "@/lib/windowTypes";
+import { activeWindowScope, activeWorkspaceScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { resourceScopeKey, useWindowStore, windowScopeKey } from "@/stores/windowStore";
+import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
 
 const icons = {
   files: FileCode2,
@@ -17,10 +18,9 @@ export function ResourceDock() {
   const { data } = useSnapshot();
   const { projectId, sessionId } = useNavigationStore();
   const { windows, focusedId, open, restore } = useWindowStore();
-  const scope = resourceScopeKey(projectId, projectId ? null : sessionId);
-  const current = windows.filter(
-    (win) => windowScopeKey(win) === scope || (!projectId && windowScopeKey(win) === "global"),
-  );
+  const scope = activeWindowScope(projectId, sessionId, data.sessions);
+  const workspace = activeWorkspaceScope(projectId, sessionId, data.sessions);
+  const current = windows.filter((win) => windowScopeKey(win) === scope);
   const launch = (kind: "terminal" | "services") => {
     const existing = current.find((win) => win.tabs[0]?.kind === kind);
     if (existing) {
@@ -44,7 +44,7 @@ export function ResourceDock() {
           ? "终端"
           : "服务",
       projectId,
-      sessionId: projectId ? null : sessionId || null,
+      sessionId: "sessionId" in workspace ? workspace.sessionId : null,
       source: projectId ? "project" : "session",
     });
   };

@@ -227,6 +227,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         registry.register(tool);
       for (const tool of createGitTools()) registry.register(tool);
       const runner = new TurnRunner({
+        dataDir,
         db: opened.db,
         registry,
         commands,

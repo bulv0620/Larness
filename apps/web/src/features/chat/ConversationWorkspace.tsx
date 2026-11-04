@@ -18,6 +18,7 @@ import { Timeline } from "@/features/chat/Timeline";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { archiveSession } from "@/lib/workspaceApi";
+import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useComposerStore } from "@/stores/composerStore";
 import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -80,7 +81,9 @@ export function ConversationWorkspace() {
         </div>
         <span className="hidden min-w-0 items-center gap-1.5 truncate font-mono text-[10px] text-ink-3 md:flex">
           <span className="text-ink-3/60">›</span>
-          {project?.rootPath ?? "独立会话工作目录"}
+          {project?.rootPath ??
+            session?.workspacePath ??
+            unassignedWorkspaceLabel(sessionId, data.sessions)}
         </span>
         <div className="ml-auto flex items-center gap-0.5">
           <IconButton
@@ -130,9 +133,9 @@ export function ConversationWorkspace() {
           <ResourceDock />
           <div className="mb-2 flex items-center gap-1.5 px-0.5 text-[10.5px] text-ink-3">
             <Sparkles size={11.5} className="text-accent" />
-            <span className="font-medium text-ink-2">项目上下文</span>
+            <span className="font-medium text-ink-2">工作区上下文</span>
             <span>·</span>
-            <span>{project?.name ?? "独立会话"}</span>
+            <span>{project?.name ?? unassignedWorkspaceLabel(sessionId, data.sessions)}</span>
             <span>·</span>
             <span className="font-mono">{project?.branch ?? "workspace"}</span>
           </div>
