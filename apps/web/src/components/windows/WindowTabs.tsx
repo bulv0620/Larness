@@ -48,7 +48,9 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
   const setActiveTab = useWindowStore((state) => state.setActiveTab);
   const closeTab = useWindowStore((state) => state.closeTab);
   const { data } = useSnapshot();
-  const visible = filterTabs(win.tabs, win.filter);
+  const visible = filterTabs(win.tabs, win.filter).filter(
+    (tab) => tab.kind !== "terminal" || tab.resourceId !== "terminal:empty",
+  );
   const kind = win.tabs[0]?.kind;
   const tabsRef = useRef<HTMLDivElement>(null);
   const [overflow, setOverflow] = useState(false);
