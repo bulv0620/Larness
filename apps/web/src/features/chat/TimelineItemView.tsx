@@ -17,25 +17,7 @@ export function TimelineItemView({ item }: { item: TimelineItem }) {
     case "tool":
       return <ToolCard item={item} />;
     case "approval":
-      return (
-        <div
-          className={cn(
-            "break-words text-[12px]",
-            item.status === "pending"
-              ? "text-warning"
-              : item.status === "approved"
-                ? "text-success"
-                : "text-ink-3",
-          )}
-        >
-          {item.status === "pending"
-            ? "等待批准"
-            : item.status === "approved"
-              ? "已批准本次操作"
-              : "已拒绝此次操作"}{" "}
-          · {item.summary ?? item.toolName ?? item.serviceName}
-        </div>
-      );
+      return null;
     case "artifact":
       return <ArtifactResult item={item} />;
     case "error":
@@ -82,9 +64,11 @@ function MessageBubble({ item }: { item: MessageItem }) {
     );
   return (
     <article className="min-w-0 break-words text-[13px] leading-[1.65] text-ink [overflow-wrap:anywhere]">
-      <MarkdownText text={item.text} />
+      <div className="w-fit min-w-0 max-w-full rounded-2xl rounded-tl-md border border-line bg-surface px-3.5 py-2.5 shadow-[var(--shadow-card)]">
+        <MarkdownText text={item.text} />
+      </div>
       {!item.streaming && item.text ? (
-        <div className="mt-2">
+        <div className="mt-1 flex items-center gap-2 px-0.5">
           <button
             type="button"
             aria-label={copied ? "已复制答复" : "复制答复"}
@@ -98,6 +82,17 @@ function MessageBubble({ item }: { item: MessageItem }) {
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
           </button>
+          <time
+            dateTime={new Date(item.createdAt).toISOString()}
+            title={new Date(item.createdAt).toLocaleString()}
+            className="font-mono text-[11px] text-ink-3"
+          >
+            {new Date(item.createdAt).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              hourCycle: "h23",
+            })}
+          </time>
         </div>
       ) : null}
     </article>

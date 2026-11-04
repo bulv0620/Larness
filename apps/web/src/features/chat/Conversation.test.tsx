@@ -174,3 +174,45 @@ it("Enter never stops a running turn and IME Enter never sends; stop stays expli
   await waitFor(() => expect(send).toHaveBeenCalledWith("下一个任务"));
   expect(screen.queryByText(/正在执行，可先编辑/)).toBeNull();
 });
+
+it("shows the persisted reply time next to copy only after streaming ends", () => {
+  const timestamp = new Date("2026-11-04T13:20:00Z").getTime();
+  const reply: TimelineItem = {
+    id: "reply",
+    kind: "message",
+    role: "assistant",
+    text: "回复内容",
+    createdAt: timestamp,
+    streaming: true,
+  };
+  useTimelineStore.setState({ items: [reply] });
+  const view = render(<Timeline />);
+  expect(view.container.querySelector("time")).toBeNull();
+  expect(screen.queryByRole("button", { name: "复制答复" })).toBeNull();
+  act(() => useTimelineStore.setState({ items: [{ ...reply, streaming: false }] }));
+  const copy = screen.getByRole("button", { name: "复制答复" });
+  const time = copy.nextElementSibling;
+  expect(time?.tagName).toBe("TIME");
+  expect(time).toHaveAttribute("dateTime", new Date(timestamp).toISOString());
+  expect(time?.textContent).toMatch(/^\d{2}:\d{2}$/);
+});
+
+it("hides approval history from the conversation while retaining the live approval panel", () => {
+  useTimelineStore.setState({
+    items: [
+      ...base,
+      { ...approval, summary: "待批动作" },
+      { ...approval, id: "approved", status: "approved", summary: "已批动作" },
+      { ...approval, id: "rejected", status: "rejected", summary: "拒绝动作" },
+    ],
+  });
+  render(
+    <>
+      <Timeline />
+      <PendingApproval />
+    </>,
+  );
+  const log = screen.getByRole("log", { name: "会话时间线" });
+  expect(within(log).queryByText(/待批动作|已批动作|拒绝动作/)).toBeNull();
+  expect(screen.getByRole("region", { name: "待处理审批" })).toHaveTextContent("待批动作");
+});

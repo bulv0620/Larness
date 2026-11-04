@@ -128,15 +128,6 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
             <TimelineItemView key={item.id} item={item} />
           ))}
         {latestCommentary ? <TimelineItemView item={latestCommentary} /> : null}
-        {approvals.map((item) =>
-          item.kind === "approval" && !active && item.status === "pending" && user?.turnOutcome ? (
-            <div key={item.id} className="text-[12px] text-ink-3">
-              审批已结束 · {item.summary ?? item.toolName}
-            </div>
-          ) : (
-            <TimelineItemView key={item.id} item={item} />
-          ),
-        )}
         {answer ? <TimelineItemView item={answer} /> : null}
         {active && !pending && !runningTool && !answer && !latestCommentary ? (
           <div role="status" className="flex items-center gap-2 text-[12px] text-ink-3">
