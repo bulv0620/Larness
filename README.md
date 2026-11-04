@@ -6,9 +6,9 @@
 - 以对话驱动 Agent 读写项目、运行命令、管理终端 / 服务 / Git；
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
-> **当前状态：S0 视觉 Demo 与 M0（macOS 范围）均已验收；下一步先修正 M1 项目写锁规划，再进入 M1-1。**
+> **当前状态：S0、M0（macOS 范围）与 M1 已验收；M2 功能已实现，G2 候选待人类验收，当前进入问题修复阶段。M3 仍为草案。**
 > 启动开发环境：`pnpm install && pnpm dev` → Server <http://127.0.0.1:3210/api/health> + Web <http://localhost:3210>，并直接进入 TUI。
-> 验收记录与截图：[specs/000-visual-demo/acceptance.md](specs/000-visual-demo/acceptance.md)。
+> 当前进度见 [STATUS.md](STATUS.md)；M2 验收结果与已知问题见 [验收记录](specs/030-dev-resources/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
 
 ## 文档地图
@@ -33,7 +33,7 @@
 | [docs/open-questions.md](docs/open-questions.md) | 尚未冻结的边界问题与默认方案 |
 | [docs/glossary.md](docs/glossary.md) | 术语表 |
 
-## 快速开始（S0 已验收，M0 进行中）
+## 快速开始
 
 ```bash
 pnpm install
@@ -104,7 +104,8 @@ Agent 的启动指令示例：
 
 ```text
 请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md。
-S0 与 M0（macOS 范围）已验收；G0 记录见 specs/010-foundation/acceptance.md；进入 M1 前先修正项目写锁规划。
+S0、M0（macOS 范围）与 M1 已验收；M2 处于问题修复与 G2 待验收阶段。
+请以 STATUS.md、specs/ROADMAP.md 和当前任务卡为准，一次只处理一个任务。
 ```
 
 ## 当前仓库结构
@@ -115,11 +116,11 @@ S0 与 M0（macOS 范围）已验收；G0 记录见 specs/010-foundation/accepta
 ├── app.js                      # 稳定入口：启动 Server + Web 并进入 TUI；status / doctor
 ├── README.md / AGENTS.md / CONSTITUTION.md / STATUS.md
 ├── apps/
-│   ├── server/                 # Fastify 5 Server（M0-1：health / 错误契约 / 请求 ID）
-│   └── web/                    # React + Vite 视觉 Demo
+│   ├── server/                 # Fastify 5 Server、认证 / IPC、Agent 与资源管理
+│   └── web/                    # React + Vite 工作台与 Mock Demo
 ├── packages/
-│   ├── agent/                  # Agent 运行时占位（M1）
-│   ├── resources/              # 文件 / 终端 / Git / 服务占位（M2）
+│   ├── agent/                  # Agent 运行时、Provider、工具与审批
+│   ├── resources/              # 文件 / 命令 / 终端 / Git 资源能力
 │   ├── ui/                     # Button / Dropdown / Tooltip / Tabs 等原语
 │   └── shared/                 # 领域类型、事件、错误码、配置与 Gateway 契约
 ├── e2e/                        # Playwright 验收用例
@@ -138,13 +139,13 @@ S0 与 M0（macOS 范围）已验收；G0 记录见 specs/010-foundation/accepta
     ├── 000-visual-demo/        # S0 视觉 Demo（已验收）
     ├── 010-foundation/         # M0 可信启动与认证
     ├── 020-workspace-agent/    # M1 项目 / 会话 / 最小 Agent
-    ├── 030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（草案）
+    ├── 030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（G2 待验收）
     ├── 040-services-preview/   # M3 服务与预览（草案）
     ├── 050-deploy/             # M4 部署闭环（草案）
     └── 060-extension/          # M5 多模型 / 自动化 / 更新（草案）
 ```
 
-当前代码包含 `apps/web`、`apps/server`、`packages/{shared,ui,agent,resources}`；数据库、认证与 IPC 随 M0 后续任务创建。
+当前代码已包含数据库、认证、IPC、项目 / 会话 / Agent，以及文件编辑、命令执行、真实终端与 Git 管理。服务登记、隔离预览与 PM2 持久服务规划在 M3，尚未交付。
 
 ## 冻结技术栈（摘要）
 
