@@ -18,7 +18,16 @@ export function TimelineItemView({ item }: { item: TimelineItem }) {
       return <ToolCard item={item} />;
     case "approval":
       return (
-        <div className="break-words text-[12px] text-ink-3">
+        <div
+          className={cn(
+            "break-words text-[12px]",
+            item.status === "pending"
+              ? "text-warning"
+              : item.status === "approved"
+                ? "text-success"
+                : "text-ink-3",
+          )}
+        >
           {item.status === "pending"
             ? "等待批准"
             : item.status === "approved"
@@ -50,7 +59,7 @@ function MessageBubble({ item }: { item: MessageItem }) {
   if (item.role === "user")
     return (
       <div className="mb-5 flex justify-end">
-        <div className="max-w-[91%] rounded-[18px] bg-surface-2 px-3.5 py-2.5 text-[13px] leading-[1.65] text-ink sm:max-w-[82%]">
+        <div className="max-w-[91%] rounded-[18px] bg-accent-soft px-3.5 py-2.5 text-[13px] leading-[1.65] text-ink sm:max-w-[82%]">
           <div
             className={cn(
               "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
@@ -105,10 +114,10 @@ function PlanCard({ item }: { item: PlanItem }) {
         type="button"
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-start gap-1.5 py-1 text-left"
+        className="flex w-full items-start gap-1.5 rounded-md py-1 text-left transition-colors hover:text-accent"
       >
         <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
-        <span>
+        <span className={current ? "text-accent" : undefined}>
           计划 · {done}/{item.steps.length}
           {current ? ` · ${current.title}` : ` · ${item.title}`}
         </span>
@@ -118,11 +127,11 @@ function PlanCard({ item }: { item: PlanItem }) {
           {item.steps.map((step) => (
             <li key={step.id} className="flex items-start gap-2">
               {step.status === "done" ? (
-                <Check size={13} className="mt-0.5 shrink-0" />
+                <Check size={13} className="mt-0.5 shrink-0 text-success" />
               ) : step.status === "running" ? (
                 <Loader2
                   size={13}
-                  className="mt-0.5 shrink-0 animate-spin motion-reduce:animate-none"
+                  className="mt-0.5 shrink-0 animate-spin text-accent motion-reduce:animate-none"
                 />
               ) : step.status === "failed" ? (
                 <X size={13} className="mt-0.5 shrink-0 text-danger" />
@@ -158,7 +167,7 @@ function ToolCard({ item }: { item: ToolItem }) {
         type="button"
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-start gap-1.5 py-1 text-left"
+        className="flex w-full items-start gap-1.5 rounded-md py-1 text-left transition-colors hover:text-accent"
       >
         <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
         <span className="min-w-0 break-words">{item.summary || item.name}</span>
@@ -199,7 +208,7 @@ function ArtifactResult({ item }: { item: ArtifactItem }) {
       {item.href ? (
         <button
           type="button"
-          className="mt-1 underline decoration-line underline-offset-4"
+          className="mt-1 text-accent underline decoration-accent/30 underline-offset-4 hover:decoration-accent"
           onClick={() =>
             open({
               kind: "browser",

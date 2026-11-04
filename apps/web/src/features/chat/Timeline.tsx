@@ -100,13 +100,16 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
               aria-label={`执行过程 · ${summary}`}
               aria-expanded={expanded}
               onClick={() => setExpanded((value) => !value)}
-              className="flex w-full items-start gap-1.5 py-1 text-left"
+              className={cn(
+                "flex w-full items-start gap-1.5 rounded-md py-1 text-left transition-colors hover:text-accent",
+                active && !pending && "text-accent",
+              )}
             >
               <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
               <span className="min-w-0 break-words">{summary}</span>
             </button>
             {expanded ? (
-              <div className="ml-1.5 mt-2 space-y-2 border-l border-line pl-4">
+              <div className="ml-1.5 mt-2 space-y-2 border-l border-accent/15 pl-4">
                 {process.map((item) => (
                   <div key={item.id}>
                     <TimelineItemView item={item} />
@@ -137,7 +140,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         {answer ? <TimelineItemView item={answer} /> : null}
         {active && !pending && !runningTool && !answer && !latestCommentary ? (
           <div role="status" className="flex items-center gap-2 text-[12px] text-ink-3">
-            <Loader2 size={12} className="animate-spin motion-reduce:animate-none" />
+            <Loader2 size={12} className="animate-spin text-accent motion-reduce:animate-none" />
             正在处理…
           </div>
         ) : null}
@@ -253,7 +256,7 @@ export function Timeline() {
             follow();
             setShowJump(false);
           }}
-          className="absolute bottom-3 left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-ink-2 shadow-sm"
+          className="absolute bottom-3 left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-accent shadow-[var(--shadow-card)] transition-colors hover:bg-accent-soft"
         >
           <ArrowDown size={14} />
         </button>

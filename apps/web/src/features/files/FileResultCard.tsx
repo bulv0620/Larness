@@ -10,7 +10,7 @@ export function FileResultCard({ target }: { target: FileResultTarget }) {
     <div className="py-1 text-[12px] text-ink-2">
       <button
         type="button"
-        className="break-all text-left text-ink-2 underline decoration-line underline-offset-4 hover:text-ink"
+        className="break-all text-left text-accent underline decoration-accent/30 underline-offset-4 hover:decoration-accent"
         disabled={pending}
         onClick={() => {
           setPending(true);

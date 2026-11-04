@@ -1,0 +1,73 @@
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { expect, test } from "@playwright/test";
+
+test("conversation actions follow the outer light/dark theme without expanding the compact layout", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const panel = page.getByRole("region", { name: "待处理审批" });
+  await expect(panel).toBeVisible();
+  for (const theme of ["浅色", "深色"]) {
+    await page.getByRole("button", { name: "外观与主题" }).click();
+    await page.getByRole("menuitemradio", { name: theme, exact: false }).click();
+    const accent = await page.evaluate(() => {
+      const sample = document.createElement("span");
+      sample.style.backgroundColor = "var(--accent)";
+      document.body.append(sample);
+      const color = getComputedStyle(sample).backgroundColor;
+      sample.remove();
+      return color;
+    });
+    await expect(panel.getByRole("button", { name: "批准部署" })).toHaveCSS(
+      "background-color",
+      accent,
+    );
+    const input = page.getByLabel("对话输入");
+    const approvalBox = await panel.boundingBox();
+    const inputBox = await input.boundingBox();
+    expect(
+      approvalBox && inputBox && approvalBox.y + approvalBox.height <= inputBox.y,
+    ).toBeTruthy();
+    expect(
+      (await page.getByLabel("项目窗口", { exact: true }).boundingBox())?.height,
+    ).toBeLessThanOrEqual(32);
+    await page.screenshot({
+      path: path.join(tmpdir(), `larness-m2-16-${theme === "浅色" ? "light" : "dark"}.png`),
+    });
+  }
+  await panel.getByRole("button", { name: "批准部署" }).click();
+  await expect(panel).toHaveCount(0);
+  await page.getByLabel("对话输入").fill("保留当前对话结构");
+  const accent = await page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
+  );
+  // Resolve the existing theme token through a CSS property, including hex-to-rgb conversion.
+  const expected = await page.evaluate((value) => {
+    const node = document.createElement("span");
+    node.style.color = value;
+    document.body.append(node);
+    const color = getComputedStyle(node).color;
+    node.remove();
+    return color;
+  }, accent);
+  await expect(page.getByRole("button", { name: "发送消息" })).toHaveCSS(
+    "background-color",
+    expected,
+  );
+  await expect(page.getByText(/正在执行，可先编辑|工作区上下文/)).toHaveCount(0);
+  await page.getByRole("button", { name: "发送消息" }).click();
+  await expect(page.getByRole("button", { name: "停止执行" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /计划 ·/ }).last()).toBeVisible();
+  await page.getByRole("button", { name: "停止执行" }).click();
+  await expect(page.getByRole("button", { name: "发送消息" })).toBeVisible();
+  for (const width of [736, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBeLessThanOrEqual(1);
+  }
+  await page.screenshot({ path: path.join(tmpdir(), "larness-m2-16-mobile.png") });
+});

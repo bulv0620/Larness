@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
   IconButton,
 } from "@larness/ui";
-import { ArrowUp, ChevronDown, MoreHorizontal, Plus, Square } from "lucide-react";
+import { ArrowUp, ChevronDown, MoreHorizontal, Plus, Sparkles, Square } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useSnapshot } from "@/lib/queries";
@@ -77,7 +77,7 @@ export function Composer() {
   };
 
   return (
-    <div className="rounded-[18px] border border-line bg-surface shadow-sm focus-within:border-ink-3/40">
+    <div className="rounded-[18px] border border-line bg-surface shadow-[var(--shadow-card)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:ring-2 focus-within:ring-accent/10">
       <textarea
         ref={textareaRef}
         value={draft}
@@ -121,7 +121,10 @@ export function Composer() {
               type="button"
               className="flex h-7 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
             >
-              <span className="max-w-[128px] truncate">{model?.label ?? "选择模型"}</span>
+              <Sparkles size={12} className="shrink-0 text-accent" />
+              <span className="max-w-[96px] truncate sm:max-w-[128px]">
+                {model?.label ?? "选择模型"}
+              </span>
               <ChevronDown size={11} className="text-ink-3" />
             </button>
           </DropdownMenuTrigger>
@@ -174,7 +177,7 @@ export function Composer() {
             type="button"
             onClick={stop}
             aria-label="停止执行"
-            className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-ink text-surface"
+            className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-danger/10 text-danger transition-colors hover:bg-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
           >
             <Square size={11} fill="currentColor" />
           </button>
@@ -185,9 +188,9 @@ export function Composer() {
             disabled={!draft.trim() || !hasSession || model === undefined || pendingApproval}
             aria-label="发送消息"
             className={cn(
-              "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-all",
+              "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
               draft.trim() && hasSession && model !== undefined && !pendingApproval
-                ? "bg-ink text-surface hover:opacity-80"
+                ? "bg-accent text-white shadow-[var(--shadow-card)] hover:brightness-110 active:brightness-95"
                 : "bg-black/[.06] text-ink-3 dark:bg-white/[.08]",
             )}
           >

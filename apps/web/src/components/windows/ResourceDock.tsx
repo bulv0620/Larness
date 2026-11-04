@@ -52,7 +52,7 @@ export function ResourceDock() {
     <div className="pointer-events-none relative z-[60] mb-1.5 flex justify-center px-1">
       <nav
         aria-label="项目窗口"
-        className="window-tabs-scroll pointer-events-auto flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[10px] border border-line bg-surface-2 p-0.5"
+        className="window-tabs-scroll pointer-events-auto flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[10px] border border-line bg-surface/90 p-0.5 shadow-[var(--shadow-card)] backdrop-blur-xl"
       >
         {(["terminal", "services"] as const).map((kind) => {
           const Icon = icons[kind];
@@ -67,10 +67,16 @@ export function ResourceDock() {
               onClick={() => launch(kind)}
               className={cn(
                 "flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 [@media(pointer:coarse)]:h-11 text-[11px] font-medium transition-colors",
-                active ? "bg-surface text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
+                active
+                  ? "bg-accent-soft text-accent"
+                  : "text-ink-2 hover:bg-surface-2 hover:text-ink",
               )}
             >
-              <Icon size={12} strokeWidth={1.7} />
+              <Icon
+                size={12}
+                strokeWidth={1.7}
+                className={kind === "terminal" ? "text-accent" : "text-success"}
+              />
               {kind === "terminal" ? "终端" : "服务"}
               {win && win.tabs.filter((tab) => !tab.resourceId.endsWith(":empty")).length > 0 ? (
                 <span className="rounded bg-black/[.045] px-1 font-mono text-[9px] dark:bg-white/[.08]">
@@ -97,7 +103,7 @@ export function ResourceDock() {
                 title={tab.title}
                 className="flex h-6 max-w-32 shrink-0 items-center gap-1 rounded-md px-1.5 [@media(pointer:coarse)]:h-11 text-[11px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
               >
-                <Icon size={12} className="shrink-0" />
+                <Icon size={12} className="shrink-0 text-accent" />
                 <span className="truncate">{tab.title}</span>
                 {win.tabs.length > 1 ? (
                   <span className="text-[9px] text-ink-3">{win.tabs.length}</span>

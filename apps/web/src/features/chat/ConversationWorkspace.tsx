@@ -45,7 +45,7 @@ export function ConversationWorkspace() {
     }
   };
   return (
-    <main className="conversation-surface flex min-h-0 min-w-0 flex-1 flex-col bg-surface dark:bg-canvas">
+    <main className="conversation-surface flex min-h-0 min-w-0 flex-1 flex-col bg-canvas/55">
       <header className="flex h-12 shrink-0 items-center gap-3 px-4 sm:px-7">
         <h1 className="min-w-0 truncate text-[12px] font-medium">{session?.title ?? "新会话"}</h1>
         <span className="ml-auto hidden max-w-[40%] truncate text-[11px] text-ink-3 md:block">

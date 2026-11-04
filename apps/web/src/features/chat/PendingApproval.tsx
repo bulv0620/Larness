@@ -1,4 +1,5 @@
 import type { ApprovalItem } from "@larness/shared";
+import { Button } from "@larness/ui";
 import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { pendingApprovals } from "@/lib/pendingApprovals";
@@ -65,10 +66,10 @@ function ApprovalPanel({
   return (
     <section
       aria-label="待处理审批"
-      className="mb-2.5 max-h-[min(42dvh,360px)] overflow-y-auto rounded-xl border border-line bg-surface-2 p-3 text-[12px]"
+      className="mb-2.5 max-h-[min(42dvh,360px)] overflow-y-auto rounded-xl border border-warning/25 bg-surface p-3 shadow-[var(--shadow-card)] text-[12px]"
     >
       <div className="mb-2 flex items-center gap-2 font-medium text-ink">
-        <ShieldCheck size={14} />
+        <ShieldCheck size={14} className="text-warning" />
         <span>需要批准</span>
         {total > 1 ? (
           <div className="ml-auto flex items-center gap-2 text-ink-3">
@@ -100,7 +101,7 @@ function ApprovalPanel({
         {data.projects.find((project) => project.id === projectId)?.name ?? "默认工作区"} ·{" "}
         {item.toolName ?? item.serviceName ?? "操作"}
       </div>
-      <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-surface px-2.5 py-2 font-mono text-[12px] text-ink">
+      <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-surface-2 px-2.5 py-2 font-mono text-[12px] text-ink">
         {item.summary ?? item.impact ?? "请求执行操作"}
       </pre>
       <details className="mt-2 text-[11px] text-ink-3">
@@ -126,23 +127,23 @@ function ApprovalPanel({
         </p>
       ) : null}
       <div className="mt-2.5 flex gap-2">
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="sm"
           aria-label={item.toolName ? "批准执行" : "批准部署"}
           disabled={busy || expired}
           onClick={() => void decide("approve")}
-          className="rounded-lg bg-ink px-3 py-1.5 text-[12px] text-surface disabled:opacity-40"
         >
           {busy ? "提交中…" : "批准本次"}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           disabled={busy || expired}
           onClick={() => void decide("reject")}
-          className="rounded-lg border border-line bg-surface px-3 py-1.5 text-[12px] text-ink disabled:opacity-40"
         >
           拒绝
-        </button>
+        </Button>
       </div>
     </section>
   );
