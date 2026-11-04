@@ -3,12 +3,11 @@ import type {
   ArtifactItem,
   ErrorItem,
   MessageItem,
-  PlanItem,
   ServerEvent,
   TimelineItem,
   ToolItem,
 } from "@larness/shared";
-import { ResourceTargetSchema } from "@larness/shared";
+import { PlanItemSchema, ResourceTargetSchema } from "@larness/shared";
 
 type Payload = Record<string, unknown>;
 
@@ -203,8 +202,8 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
         : items;
     }
     case "plan.updated": {
-      const plan = data.plan as PlanItem | undefined;
-      return plan === undefined ? items : upsert(items, plan);
+      const plan = PlanItemSchema.safeParse(data.plan);
+      return plan.success ? upsert(items, plan.data) : items;
     }
     case "artifact.created": {
       const artifact = data.artifact as ArtifactItem | undefined;

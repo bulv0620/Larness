@@ -6,5 +6,6 @@ export * from "./events";
 export * from "./files";
 export * from "./gateway";
 export * from "./git";
+export * from "./plans";
 export * from "./resources";
 export * from "./terminals";

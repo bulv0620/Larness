@@ -18,6 +18,7 @@ import {
   type AssistantDeltaEvent,
   FileResultTargetSchema,
   InterruptTerminalParamsSchema,
+  PlanParamsSchema,
   ReadTerminalOutputParamsSchema,
   ReleaseTerminalControlParamsSchema,
   SendTerminalInputParamsSchema,
@@ -385,6 +386,24 @@ export class TurnRunner {
           ...(this.#options.approvalTtlMs === undefined
             ? {}
             : { approvalTtlMs: this.#options.approvalTtlMs }),
+          updatePlan: async (params) => {
+            const plan = PlanParamsSchema.safeParse(params);
+            if (!plan.success)
+              return { ok: false, errorCode: "VALIDATION_ERROR", summary: "Invalid plan" };
+            if (checkBudget() !== "ok")
+              return { ok: false, errorCode: "FORBIDDEN", summary: "Turn no longer active" };
+            this.#emit(turn, session, "plan.updated", {
+              turnId: turn.id,
+              plan: {
+                ...plan.data,
+                id: `plan_${turn.id}`,
+                kind: "plan",
+                turnId: turn.id,
+                createdAt: startedAt,
+              },
+            });
+            return { ok: true, summary: "任务计划已更新" };
+          },
           runCommand: async (params, assertAuthorized) => {
             if (!snapshot || !this.#options.commands)
               return {

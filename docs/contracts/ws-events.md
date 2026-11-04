@@ -87,7 +87,7 @@ interface ServerEvent<T = unknown> {
 | `user.message` | `turnId, text` | 是 |
 | `turn.created` | `turnId, status` | 是 |
 | `turn.status` | `turnId, status, reason?` | 是 |
-| `plan.updated` | `turnId, steps[]` | 是（M1 可选） |
+| `plan.updated` | `turnId, plan:{id,kind:"plan",title,steps[],createdAt,turnId}` | 是（M2-14） |
 | `assistant.delta` | `turnId, messageId, text` | 否（仅广播，完成时落最终消息） |
 | `assistant.message` | `turnId, messageId, text` | 是 |
 | `tool.requested` | `toolCallId, name, argsSummary` | 是 |
@@ -191,3 +191,6 @@ M2-4（2026-11-03）：hello 和 terminal 订阅 ACK 新增 connectionId；订�
 ### M2-10 默认文件流
 
 文件订阅 resourceId 新增精确值 `workspace:default`，对应 streamId `file:workspace:default`；paths / after / seq / resync 与项目流相同。鉴权后仅解析固定默认目录，未知 workspace 拒绝；事件先事务落库再广播。默认共享会话别名和直接 workspace scope 使用相同持久事件流，不对其他运行数据授权。无协议号变化。
+
+## M2-14 真实任务计划
+Agent工具 `update_plan({title,steps:[{id,title,status,detail?}]})` 为L0元数据操作，不取得项目写锁；每轮唯一 `plan_<turnId>` 全量替换，1–12步、ID唯一、最多一项running。状态pending/running/done/failed；拒绝非法参数和已知凭据。由Runner按现有Turn预算/取消/审计执行，先事务持久化plan.updated再广播；前端Zod校验并按ID覆盖，刷新重放。Turn结束不自动勾完计划；模型报告不是执行授权或验证证据。无DB/协议号变化。

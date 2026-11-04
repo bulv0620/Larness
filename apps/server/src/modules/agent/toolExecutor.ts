@@ -37,6 +37,7 @@ export interface ExecuteToolInput {
   approvalTtlMs?: number;
   signal?: AbortSignal;
   policySnapshotId?: string;
+  updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   startTerminal?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   readTerminalOutput?: (args: unknown) => Promise<ToolResult>;
@@ -272,6 +273,14 @@ export async function executeTool(
   });
 
   const context: ToolContext = {
+    ...(input.updatePlan
+      ? {
+          updatePlan: async (args: unknown) => {
+            assertAuthorized();
+            return input.updatePlan?.(args) ?? denied("FORBIDDEN", "Plan context unavailable");
+          },
+        }
+      : {}),
     ...(input.signal ? { signal: input.signal } : {}),
     ...(input.runCommand
       ? {

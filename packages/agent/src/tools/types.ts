@@ -10,6 +10,7 @@ export interface ToolContext {
   projectRoot: string;
   ignore?: string[];
   signal?: AbortSignal;
+  updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown) => Promise<ToolResult>;
   startTerminal?: (args: unknown) => Promise<ToolResult>;
   readTerminalOutput?: (args: unknown) => Promise<ToolResult>;

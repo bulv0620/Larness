@@ -59,6 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M2-14 `done`：2026-11-04 (+08:00)，task/m2-14-agent-plan；用户批准紧凑对话预览，先补真实计划工具/持久事件/重放，再按M2-15实施对话UI。规格036 accepted，无新依赖/迁移。check（403/32/50）、build通过；真实计划/非法参数/取消/凭据/重放均已覆盖。
+
 - M2-13 `done`：2026-11-04，task/m2-13-default-project；默认工作区进入统一项目树，固定系统项目 API / 后端不可修改删除保护，默认 session / file / terminal 别名保留原资源域。check（400 / 32 / 49）、build、Demo 15/15、生产 M2 9 项分批通过；见 specs/035-default-project/acceptance.md。
 
 - M2-12 `done`：2026-11-04，分支 `task/m2-12-resource-sidebar`；右栏无视图 Tab，Git 不可用为灰色占位，文件树无连接 / 刷新行，空根灰色占位；保留监听 / 分区调整 / 失败恢复。check（399 / 32 / 49）、build、Demo 15/15、真实文件 / Git / 默认工作区 3 项分批通过；见 specs/034-resource-sidebar/acceptance.md。

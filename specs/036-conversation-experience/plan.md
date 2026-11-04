@@ -1,0 +1,5 @@
+# 实施计划
+1. M2-14：schema、受控 update_plan 工具及执行上下文；真实 Runner 持久事件；系统提示复杂任务使用计划；重放解析与契约。先红测试再实现，check/build，提交。
+2. M2-15（依赖 M2-14 done）：中央逐轮布局、轻量工具详情与计划、底部审批、Composer 和小资源浮栏；阅读锚点/滚动、错误与实际资源入口；组件与浏览器回归，check/build，提交。
+
+沿用 React/hooks、Tailwind语义token、Query 和已有视图store；不安装依赖。不修改已冻结ADR原文；UI变更由用户已批准的ADR-035补充。

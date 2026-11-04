@@ -46,6 +46,7 @@ export interface PlanStep {
 }
 
 export interface PlanItem {
+  turnId?: string;
   id: string;
   kind: "plan";
   title: string;
