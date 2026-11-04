@@ -193,6 +193,7 @@ export const useWindowStore = create<WindowState>()(
         const preferred = preferredFilter(source, projectId);
 
         if (tabMatch) {
+          if (activate) cancelMinimize(tabMatch.id);
           const tab = tabMatch.tabs.find((item) =>
             item.viewKey
               ? item.viewKey === viewKey
@@ -262,6 +263,7 @@ export const useWindowStore = create<WindowState>()(
           (win) => windowScopeKey(win) === scope && win.tabs.some((item) => item.kind === kind),
         );
         if (sameKind) {
+          if (activate) cancelMinimize(sameKind.id);
           const tabs = insertIntoTabGroup(sameKind.tabs, tab);
           let filter = preferred ?? sameKind.filter;
           if (!isTabVisible(tab, filter)) filter = { mode: "all" };

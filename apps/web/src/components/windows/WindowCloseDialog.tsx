@@ -27,6 +27,7 @@ function CloseRequest({ request }: { request: { windowId: string; tabIds: string
     for (const tab of tabs) useWindowStore.getState().closeTab(request.windowId, tab.id);
     useWindowStore.setState({ closeRequest: null });
   }, [confirmed, dirty, blocked, tabs, request.windowId]);
+  if (confirmed && !dirty) return null;
   return (
     <Dialog
       open
