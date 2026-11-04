@@ -1,0 +1,5 @@
+# M2-18 必要校验（2026-11-04）
+- Timeline视口顶部/底部固定24px主题渐隐与4px backdrop blur，装饰层无占位、aria-hidden且pointer-events:none；回到最新按钮z-10高于过渡层。
+- 不改变滚动容器、正文/头部/输入/审批/资源栏布局或事件处理。浅/深背景使用现有canvas变量；无接口、数据、依赖或权限变化。
+- 相关Conversation组件7/7、Web类型检查、两改动源文件Biome、git diff --check通过。装饰性CSS不新增匹配实现的单元测试。
+- 遵照用户仅必要校验要求，未跑全量check/build/E2E，也未宣称视觉验收通过；具体模糊强度由用户自行体验验收。

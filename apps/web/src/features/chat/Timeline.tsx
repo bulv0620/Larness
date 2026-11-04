@@ -238,6 +238,11 @@ export function Timeline() {
           )}
         </div>
       </div>
+      <div aria-hidden="true" className="conversation-scroll-edge conversation-scroll-edge-top" />
+      <div
+        aria-hidden="true"
+        className="conversation-scroll-edge conversation-scroll-edge-bottom"
+      />
       {showJump ? (
         <button
           type="button"
@@ -247,7 +252,7 @@ export function Timeline() {
             follow();
             setShowJump(false);
           }}
-          className="absolute bottom-3 left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-accent shadow-[var(--shadow-card)] transition-colors hover:bg-accent-soft"
+          className="absolute bottom-3 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-accent shadow-[var(--shadow-card)] transition-colors hover:bg-accent-soft"
         >
           <ArrowDown size={14} />
         </button>
