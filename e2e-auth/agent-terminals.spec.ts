@@ -104,8 +104,13 @@ test("M2-4c agent starts two approved project dev terminals and exposes non-focu
     await expect(terminalWindow.getByRole("log")).toContainText("FRONT_READY", {
       timeout: 15000,
     });
-    await expect(terminalWindow).toContainText("只读观察");
-    await expect(terminalWindow.getByRole("button", { name: "获取输入权" })).toBeVisible();
+    await expect(terminalWindow.getByTestId("live-terminal")).toHaveAttribute(
+      "data-input-state",
+      "inactive",
+    );
+    await terminalWindow.getByRole("button", { name: "终端操作" }).click();
+    await expect(page.getByRole("menuitem", { name: "获取输入权" })).toBeEnabled();
+    await page.keyboard.press("Escape");
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-4c-agent-terminals.png") });
     expect(errors).toEqual([]);
   } finally {
@@ -140,9 +145,17 @@ test("M2-4d human takes over agent terminal control and the old generation is re
     await expect(terminalWindow).toBeVisible();
     await composer.fill("ai control");
     await page.getByRole("button", { name: "发送消息" }).click();
-    await expect(terminalWindow).toContainText("AI 控制中", { timeout: 15000 });
-    await terminalWindow.getByRole("button", { name: "接管控制" }).click();
-    await expect(terminalWindow).toContainText("你正在控制");
+    await expect(terminalWindow.getByTestId("live-terminal")).toHaveAttribute(
+      "data-input-state",
+      "agent",
+      { timeout: 15000 },
+    );
+    await terminalWindow.getByRole("button", { name: "终端操作" }).click();
+    await page.getByRole("menuitem", { name: "接管控制" }).click();
+    await expect(terminalWindow.getByTestId("live-terminal")).toHaveAttribute(
+      "data-input-state",
+      "active",
+    );
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-4d-takeover.png") });
 
     await terminalWindow.getByRole("button", { name: "隐藏窗口" }).click();

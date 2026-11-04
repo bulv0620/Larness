@@ -1,8 +1,7 @@
 import type { FileScope } from "@larness/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { queryClient } from "@/lib/queries";
-import { createTerminal, listTerminals, openTerminal, terminalTitle } from "./api";
+import { listTerminals, openTerminal, terminalTitle } from "./api";
+import { CreateTerminalButton } from "./CreateTerminalButton";
 
 export function TerminalPicker({
   projectId,
@@ -23,9 +22,6 @@ export function TerminalPicker({
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     refetchInterval: 3000,
   });
-  const [confirmation, setConfirmation] = useState<{ key: string; scope?: FileScope } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const items =
     query.data?.pages
       .flatMap((page) => page.items)
@@ -41,18 +37,7 @@ export function TerminalPicker({
   return (
     <div className="h-full space-y-2 overflow-auto p-3 text-xs text-ink">
       <div className="flex gap-3">
-        <button
-          type="button"
-          disabled={busy || confirmation !== null}
-          onClick={() =>
-            setConfirmation({
-              key: crypto.randomUUID(),
-              scope,
-            })
-          }
-        >
-          新建终端
-        </button>
+        <CreateTerminalButton scope={scope} />
         <button type="button" onClick={() => void query.refetch()}>
           刷新列表
         </button>
@@ -81,39 +66,6 @@ export function TerminalPicker({
           加载更多终端
         </button>
       ) : null}
-      {confirmation ? (
-        <div
-          role="dialog"
-          aria-label="创建终端确认"
-          className="space-y-3 rounded border border-line bg-surface p-3"
-        >
-          <p>终端以本机账户运行，项目目录不是沙箱。</p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                const item = await createTerminal(confirmation.scope, confirmation.key);
-                openTerminal(item);
-                setConfirmation(null);
-                void queryClient.invalidateQueries({ queryKey: ["terminals"] });
-              } catch {
-                setError("创建结果未确认，请重试核对；重试不会重复创建。");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            确认创建
-          </button>
-          <button type="button" disabled={busy} onClick={() => setConfirmation(null)}>
-            取消
-          </button>
-        </div>
-      ) : null}
-      {error ? <p role="alert">{error}</p> : null}
     </div>
   );
 }

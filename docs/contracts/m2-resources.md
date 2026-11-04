@@ -46,7 +46,7 @@ FileEntry 为 `{ path, name, type: "file" | "directory", size? }`。稳定排序
 | 方法 / 路径 | 输入 / 输出 |
 |---|---|
 | GET `/api/terminals` | 按 projectId / workspaceSessionId / 全局过滤；返回分页资源，不读取客户端 Tab |
-| POST `/api/terminals` | `{ scope?, cwd?: ".", sourceSessionId?, riskAcknowledged: true }`；服务端固定平台 Shell；201 Terminal |
+| POST `/api/terminals` | `{ scope?, cwd?: ".", sourceSessionId?, riskAcknowledged: true }`；服务端选择本机账户默认 Shell（ADR-033）；201 Terminal |
 | GET `/api/terminals/:id` | Terminal 与当前租约元数据 |
 | POST `/api/terminals/:id/terminate` | `{ confirmed: true }`；主动关闭终端 Tab 或显式终止都经此能力，幂等停止；窗口关闭不调用 |
 | POST `/api/terminals/:id/resize` | `{ connectionId, leaseGeneration, cols, rows }`；cols 2–500、rows 1–300 |
@@ -284,7 +284,7 @@ stdout / stderr 分别流式 UTF-8 解码、按已知秘密与敏感字段跨块
 
 ### 创建、范围与恢复
 
-- POST `/api/terminals` 实施 §4，必须确认 riskAcknowledged=true，并提供 1–128 字符 Idempotency-Key；同一真实客户端 / kind / key 相同参数复用原资源，不同参数 CONFLICT。不接受 env、程序、args、owner、policy 等额外字段。人工 Shell 固定 `/bin/sh -i`（当前 POSIX 实现），初始 80×24 / xterm-256color，环境复用白名单并固定 HISTFILE=/dev/null，不继承 Shell 选择 / 管理环境 / SecretStore 明文。
+- POST `/api/terminals` 实施 §4，必须确认 riskAcknowledged=true，并提供 1–128 字符 Idempotency-Key；同一真实客户端 / kind / key 相同参数复用原资源，不同参数 CONFLICT。不接受 env、程序、args、owner、policy 等额外字段。人工 Shell 按 ADR-033 使用本机账户默认 Shell + `-i`（当前 POSIX 实现；绝对可执行文件检查失败回退 `/bin/sh`），初始 80×24 / xterm-256color，环境复用白名单并固定 HISTFILE=/dev/null，不接受 Web / 模型的 Shell 选择，不继承管理环境 / SecretStore 明文。
 - 项目 / 独立会话复用 canonical scope 与 cwd 授权；无 scope 使用 `<dataDir>/sessions/global-terminal/workspace`，逐层拒绝目录链接。sourceSessionId 仅用于来源且必须匹配实际 scope；全局终端不接受伪造来源会话。cwd 在 spawn 前重验；登记变化 / 主机最后时刻的路径替换仍不构成 OS 隔离。
 - 内部 createDev 仅作为后续工具底座，需真实活动 Turn / 项目 / 发起客户端与授权断言，程序 / 参数 / cwd / role 使用 Zod；没有公共 dev 创建路由。相同项目 + role 的活跃记录在数据库唯一，相同启动哈希复用，参数不同 CONFLICT。程序参数的已知凭据字面量拒绝，持久 launch_params_json 为脱敏摘要、launch_params_hash 绑定原规范化参数；不把摘要当可恢复启动脚本。
 - 唯一 0007_terminals 迁移新增 terminals / terminal_leases，补 reason_code / output_cursor 和人机 principal 预留列 / input_sequence，不修改旧迁移。终端 ID 为 term_UUID，executionId 为本次资源 ID；进程身份仅作本代关联 / 恢复诊断，不进入 DTO。
@@ -441,3 +441,7 @@ pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / �
 - Agent read / control 按真实 session 授权根与 terminal operation 根等值匹配，支持默认共享 Shell、同项目 Shell 和历史同会话终端；null projectId 不授予其他历史 / 项目终端权限。默认 Shell 的输入 / 中断保留 L2 审批、人机租约与序号；具名项目 dev 启动 / Git 规则不变。
 - Web 左侧默认入口始终可见；无项目草稿 / 默认会话使用同一 global 视图组，旧独立会话使用 session 组。切换 / 刷新只切视图，不创建进程。默认文件结果卡片使用 workspace scope，精确鉴权后打开。
 - 无数据库迁移、依赖、配置或实际用户数据搬移；目录创建逐级拒绝符号链接 / 非目录，默认根被替换失败关闭。
+
+## 25. M2-11 纯终端体验
+人工 Shell 活动视图首次打开、已连接且终端空闲时自动申请一次输入租约并聚焦；已有人工 / AI 租约时不抢占。Agent dev 终端保持观察。主动释放后不自动再申请，点击内容 / Tab 菜单可重新申请；AI 显式接管仍走 takeover。内容无常驻运行 / 观察 / 开始输入工具栏；Tab 菜单提供交接 / 接管，双击或 F2 改名，× 显式终止。终态与异常继续可见。
+＋直接进入逐次创建风险确认；同次失败重试复用原 scope / 幂等键，取消不发创建请求。关闭窗口 / 断线不终止。Shell 选择见 §16 / ADR-033，初始尺寸、环境白名单、输出脱敏和所有输入审批 / 代际 / 序号校验不变。

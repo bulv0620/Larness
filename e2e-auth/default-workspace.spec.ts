@@ -48,8 +48,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     const terminal = page.getByTestId("live-terminal");
     await expect(terminal).toHaveAttribute("data-terminal-id", /^term_/);
     terminalId = (await terminal.getAttribute("data-terminal-id")) ?? "";
-    await terminal.getByRole("button", { name: "获取输入权" }).click();
-    await expect(terminal).toContainText("你正在控制");
+    await expect(terminal).toHaveAttribute("data-input-state", "active");
     await terminal
       .locator(".xterm-helper-textarea")
       .pressSequentially("printf 'seed\\n' > default-note.txt");
@@ -57,7 +56,8 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await expect(
       page.getByRole("button", { name: "打开文件 default-note.txt", exact: true }),
     ).toBeVisible();
-    await terminal.getByRole("button", { name: "释放输入权" }).click();
+    await page.getByRole("button", { name: "终端操作" }).click();
+    await page.getByRole("menuitem", { name: "释放输入权" }).click();
     await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
     await page.getByRole("button", { name: "打开文件 default-note.txt", exact: true }).click();
     const editor = page.locator(".monaco-editor");
@@ -116,7 +116,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await page.getByRole("button", { name: "默认工作区", exact: true }).click();
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(terminal).toHaveAttribute("data-terminal-id", terminalId);
-    await expect(terminal).toContainText("运行中");
+    await expect(terminal).toHaveAttribute("data-input-state", "active");
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-10-default-terminal.png") });
     await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-10-default-workspace.png") });

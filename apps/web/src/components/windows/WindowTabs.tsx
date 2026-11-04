@@ -13,6 +13,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useFileDraftStore } from "@/features/files/drafts";
 import { ended, readTerminal, stopConfirmed, terminalAction } from "@/features/terminals/api";
+import { CreateTerminalButton } from "@/features/terminals/CreateTerminalButton";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { filterTabs } from "@/lib/windowFilters";
@@ -240,24 +241,22 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
         </button>
       ) : null}
       {kind === "terminal" ? (
-        <button
-          type="button"
-          aria-label="新建终端 Tab"
-          title="新建终端"
-          className="flex w-8 shrink-0 items-center justify-center text-ink-3 hover:bg-surface-2 hover:text-ink"
-          onClick={() =>
-            useWindowStore.getState().open({
-              kind: "terminal",
-              resourceId: "terminal:empty",
-              title: "终端",
-              projectId: win.tabs[0]?.projectId,
-              sessionId: win.tabs[0]?.sourceSessionId,
-              source: "project",
-            })
-          }
-        >
-          <Plus size={14} />
-        </button>
+        <>
+          <div id={`terminal-controls-${win.activeTabId}`} className="flex shrink-0" />
+          <CreateTerminalButton
+            label="新建终端 Tab"
+            className="flex w-8 shrink-0 items-center justify-center text-ink-3 hover:bg-surface-2 hover:text-ink"
+            scope={
+              win.tabs[0]?.projectId
+                ? { projectId: win.tabs[0].projectId }
+                : win.tabs[0]?.originType === "session" && win.tabs[0].sourceSessionId
+                  ? { sessionId: win.tabs[0].sourceSessionId }
+                  : { workspace: "default" }
+            }
+          >
+            <Plus size={14} />
+          </CreateTerminalButton>
+        </>
       ) : null}
     </div>
   );

@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 import { acquireResourceLock, releaseResourceLock } from "../../src/modules/locks/service.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { TerminalManager } from "../../src/modules/terminals/manager.js";
+import { resolveManualShell } from "../../src/modules/terminals/shell.js";
 import { withTempDir } from "../helpers.js";
 import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
@@ -39,6 +40,9 @@ it("creates one real PTY by idempotency key, lists shared resources, and termina
       expect(first.statusCode).toBe(201);
       const terminal = first.json();
       expect(terminal.writeBlocked).toBe(false);
+      expect(
+        f.running.sqlite.prepare("SELECT shell FROM terminals WHERE id = ?").get(terminal.id),
+      ).toEqual({ shell: await resolveManualShell() });
       const rename = (title: string, h = headers) =>
         f.running.app.inject({
           method: "POST",

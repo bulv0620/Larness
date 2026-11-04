@@ -52,6 +52,7 @@ import {
   updateLease,
   updateTerminal,
 } from "./repository.js";
+import { resolveManualShell } from "./shell.js";
 
 interface Connection {
   clientId: string;
@@ -730,7 +731,7 @@ export class TerminalManager {
       )
         fail("FORBIDDEN", "Terminal source does not match scope");
     }
-    const executable = dev?.params.executable ?? "/bin/sh",
+    const executable = dev?.params.executable ?? (await resolveManualShell()),
       args = dev?.params.args ?? ["-i"];
     const secrets = listEncryptedSecrets(this.options.db).map(
       (secret) =>

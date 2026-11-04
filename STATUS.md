@@ -59,13 +59,15 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M2-11 `done`：2026-11-04，分支 `task/m2-11-terminal-experience`；终端内容工具栏移除、Tab 控制菜单、空闲人工 Shell 直接输入、＋直接确认与账户默认 Shell；修复快速 fork 的终止快照竞态及恢复视图旧租约缓存。check（399 / 32 / 48）、build、Demo 15/15、生产 M2 9 项分批通过；见 specs/033-terminal-experience/acceptance.md。保留 AI 审批和租约。
+
 - M2-10 `done`：2026-11-04，分支 `task/m2-10-default-workspace`；共享默认目录、文件 / 终端 / 窗口归属和默认 AI 控制完成；旧独立目录不变。check（397 / 32 / 47）、build、生产 M2 9/9、Demo 15/15；验收见 specs/032-default-workspace/acceptance.md。
 
 - M2-9 `done`：2026-11-04，分支 `task/m2-9-project-windows`；项目窗口 / 浮栏 / Tab 滚动、终端名称与人工 Shell AI 控制、草稿刷新项目恢复完成。check（392 / 32 / 46）、build、Demo 15/15、生产终端 3/3；验收见 specs/031-project-windows/acceptance.md。共享默认工作区已由 M2-10 交付。
 
 - M2-8 测试修复 `done`：2026-11-04（+08:00），分支 `task/m2-8-git-approval-test`；修复 Git 审批组件测试在响应 / React 更新完成前查找执行按钮的竞态，保持审批行为；新增单次执行与面板关闭断言。针对性 2/2、check（server 389 / agent 32 / web 41）、build 通过。README 进度同步另行提交，G2 仍待人类。
 
-- 当前功能纠错：M2-9 / M2-10 已完成并逐任务提交；G2 候选等待人类 UI / 安全验收，未进入 M3。
+- 当前功能纠错：M2-9 / M2-10 / M2-11 已完成并逐任务提交；G2 候选等待人类 UI / 安全验收，未进入 M3。
 - M2-5 已验收：2026-11-03 人类“通过并继续”，Git 管理 / 资源动作 / Agent 工具交付完成并标 done。
 - M2-4d 已验收：2026-11-03 人类确认并继续；AI 终端控制 / 人工接管交付完成并标 done。
 - M2-4c 已验收：2026-11-03 人类确认并继续；启动 / 有界读取 / 显式停止、L2 审批与来源 Tab 交付完成并标 done。

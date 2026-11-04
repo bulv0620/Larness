@@ -30,6 +30,12 @@ async function pair(page: Page) {
   await expect(page.getByTestId("workspace-home")).toBeVisible();
 }
 
+async function controlMenu(page: Page, name: string) {
+  if (!(await page.getByRole("menu").isVisible()))
+    await page.getByRole("button", { name: "终端操作", exact: true }).click();
+  return page.getByRole("menuitem", { name, exact: true });
+}
+
 async function prepareProject(page: Page, other: Page): Promise<string> {
   const root = mkdtempSync(path.join(tmpdir(), "larness-terminal-e2e-"));
   await page.getByRole("button", { name: "添加项目" }).click();
@@ -102,10 +108,13 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
       .getByRole("dialog", { name: "终端", exact: true })
       .getByRole("button", { name: `打开终端 ${id}` })
       .click();
-    await terminal.getByRole("button", { name: "获取输入权" }).click();
-    await expect(terminal).toContainText("你正在控制");
-    await expect(other.getByTestId("live-terminal")).toContainText("只读观察");
-    await expect(other.getByRole("button", { name: "获取输入权" })).toBeDisabled();
+    await expect(terminal).toHaveAttribute("data-input-state", "active");
+    await expect(other.getByTestId("live-terminal")).toHaveAttribute(
+      "data-input-state",
+      "inactive",
+    );
+    await expect(await controlMenu(other, "获取输入权")).toBeDisabled();
+    await other.keyboard.press("Escape");
     await terminal
       .locator(".xterm-helper-textarea")
       .pressSequentially("printf 'REAL_PTY_%s\\n' shared", { delay: 10 });
@@ -114,18 +123,19 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
     await expect(other.getByTestId("live-terminal").getByRole("log")).toContainText(
       "REAL_PTY_shared",
     );
-    await terminal.getByRole("button", { name: "释放输入权" }).click();
-    await other.getByRole("button", { name: "获取输入权" }).click();
-    await expect(other.getByTestId("live-terminal")).toContainText("你正在控制");
+    await (await controlMenu(page, "释放输入权")).click();
+    await (await controlMenu(other, "获取输入权")).click();
+    await expect(other.getByTestId("live-terminal")).toHaveAttribute("data-input-state", "active");
     await page.reload();
     await expect(terminal).toHaveAttribute("data-terminal-id", id);
     await expect(terminal.getByRole("log")).toContainText("REAL_PTY_shared");
-    await expect(terminal).toContainText("只读观察");
+    await expect(terminal).toHaveAttribute("data-input-state", "inactive");
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-4b-observer.png") });
     await other.reload();
-    await expect(other.getByTestId("live-terminal")).toContainText("只读观察");
-    await terminal.getByRole("button", { name: "获取输入权" }).click();
-    await expect(terminal).toContainText("你正在控制");
+    await expect(other.getByTestId("live-terminal")).toHaveAttribute("data-input-state", "active");
+    await (await controlMenu(other, "释放输入权")).click();
+    await (await controlMenu(page, "获取输入权")).click();
+    await expect(terminal).toHaveAttribute("data-input-state", "active");
     await page.route(
       `**/api/terminals/${id}/terminate`,
       (route) =>
@@ -188,16 +198,16 @@ test("M2 terminal lease failures, expiry and logout preserve the PTY and permit 
         });
       return route.continue();
     });
-    await terminal.getByRole("button", { name: "获取输入权" }).click();
+    await expect(terminal).toHaveAttribute("data-input-state", "active");
     await expect(terminal.getByRole("alert")).toContainText("续期失败", { timeout: 15000 });
-    await terminal.getByRole("button", { name: "释放输入权" }).click();
-    await expect(other.getByRole("button", { name: "获取输入权" })).toBeEnabled();
-    await terminal.getByRole("button", { name: "获取输入权" }).click();
+    await (await controlMenu(page, "释放输入权")).click();
+    await expect(await controlMenu(other, "获取输入权")).toBeEnabled();
+    await (await controlMenu(page, "获取输入权")).click();
     await expect(terminal.getByRole("alert")).toContainText("续期失败", { timeout: 15000 });
     // Keep the authenticated connection open, but let the real 30-second server lease expire.
-    await expect(other.getByRole("button", { name: "获取输入权" })).toBeEnabled({ timeout: 35000 });
-    await other.getByRole("button", { name: "获取输入权" }).click();
-    await expect(other.getByTestId("live-terminal")).toContainText("你正在控制");
+    await expect(await controlMenu(other, "获取输入权")).toBeEnabled({ timeout: 35000 });
+    await (await controlMenu(other, "获取输入权")).click();
+    await expect(other.getByTestId("live-terminal")).toHaveAttribute("data-input-state", "active");
     await other.evaluate(async () => {
       const session = await (await fetch("/api/auth/session")).json();
       const result = await fetch("/api/auth/logout", {
@@ -208,9 +218,9 @@ test("M2 terminal lease failures, expiry and logout preserve the PTY and permit 
       if (!result.ok) throw new Error("Logout failed");
     });
     await page.unroute(`**/api/terminals/${id}/lease`);
-    await expect(terminal.getByRole("button", { name: "获取输入权" })).toBeEnabled();
-    await terminal.getByRole("button", { name: "获取输入权" }).click();
-    await expect(terminal).toContainText("你正在控制");
+    await expect(await controlMenu(page, "获取输入权")).toBeEnabled();
+    await (await controlMenu(page, "获取输入权")).click();
+    await expect(terminal).toHaveAttribute("data-input-state", "active");
     await terminal
       .locator(".xterm-helper-textarea")
       .pressSequentially("printf 'HANDOFF_%s\\n' alive");
@@ -221,9 +231,9 @@ test("M2 terminal lease failures, expiry and logout preserve the PTY and permit 
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(terminal).toHaveAttribute("data-terminal-id", id);
     await expect(terminal.getByRole("log")).toContainText("HANDOFF_alive");
-    await expect(terminal).toContainText("只读观察");
-    await terminal.getByRole("button", { name: "终止终端" }).click();
-    await expect(terminal).toContainText("已终止");
+    await expect(terminal).toHaveAttribute("data-input-state", "active");
+    await page.getByRole("button", { name: `关闭 Shell ${id.slice(-6)}`, exact: true }).click();
+    await expect(terminal).toHaveCount(0);
   } finally {
     if (root) await cleanupTerminalProject(page, root);
     await context.close();
@@ -260,17 +270,21 @@ test("M2-9 project terminal rename, tab overflow and dock restoration", async ({
     const terminal = page.getByTestId("live-terminal");
     await expect(terminal).toHaveAttribute("data-terminal-id", /^term_/);
     const id = (await terminal.getAttribute("data-terminal-id")) ?? "";
+    await expect(terminal).toHaveAttribute("data-input-state", "active");
+    await expect(terminal.locator(".xterm-helper-textarea")).toBeFocused();
+    await expect(terminal.getByRole("button")).toHaveCount(0);
+    await expect(terminal).not.toContainText("只读观察");
+    await expect(terminal).not.toContainText("开始输入");
     const first = page.getByRole("tab", { name: `Shell ${id.slice(-6)}`, exact: true });
     await first.dblclick();
     await page.getByLabel("终端名称", { exact: true }).fill("我的开发终端");
     await page.getByLabel("终端名称", { exact: true }).press("Enter");
     await expect(page.getByRole("tab", { name: "我的开发终端", exact: true })).toBeVisible();
-    await terminal.getByRole("button", { name: "获取输入权" }).click();
-    await expect(terminal).toContainText("你正在控制");
+    await expect(terminal).toHaveAttribute("data-input-state", "active");
     await terminal.locator(".xterm-helper-textarea").pressSequentially("pwd");
     await terminal.locator(".xterm-helper-textarea").press("Enter");
     await expect(terminal.getByRole("log")).toContainText(realpathSync(root));
-    await terminal.getByRole("button", { name: "释放输入权" }).click();
+    await (await controlMenu(page, "释放输入权")).click();
     await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(terminal).toHaveAttribute("data-terminal-id", id);
@@ -278,9 +292,11 @@ test("M2-9 project terminal rename, tab overflow and dock restoration", async ({
     await expect(page.getByRole("tab", { name: "我的开发终端", exact: true })).toBeVisible();
     // Real terminals with long names exercise the same fixed-height strip without CSS mocks.
     for (let index = 0; index < 7; index++) {
+      const previousId = await terminal.getAttribute("data-terminal-id");
       await page.getByRole("button", { name: "新建终端 Tab" }).click();
-      await page.getByRole("button", { name: "新建终端", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "创建终端确认" })).toBeVisible();
       await page.getByRole("button", { name: "确认创建" }).click();
+      await expect(terminal).not.toHaveAttribute("data-terminal-id", previousId ?? "");
       await expect(terminal).toHaveAttribute("data-terminal-id", /^term_/);
       const currentId = (await terminal.getAttribute("data-terminal-id")) ?? "";
       await page.getByRole("tab", { name: `Shell ${currentId.slice(-6)}`, exact: true }).dblclick();

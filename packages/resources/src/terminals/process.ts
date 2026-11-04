@@ -98,7 +98,9 @@ export class ManagedPty {
     }
   }
   async #capture() {
-    const members = await snapshot();
+    this.#remember(await snapshot());
+  }
+  #remember(members: Member[]) {
     const leader = members.find((member) => member.pid === this.native.pid);
     if (
       leader &&
@@ -130,6 +132,7 @@ export class ManagedPty {
   async #signal(signal: NodeJS.Signals) {
     await this.#capture();
     const members = await snapshot();
+    this.#remember(members);
     const candidates = members.filter((member) => this.#owned.get(member.pid) === member.birth);
     const related = members.filter(
       (member) =>
@@ -142,7 +145,10 @@ export class ManagedPty {
       (a, b) => Number(a === this.native.pid) - Number(b === this.native.pid),
     );
     for (const group of groups) {
-      const current = (await snapshot()).filter((member) => member.pgid === group);
+      const latest = await snapshot();
+      // Account for children forked since the previous snapshot before validating the group.
+      this.#remember(latest);
+      const current = latest.filter((member) => member.pgid === group);
       if (!current.length) continue;
       if (!current.every((member) => this.#owned.get(member.pid) === member.birth)) return false;
       try {
