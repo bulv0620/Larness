@@ -50,23 +50,18 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(
       page.getByLabel("项目资源", { exact: true }).getByText("当前项目暂无文件", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("未检测到 Git 仓库", { exact: false })).toBeVisible();
+    await expect(page.getByText("暂无 Git 仓库", { exact: true })).toBeVisible();
   });
 
-  test("资源区 Tab 可聚焦单项并返回全部", async ({ page }) => {
-    await page.getByRole("tab", { name: /^文件/ }).click();
-    await expect(page.locator('aside[aria-label="项目资源"] section')).toHaveCount(1);
-    await expect(page.getByText("AppShell.tsx", { exact: true })).toBeVisible();
-    await expect(page.getByText("web-dev", { exact: true })).toHaveCount(0);
-    await expect(page.getByLabel("项目资源", { exact: true }).getByRole("separator")).toHaveCount(
-      0,
-    );
-
-    await page.getByRole("tab", { name: "全部" }).click();
-    await expect(page.locator('aside[aria-label="项目资源"] section')).toHaveCount(2);
-    await expect(page.getByLabel("项目资源", { exact: true }).getByRole("separator")).toHaveCount(
-      1,
-    );
+  test("右侧文件与 Git 同时展示且没有视图 Tab", async ({ page }) => {
+    const aside = page.getByLabel("项目资源", { exact: true });
+    await expect(aside.getByRole("tablist")).toHaveCount(0);
+    await expect(aside.getByRole("tab")).toHaveCount(0);
+    await expect(aside.locator("section")).toHaveCount(2);
+    await expect(aside.getByRole("button", { name: /^文件/ }).first()).toBeVisible();
+    await expect(aside.getByRole("button", { name: /^Git/ }).first()).toBeVisible();
+    await expect(aside.getByText("AppShell.tsx", { exact: true })).toBeVisible();
+    await expect(aside.getByRole("separator")).toHaveCount(1);
     await expect(page.getByLabel("项目窗口")).toBeVisible();
   });
 

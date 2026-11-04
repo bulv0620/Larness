@@ -141,3 +141,22 @@ it("creates a pull/push plan, approves it once and executes the approved action"
   );
   expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/execute"))).toHaveLength(1);
 });
+
+it("shows unavailable Git as a muted empty state without repository actions", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ error: { code: "GIT_UNAVAILABLE", message: "unavailable" } }),
+          { status: 503 },
+        ),
+    ),
+  );
+  renderPanel();
+  const empty = await screen.findByText("Git 暂不可用");
+  expect(empty).toHaveClass("text-ink-3");
+  expect(empty).not.toHaveClass("text-danger");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "推送" })).not.toBeInTheDocument();
+});

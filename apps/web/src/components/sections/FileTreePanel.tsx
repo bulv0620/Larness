@@ -20,24 +20,9 @@ export function FileTreePanel({ projectId }: { projectId: string | null }) {
 function RealFileTree({ scope }: { scope: FileScope }) {
   const [expanded, setExpanded] = useState<string[]>(["."]);
   const [error, setError] = useState<string | null>(null);
-  const status = useFileWatch(scope, expanded);
+  useFileWatch(scope, expanded);
   return (
     <div className="p-1.5 text-[11px] text-ink-2">
-      <div className="flex items-center gap-2 pb-1 text-[10px] text-ink-3">
-        <span className="min-w-0 flex-1 truncate" title={status}>
-          {status}
-        </span>
-        <button
-          type="button"
-          aria-label="刷新文件树"
-          onClick={() => {
-            setError(null);
-            void queryClient.resetQueries({ queryKey: ["files", scopeId(scope), "directory"] });
-          }}
-        >
-          刷新
-        </button>
-      </div>
       {error ? (
         <p role="alert" className="p-2 text-danger">
           {error}
@@ -150,6 +135,11 @@ function Directory({
             ) : null}
           </div>
         ))}
+      {path === "." &&
+      query.isSuccess &&
+      query.data.pages.every((page) => page.items.length === 0) ? (
+        <p className="px-2 py-3 text-[10.5px] text-ink-3">当前工作区暂无文件</p>
+      ) : null}
       {query.hasNextPage ? (
         <button
           type="button"

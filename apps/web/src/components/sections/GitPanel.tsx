@@ -52,14 +52,10 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
     retry: false,
   });
 
-  if (projectId === null) return <p className="px-2 py-3 text-[10.5px] text-ink-3">先选择项目。</p>;
+  if (projectId === null)
+    return <p className="px-2 py-3 text-[10.5px] text-ink-3">暂无 Git 仓库</p>;
   if (status.isPending) return <p className="px-2 py-3 text-[10.5px] text-ink-3">读取 Git 状态…</p>;
-  if (status.isError)
-    return (
-      <p role="alert" className="px-2 py-3 text-[10.5px] leading-5 text-danger">
-        Git 不可用或项目不是仓库；资源操作仍可离线使用文件 / 终端。
-      </p>
-    );
+  if (status.isError) return <p className="px-2 py-3 text-[10.5px] text-ink-3">Git 暂不可用</p>;
   const data = status.data;
   if (!data) return null;
   const changes = [
@@ -351,11 +347,7 @@ function DemoGitPanel({ projectId }: { projectId: string | null }) {
   const changes = projectId === "prj_larness" ? data.gitChanges : [];
 
   if (!project?.git) {
-    return (
-      <div className="px-2 py-3 text-[10.5px] leading-5 text-ink-3">
-        未检测到 Git 仓库。初始化 Git 后可查看分支、Diff 与提交历史。
-      </div>
-    );
+    return <div className="px-2 py-3 text-[10.5px] leading-5 text-ink-3">暂无 Git 仓库</div>;
   }
 
   return (

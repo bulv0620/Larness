@@ -58,6 +58,14 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await page.getByLabel("项目目录").fill(root);
     await page.getByRole("dialog").getByRole("button", { name: "添加项目" }).click();
     await page.getByRole("button", { name: `在 ${path.basename(root)} 中新建会话` }).click();
+    const resources = page.getByLabel("项目资源", { exact: true });
+    await expect(resources.getByRole("tablist")).toHaveCount(0);
+    await expect(resources.getByRole("button", { name: "刷新文件树" })).toHaveCount(0);
+    await expect(resources.getByText(/文件监听|正在连接文件/)).toHaveCount(0);
+    const gitEmpty = resources.getByText("Git 暂不可用", { exact: true });
+    await expect(gitEmpty).toBeVisible();
+    await expect(gitEmpty).not.toHaveClass(/text-danger/);
+    await page.screenshot({ path: path.join(tmpdir(), "larness-m2-12-resource-sidebar.png") });
     await page.getByRole("button", { name: "打开文件 note.txt", exact: true }).click();
     const editor = page.getByRole("textbox", { name: "文件内容", exact: true });
     await expect(editor).toBeVisible({ timeout: 30_000 });

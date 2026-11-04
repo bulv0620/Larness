@@ -142,8 +142,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 |---|---|---|---|
 | M2-9 | [项目窗口、浮栏与终端交互修正](031-project-windows/spec.md) | M2-7 done；人类直接指令 | `done`（2026-11-04） |
 | M2-10 | [共享默认工作区](032-default-workspace/spec.md) | M2-9 done；人类确认共享目录 | `done`（2026-11-04） |
-
 | M2-11 | [纯终端体验](033-terminal-experience/spec.md) | M2-10 done；人类要求继续优化 | `done`（2026-11-04） |
+| M2-12 | [右侧资源区简化](034-resource-sidebar/spec.md) | M2-11 done；人类直接要求 | `done`（2026-11-04） |
 
 ## 5.1 R0-0 资源生命周期与服务文档同步
 
