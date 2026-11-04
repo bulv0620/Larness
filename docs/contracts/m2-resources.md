@@ -460,3 +460,6 @@ pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / �
 显式 stop_project_terminal / Tab 关闭仍终止整个终端和受管后代，确认后按 M2-21 移除发起客户端视图。窗口隐藏 / 最小化 / Turn 结束不停止资源。自然 Shell exit 才产生 terminal.exit 和终端退出码；初始程序返回值不再冒充终端退出码。
 已有资源不迁移/重启；同 role 同参数仍只复用终端，不重新执行初始命令，Agent 需先读输出、再通过批准输入在原终端启动所需命令，不得绕过人工持权。初始命令的 executable/args/cwd 与去重/幂等/审批绑定保持，shell 字段对新资源表示后续交互 Shell，旧行保留原值。
 实现采用固定 /bin/sh 交互引导脚本与位置参数：子 Shell exec -- 执行外部程序，父 Shell 捕获 INT，子命令正常接收 INT；随后 exec 已校验账户 Shell -i。不拼用户脚本、不注入按键或伪造租约。环境过滤、HISTFILE=/dev/null、输出脱敏、取消清理、未知停止隔离仍保留。无新接口 / 事件字段 / 数据迁移 / 依赖。未来临时服务必须核对真实子执行，不能仅看 PTY RUNNING。
+
+## M2-25 完全自主策略（ADR-040）
+现有 Session PATCH approvalPolicyId 与 Turn executionContext.policy 枚举增加 autonomous；新 Turn 持久化选择时的快照，运行中更改只影响下一轮。明确选择该策略时已登记 Agent 工具 L0–L3 均无需人工逐次审批，执行仍校验参数、客户端/资源范围、锁/fencing/幂等/预算/取消/租约/秘密保护，仍有审计与持久事件。其他策略与人工 Git 资源审批保持。客户端选择前风险弹窗确认，取消不更改，危险色盾牌持续可见；这不是沙箱，不扩大工具能力或授权管理接口。未鉴权/非法枚举拒绝，无 DB列/迁移/新 REST路径。

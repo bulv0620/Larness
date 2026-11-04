@@ -2,7 +2,7 @@ import type { z } from "zod";
 
 export type ToolRiskLevel = "L0" | "L1" | "L2" | "L3";
 
-export type ApprovalPolicy = "standard" | "strict" | "readonly";
+export type ApprovalPolicy = "standard" | "strict" | "readonly" | "autonomous";
 
 export type ToolAccessDecision = "allow" | "require_approval" | "deny";
 
@@ -94,6 +94,7 @@ export function decideToolAccess(
   policy: ApprovalPolicy,
   riskLevel: ToolRiskLevel,
 ): ToolAccessDecision {
+  if (policy === "autonomous") return "allow";
   if (riskLevel === "L3") return "deny";
   if (riskLevel === "L0") {
     return "allow";

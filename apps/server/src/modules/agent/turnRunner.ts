@@ -124,7 +124,7 @@ function isTerminal(status: TurnStatus): boolean {
 }
 
 function approvalPolicy(value: string): ApprovalPolicy {
-  return value === "strict" || value === "readonly" ? value : "standard";
+  return value === "strict" || value === "readonly" || value === "autonomous" ? value : "standard";
 }
 
 function truncateToolMessage(text: string): string {
@@ -296,7 +296,7 @@ export class TurnRunner {
         executionContext: z.object({
           clientSessionId: z.string().min(1),
           policySnapshotId: z.string().min(1),
-          policy: z.enum(["standard", "strict", "readonly"]),
+          policy: z.enum(["standard", "strict", "readonly", "autonomous"]),
         }),
       })
       .safeParse(turnInput);

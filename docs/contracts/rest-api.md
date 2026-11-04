@@ -485,3 +485,6 @@ M2-4（2026-11-03）：已实现 `/api/terminals` 列表 / 人工创建及 `/:id
 ## M2-13 默认系统项目
 GET /api/projects 在列表首位返回固定系统项目 `{ id: "prj_default", kind: "default", name: "默认工作区", rootPath, realPath, ... }`；kind 为可选新增字段，普通登记项目沿用原结构。GET /api/projects/prj_default 可读固定描述；系统元数据时间 createdAt / updatedAt 为 0，表示内建资源而非用户登记时间。PATCH 合法名称 / settings 或 DELETE 该 ID 返回 FORBIDDEN（403）并审计；无认证仍 401，非法请求仍按 schema 拒绝。目录和内容不删除、不只读；不能将默认目录重复登记为普通项目（409）。
 POST /api/sessions 的 projectId=prj_default 归一为现有默认会话域（DTO projectId=null、workspaceKind=default）。文件 projectId=prj_default 是 workspace:default 的 HTTP scope 别名；终端 create scope 及 list projectId 同样归一为默认域，返回原 null 归属 / ID。文件事件 / WS 订阅仍使用 workspace:default，不创建新的事件流、窗口分组或租约。历史独立会话不归入默认项目，无数据库迁移。
+
+## M2-25 完全自主策略（ADR-040）
+现有 Session PATCH approvalPolicyId 与 Turn executionContext.policy 枚举增加 autonomous；新 Turn 持久化选择时的快照，运行中更改只影响下一轮。明确选择该策略时已登记 Agent 工具 L0–L3 均无需人工逐次审批，执行仍校验参数、客户端/资源范围、锁/fencing/幂等/预算/取消/租约/秘密保护，仍有审计与持久事件。其他策略与人工 Git 资源审批保持。客户端选择前风险弹窗确认，取消不更改，危险色盾牌持续可见；这不是沙箱，不扩大工具能力或授权管理接口。未鉴权/非法枚举拒绝，无 DB列/迁移/新 REST路径。

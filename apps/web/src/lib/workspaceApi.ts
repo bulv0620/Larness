@@ -25,7 +25,7 @@ export interface ApiSession {
   title: string;
   status: "active" | "archived";
   modelProfileId: string | null;
-  approvalPolicyId: "standard" | "strict" | "readonly";
+  approvalPolicyId: "standard" | "strict" | "readonly" | "autonomous";
   createdAt: number;
   updatedAt: number;
   lastActivityAt: number;
@@ -200,7 +200,7 @@ export async function updateSession(
   input: {
     title?: string;
     modelProfileId?: string | null;
-    approvalPolicyId?: "standard" | "strict" | "readonly";
+    approvalPolicyId?: "standard" | "strict" | "readonly" | "autonomous";
   },
 ): Promise<ApiSession> {
   return apiFetch<ApiSession>(`/api/sessions/${encodeURIComponent(id)}`, {

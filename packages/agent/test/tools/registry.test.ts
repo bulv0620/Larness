@@ -94,3 +94,10 @@ describe("truncateToolText", () => {
     expect(Buffer.byteLength(result.text, "utf8")).toBe(1_048_576);
   });
 });
+
+it("allows all registered risk levels only under the explicitly selected autonomous policy", () => {
+  for (const risk of ["L0", "L1", "L2", "L3"] as const)
+    expect(decideToolAccess("autonomous", risk)).toBe("allow");
+  for (const policy of ["standard", "strict", "readonly"] as const)
+    expect(decideToolAccess(policy, "L3")).toBe("deny");
+});

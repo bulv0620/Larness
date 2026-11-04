@@ -16,12 +16,12 @@ beforeEach(() => {
   useNavigationStore.setState({ sessionId: "test" });
   useTimelineStore.setState({ items: [], isStreaming: false, contextTokens: 32000 });
 });
-it("offers only the three existing approval policies and reflects each selection on the shield", async () => {
+it("offers the approval policies and reflects each selection on the shield", async () => {
   const user = userEvent.setup();
   render(<Composer />);
   await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
   const menu = screen.getByRole("menu");
-  expect(within(menu).getAllByRole("menuitemradio")).toHaveLength(3);
+  expect(within(menu).getAllByRole("menuitemradio")).toHaveLength(4);
   expect(within(menu).queryByText(/上下文/)).toBeNull();
   await user.click(within(menu).getByRole("menuitemradio", { name: /严格审批/ }));
   expect(useComposerStore.getState().policy).toBe("strict");
@@ -43,4 +43,20 @@ it("shows bounded context usage immediately before send/stop and distinguishes u
   act(() => useTimelineStore.setState({ contextTokens: 0 }));
   expect(ring).not.toHaveAttribute("aria-valuenow");
   expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("暂无统计"));
+});
+
+it("requires risk confirmation before switching to autonomous, with cancellation preserving policy", async () => {
+  const user = userEvent.setup();
+  render(<Composer />);
+  await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
+  await user.click(screen.getByRole("menuitemradio", { name: /完全自主/ }));
+  expect(useComposerStore.getState().policy).toBe("standard");
+  const dialog = await screen.findByRole("dialog", { name: "启用完全自主？" });
+  await user.click(within(dialog).getByRole("button", { name: "取消" }));
+  expect(useComposerStore.getState().policy).toBe("standard");
+  await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
+  await user.click(screen.getByRole("menuitemradio", { name: /完全自主/ }));
+  await user.click(await screen.findByRole("button", { name: "确认启用" }));
+  expect(useComposerStore.getState().policy).toBe("autonomous");
+  expect(screen.getByRole("button", { name: "审批策略：完全自主" })).toBeVisible();
 });

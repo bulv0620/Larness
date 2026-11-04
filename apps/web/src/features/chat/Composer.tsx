@@ -1,5 +1,10 @@
 import {
+  Button,
   cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -19,7 +24,7 @@ import {
   Sparkles,
   Square,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useSnapshot } from "@/lib/queries";
 import { useComposerStore } from "@/stores/composerStore";
@@ -41,10 +46,18 @@ const policies = [
     icon: ShieldAlert,
     tone: "text-warning",
   },
+  {
+    id: "autonomous",
+    label: "完全自主",
+    detail: "所有工具免人工审批",
+    icon: ShieldAlert,
+    tone: "text-danger",
+  },
   { id: "readonly", label: "只读", detail: "禁止修改与执行", icon: Shield, tone: "text-success" },
 ] as const;
 
 export function Composer() {
+  const [confirmAutonomous, setConfirmAutonomous] = useState(false);
   const { data } = useSnapshot();
   const draft = useComposerStore((state) => state.draft);
   const modelId = useComposerStore((state) => state.modelId);
@@ -180,7 +193,11 @@ export function Composer() {
             <DropdownMenuLabel>审批策略</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={policy}
-              onValueChange={(value) => setPolicy(value as typeof policy)}
+              onValueChange={(value) => {
+                if (value === "autonomous" && policy !== "autonomous") setConfirmAutonomous(true);
+                else if (policies.some((item) => item.id === value))
+                  setPolicy(value as typeof policy);
+              }}
             >
               {policies.map((item) => (
                 <DropdownMenuRadioItem key={item.id} value={item.id} className="items-start py-2">
@@ -222,6 +239,29 @@ export function Composer() {
           </button>
         )}
       </div>
+      <Dialog open={confirmAutonomous} onOpenChange={setConfirmAutonomous}>
+        <DialogContent className="space-y-4 text-sm">
+          <DialogTitle>启用完全自主？</DialogTitle>
+          <DialogDescription>
+            Agent 将不再逐次请求工具审批，可自行修改或删除文件、执行命令、进行 Git
+            推送等操作。程序以本机账户权限运行，这不是沙箱。请仅在信任当前任务时启用；下一轮生效，随时可以切回标准审批。
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setConfirmAutonomous(false)}>
+              取消
+            </Button>
+            <Button
+              className="bg-danger text-white"
+              onClick={() => {
+                setPolicy("autonomous");
+                setConfirmAutonomous(false);
+              }}
+            >
+              确认启用
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

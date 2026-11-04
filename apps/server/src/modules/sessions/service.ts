@@ -59,7 +59,7 @@ export interface UpdateSessionInput {
   clientSessionId?: string;
 }
 
-export type ApprovalPolicy = "standard" | "strict" | "readonly";
+export type ApprovalPolicy = "standard" | "strict" | "readonly" | "autonomous";
 
 export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
   return {
@@ -124,7 +124,12 @@ function normalizeApprovalPolicy(value: ApprovalPolicy | undefined): ApprovalPol
     return undefined;
   }
 
-  if (value !== "standard" && value !== "strict" && value !== "readonly") {
+  if (
+    value !== "standard" &&
+    value !== "strict" &&
+    value !== "readonly" &&
+    value !== "autonomous"
+  ) {
     throw new SessionError("VALIDATION_ERROR", "invalid approval policy");
   }
 
