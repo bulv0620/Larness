@@ -382,3 +382,9 @@
 - 仅实测 macOS arm64 / Node 20.19.3 / Chromium；Linux / Windows / CI 未验收。Git hooks / filters、PTY 脱组、PID 回绕仍按既有边界不宣称沙箱 / 强身份。
 
 **G2 状态：候选，等待人类验收 / 纠错；M2 不标 done。**
+
+## M2-8 Git 审批测试纠错（2026-11-04）
+
+- 修复前：审批请求 mock 设置 decision 后，响应解析和 React 渲染仍未完成，立即 getByRole 导致找不到“执行一次”。既有失败日志确认页面仍为 WAITING_APPROVAL。
+- 修复：等待执行按钮出现且 enabled，再点击；检查执行完成后审批面板关闭，并断言 execute 请求恰好一次。无产品代码、契约或权限变化。
+- 验证：GitPanel 2/2；pnpm check（server 389 / agent 32 / web 41，agent live 1 项按环境跳过）；pnpm build 通过。既有 lint / 构建警告保留，G2 仍待人类。

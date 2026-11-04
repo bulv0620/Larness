@@ -130,8 +130,14 @@ it("creates a pull/push plan, approves it once and executes the approved action"
   await waitFor(() => expect(screen.getByRole("region", { name: "Git 操作审批" })).toBeVisible());
   fireEvent.click(screen.getByRole("button", { name: "批准" }));
   await waitFor(() => expect(decision).toBe(true));
-  fireEvent.click(screen.getByRole("button", { name: "执行一次" }));
+  const executeButton = await screen.findByRole("button", { name: "执行一次" });
+  await waitFor(() => expect(executeButton).toBeEnabled());
+  fireEvent.click(executeButton);
   await waitFor(() =>
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/execute"))).toBe(true),
   );
+  await waitFor(() =>
+    expect(screen.queryByRole("region", { name: "Git 操作审批" })).not.toBeInTheDocument(),
+  );
+  expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/execute"))).toHaveLength(1);
 });
