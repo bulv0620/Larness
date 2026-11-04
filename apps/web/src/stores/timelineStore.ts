@@ -520,12 +520,13 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     const approval = get().items.find(
       (item): item is ApprovalItem => item.kind === "approval" && item.id === approvalId,
     );
-    if (!approval || approval.status !== "pending") return;
+    if (approval?.status !== "pending") return;
 
-    update(status);
-
+    const sessionId = get().sessionId;
     if (USE_MOCKS) {
       await gateway.resolveApproval(approvalId, decision);
+      if (get().sessionId !== sessionId) return;
+      update(status);
       set((state) => {
         const message =
           decision === "approve"
@@ -549,13 +550,9 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       return;
     }
 
-    try {
-      await decideApproval(approvalId, decision);
-      await get().syncEvents();
-    } catch (error) {
-      update("pending");
-      const message = error instanceof Error ? error.message : "审批失败";
-      set((state) => ({ items: [...state.items, errorItem(`审批失败：${message}`)] }));
-    }
+    await decideApproval(approvalId, decision);
+    if (get().sessionId !== sessionId) return;
+    update(status);
+    await get().syncEvents();
   },
 }));

@@ -50,7 +50,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await expect(page.getByRole("menu", { name: "会话或项目操作" })).toHaveCount(0);
     await expect(page.getByText("还没有登记项目。", { exact: false })).toHaveCount(0);
     await page.getByRole("button", { name: "默认工作区", exact: true }).click();
-    await expect(page.locator("header")).toContainText("默认工作区");
+    await expect(page.getByRole("banner")).toContainText("默认工作区");
     await expect(page.getByLabel("对话输入")).toBeEnabled();
     const resources = page.getByLabel("项目资源", { exact: true });
     await expect(resources.getByRole("tablist")).toHaveCount(0);
@@ -117,7 +117,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     expect(b.workspacePath).toBe(a.workspacePath);
     await expect(page.getByText("收到。", { exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.locator("header")).toContainText("默认工作区");
+    await expect(page.getByRole("banner")).toContainText("默认工作区");
     await page.getByRole("button", { name: "恢复 default-note.txt", exact: true }).click();
     await expect(editor).toBeVisible();
     await expect(page.locator(".view-lines").first()).toContainText("shared saved");

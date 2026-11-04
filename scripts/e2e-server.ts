@@ -49,6 +49,41 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
     }
   })();
 
+  if (input === "conversation plan") {
+    const step = (done: number) =>
+      toolStep({
+        id: `plan_${done}`,
+        name: "update_plan",
+        args: {
+          title: "检查项目",
+          steps: [
+            { id: "inspect", title: "检查文件", status: done > 0 ? "done" : "running" },
+            {
+              id: "verify",
+              title: "验证结果",
+              status: done === 2 ? "done" : done === 1 ? "running" : "pending",
+            },
+          ],
+        },
+      });
+    return {
+      adapter: createFakeProvider([
+        step(0),
+        { ...toolStep({ id: "inspect", name: "list_files", args: { path: "." } }), delayMs: 1500 },
+        step(1),
+        { ...step(2), delayMs: 1500 },
+        textStep(
+          Array.from(
+            { length: 60 },
+            (_, index) =>
+              `历史段落 ${index + 1}：已读取工作区文件，这是用于验证长对话阅读位置的测试记录。`,
+          ).join("\n\n") + "\n\n计划验证结束。",
+        ),
+      ]),
+      model: "fake",
+    };
+  }
+
   if (input.startsWith("dev ")) {
     return {
       adapter: createFakeProvider([

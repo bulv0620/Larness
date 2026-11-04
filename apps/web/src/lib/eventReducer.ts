@@ -7,7 +7,7 @@ import type {
   TimelineItem,
   ToolItem,
 } from "@larness/shared";
-import { PlanItemSchema, ResourceTargetSchema } from "@larness/shared";
+import { CommandParamsSchema, PlanItemSchema, ResourceTargetSchema } from "@larness/shared";
 
 type Payload = Record<string, unknown>;
 
@@ -54,7 +54,9 @@ function patchApproval(
 }
 
 function toolId(event: ServerEvent, source: Payload): string {
-  return stringField(source, "toolCallId") ?? `${event.eventId}_tool`;
+  const id = stringField(source, "toolCallId") ?? `${event.eventId}_tool`;
+  const turnId = stringField(source, "turnId");
+  return turnId === undefined ? id : `${turnId}:${id}`;
 }
 
 export function applyAssistantDelta(
@@ -78,7 +80,7 @@ export function applyAssistantDelta(
   });
 }
 
-export function applyServerEvent(items: TimelineItem[], event: ServerEvent): TimelineItem[] {
+function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineItem[] {
   const data = payload(event);
   const turnId = stringField(data, "turnId") ?? event.eventId;
 
@@ -122,6 +124,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
       const tool: ToolItem = {
         id: toolId(event, data),
         kind: "tool",
+        turnId,
         name: stringField(data, "name") ?? "tool",
         summary: stringField(data, "argsSummary") ?? "",
         args: "",
@@ -137,6 +140,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
         : upsert(items, {
             id,
             kind: "tool",
+            turnId,
             name: stringField(data, "name") ?? "tool",
             summary: "",
             args: "",
@@ -146,8 +150,12 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
     }
     case "tool.command.created": {
       const commandId = stringField(data, "commandId");
+      const command = CommandParamsSchema.safeParse(data.command);
       return commandId && /^cmd_[a-f0-9-]{36}$/.test(commandId)
-        ? patchTool(items, toolId(event, data), { commandId })
+        ? patchTool(items, toolId(event, data), {
+            commandId,
+            ...(command.success ? { args: JSON.stringify(command.data, null, 2) } : {}),
+          })
         : items;
     }
     case "tool.completed": {
@@ -170,8 +178,9 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
       const path = stringField(data, "path") ?? "file";
       const version = stringField(data, "version") ?? "";
       const artifact: ArtifactItem = {
-        id: `file_${path}_${version}`,
+        id: `file_${turnId}_${path}_${version}`,
         kind: "artifact",
+        turnId,
         title: `已修改 ${path}`,
         description: `文件变更 · ${stringField(data, "changeType") ?? "modified"}`,
         meta: version.slice(0, 12),
@@ -183,6 +192,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
       const approval: ApprovalItem = {
         id: stringField(data, "approvalId") ?? `approval_${event.eventId}`,
         kind: "approval",
+        turnId,
         toolName: stringField(data, "toolName"),
         summary: stringField(data, "summary"),
         risk: stringField(data, "risk"),
@@ -213,6 +223,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
       const error: ErrorItem = {
         id: `error_${turnId}`,
         kind: "error",
+        turnId,
         message: `${stringField(data, "errorCode") ?? "INTERNAL"}: ${
           stringField(data, "message") ?? "执行失败"
         }`,
@@ -224,6 +235,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
       return upsert(items, {
         id: `interrupted_${turnId}`,
         kind: "error",
+        turnId,
         message: "执行已中断，请重新发送任务。",
         createdAt: event.timestamp,
       });
@@ -232,6 +244,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
       return upsert(items, {
         id: `cancelled_${turnId}`,
         kind: "error",
+        turnId,
         message: "已停止当前执行。",
         createdAt: event.timestamp,
       });
@@ -239,6 +252,32 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
     default:
       return items;
   }
+}
+
+export function applyServerEvent(items: TimelineItem[], event: ServerEvent): TimelineItem[] {
+  const next = reduceServerEvent(items, event);
+  if (!isTerminalTurnEvent(event)) return next;
+  const data = payload(event);
+  const turnId = eventTurnId(event);
+  const outcome =
+    event.type === "turn.completed"
+      ? "completed"
+      : event.type === "turn.failed"
+        ? "failed"
+        : event.type === "turn.cancelled"
+          ? "cancelled"
+          : "interrupted";
+  return next.map((item) =>
+    item.turnId === turnId && item.kind === "message"
+      ? {
+          ...item,
+          streaming: false,
+          ...(item.role === "user"
+            ? { turnOutcome: outcome, durationMs: numberField(data, "durationMs") }
+            : {}),
+        }
+      : item,
+  );
 }
 
 export function eventsToTimeline(events: ServerEvent[]): TimelineItem[] {

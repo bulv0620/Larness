@@ -199,16 +199,15 @@ test.describe("Larness S0 视觉 Demo", () => {
 
   test("发送消息、流式输出与部署审批", async ({ page }) => {
     await page.getByLabel("对话输入").fill("把开发服务启动起来，并给我一个预览。");
-    await page.getByLabel("发送消息").click();
-
-    await expect(page.getByText("执行计划").last()).toBeVisible();
-    await expect(page.getByText("开发服务器已启动", { exact: false })).toBeVisible({
-      timeout: 10_000,
-    });
-
+    await expect(page.getByLabel("发送消息")).toBeDisabled();
     await page.getByRole("button", { name: "批准部署" }).click();
     await expect(page.getByText("已批准部署", { exact: false })).toBeVisible();
     await expect(page.getByText("部署成功", { exact: true })).toBeVisible();
+    await page.getByLabel("发送消息").click();
+    await expect(page.getByRole("button", { name: /计划 ·/ }).last()).toBeVisible();
+    await expect(page.getByText("开发服务器已启动", { exact: false })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("键盘快捷键与窗口 Escape", async ({ page }) => {

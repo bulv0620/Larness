@@ -171,3 +171,14 @@
   width: 0;
   height: 0;
 }
+
+@media (pointer: coarse) {
+  .conversation-surface button,
+  .conversation-surface summary {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .conversation-surface textarea {
+    font-size: 16px;
+  }
+}

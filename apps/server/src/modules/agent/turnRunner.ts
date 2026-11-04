@@ -12,10 +12,11 @@ import {
   type ToolResult,
   type ToolSchema,
 } from "@larness/agent";
-import { FileManagerError, GitError } from "@larness/resources";
+import { FileManagerError, GitError, OutputRedactor } from "@larness/resources";
 import {
   AcquireTerminalControlParamsSchema,
   type AssistantDeltaEvent,
+  CommandParamsSchema,
   FileResultTargetSchema,
   InterruptTerminalParamsSchema,
   PlanParamsSchema,
@@ -45,6 +46,22 @@ import { assembleContext } from "./contextAssembler.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
+
+function commandDisplay(params: unknown) {
+  const command = CommandParamsSchema.parse(params);
+  const redact = (value: string) => new OutputRedactor([]).push(value, true);
+  let hideNext = false;
+  return {
+    ...command,
+    executable: redact(command.executable),
+    cwd: redact(command.cwd),
+    args: command.args.map((value) => {
+      const hide = hideNext;
+      hideNext = /^--?(authorization|api[_-]?key|token|password|cookie|secret)$/i.test(value);
+      return hide ? "[Redacted]" : redact(value);
+    }),
+  };
+}
 
 const DEFAULT_BUDGET = {
   maxSteps: 30,
@@ -435,6 +452,7 @@ export class TurnRunner {
                       turnId: turn.id,
                       toolCallId: request.id,
                       commandId,
+                      command: commandDisplay(params),
                     }),
                 },
                 params,

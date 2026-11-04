@@ -9,8 +9,9 @@ import {
   DropdownMenuTrigger,
   IconButton,
 } from "@larness/ui";
-import { ArrowUp, ChevronDown, Plus, Shield, Sparkles, Square } from "lucide-react";
+import { ArrowUp, ChevronDown, MoreHorizontal, Plus, Square } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useSnapshot } from "@/lib/queries";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -38,7 +39,8 @@ export function Composer() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const model = data.models.find((item) => item.id === modelId) ?? data.models[0];
-  const currentPolicy = policies.find((item) => item.id === policy) ?? policies[0];
+  const contextTokens = useTimelineStore((state) => state.contextTokens);
+  const pendingApproval = useTimelineStore((state) => pendingApprovals(state.items).length > 0);
 
   useEffect(() => {
     if (focusNonce > 0) textareaRef.current?.focus();
@@ -55,7 +57,7 @@ export function Composer() {
     const element = textareaRef.current;
     if (!element) return;
     element.style.height = "auto";
-    element.style.height = `${Math.min(180, Math.max(24, element.scrollHeight))}px`;
+    element.style.height = `${Math.min(180, Math.max(48, element.scrollHeight))}px`;
   }, [draft]);
 
   const appendContext = (token: string) => {
@@ -66,10 +68,7 @@ export function Composer() {
 
   const submit = () => {
     if (!hasSession || model === undefined) return;
-    if (isStreaming) {
-      stop();
-      return;
-    }
+    if (isStreaming || pendingApproval) return;
     const value = draft.trim();
     if (!value) return;
     void send(value);
@@ -78,22 +77,22 @@ export function Composer() {
   };
 
   return (
-    <div className="rounded-2xl border border-line bg-surface shadow-[0_2px_16px_rgba(15,23,42,.045)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:shadow-[0_0_0_4px_rgba(10,132,255,.08)]">
+    <div className="rounded-[18px] border border-line bg-surface shadow-sm focus-within:border-ink-3/40">
       <textarea
         ref={textareaRef}
         value={draft}
         rows={1}
-        placeholder={hasSession ? "描述任务，或粘贴日志 / 截图…" : "先新建或选择一个会话…"}
+        placeholder={hasSession ? "继续对话，或提出新的任务…" : "新建或选择一个会话…"}
         aria-label="对话输入"
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
             if (event.nativeEvent.isComposing) return;
             event.preventDefault();
-            submit();
+            if (!isStreaming) submit();
           }
         }}
-        className="block max-h-[180px] min-h-[26px] w-full resize-none bg-transparent px-3.5 pt-3 text-[12.5px] leading-[1.6] text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
+        className="block max-h-[180px] min-h-[48px] w-full resize-none bg-transparent px-3.5 pt-3 text-[13px] leading-[1.65] text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
       />
       <div className="flex items-center gap-0.5 px-2 pb-2 pt-1">
         <DropdownMenu>
@@ -122,7 +121,6 @@ export function Composer() {
               type="button"
               className="flex h-7 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
             >
-              <Sparkles size={12} className="text-accent" />
               <span className="max-w-[128px] truncate">{model?.label ?? "选择模型"}</span>
               <ChevronDown size={11} className="text-ink-3" />
             </button>
@@ -142,20 +140,17 @@ export function Composer() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="mx-1 h-3 w-px bg-line" />
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex h-7 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
-            >
-              <Shield size={12} className="text-ink-3" />
-              <span className="hidden sm:inline">{currentPolicy.label}</span>
-              <ChevronDown size={11} className="text-ink-3" />
-            </button>
+            <IconButton label="更多对话设置" className="h-7 w-7">
+              <MoreHorizontal size={15} />
+            </IconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[230px]">
+            <DropdownMenuLabel>
+              上下文 {contextTokens.toLocaleString()} /{" "}
+              {(model?.maxContextTokens ?? 128000).toLocaleString()}
+            </DropdownMenuLabel>
             <DropdownMenuLabel>审批策略</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={policy}
@@ -173,26 +168,26 @@ export function Composer() {
           </DropdownMenuContent>
         </DropdownMenu>
 
+        <span className="flex-1" />
         {isStreaming ? (
           <button
             type="button"
-            onClick={submit}
+            onClick={stop}
             aria-label="停止执行"
-            className="ml-1 flex h-7 items-center gap-1.5 rounded-full bg-danger/10 px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-danger/15"
+            className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-ink text-surface"
           >
             <Square size={11} fill="currentColor" />
-            停止
           </button>
         ) : (
           <button
             type="button"
             onClick={submit}
-            disabled={!draft.trim() || !hasSession || model === undefined}
+            disabled={!draft.trim() || !hasSession || model === undefined || pendingApproval}
             aria-label="发送消息"
             className={cn(
               "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-all",
-              draft.trim() && hasSession && model !== undefined
-                ? "bg-accent text-white shadow-[0_2px_8px_rgba(10,132,255,.3)] hover:brightness-110 active:scale-95"
+              draft.trim() && hasSession && model !== undefined && !pendingApproval
+                ? "bg-ink text-surface hover:opacity-80"
                 : "bg-black/[.06] text-ink-3 dark:bg-white/[.08]",
             )}
           >

@@ -8,6 +8,7 @@
 
 > **当前状态：S0、M0（macOS 范围）与 M1 已验收；M2 功能已实现，G2 候选待人类验收，当前进入问题修复阶段。M3 仍为草案。**
 > 启动开发环境：`pnpm install && pnpm dev` → Server <http://127.0.0.1:3210/api/health> + Web <http://localhost:3210>，并直接进入 TUI。
+> 对话区已按紧凑单列重构，支持真实任务计划、折叠执行过程、输入框上方审批与小型资源浮栏；见 [对话区验收](specs/036-conversation-experience/acceptance.md)。
 > 当前进度见 [STATUS.md](STATUS.md)；M2 验收结果与已知问题见 [验收记录](specs/030-dev-resources/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
 

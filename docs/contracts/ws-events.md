@@ -194,3 +194,6 @@ M2-4（2026-11-03）：hello 和 terminal 订阅 ACK 新增 connectionId；订�
 
 ## M2-14 真实任务计划
 Agent工具 `update_plan({title,steps:[{id,title,status,detail?}]})` 为L0元数据操作，不取得项目写锁；每轮唯一 `plan_<turnId>` 全量替换，1–12步、ID唯一、最多一项running。状态pending/running/done/failed；拒绝非法参数和已知凭据。由Runner按现有Turn预算/取消/审计执行，先事务持久化plan.updated再广播；前端Zod校验并按ID覆盖，刷新重放。Turn结束不自动勾完计划；模型报告不是执行授权或验证证据。无DB/协议号变化。
+
+## M2-15 对话呈现补充
+`tool.command.created`新增可选`command`（CommandParamsSchema：executable/args/cwd/timeoutMs），仅在已授权Manager验证参数及凭据后、启动前写入；字段经输出脱敏器处理，敏感选项后的值隐藏，不包含环境。客户端Zod验证后用于折叠详情。命令输出仍经授权游标接口读取，不复制进消息。UI按turnId分轮，工具视图身份为turnId+toolCallId，防止Provider在不同轮复用call ID覆盖历史；历史无turnId按用户消息边界分组。Turn终态及durationMs从既有持久事件恢复。审批只在输入框上方可操作，后端确认前不乐观标成功，失败保留。

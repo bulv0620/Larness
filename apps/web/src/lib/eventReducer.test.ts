@@ -240,3 +240,19 @@ it("replays valid plan replacements and ignores malformed plan events", () => {
   expect(items).toHaveLength(1);
   expect(items[0]).toMatchObject({ turnId: "trn_1", steps: [{ status: "done" }] });
 });
+
+it("keeps identical provider call IDs distinct across turns and restores terminal turn metadata", () => {
+  const items = eventsToTimeline([
+    event("user.message", { turnId: "t1", text: "first" }),
+    event("tool.requested", { turnId: "t1", toolCallId: "same", name: "read_file" }),
+    event("tool.completed", { turnId: "t1", toolCallId: "same", resultSummary: "first result" }),
+    event("turn.cancelled", { turnId: "t1", durationMs: 2000 }),
+    event("user.message", { turnId: "t2", text: "second" }),
+    event("tool.requested", { turnId: "t2", toolCallId: "same", name: "read_file" }),
+  ]);
+  expect(items.filter((item) => item.kind === "tool")).toMatchObject([
+    { turnId: "t1", status: "done", output: "first result" },
+    { turnId: "t2", status: "running" },
+  ]);
+  expect(items[0]).toMatchObject({ turnOutcome: "cancelled", durationMs: 2000 });
+});

@@ -50,13 +50,30 @@ test("M2 command approval runs real bytes, streams redacted output, survives ref
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByRole("button", { name: "批准执行" })).toBeVisible();
     await expect(page.getByText(/项目目录不是沙箱/).first()).toBeVisible();
+    const approval = page.getByRole("region", { name: "待处理审批" });
+    const approvalBox = await approval.boundingBox();
+    const composerBox = await composer.boundingBox();
+    expect(
+      approvalBox && composerBox && approvalBox.y + approvalBox.height <= composerBox.y,
+    ).toBeTruthy();
+    await expect(
+      page.getByRole("log", { name: "会话时间线" }).getByRole("button", { name: "批准执行" }),
+    ).toHaveCount(0);
     expect(() => readFileSync(path.join(root, "command-effect"))).toThrow();
     await page.getByRole("button", { name: "批准执行" }).click();
+    await page
+      .getByRole("button", { name: /执行过程 ·/ })
+      .last()
+      .click();
     const card = page.getByRole("region", { name: "命令执行" }).first();
     await expect(card.getByRole("log", { name: "命令输出" })).toContainText("public start");
     await expect(card.getByRole("status")).toHaveText("执行中");
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-3b-running.png") });
     await page.reload();
+    await page
+      .getByRole("button", { name: /执行过程 ·/ })
+      .last()
+      .click();
     const restored = page.getByRole("region", { name: "命令执行" }).first();
     await expect(restored.getByRole("log", { name: "命令输出" })).toContainText("public start");
     await expect(restored.getByRole("status")).toHaveText("执行失败", { timeout: 15000 });
@@ -69,6 +86,10 @@ test("M2 command approval runs real bytes, streams redacted output, survives ref
     await composer.fill("command cancel");
     await page.getByRole("button", { name: "发送消息" }).click();
     await page.getByRole("button", { name: "批准执行" }).click();
+    await page
+      .getByRole("button", { name: /执行过程 ·/ })
+      .last()
+      .click();
     const active = page.getByRole("region", { name: "命令执行" }).last();
     await expect(active.getByRole("log", { name: "命令输出" })).toContainText("running");
     await expect

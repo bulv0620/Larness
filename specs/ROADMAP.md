@@ -147,7 +147,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M2-13 | [固定默认项目](035-default-project/spec.md) | M2-12 done；人类直接要求 | `done`（2026-11-04） |
 
 | M2-14 | [真实任务计划](036-conversation-experience/spec.md) | M2-13 done；用户批准 | `done` |
-| M2-15 | [紧凑对话区重构](036-conversation-experience/spec.md) | M2-14 | `todo` |
+| M2-15 | [紧凑对话区重构](036-conversation-experience/spec.md) | M2-14 | `done`（2026-11-04） |
 
 ## 5.1 R0-0 资源生命周期与服务文档同步
 

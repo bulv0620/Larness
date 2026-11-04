@@ -24,7 +24,7 @@ status: accepted
 新增 L0 元数据工具 update_plan，参数 title、steps[{id,title,status,detail?}]（1–12步，稳定唯一 ID，最多一项 running）；不操作磁盘/终端，不取得项目写锁。事件 plan.updated payload={turnId,plan:{id,kind,title,steps,createdAt,turnId}}，每轮固定 plan_<turnId>。既有事件表存储，无迁移。计划文本在注册 schema 中拒绝已知凭据；前端 Zod 校验恢复事件。工具、审批和产物补充可选 turnId 以便分轮；旧事件按用户消息边界回退。
 
 ## 安全、失败与边界
-计划仅为模型报告的进度，不是执行授权/测试证据；走既有鉴权 Turn、工具预算、审计、取消检查及事务事件。审批仅 approve/reject，参数绑定/TTL/后端授权不变。工具参数只展示现有已脱敏摘要，不新增原始参数公开。前端异步请求与会话切换隔离。
+计划仅为模型报告的进度，不是执行授权/测试证据；走既有鉴权 Turn、工具预算、审计、取消检查及事务事件。审批仅 approve/reject，参数绑定/TTL/后端授权不变。工具参数只展示现有已脱敏摘要；命令详情补充Manager验证和凭据检查后的规范化CommandParams（无环境），不公开任意工具原始输入。前端异步请求与会话切换隔离。
 
 ## 测试计划
 M2-14：真实 SQLite/FakeProvider Runner 集成、非法参数/取消/事件先持久化、前端事件重放；pnpm check/build。

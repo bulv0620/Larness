@@ -7,10 +7,10 @@ export function FileResultCard({ target }: { target: FileResultTarget }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   return (
-    <div className="border-t border-line px-3 py-2 text-[11px] text-ink-2">
+    <div className="py-1 text-[12px] text-ink-2">
       <button
         type="button"
-        className="text-accent"
+        className="break-all text-left text-ink-2 underline decoration-line underline-offset-4 hover:text-ink"
         disabled={pending}
         onClick={() => {
           setPending(true);

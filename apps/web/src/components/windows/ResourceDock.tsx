@@ -49,10 +49,10 @@ export function ResourceDock() {
     });
   };
   return (
-    <div className="pointer-events-none relative z-[60] mb-3 flex justify-center px-1">
+    <div className="pointer-events-none relative z-[60] mb-1.5 flex justify-center px-1">
       <nav
         aria-label="项目窗口"
-        className="window-tabs-scroll pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl border border-line bg-surface/90 p-1.5 shadow-[0_5px_22px_rgba(0,0,0,.08),0_1px_3px_rgba(0,0,0,.04)] backdrop-blur-xl"
+        className="window-tabs-scroll pointer-events-auto flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[10px] border border-line bg-surface-2 p-0.5"
       >
         {(["terminal", "services"] as const).map((kind) => {
           const Icon = icons[kind];
@@ -66,13 +66,11 @@ export function ResourceDock() {
               aria-pressed={!!active}
               onClick={() => launch(kind)}
               className={cn(
-                "flex h-8 shrink-0 items-center gap-2 rounded-xl px-3 text-[11px] font-medium transition-colors",
-                active
-                  ? "bg-accent-soft text-accent"
-                  : "text-ink-2 hover:bg-surface-2 hover:text-ink",
+                "flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 [@media(pointer:coarse)]:h-11 text-[11px] font-medium transition-colors",
+                active ? "bg-surface text-ink" : "text-ink-2 hover:bg-surface-2 hover:text-ink",
               )}
             >
-              <Icon size={14} strokeWidth={1.7} />
+              <Icon size={12} strokeWidth={1.7} />
               {kind === "terminal" ? "终端" : "服务"}
               {win && win.tabs.filter((tab) => !tab.resourceId.endsWith(":empty")).length > 0 ? (
                 <span className="rounded bg-black/[.045] px-1 font-mono text-[9px] dark:bg-white/[.08]">
@@ -97,9 +95,9 @@ export function ResourceDock() {
                 aria-label={`恢复 ${tab.title}`}
                 onClick={() => restore(win.id)}
                 title={tab.title}
-                className="flex h-8 max-w-44 shrink-0 items-center gap-2 rounded-xl border-l border-line px-3 text-[11px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
+                className="flex h-6 max-w-32 shrink-0 items-center gap-1 rounded-md px-1.5 [@media(pointer:coarse)]:h-11 text-[11px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink"
               >
-                <Icon size={13} className="shrink-0" />
+                <Icon size={12} className="shrink-0" />
                 <span className="truncate">{tab.title}</span>
                 {win.tabs.length > 1 ? (
                   <span className="text-[9px] text-ink-3">{win.tabs.length}</span>

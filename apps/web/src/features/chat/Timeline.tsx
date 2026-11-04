@@ -1,286 +1,259 @@
-import type { ApprovalItem, TimelineItem, ToolItem } from "@larness/shared";
+import type { MessageItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
-import {
-  ArrowDown,
-  Check,
-  ChevronDown,
-  Loader2,
-  ShieldAlert,
-  Sparkles,
-  Wrench,
-  XCircle,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { EmptyState } from "@/components/common/EmptyState";
-import { TimelineItemView } from "@/features/chat/TimelineItemView";
+import { ArrowDown, ChevronRight, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { CommandCard } from "./CommandCard";
+import { TimelineItemView } from "./TimelineItemView";
 
-function ResultTargetCard({ target }: { target: NonNullable<ToolItem["resourceTarget"]> }) {
-  return target.kind === "file" ? (
-    <FileResultCard target={target} />
-  ) : (
-    <TerminalResultCard target={target} />
-  );
+interface TurnGroup {
+  id: string;
+  items: TimelineItem[];
 }
-
-function TimelineItems({ items }: { items: TimelineItem[] }) {
-  const lastAssistantByTurn = new Map<string, number>();
-
-  items.forEach((item, index) => {
-    if (item.kind === "message" && item.role === "assistant" && item.turnId !== undefined) {
-      lastAssistantByTurn.set(item.turnId, index);
+function groupTurns(items: TimelineItem[]): TurnGroup[] {
+  const groups: TurnGroup[] = [];
+  const byId = new Map<string, TurnGroup>();
+  let current: TurnGroup | undefined;
+  for (const item of items) {
+    const isUser = item.kind === "message" && item.role === "user";
+    const id = item.turnId ?? (isUser ? item.id : (current?.id ?? item.id));
+    const existing = byId.get(id);
+    if (existing) {
+      existing.items.push(item);
+      if (isUser) current = existing;
+    } else {
+      const group = { id, items: [item] };
+      groups.push(group);
+      byId.set(id, group);
+      current = group;
     }
-  });
-
-  const visible = items.filter((item, index) => {
-    if (item.kind !== "message" || item.role !== "assistant" || item.turnId === undefined) {
-      return true;
-    }
-
-    return lastAssistantByTurn.get(item.turnId) === index;
-  });
-
-  const nodes: React.ReactNode[] = [];
-  let tools: ToolItem[] = [];
-
-  const flush = () => {
-    if (tools.length === 1) {
-      const tool = tools[0];
-      if (tool)
-        nodes.push(
-          <div key={tool.id}>
-            <TimelineItemView item={tool} />
-            {tool.commandId ? <CommandCard commandId={tool.commandId} /> : null}
-            {tool.resourceTarget ? <ResultTargetCard target={tool.resourceTarget} /> : null}
-          </div>,
-        );
-    } else if (tools.length > 1) {
-      nodes.push(<ToolGroup key={`tools_${tools[0]?.id ?? "group"}`} tools={tools} />);
-    }
-    tools = [];
-  };
-
-  for (const item of visible) {
-    if (item.kind === "tool") {
-      tools.push(item);
-      continue;
-    }
-    flush();
-    nodes.push(<TimelineItemView key={item.id} item={item} />);
   }
-  flush();
-
-  return <>{nodes}</>;
+  return groups;
 }
 
-function ToolGroup({ tools }: { tools: ToolItem[] }) {
+function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const [expanded, setExpanded] = useState(false);
-  const running = tools.some((tool) => tool.status === "running");
-  const failed = tools.some((tool) => tool.status === "error");
-  const names = [...new Set(tools.map((tool) => tool.name))];
-  const summary =
-    names.length <= 2 ? names.join(" · ") : `${names.slice(0, 2).join(" · ")} +${names.length - 2}`;
-
+  const items = group.items;
+  const user = items.find(
+    (item): item is MessageItem => item.kind === "message" && item.role === "user",
+  );
+  const tools = items.filter(
+    (item): item is ToolItem => item.kind === "tool" && item.name !== "update_plan",
+  );
+  let lastOperation = -1;
+  let lastAssistant = -1;
+  items.forEach((item, index) => {
+    if (item.kind === "tool") lastOperation = index;
+    if (item.kind === "message" && item.role === "assistant") lastAssistant = index;
+  });
+  // A message becomes the final answer only when it follows the last operation.
+  const answer = lastAssistant > lastOperation ? items[lastAssistant] : undefined;
+  const latestCommentary =
+    active && !answer
+      ? [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant")
+      : undefined;
+  const process = items.filter(
+    (item) =>
+      item !== user &&
+      item !== answer &&
+      item !== latestCommentary &&
+      ((item.kind === "message" && item.role === "assistant") ||
+        (item.kind === "tool" && item.name !== "update_plan")),
+  );
+  const approvals = items.filter((item) => item.kind === "approval");
+  const runningTool = [...tools].reverse().find((tool) => tool.status === "running");
+  const pending = approvals.find((item) => item.kind === "approval" && item.status === "pending");
+  const failed = user?.turnOutcome === "failed" || user?.turnOutcome === "interrupted";
+  const stopped = user?.turnOutcome === "cancelled";
+  const duration = user?.durationMs;
+  const seconds = duration === undefined ? "" : ` · ${Math.round(duration / 1000)}秒`;
+  const summary = active
+    ? pending
+      ? `本轮 ${tools.length} 项操作`
+      : runningTool
+        ? `正在执行 · ${runningTool.summary || runningTool.name}`
+        : `已执行 ${tools.length} 项操作`
+    : `${stopped ? "已停止" : failed ? "执行未完成" : "执行了"} ${tools.length} 项操作${seconds}`;
+  const targets = new Map<string, NonNullable<ToolItem["resourceTarget"]>>();
+  for (const tool of tools) {
+    const target = tool.resourceTarget;
+    if (target)
+      targets.set(
+        target.kind === "file" ? JSON.stringify([target.scope, target.path]) : target.terminalId,
+        target,
+      );
+  }
+  const filePaths = new Set(
+    [...targets.values()].filter((target) => target.kind === "file").map((target) => target.path),
+  );
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-surface-2/55">
-      <button
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-        aria-expanded={expanded}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left"
-      >
-        <span className="flex h-5 w-5 items-center justify-center rounded-md border border-line bg-surface">
-          <Wrench
-            size={11.5}
-            className={running ? "text-accent" : failed ? "text-danger" : "text-ink-3"}
-          />
-        </span>
-        <span className="text-[11.5px] font-medium text-ink">
-          {running ? `正在执行 ${tools.length} 个工具` : `执行了 ${tools.length} 个工具`}
-        </span>
-        <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-ink-3">{summary}</span>
-        {running ? (
-          <Loader2 size={12} className="shrink-0 animate-spin text-accent" />
-        ) : failed ? (
-          <XCircle size={12} className="shrink-0 text-danger" />
-        ) : (
-          <Check size={12} className="shrink-0 text-success" />
-        )}
-        <ChevronDown
-          size={12}
-          className={cn("shrink-0 text-ink-3 transition-transform", expanded && "rotate-180")}
-        />
-      </button>
-      {tools.map((tool) =>
-        tool.resourceTarget ? (
-          <ResultTargetCard key={tool.id} target={tool.resourceTarget} />
-        ) : null,
-      )}
-      {tools.map((tool) =>
-        tool.commandId ? <CommandCard key={tool.id} commandId={tool.commandId} /> : null,
-      )}
-      {expanded ? (
-        <div className="space-y-1.5 border-t border-line/80 p-1.5">
-          {tools.map((tool) => (
-            <TimelineItemView key={tool.id} item={tool} />
+    <section aria-label="对话轮次" className="min-w-0">
+      {user ? <TimelineItemView item={user} /> : null}
+      <div className="space-y-3">
+        {process.length > 0 || tools.length > 0 ? (
+          <div className="text-[12px] text-ink-3">
+            <button
+              type="button"
+              aria-label={`执行过程 · ${summary}`}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((value) => !value)}
+              className="flex w-full items-start gap-1.5 py-1 text-left"
+            >
+              <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
+              <span className="min-w-0 break-words">{summary}</span>
+            </button>
+            {expanded ? (
+              <div className="ml-1.5 mt-2 space-y-2 border-l border-line pl-4">
+                {process.map((item) => (
+                  <div key={item.id}>
+                    <TimelineItemView item={item} />
+                    {item.kind === "tool" && item.commandId ? (
+                      <CommandCard commandId={item.commandId} />
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {items
+          .filter((item) => item.kind === "plan")
+          .map((item) => (
+            <TimelineItemView key={item.id} item={item} />
           ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function TurnActivity() {
-  const items = useTimelineStore((state) => state.items);
-  const isStreaming = useTimelineStore((state) => state.isStreaming);
-  const startedAt = useTimelineStore((state) => state.turnStartedAt);
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!isStreaming) return;
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, [isStreaming]);
-
-  if (!isStreaming) return null;
-
-  const last = [...items].reverse();
-  const approval = last.find(
-    (item): item is ApprovalItem => item.kind === "approval" && item.status === "pending",
-  );
-  const tool = last.find(
-    (item): item is ToolItem => item.kind === "tool" && item.status === "running",
-  );
-  const label =
-    approval !== undefined
-      ? "等待你批准工具调用"
-      : tool !== undefined
-        ? `正在执行 ${tool.name}`
-        : "Agent 正在思考";
-  const elapsed = startedAt === null ? null : Math.max(0, Math.floor((now - startedAt) / 1_000));
-
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="mx-1 flex items-center gap-2 rounded-xl border border-accent/15 bg-accent-soft/35 px-3 py-2 text-[11px] text-ink-2"
-    >
-      {approval !== undefined ? (
-        <ShieldAlert size={12} className="shrink-0 text-warning" />
-      ) : tool !== undefined ? (
-        <Loader2 size={12} className="shrink-0 animate-spin text-accent" />
-      ) : (
-        <Sparkles size={12} className="shrink-0 animate-pulse text-accent" />
-      )}
-      <span className="font-medium">{label}</span>
-      <span className="inline-flex items-center gap-0.5 text-accent">
-        <span className="activity-dot" />
-        <span className="activity-dot [animation-delay:140ms]" />
-        <span className="activity-dot [animation-delay:280ms]" />
-      </span>
-      <span className="ml-auto font-mono text-[10px] text-ink-3">
-        {elapsed === null ? "进行中" : `${elapsed}s`}
-      </span>
-    </div>
+        {latestCommentary ? <TimelineItemView item={latestCommentary} /> : null}
+        {approvals.map((item) =>
+          item.kind === "approval" && !active && item.status === "pending" && user?.turnOutcome ? (
+            <div key={item.id} className="text-[12px] text-ink-3">
+              审批已结束 · {item.summary ?? item.toolName}
+            </div>
+          ) : (
+            <TimelineItemView key={item.id} item={item} />
+          ),
+        )}
+        {answer ? <TimelineItemView item={answer} /> : null}
+        {active && !pending && !runningTool && !answer && !latestCommentary ? (
+          <div role="status" className="flex items-center gap-2 text-[12px] text-ink-3">
+            <Loader2 size={12} className="animate-spin motion-reduce:animate-none" />
+            正在处理…
+          </div>
+        ) : null}
+        {targets.size ? (
+          <div className="space-y-1 border-t border-line pt-2 text-[12px]">
+            {[...targets.entries()].map(([key, target]) =>
+              target.kind === "file" ? (
+                <FileResultCard key={key} target={target} />
+              ) : (
+                <TerminalResultCard key={key} target={target} />
+              ),
+            )}
+          </div>
+        ) : null}
+        {items
+          .filter(
+            (item) =>
+              item.kind === "error" ||
+              (item.kind === "artifact" && !filePaths.has(item.title.replace(/^已修改 /, ""))),
+          )
+          .map((item) => (
+            <TimelineItemView key={item.id} item={item} />
+          ))}
+      </div>
+    </section>
   );
 }
 
 export function Timeline() {
   const items = useTimelineStore((state) => state.items);
   const loading = useTimelineStore((state) => state.loading);
-  const hasSession = useNavigationStore((state) => Boolean(state.sessionId));
+  const isStreaming = useTimelineStore((state) => state.isStreaming);
+  const activeTurnId = useTimelineStore((state) => state.activeTurnId);
+  const sessionId = useNavigationStore((state) => state.sessionId);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
-  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: items is the scroll trigger
-  useEffect(() => {
-    const element = scrollRef.current;
-    if (!element || !pinnedRef.current) return;
-    element.scrollTop = element.scrollHeight;
-    setShowJumpToBottom(false);
-  }, [items]);
-
-  if (!hasSession) {
-    return (
-      <div className="flex flex-1 items-center justify-center overflow-auto">
-        <div className="w-full max-w-[560px] px-6">
-          <EmptyState
-            icon={Sparkles}
-            title="还没有会话"
-            description="在左侧选择项目旁的 + 新建会话，或直接点击“新建会话”开始。"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex-1 space-y-3 overflow-hidden px-6 py-6">
-        <div className="mx-auto max-w-[880px] space-y-3">
-          <div className="h-14 w-2/3 animate-pulse rounded-xl bg-black/[.04] dark:bg-white/[.05]" />
-          <div className="ml-auto h-10 w-1/2 animate-pulse rounded-xl bg-accent/10" />
-          <div className="h-28 w-full animate-pulse rounded-xl bg-black/[.04] dark:bg-white/[.05]" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!items.length) {
-    return (
-      <div className="flex flex-1 items-center justify-center overflow-auto">
-        <div className="w-full max-w-[560px] px-6">
-          <EmptyState
-            icon={Sparkles}
-            title="开始新的对话"
-            description="描述你想完成的任务，Agent 会读取项目、调用工具并在这里展示执行过程。"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  const scrollToBottom = (): void => {
+  const [showJump, setShowJump] = useState(false);
+  const follow = useCallback(() => {
     const element = scrollRef.current;
     if (!element) return;
-    element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+    if (pinnedRef.current) element.scrollTop = element.scrollHeight;
+    else setShowJump(element.scrollHeight - element.scrollTop - element.clientHeight > 140);
+  }, []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: changing session resets reading position
+  useLayoutEffect(() => {
     pinnedRef.current = true;
-    setShowJumpToBottom(false);
-  };
-
+    setShowJump(false);
+  }, [sessionId]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: new output is the scroll trigger
+  useLayoutEffect(follow, [items, loading]);
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    const content = contentRef.current;
+    if (!scroll || !content || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(follow);
+    observer.observe(scroll);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [follow]);
+  const groups = groupTurns(items);
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
         ref={scrollRef}
-        onScroll={(event) => {
-          const element = event.currentTarget;
-          const distance = element.scrollHeight - element.scrollTop - element.clientHeight;
-          pinnedRef.current = distance < 90;
-          setShowJumpToBottom(distance > 150);
-        }}
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
         role="log"
         aria-label="会话时间线"
+        onClickCapture={(event) => {
+          if (event.target instanceof Element && event.target.closest("button[aria-expanded]"))
+            pinnedRef.current = false;
+        }}
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+          pinnedRef.current = distance < 70;
+          setShowJump(distance > 140);
+        }}
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 [scrollbar-gutter:stable]"
       >
-        <div className="mx-auto flex w-full max-w-[880px] flex-col gap-3 pb-6">
-          <TimelineItems items={items} />
-          <TurnActivity />
-          <div className={cn("h-1 shrink-0")} />
+        <div ref={contentRef} className="mx-auto w-full max-w-[760px] space-y-8 pb-5">
+          {loading ? (
+            <div role="status" className="py-8 text-[12px] text-ink-3">
+              正在加载对话…
+            </div>
+          ) : !items.length ? (
+            <div className="flex min-h-[260px] flex-col items-center justify-center gap-2 text-center">
+              <h2 className="text-[21px] font-medium text-ink">有什么想一起完成？</h2>
+              <span className="text-[12px] text-ink-3">
+                {sessionId ? "描述你想完成的任务" : "新建或选择一个会话开始"}
+              </span>
+            </div>
+          ) : (
+            groups.map((group, index) => (
+              <TurnView
+                key={`${sessionId}:${group.id}`}
+                group={group}
+                active={
+                  isStreaming &&
+                  (activeTurnId === group.id ||
+                    (activeTurnId === null && index === groups.length - 1))
+                }
+              />
+            ))
+          )}
         </div>
       </div>
-      {showJumpToBottom ? (
+      {showJump ? (
         <button
           type="button"
-          onClick={scrollToBottom}
           aria-label="回到最新消息"
-          title="回到最新消息"
-          className="absolute bottom-4 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface/95 text-ink-2 shadow-[var(--shadow-pop)] backdrop-blur transition-colors hover:bg-surface hover:text-ink"
+          onClick={() => {
+            pinnedRef.current = true;
+            follow();
+            setShowJump(false);
+          }}
+          className="absolute bottom-3 left-1/2 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-ink-2 shadow-sm"
         >
           <ArrowDown size={14} />
         </button>

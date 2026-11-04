@@ -4,16 +4,16 @@ import remarkGfm from "remark-gfm";
 
 const components: Components = {
   h1: ({ children }) => (
-    <h1 className="mb-2 mt-1 text-[15px] font-semibold leading-6 text-ink">{children}</h1>
+    <h1 className="mb-2 mt-1 text-[15px] font-medium leading-6 text-ink">{children}</h1>
   ),
   h2: ({ children }) => (
-    <h2 className="mb-1.5 mt-3 text-[14px] font-semibold leading-5 text-ink">{children}</h2>
+    <h2 className="mb-1.5 mt-3 text-[14px] font-medium leading-5 text-ink">{children}</h2>
   ),
   h3: ({ children }) => (
-    <h3 className="mb-1 mt-2.5 text-[13px] font-semibold leading-5 text-ink">{children}</h3>
+    <h3 className="mb-1 mt-2.5 text-[13px] font-medium leading-5 text-ink">{children}</h3>
   ),
-  p: ({ children }) => <p className="my-1.5 leading-[1.7] first:mt-0 last:mb-0">{children}</p>,
-  strong: ({ children }) => <strong className="font-semibold text-ink">{children}</strong>,
+  p: ({ children }) => <p className="my-1.5 leading-[1.65] first:mt-0 last:mb-0">{children}</p>,
+  strong: ({ children }) => <strong className="font-medium text-ink">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
   a: ({ children, href }) => (
     <a
@@ -37,7 +37,7 @@ const components: Components = {
   ),
   hr: () => <hr className="my-3 border-line" />,
   pre: ({ children }) => (
-    <pre className="my-2 overflow-x-auto rounded-lg bg-[#1d1d1f] px-3 py-2.5 font-mono text-[11px] leading-5 text-[#d7dae0]">
+    <pre className="my-2 overflow-x-auto rounded-lg bg-surface-2 px-3 py-2.5 font-mono text-[12px] leading-5 text-ink">
       {children}
     </pre>
   ),
