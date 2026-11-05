@@ -500,7 +500,10 @@ export const services = sqliteTable(
     uniqueIndex("services_active_endpoint")
       .on(table.terminalId, table.endpointHost, table.endpointPort)
       .where(sql`${table.status} IN ('REGISTERING', 'STARTING', 'RUNNING')`),
-    check("services_status", sql`${table.status} IN ('REGISTERING', 'STARTING', 'RUNNING', 'UNKNOWN', 'UNREGISTERED')`),
+    check(
+      "services_status",
+      sql`${table.status} IN ('REGISTERING', 'STARTING', 'RUNNING', 'UNKNOWN', 'UNREGISTERED')`,
+    ),
     check("services_host", sql`${table.endpointHost} IN ('127.0.0.1', '::1')`),
     check("services_port", sql`${table.endpointPort} BETWEEN 1 AND 65535`),
     check("services_protocol", sql`${table.endpointProtocol} = 'http'`),
