@@ -4,6 +4,7 @@ import { newId } from "../../db/ids.js";
 import {
   fileVersions,
   type ResourceOperationRow,
+  resourceActions,
   resourceEvents,
   resourceOperations,
   resourceStreams,
@@ -121,6 +122,10 @@ export function deleteCachedFile(db: DbExecutor, scopeKey: string, path: string)
     .where(and(eq(fileVersions.scopeKey, scopeKey), eq(fileVersions.path, path)))
     .run();
 }
+export function deleteResourceActionsForProject(db: DbExecutor, projectId: string) {
+  db.delete(resourceActions).where(eq(resourceActions.projectId, projectId)).run();
+}
+
 export function deleteOperation(db: DbExecutor, id: string) {
   db.delete(resourceOperations).where(eq(resourceOperations.id, id)).run();
 }

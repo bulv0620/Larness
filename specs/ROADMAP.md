@@ -11,7 +11,7 @@
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `done` | G2 于2026-11-05通过人类整体验收；范围与边界见030/closure.md |
-| M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `in_progress` | G-Spec-M3 通过（2026-11-05）；M3-0 done（G-PoC 2026-11-05）；M3-1 done（2026-11-05）；M3-2 进行中，G3 待验收 |
+| M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `in_progress` | G-Spec-M3 通过（2026-11-05）；M3-0 done（G-PoC 2026-11-05）；M3-1/M3-2 done（2026-11-05）；M3-3 进行中，G3 待验收 |
 | M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
 
@@ -194,7 +194,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 |---|---|---|---|
 | M3-0 | 开发执行身份与隔离预览PoC | G2；G-Spec-M3；Q-002/Q-026方案 | `done`（G-PoC 2026-11-05） |
 | M3-1 | 临时登记/源退出退登/日志与事件 | M3-0；G-PoC-M3 | `done`（2026-11-05） |
-| M3-2 | 当前项目服务卡片/详情/关联日志 | M3-1 | `todo` |
+| M3-2 | 当前项目服务卡片/详情/关联日志 | M3-1 | `done`（2026-11-05） |
 | M3-3 | PreviewRegistry/HTTP/WS固定上游 | M3-1 | `todo` |
 | M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `todo` |
 | M3-4 | Browser/Agent卡片/HMR/开发API | M3-2/M3-3b | `todo` |

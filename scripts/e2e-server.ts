@@ -122,6 +122,38 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
     };
   }
 
+  if (input.startsWith("service start ")) {
+    const port = Number(input.split(" ").at(-1));
+    if (!Number.isInteger(port) || port < 1 || port > 65535)
+      return { adapter: createFakeProvider([textStep("invalid service port")]), model: "fake" };
+    return {
+      adapter: createFakeProvider([
+        {
+          chunks: [
+            {
+              type: "tool-call",
+              toolCall: {
+                id: "service-frontend",
+                name: "start_project_terminal",
+                args: {
+                  role: "frontend",
+                  executable: process.execPath,
+                  args: [
+                    "-e",
+                    `require("node:http").createServer((request, response) => response.end("ok")).listen(${port}, "127.0.0.1", () => console.log("SERVICE_READY"));`,
+                  ],
+                },
+              },
+            },
+            { type: "finish", finishReason: "tool-calls" },
+          ],
+        },
+        textStep("开发终端已启动。"),
+      ]),
+      model: "fake",
+    };
+  }
+
   if (input === "ai control") {
     const projectId = session.projectId;
     const terminal =

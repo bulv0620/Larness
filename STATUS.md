@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-05 (+08:00)
-> 当前阶段：**G-PoC-M3 已通过；M3-1 已完成（2026-11-05）；M3-2 服务卡片/详情进行中（远程 HTTPS 延后，未验证）**
+> 当前阶段：**G-PoC-M3 已通过；M3-1/M3-2 已完成（2026-11-05）；M3-3 预览网关进行中（远程 HTTPS 延后，未验证）**
 
 ## 里程碑
 
@@ -448,4 +448,4 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 人类确认 G-PoC-M3：接受 M3-0 的 12 项真实证据、残余竞态窗口、Vite 7.3.7 实际版本及远程 HTTPS 延后；M3-0 标 done。
 - M3-1 `done`（2026-11-05，分支 `task/m3-1-registration`）：登记/查询/退登/幂等、resource-action、Agent 工具、WS 事件与重启失效均完成，见 [验收](specs/040-services-preview/acceptance-m3-1.md)。下一步 M3-2 服务卡片/详情 UI。
 - M3-1 完成（2026-11-05）：迁移、共享 schema、身份适配、ServiceManager、resource-action 分派、服务 REST、App/1 秒对账、Agent 工具、WS 事件完成；终端关闭连带退登、重启失效、DB 事件失败回滚均有真实测试；`pnpm check` server 435 / 2 skipped、Web 全通过。
-- M3-2 进度（2026-11-05）：当前项目服务窗口完成卡片/详情/关联终端输出/打开终端/结束提示/L2 登记审批对话框，无服务 Tab；组件测试通过，`pnpm check` 全绿；真实浏览器 E2E 待补后标 review。
+- M3-2 完成（2026-11-05）：服务窗口（卡片/详情/日志/打开终端/结束提示/L2 登记审批）组件测试 + 真实 Chromium E2E 通过；修复项目删除未清理 services/resource_actions 的外键回归。见 [验收](specs/040-services-preview/acceptance-m3-2.md)。

@@ -29,6 +29,10 @@ export function deleteServicesForTerminal(db: DbExecutor, terminalId: string) {
   db.delete(services).where(eq(services.terminalId, terminalId)).run();
 }
 
+export function deleteServicesForProject(db: DbExecutor, projectId: string) {
+  db.delete(services).where(eq(services.projectId, projectId)).run();
+}
+
 export function activeServices(db: DbExecutor): ServiceRow[] {
   return db.select().from(services).where(inArray(services.status, ACTIVE_SERVICE_STATUSES)).all();
 }
