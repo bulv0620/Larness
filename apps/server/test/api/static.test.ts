@@ -113,6 +113,8 @@ describe("static hosting", () => {
         expect(index.body).toContain("Larness app");
         expect(index.headers["cache-control"]).toBe("no-store");
         expect(index.headers["content-security-policy"]).toBe(APP_CSP);
+        expect(APP_CSP).toContain("frame-src 'self' http://*.preview.localhost:*");
+        expect(APP_CSP).toContain("form-action 'self' http://*.preview.localhost:*");
         expect(index.headers["x-frame-options"]).toBe("DENY");
         expect(index.headers["x-content-type-options"]).toBe("nosniff");
 
