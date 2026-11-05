@@ -86,6 +86,7 @@ export function listServices(
 ): ServiceRow[] {
   const conditions = [eq(services.projectId, input.projectId)];
   if (input.status) conditions.push(eq(services.status, input.status));
+  else conditions.push(inArray(services.status, ACTIVE_SERVICE_STATUSES));
   if (input.cursor) {
     const older = or(
       lt(services.createdAt, input.cursor.createdAt),

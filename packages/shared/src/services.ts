@@ -50,6 +50,41 @@ export const ServiceDtoSchema = z.object({
 });
 export type ServiceDto = z.infer<typeof ServiceDtoSchema>;
 
+export const ServiceListSchema = z.object({
+  items: z.array(ServiceDtoSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export const ServiceActionViewSchema = z.object({
+  id: z.string().min(1).max(128),
+  projectId: z.string().min(1).max(128),
+  kind: z.literal("service.register"),
+  risk: z.literal("L2"),
+  status: z.enum([
+    "PREPARED",
+    "WAITING_APPROVAL",
+    "APPROVED",
+    "RUNNING",
+    "COMPLETED",
+    "FAILED",
+    "REJECTED",
+    "EXPIRED",
+    "INTERRUPTED",
+  ]),
+  params: ServiceRegisterInputSchema,
+  paramsHash: z.string(),
+  snapshotVersion: z.string(),
+  requestedBy: z.string(),
+  decidedBy: z.string().nullable(),
+  expiresAt: z.number().int(),
+  decidedAt: z.number().int().nullable(),
+  startedAt: z.number().int().nullable(),
+  endedAt: z.number().int().nullable(),
+  result: z.unknown(),
+  createdAt: z.number().int(),
+});
+export type ServiceActionView = z.infer<typeof ServiceActionViewSchema>;
+
 export const ServiceEventPayloadSchema = z.object({
   status: ServiceStatusSchema,
   terminalId: TerminalIdSchema,
