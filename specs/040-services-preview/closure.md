@@ -40,8 +40,10 @@
 - `pnpm check`：通过（server 442 通过 / 2 跳过；Web 通过；Biome/类型通过）。
 - `pnpm build`：通过（既有大 chunk 警告保留）。
 - 真实 Chromium E2E（独立端口）：`services.spec.ts` 1/1、`preview.spec.ts` 1/1。
-- 完整 auth E2E 批量：9/14；随后修正 services（终端角色改名）与 files（隐藏语义 + Monaco 已知 console 噪声）测试，二者单独通过。conversation 仍失败：服务端事件含最终“项目文件已列出。”，但 UI 折叠过程后未渲染该答复，需另立任务定位（疑似 M2 时间线回归，不属 M3 改动）；default-workspace/git 仍为旧选择器/超时。
-- Demo E2E：12/15；4 项 S0 视觉断言仍按 M2-26 之前的“分隔线/双分区”旧布局，属历史测试漂移，未在本任务修改产品布局。
+- 完整 auth E2E：**14/14 通过**（2.4 分钟）。修复了 conversation 最终答复在“工具完成事件晚于答复”时被隐藏的真实 UI 回归；services/files/default-workspace/git 测试已对齐 M2-24/26 现行行为。
+- Demo E2E：**16/16 通过**（4 项旧 S0 布局断言已按现行互斥分区更新）。
+- 根 `pnpm test` 改为串行 workspace，避免 Web/Server 测试并发争抢导致既有 5 秒 PTY 超时；`pnpm check` 通过（server 442 / 2 skipped）。
+
 
 ## 已知边界（不冒充完成）
 
@@ -51,7 +53,7 @@
 4. Agent `resolve_service_preview` 卡片有工具/组件测试，完整模型 Turn E2E 未跑。
 5. DB 故障以事件提交失败/会话撤销注入，未做磁盘满、DB 句柄损坏。
 6. 仅 macOS + Chromium；日志为关联终端输出，不保证逐命令切片；每客户端预算仅实现并发/请求体上限。
-7. M2 E2E 批量抖动与 Demo 旧布局断言仍红，需另立任务修复测试漂移，不与 G3 混同。
+7. 认证 E2E 首轮抖动在本轮未能单独复现（修复后全量 14/14）；仍需注意既有批量抖动历史，不保证每次本机全量稳定。
 
 ## G3 人类验收项
 
