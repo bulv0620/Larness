@@ -1,6 +1,6 @@
 # M3 技术契约候选
 
-> 候选，2026-11-05；配套[ADR-043](../adr/ADR-043-development-preview-authorization.md)（已 accepted）与[评审包](../../specs/040-services-preview/review.md)。G-Spec-M3 已于 2026-11-05 批准方案与 PoC 边界；字段/时限仍是候选，由 M3-0 与 G-PoC 冻结。远程独立注册域 HTTPS 实测延后至上线实验，远程分项标未验证。尚无 API/schema/配置实现；与服务总契约的冲突以本候选明确列出的变更为评审对象，不把旧草案当已实现接口。
+> 候选，2026-11-05；M3-1 已按 §1–§3 落地 temporary 服务表、登记 resource-action、`/api/services` 读接口、Agent 工具与 `service.*` 事件；预览路由/票据（§4）仍待 M3-3。配套[ADR-043](../adr/ADR-043-development-preview-authorization.md)（已 accepted）与[评审包](../../specs/040-services-preview/review.md)。G-Spec-M3 已于 2026-11-05 批准方案与 PoC 边界；字段/时限仍是候选，由 M3-0 与 G-PoC 冻结。远程独立注册域 HTTPS 实测延后至上线实验，远程分项标未验证。尚无 API/schema/配置实现；与服务总契约的冲突以本候选明确列出的变更为评审对象，不把旧草案当已实现接口。
 
 ## 1. 执行身份与登记
 - terminalId标识PTY资源；后端已有launchId标识该次PTY启动；新terminalExecutionId标识此次已验证的服务进程树/监听实例。它不是TerminalLease.generation、TurnId、terminalId或仅PID。

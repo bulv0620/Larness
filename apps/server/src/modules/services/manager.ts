@@ -135,6 +135,12 @@ export class ServiceManager {
     this.#now = options.now ?? Date.now;
   }
 
+  recover(): void {
+    for (const row of activeServices(this.#db)) {
+      this.unregister(row.id, "SERVER_RESTART");
+    }
+  }
+
   start(): void {
     if (this.#timer) return;
     this.#timer = setInterval(() => {

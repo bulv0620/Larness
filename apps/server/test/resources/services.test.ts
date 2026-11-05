@@ -54,6 +54,18 @@ function serverSource(port: number, host = "127.0.0.1"): string {
   ].join("\n");
 }
 
+function multiServerSource(ports: number[]): string {
+  return [
+    'import { createServer } from "node:http";',
+    ...ports.map(
+      (port) =>
+        `createServer((request, response) => response.end("ok")).listen(${port}, "127.0.0.1");`,
+    ),
+    'console.log("READY");',
+    "",
+  ].join("\n");
+}
+
 async function fixture(dir: string) {
   const f = await startAuthorizedServer(path.join(dir, "data"));
   const root = path.join(dir, "project");
@@ -376,6 +388,165 @@ it("registers a verified service for an authorized agent without a second approv
       expect(decideToolAccess("autonomous", "L2")).toBe("allow");
       expect(decideToolAccess("standard", "L2")).toBe("require_approval");
       expect(decideToolAccess("readonly", "L2")).toBe("deny");
+    } finally {
+      await stopAuthorizedServer(f);
+    }
+  });
+}, 40_000);
+
+it("unregisters every endpoint when the terminal is explicitly closed", async () => {
+  await withTempDir(async (dir) => {
+    const fixtureData = await fixture(dir);
+    const { f, root, project, client, context, manager, services, operation } = fixtureData;
+    try {
+      const ports = [await freePort(), await freePort()];
+      const serverPath = path.join(root, "multi.mjs");
+      await writeFile(serverPath, multiServerSource(ports));
+      const terminal = await manager.createDev(
+        { ...context, toolCallId: newId("tool") },
+        { role: "frontend", executable: process.execPath, args: [serverPath] },
+      );
+      await waitFor(
+        async () =>
+          (await listeningSockets(ports[0])).length > 0 &&
+          (await listeningSockets(ports[1])).length > 0,
+        "both listeners",
+      );
+      const first = await services.register(
+        {
+          projectId: project.id,
+          operationId: operation(),
+          terminalId: terminal.id,
+          kind: "temporary",
+          name: "web",
+          endpoint: { host: "127.0.0.1", port: ports[0], protocol: "http" },
+        },
+        client,
+      );
+      const second = await services.register(
+        {
+          projectId: project.id,
+          operationId: operation(),
+          terminalId: terminal.id,
+          kind: "temporary",
+          name: "api",
+          endpoint: { host: "127.0.0.1", port: ports[1], protocol: "http" },
+        },
+        client,
+      );
+      await manager.terminate(terminal.id, client);
+      await services.reconcile();
+      expect(services.get(first.id).status).toBe("UNREGISTERED");
+      expect(services.get(second.id).status).toBe("UNREGISTERED");
+      expect(services.get(first.id).reasonCode).toBe("TERMINAL_ENDED");
+    } finally {
+      await stopAuthorizedServer(f);
+    }
+  });
+}, 40_000);
+
+it("does not persist a service when its status event cannot be committed", async () => {
+  await withTempDir(async (dir) => {
+    const fixtureData = await fixture(dir);
+    const { f, root, project, client, context, manager, services, operation } = fixtureData;
+    try {
+      const port = await freePort();
+      const serverPath = path.join(root, "server.mjs");
+      await writeFile(serverPath, serverSource(port));
+      const terminal = await manager.createDev(
+        { ...context, toolCallId: newId("tool") },
+        { role: "frontend", executable: process.execPath, args: [serverPath, String(port)] },
+      );
+      await waitFor(async () => (await listeningSockets(port)).length > 0, "listener");
+      f.running.sqlite.exec(
+        "CREATE TRIGGER fail_service_event BEFORE INSERT ON resource_events BEGIN SELECT RAISE(ABORT, 'event failure'); END;",
+      );
+      await expect(
+        services.register(
+          {
+            projectId: project.id,
+            operationId: operation(),
+            terminalId: terminal.id,
+            kind: "temporary",
+            name: "web",
+            endpoint: { host: "127.0.0.1", port, protocol: "http" },
+          },
+          client,
+        ),
+      ).rejects.toThrow();
+      expect(services.list({ projectId: project.id, limit: 50 }).items).toHaveLength(0);
+      expect(resourceSequence(f.running.db, "svc_missing")).toBe(0);
+      f.running.sqlite.exec("DROP TRIGGER fail_service_event");
+      const registered = await services.register(
+        {
+          projectId: project.id,
+          operationId: operation(),
+          terminalId: terminal.id,
+          kind: "temporary",
+          name: "web",
+          endpoint: { host: "127.0.0.1", port, protocol: "http" },
+        },
+        client,
+      );
+      expect(registered.status).toBe("RUNNING");
+      expect(services.list({ projectId: project.id, limit: 50 }).items).toHaveLength(1);
+    } finally {
+      await stopAuthorizedServer(f);
+    }
+  });
+}, 40_000);
+
+it("registers two dev terminals as independent temporary services", async () => {
+  await withTempDir(async (dir) => {
+    const fixtureData = await fixture(dir);
+    const { f, root, project, client, context, manager, services, operation } = fixtureData;
+    try {
+      const frontPort = await freePort();
+      const backPort = await freePort();
+      const frontPath = path.join(root, "front.mjs");
+      const backPath = path.join(root, "back.mjs");
+      await writeFile(frontPath, serverSource(frontPort));
+      await writeFile(backPath, serverSource(backPort));
+      const front = await manager.createDev(
+        { ...context, toolCallId: newId("tool") },
+        { role: "frontend", executable: process.execPath, args: [frontPath] },
+      );
+      const back = await manager.createDev(
+        { ...context, toolCallId: newId("tool") },
+        { role: "backend", executable: process.execPath, args: [backPath] },
+      );
+      await waitFor(
+        async () =>
+          (await listeningSockets(frontPort)).length > 0 &&
+          (await listeningSockets(backPort)).length > 0,
+        "both services",
+      );
+      const frontService = await services.register(
+        {
+          projectId: project.id,
+          operationId: operation(),
+          terminalId: front.id,
+          kind: "temporary",
+          name: "frontend",
+          endpoint: { host: "127.0.0.1", port: frontPort, protocol: "http" },
+        },
+        client,
+      );
+      const backService = await services.register(
+        {
+          projectId: project.id,
+          operationId: operation(),
+          terminalId: back.id,
+          kind: "temporary",
+          name: "backend",
+          endpoint: { host: "127.0.0.1", port: backPort, protocol: "http" },
+        },
+        client,
+      );
+      expect(frontService.id).not.toBe(backService.id);
+      expect(frontService.terminalId).toBe(front.id);
+      expect(backService.terminalId).toBe(back.id);
+      expect(services.list({ projectId: project.id, limit: 50 }).items).toHaveLength(2);
     } finally {
       await stopAuthorizedServer(f);
     }

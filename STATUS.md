@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-05 (+08:00)
-> 当前阶段：**G-PoC-M3 已通过（2026-11-05）；M3-1 临时登记/退登进行中（远程 HTTPS 延后至上线实验，未验证）**
+> 当前阶段：**G-PoC-M3 已通过；M3-1 已完成（2026-11-05）；M3-2 服务卡片/详情进行中（远程 HTTPS 延后，未验证）**
 
 ## 里程碑
 
@@ -446,5 +446,5 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## G-PoC-M3 通过 / M3-1 启动（2026-11-05 +08:00）
 - 人类确认 G-PoC-M3：接受 M3-0 的 12 项真实证据、残余竞态窗口、Vite 7.3.7 实际版本及远程 HTTPS 延后；M3-0 标 done。
-- M3-1 `in_progress`，分支 `task/m3-1-registration`：临时服务登记/查询/源退出退登、幂等、日志引用与事件补拉；先失败测试，真实 PTY/loopback/DB 证据，单任务一份迁移。
-- M3-1 进度（2026-11-05）：迁移、共享 schema、身份适配、ServiceManager、resource-action 分派、服务 REST（列表/详情/日志）、App/1 秒对账与 Agent 工具完成；真实 PTY 登记/幂等/冲突/退登/重启换身份/事件补拉、人工审批与 Agent 免二次审批测试通过。待补终端关闭连带退登、重启对账、DB 失败负例与 WS 订阅。
+- M3-1 `done`（2026-11-05，分支 `task/m3-1-registration`）：登记/查询/退登/幂等、resource-action、Agent 工具、WS 事件与重启失效均完成，见 [验收](specs/040-services-preview/acceptance-m3-1.md)。下一步 M3-2 服务卡片/详情 UI。
+- M3-1 完成（2026-11-05）：迁移、共享 schema、身份适配、ServiceManager、resource-action 分派、服务 REST、App/1 秒对账、Agent 工具、WS 事件完成；终端关闭连带退登、重启失效、DB 事件失败回滚均有真实测试；`pnpm check` server 435 / 2 skipped、Web 全通过。

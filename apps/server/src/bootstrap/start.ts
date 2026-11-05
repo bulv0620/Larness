@@ -201,6 +201,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     });
     terminalManager = terminals;
     await terminals.recover();
+    services.recover();
     ensureDefaultModelProfiles(opened.db);
 
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger: activeLogger });

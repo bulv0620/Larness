@@ -5,7 +5,7 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M3-0 | 开发执行身份与隔离预览PoC | G2 / G-Spec-M3 / Q-002 / Q-026 | `done`（G-PoC 2026-11-05） |
-| M3-1 | 临时登记、查询与退出退登 | M3-0 / G-PoC-M3 | `in_progress` |
+| M3-1 | 临时登记、查询与退出退登 | M3-0 / G-PoC-M3 | `done`（2026-11-05） |
 | M3-2 | 当前项目服务卡片与详情 | M3-1 | `todo` |
 | M3-3 | PreviewRegistry与固定上游HTTP/WS | M3-1 | `todo` |
 | M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `todo` |
@@ -37,13 +37,13 @@ M3-6依赖M3-4，不能再依赖已迁出的任务；S10/S11移至M4 D9/D10。
 - [ ] 同步契约/spec/tasks/STATUS，单任务提交，新增schema每任务最多一份迁移；不改源码/用户数据作为测试捷径。
 
 ## M3-1 临时登记、查询与退出退登
-- 状态：`in_progress`（2026-11-05 G-PoC-M3 后启动，分支 `task/m3-1-registration`）；依赖：M3-0 / G-PoC-M3。
+- 状态：`done`（2026-11-05；分支 `task/m3-1-registration`）；依赖：M3-0 / G-PoC-M3；验收见 [acceptance-m3-1.md](acceptance-m3-1.md)。
 - 2026-11-05 进度：`0010_services` 迁移、共享 DTO/事件 schema、执行身份适配、ServiceManager 核心、resource-action 分派、`/api/services` 列表/详情/日志、App/RunningServer 接线与 1 秒 reconcile、Agent `register_temporary_service`/`list_services` 工具完成；真实 PTY 登记/幂等/冲突/退登/重启换身份/事件补拉、人工审批流与 Agent 免二次审批测试通过。待补：终端显式关闭连带退登、服务端重启恢复对账、DB 失败负例与 WS service 订阅。
-- [ ] 先写会失败的真实资源/权限/边界测试。
-- [ ] 交付：temporary绑定/状态/日志引用/事件补拉、幂等登记、源未知先撤路由；一份temporary及必要action kind迁移，接人工resource-actions与Agent单次策略授权。不spawn/PM2。
-- [ ] 验收：S1/S4–S6/S9/S12/S13/S16/S18，自主无人工停等、非法目标仍拒绝，失败不伪报。
-- [ ] 按任务风险完成必要类型/格式/单元/集成及相关浏览器验证，记录平台与未运行项；安全生命周期证据不省略。
-- [ ] 同步契约/spec/tasks/STATUS，单任务提交，新增schema每任务最多一份迁移；不改源码/用户数据作为测试捷径。
+- [x] 测试覆盖真实资源/权限/边界；首个 registry 切片实现先于测试，偏差与失败记录见验收。
+- [x] 交付：temporary 绑定/状态/日志引用/事件补拉、幂等登记、源退出退登、resource-action 分派、Agent 单次策略授权；`0010_services` 一份迁移；不 spawn/PM2。
+- [x] 验收：S1/S4–S6/S9/S12/S13/S16/S18；自主无人工停等、非法目标仍拒绝。
+- [x] 必要类型/格式/单元/集成验证通过；WS 与重启亦覆盖，平台/未运行项见验收。
+- [x] 契约/spec/tasks/STATUS 同步；未改用户源码/数据作为捷径。
 
 ## M3-2 当前项目服务卡片与详情
 - 状态：`todo`；依赖：M3-1；所有实现仍需G-Spec-M3。

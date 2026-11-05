@@ -58,3 +58,11 @@ export const ServiceEventPayloadSchema = z.object({
   reasonCode: z.string().nullable(),
 });
 export type ServiceEventPayload = z.infer<typeof ServiceEventPayloadSchema>;
+
+export const ServiceSubscriptionSchema = z
+  .object({
+    topic: z.literal("service"),
+    resourceId: ServiceIdSchema,
+    after: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
+  })
+  .strict();
