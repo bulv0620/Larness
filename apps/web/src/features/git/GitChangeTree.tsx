@@ -1,4 +1,4 @@
-import { ChevronRight, FileCode2, Folder, Plus } from "lucide-react";
+import { ChevronRight, FileCode2, Folder, Minus, Plus, Undo2 } from "lucide-react";
 export interface GitTreeChange {
   path: string;
   status: string;
@@ -38,11 +38,15 @@ export function GitChangeTree({
   disabled,
   onOpen,
   onStage,
+  onUnstage,
+  onDiscard,
 }: {
   changes: GitTreeChange[];
   disabled: boolean;
   onOpen: (change: GitTreeChange) => void;
   onStage: (path: string) => void;
+  onUnstage: (path: string) => void;
+  onDiscard: (change: GitTreeChange) => void;
 }) {
   function branch(current: Node, depth: number) {
     return (
@@ -103,6 +107,31 @@ export function GitChangeTree({
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-3 opacity-0 transition-opacity hover:bg-surface group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 disabled:opacity-30 [@media(hover:none)]:opacity-100"
                 >
                   <Plus size={13} />
+                </button>
+              ) : null}
+              {change.staged ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-label={`取消暂存 ${change.path}`}
+                  title="取消暂存（保留工作区修改）"
+                  onClick={() => onUnstage(change.path)}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-3 opacity-0 transition-opacity hover:bg-surface group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 disabled:opacity-30 [@media(hover:none)]:opacity-100"
+                >
+                  <Minus size={13} />
+                </button>
+              ) : change.status !== "conflicted" ? (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-label={`放弃更改 ${change.path}`}
+                  title={
+                    change.status === "untracked" ? "放弃更改（删除未跟踪文件）" : "放弃未暂存更改"
+                  }
+                  onClick={() => onDiscard(change)}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-3 opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 disabled:opacity-30 [@media(hover:none)]:opacity-100"
+                >
+                  <Undo2 size={13} />
                 </button>
               ) : null}
               <span

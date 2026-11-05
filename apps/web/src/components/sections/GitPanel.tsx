@@ -1,4 +1,5 @@
 import type { GitAction, GitActionView } from "@larness/shared";
+import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDown,
@@ -21,7 +22,7 @@ import {
   readGitBranches,
   readGitStatus,
 } from "@/features/git/api";
-import { GitChangeTree } from "@/features/git/GitChangeTree";
+import { GitChangeTree, type GitTreeChange } from "@/features/git/GitChangeTree";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useWindowStore } from "@/stores/windowStore";
@@ -43,6 +44,7 @@ function diffId(projectId: string, path: string) {
 }
 
 function RealGitPanel({ projectId }: { projectId: string | null }) {
+  const [discardTarget, setDiscardTarget] = useState<GitTreeChange | null>(null);
   const open = useWindowStore((state) => state.open);
   const [branchOpen, setBranchOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -119,6 +121,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       const created = await createGitAction(projectId, action);
       const done = await executeGitAction(created.id);
       if (done.status !== "COMPLETED") throw new Error("Git 操作未完成，请重试核对。");
+      if (action.action === "discard") setDiscardTarget(null);
       if (action.action === "commit") setMessage("");
       if (action.action === "createBranch") setBranchName("");
     });
@@ -209,6 +212,11 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
                 disabled={disabled}
                 onOpen={openDiff}
                 onStage={(path) => void runL1({ action: "add", paths: [path] })}
+                onUnstage={(path) => void runL1({ action: "unstage", paths: [path] })}
+                onDiscard={(change) => {
+                  setError("");
+                  setDiscardTarget(change);
+                }}
               />
             </details>
           ) : null,
@@ -329,6 +337,52 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
         ) : null}
       </div>
 
+      <Dialog
+        open={discardTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) setDiscardTarget(null);
+        }}
+      >
+        <DialogContent
+          className="space-y-4 text-sm"
+          onEscapeKeyDown={(event) => {
+            if (busy) event.preventDefault();
+          }}
+          onPointerDownOutside={(event) => {
+            if (busy) event.preventDefault();
+          }}
+        >
+          <DialogTitle>放弃更改？</DialogTitle>
+          <DialogDescription>
+            {discardTarget?.status === "untracked"
+              ? "该文件尚未被 Git 跟踪，确认后将删除，无法通过 Git 恢复。"
+              : "该文件的未暂存修改将丢失，恢复为暂存区版本；已暂存内容会保留。"}
+          </DialogDescription>
+          <p className="break-all rounded bg-surface-2 p-2 font-mono text-xs">
+            {discardTarget?.path}
+          </p>
+          {error ? (
+            <p role="alert" className="text-danger">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={busy} onClick={() => setDiscardTarget(null)}>
+              取消
+            </Button>
+            <Button
+              className="bg-danger text-white"
+              disabled={busy || pending !== null || status.isError}
+              onClick={() => {
+                if (discardTarget)
+                  void runL1({ action: "discard", path: discardTarget.path, confirmed: true });
+              }}
+            >
+              确认放弃
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {status.isError ? (
         <p role="status" className="px-2 text-[10px] text-ink-3">
           Git 状态读取失败，请刷新后继续。
