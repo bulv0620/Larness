@@ -2,7 +2,7 @@
 id: 040-services-preview
 title: M3 开发服务与隔离预览
 milestone: M3
-status: ready
+status: done
 depends_on: [030-dev-resources]
 owners: [human]
 created: 2026-10-31

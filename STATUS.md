@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-05 (+08:00)
-> 当前阶段：**M3-1～M3-4 done；M3-6 review，G3 待人类验收（远程 HTTPS 延后；ADR-044 已简化绑定地址限制）**
+> 当前阶段：**M3 已完成并通过 G3（2026-11-05）；下一步 M4 规格评审（远程 HTTPS 延后，未验证）**
 
 ## 里程碑
 
@@ -11,8 +11,8 @@
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
-| M3 | 开发服务与隔离预览 | `in_progress` | G-Spec-M3 通过（2026-11-05）；M3-0 进行中，G3 待验收 |
-| M4 | 持久运行与版本发布 | `draft` | 全部PM2/正式发布，依赖G3及Q-003/Q-027 |
+| M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
+| M4 | 持久运行与版本发布 | `draft` | 全部PM2/正式发布；G3 已过，依赖 Q-003/Q-027 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
 
 ## 初始化修复（2026-11-02）
@@ -454,4 +454,10 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - M3-4 完成（2026-11-05）：独立 iframe 预览、票据 POST、Browser Tab 去重/布局恢复、Agent `resolve_service_preview` L0 与时间线卡片完成；真实 Vite 7 E2E 验证 HMR、相对 `/api`、无直连端口与预览后 Ctrl+C 退登。见 [验收](specs/040-services-preview/acceptance-m3-4.md)。
 - ADR-045（2026-11-05）：临时服务支持独立“删除登记”（不杀进程）与“停止服务”（终止已验证监听进程树、保留 Shell）；新增 DELETE/stop API 与 UI 确认。
 - ADR-044（2026-11-05）：按人类要求，登记不再限制绑定地址；通配监听可登记，预览按已核验地址拨号，访问失败显示不可用；身份/票据/隔离不变。
-- M3-6 review（2026-11-05）：整体材料见 [closure.md](specs/040-services-preview/closure.md)；`pnpm check` 442 / 2 skipped、build、服务与预览 E2E 单项通过；红测修复完成；Agent 预览卡片真实 Turn E2E 已通过：conversation 最终答复隐藏的真实 UI 回归已修；services/files/default-workspace/git 与 Demo 旧断言已对齐现行行为。最终 auth E2E 15/15（含两客户端）、Demo 16/16、`pnpm check` 442、build 通过（根测试改为串行避免 PTY 并发超时）。G3 待人类验收，未标 done。
+- M3-6 历史 review（2026-11-05，已被 G3 通过取代）：整体材料见 [closure.md](specs/040-services-preview/closure.md)；`pnpm check`、build、服务与预览 E2E 单项通过；红测修复完成；conversation 最终答复隐藏的真实 UI 回归已修；services/files/default-workspace/git 与 Demo 旧断言已对齐现行行为。auth E2E 15/15（含两客户端）、Demo 16/16。
+
+## M3 完成 / G3 通过（2026-11-05 +08:00）
+- 人类确认 G3 通过：M3-6 标 `done`，M3 关闭；远程独立注册域 HTTPS 仍标未验证，留待上线实验。
+- 最终证据：`pnpm check` 446 / 2 skipped、`pnpm build`、auth E2E 15/15、Demo E2E 16/16；服务/预览真实 Chromium E2E 通过。
+- 收尾材料见 [closure.md](specs/040-services-preview/closure.md)；分支 `task/m3-1-registration` 合并回 `main` 并推送。
+- 下一步：M4 规格评审，不在本轮自动开始实现。

@@ -11,7 +11,7 @@
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `done` | G2 于2026-11-05通过人类整体验收；范围与边界见030/closure.md |
-| M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `in_progress` | G-Spec-M3 通过（2026-11-05）；M3-0 done（G-PoC 2026-11-05）；M3-1～M3-4 done（2026-11-05）；M3-6 review，G3 待人类验收 |
+| M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 全部 done；远程 HTTPS 延后并标未验证 |
 | M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
 
@@ -186,7 +186,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | R0-0 | 资源生命周期、两类服务与结果入口文档同步 | 人类明确规则及文档指令 | `done`（仅文档） |
 | R0-1 | [M3/M4边界与自主部署文档](048-service-deploy-boundary/spec.md) | G2 done；用户明确决定 | `done`（仅文档；M3/M4仍draft） |
 
-## 6. M3 开发服务与隔离预览（实施中）
+## 6. M3 开发服务与隔离预览（已验收）
 
 2026-11-05 人类按[评审包](040-services-preview/review.md)推荐批准 G-Spec-M3：040 spec `ready`、[ADR-043](../docs/adr/ADR-043-development-preview-authorization.md) `accepted`、Q-002/Q-026 方案确认；仅授权先做 M3-0，G-PoC-M3 通过后才 M3-1。远程独立注册域 HTTPS 实测延后至后续上线实验，本阶段标未验证。M3 不含 PM2 或正式运行，不依赖 Q-003/Q-027。详 [spec](040-services-preview/spec.md)/[plan](040-services-preview/plan.md)/[tasks](040-services-preview/tasks.md)/[review](040-services-preview/review.md)。
 
@@ -198,7 +198,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M3-3 | PreviewRegistry/HTTP/WS固定上游 | M3-1 | `done`（2026-11-05） |
 | M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `done`（2026-11-05） |
 | M3-4 | Browser/Agent卡片/HMR/开发API | M3-2/M3-3b | `done`（2026-11-05） |
-| M3-6 | 开发预览整体验收与G3 | M3-4 | `review` |
+| M3-6 | 开发预览整体验收与G3 | M3-4 | `done`（G3 2026-11-05） |
 
 编号迁移（非活动任务，不计完成）：旧M3-5的PM2 PoC/持久运行移至M4-0/M4-3；旧M3-5b的人/AI动作移至M4-3b。M3-6不再依赖迁出项，旧S10/S11移至M4 D9/D10。
 
@@ -292,6 +292,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 - 独立来源/Cookie/CSP/票据/SSRF/未知状态失败关闭；当前项目卡片/详情无服务Tab/项目切换，窗口隐藏无启停；
 - 自主合法登记/预览无人工停等，未鉴权/非法目标仍拒绝，关键事件/审计真实；
 - 不含PM2；Q-003/Q-027在M4解决，不以正式部署未交付阻塞G3。
+- **2026-11-05 人类验收通过**：M3-6 标 done，M3 关闭；远程 HTTPS 仍为未验证项，留待上线实验。
 
 ### G4 持久运行与版本发布
 
