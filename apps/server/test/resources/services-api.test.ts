@@ -164,6 +164,25 @@ it("registers a service through the resource action API and serves list, detail 
       });
       expect(logs.statusCode).toBe(200);
       expect((logs.json() as { terminalId: string }).terminalId).toBe(terminal.id);
+
+      const removed = await f.running.app.inject({
+        method: "DELETE",
+        url: `/api/services/${completed.result.serviceId}`,
+        headers,
+      });
+      expect(removed.statusCode).toBe(200);
+      expect((removed.json() as { status: string; reasonCode: string }).status).toBe(
+        "UNREGISTERED",
+      );
+      expect((removed.json() as { reasonCode: string }).reasonCode).toBe("DELETED");
+
+      const stopAgain = await f.running.app.inject({
+        method: "POST",
+        url: `/api/services/${completed.result.serviceId}/stop`,
+        headers,
+      });
+      expect(stopAgain.statusCode).toBe(200);
+      expect((stopAgain.json() as { status: string }).status).toBe("UNREGISTERED");
     } finally {
       await stopAuthorizedServer(f);
     }

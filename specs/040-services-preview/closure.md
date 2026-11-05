@@ -45,6 +45,9 @@
 - 根 `pnpm test` 改为串行 workspace，避免 Web/Server 测试并发争抢导致既有 5 秒 PTY 超时；`pnpm check` 通过（server 442 / 2 skipped）。
 
 
+## ADR-045：独立停止/删除（2026-11-05）
+服务详情新增“删除登记”（只退登、不杀进程）与“停止服务”（核验后只终止监听进程树及其后代，不关 Shell；共享同一进程的其他 endpoint 一并退登）。API：`DELETE /api/services/:id`、`POST /api/services/:id/stop`。安全限制与失败路径见 [ADR-045](../../docs/adr/ADR-045-independent-service-stop-delete.md)。
+
 ## ADR-044：绑定地址简化（2026-11-05）
 人类明确“终端监听端口就创建入口，访问不了显示访问不了”。登记不再以绑定地址拒绝：`0.0.0.0`/`::`/具体本机地址均可登记；网关按已核验的 dialHost 访问（回环/通配用 `127.0.0.1`，具体地址用该地址），失败时预览显示不可用而不撤销登记。身份、票据、grant、管理隔离保持不变；文档不再承诺“端口无需公网暴露”。详见 [ADR-044](../../docs/adr/ADR-044-preview-binding-simplification.md)。
 

@@ -78,3 +78,22 @@ export async function resolvePreview(
     body: { serviceId, path, mode },
   });
 }
+
+export async function stopService(id: string) {
+  return ServiceDtoSchema.parse(
+    await apiFetch(`/api/services/${encodeURIComponent(id)}/stop`, {
+      method: "POST",
+      csrf: true,
+      body: {},
+    }),
+  );
+}
+
+export async function deleteService(id: string) {
+  return ServiceDtoSchema.parse(
+    await apiFetch(`/api/services/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      csrf: true,
+    }),
+  );
+}

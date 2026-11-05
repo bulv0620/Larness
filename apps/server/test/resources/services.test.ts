@@ -15,11 +15,12 @@ import {
   insertOperation,
   resourceSequence,
 } from "../../src/modules/resources/repository.js";
-import { listeningSockets } from "../../src/modules/services/identity.js";
+import { listeningSockets, processSnapshot } from "../../src/modules/services/identity.js";
 import { ServiceManager } from "../../src/modules/services/manager.js";
 import { updateTurnRow } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
+import { terminalRow } from "../../src/modules/terminals/repository.js";
 import { withTempDir } from "../helpers.js";
 import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
@@ -549,6 +550,58 @@ it("registers two dev terminals as independent temporary services", async () => 
       expect(frontService.terminalId).toBe(front.id);
       expect(backService.terminalId).toBe(back.id);
       expect(services.list({ projectId: project.id, limit: 50 }).items).toHaveLength(2);
+    } finally {
+      await stopAuthorizedServer(f);
+    }
+  });
+}, 40_000);
+
+it("stops the verified listener process and deletes a registration independently of the terminal", async () => {
+  await withTempDir(async (dir) => {
+    const fixtureData = await fixture(dir);
+    const { f, root, project, client, context, manager, services, operation } = fixtureData;
+    try {
+      const port = await freePort();
+      const serverPath = path.join(root, "server.mjs");
+      await writeFile(serverPath, serverSource(port));
+      const terminal = await manager.createDev(
+        { ...context, toolCallId: newId("tool") },
+        { role: "frontend", executable: process.execPath, args: [serverPath] },
+      );
+      await waitFor(async () => (await listeningSockets(port)).length > 0, "listener");
+      const first = await services.register(
+        {
+          projectId: project.id,
+          operationId: operation(),
+          terminalId: terminal.id,
+          kind: "temporary",
+          name: "web",
+          endpoint: { host: "127.0.0.1", port, protocol: "http" },
+        },
+        client,
+      );
+      expect(services.remove(first.id, client).status).toBe("UNREGISTERED");
+      expect(services.get(first.id).reasonCode).toBe("DELETED");
+      expect((await listeningSockets(port)).length).toBeGreaterThan(0);
+
+      const second = await services.register(
+        {
+          projectId: project.id,
+          operationId: operation(),
+          terminalId: terminal.id,
+          kind: "temporary",
+          name: "web",
+          endpoint: { host: "127.0.0.1", port, protocol: "http" },
+        },
+        client,
+      );
+      const stopped = await services.stopService(second.id, client);
+      expect(stopped.status).toBe("UNREGISTERED");
+      expect(stopped.reasonCode).toBe("STOPPED_BY_USER");
+      await waitFor(async () => (await listeningSockets(port)).length === 0, "listener stopped");
+      const leader = terminalRow(f.running.db, terminal.id);
+      const processIdentity = JSON.parse(leader?.processIdentityJson ?? "{}") as { pid?: unknown };
+      expect((await processSnapshot()).some((item) => item.pid === processIdentity.pid)).toBe(true);
     } finally {
       await stopAuthorizedServer(f);
     }

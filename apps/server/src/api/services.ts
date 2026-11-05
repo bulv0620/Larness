@@ -95,6 +95,15 @@ export function registerServiceRoutes(
       return { terminalId: dto.terminalId, ...output };
     }),
   );
+  app.delete("/api/services/:id", (request) =>
+    run(request, () => {
+      const dto = services.remove(serviceId(request), client(request));
+      return dto;
+    }),
+  );
+  app.post("/api/services/:id/stop", (request) =>
+    run(request, () => services.stopService(serviceId(request), client(request))),
+  );
   app.post("/api/services", async (request, reply) => {
     const result = await run(request, async () => {
       const parsed = ServiceRegisterInputSchema.safeParse(request.body);

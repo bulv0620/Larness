@@ -15,7 +15,7 @@
 | 服务卡片操作 | 看详情、打开所属终端、可用时打开预览 | 看详情 / 日志、按当前策略授权启停 / 重启（自主免人工）、打开可用地址 |
 | 退出 | 源进程退出自动退登；关闭终端 Tab 终止该终端全部关联服务 | 显式 PM2 停止，保留服务配置 / 部署记录；删除另走确认流程 |
 
-ServiceManager 不再提供 NativeProcessAdapter 独立启动临时服务，也不能为已运行终端再 spawn 一份。临时退登仅取消活跃登记 / 预览资格，不删除终端输出、审计、历史事件或源码。一个终端可登记多个 endpoint，每个关联执行身份和 endpoint；源命令退出但交互 Shell 存活时也应退登该命令的服务。
+ServiceManager 不再提供 NativeProcessAdapter 独立启动临时服务，也不能为已运行终端再 spawn 一份。临时退登仅取消活跃登记 / 预览资格，不删除终端输出、审计、历史事件或源码；独立“停止服务”只终止已核验监听进程树，不关闭 Shell（ADR-045）。一个终端可登记多个 endpoint，每个关联执行身份和 endpoint；源命令退出但交互 Shell 存活时也应退登该命令的服务。
 
 AI 与人调用同一后端能力：临时进程通过 Terminal 工具 / UI 控制，持久服务通过服务工具 / PM2Adapter 控制。后端按真实 clientSessionId、projectId / workspace scope、Turn / ToolCall（仅 AI）、policySnapshotId / approvalId 执行授权与审计。不能让“来源是 AI”或“来源是手动”成为跳过策略的理由。
 
@@ -55,7 +55,7 @@ Service 公共字段：`id, projectId?, workspaceSessionId?, sourceSessionId?, n
 | POST `/api/services/:id/actions` | M4：仅 persistent 的结构化 start / stop / restart，参数/配置快照授权（人工审批仅按策略需要）；temporary 返回 CONFLICT 并提示所属终端入口 |
 | POST `/api/preview/resolve` | `{serviceId,path,mode}`；CSRF/no-store，浏览器点击领取短期票据，模型仅结构化目标；详m3-preview，待Q-002 PoC。不接受任意upstream |
 
-工具草案：`register_temporary_service` / `list_services` / `get_service` / `read_service_logs` / `resolve_service_preview`；持久服务的 `start_service` / `stop_service` / `restart_service` 统一走服务动作引擎。临时服务不提供独立 start / stop / restart 工具。撤销临时登记由资源退出 / 对账触发，不靠 Agent 记得调用 unregister；需要停止时必须到终端实际停止进程，不能仅隐藏卡片冒充停止。
+工具草案：`register_temporary_service` / `list_services` / `get_service` / `read_service_logs` / `resolve_service_preview`；持久服务的 `start_service` / `stop_service` / `restart_service` 统一走服务动作引擎。临时服务不提供独立 start/restart 工具；人工 API/UI 提供 DELETE（仅退登）与 stop（终止已核验监听进程树、保留 Shell），见 ADR-045。Agent 暂不新增 stop 工具；资源退出/对账仍自动退登。
 
 读取L0，登记/PM2/部署等业务动作均按真实策略快照授权：autonomous无人工审批/确认停等，标准/严格按风险询问，只读拒绝写入。部署必须有M4计划/产物完整性和授权记录，但人工批准不是自主模式的前置条件；不得用启停接口偷换产物/config绕过计划。卡片/工具名称不构成授权，不免除鉴权/范围/锁/幂等/审计。
 

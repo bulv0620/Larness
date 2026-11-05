@@ -13,6 +13,8 @@ vi.mock("@/features/services/api", async (original) => ({
   createServiceAction: vi.fn(),
   decideServiceAction: vi.fn(),
   executeServiceAction: vi.fn(),
+  stopService: vi.fn(),
+  deleteService: vi.fn(),
 }));
 vi.mock("@/features/terminals/api", async (original) => ({
   ...(await original<typeof import("@/features/terminals/api")>()),
@@ -28,6 +30,8 @@ const {
   createServiceAction,
   decideServiceAction,
   executeServiceAction,
+  stopService,
+  deleteService,
 } = await import("@/features/services/api");
 const { readTerminal, openTerminal, listTerminals } = await import("@/features/terminals/api");
 
@@ -196,4 +200,35 @@ it("returns to the form when execution fails terminally instead of leaving a dea
   expect(screen.getByLabelText("服务名称")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "继续" }));
   await waitFor(() => expect(createServiceAction).toHaveBeenCalledTimes(2));
+});
+
+it("stops the verified service process only after confirmation", async () => {
+  vi.mocked(stopService).mockResolvedValue({
+    ...service,
+    status: "UNREGISTERED",
+    reasonCode: "STOPPED_BY_USER",
+  });
+  renderWindow({ ...tab, id: "tab-stop" });
+  fireEvent.click(await screen.findByRole("button", { name: /web/ }));
+  await screen.findByText("http://127.0.0.1:5173");
+  fireEvent.click(screen.getByRole("button", { name: "停止服务" }));
+  expect(await screen.findByText("停止服务？")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "停止" }));
+  await waitFor(() => expect(stopService).toHaveBeenCalledWith(serviceId));
+  await waitFor(() => expect(screen.queryByText("停止服务？")).toBeNull());
+});
+
+it("deletes a registration without claiming to stop the process", async () => {
+  vi.mocked(deleteService).mockResolvedValue({
+    ...service,
+    status: "UNREGISTERED",
+    reasonCode: "DELETED",
+  });
+  renderWindow({ ...tab, id: "tab-delete" });
+  fireEvent.click(await screen.findByRole("button", { name: /web/ }));
+  await screen.findByText("http://127.0.0.1:5173");
+  fireEvent.click(screen.getByRole("button", { name: "删除登记" }));
+  expect(await screen.findByText("删除登记？")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "删除" }));
+  await waitFor(() => expect(deleteService).toHaveBeenCalledWith(serviceId));
 });

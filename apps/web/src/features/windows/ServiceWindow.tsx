@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   createServiceAction,
   decideServiceAction,
+  deleteService,
   executeServiceAction,
   listServices,
   readService,
@@ -13,6 +14,7 @@ import {
   serviceKey,
   serviceLogsKey,
   servicesKey,
+  stopService,
 } from "@/features/services/api";
 import { listTerminals, openTerminal, readTerminal } from "@/features/terminals/api";
 import { ApiError } from "@/lib/api";
@@ -234,6 +236,10 @@ function ServiceDetail({
     refetchInterval: 2000,
   });
   const [terminalError, setTerminalError] = useState("");
+  const [action, setAction] = useState<"stop" | "delete" | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const client = useQueryClient();
   const openWindow = useWindowStore((state) => state.open);
   const service = detail.data;
   if (detail.isError) {
@@ -304,6 +310,28 @@ function ServiceDetail({
           >
             预览
           </Button>
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={service.status !== "RUNNING" || actionBusy}
+            onClick={() => {
+              setActionError("");
+              setAction("stop");
+            }}
+          >
+            停止服务
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={actionBusy}
+            onClick={() => {
+              setActionError("");
+              setAction("delete");
+            }}
+          >
+            删除登记
+          </Button>
         </div>
       </div>
 
@@ -318,6 +346,56 @@ function ServiceDetail({
         </p>
       ) : null}
 
+      {actionError ? (
+        <p role="alert" className="px-3 py-2 text-[11px] text-danger">
+          {actionError}
+        </p>
+      ) : null}
+      <Dialog
+        open={action !== null}
+        onOpenChange={(value) => (!value && !actionBusy ? setAction(null) : undefined)}
+      >
+        <DialogContent className="w-[400px] space-y-3 text-sm">
+          <DialogTitle>{action === "stop" ? "停止服务？" : "删除登记？"}</DialogTitle>
+          <DialogDescription>
+            {action === "stop"
+              ? "会终止该监听进程及其子进程，并撤销预览；终端 Shell 和无关进程不受影响。共享同一进程的其他服务也会失效。"
+              : "只删除登记并撤销预览，不会停止正在运行的进程；终端可继续使用。"}
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={actionBusy} onClick={() => setAction(null)}>
+              取消
+            </Button>
+            <Button
+              variant={action === "stop" ? "danger" : "primary"}
+              disabled={actionBusy}
+              onClick={() => {
+                if (!action) return;
+                setActionBusy(true);
+                setActionError("");
+                void (action === "stop" ? stopService(service.id) : deleteService(service.id))
+                  .then(async () => {
+                    await client.invalidateQueries({ queryKey: servicesKey(service.projectId) });
+                    setAction(null);
+                    onBack();
+                  })
+                  .catch((cause: unknown) => {
+                    setActionError(
+                      cause instanceof Error
+                        ? cause.message
+                        : action === "stop"
+                          ? "停止失败"
+                          : "删除失败",
+                    );
+                  })
+                  .finally(() => setActionBusy(false));
+              }}
+            >
+              {action === "stop" ? "停止" : "删除"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <div className="grid shrink-0 grid-cols-2 gap-2 px-3 py-2 md:grid-cols-4">
         <Info label="终端" value={service.terminalId.slice(-6)} mono />
         <Info label="执行" value={service.terminalExecutionId.slice(-6)} mono />

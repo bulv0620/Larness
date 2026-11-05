@@ -45,6 +45,7 @@ import {
   serviceRow,
   updateService,
 } from "./repository.js";
+import { stopExecution } from "./stop.js";
 
 export interface ServiceManagerOptions {
   db: import("../../db/client.js").Database;
@@ -648,6 +649,48 @@ export class ServiceManager {
     });
     if (!event) return null;
     this.#events.publish(event);
+    return this.get(id);
+  }
+
+  remove(id: string, client: string): ServiceDto {
+    const removed = this.unregister(id, "DELETED", client);
+    if (removed) return removed;
+    const row = serviceRow(this.#db, id);
+    if (!row) throw new FileManagerError("NOT_FOUND", "Service not found");
+    return serviceDto(row);
+  }
+
+  async stopService(id: string, client: string): Promise<ServiceDto> {
+    const row = serviceRow(this.#db, id);
+    if (!row) throw new FileManagerError("NOT_FOUND", "Service not found");
+    if (!isActiveServiceStatus(row.status)) return serviceDto(row);
+    const identity = parseExecutionIdentity(row.identityJson);
+    try {
+      await stopExecution(identity);
+    } catch (error) {
+      if (error instanceof ServiceIdentityError) {
+        if (error.reason === "LISTENER_GONE") {
+          this.unregister(id, "SOURCE_GONE", client);
+          return this.get(id);
+        }
+        throw new FileManagerError(
+          error.reason === "TERMINAL_SHELL_LISTENER" ? "VALIDATION_ERROR" : "RESOURCE_UNAVAILABLE",
+          error.message,
+        );
+      }
+      throw error;
+    }
+    for (const active of activeServices(this.#db)) {
+      let other: ExecutionIdentity;
+      try {
+        other = parseExecutionIdentity(active.identityJson);
+      } catch {
+        continue;
+      }
+      if (other.pid === identity.pid && other.birth === identity.birth) {
+        this.unregister(active.id, "STOPPED_BY_USER", client);
+      }
+    }
     return this.get(id);
   }
 
