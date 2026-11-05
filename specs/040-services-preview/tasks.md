@@ -38,7 +38,7 @@ M3-6依赖M3-4，不能再依赖已迁出的任务；S10/S11移至M4 D9/D10。
 
 ## M3-1 临时登记、查询与退出退登
 - 状态：`in_progress`（2026-11-05 G-PoC-M3 后启动，分支 `task/m3-1-registration`）；依赖：M3-0 / G-PoC-M3。
-- 2026-11-05 进度：新增 `0010_services` 迁移、共享 DTO/事件 schema、真实执行身份适配与 ServiceManager 核心；真实 PTY 登记/幂等/冲突、终端外/通配/缺失监听拒绝、Ctrl+C 退登与同 Shell 重启换身份、service 事件补拉测试通过。HTTP 资源动作分派、日志接口、App 接线与 Agent 工具仍待。
+- 2026-11-05 进度：`0010_services` 迁移、共享 DTO/事件 schema、执行身份适配、ServiceManager 核心、resource-action 分派、`/api/services` 列表/详情/日志、App/RunningServer 接线与 1 秒 reconcile、Agent `register_temporary_service`/`list_services` 工具完成；真实 PTY 登记/幂等/冲突/退登/重启换身份/事件补拉、人工审批流与 Agent 免二次审批测试通过。待补：终端显式关闭连带退登、服务端重启恢复对账、DB 失败负例与 WS service 订阅。
 - [ ] 先写会失败的真实资源/权限/边界测试。
 - [ ] 交付：temporary绑定/状态/日志引用/事件补拉、幂等登记、源未知先撤路由；一份temporary及必要action kind迁移，接人工resource-actions与Agent单次策略授权。不spawn/PM2。
 - [ ] 验收：S1/S4–S6/S9/S12/S13/S16/S18，自主无人工停等、非法目标仍拒绝，失败不伪报。

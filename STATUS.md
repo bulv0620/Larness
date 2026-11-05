@@ -447,4 +447,4 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 ## G-PoC-M3 通过 / M3-1 启动（2026-11-05 +08:00）
 - 人类确认 G-PoC-M3：接受 M3-0 的 12 项真实证据、残余竞态窗口、Vite 7.3.7 实际版本及远程 HTTPS 延后；M3-0 标 done。
 - M3-1 `in_progress`，分支 `task/m3-1-registration`：临时服务登记/查询/源退出退登、幂等、日志引用与事件补拉；先失败测试，真实 PTY/loopback/DB 证据，单任务一份迁移。
-- M3-1 进度（2026-11-05）：`0010_services` 迁移、共享 Service DTO/事件 schema、执行身份适配、ServiceManager 核心完成；真实 PTY 登记/幂等/冲突、终端外/通配/缺失监听拒绝、Ctrl+C 退登、同 Shell 重启换身份、service 事件补拉测试通过。HTTP 资源动作、日志接口、App 接线与 Agent 工具未完成。
+- M3-1 进度（2026-11-05）：迁移、共享 schema、身份适配、ServiceManager、resource-action 分派、服务 REST（列表/详情/日志）、App/1 秒对账与 Agent 工具完成；真实 PTY 登记/幂等/冲突/退登/重启换身份/事件补拉、人工审批与 Agent 免二次审批测试通过。待补终端关闭连带退登、重启对账、DB 失败负例与 WS 订阅。

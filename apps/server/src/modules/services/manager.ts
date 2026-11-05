@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { FileManagerError } from "@larness/resources";
 import {
   type ServiceDto,
@@ -5,12 +6,24 @@ import {
   ServiceRegisterInputSchema,
   ServiceStatusSchema,
 } from "@larness/shared";
+import { eq } from "drizzle-orm";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
-import type { ServiceRow, TerminalRow } from "../../db/schema.js";
+import {
+  type ResourceActionRow,
+  resourceActions,
+  type ServiceRow,
+  type TerminalRow,
+} from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
+import { getProjectById } from "../projects/repository.js";
 import type { ResourceEventBus } from "../resources/events.js";
-import { appendResourceEvent } from "../resources/repository.js";
+import {
+  appendResourceEvent,
+  findOperation,
+  insertOperation,
+  updateOperation,
+} from "../resources/repository.js";
 import { terminalRow } from "../terminals/repository.js";
 import {
   type ExecutionIdentity,
@@ -67,6 +80,41 @@ function terminalProcess(terminal: TerminalRow): { pid: number; launchId: string
   return { pid: parsed.pid, launchId: typeof parsed.launchId === "string" ? parsed.launchId : "" };
 }
 
+const ACTION_TTL_MS = 5 * 60_000;
+
+export interface ServiceActionView {
+  id: string;
+  projectId: string;
+  kind: "service.register";
+  risk: "L2";
+  status: ResourceActionRow["status"];
+  params: ServiceRegisterInput;
+  paramsHash: string;
+  snapshotVersion: string;
+  requestedBy: string;
+  decidedBy: string | null;
+  expiresAt: number;
+  decidedAt: number | null;
+  startedAt: number | null;
+  endedAt: number | null;
+  result: unknown;
+  createdAt: number;
+}
+
+function registrationSnapshot(terminal: TerminalRow, data: ServiceRegisterInput): string {
+  const process = terminalProcess(terminal);
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        terminalId: terminal.id,
+        launchId: process.launchId,
+        pid: process.pid,
+        endpoint: data.endpoint,
+      }),
+    )
+    .digest("hex");
+}
+
 function identityFailure(error: unknown): never {
   if (error instanceof ServiceIdentityError) {
     throw new FileManagerError("PREVIEW_TARGET_INVALID", error.message);
@@ -79,11 +127,26 @@ export class ServiceManager {
   readonly #events: ResourceEventBus;
   readonly #now: () => number;
   #reconciling = false;
+  #timer: NodeJS.Timeout | undefined;
 
   constructor(options: ServiceManagerOptions) {
     this.#db = options.db;
     this.#events = options.events;
     this.#now = options.now ?? Date.now;
+  }
+
+  start(): void {
+    if (this.#timer) return;
+    this.#timer = setInterval(() => {
+      void this.reconcile().catch(() => undefined);
+    }, 1000);
+    this.#timer.unref();
+  }
+
+  stop(): void {
+    if (!this.#timer) return;
+    clearInterval(this.#timer);
+    this.#timer = undefined;
   }
 
   dto(row: ServiceRow): ServiceDto {
@@ -116,6 +179,84 @@ export class ServiceManager {
       items: rows.map(serviceDto),
       nextCursor: rows.length === input.limit && last ? encodeServiceCursor(last) : null,
     };
+  }
+
+  async registerAgent(
+    input: ServiceRegisterInput & {
+      projectId: string;
+      operationKey: string;
+      sourceSessionId?: string;
+    },
+    client: string,
+  ): Promise<ServiceDto> {
+    const parsed = ServiceRegisterInputSchema.safeParse({
+      kind: input.kind,
+      terminalId: input.terminalId,
+      name: input.name,
+      endpoint: input.endpoint,
+    });
+    if (!parsed.success) {
+      throw new FileManagerError("VALIDATION_ERROR", "Invalid service registration");
+    }
+    const data = parsed.data;
+    const existing = findOperation(this.#db, client, input.operationKey, "service.register");
+    if (existing) {
+      const service = serviceByOperation(this.#db, existing.id);
+      if (service) return serviceDto(service);
+    }
+    const project = getProjectById(this.#db, input.projectId);
+    if (!project) throw new FileManagerError("NOT_FOUND", "Project not found");
+    const operationId = existing?.id ?? newId("rop");
+    const now = this.#now();
+    const paramsJson = JSON.stringify(data);
+    if (!existing) {
+      insertOperation(this.#db, {
+        id: operationId,
+        scopeKey: `project:${input.projectId}`,
+        rootRealPath: project.realPath,
+        kind: "service.register",
+        status: "PREPARED",
+        paramsHash: createHash("sha256").update(paramsJson).digest("hex"),
+        idempotencyKey: input.operationKey,
+        clientSessionId: client,
+        path: "",
+        expectedVersion: "",
+        targetVersion: "",
+        lockId: "",
+        fencingToken: 0,
+        resultJson: null,
+        errorCode: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    try {
+      const service = await this.register(
+        {
+          ...data,
+          projectId: input.projectId,
+          operationId,
+          ...(input.sourceSessionId === undefined
+            ? {}
+            : { sourceSessionId: input.sourceSessionId }),
+        },
+        client,
+      );
+      updateOperation(this.#db, operationId, {
+        status: "COMPLETED",
+        resultJson: JSON.stringify({ serviceId: service.id }),
+        updatedAt: this.#now(),
+      });
+      return service;
+    } catch (error) {
+      const code = (error as { code?: unknown } | null)?.code;
+      updateOperation(this.#db, operationId, {
+        status: "FAILED",
+        errorCode: typeof code === "string" ? code : "INTERNAL",
+        updatedAt: this.#now(),
+      });
+      throw error;
+    }
   }
 
   async register(input: RegisterServiceInput, client: string): Promise<ServiceDto> {
@@ -202,6 +343,253 @@ export class ServiceManager {
       if (raced?.name === data.name) return serviceDto(raced);
       throw new FileManagerError("CONFLICT", "This endpoint is already registered");
     }
+  }
+
+  action(id: string): ServiceActionView {
+    return this.#actionView(this.#actionRow(id));
+  }
+
+  createAction(projectId: string, input: unknown, requestedBy: string): ServiceActionView {
+    const parsed = ServiceRegisterInputSchema.safeParse(input);
+    if (!parsed.success) {
+      throw new FileManagerError("VALIDATION_ERROR", "Invalid service registration");
+    }
+    const data = parsed.data;
+    const project = getProjectById(this.#db, projectId);
+    if (!project) throw new FileManagerError("NOT_FOUND", "Project not found");
+    const terminal = terminalRow(this.#db, data.terminalId);
+    if (!terminal || terminal.projectId !== project.id) {
+      throw new FileManagerError("NOT_FOUND", "Terminal not found for this project");
+    }
+    if (terminal.status !== "RUNNING") {
+      throw new FileManagerError("RESOURCE_UNAVAILABLE", "Terminal is not running");
+    }
+    const now = this.#now();
+    const id = newId("act");
+    const operationId = newId("rop");
+    const paramsJson = JSON.stringify(data);
+    const paramsHash = createHash("sha256").update(paramsJson).digest("hex");
+    const snapshot = registrationSnapshot(terminal, data);
+    immediateTransaction(this.#db, (tx) => {
+      insertOperation(tx, {
+        id: operationId,
+        scopeKey: `project:${project.id}`,
+        rootRealPath: project.realPath,
+        kind: "service.register",
+        status: "PREPARED",
+        paramsHash,
+        idempotencyKey: id,
+        clientSessionId: requestedBy,
+        path: "",
+        expectedVersion: "",
+        targetVersion: "",
+        lockId: "",
+        fencingToken: 0,
+        resultJson: null,
+        errorCode: null,
+        createdAt: now,
+        updatedAt: now,
+      });
+      tx.insert(resourceActions)
+        .values({
+          id,
+          operationId,
+          projectId: project.id,
+          kind: "service.register",
+          risk: "L2",
+          status: "WAITING_APPROVAL",
+          paramsJson,
+          paramsHash,
+          snapshotHash: snapshot,
+          requestedBy,
+          decidedBy: null,
+          expiresAt: now + ACTION_TTL_MS,
+          decidedAt: null,
+          startedAt: null,
+          endedAt: null,
+          resultJson: null,
+          createdAt: now,
+        })
+        .run();
+      appendAudit(tx, {
+        action: "service.action.created",
+        decision: "info",
+        clientSessionId: requestedBy,
+        resourceType: "service",
+        resourceId: id,
+        details: {
+          projectId: project.id,
+          terminalId: data.terminalId,
+          endpoint: data.endpoint,
+          kind: "service.register",
+          risk: "L2",
+        },
+        now,
+      });
+    });
+    return this.action(id);
+  }
+
+  decideAction(id: string, decision: "approve" | "reject", decidedBy: string): ServiceActionView {
+    const row = immediateTransaction(this.#db, (tx) => {
+      const current = tx.select().from(resourceActions).where(eq(resourceActions.id, id)).get();
+      if (current?.kind !== "service.register") {
+        throw new FileManagerError("NOT_FOUND", "Service action not found");
+      }
+      if (current.status !== "WAITING_APPROVAL") {
+        throw new FileManagerError("APPROVAL_INVALID", "Service action is not pending");
+      }
+      const now = this.#now();
+      if (current.expiresAt <= now) {
+        tx.update(resourceActions)
+          .set({ status: "EXPIRED", endedAt: now })
+          .where(eq(resourceActions.id, id))
+          .run();
+        updateOperation(tx, current.operationId, {
+          status: "FAILED",
+          errorCode: "EXPIRED",
+          updatedAt: now,
+        });
+        return tx.select().from(resourceActions).where(eq(resourceActions.id, id)).get();
+      }
+      const status = decision === "approve" ? "APPROVED" : "REJECTED";
+      tx.update(resourceActions)
+        .set({
+          status,
+          decidedBy,
+          decidedAt: now,
+          endedAt: decision === "reject" ? now : null,
+        })
+        .where(eq(resourceActions.id, id))
+        .run();
+      if (decision === "reject") {
+        updateOperation(tx, current.operationId, {
+          status: "FAILED",
+          errorCode: "REJECTED",
+          updatedAt: now,
+        });
+      }
+      appendAudit(tx, {
+        action: decision === "approve" ? "service.action.approved" : "service.action.rejected",
+        decision: decision === "approve" ? "allow" : "deny",
+        clientSessionId: decidedBy,
+        resourceType: "service",
+        resourceId: id,
+        details: { kind: current.kind, risk: current.risk },
+        now,
+      });
+      return tx.select().from(resourceActions).where(eq(resourceActions.id, id)).get();
+    });
+    if (!row) throw new FileManagerError("NOT_FOUND", "Service action not found");
+    if (row.status === "EXPIRED") {
+      throw new FileManagerError("APPROVAL_INVALID", "Service action expired");
+    }
+    return this.#actionView(row);
+  }
+
+  async executeAction(id: string, client: string): Promise<ServiceActionView> {
+    const row = this.#actionRow(id);
+    if (["COMPLETED", "FAILED", "REJECTED", "EXPIRED", "INTERRUPTED"].includes(row.status)) {
+      return this.#actionView(row);
+    }
+    if (row.status !== "APPROVED") {
+      throw new FileManagerError("APPROVAL_INVALID", "Service action is not approved");
+    }
+    if (row.expiresAt <= this.#now()) {
+      this.#failAction(id, row.operationId, "EXPIRED", "EXPIRED");
+      throw new FileManagerError("APPROVAL_INVALID", "Service action expired");
+    }
+    const data = ServiceRegisterInputSchema.parse(JSON.parse(row.paramsJson));
+    const terminal = terminalRow(this.#db, data.terminalId);
+    if (!terminal || terminal.projectId !== row.projectId || terminal.status !== "RUNNING") {
+      this.#failAction(id, row.operationId, "FAILED", "RESOURCE_UNAVAILABLE");
+      throw new FileManagerError("RESOURCE_UNAVAILABLE", "Terminal is unavailable");
+    }
+    if (registrationSnapshot(terminal, data) !== row.snapshotHash) {
+      this.#failAction(id, row.operationId, "FAILED", "CONFLICT");
+      throw new FileManagerError("CONFLICT", "Terminal changed after registration was prepared");
+    }
+    try {
+      const service = await this.register(
+        {
+          ...data,
+          projectId: row.projectId,
+          operationId: row.operationId,
+        },
+        client,
+      );
+      const now = this.#now();
+      immediateTransaction(this.#db, (tx) => {
+        tx.update(resourceActions)
+          .set({
+            status: "COMPLETED",
+            startedAt: now,
+            endedAt: now,
+            resultJson: JSON.stringify({ serviceId: service.id }),
+          })
+          .where(eq(resourceActions.id, id))
+          .run();
+        updateOperation(tx, row.operationId, {
+          status: "COMPLETED",
+          resultJson: JSON.stringify({ serviceId: service.id }),
+          updatedAt: now,
+        });
+        appendAudit(tx, {
+          action: "service.action.completed",
+          decision: "allow",
+          clientSessionId: client,
+          resourceType: "service",
+          resourceId: id,
+          details: { projectId: row.projectId, serviceId: service.id },
+          now,
+        });
+      });
+      return this.action(id);
+    } catch (error) {
+      const code = (error as { code?: unknown } | null)?.code;
+      this.#failAction(id, row.operationId, "FAILED", typeof code === "string" ? code : "INTERNAL");
+      throw error;
+    }
+  }
+
+  #failAction(id: string, operationId: string, status: "FAILED" | "EXPIRED", errorCode: string) {
+    const now = this.#now();
+    immediateTransaction(this.#db, (tx) => {
+      tx.update(resourceActions)
+        .set({ status, endedAt: now })
+        .where(eq(resourceActions.id, id))
+        .run();
+      updateOperation(tx, operationId, { status: "FAILED", errorCode, updatedAt: now });
+    });
+  }
+
+  #actionRow(id: string): ResourceActionRow {
+    const row = this.#db.select().from(resourceActions).where(eq(resourceActions.id, id)).get();
+    if (row?.kind !== "service.register") {
+      throw new FileManagerError("NOT_FOUND", "Service action not found");
+    }
+    return row;
+  }
+
+  #actionView(row: ResourceActionRow): ServiceActionView {
+    return {
+      id: row.id,
+      projectId: row.projectId,
+      kind: "service.register",
+      risk: "L2",
+      status: row.status,
+      params: ServiceRegisterInputSchema.parse(JSON.parse(row.paramsJson)),
+      paramsHash: row.paramsHash,
+      snapshotVersion: row.snapshotHash,
+      requestedBy: row.requestedBy,
+      decidedBy: row.decidedBy,
+      expiresAt: row.expiresAt,
+      decidedAt: row.decidedAt,
+      startedAt: row.startedAt,
+      endedAt: row.endedAt,
+      result: row.resultJson ? JSON.parse(row.resultJson) : null,
+      createdAt: row.createdAt,
+    };
   }
 
   unregister(id: string, reasonCode: string, client?: string): ServiceDto | null {

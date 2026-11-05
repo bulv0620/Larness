@@ -24,6 +24,7 @@ import {
   ReleaseTerminalControlParamsSchema,
   SendTerminalInputParamsSchema,
   type ServerEvent,
+  ServiceRegisterInputSchema,
   StopProjectTerminalParamsSchema,
   TerminalDevSchema,
   TerminalResultTargetSchema,
@@ -38,6 +39,7 @@ import { publishAgentEvent } from "../../ws/publisher.js";
 import type { CommandManager } from "../commands/manager.js";
 import type { GitManager } from "../git/manager.js";
 import { getProjectById } from "../projects/repository.js";
+import type { ServiceManager } from "../services/manager.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
 import type { TerminalManager } from "../terminals/manager.js";
 import { isDefaultWorkspace } from "../workspaces/default.js";
@@ -107,6 +109,7 @@ export interface TurnRunnerOptions {
   commands?: CommandManager;
   terminals?: TerminalManager;
   git?: GitManager;
+  services?: ServiceManager;
 }
 
 export type TurnRunResult = {
@@ -831,6 +834,81 @@ export class TurnRunner {
               return { ok: true, summary: `${result.length} branches`, data: { items: result } };
             } catch (error) {
               return gitFailure(error, "Git query failed");
+            }
+          },
+          registerService: async (params, assertAuthorized) => {
+            const parsed = ServiceRegisterInputSchema.safeParse(params);
+            if (!parsed.success)
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid service registration",
+              };
+            if (!snapshot || !this.#options.services || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Service context unavailable",
+              };
+            try {
+              assertAuthorized();
+              if (checkBudget() !== "ok" || lockLost)
+                throw new Error("Execution no longer authorized");
+              const service = await this.#options.services.registerAgent(
+                {
+                  ...parsed.data,
+                  projectId: session.projectId,
+                  operationKey: `${turn.id}:${request.id}`,
+                  sourceSessionId: session.id,
+                },
+                snapshot.clientSessionId,
+              );
+              return {
+                ok: true,
+                summary: `临时服务 ${service.name} ${service.status}`,
+                data: {
+                  serviceId: service.id,
+                  status: service.status,
+                  terminalId: service.terminalId,
+                  endpoint: service.endpoint,
+                  previewEligible: service.previewEligible,
+                },
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Service registration failed",
+              };
+            }
+          },
+          listServices: async (params) => {
+            if (!this.#options.services || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Service context unavailable",
+              };
+            try {
+              const limit =
+                typeof params === "object" && params !== null && "limit" in params
+                  ? Number(params.limit)
+                  : 50;
+              const result = this.#options.services.list({
+                projectId: session.projectId,
+                limit: Number.isInteger(limit) && limit > 0 ? Math.min(limit, 200) : 50,
+              });
+              return {
+                ok: true,
+                summary: `${result.items.length} 个临时服务`,
+                data: result,
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Service list failed",
+              };
             }
           },
           gitAction: async (params, assertAuthorized) => {

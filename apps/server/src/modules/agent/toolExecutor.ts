@@ -51,6 +51,8 @@ export interface ExecuteToolInput {
     args: unknown,
   ) => Promise<ToolResult>;
   gitAction?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  registerService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  listServices?: (args: unknown) => Promise<ToolResult>;
 }
 
 export type ToolExecutionOutcome =
@@ -305,6 +307,27 @@ export async function executeTool(
               input.startTerminal?.(args, assertAuthorized) ??
               denied("FORBIDDEN", "Terminal context unavailable")
             );
+          },
+        }
+      : {}),
+    ...(input.registerService
+      ? {
+          registerService: async (args: unknown) => {
+            if (hashApprovalParams(args) !== hashApprovalParams(params))
+              return denied("APPROVAL_INVALID", "Service parameters changed");
+            assertAuthorized();
+            return (
+              input.registerService?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Service context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.listServices
+      ? {
+          listServices: async (args: unknown) => {
+            assertAuthorized();
+            return input.listServices?.(args) ?? denied("FORBIDDEN", "Service context unavailable");
           },
         }
       : {}),

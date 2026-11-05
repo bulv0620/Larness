@@ -12,7 +12,9 @@ import { registerHealthRoute } from "./api/health.js";
 import { registerModelRoutes } from "./api/models.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerProjectRoutes } from "./api/projects.js";
+import { registerResourceActionRoutes } from "./api/resource-actions.js";
 import { registerResourceEventRoutes } from "./api/resource-events.js";
+import { registerServiceRoutes } from "./api/services.js";
 import { registerSessionRoutes, type TurnControls } from "./api/sessions.js";
 import { registerStaticRoutes } from "./api/static.js";
 import { registerTerminalRoutes } from "./api/terminals.js";
@@ -27,6 +29,7 @@ import { knownCredentialGuard } from "./modules/files/credentials.js";
 import { FileWatchManager } from "./modules/files/watcher.js";
 import { GitManager } from "./modules/git/manager.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
+import { ServiceManager } from "./modules/services/manager.js";
 import { TerminalManager } from "./modules/terminals/manager.js";
 import { resolveRequestId } from "./request-id.js";
 import { installSecurityGuard } from "./security/guard.js";
@@ -45,6 +48,7 @@ export interface AppServices {
   commands?: CommandManager;
   terminals?: TerminalManager;
   git?: GitManager;
+  services?: ServiceManager;
   resourceEvents?: ResourceEventBus;
 }
 
@@ -102,6 +106,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         idleTtlMinutes: options.services.config.auth.idleTtlMinutes,
       });
     const git = options.services.git ?? new GitManager({ db: options.services.db });
+    const serviceManager =
+      options.services.services ??
+      new ServiceManager({ db: options.services.db, events: resourceEvents });
     const terminals =
       options.services.terminals ??
       new TerminalManager({
@@ -135,6 +142,8 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerTerminalRoutes(app, options.services, terminals);
     registerFileRoutes(app, options.services, resourceEvents);
     registerGitRoutes(app, options.services, git);
+    registerServiceRoutes(app, options.services, serviceManager);
+    registerResourceActionRoutes(app, options.services, { git, services: serviceManager });
     registerResourceEventRoutes(app, options.services);
     registerProjectRoutes(app, { db: options.services.db, dataDir: options.services.dataDir });
     registerSessionRoutes(app, {

@@ -3,11 +3,18 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
+import { decideToolAccess } from "@larness/agent";
 import { expect, it } from "vitest";
 import { newId } from "../../src/db/ids.js";
+import { resourceActions } from "../../src/db/schema.js";
+import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { listResourceEvents, ResourceEventBus } from "../../src/modules/resources/events.js";
-import { insertOperation, resourceSequence } from "../../src/modules/resources/repository.js";
+import {
+  findOperation,
+  insertOperation,
+  resourceSequence,
+} from "../../src/modules/resources/repository.js";
 import { listeningSockets } from "../../src/modules/services/identity.js";
 import { ServiceManager } from "../../src/modules/services/manager.js";
 import { updateTurnRow } from "../../src/modules/sessions/repository.js";
@@ -327,6 +334,49 @@ it("rejects listeners outside the terminal tree, wildcard listeners and missing 
       ).rejects.toMatchObject({ code: "PREVIEW_TARGET_INVALID" });
     } finally {
       external?.kill("SIGKILL");
+      await stopAuthorizedServer(f);
+    }
+  });
+}, 40_000);
+
+it("registers a verified service for an authorized agent without a second approval", async () => {
+  await withTempDir(async (dir) => {
+    const fixtureData = await fixture(dir);
+    const { f, root, project, session, client, context, manager, services } = fixtureData;
+    try {
+      const port = await freePort();
+      const serverPath = path.join(root, "server.mjs");
+      await writeFile(serverPath, serverSource(port));
+      const terminal = await manager.createDev(
+        { ...context, toolCallId: newId("tool") },
+        { role: "frontend", executable: process.execPath, args: [serverPath, String(port)] },
+      );
+      await waitFor(async () => (await listeningSockets(port)).length > 0, "listener");
+      const input = {
+        projectId: project.id,
+        operationKey: "turn-1:tool-call-1",
+        sourceSessionId: session.id,
+        terminalId: terminal.id,
+        kind: "temporary" as const,
+        name: "web",
+        endpoint: { host: "127.0.0.1" as const, port, protocol: "http" as const },
+      };
+      const registered = await services.registerAgent(input, client);
+      expect(registered.status).toBe("RUNNING");
+      expect(registered.sourceSessionId).toBe(session.id);
+      expect(f.running.db.select().from(resourceActions).all()).toHaveLength(0);
+      const operation = findOperation(f.running.db, client, input.operationKey, "service.register");
+      expect(operation?.status).toBe("COMPLETED");
+      const again = await services.registerAgent(input, client);
+      expect(again.id).toBe(registered.id);
+
+      const tools = createServiceTools();
+      const register = tools.find((tool) => tool.name === "register_temporary_service");
+      expect(register?.riskLevel).toBe("L2");
+      expect(decideToolAccess("autonomous", "L2")).toBe("allow");
+      expect(decideToolAccess("standard", "L2")).toBe("require_approval");
+      expect(decideToolAccess("readonly", "L2")).toBe("deny");
+    } finally {
       await stopAuthorizedServer(f);
     }
   });

@@ -24,6 +24,8 @@ export interface ToolContext {
     args: unknown,
   ) => Promise<ToolResult>;
   gitAction?: (args: unknown) => Promise<ToolResult>;
+  registerService?: (args: unknown) => Promise<ToolResult>;
+  listServices?: (args: unknown) => Promise<ToolResult>;
 }
 
 export interface ToolResult {

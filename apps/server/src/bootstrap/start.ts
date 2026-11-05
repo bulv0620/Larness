@@ -22,6 +22,7 @@ import { createGitTools } from "../modules/agent/gitTool.js";
 import { createPlanTool } from "../modules/agent/planTool.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
+import { createServiceTools } from "../modules/agent/serviceTool.js";
 import { createTerminalControlTools } from "../modules/agent/terminalControlTool.js";
 import { createTerminalTools } from "../modules/agent/terminalTool.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
@@ -31,6 +32,7 @@ import { GitManager } from "../modules/git/manager.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { ResourceEventBus } from "../modules/resources/events.js";
+import { ServiceManager } from "../modules/services/manager.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import { SecretStore } from "../security/secretStore.js";
@@ -70,6 +72,7 @@ export interface RunningServer {
   commands: CommandManager;
   git: GitManager;
   terminals: TerminalManager;
+  services: ServiceManager;
 }
 
 function createDefaultProviderResolver(db: Database, secretStore: SecretStore): ProviderResolver {
@@ -187,6 +190,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     commandManager = commands;
     await commands.recover();
     const git = new GitManager({ db: opened.db });
+    const services = new ServiceManager({ db: opened.db, events: resourceEvents });
+    services.start();
     const terminals = new TerminalManager({
       db: opened.db,
       dataDir,
@@ -228,6 +233,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       for (const tool of createTerminalControlTools({ db: opened.db, secretStore }))
         registry.register(tool);
       for (const tool of createGitTools()) registry.register(tool);
+      for (const tool of createServiceTools()) registry.register(tool);
       const runner = new TurnRunner({
         dataDir,
         db: opened.db,
@@ -235,6 +241,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         commands,
         terminals,
         git,
+        services,
         resolveProvider:
           options.providerResolver ?? createDefaultProviderResolver(opened.db, secretStore),
         publish: publishAgentEvent,
@@ -260,6 +267,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         resourceEvents,
         terminals,
         git,
+        services,
         ...(turnQueue === null
           ? {}
           : {
@@ -324,6 +332,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
         await ipcServer.close();
         await turnQueue?.stop();
+        services.stop();
         cleanupScheduler.stop();
         await retention.stop();
         opened.close();
@@ -351,6 +360,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       commands,
       terminals,
       git,
+      services,
     };
   } catch (error) {
     logger?.error({ err: error }, "server failed to start");
