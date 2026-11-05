@@ -203,6 +203,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
           services,
           events: resourceEvents,
           idleTtlMinutes: loaded.config.auth.idleTtlMinutes,
+          port: loaded.config.preview.port,
         });
         await previews.start();
       } catch (error) {

@@ -195,8 +195,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M3-0 | 开发执行身份与隔离预览PoC | G2；G-Spec-M3；Q-002/Q-026方案 | `done`（G-PoC 2026-11-05） |
 | M3-1 | 临时登记/源退出退登/日志与事件 | M3-0；G-PoC-M3 | `done`（2026-11-05） |
 | M3-2 | 当前项目服务卡片/详情/关联日志 | M3-1 | `done`（2026-11-05） |
-| M3-3 | PreviewRegistry/HTTP/WS固定上游 | M3-1 | `in_progress` |
-| M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `todo` |
+| M3-3 | PreviewRegistry/HTTP/WS固定上游 | M3-1 | `done`（2026-11-05） |
+| M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `in_progress` |
 | M3-4 | Browser/Agent卡片/HMR/开发API | M3-2/M3-3b | `todo` |
 | M3-6 | 开发预览整体验收与G3 | M3-4 | `todo` |
 
