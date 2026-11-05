@@ -49,7 +49,7 @@ export function ResourceDock() {
     });
   };
   return (
-    <div className="pointer-events-none relative z-[60] mb-1.5 flex justify-center px-1">
+    <div className="pointer-events-none relative z-10 mb-1.5 flex justify-center px-1">
       <nav
         aria-label="项目窗口"
         className="window-tabs-scroll pointer-events-auto flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[10px] border border-line bg-surface/90 p-0.5 shadow-[var(--shadow-card)] backdrop-blur-xl"

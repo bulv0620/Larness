@@ -13,6 +13,7 @@ import {
   updateSession,
 } from "../modules/sessions/service.js";
 import { cancelTurn, createTurn } from "../modules/sessions/turns.js";
+import { publishWorkspaceSessionsChanged } from "../ws/publisher.js";
 
 const SessionIdSchema = z.string().min(1).max(128);
 
@@ -183,6 +184,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
         idempotencyKey,
         clientSessionId: request.clientSession?.id,
       });
+      if (turn.status === "QUEUED") publishWorkspaceSessionsChanged();
       deps.turnControls?.enqueue(turn.turnId, turn.sessionId);
       return reply.code(202).send(turn);
     } catch (error) {

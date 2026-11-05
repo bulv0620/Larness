@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, ne } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import {
@@ -56,15 +56,20 @@ export function getSessionById(db: DbExecutor, id: string): SessionRow | null {
 export function listSessionRows(
   db: DbExecutor,
   options: { projectId?: string; limit: number },
-): SessionRow[] {
+): { session: SessionRow; hasActiveTurn: boolean }[] {
   const active = ne(sessions.status, "archived");
   const where =
     options.projectId === undefined
       ? active
       : and(active, eq(sessions.projectId, options.projectId));
 
+  const activeTurn = db
+    .select({ id: turns.id })
+    .from(turns)
+    .where(and(eq(turns.sessionId, sessions.id), inArray(turns.status, ACTIVE_TURN_STATUSES)));
+
   return db
-    .select()
+    .select({ session: sessions, hasActiveTurn: exists(activeTurn).mapWith(Boolean) })
     .from(sessions)
     .where(where)
     .orderBy(desc(sessions.updatedAt), desc(sessions.id))

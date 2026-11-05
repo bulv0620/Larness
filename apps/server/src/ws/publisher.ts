@@ -1,5 +1,9 @@
 import { EventEmitter } from "node:events";
-import type { AssistantDeltaEvent, ServerEvent } from "@larness/shared";
+import {
+  type AssistantDeltaEvent,
+  type ServerEvent,
+  WORKSPACE_SESSIONS_CHANGED,
+} from "@larness/shared";
 
 class AgentEventBus extends EventEmitter {}
 
@@ -8,10 +12,23 @@ agentEventBus.setMaxListeners(100);
 
 export type AgentStreamEvent = ServerEvent | AssistantDeltaEvent;
 
+export function publishWorkspaceSessionsChanged(): void {
+  agentEventBus.emit(WORKSPACE_SESSIONS_CHANGED);
+}
+
 export function publishAgentEvent(event: AgentStreamEvent): void {
   if (event.topic !== "agent") {
     return;
   }
 
   agentEventBus.emit("event", event);
+  if (
+    event.kind === "event" &&
+    (event.type === "turn.completed" ||
+      event.type === "turn.failed" ||
+      event.type === "turn.cancelled" ||
+      event.type === "turn.interrupted")
+  ) {
+    publishWorkspaceSessionsChanged();
+  }
 }

@@ -1,4 +1,10 @@
-import { type ModelProfile, type ServerEvent, WorkspaceKindSchema } from "@larness/shared";
+import {
+  ActiveTurnFlagSchema,
+  type ModelProfile,
+  type ServerEvent,
+  type SessionSummary,
+  WorkspaceKindSchema,
+} from "@larness/shared";
 import { apiFetch } from "./api";
 
 export interface ApiProject {
@@ -48,6 +54,10 @@ export interface ApiTurn {
 
 export interface ApiSessionDetail extends ApiSession {
   activeTurn: ApiTurn | null;
+}
+
+interface ApiSessionSummary extends ApiSession {
+  hasActiveTurn?: boolean;
 }
 
 export interface EventPage {
@@ -175,8 +185,8 @@ export async function deleteCredential(id: string): Promise<void> {
   });
 }
 
-export async function listSessions(): Promise<ApiSession[]> {
-  const response = await apiFetch<{ sessions: ApiSession[] }>("/api/sessions?limit=100");
+export async function listSessions(): Promise<ApiSessionSummary[]> {
+  const response = await apiFetch<{ sessions: ApiSessionSummary[] }>("/api/sessions?limit=100");
   return response.sessions;
 }
 
@@ -299,7 +309,7 @@ export function toModelProfileView(model: ApiModelProfile): ModelProfile {
   };
 }
 
-export function toSessionView(session: ApiSession) {
+export function toSessionView(session: ApiSessionSummary): SessionSummary {
   return {
     workspaceKind: WorkspaceKindSchema.parse(
       session.workspaceKind ?? (session.projectId ? "project" : "session"),
@@ -308,7 +318,7 @@ export function toSessionView(session: ApiSession) {
     id: session.id,
     projectId: session.projectId,
     title: session.title,
-    status: "idle" as const,
+    status: ActiveTurnFlagSchema.parse(session.hasActiveTurn) ? "running" : "idle",
     updatedAt: session.updatedAt,
   };
 }

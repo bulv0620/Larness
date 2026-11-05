@@ -47,7 +47,9 @@ describe("sessions API", () => {
           url: "/api/sessions",
           headers: { cookie: started.cookie },
         });
-        expect(list.json()).toMatchObject({ sessions: [{ id: session.id }] });
+        expect(list.json()).toMatchObject({
+          sessions: [{ id: session.id, hasActiveTurn: false }],
+        });
 
         const detail = await started.running.app.inject({
           method: "GET",
@@ -68,6 +70,15 @@ describe("sessions API", () => {
         });
         expect(turnResponse.statusCode).toBe(202);
         const turn = turnResponse.json() as { turnId: string; status: string };
+
+        const activeList = await started.running.app.inject({
+          method: "GET",
+          url: "/api/sessions",
+          headers: { cookie: started.cookie },
+        });
+        expect(activeList.json()).toMatchObject({
+          sessions: [{ id: session.id, hasActiveTurn: true }],
+        });
 
         const retry = await started.running.app.inject({
           method: "POST",
@@ -153,6 +164,15 @@ describe("sessions API", () => {
         started.running.sqlite
           .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
           .run(turn.turnId);
+
+        const completedList = await started.running.app.inject({
+          method: "GET",
+          url: "/api/sessions",
+          headers: { cookie: started.cookie },
+        });
+        expect(completedList.json()).toMatchObject({
+          sessions: [{ id: session.id, hasActiveTurn: false }],
+        });
 
         const deleted = await started.running.app.inject({
           method: "DELETE",

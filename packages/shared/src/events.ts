@@ -1,4 +1,16 @@
+import { z } from "zod";
 import type { ResourceTarget } from "./terminals";
+
+export const WORKSPACE_SESSIONS_CHANGED = "workspace.sessions.changed";
+
+export const WorkspaceSessionNotificationSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("subscribed"),
+    subscription: z.object({ topic: z.literal("system"), resourceId: z.literal("system") }),
+  }),
+  z.object({ kind: z.literal(WORKSPACE_SESSIONS_CHANGED) }),
+]);
+
 export type EventTopic = "command" | "agent" | "terminal" | "service" | "git" | "file" | "system";
 
 export interface ServerEvent<T = unknown> {

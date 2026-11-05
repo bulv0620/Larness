@@ -12,6 +12,7 @@ import {
   type TerminalOutputEvent,
   TerminalSubscriptionSchema,
   type WebAuthnRuntime,
+  WORKSPACE_SESSIONS_CHANGED,
 } from "@larness/shared";
 import { eq, max } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
@@ -253,6 +254,15 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           }
         };
         agentEventBus.on("event", onAgentEvent);
+        const onWorkspaceSessionsChanged = (): void => {
+          if (!subscriptions.has("system")) return;
+          if (!sessionActive()) {
+            socket.close(1008, "session expired");
+            return;
+          }
+          send(socket, { kind: WORKSPACE_SESSIONS_CHANGED });
+        };
+        agentEventBus.on(WORKSPACE_SESSIONS_CHANGED, onWorkspaceSessionsChanged);
         const onResourceEvent = (event: ServerEvent): void => {
           if (!subscriptions.has(event.streamId)) return;
           if (!sessionActive()) {
@@ -722,6 +732,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           sessionEvents.off("session.revoked", onSessionRevoked);
           sessionEvents.off("device.revoked", onDeviceRevoked);
           agentEventBus.off("event", onAgentEvent);
+          agentEventBus.off(WORKSPACE_SESSIONS_CHANGED, onWorkspaceSessionsChanged);
           deps.resourceEvents.off(onResourceEvent);
           deps.resourceEvents.offOutput(onOutput);
           deps.resourceEvents.offTerminalOutput(onTerminalOutput);

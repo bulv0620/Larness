@@ -281,7 +281,7 @@
 | GET | `/api/projects/:id` | 详情 |
 | PATCH | `/api/projects/:id` | `{ name?, settings? }`；settings 局部合并 |
 | DELETE | `/api/projects/:id` | `{ ok: true }`；仅删数据库行，不删目录 |
-| GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档 |
+| GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档；列表项包含 `hasActiveTurn` |
 | POST | `/api/sessions` | `{ projectId?, title? }`；无项目时创建独立工作目录；201 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
 | PATCH | `/api/sessions/:id` | `{ title?, modelProfileId?, approvalPolicyId? }`；模型 / 策略只影响下一 Turn |
@@ -349,6 +349,8 @@
 ```
 
 独立会话的 `workspacePath` 是 `dataDir/sessions/<sessionId>/workspace`，创建时为空目录；项目会话使用项目 `realPath`。列表只返回 `active` 会话。
+
+`GET /api/sessions` 的每个列表项另含布尔值 `hasActiveTurn`。当该会话有 `QUEUED`、`PREPARING`、`RUNNING`、`WAITING_APPROVAL` 或 `CANCELLING` 的持久化 Turn 时为 `true`。
 
 Turn 创建成功返回 `202`：
 

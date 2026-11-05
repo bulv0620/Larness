@@ -133,6 +133,8 @@ PTY 输出不逐字节入库：使用限长环形缓冲 + 可选落盘日志；�
 | `system.device.revoked` | `deviceId`, `reason` |
 | `system.shutdown` | `reason` |
 
+已订阅 `{topic:"system",resourceId:"system"}` 的已认证连接在 Turn 创建（入队）或结束落库后接收 `{kind:"workspace.sessions.changed"}`。该帧仅用于失效会话列表缓存，不含资源标识或内容，不分配序号。订阅成功（含重连）时重新读取会话快照。
+
 ### 4.5 `git` / `file`
 
 用于多客户端同步（M2）：`git.status.changed`、`file.changed`、`file.conflict`。Git 状态以查询结果为准，事件只用于失效缓存。

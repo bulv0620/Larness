@@ -139,10 +139,10 @@ function normalizeApprovalPolicy(value: ApprovalPolicy | undefined): ApprovalPol
 export function listSessionDtos(
   options: SessionServiceOptions,
   query: { projectId?: string; limit?: number } = {},
-): SessionDto[] {
+): (SessionDto & { hasActiveTurn: boolean })[] {
   const limit = Math.min(Math.max(Math.trunc(query.limit ?? 50), 1), 100);
-  return listSessionRows(options.db, { projectId: query.projectId, limit }).map((row) =>
-    sessionDto(row, options.dataDir),
+  return listSessionRows(options.db, { projectId: query.projectId, limit }).map(
+    ({ session, hasActiveTurn }) => ({ ...sessionDto(session, options.dataDir), hasActiveTurn }),
   );
 }
 

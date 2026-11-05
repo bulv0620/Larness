@@ -40,7 +40,7 @@ export const sessions: SessionSummary[] = [
     id: "ses_1",
     projectId: "prj_larness",
     title: "实现 Agent 工具调用审批",
-    status: "running",
+    status: "idle",
     updatedAt: now - minutes(2),
   },
   {

@@ -1,4 +1,8 @@
+import { z } from "zod";
+
 export const DEFAULT_PROJECT_ID = "prj_default";
+
+export const ActiveTurnFlagSchema = z.boolean().default(false);
 
 export interface Project {
   kind?: "project" | "default";

@@ -1,4 +1,4 @@
-import { DEFAULT_PROJECT_ID } from "@larness/shared";
+import { DEFAULT_PROJECT_ID, type SessionSummary } from "@larness/shared";
 import {
   Button,
   cn,
@@ -16,6 +16,7 @@ import {
   Clock3,
   Folder,
   FolderPlus,
+  Loader2,
   LogOut,
   Pencil,
   Plus,
@@ -41,6 +42,8 @@ import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 
+const PROJECT_SESSION_LIMIT = 5;
+
 type ContextTarget =
   | { kind: "project"; id: string; title: string; x: number; y: number }
   | { kind: "session"; id: string; title: string; x: number; y: number };
@@ -65,12 +68,15 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     startDraft,
   } = useNavigationStore();
   const extra = useLocalSessionsStore((state) => state.extra);
-  const isStreaming = useTimelineStore((state) => state.isStreaming);
+  const mockRunningSessionId = useTimelineStore((state) =>
+    USE_MOCKS && state.isStreaming ? state.sessionId : null,
+  );
   const newSession = useNewSession();
   const logout = useLogout();
   const queryClient = useQueryClient();
   const focusComposer = useNavigationStore((state) => state.focusComposer);
   const [query, setQuery] = useState("");
+  const [expandedSessionLists, setExpandedSessionLists] = useState<Record<string, boolean>>({});
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [context, setContext] = useState<ContextTarget | null>(null);
@@ -123,21 +129,27 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const defaultSelected =
     projectId === null && (!activeSession || activeSession.workspaceKind === "default");
   const normalized = query.trim().toLowerCase();
-  const projects = data.projects.map((project) => ({
-    ...project,
-    sessions: sessions.filter((session) =>
-      project.kind === "default"
-        ? session.workspaceKind === "default"
-        : session.projectId === project.id,
-    ),
-  }));
-  const visibleProjects = normalized
-    ? projects.filter(
-        (project) =>
-          project.name.toLowerCase().includes(normalized) ||
-          project.sessions.some((session) => session.title.toLowerCase().includes(normalized)),
-      )
-    : projects;
+  const isRunning = (session: SessionSummary): boolean =>
+    session.status !== "idle" || session.id === mockRunningSessionId;
+  const sessionPriority = (session: SessionSummary): number =>
+    session.id === sessionId ? 2 : isRunning(session) ? 1 : 0;
+  const projects = data.projects.map((project) => {
+    const matchesName = project.name.toLowerCase().includes(normalized);
+    return {
+      ...project,
+      matchesName,
+      sessions: sessions.filter((session) => {
+        const belongs =
+          project.kind === "default"
+            ? session.workspaceKind === "default"
+            : session.projectId === project.id;
+        return belongs && (matchesName || session.title.toLowerCase().includes(normalized));
+      }),
+    };
+  });
+  const visibleProjects = projects.filter(
+    (project) => project.matchesName || project.sessions.length > 0,
+  );
   const recent = sessions
     .filter(
       (session) =>
@@ -204,7 +216,19 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
           const expanded = expandedProjects[project.id] ?? true;
           const isDefault = project.kind === "default";
           const navigationProjectId = isDefault ? null : project.id;
-          const hasDraft = draftSession?.projectId === navigationProjectId;
+          const hasDraft = !normalized && draftSession?.projectId === navigationProjectId;
+          const sessionLimit = PROJECT_SESSION_LIMIT - Number(hasDraft);
+          const canExpandSessions = !normalized && project.sessions.length > sessionLimit;
+          const allSessionsShown = expandedSessionLists[project.id] ?? false;
+          let visibleSessions = project.sessions;
+          if (canExpandSessions && !allSessionsShown) {
+            const preferred = new Set(
+              [...visibleSessions]
+                .sort((a, b) => sessionPriority(b) - sessionPriority(a))
+                .slice(0, sessionLimit),
+            );
+            visibleSessions = visibleSessions.filter((session) => preferred.has(session));
+          }
           return (
             <div key={project.id} data-project-id={project.id} className="mb-0.5">
               <div className="flex items-center gap-0.5">
@@ -267,13 +291,13 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                       onClick={() => startDraft(navigationProjectId)}
                     />
                   ) : null}
-                  {project.sessions.length ? (
-                    project.sessions.map((session) => (
+                  {visibleSessions.length ? (
+                    visibleSessions.map((session) => (
                       <SessionRow
                         key={session.id}
                         title={session.title}
                         active={session.id === sessionId}
-                        running={session.id === sessionId && isStreaming}
+                        running={isRunning(session)}
                         onClick={() => selectSession(session.id, navigationProjectId)}
                         onContextMenu={(event) =>
                           openContext(event, "session", session.id, session.title)
@@ -283,6 +307,21 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                   ) : hasDraft ? null : (
                     <div className="px-2 py-1 text-[10.5px] text-ink-3">暂无会话</div>
                   )}
+                  {canExpandSessions ? (
+                    <button
+                      type="button"
+                      aria-expanded={allSessionsShown}
+                      onClick={() =>
+                        setExpandedSessionLists((state) => ({
+                          ...state,
+                          [project.id]: !allSessionsShown,
+                        }))
+                      }
+                      className="flex h-6 w-full items-center rounded-md pl-5 pr-2 text-left text-[10.5px] text-ink-3 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"
+                    >
+                      {allSessionsShown ? "收起" : "展开更多"}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -319,8 +358,8 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
               )}
             >
               <span className="flex items-center gap-1.5">
-                {session.id === sessionId && isStreaming ? (
-                  <StatusDot tone="running" pulse />
+                {isRunning(session) ? (
+                  <SessionSpinner />
                 ) : (
                   <Clock3 size={11} className="shrink-0 text-ink-3" />
                 )}
@@ -487,6 +526,8 @@ function SessionRow({
       type="button"
       onClick={onClick}
       onContextMenu={onContextMenu}
+      aria-current={active ? "true" : undefined}
+      aria-busy={running}
       className={cn(
         "flex h-[26px] w-full items-center gap-1.5 rounded-md px-2 text-left text-[11px] transition-colors",
         active
@@ -494,7 +535,9 @@ function SessionRow({
           : "text-ink-2 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]",
       )}
     >
-      <StatusDot tone={running ? "running" : active ? "info" : "idle"} pulse={running} />
+      <span className="flex w-3 shrink-0 items-center justify-center" aria-hidden="true">
+        {running ? <SessionSpinner /> : <StatusDot tone={active ? "info" : "idle"} />}
+      </span>
       <span className="min-w-0 flex-1 truncate">{title}</span>
       {draft ? (
         <span className="shrink-0 rounded bg-black/[.045] px-1 py-[1px] text-[8.5px] text-ink-3 dark:bg-white/[.07]">
@@ -502,6 +545,16 @@ function SessionRow({
         </span>
       ) : null}
     </button>
+  );
+}
+
+function SessionSpinner() {
+  return (
+    <Loader2
+      size={11}
+      className="shrink-0 animate-spin text-accent motion-reduce:animate-none"
+      aria-hidden="true"
+    />
   );
 }
 

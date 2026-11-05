@@ -168,6 +168,25 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.locator(".window-drag-handle")).toHaveCount(0);
   });
 
+  test("最大化资源窗口盖住终端和服务浮栏", async ({ page }) => {
+    const dock = page.getByRole("navigation", { name: "项目窗口" });
+    await dock.getByRole("button", { name: "打开终端窗口" }).click();
+    await page.getByRole("button", { name: "最大化窗口" }).click();
+    await expect(page.getByRole("button", { name: "还原窗口" })).toBeVisible();
+    await expect
+      .poll(() =>
+        dock.evaluate((element) => {
+          const { x, y, width, height } = element.getBoundingClientRect();
+          const target = document.elementFromPoint(x + width / 2, y + height / 2);
+          return Boolean(target?.closest("[data-window-frame]"));
+        }),
+      )
+      .toBe(true);
+    await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
+    await dock.getByRole("button", { name: "打开服务窗口" }).click();
+    await expect(page.locator("[data-window-frame]")).toBeVisible();
+  });
+
   test("文件窗口加载 Monaco 只读内容", async ({ page }) => {
     await page
       .getByLabel("项目资源", { exact: true })
