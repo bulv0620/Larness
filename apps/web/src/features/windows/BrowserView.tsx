@@ -10,12 +10,20 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type PreviewSession, resolvePreview } from "@/features/services/api";
+import { ApiError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import type { WindowTab } from "@/lib/windowTypes";
 
 export function BrowserView({ tab }: { tab: WindowTab }) {
   if (!USE_MOCKS && tab.browser) return <PreviewBrowser tab={tab} />;
   return <MockBrowser tab={tab} />;
+}
+
+function previewError(cause: unknown): string {
+  if (cause instanceof ApiError && cause.code === "PREVIEW_UNAVAILABLE") {
+    return "预览功能未开启。请退出 Larness，在数据目录 config.json 设置 preview.enabled=true（可选 preview.port，默认 3211），重启后重新登记服务并打开预览。";
+  }
+  return cause instanceof Error ? cause.message : "预览不可用";
 }
 
 function PreviewBrowser({ tab }: { tab: WindowTab }) {
@@ -43,7 +51,7 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
       })
       .catch((cause: unknown) => {
         if (cancelled || attempt !== nonce) return;
-        setError(cause instanceof Error ? cause.message : "预览不可用");
+        setError(previewError(cause));
         setLoading(false);
       });
     return () => {
@@ -85,7 +93,7 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
       form.remove();
     } catch (cause) {
       target?.close();
-      setError(cause instanceof Error ? cause.message : "外部打开失败");
+      setError(previewError(cause));
     } finally {
       setOpeningExternal(false);
     }

@@ -1,5 +1,6 @@
 import { render, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
+import { ApiError } from "@/lib/api";
 import { BrowserView } from "./BrowserView";
 
 vi.mock("@/lib/env", () => ({ USE_MOCKS: false }));
@@ -46,4 +47,13 @@ it("resolves a one-time ticket and submits it through a POST bootstrap form, nev
   expect(iframe?.getAttribute("sandbox")).toBe("allow-scripts allow-forms allow-same-origin");
   expect(container.textContent).not.toContain("ticket-1");
   submit.mockRestore();
+});
+
+it("explains how to enable preview when the gateway is disabled", async () => {
+  vi.mocked(resolvePreview).mockRejectedValue(
+    new ApiError(503, "PREVIEW_UNAVAILABLE", "Preview is not enabled"),
+  );
+  const { findByText } = render(<BrowserView tab={tab} />);
+  expect(await findByText(/预览功能未开启/)).toBeTruthy();
+  expect(await findByText(/preview\.enabled=true/)).toBeTruthy();
 });
