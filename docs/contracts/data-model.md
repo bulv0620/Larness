@@ -160,8 +160,8 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `file_versions` | M2-1 已实施 | `scope_key, path, real_path, version_hash, size, mtime, updated_at`；scope + path 唯一，不存正文 |
 | `resource_operations` | M2-1 已实施 | 写意图、幂等结果、规范化根 / 版本、锁 / fencing；字段及状态见 m2-resources §11 |
 | `resource_streams` / `resource_events` | M2-1 已实施 | stream 序号事务递增，事件不含正文；通知 / 补拉属于 M2-1b |
-| `services` | M3 | `id, project_id?, name, kind(temporary/persistent), terminal_id?, terminal_execution_id?, endpoint_generation?, pm2_identity?, config_ref?, desired_state?, observed_state, endpoint_json?, preview_eligible, created_at, updated_at`（kind 约束见服务契约） |
-| `service_logs` | M3 | `service_id, cursor, chunk, created_at`（或落盘 + 索引） |
+| `services` | M3仅temporary绑定/状态；M4扩展persistent/PM2 | `id, project_id?, name, kind(temporary/persistent), terminal_id?, terminal_execution_id?, endpoint_generation?, pm2_identity?, config_ref?, desired_state?, observed_state, endpoint_json?, preview_eligible, created_at, updated_at`（kind 约束见服务契约） |
+| `service_logs` | M3临时引用；M4持久日志 | `service_id, cursor, chunk, created_at`（或落盘 + 索引） |
 | `deployments` | M4 | `id, service_id, commit_sha, artifact_ref, status, plan_json, created_at` |
 | `scheduled_jobs` | M5 | `id, name, schedule, scope, policy, enabled, created_at` |
 | `job_runs` | M5 | `id, job_id, status, started_at, ended_at, log_ref` |
@@ -239,3 +239,6 @@ M2-4（2026-11-03）：唯一 0007_terminals 新增 terminals / terminal_leases�
 
 ## M2-13 内建默认项目
 prj_default 由固定系统描述提供，不插入可修改 / 删除的 projects 用户登记行；kind=default，固定名称 / 默认共享根，createdAt / updatedAt 为 0。默认 sessions.project_id / terminals.project_id 的 null 值、workspace:default 事件与资源操作键保持。默认项目 HTTP scope 别名规范化到该既有域，无数据库迁移。
+
+## ADR-042：分阶段服务与部署记录（2026-11-05，draft）
+M3只实现temporary执行/endpoint绑定、状态/日志引用/预览，services中的pm2_identity/config_ref/desired_state等persistent字段由M4实现，不在M3提前迁移。M4产物/计划/当前版本/授权决策/部署结果与历史，准确表/列/联合约束按技术评审分任务冻结。人工审批记录和策略允许记录分开：自主有真实policySnapshotId/actor/scope/planHash/时效/决策来源，无人工approvalId；只有人工分支才关联approvalId，不能用空审批伪报批准。记录按事务/seq/审计和幂等写入。无本次DB迁移，见[部署契约](deployment.md)。

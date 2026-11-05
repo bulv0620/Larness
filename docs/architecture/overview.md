@@ -1,7 +1,7 @@
 # 系统架构总览
 
 > 状态：已冻结（v1.0）· 来源：`larness.md` 第 10–20、33–41 章
-> 本文只描述跨里程碑的稳定结构；具体功能见 `specs/`。资源生命周期与服务分工已按 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md) 修订；M2已于2026-11-05通过G2；M3仍待规格/PoC门禁。
+> 本文只描述跨里程碑的稳定结构；具体功能见 `specs/`。资源生命周期与服务分工已按 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md) 修订；M2已于2026-11-05通过G2；M3开发预览/M4持久发布按ADR-042分界，均仍待各自规格/PoC门禁。
 
 ## 1. 定位
 
@@ -51,7 +51,7 @@ Stable Launcher / Updater ── controls ── Server process
 | Server | Fastify、WS、SQLite、Agent Runtime、资源管理、代理、调度 | 覆盖正在运行的自身二进制 |
 | TUI Client | 初始化、设备审批 / 撤销、状态、日志、doctor、关闭 | 绕过 Server 直接操作业务数据 |
 | Web Client | 视图、窗口、输入、事件订阅 | 直接操控进程 / 文件 / 端口 |
-| User Services | 项目开发进程、PM2 长期服务 | 依赖 Larness 存活 |
+| User Services | 开发进程（M3登记）、PM2持久进程（M4） | 管理端鉴权；持久退出行为须Q-027冻结 |
 | Updater | 下载、验签、切换版本、健康检查、回滚 | 在 Server 内自更新 |
 
 Launcher / Updater 的完整实现属于 M5；M0-9 后 `node app.js` 以 TUI 为受管前台入口，启动 Server + Web 并在关闭 TUI 时停止全部（ADR-023）；`status` / `doctor` 仍为只读子命令。
@@ -70,7 +70,7 @@ Launcher / Updater 的完整实现属于 M5；M0-9 后 `node app.js` 以 TUI 为
 | CommandRunner | 非交互短命令、超时、输出截断、取消 | 为每条命令创建终端 Tab |
 | ServiceManager / Registry | 临时服务的终端绑定登记 / 展示 / 预览资格；持久服务的 PM2Adapter、日志 / 健康 / 对账 | 独立 spawn / 启停临时服务；把 PM2 当安全沙箱 |
 | FileManager | 授权路径读写、版本冲突检测、文件监听 | 对任意 Shell 提供文件隔离 |
-| GitManager | status / diff / commit / branch 等结构化操作 | 无审批自动 push |
+| GitManager | status / diff / commit / branch 等结构化操作 | 绕过后端策略/快照/审计自动push |
 | PreviewRegistry / Proxy | 登记 loopback 目标、票据、HTTP / WS 转发 | 任意内网 URL 代理 |
 | Scheduler | 任务持久化、触发、限流、失败记录 | 继承人工临时审批 |
 | EventLog / EventBus | 先持久化后广播、增量重放 | 把 WS 当唯一状态 |
@@ -153,7 +153,7 @@ UI 操作 ──REST/WS──► ResourceManager ──► OS / PTY / PM2 / Git
 Agent 工具 ──ToolRegistry──► 同一 ResourceManager
 ```
 
-- 关闭 / 最小化窗口只隐藏视图；主动关闭终端 Tab 经后端 `terminate` 终止资源，失败保留 Tab；文件 / Browser Tab 关闭不影响源资源。服务窗口无服务 Tab，采用项目筛选 + 卡片 / 详情。
+- 关闭 / 最小化窗口只隐藏视图；主动关闭终端 Tab 经后端 `terminate` 终止资源，失败保留 Tab；文件 / Browser Tab 关闭不影响源资源。服务窗口无服务Tab，采用当前项目卡片/详情（ADR-031/042）。
 - 同一 Terminal 可被多个客户端观看，交互输入需租约。
 - 服务与终端由 Larness 拥有，可带 `projectId`，Session 只是创建来源。
 - Tab 身份、来源、项目筛选、分组与去重规则见 [resource-views.md](../contracts/resource-views.md)。
@@ -162,7 +162,7 @@ Agent 工具 ──ToolRegistry──► 同一 ResourceManager
 
 终端启动 dev → 核验该次执行与 loopback endpoint → 登记临时服务 → 服务窗口卡片 → 目标 ready 后 AI 预览卡片 → 点击打开隔离预览。终端源命令退出 / PTY 结束自动退登并撤销代理；ServiceRegistry 不另 spawn、不接管进程、不交 PM2。
 
-构建 / M4 审批 → PM2Adapter 启动正式产物 → 持久服务卡片与正式地址；AI 和用户走同一服务动作 / 审批 / 审计，不直接绕过后端管理 PM2。服务窗口左上切项目、主体卡片、点击详情，无服务资源 Tab。临时卡片可打开所属终端，持久卡片提供实际 PM2 操作。
+M4构建/产物/计划 → 按策略授权（自主免人工，其他策略需要时询问）→ 唯一PM2Adapter首次运行/替换 → 健康/版本记录 → 持久卡片/管理。人/AI共用后端能力和审计，不绕过受管PM2边界。M3只完成上段开发登记/预览，不先实现PM2。服务窗口当前项目卡片/详情，无服务Tab或项目切换；临时卡片打开终端，持久操作/版本发布属于M4。
 
 文件工具结果附 scope / path 卡片，点击打开文件 Tab；可预览服务结果附 serviceId / 相对页面路径卡片，点击解析当前授权后打开 Browser Tab。卡片只打开视图，不重新执行工具、启动资源或自动开放端口。详细契约见 [services-preview.md](../contracts/services-preview.md)。
 
@@ -241,3 +241,6 @@ app.js          # 稳定入口（M0-9 创建）
 ## 10. 非目标
 
 多租户、远程主机编排、Docker / K8s、Electron 原生窗口、WebRTC、完整第三方网页浏览器、无审批的主机管理员操作、OS 级强沙箱。
+
+## ADR-042：策略授权与发布复用（2026-11-05）
+PM2/健康/日志/实际对账只在M4实现一套，由部署和持久日常动作复用。autonomous包括全部支持的Agent服务/部署/恢复动作，执行时无人工停等；不是不生成计划，也不是绕过范围/锁/参数/哈希/时效/幂等/预算/取消/秘密/审计。人工审批是授权引擎的条件分支，自主策略决策不伪造人工批准。详细[部署契约](../contracts/deployment.md)，技术设计仍draft。

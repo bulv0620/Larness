@@ -12,8 +12,8 @@ specs/
   016-tui-experience/     # TUI 交互统一（已验收）
   020-workspace-agent/    # M1 项目、会话与最小 Agent
   030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（done，2026-11-05 G2通过）
-  040-services-preview/   # M3 服务与预览（draft）
-  050-deploy/             # M4 部署闭环（draft）
+  040-services-preview/   # M3 开发服务与隔离预览（draft）
+  050-deploy/             # M4 持久运行与版本发布（draft）
   060-extension/          # M5 多模型 / 自动化 / 更新（draft）
   _templates/             # 模板，不参与编号
 ```

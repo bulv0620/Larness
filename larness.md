@@ -1,3 +1,5 @@
+> **2026-11-05 当前设计修订：** [ADR-042](docs/adr/ADR-042-service-deploy-boundary.md)已获用户确认：M3只负责开发服务登记与隔离预览；PM2持久运行/首次正式发布/版本替换/管理恢复整体归M4。autonomous对全部已授权Agent业务动作完全免人工审批/确认，保留计划、鉴权/范围、锁、审计与真实失败处理。下方“生产必须人工批准”等旧正文仅作历史设计，不作为当前自主模式规则；本次只更新文档，M3/M4技术规格仍draft。
+
 > **2026-11-02 资源规则修订：** 以下为历史设计正文；窗口 / Tab 与服务分工如有旧描述，以 [ADR-030](docs/adr/ADR-030-resource-lifecycle-and-services.md)、[资源视图契约](docs/contracts/resource-views.md)、[服务预览契约](docs/contracts/services-preview.md) 为准。关闭 / 最小化窗口仅隐藏；关闭终端 Tab 终止终端进程。临时服务只登记 Terminal 中的进程，退出退登；持久服务由 PM2 管理。服务窗口为项目筛选 + 卡片 / 详情，无服务 Tab；不再独立 NativeProcessAdapter 启停临时服务。正文旧 ADR / S0 记录保留，不作为新规则实现已完成的证据。
 
 # Larness 产品需求、技术架构与边界约束设计文档

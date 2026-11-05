@@ -11,8 +11,8 @@
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `done` | G2 于2026-11-05通过人类整体验收；范围与边界见030/closure.md |
-| M3 | 本机服务与 Preview | [040](040-services-preview/spec.md) | `draft` | G3 |
-| M4 | 部署闭环与权限加固 | [050](050-deploy/spec.md) | `draft` | G4 |
+| M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `draft` | G3 |
+| M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
 
 关键路径：
@@ -177,38 +177,43 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M2-24b | 最小化位移/取消竞态修正 | M2-26 | `done`（2026-11-05统一验收） |
 | M2-29 | [M2文档收尾与合并发布](030-dev-resources/closure.md) | M2-28；人类通过G2并授权发布 | `done`（仅文档/交付） |
 
-## 5.1 R0-0 资源生命周期与服务文档同步
+## 5.1 资源生命周期与阶段边界文档任务
 
 2026-11-02 人类明确产品规则并要求补文档；ADR-030 accepted，R0-0 为单个文档任务。新增 / 同步资源视图、临时 / 持久服务契约、M2/M3 spec / plan / tasks / review 与历史设计修订入口。仅文档完成，不启动功能实现、不宣称 G-Spec / G2 / G3 通过。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | R0-0 | 资源生命周期、两类服务与结果入口文档同步 | 人类明确规则及文档指令 | `done`（仅文档） |
+| R0-1 | [M3/M4边界与自主部署文档](048-service-deploy-boundary/spec.md) | G2 done；用户明确决定 | `done`（仅文档；M3/M4仍draft） |
 
-## 6. M3 本机服务与 Preview（草案）
+## 6. M3 开发服务与隔离预览（草案）
 
-按 ADR-030：临时服务只登记 / 展示 Terminal 实际进程，持久服务由 PM2 管理；服务窗口无服务 Tab。详见 [spec](040-services-preview/spec.md) / [plan](040-services-preview/plan.md) / [tasks](040-services-preview/tasks.md) / [review](040-services-preview/review.md)，均 draft。
-
-| ID | 任务 | 依赖 | 状态 |
-|---|---|---|---|
-| M3-0 | 终端执行 / endpoint、隔离预览与 PM2 退出边界 PoC | G2；G-Spec-M3；Q-002 / 003 / 026 / 027 | `todo` |
-| M3-1 | 临时服务登记、源退出退登、查询 / 关联日志 | M3-0 | `todo` |
-| M3-2 | 服务窗口项目筛选、卡片 / 详情、关联日志与指标 | M3-1 | `todo` |
-| M3-3 | PreviewRegistry + HTTP / WS 代理 + SSRF 防护 | M3-1 | `todo` |
-| M3-3b | 预览隔离、SSRF 与源退出失效安全矩阵 | M3-3 | `todo` |
-| M3-4 | Browser / AI 预览卡片、Vite HMR 与前后端 API | M3-2, M3-3b | `todo` |
-| M3-5 | PM2 持久服务、对账、日志与交付 PoC | M3-1, Q-003 / Q-027 | `todo` |
-| M3-5b | 持久服务人 / AI 统一动作与卡片操作 | M3-4, M3-5 | `todo` |
-| M3-6 | M3 验收与门禁 | M3-5b | `todo` |
-
-## 7. M4 部署闭环（草案）
+2026-11-05产品边界按[ADR-042](../docs/adr/ADR-042-service-deploy-boundary.md)获准；G2已通过，M3技术G-Spec/PoC仍待确认。M3不含PM2或正式运行，不依赖Q-003/Q-027。详[spec](040-services-preview/spec.md)/[plan](040-services-preview/plan.md)/[tasks](040-services-preview/tasks.md)/[review](040-services-preview/review.md)。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M4-1 | 部署 Validate / Build / Plan 与构建产物记录 | G3 | `todo` |
-| M4-2 | 审批：计划哈希、范围、审计、防篡改 | M4-1 | `todo` |
-| M4-3 | PM2 执行、健康检查、部署记录、失败恢复 | M4-2, M3-5 | `todo` |
-| M4-4 | M4 验收与门禁 | M4-3 | `todo` |
+| M3-0 | 开发执行身份与隔离预览PoC | G2；G-Spec-M3；Q-002/Q-026方案 | `todo` |
+| M3-1 | 临时登记/源退出退登/日志与事件 | M3-0 | `todo` |
+| M3-2 | 当前项目服务卡片/详情/关联日志 | M3-1 | `todo` |
+| M3-3 | PreviewRegistry/HTTP/WS固定上游 | M3-1 | `todo` |
+| M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `todo` |
+| M3-4 | Browser/Agent卡片/HMR/开发API | M3-2/M3-3b | `todo` |
+| M3-6 | 开发预览整体验收与G3 | M3-4 | `todo` |
+
+编号迁移（非活动任务，不计完成）：旧M3-5的PM2 PoC/持久运行移至M4-0/M4-3；旧M3-5b的人/AI动作移至M4-3b。M3-6不再依赖迁出项，旧S10/S11移至M4 D9/D10。
+
+## 7. M4 持久运行与版本发布（草案）
+
+全部PM2交付/持久服务/构建发布在一个阶段闭环；autonomous从登记、构建、部署到启停/支持的恢复均无人工步骤，计划完整性/真实授权/审计仍必须。详[spec](050-deploy/spec.md)/[plan](050-deploy/plan.md)/[tasks](050-deploy/tasks.md)/[review](050-deploy/review.md)。
+
+| ID | 任务 | 依赖 | 状态 |
+|---|---|---|---|
+| M4-0 | PM2交付/命名空间/退出恢复PoC | G3；G-Spec-M4；Q-003/Q-027 | `todo` |
+| M4-1 | Validate/Build/Artifact/Plan | M4-0 | `todo` |
+| M4-2 | 策略授权与条件人工审批 | M4-1 | `todo` |
+| M4-3 | PM2持久运行/Apply/健康/版本/对账 | M4-2 | `todo` |
+| M4-3b | 持久服务人/AI动作与卡片日志 | M4-3 | `todo` |
+| M4-4 | 正式发布/恢复/策略整体验收G4 | M4-3b | `todo` |
 
 ## 8. M5 扩展与加固（草案）
 
@@ -274,20 +279,19 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 **状态：G2 已于2026-11-05通过人类整体验收；M2-0～28及M2-24b均done。已知边界保留，见[最终收尾](030-dev-resources/closure.md)。**
 
-### G3 服务与预览
+### G3 开发服务与隔离预览
 
-- S1–S15 通过：Terminal 已启动的临时服务登记 / 卡片 / 关联日志，无二次 spawn / PM2，源进程退出自动退登并撤销已有预览连接；
-- `localhost:5173` 经独立来源预览，HMR 工作，5173 不公网暴露；
-- 未登记端口 / 禁止目标被拒绝并审计；
-- 服务窗口左上项目筛选 + 卡片 / 详情，无服务 Tab；关闭窗口 / 详情无启停副作用；
-- PM2 持久服务由 AI 与人工同后端能力启停 / 审批 / 审计 / 对账，正式访问与隔离预览区分，M4 部署审批不可绕过；Q-027 明确。
+- S1–S9/S12–S16真实证据：已启动开发进程登记/日志/卡片、HTTP/WS/HMR与开发API；Ctrl+C后Shell仍活但服务退登，旧流失效，端口复用不串绑；
+- 独立来源/Cookie/CSP/票据/SSRF/未知状态失败关闭；当前项目卡片/详情无服务Tab/项目切换，窗口隐藏无启停；
+- 自主合法登记/预览无人工停等，未鉴权/非法目标仍拒绝，关键事件/审计真实；
+- 不含PM2；Q-003/Q-027在M4解决，不以正式部署未交付阻塞G3。
 
-### G4 部署
+### G4 持久运行与版本发布
 
-- 构建 → 计划 → 审批 → PM2 → 健康检查 → 记录闭环；
-- 审批参数不可篡改；
-- 失败可查看日志并恢复；
-- 重启后服务状态经对账，不假装运行。
+- D1–D12：隔离PM2交付/运行/日志/实际对账、首次部署/版本替换/健康/记录/支持的恢复完整闭环；
+- 计划/产物/目标/时效/锁fencing不可篡改，失败/取消/未知状态不伪报成功，不重复spawn或误操作无关应用；
+- 标准/严格按风险审批，只读拒绝写；autonomous全流程无人工审批/确认，记录策略授权、不伪造人工批准；
+- Q-003/Q-027明确且真实验证，其他平台按证据披露。
 
 ### G5 发布候选
 

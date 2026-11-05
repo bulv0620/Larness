@@ -471,3 +471,6 @@ pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / �
 现有 Git resource-action 接口新增 `{ action: "unstage", paths: string[] }`（1–200条精确路径）及 `{ action: "discard", path: string, confirmed: true }`（单文件）。动作仍按 L1 复用已鉴权/CSRF 的创建和执行、项目锁、快照重验、过期、审计与幂等，无新增路径/DB列/依赖，不注册新 Agent 工具。
 unstage仅恢复选定index到HEAD；无HEAD使用仅index移除，工作区不变；重命名同时恢复原路径index。discard仅处理未暂存变更，tracked从index恢复工作区，已暂存内容保留；untracked经确认后仅删除指定普通文件，不递归、不含忽略文件、不清理全仓。冲突、目录、symlink/非普通文件及越界拒绝。Git以字面pathspec执行，通配符不扩张。
 discard动作创建时和执行锁前/锁后读取目标内容哈希，发现后续内容或状态变化拒绝覆盖；外部进程仍不受项目锁隔离，不宣称OS原子性。untracked枚举使用--untracked-files=all，文件逐条呈现而非目录清理。UI放弃按钮先显示路径与丢失/删除后果，取消不创建写动作，确认后才调用；取消暂存无丢弃确认，因为它保留磁盘内容。编辑器内存草稿不自动删除，监听/版本冲突继续保护。
+
+## ADR-042 后续阶段界限（2026-11-05）
+M2/G2已验收，代码不因本次文档改变。M3只消费终端真实执行/退出信息做开发登记与隔离预览；M4负责全部PM2/持久运行和发布。M2已实现的autonomous策略在后续已授权Agent业务动作中同样完全免人工，不能给部署硬编码额外审批；详情见[部署契约](deployment.md)。既有人工Git资源动作、本机信任通道不被输入框策略隐式扩权。

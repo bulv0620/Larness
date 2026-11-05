@@ -1,15 +1,16 @@
 # 服务、预览与 Agent 结果卡片契约
 
-> 2026-11-02。产品分工按 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md) accepted；下列 REST / DTO / 数据结构为 M3 设计草案，需 G-Spec-M3 和 PoC 后才实施。M0/M1 已实现契约不变。
+> 2026-11-05：产品分工按[ADR-042](../adr/ADR-042-service-deploy-boundary.md)修订，补充ADR-030/040。M3仅temporary开发登记与隔离预览，persistent/PM2/正式发布整体属于M4。下列REST/DTO/DB为分阶段设计草案，G-Spec/PoC未通过，不代表已实现；[部署授权契约](deployment.md)说明自主免人工。
 
 ## 1. 两类服务和唯一进程控制者
 
 | 项目 | temporary 临时服务 | persistent 持久服务 |
 |---|---|---|
+| 实施阶段 | M3：开发服务与隔离预览 | M4：持久运行与版本发布 |
 | 来源 | Terminal 中启动的实际前端 / 后端等监听进程 | 构建后交由 PM2 的正式服务 |
 | 生命周期控制者 | TerminalManager 与终端中的进程 | PM2Adapter |
 | 服务模块职责 | 注册绑定、状态 / 关联日志展示、预览目标登记与撤销 | PM2 启停 / 重启、日志 / 健康 / 对账、配置与部署记录 |
-| 服务卡片操作 | 看详情、打开所属终端、可用时打开预览 | 看详情 / 日志、经授权与审批启停 / 重启、打开可用地址 |
+| 服务卡片操作 | 看详情、打开所属终端、可用时打开预览 | 看详情 / 日志、按当前策略授权启停 / 重启（自主免人工）、打开可用地址 |
 | 退出 | 源进程退出自动退登；关闭终端 Tab 终止该终端全部关联服务 | 显式 PM2 停止，保留服务配置 / 部署记录；删除另走确认流程 |
 
 ServiceManager 不再提供 NativeProcessAdapter 独立启动临时服务，也不能为已运行终端再 spawn 一份。临时退登仅取消活跃登记 / 预览资格，不删除终端输出、审计、历史事件或源码。一个终端可登记多个 endpoint，每个关联执行身份和 endpoint；源命令退出但交互 Shell 存活时也应退登该命令的服务。
@@ -47,14 +48,14 @@ Service 公共字段：`id, projectId?, workspaceSessionId?, sourceSessionId?, n
 |---|---|
 | GET `/api/services?projectId=&kind=&status=&cursor=&limit=` | 活跃临时登记 + 持久服务分页；默认 50、最大 200 |
 | GET `/api/services/:id` | 详情、进程来源 / 状态、可用操作；不返回凭据 |
-| POST `/api/services` | `{ kind: "temporary", terminalId, terminalExecutionId, name, endpoint }`；验证后登记，不 spawn；持久服务创建配置须 M3-5 / M4 流程 |
+| POST `/api/services` | `{ kind: "temporary", terminalId, terminalExecutionId, name, endpoint }`；验证后登记，不 spawn；持久服务创建配置须M4完整发布流程 |
 | GET `/api/services/:id/logs?cursor=&limit=` | 受控读取关联日志，明确游标过期 / 截断；不接受文件路径 |
-| POST `/api/services/:id/actions` | 仅 persistent 的结构化 start / stop / restart，参数 / 配置快照审批；temporary 返回 CONFLICT 并提示所属终端入口 |
+| POST `/api/services/:id/actions` | M4：仅 persistent 的结构化 start / stop / restart，参数/配置快照授权（人工审批仅按策略需要）；temporary 返回 CONFLICT 并提示所属终端入口 |
 | GET `/api/preview/resolve?serviceId=&path=` | 绑定服务的相对路径转隔离预览目标，安全票据规则待 Q-002 PoC；不接受任意 upstream |
 
 工具草案：`register_temporary_service` / `list_services` / `get_service` / `read_service_logs` / `resolve_service_preview`；持久服务的 `start_service` / `stop_service` / `restart_service` 统一走服务动作引擎。临时服务不提供独立 start / stop / restart 工具。撤销临时登记由资源退出 / 对账触发，不靠 Agent 记得调用 unregister；需要停止时必须到终端实际停止进程，不能仅隐藏卡片冒充停止。
 
-读取 L0，登记预览目标 / PM2 变更按既有安全策略审批，部署替换必须走 M4 的计划与审批；不能用 M3 start 绕过首次生产部署或产物变更审批。卡片的前端按钮 / Agent 工具名称不构成授权。
+读取L0，登记/PM2/部署等业务动作均按真实策略快照授权：autonomous无人工审批/确认停等，标准/严格按风险询问，只读拒绝写入。部署必须有M4计划/产物完整性和授权记录，但人工批准不是自主模式的前置条件；不得用启停接口偷换产物/config绕过计划。卡片/工具名称不构成授权，不免除鉴权/范围/锁/幂等/审计。
 
 ## 5. 事件与存储草案
 
@@ -63,7 +64,7 @@ Service 公共字段：`id, projectId?, workspaceSessionId?, sourceSessionId?, n
 - `service.log` 是有界输出游标流，不冒充关键状态事件。临时日志与 terminal 输出共用来源 / 脱敏 / 保留策略。
 - `services` 增加 kind、scope、terminal_id?、terminal_execution_id?、endpoint_generation?、pm2_identity?、config_ref?、desired_state?、observed_state、endpoint_json?、preview_eligible、timestamps；kind 联合约束，temporary 不带 PM2 控制配置，persistent 不带终端进程所有权。
 - 活跃临时绑定 `(terminal_id, terminal_execution_id, normalized_endpoint, endpoint_generation)` 唯一；终态记录不能让新进程复用旧授权。PM2 标识绑定 Larness 实例命名空间，不能误操作别的 PM2 应用。
-- Tab / 服务卡片顺序 / selectedServiceId 不进业务表；新增迁移由 M3-1 / M3-5 分别负责，每任务最多一份，不修改已应用迁移或清空库。
+- Tab / 服务卡片顺序 / selectedServiceId 不进业务表；临时绑定迁移由M3-1负责，persistent/PM2与发布记录迁移由M4相关任务负责，每任务最多一份，不修改已应用迁移或清空库。
 
 ## 6. 文件与预览结果卡片
 
@@ -79,4 +80,8 @@ M2 文件修改工具结果 / 持久化 artifact 事件可附 file target，M3 �
 
 ## 7. 未决技术事项（不影响已确认产品分工）
 
-Q-002 隔离域 / 票据 / 反代 PoC；Q-003 PM2 交付；Q-026 临时进程到 endpoint 的跨平台身份核验与失效时限；Q-027 TUI 退出和升级对 PM2 正式服务的影响。M2 交互工具的输入 / 中断 / 人机接管草案见 m2-resources §10，具体 schema 仍待 G-Spec-M2；本契约不宣称新能力已经实现。
+M3：Q-002隔离域/票据/反代PoC、Q-026终端执行到endpoint身份与失效时限。M4：Q-003 PM2交付/命名空间、Q-027 TUI退出/升级对正式服务影响。PM2问题不再阻塞M3；M2/G2已验收，终端工具沿用已实现契约，本文件的服务/预览/发布草案不宣称已实现。
+
+## 8. 分阶段交付与授权规则
+M3只实现temporary字段/接口/日志/预览，不生成持久配置或测试PM2；M4在同一服务查询/卡片基础增加persistent资源及部署闭环，复用一套PM2/健康/日志/对账实现。正式地址和隔离预览地址分别定义，不能因服务属于M4就放宽预览来源规则。当前项目服务窗口不加项目切换器，沿用M2归属/浮栏；数据scope仍由后端授权。
+已授权自主Agent的首次部署/替换/启停/恢复没有额外“生产始终人工批准”或确认弹窗。只有策略要求人工时才产生WAIT_APPROVAL/approvalId；自主记录真实policySnapshotId/计划哈希和策略允许，不伪造人工批准。切回普通策略后新动作按新策略，不改运行中快照。
