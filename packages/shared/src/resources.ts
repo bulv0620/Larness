@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { CommandIdSchema, CommandStatusEventSchema } from "./commands";
 import { FilePathSchema, FileVersionSchema } from "./files";
+import { ServiceEventPayloadSchema, ServiceIdSchema } from "./services";
 import { TerminalEventSchema, TerminalIdSchema } from "./terminals";
 export const RESOURCE_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 
@@ -20,7 +21,7 @@ export const FileSubscriptionSchema = z
   .strict();
 export const ResourceEventsQuerySchema = z
   .object({
-    streamId: z.union([FileStreamIdSchema, CommandIdSchema, TerminalIdSchema]),
+    streamId: z.union([FileStreamIdSchema, CommandIdSchema, TerminalIdSchema, ServiceIdSchema]),
     after: z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
     limit: z.coerce.number().int().min(1).max(500).default(100),
   })
@@ -60,8 +61,31 @@ export const FileNotificationSchema = z.union([
     payload: FileResyncPayloadSchema,
   }),
 ]);
+const ServiceEventBase = z.object({
+  kind: z.literal("event"),
+  protocolVersion: z.literal(1),
+  topic: z.literal("service"),
+  eventId: z.string(),
+  streamId: ServiceIdSchema,
+  sequence: z.number().int().nonnegative(),
+  timestamp: z.number(),
+  projectId: z.string().optional(),
+});
+export const ServiceNotificationSchema = z.union([
+  ServiceEventBase.extend({
+    type: z.enum(["service.registered", "service.status", "service.unregistered"]),
+    payload: ServiceEventPayloadSchema,
+  }),
+]);
 export const ResourceReplaySchema = z.object({
-  items: z.array(z.union([FileNotificationSchema, CommandStatusEventSchema, TerminalEventSchema])),
+  items: z.array(
+    z.union([
+      FileNotificationSchema,
+      CommandStatusEventSchema,
+      TerminalEventSchema,
+      ServiceNotificationSchema,
+    ]),
+  ),
   currentSequence: z.number().int().nonnegative(),
   resyncRequired: z.boolean(),
 });

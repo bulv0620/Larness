@@ -1320,6 +1320,7 @@ export class TerminalManager {
       const op = findOperationById(this.options.db, row.operationId);
       if (op && ["COMPLETED", "FAILED"].includes(op.status))
         immediateTransaction(this.options.db, (tx) => {
+          deleteServicesForTerminal(tx, row.id);
           deleteTerminal(tx, row.id);
           deleteTerminalOperation(tx, row.operationId);
         });
@@ -1341,3 +1342,4 @@ export class TerminalManager {
 
 import { operationRow as findOperationById } from "../commands/repository.js";
 import { deleteOperation as deleteTerminalOperation } from "../resources/repository.js";
+import { deleteServicesForTerminal } from "../services/repository.js";
