@@ -33,7 +33,9 @@ it("authorizes each source before deduplicating a real file and never persists i
   const win = useWindowStore.getState().windows[0];
   if (!win) throw new Error("Missing file window");
   useWindowStore.getState().close(win.id);
-  expect(useWindowStore.getState().windows[0]?.minimized).toBe(true);
+  // Document windows request confirmation instead of minimizing; no draft is persisted meanwhile.
+  expect(useWindowStore.getState().closeRequest?.windowId).toBe(win.id);
+  expect(useWindowStore.getState().windows).toHaveLength(2);
   expect(useFileDraftStore.getState().drafts[document.realPath]?.text).toBe("private draft");
   expect(localStorage.getItem("larness.windows.v2")).not.toContain("private draft");
 });
