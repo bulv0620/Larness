@@ -1,6 +1,6 @@
 # ADR-043 开发预览来源、票据与服务执行身份
 
-- 状态：proposed；2026-11-05。用户授权开始规格评审，尚未批准本提案或实现。
+- 状态：accepted；2026-11-05 人类按[评审包](../../specs/040-services-preview/review.md)推荐批准 G-Spec-M3，仅授权先做 M3-0。远程独立注册域 HTTPS 实测延后至后续上线实验，本 ADR 的远程条款仍是设计约束，但未获实测验证，不得宣称已支持。
 - 关联：[040评审包](../../specs/040-services-preview/review.md)、[技术候选契约](../contracts/m3-preview.md)、ADR-030/038/040/042。
 
 ## 背景
@@ -9,6 +9,9 @@ M2已有真实PTY、Shell保留、输入租约和进程清理；没有服务登�
 管理Cookie当前host-only但不按端口隔离；只换端口不足以隔离项目代码。公网跨站iframe的Cookie可受浏览器限制，不能假定SameSite=None即可工作。Vite可能在HMR失败时直连开发端口，不能把这种回退当代理成功。
 
 ## 拟议决策
+
+> 2026-11-05 批准为 accepted；下列 1–9 条为约束，精确字段/时限/JA3 适配由 M3-0 PoC 冻结。第 1 条远程部分与第 3 条跨站 Cookie 实测延后至上线实验，标未验证。
+
 1. 每次预览使用独立host，绑定serviceId/endpointGeneration/访问grant；本机候选`<opaque>.preview.localhost`，只供Larness主机上的浏览器。远程内嵌要求独立注册域、通配DNS/TLS及明确反代配置；不内置公网隧道，不让远程浏览器访问它自己的localhost。未知Host在路由分派前拒绝，预览Host绝不挂载管理API/静态管理页。
 2. 已鉴权管理端POST解析后领取30秒一次性bootstrap票据；受控bootstrap消费票据，换只读当前服务的短期预览访问grant（最长15分钟且不超过管理会话），再导航项目路径。票据不进查询串、日志、模型/事件或持久布局；消费页不加载项目内容，响应no-store/no-referrer，票据不透传上游。不能把随机host当凭据。
 3. Cookie方案为PoC候选：预览独立host-only/HttpOnly Cookie，HTTPS使用Secure；跨站iframe验证SameSite=None/Partitioned，外部顶层打开使用独立bootstrap/grant。预览访问Cookie永不透传上游；应用自身Cookie单独限域处理。浏览器阻止内嵌时可提供隔离来源外部打开，不要求关闭浏览器保护，不退化同源iframe。仅本机HTTP的兼容性必须实测；未证实的组合不声称支持。M3正式实现前在G-PoC冻结精确交换/Cookie协议。

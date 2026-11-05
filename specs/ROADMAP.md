@@ -11,7 +11,7 @@
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `done` | G2 于2026-11-05通过人类整体验收；范围与边界见030/closure.md |
-| M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `draft` | G3 |
+| M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `in_progress` | G-Spec-M3 通过（2026-11-05）；M3-0 进行中，G3 待验收 |
 | M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
 
@@ -186,15 +186,13 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | R0-0 | 资源生命周期、两类服务与结果入口文档同步 | 人类明确规则及文档指令 | `done`（仅文档） |
 | R0-1 | [M3/M4边界与自主部署文档](048-service-deploy-boundary/spec.md) | G2 done；用户明确决定 | `done`（仅文档；M3/M4仍draft） |
 
-## 6. M3 开发服务与隔离预览（草案）
+## 6. M3 开发服务与隔离预览（实施中）
 
-M3-P规格准备：`done`（材料完成，等待人类审批），2026-11-05用户要求开始规格审批；仅文档，评审包见040/review.md，未批准G-Spec或启动PoC。
-
-2026-11-05产品边界按[ADR-042](../docs/adr/ADR-042-service-deploy-boundary.md)获准；G2已通过，M3技术G-Spec/PoC仍待确认。M3不含PM2或正式运行，不依赖Q-003/Q-027。详[spec](040-services-preview/spec.md)/[plan](040-services-preview/plan.md)/[tasks](040-services-preview/tasks.md)/[review](040-services-preview/review.md)。
+2026-11-05 人类按[评审包](040-services-preview/review.md)推荐批准 G-Spec-M3：040 spec `ready`、[ADR-043](../docs/adr/ADR-043-development-preview-authorization.md) `accepted`、Q-002/Q-026 方案确认；仅授权先做 M3-0，G-PoC-M3 通过后才 M3-1。远程独立注册域 HTTPS 实测延后至后续上线实验，本阶段标未验证。M3 不含 PM2 或正式运行，不依赖 Q-003/Q-027。详 [spec](040-services-preview/spec.md)/[plan](040-services-preview/plan.md)/[tasks](040-services-preview/tasks.md)/[review](040-services-preview/review.md)。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M3-0 | 开发执行身份与隔离预览PoC | G2；G-Spec-M3；Q-002/Q-026方案 | `todo` |
+| M3-0 | 开发执行身份与隔离预览PoC | G2；G-Spec-M3；Q-002/Q-026方案 | `in_progress` |
 | M3-1 | 临时登记/源退出退登/日志与事件 | M3-0；G-PoC-M3 | `todo` |
 | M3-2 | 当前项目服务卡片/详情/关联日志 | M3-1 | `todo` |
 | M3-3 | PreviewRegistry/HTTP/WS固定上游 | M3-1 | `todo` |
@@ -281,11 +279,12 @@ M3-P规格准备：`done`（材料完成，等待人类审批），2026-11-05用
 
 **状态：G2 已于2026-11-05通过人类整体验收；M2-0～28及M2-24b均done。已知边界保留，见[最终收尾](030-dev-resources/closure.md)。**
 
-### G-Spec-M3 / G-PoC-M3（待确认）
+### G-Spec-M3 已通过 / G-PoC-M3（待确认）
 
-- G-Spec：人类确认040评审包、ADR-043与技术候选，含来源/票据/执行身份/loopback范围及残余风险与PoC证据标准；仅允许M3-0。
+- G-Spec-M3（2026-11-05）：人类按 040 评审包推荐批准 ADR-043、来源/票据/执行身份/loopback 范围及残余风险与 PoC 证据标准；仅允许 M3-0。
+- 远程独立注册域 HTTPS 实测延后至后续上线实验（人类决定）；G-PoC 按已确认范围评审，远程项明确标未验证，不得宣称已支持。
 - G-PoC：M3-0提供真实资源与安全矩阵证据，冻结精确身份适配/Cookie协议/时限/平台支持；获人类确认后才能M3-1。
-- 无公网代表环境标未验证；失败/新依赖/范围变化回评审，不能用文档完成代替批准。
+- 失败/新依赖/范围变化回评审，不能用文档完成代替批准。
 
 ### G3 开发服务与隔离预览
 

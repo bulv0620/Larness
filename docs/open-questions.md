@@ -7,7 +7,6 @@
 
 | ID | 问题 | 默认方案 | 影响 | 截止 |
 |---|---|---|---|---|
-| Q-002 | 预览独立来源如何落地？ | 开发：`<token>.preview.localhost`（需验证解析）；生产：配置独立注册域；无独立来源时禁用公网内嵌预览 | M3 代理、Cookie 作用域、CSP、PoC | M3 开始前 |
 | Q-003 | PM2 是随包依赖还是可选外部安装？ | 先作为依赖随包，`PM2Adapter` 可替换；打包体积与Daemon隔离在M4-0 PoC | 发布物、跨平台、升级 | M4-0开始前 |
 | Q-004 | 仓库许可证？ | 暂不添加 LICENSE，按私有项目处理 | 开源 / 分发 | 公开发布前 |
 | Q-005 | Windows 支持的时间与范围？ | macOS 主开发；Linux CI；Windows 在 M5 前完成 PTY / 路径 / PM2 / 更新 / Passkey PoC | 任务排期、发布说明 | M5 开始前 |
@@ -23,10 +22,11 @@
 | Q-016 | 所有 Passkey 丢失 / TUI 不可用时如何恢复？ | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码仍为 P1 | 恢复流程、支持成本 | M4 |
 | Q-017 | 是否允许可同步 Passkey（iCloud / Google）？ | 允许；存储 `backupEligible` / `backupState` 并在设备列表展示，不承诺物理设备绑定 | 安全文案、撤销粒度 | M0-6 |
 | Q-018 | 是否保留 `允许本次` 临时访问？ | 保留；仅短期会话，不注册 Passkey，不产生长期凭据 | 兼容不支持 WebAuthn 的浏览器 | M0-5 |
-| Q-026 | 如何核验 Terminal 该次执行与实际监听 endpoint 的关系及失效时限？ | M3-0 实机验证终端后代 / 执行身份、端口复用、退出事件 + 对账；未知不开放预览，不做全主机端口收养 | [服务契约](contracts/services-preview.md)，临时登记 / SSRF / 撤销 | G-Spec-M3 / M3-0 |
 | Q-027 | 退出受管 TUI / 更新时，PM2 正式服务是否继续？ | 未批准；ADR-023 停止全部与 PM2 正式服务目标需单独界定，不默认扩大常驻或强杀策略 | 持久服务生命周期、上线 / 更新影响提示与验收 | M4-0 / 持久服务交付前 |
 
 ## 已解决
+
+Q-002 / Q-026（2026-11-05）：人类按[评审包](../specs/040-services-preview/review.md)推荐批准 G-Spec-M3，[ADR-043](adr/ADR-043-development-preview-authorization.md) 转 accepted。Q-002 采用本机 `*.preview.localhost` + 远程独立注册域/通配 DNS/HTTPS 反代；Q-026 采用后端核验 launch/执行/监听 owner+birth/generation、≤1 秒对账、证据陈旧 >2 秒拒绝，并接受 connect 竞态残余风险。远程 HTTPS 实测延后至后续上线实验，M3-0 先做本机证据；实现细节由 G-PoC 冻结，未验证项不得宣称支持。
 
 Q-022（2026-11-03）：人类在阅读 M2-0 PoC 后明确开始 M2-1，G-PoC-M2 通过；实测 macOS arm64，支持范围及文件最终竞态 / 进程身份边界见 [poc.md](../specs/030-dev-resources/poc.md)。
 
@@ -67,5 +67,5 @@ M2/G2及全部纠错已获人类统一通过，见[收尾记录](../specs/030-de
 ## ADR-042已确认边界（2026-11-05）
 M3仅开发登记/隔离预览，Q-002/Q-026仍属M3；Q-003/Q-027移到M4 PM2门禁，不再阻塞M3。完全自主在所有已授权Agent业务动作（含首次部署/替换/启停/支持的恢复）均无人工步骤，其他模式依风险决定；计划/安全校验保留，不再将“部署是否允许免人工”列为开放问题。技术schema/grant与Turn结束关系/恢复等仍待M4评审。
 
-## M3规格评审已启动（2026-11-05）
-用户要求开始规格审批，推荐方案及残余风险详[040/review](../specs/040-services-preview/review.md)/[ADR-043](adr/ADR-043-development-preview-authorization.md)。Q-002候选为本机独立host、远程独立注册域HTTPS、30秒bootstrap换15分钟grant；Q-026候选为launch/执行/监听身份核验、1秒对账/2秒证据陈旧拒绝及connect竞态实测。两项仍未批准或解决，材料完成不等于PoC通过。G-Spec仅允许M3-0，G-PoC后M3-1。
+## M3规格评审已通过（2026-11-05）
+人类“按推荐批准”，远程验证延后至上线实验；评审材料见[040/review](../specs/040-services-preview/review.md)，决策见[ADR-043](adr/ADR-043-development-preview-authorization.md)。Q-002/Q-026 已移入“已解决”，仅授权先做 M3-0；G-PoC-M3 确认后 M3-1。

@@ -1,6 +1,6 @@
 # 计划：M3 开发服务与隔离预览
 
-> draft，2026-11-05按ADR-042更新。产品边界获准，技术G-Spec/PoC尚未通过；只规划，不开始实现。
+> draft→实施中，2026-11-05 按 ADR-042 更新，同日 G-Spec-M3 按推荐通过。仅授权先做 M3-0；远程 HTTPS 实测延后至上线实验，本阶段只交本机隔离来源与其余证据。
 
 ## 职责与顺序
 TerminalManager唯一管理开发进程；Registry只登记执行身份/endpoint、关联日志和源退出失效，PreviewRegistry只代理核验后的活跃loopback目标。服务卡片/详情复用M2当前项目窗口，无跨项目切换器或服务资源Tab。PM2Adapter/持久服务全部M4，M3不依赖正式部署。
@@ -18,9 +18,9 @@ M3-1只做temporary相关迁移，每任务最多一份，不改已应用迁移�
 ## 验证与任务迁移
 先失败测试再实现，按任务风险运行必要检查，真实HTTP/WS/PTY/浏览器证据不可用Mock代替，安全负例必须覆盖。旧M3-5迁至M4-0/M4-3，旧M3-5b迁至M4-3b，M3-6改依赖M3-4；Q-003/Q-027移到M4门禁，M3不运行PM2实验。历史编号不复用，迁移不表示完成。
 
-## 本轮技术接入候选（待审批）
+## 本轮技术接入（2026-11-05 已批准）
 
-- [ADR-043](../../docs/adr/ADR-043-development-preview-authorization.md)/[技术契约](../../docs/contracts/m3-preview.md)定义推荐方案。G-Spec仅允许M3-0，poc.md与G-PoC-M3确认后才能M3-1，不能从产品方向批准推断实现授权。
+- [ADR-043](../../docs/adr/ADR-043-development-preview-authorization.md)/[技术契约](../../docs/contracts/m3-preview.md)定义已批准方案。仅先做 M3-0，poc.md 与 G-PoC-M3 确认后才能 M3-1；远程独立注册域 HTTPS 实测延后至上线实验并标未验证。
 - 复用TerminalManager/ManagedPty的launch和进程信息，但输入租约generation、ps文本birth不能冒充已证实执行身份；新增监听归属适配器先PoC，不改变PTY/人工输入生命周期，不扫描主机端口。
 - 人工登记沿resource-actions准备/审批/execute；当前路由实际绑定GitManager，M3-1须按kind分派并保留原Git用例。Agent沿Turn策略进入共同核心，不重复人工审批；自主无人工等待。登记短持project→service锁，服务存活期不持源码写锁。
 - 预览独立Host路由不挂管理API，bootstrap与项目内容分开，POST领取票据；Cookie/CSP/应用登录和WS/HMR分项实测，不默认新增原生或代理依赖。

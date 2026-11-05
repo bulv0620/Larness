@@ -1,6 +1,6 @@
 # M3 技术契约候选
 
-> draft，2026-11-05；配套[ADR-043提案](../adr/ADR-043-development-preview-authorization.md)与[评审包](../../specs/040-services-preview/review.md)。仅供规格审批；尚无API/schema/配置实现。G-Spec批准方案与PoC边界，G-PoC再冻结平台检测与票据交换细节。与服务总契约的冲突以本候选明确列出的变更为评审对象，不把旧草案当已实现接口。
+> 候选，2026-11-05；配套[ADR-043](../adr/ADR-043-development-preview-authorization.md)（已 accepted）与[评审包](../../specs/040-services-preview/review.md)。G-Spec-M3 已于 2026-11-05 批准方案与 PoC 边界；字段/时限仍是候选，由 M3-0 与 G-PoC 冻结。远程独立注册域 HTTPS 实测延后至上线实验，远程分项标未验证。尚无 API/schema/配置实现；与服务总契约的冲突以本候选明确列出的变更为评审对象，不把旧草案当已实现接口。
 
 ## 1. 执行身份与登记
 - terminalId标识PTY资源；后端已有launchId标识该次PTY启动；新terminalExecutionId标识此次已验证的服务进程树/监听实例。它不是TerminalLease.generation、TurnId、terminalId或仅PID。
@@ -61,4 +61,4 @@ PoC仅临时测试数据/真实PTY/loopback服务/专用测试来源，不能使
 
 P1：两个终端、同PTY Ctrl+C/再启动/Agent重新输入/人工接管；同时验证租约generation不当执行身份。P2：短命父进程、子服务、端口复用/PID身份变化/重复监听/探测失败，旧grant和旧流失效。P3：独立来源/管理Cookie/应用Cookie/CSRF/CORS/Host/票据重放/泄漏/会话撤销。P4：真实Vite6 HTTP/WS/HMR和前端相对API代理后端，浏览器网络确认无直连端口回退；不能用Mock网络替代。P5：DB故障/重启/慢消费者/超限、两认证客户端隔离grant、普通/只读/自主策略。
 
-G-Spec确认ADR/候选/范围后仅M3-0可开始；G-PoC依据poc.md确认精确身份适配器、Cookie交换/支持矩阵、限额/时限与残余风险后才可M3-1。公网代表性HTTPS来源无法具备时标未验证并回人类决定，不以本机两个端口冒充已验证独立注册域。方案变化/新依赖/关键失败回评审，不暗中缩水。
+G-Spec-M3 已于 2026-11-05 按推荐批准，仅先启动 M3-0；G-PoC 依据 poc.md 确认精确身份适配器、Cookie 交换/支持矩阵、限额/时限与残余风险后才可 M3-1。远程独立注册域 HTTPS 实测延后至后续上线实验，本次 PoC 只验本机 `*.preview.localhost` 并把远程标未验证；不以本机两个端口冒充已验证独立注册域。方案变化/新依赖/关键失败回评审，不暗中缩水。
