@@ -1,7 +1,7 @@
 import type { ServiceDto } from "@larness/shared";
 import { Button, cn, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, Server, SquareTerminal } from "lucide-react";
+import { ArrowLeft, ExternalLink, Plus, Server, SquareTerminal } from "lucide-react";
 import { useState } from "react";
 import {
   createServiceAction,
@@ -16,6 +16,7 @@ import {
 } from "@/features/services/api";
 import { listTerminals, openTerminal, readTerminal } from "@/features/terminals/api";
 import type { WindowTab } from "@/lib/windowTypes";
+import { useWindowStore } from "@/stores/windowStore";
 
 function statusLabel(status: ServiceDto["status"]) {
   return status === "RUNNING"
@@ -203,6 +204,7 @@ function ServiceDetail({
     refetchInterval: 2000,
   });
   const [terminalError, setTerminalError] = useState("");
+  const openWindow = useWindowStore((state) => state.open);
   const service = detail.data;
   if (detail.isError) {
     return (
@@ -241,20 +243,38 @@ function ServiceDetail({
             {`${service.endpoint.protocol}://${service.endpoint.host}:${service.endpoint.port}`}
           </div>
         </div>
-        <Button
-          className="ml-auto"
-          size="sm"
-          variant="secondary"
-          leading={<SquareTerminal size={12} />}
-          onClick={() => {
-            setTerminalError("");
-            void readTerminal(service.terminalId)
-              .then(openTerminal)
-              .catch(() => setTerminalError("所属终端不可用"));
-          }}
-        >
-          打开终端
-        </Button>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="secondary"
+            leading={<SquareTerminal size={12} />}
+            onClick={() => {
+              setTerminalError("");
+              void readTerminal(service.terminalId)
+                .then(openTerminal)
+                .catch(() => setTerminalError("所属终端不可用"));
+            }}
+          >
+            打开终端
+          </Button>
+          <Button
+            size="sm"
+            leading={<ExternalLink size={12} />}
+            disabled={service.status !== "RUNNING"}
+            onClick={() =>
+              openWindow({
+                kind: "browser",
+                resourceId: `browser:${service.id}:/`,
+                browser: { serviceId: service.id, path: "/" },
+                title: `预览 ${service.name}`,
+                projectId: service.projectId,
+                source: "artifact",
+              })
+            }
+          >
+            预览
+          </Button>
+        </div>
       </div>
 
       {ended ? (

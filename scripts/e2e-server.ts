@@ -8,8 +8,19 @@ import { connectIpc } from "../apps/server/src/ipc/client.js";
 import type { ProviderResolver } from "../apps/server/src/modules/agent/turnRunner.js";
 import { getProjectById } from "../apps/server/src/modules/projects/repository.js";
 import { createFakeProvider, type ProviderChunk } from "../packages/agent/src/index.js";
+import { DEFAULT_APP_CONFIG } from "../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(path.join(tmpdir(), "larness-e2e-"));
+const previewPort = Number(process.env.LARNESS_E2E_PREVIEW_PORT ?? 3211);
+writeFileSync(
+  path.join(dataDir, "config.json"),
+  `${JSON.stringify(
+    { ...DEFAULT_APP_CONFIG, preview: { enabled: true, port: previewPort } },
+    null,
+    2,
+  )}\n`,
+  { mode: 0o600 },
+);
 const port = Number(process.env.LARNESS_E2E_PORT ?? 3210);
 const publicUrl = process.env.LARNESS_E2E_PUBLIC_URL ?? "http://localhost:5173";
 
@@ -110,6 +121,36 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
                   role: "backend",
                   executable: process.execPath,
                   args: ["-e", "process.stdout.write('BACK_READY\\n');setInterval(()=>{},1000)"],
+                },
+              },
+            },
+            { type: "finish", finishReason: "tool-calls" },
+          ],
+        },
+        textStep("开发终端已启动。"),
+      ]),
+      model: "fake",
+    };
+  }
+
+  if (input.startsWith("vite start ")) {
+    const port = Number(input.split(" ").at(-1));
+    if (!Number.isInteger(port) || port < 1 || port > 65535)
+      return { adapter: createFakeProvider([textStep("invalid vite port")]), model: "fake" };
+    const viteBin = path.join(root, "apps/web/node_modules/vite/bin/vite.js");
+    return {
+      adapter: createFakeProvider([
+        {
+          chunks: [
+            {
+              type: "tool-call",
+              toolCall: {
+                id: "vite-frontend",
+                name: "start_project_terminal",
+                args: {
+                  role: "frontend",
+                  executable: process.execPath,
+                  args: [viteBin, "--port", String(port), "--strictPort", "--host", "127.0.0.1"],
                 },
               },
             },

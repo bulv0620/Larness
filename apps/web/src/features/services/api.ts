@@ -58,3 +58,23 @@ export async function executeServiceAction(id: string) {
     }),
   ) as ServiceActionView;
 }
+
+export interface PreviewSession {
+  origin: string;
+  bootstrapUrl: string;
+  ticket: string;
+  expiresAt: number;
+  mode: "embedded" | "external";
+}
+
+export async function resolvePreview(
+  serviceId: string,
+  path = "/",
+  mode: "embedded" | "external" = "embedded",
+): Promise<PreviewSession> {
+  return apiFetch<PreviewSession>("/api/previews/resolve", {
+    method: "POST",
+    csrf: true,
+    body: { serviceId, path, mode },
+  });
+}

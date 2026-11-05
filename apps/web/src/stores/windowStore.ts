@@ -35,6 +35,7 @@ interface OpenInput {
   source?: OpenSource;
   file?: WindowTab["file"];
   git?: WindowTab["git"];
+  browser?: WindowTab["browser"];
   /** Agent-created resources are inserted without taking focus unless explicitly opened. */
   activate?: boolean;
 }
@@ -96,8 +97,8 @@ function isDemoTab(tab: WindowTab): boolean {
   return (
     tab.projectId === "prj_larness" ||
     DEMO_RESOURCE_IDS.has(tab.resourceId) ||
-    tab.kind === "services" ||
-    tab.kind === "browser" ||
+    (tab.kind === "services" && tab.resourceId.startsWith("svc_")) ||
+    (tab.kind === "browser" && tab.browser === undefined) ||
     (tab.kind === "files" && tab.file === undefined) ||
     (tab.kind === "git-diff" && tab.git === undefined)
   );
@@ -119,7 +120,9 @@ export function migrateWindowLayout(persisted: unknown, _version: number): unkno
             ? `file:${tab.resourceId}`
             : tab.kind === "git-diff" && tab.git
               ? `diff:${tab.projectId}:${tab.git.path}`
-              : `${tab.kind}:${tab.resourceId}`),
+              : tab.kind === "browser" && tab.browser
+                ? `browser:${tab.browser.serviceId}:${tab.browser.path}`
+                : `${tab.kind}:${tab.resourceId}`),
         createdAt: tab.createdAt ?? now + counter++,
       }));
     if (!tabs.length) return [];
@@ -170,6 +173,7 @@ export const useWindowStore = create<WindowState>()(
         source = "header",
         file,
         git,
+        browser,
         activate = true,
       }) => {
         const state = get();
@@ -178,7 +182,9 @@ export const useWindowStore = create<WindowState>()(
             ? `file:${resourceId}`
             : kind === "git-diff" && git
               ? `diff:${projectId}:${git.path}`
-              : `${kind}:${resourceId}`;
+              : kind === "browser" && browser
+                ? `browser:${browser.serviceId}:${browser.path}`
+                : `${kind}:${resourceId}`;
         const scope = resourceScopeKey(projectId, sessionId);
         const tabMatch = state.windows.find(
           (win) =>
@@ -200,11 +206,12 @@ export const useWindowStore = create<WindowState>()(
               : item.kind === kind && item.resourceId === resourceId,
           );
           const updatedTab =
-            tab && (file || git)
+            tab && (file || git || browser)
               ? {
                   ...tab,
                   ...(file ? { file } : {}),
                   ...(git ? { git } : {}),
+                  ...(browser ? { browser } : {}),
                   projectId,
                   sourceSessionId: sessionId,
                   originType: originFor(source),
@@ -257,6 +264,7 @@ export const useWindowStore = create<WindowState>()(
           originType: originFor(source),
           ...(file ? { file } : {}),
           ...(git ? { git } : {}),
+          ...(browser ? { browser } : {}),
         };
 
         const sameKind = state.windows.find(
