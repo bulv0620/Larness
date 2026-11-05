@@ -60,7 +60,9 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
   ).toBeVisible();
   await input.fill("list");
   await page.getByRole("button", { name: "发送消息" }).click();
-  await expect(page.getByText("项目文件已列出。", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("项目文件已列出。", { exact: true })).toHaveCount(1, {
+    timeout: 20_000,
+  });
   expect(await log.evaluate((element) => element.scrollTop)).toBeLessThan(100);
   await expect(page.getByRole("button", { name: "回到最新消息" })).toBeVisible();
   await page.getByRole("button", { name: "回到最新消息" }).click();

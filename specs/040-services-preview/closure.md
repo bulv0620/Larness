@@ -40,7 +40,7 @@
 - `pnpm check`：通过（server 442 通过 / 2 跳过；Web 通过；Biome/类型通过）。
 - `pnpm build`：通过（既有大 chunk 警告保留）。
 - 真实 Chromium E2E（独立端口）：`services.spec.ts` 1/1、`preview.spec.ts` 1/1。
-- 完整 auth E2E 批量：9/14；随后修正 services（终端角色改名）与 files（隐藏语义 + Monaco 已知 console 噪声）测试，二者单独通过。仍有 3 项 M2 用例（conversation/default-workspace/git）失败，属 M2-24/26 后的测试漂移，未改产品代码掩盖。
+- 完整 auth E2E 批量：9/14；随后修正 services（终端角色改名）与 files（隐藏语义 + Monaco 已知 console 噪声）测试，二者单独通过。conversation 仍失败：服务端事件含最终“项目文件已列出。”，但 UI 折叠过程后未渲染该答复，需另立任务定位（疑似 M2 时间线回归，不属 M3 改动）；default-workspace/git 仍为旧选择器/超时。
 - Demo E2E：12/15；4 项 S0 视觉断言仍按 M2-26 之前的“分隔线/双分区”旧布局，属历史测试漂移，未在本任务修改产品布局。
 
 ## 已知边界（不冒充完成）
