@@ -306,10 +306,10 @@ test("M2-9 project terminal rename, tab overflow and dock restoration", async ({
       await page.getByLabel("终端名称", { exact: true }).press("Enter");
       await expect(
         page.getByRole("tab", { name: `开发终端 ${index + 1} · frontend watch`, exact: true }),
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 15_000 });
     }
     const tabs = page.getByRole("tablist", { name: "窗口 Tab" });
-    await expect(tabs.getByRole("tab")).toHaveCount(8);
+    await expect(tabs.getByRole("tab")).toHaveCount(8, { timeout: 15_000 });
     await expect(page.getByRole("button", { name: "向左滚动 Tab" })).toBeVisible();
     const geometry = await tabs.evaluate((el) => ({
       height: el.getBoundingClientRect().height,

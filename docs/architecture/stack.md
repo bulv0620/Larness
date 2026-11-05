@@ -44,7 +44,7 @@
 | Diff / Patch | `diff`（jsdiff） | apply_patch 与 Diff 视图；不自行实现补丁解析 |
 | HTTP 代理 | `undici` | 预览代理；禁止任意 upstream |
 | PTY | `node-pty` | 平台 PoC；失败退路见 M2 |
-| 进程托管 | `PM2`（PM2Adapter） | 持久服务；临时 dev 进程由 TerminalManager / PTY 控制，ServiceRegistry 仅登记展示 / 预览（ADR-030） |
+| 进程托管 | `PM2`（PM2Adapter） | M4持久服务；M3临时dev由TerminalManager/PTY控制，Registry仅登记展示/预览（ADR-030/042），M3不引入PM2交付依赖 |
 | 配置 | JSON + 环境变量 | `env-paths` 定位数据目录；Zod 校验 |
 
 ## 4. Agent

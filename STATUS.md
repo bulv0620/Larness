@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-05 (+08:00)
-> 当前阶段：**M2 / G2 已于 2026-11-05 通过人类整体验收；下一步 M3 规格评审（尚未开始）**
+> 当前阶段：**M3 已完成并通过 G3（2026-11-05）；下一步 M4 规格评审（远程 HTTPS 延后，未验证）**
 
 ## 里程碑
 
@@ -11,8 +11,8 @@
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
-| M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
-| M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
+| M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
+| M4 | 持久运行与版本发布 | `draft` | 全部PM2/正式发布；G3 已过，依赖 Q-003/Q-027 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
 
 ## 初始化修复（2026-11-02）
@@ -61,7 +61,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - M2 / G2：`done`。2026-11-05 用户明确“所有修改内容验收通过，M2阶段也整体通过”，M2-0～28与M2-24b统一关闭；最终行为、范围、测试与遗留边界见 [M2收尾](specs/030-dev-resources/closure.md)。
 - M2-29：本次文档/合并发布收尾，分支 `task/m2-29-acceptance-close`；用户已授权合并到main并push。无产品代码变更，延用必要校验要求。
-- 当前无进行中的M2功能任务。下一步为M3的spec/plan/tasks评审与G-Spec-M3，仍为draft，本轮不启动M3实现。
+- R0-1文档任务：用户已明确M3开发预览/M4持久发布，以及自主模式部署免人工；仅同步文档，详ADR-042。
+- 当前无进行中的M2功能任务。M3：G-Spec-M3 已于 2026-11-05 按推荐批准（040 spec `ready`、ADR-043 `accepted`、Q-002/Q-026 确认），仅 M3-0 已授权，正在实施；G-PoC-M3 通过后才可 M3-1。
 - 已知边界保留：认证E2E批量抖动、Monaco CSP unsafe-eval、Git 3秒轮询、macOS单平台验证；不以验收通过宣称这些问题已修复。
 - 以下“变更记录”和逐任务启动/交付段落均为历史记录；其中当时的in_progress、待人类或不合并/push要求，已由本次最终验收和明确发布授权替代。
 
@@ -83,7 +84,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 | 所有 Passkey 丢失且 TUI 不可用时如何恢复 | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码为 P1 | M4 |
 | 是否允许可同步 Passkey | 已按默认实现：允许，存储并展示 backupEligible / backupState | 已实现（M0-6） |
 | 预览独立来源方案 | 开发用 `*.preview.localhost`，生产要求独立域 | M3 开始前 |
-| PM2 交付方式 | 随包依赖 + 可选外部安装 | M3 开始前 |
+| PM2 交付方式 | Q-003在M4 PoC冻结，未默认选择依赖方案 | M4 开始前 |
 | 仓库许可证 | 未定，暂不添加 LICENSE | 公开发布前 |
 
 完整列表见 [docs/open-questions.md](docs/open-questions.md)。
@@ -426,3 +427,37 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 ## M2-29 / G2 整体关闭（2026-11-05 +08:00）
 - 用户明确通过全部修改与M2整体；所有M2切片状态done，文档/契约入口已同步。已授权合并main并push；不自动启动M3。最终验收见030/closure.md，已有测试与已知边界据实保留。
 - 收尾必要检查：全仓Biome（458文件，保留4 warning/1 info）、全workspace类型、文档链接110处、M2切片状态与M3 draft一致性、diff检查通过；本次未重跑全量单元/构建/E2E。
+
+## R0-1 M3/M4边界与自主部署文档（2026-11-05）
+- done，task/r0-1-service-deploy-boundary；产品方向已批准，ADR-042、规格/计划/任务、契约、架构与文档入口已同步。M3七个活动任务，M4六个，旧M3-5/5b迁移映射保留；完全自主覆盖已授权业务能力，包含部署且无人工关卡。
+- 必要文档校验：本地链接、任务依赖无环/编号迁移、策略一致性、草案状态及diff通过；见 [验收记录](specs/048-service-deploy-boundary/acceptance.md)。本次无代码/运行时变更，未运行构建、业务测试或PM2实验。M3/M4仍draft，技术规格/PoC/实现未启动；本次仅本地提交。
+
+## M3-P 技术规格评审（2026-11-05 +08:00）
+- done（评审材料），task/m3-p-spec-review；用户要求开始规格审批。已整理Q-002/Q-026推荐方案、接口/数据/配置候选、真实PoC证据与失败回退边界，见[评审包](specs/040-services-preview/review.md)。仅文档；ADR-043 proposed、040 spec draft，等待人类确认G-Spec-M3，仅先授权M3-0；G-PoC后才能M3-1。
+- 必要校验：本地链接、Markdown表格、七个实施任务todo/依赖无环、候选/草案状态与diff通过。未运行代码测试/构建/浏览器/进程实验，无新依赖/配置/数据变更。本地提交，不合并/推送。
+
+## G-Spec-M3 通过 / M3-0 启动（2026-11-05 +08:00）
+- 人类“按推荐批准吧，远程验证可以放到后续上线实验”。G-Spec-M3 通过：040 spec `ready`、ADR-043 `accepted`、Q-002/Q-026 移入已解决；仅授权 M3-0，G-PoC-M3 确认后才 M3-1。
+- 范围分级：M3-0 交 P1/P2 执行与监听身份、P3 本机隔离来源/票据/Cookie、P4 真实 Vite/HMR/开发 API、P5 故障与策略证据；远程独立注册域 HTTPS 延后至上线实验，本轮明确标未验证，不冒充 G-PoC/G3 通过。
+- 当前 M3-0 `done`（G-PoC 2026-11-05 人类确认）；M3-1 启动，分支 `task/m3-1-registration`；先失败测试，真实 PTY/loopback/浏览器证据，临时数据与进程结束清理。
+- 本次文档同步：040 spec/plan/tasks/review、ADR-043、m3-preview 契约、open-questions、ROADMAP、STATUS。
+- M3-0 完成（2026-11-05，`review`）：新增 `apps/server/scripts/m3-poc/{identity,gateway}.ts` 与 4 个 PoC 测试文件；P1–P5 共 12 项真实测试通过（PTY 身份/端口复用、本机隔离来源/票据/Cookie、真实 Vite 7 HMR/相对 API、限额/故障/重启、请求体上限与慢读者隔离、策略映射），证据见 [poc.md](specs/040-services-preview/poc.md)；新增 `pnpm test:poc:m3`。
+- M3-0 边界：远程独立注册域 HTTPS 未验证（人类决定延后至上线实验）；check-to-connect 残余窗口已实测；登记策略/慢消费者/真实 DB 属 M3-1。`pnpm check` 暴露的既有 web 关闭断言已按 M2-24 现行行为对齐（仅测试），未改产品代码。G-PoC-M3 未提交，M3-1 未开始。
+
+## G-PoC-M3 通过 / M3-1 启动（2026-11-05 +08:00）
+- 人类确认 G-PoC-M3：接受 M3-0 的 12 项真实证据、残余竞态窗口、Vite 7.3.7 实际版本及远程 HTTPS 延后；M3-0 标 done。
+- M3-1 `done`（2026-11-05，分支 `task/m3-1-registration`）：登记/查询/退登/幂等、resource-action、Agent 工具、WS 事件与重启失效均完成，见 [验收](specs/040-services-preview/acceptance-m3-1.md)。下一步 M3-2 服务卡片/详情 UI。
+- M3-1 完成（2026-11-05）：迁移、共享 schema、身份适配、ServiceManager、resource-action 分派、服务 REST、App/1 秒对账、Agent 工具、WS 事件完成；终端关闭连带退登、重启失效、DB 事件失败回滚均有真实测试；`pnpm check` server 435 / 2 skipped、Web 全通过。
+- M3-2 完成（2026-11-05）：服务窗口（卡片/详情/日志/打开终端/结束提示/L2 登记审批）组件测试 + 真实 Chromium E2E 通过；修复项目删除未清理 services/resource_actions 的外键回归。见 [验收](specs/040-services-preview/acceptance-m3-2.md)。
+- M3-3 完成（2026-11-05）：PreviewRegistry、HTTP/WS 固定上游、票据/grant、resolve API、`preview.port` 配置与事件撤销通过真实测试；见 [验收](specs/040-services-preview/acceptance-m3-3.md)。
+- M3-3b 完成（2026-11-05）：Host/路径/重定向/管理 API 与 Cookie/票据重放过期/会话撤销/退登/限额/请求体/WS 无 grant 负例通过；DB 故障仅以会话撤销验证，见 [验收](specs/040-services-preview/acceptance-m3-3b.md)。
+- M3-4 完成（2026-11-05）：独立 iframe 预览、票据 POST、Browser Tab 去重/布局恢复、Agent `resolve_service_preview` L0 与时间线卡片完成；真实 Vite 7 E2E 验证 HMR、相对 `/api`、无直连端口与预览后 Ctrl+C 退登。见 [验收](specs/040-services-preview/acceptance-m3-4.md)。
+- ADR-045（2026-11-05）：临时服务支持独立“删除登记”（不杀进程）与“停止服务”（终止已验证监听进程树、保留 Shell）；新增 DELETE/stop API 与 UI 确认。
+- ADR-044（2026-11-05）：按人类要求，登记不再限制绑定地址；通配监听可登记，预览按已核验地址拨号，访问失败显示不可用；身份/票据/隔离不变。
+- M3-6 历史 review（2026-11-05，已被 G3 通过取代）：整体材料见 [closure.md](specs/040-services-preview/closure.md)；`pnpm check`、build、服务与预览 E2E 单项通过；红测修复完成；conversation 最终答复隐藏的真实 UI 回归已修；services/files/default-workspace/git 与 Demo 旧断言已对齐现行行为。auth E2E 15/15（含两客户端）、Demo 16/16。
+
+## M3 完成 / G3 通过（2026-11-05 +08:00）
+- 人类确认 G3 通过：M3-6 标 `done`，M3 关闭；远程独立注册域 HTTPS 仍标未验证，留待上线实验。
+- 最终证据：`pnpm check` 446 / 2 skipped、`pnpm build`、auth E2E 15/15、Demo E2E 16/16；服务/预览真实 Chromium E2E 通过。
+- 收尾材料见 [closure.md](specs/040-services-preview/closure.md)；分支 `task/m3-1-registration` 合并回 `main` 并推送。
+- 下一步：M4 规格评审，不在本轮自动开始实现。

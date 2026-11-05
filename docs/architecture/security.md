@@ -103,6 +103,9 @@ ACTIVE → REVOKED
 
 ## 3. 审批分级（ToolPermissionEngine）
 
+> 当前策略解释（ADR-040/042）：下表描述普通策略的风险基线，autonomous对全部已授权Agent业务能力免人工审批/确认（含服务/首次部署/替换/恢复），不新增未授权能力。仍执行所有鉴权、范围、计划/产物哈希、锁/幂等/预算/审计和秘密保护。
+
+
 | 级别 | 典型操作 | V1 行为 | 可记忆 |
 |---|---|---|---|
 | L0 阅读 | 项目内读文件、Git status/diff、查看服务状态 | 默认允许 | 无需 |
@@ -193,7 +196,7 @@ ACTIVE → REVOKED
 
 ## 资源关闭、临时绑定与服务动作（ADR-030）
 
-主动关闭终端 Tab 是已认证 terminate 操作，必须鉴权 / CSRF / 幂等 / 审计并等待实际退出；不能用本地移除 Tab 代替。窗口关闭、最小化、组件卸载 / 网络断开不 terminate。临时服务仅验证、登记与展示其 Terminal 源执行，源退出或身份不明立即撤销预览资格，不允许日志 URL / 客户端 PID 自动授权。持久 PM2 操作对人工与 Agent 采用同一权限、审批、服务锁和审计；新增部署 / 产物变更仍经 M4。详细产品规则见 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md)，具体身份 / endpoint 核验与票据仍待 M3 PoC。
+主动关闭终端 Tab 是已认证 terminate 操作，必须鉴权 / CSRF / 幂等 / 审计并等待实际退出；不能用本地移除 Tab 代替。窗口关闭、最小化、组件卸载 / 网络断开不 terminate。临时服务仅验证、登记与展示其 Terminal 源执行，源退出或身份不明立即撤销预览资格，不允许日志 URL / 客户端 PID 自动授权。持久 PM2 操作对人工与 Agent 采用同一权限、审批、服务锁和审计；新增部署 / 产物变更仍经 M4。详细产品规则见 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md)，具体身份/endpoint核验与票据仍待M3 PoC；PM2交付/退出和部署归M4 PoC。审批用词按ADR-042解释为策略授权，autonomous不加入人工等待。
 
 ## 项目终端交接修正（ADR-031 / M2-9）
 
@@ -217,3 +220,9 @@ prj_default 是固定系统项目描述，服务层拒绝更新 / 删除并审�
 
 ## Git 文件放弃（ADR-041 / M2-27）
 放弃仅为用户确认的单文件动作，confirmed:true、字面路径、逐级非symlink普通文件检查、目标内容哈希与仓库状态重验，沿用CSRF/鉴权/锁/审计/幂等。tracked恢复index版本，untracked仅删除明确普通文件；无递归/全仓reset，取消暂存只写index不动worktree，未向Agent注册新能力。外部编辑并非OS隔离，不能保证跨进程原子性。
+
+## 部署免人工与安全边界（ADR-042，2026-11-05）
+M3只开发登记/隔离预览；M4完整持久/正式发布。autonomous首次部署/产物替换/启停/支持的恢复没有额外人类审批/确认，不可硬编码“生产必须人工”。后端用真实actor/scope/policySnapshotId及计划哈希/时效授权，不接受未授权调用者自报模式；只有需要人工的策略分支才有approvalId，自主不得伪造人工审批记录。篡改/过期/撤销/未知状态/锁失效仍拒绝；自主重新规划/授权也不转为强制人工等待。普通策略、M2人工Git独立资源动作、本机设备配对/初始化/凭据通道不因本次文档扩权；规格/PoC的人类评审门禁仍独立于业务审批。
+
+## M3技术候选（待审批，未实现）
+[ADR-043](../adr/ADR-043-development-preview-authorization.md)和[m3-preview](../contracts/m3-preview.md)提出独立来源、一次性bootstrap换限时grant、会话/源失效断流、监听身份核验和连接预算。不得只换端口或信任随机host；PID加ps出生文本不是强句柄，connect竞态/跨站Cookie必须实测，不宣称绝对进程绑定/OS沙箱。解析拟改POST带CSRF，凭据不交模型/事件/上游，不放宽管理认证/CORS。G-Spec仅允许M3-0，G-PoC后才能M3-1。

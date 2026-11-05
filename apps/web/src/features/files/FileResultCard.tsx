@@ -1,16 +1,24 @@
 import type { FileResultTarget } from "@larness/shared";
+import { FileText } from "lucide-react";
 import { useState } from "react";
+import { ResultCard } from "@/features/chat/ResultCard";
 import { openFile } from "./actions";
 import { fileError } from "./api";
+
+function fileName(path: string): string {
+  return path.split("/").pop() ?? path;
+}
+
 export function FileResultCard({ target }: { target: FileResultTarget }) {
   const [changed, setChanged] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   return (
-    <div className="py-1 text-[12px] text-ink-2">
-      <button
-        type="button"
-        className="break-all text-left text-accent underline decoration-accent/30 underline-offset-4 hover:decoration-accent"
+    <div className="min-w-0">
+      <ResultCard
+        icon={FileText}
+        label={`文件 · ${fileName(target.path)}`}
+        ariaLabel={`查看文件 · ${target.path}`}
         disabled={pending}
         onClick={() => {
           setPending(true);
@@ -22,12 +30,14 @@ export function FileResultCard({ target }: { target: FileResultTarget }) {
             .catch((error: unknown) => setError(fileError(error)))
             .finally(() => setPending(false));
         }}
-      >
-        查看文件 · {target.path}
-      </button>
-      {changed ? <p role="status">文件已变化，已打开当前版本。</p> : null}
+      />
+      {changed ? (
+        <p role="status" className="mt-1 text-[10.5px] text-ink-3">
+          文件已变化，已打开当前版本。
+        </p>
+      ) : null}
       {error ? (
-        <p role="alert" className="mt-1 text-danger">
+        <p role="alert" className="mt-1 text-[10.5px] text-danger">
           {error}
         </p>
       ) : null}

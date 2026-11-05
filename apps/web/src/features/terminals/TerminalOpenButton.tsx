@@ -1,6 +1,7 @@
 import { cn } from "@larness/ui";
 import { SquareTerminal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { ResultCard } from "@/features/chat/ResultCard";
 import { ApiError } from "@/lib/api";
 import { openTerminal, readTerminal, stopConfirmed } from "./api";
 
@@ -10,6 +11,7 @@ interface TerminalOpenButtonProps {
   label: string;
   ariaLabel?: string;
   className?: string;
+  variant?: "link" | "card";
 }
 
 export function TerminalOpenButton(props: TerminalOpenButtonProps) {
@@ -24,6 +26,7 @@ function CheckedTerminalButton({
   label,
   ariaLabel,
   className,
+  variant = "link",
 }: TerminalOpenButtonProps) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null);
@@ -76,20 +79,30 @@ function CheckedTerminalButton({
   };
   return (
     <div className="min-w-0">
-      <button
-        type="button"
-        disabled={busy}
-        aria-label={ariaLabel}
-        aria-busy={busy}
-        onClick={() => void open()}
-        className={cn(
-          "flex max-w-full items-center gap-2 py-1 text-left text-[12px] text-ink-2 hover:text-ink disabled:opacity-50",
-          className,
-        )}
-      >
-        <SquareTerminal size={13} className="shrink-0 text-accent" />
-        <span className="break-all">{label}</span>
-      </button>
+      {variant === "card" ? (
+        <ResultCard
+          icon={SquareTerminal}
+          label={`终端 · ${label.replace(/^打开终端 · /, "")}`}
+          ariaLabel={ariaLabel ?? label}
+          disabled={busy}
+          onClick={() => void open()}
+        />
+      ) : (
+        <button
+          type="button"
+          disabled={busy}
+          aria-label={ariaLabel}
+          aria-busy={busy}
+          onClick={() => void open()}
+          className={cn(
+            "flex max-w-full items-center gap-2 py-1 text-left text-[12px] text-ink-2 hover:text-ink disabled:opacity-50",
+            className,
+          )}
+        >
+          <SquareTerminal size={13} className="shrink-0 text-accent" />
+          <span className="break-all">{label}</span>
+        </button>
+      )}
       {notice ? (
         <p
           role={notice.error ? "alert" : "status"}

@@ -47,6 +47,8 @@
 | `PATH_OUTSIDE_PROJECT` | 403 | 路径越界 |
 | `APPROVAL_INVALID` | 409 | 审批过期 / 被撤销 / 参数不一致 |
 | `PREVIEW_TARGET_INVALID` | 403 | 代理目标未登记或被禁止 |
+| `PREVIEW_DISABLED` | 503 | 预览网关未启用 |
+| `PREVIEW_UNAVAILABLE` | 503 | 服务或预览来源当前不可用 |
 | `PROVIDER_UNAVAILABLE` | 503 | 模型 Provider 不可用 |
 | `DEV_WEB_UNAVAILABLE` | 503 | 受管开发前端暂不可用；仅用于 ADR-028 开发页面转发 |
 | `PROVIDER_AUTH_FAILED` | 502 | 模型 Provider 拒绝凭据 / 未配置 Key |
@@ -423,12 +425,12 @@ Turn 创建成功返回 `202`：
 | POST | `/api/terminals/:id/lease` | M2 |
 | GET | `/api/projects/:id/git/status` | M2 |
 | POST | `/api/projects/:id/git/actions` | M2 |
-| GET / POST | `/api/services` | M3 |
-| POST | `/api/services/:id/actions` | M3 |
-| GET | `/api/services/:id/logs?cursor=` | M3 |
-| GET | `/api/preview/resolve?serviceId=` | M3 |
+| GET / POST | `/api/services` | M3临时登记；M4扩展持久服务 |
+| POST | `/api/services/:id/actions` | M4持久动作，临时返回所属终端入口 |
+| GET | `/api/services/:id/logs?cursor=` | M3引用终端日志；M4扩展PM2日志 |
+| POST | `/api/preview/resolve` | M3技术候选：CSRF/no-store短期票据，详[m3-preview](m3-preview.md)；未实现 |
 | POST | `/api/deployments/plan` | M4 |
-| POST | `/api/deployments/:id/approve` | M4 |
+| POST | `/api/deployments/:id/approve` | M4人工审批条件分支；自主不依赖此调用 |
 | GET | `/api/deployments/:id` | M4 |
 | GET / POST | `/api/jobs` | M5 |
 | GET | `/api/updates/check` | M5 |
@@ -493,3 +495,9 @@ POST /api/sessions 的 projectId=prj_default 归一为现有默认会话域（DT
 现有 Git resource-action 接口新增 `{ action: "unstage", paths: string[] }`（1–200条精确路径）及 `{ action: "discard", path: string, confirmed: true }`（单文件）。动作仍按 L1 复用已鉴权/CSRF 的创建和执行、项目锁、快照重验、过期、审计与幂等，无新增路径/DB列/依赖，不注册新 Agent 工具。
 unstage仅恢复选定index到HEAD；无HEAD使用仅index移除，工作区不变；重命名同时恢复原路径index。discard仅处理未暂存变更，tracked从index恢复工作区，已暂存内容保留；untracked经确认后仅删除指定普通文件，不递归、不含忽略文件、不清理全仓。冲突、目录、symlink/非普通文件及越界拒绝。Git以字面pathspec执行，通配符不扩张。
 discard动作创建时和执行锁前/锁后读取目标内容哈希，发现后续内容或状态变化拒绝覆盖；外部进程仍不受项目锁隔离，不宣称OS原子性。untracked枚举使用--untracked-files=all，文件逐条呈现而非目录清理。UI放弃按钮先显示路径与丢失/删除后果，取消不创建写动作，确认后才调用；取消暂存无丢弃确认，因为它保留磁盘内容。编辑器内存草稿不自动删除，监听/版本冲突继续保护。
+
+## ADR-042：M3/M4与自主部署（2026-11-05，草案阶段划分）
+M3仅temporary登记/查询/日志与隔离预览；全部PM2/persistent创建/运行/启停和部署属于M4，见[服务契约](services-preview.md)和[部署契约](deployment.md)。autonomous的已授权Agent业务操作无人工审批/确认停等，包括首次发布/版本替换/重启/停止/支持的恢复；后端必须有计划/产物/目标/策略快照和授权记录，不伪造approvalId。标准/严格按风险询问，只读拒绝写入。部署approve端点仅用于需要人工的分支，自主由真实后端策略授权后继续，不能要求再调用人类approve。当前接口是规划摘要，详细schema/执行触发方式需G-Spec-M4冻结；没有本次运行代码/API/数据库变更。
+
+## M3技术候选（待审批，未实现）
+服务登记由后端产生执行身份，人工沿resource-actions准备/决策/execute、Agent沿Turn策略调用共同核心；当前Git路由不代表已通用。预览解析候选改POST，不交凭据给模型/事件/URL；新字段/错误码与失败边界见[m3-preview](m3-preview.md)。

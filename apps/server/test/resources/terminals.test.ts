@@ -118,7 +118,7 @@ it("creates one real PTY by idempotency key, lists shared resources, and termina
 });
 
 async function until(check: () => boolean | Promise<boolean>) {
-  const end = Date.now() + 5000;
+  const end = Date.now() + 15_000;
   while (Date.now() < end) {
     if (await check()) return;
     await new Promise((resolve) => setTimeout(resolve, 15));

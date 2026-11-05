@@ -3,6 +3,7 @@ import { cn } from "@larness/ui";
 import { ArrowDown, ChevronRight, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
+import { PreviewResultCard } from "@/features/services/PreviewResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
@@ -50,8 +51,14 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     if (item.kind === "tool") lastOperation = index;
     if (item.kind === "message" && item.role === "assistant") lastAssistant = index;
   });
-  // A message becomes the final answer only when it follows the last operation.
-  const answer = lastAssistant > lastOperation ? items[lastAssistant] : undefined;
+  // A completed turn always ends with its last assistant message. Live event
+  // delivery can interleave a tool completion after the final message; do not
+  // hide the answer in that case. While the turn is active, only a message after
+  // the last operation counts as final.
+  const answer =
+    lastAssistant >= 0 && (lastAssistant > lastOperation || user?.turnOutcome === "completed")
+      ? items[lastAssistant]
+      : undefined;
   const latestCommentary =
     active && !answer
       ? [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant")
@@ -83,7 +90,11 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     const target = tool.resourceTarget;
     if (target)
       targets.set(
-        target.kind === "file" ? JSON.stringify([target.scope, target.path]) : target.terminalId,
+        target.kind === "file"
+          ? JSON.stringify([target.scope, target.path])
+          : target.kind === "preview"
+            ? `preview:${target.serviceId}:${target.path}`
+            : target.terminalId,
         target,
       );
   }
@@ -106,7 +117,18 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
                 active && !pending && "text-accent",
               )}
             >
-              <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
+              {active && !pending ? (
+                <Loader2
+                  size={13}
+                  data-testid="turn-running-spinner"
+                  className="mt-0.5 shrink-0 animate-spin text-accent motion-reduce:animate-none"
+                />
+              ) : (
+                <ChevronRight
+                  size={13}
+                  className={cn("mt-0.5 shrink-0", expanded && "rotate-90")}
+                />
+              )}
               <span className="min-w-0 break-words">{summary}</span>
             </button>
             {expanded ? (
@@ -137,15 +159,17 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
           </div>
         ) : null}
         {targets.size ? (
-          <div className="space-y-1 border-t border-line pt-2 text-[12px]">
+          <section aria-label="本次成果" className="flex flex-wrap gap-1.5 pt-0.5">
             {[...targets.entries()].map(([key, target]) =>
               target.kind === "file" ? (
                 <FileResultCard key={key} target={target} />
+              ) : target.kind === "preview" ? (
+                <PreviewResultCard key={key} target={target} />
               ) : (
                 <TerminalResultCard key={key} target={target} />
               ),
             )}
-          </div>
+          </section>
         ) : null}
         {items
           .filter(

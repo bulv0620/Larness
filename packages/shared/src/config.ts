@@ -61,6 +61,7 @@ export const UpdatesConfigSchema = z.strictObject({
 
 export const PreviewConfigSchema = z.strictObject({
   enabled: z.boolean(),
+  port: z.number().int().min(1).max(65535).default(3211),
 });
 
 export const AppConfigSchema = z.strictObject({
@@ -112,6 +113,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   },
   preview: {
     enabled: false,
+    port: 3211,
   },
 };
 

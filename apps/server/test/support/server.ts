@@ -1,7 +1,7 @@
 import { startServer } from "../../src/bootstrap/start.js";
 import { connectIpc } from "../../src/ipc/client.js";
 import type { ProviderResolver } from "../../src/modules/agent/turnRunner.js";
-import { createLogSink, getFreePort } from "../helpers.js";
+import { createLogSink, getFreePort, testConfig, writeConfig } from "../helpers.js";
 
 function cookieValue(header: string, name: string): string {
   return new RegExp(`${name}=([^;]+)`).exec(header)?.[1] ?? "";
@@ -22,8 +22,15 @@ export interface AuthorizedServer {
 
 export async function startAuthorizedServer(
   dir: string,
-  options: { turnRunner?: boolean; providerResolver?: ProviderResolver } = {},
+  options: {
+    turnRunner?: boolean;
+    providerResolver?: ProviderResolver;
+    preview?: { enabled: boolean; port?: number };
+  } = {},
 ): Promise<AuthorizedServer> {
+  if (options.preview) {
+    await writeConfig(dir, testConfig({ preview: options.preview }));
+  }
   const port = await getFreePort();
   const origin = `http://localhost:${port}`;
   const running = await startServer({

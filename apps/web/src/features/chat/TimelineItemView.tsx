@@ -3,6 +3,7 @@ import { cn } from "@larness/ui";
 import { Check, ChevronRight, Circle, Copy, Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
+import { PreviewResultCard } from "@/features/services/PreviewResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore } from "@/stores/windowStore";
@@ -194,6 +195,8 @@ function ArtifactResult({ item }: { item: ArtifactItem }) {
   const open = useWindowStore((state) => state.open);
   const { projectId, sessionId } = useNavigationStore();
   if (item.resourceTarget?.kind === "file") return <FileResultCard target={item.resourceTarget} />;
+  if (item.resourceTarget?.kind === "preview")
+    return <PreviewResultCard target={item.resourceTarget} />;
   if (item.resourceTarget?.kind === "terminal")
     return <TerminalResultCard target={item.resourceTarget} />;
   return (

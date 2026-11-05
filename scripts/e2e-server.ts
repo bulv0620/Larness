@@ -8,8 +8,19 @@ import { connectIpc } from "../apps/server/src/ipc/client.js";
 import type { ProviderResolver } from "../apps/server/src/modules/agent/turnRunner.js";
 import { getProjectById } from "../apps/server/src/modules/projects/repository.js";
 import { createFakeProvider, type ProviderChunk } from "../packages/agent/src/index.js";
+import { DEFAULT_APP_CONFIG } from "../packages/shared/src/index.js";
 
 const dataDir = mkdtempSync(path.join(tmpdir(), "larness-e2e-"));
+const previewPort = Number(process.env.LARNESS_E2E_PREVIEW_PORT ?? 3211);
+writeFileSync(
+  path.join(dataDir, "config.json"),
+  `${JSON.stringify(
+    { ...DEFAULT_APP_CONFIG, preview: { enabled: true, port: previewPort } },
+    null,
+    2,
+  )}\n`,
+  { mode: 0o600 },
+);
 const port = Number(process.env.LARNESS_E2E_PORT ?? 3210);
 const publicUrl = process.env.LARNESS_E2E_PUBLIC_URL ?? "http://localhost:5173";
 
@@ -117,6 +128,93 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
           ],
         },
         textStep("开发终端已启动。"),
+      ]),
+      model: "fake",
+    };
+  }
+
+  if (input.startsWith("vite start ")) {
+    const port = Number(input.split(" ").at(-1));
+    if (!Number.isInteger(port) || port < 1 || port > 65535)
+      return { adapter: createFakeProvider([textStep("invalid vite port")]), model: "fake" };
+    const viteBin = path.join(root, "apps/web/node_modules/vite/bin/vite.js");
+    return {
+      adapter: createFakeProvider([
+        {
+          chunks: [
+            {
+              type: "tool-call",
+              toolCall: {
+                id: "vite-frontend",
+                name: "start_project_terminal",
+                args: {
+                  role: "frontend",
+                  executable: process.execPath,
+                  args: [viteBin, "--port", String(port), "--strictPort", "--host", "127.0.0.1"],
+                },
+              },
+            },
+            { type: "finish", finishReason: "tool-calls" },
+          ],
+        },
+        textStep("开发终端已启动。"),
+      ]),
+      model: "fake",
+    };
+  }
+
+  if (input.startsWith("service start ")) {
+    const port = Number(input.split(" ").at(-1));
+    if (!Number.isInteger(port) || port < 1 || port > 65535)
+      return { adapter: createFakeProvider([textStep("invalid service port")]), model: "fake" };
+    return {
+      adapter: createFakeProvider([
+        {
+          chunks: [
+            {
+              type: "tool-call",
+              toolCall: {
+                id: "service-frontend",
+                name: "start_project_terminal",
+                args: {
+                  role: "backend",
+                  executable: process.execPath,
+                  args: [
+                    "-e",
+                    `require("node:http").createServer((request, response) => response.end("ok")).listen(${port}, "127.0.0.1", () => console.log("SERVICE_READY"));`,
+                  ],
+                },
+              },
+            },
+            { type: "finish", finishReason: "tool-calls" },
+          ],
+        },
+        textStep("开发终端已启动。"),
+      ]),
+      model: "fake",
+    };
+  }
+
+  if (input === "preview service") {
+    const projectId = session.projectId;
+    const service =
+      projectId === null
+        ? undefined
+        : (running.sqlite
+            .prepare(
+              "SELECT id FROM services WHERE project_id = ? AND status = 'RUNNING' ORDER BY created_at DESC LIMIT 1",
+            )
+            .get(projectId) as { id: string } | undefined);
+    if (!service)
+      return { adapter: createFakeProvider([textStep("暂无可预览服务。")]), model: "fake" };
+    return {
+      adapter: createFakeProvider([
+        toolStep({
+          id: "preview-service",
+          name: "resolve_service_preview",
+          args: { serviceId: service.id, path: "/" },
+        }),
+        textStep("预览已就绪。"),
       ]),
       model: "fake",
     };

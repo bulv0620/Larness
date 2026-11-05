@@ -66,6 +66,11 @@ test("M2-5b real Git panel shows status, stages, commits, diffs and approves a p
     await page.getByRole("dialog").getByRole("button", { name: "添加项目" }).click();
     await page.getByRole("button", { name: "在 repo 中新建会话" }).click();
     await expect.poll(() => page.getByText("main").count(), { timeout: 15000 }).toBeGreaterThan(0);
+    await page
+      .getByLabel("项目资源", { exact: true })
+      .getByRole("button", { name: /^Git/ })
+      .first()
+      .click();
     const gitPanel = page.getByTestId("git-panel");
     await expect(gitPanel.getByText("a.txt").first()).toBeVisible();
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-5b-git.png") });
@@ -73,18 +78,22 @@ test("M2-5b real Git panel shows status, stages, commits, diffs and approves a p
     await gitPanel.getByText("a.txt").first().click();
     const diffWindow = page.getByRole("dialog", { name: "a.txt", exact: true });
     await expect(diffWindow).toContainText("+changed in ui", { timeout: 15000 });
+    await diffWindow.getByRole("button", { name: "隐藏窗口" }).click();
+    await expect(diffWindow).toHaveCount(0);
 
-    await page.getByLabel("选择 a.txt").check();
-    await page.getByRole("button", { name: /暂存选中/ }).click();
-    await expect(page.getByText("staged").first()).toBeVisible({ timeout: 15000 });
+    await gitPanel.getByRole("button", { name: "暂存 a.txt" }).click();
+    await expect(gitPanel.getByRole("button", { name: "取消暂存 a.txt" })).toBeVisible({
+      timeout: 15000,
+    });
     await page.getByLabel("提交信息").fill("UI commit");
     await page.getByRole("button", { name: /提交已暂存/ }).click();
-    await expect(page.getByText("工作区干净，没有可提交改动。")).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("工作区干净", { exact: true })).toBeVisible({ timeout: 15000 });
     expect(git(repo, "log", "-1", "--format=%s")).toBe("UI commit");
     expect(git(remote, "rev-parse", "main")).not.toBe(git(repo, "rev-parse", "HEAD"));
 
+    await page.getByRole("button", { name: "管理分支" }).click();
     await page.getByLabel("新分支名").fill("ui-branch");
-    await page.getByRole("button", { name: "创建" }).click();
+    await page.getByRole("button", { name: "创建分支" }).click();
     await expect
       .poll(() => page.getByLabel("切换分支").inputValue(), { timeout: 15000 })
       .toBe("ui-branch");

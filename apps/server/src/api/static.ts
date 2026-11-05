@@ -13,9 +13,13 @@ export const APP_CSP = [
   "font-src 'self' data:",
   "connect-src 'self' ws: wss:",
   "worker-src 'self' blob:",
+  // The isolated preview runs in a random *.preview.localhost iframe and receives
+  // its one-time ticket through a POST form. Management pages must never be
+  // frameable themselves (frame-ancestors below).
+  "frame-src 'self' http://*.preview.localhost:*",
   "frame-ancestors 'none'",
   "base-uri 'self'",
-  "form-action 'self'",
+  "form-action 'self' http://*.preview.localhost:*",
   "object-src 'none'",
 ].join("; ");
 

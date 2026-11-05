@@ -32,6 +32,7 @@ export default defineConfig({
       env: {
         LARNESS_E2E_PORT: String(serverPort),
         LARNESS_E2E_PUBLIC_URL: webUrl,
+        LARNESS_E2E_PREVIEW_PORT: process.env.LARNESS_E2E_PREVIEW_PORT ?? "3211",
       },
     },
   ],

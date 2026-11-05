@@ -465,6 +465,51 @@ export const terminals = sqliteTable(
   ],
 );
 export type TerminalRow = typeof terminals.$inferSelect;
+export const services = sqliteTable(
+  "services",
+  {
+    id: text("id").primaryKey(),
+    operationId: text("operation_id")
+      .notNull()
+      .references(() => resourceOperations.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    sourceSessionId: text("source_session_id"),
+    terminalId: text("terminal_id")
+      .notNull()
+      .references(() => terminals.id),
+    name: text("name").notNull(),
+    kind: text("kind").$type<import("@larness/shared").ServiceKind>().notNull(),
+    status: text("status").$type<import("@larness/shared").ServiceStatus>().notNull(),
+    terminalExecutionId: text("terminal_execution_id").notNull(),
+    endpointGeneration: integer("endpoint_generation").notNull(),
+    endpointHost: text("endpoint_host").notNull(),
+    endpointPort: integer("endpoint_port").notNull(),
+    endpointProtocol: text("endpoint_protocol").$type<"http">().notNull(),
+    identityJson: text("identity_json").notNull(),
+    reasonCode: text("reason_code"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    endedAt: integer("ended_at"),
+  },
+  (table) => [
+    uniqueIndex("services_operation").on(table.operationId),
+    index("services_project_status").on(table.projectId, table.status),
+    index("services_terminal").on(table.terminalId),
+    uniqueIndex("services_active_endpoint")
+      .on(table.terminalId, table.endpointHost, table.endpointPort)
+      .where(sql`${table.status} IN ('REGISTERING', 'STARTING', 'RUNNING')`),
+    check(
+      "services_status",
+      sql`${table.status} IN ('REGISTERING', 'STARTING', 'RUNNING', 'UNKNOWN', 'UNREGISTERED')`,
+    ),
+    check("services_host", sql`${table.endpointHost} IN ('127.0.0.1', '::1')`),
+    check("services_port", sql`${table.endpointPort} BETWEEN 1 AND 65535`),
+    check("services_protocol", sql`${table.endpointProtocol} = 'http'`),
+  ],
+);
+export type ServiceRow = typeof services.$inferSelect;
 export const resourceActions = sqliteTable(
   "resource_actions",
   {

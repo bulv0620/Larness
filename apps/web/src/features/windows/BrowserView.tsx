@@ -8,10 +8,181 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { type PreviewSession, resolvePreview } from "@/features/services/api";
+import { ApiError } from "@/lib/api";
+import { USE_MOCKS } from "@/lib/env";
 import type { WindowTab } from "@/lib/windowTypes";
 
 export function BrowserView({ tab }: { tab: WindowTab }) {
+  if (!USE_MOCKS && tab.browser) return <PreviewBrowser tab={tab} />;
+  return <MockBrowser tab={tab} />;
+}
+
+function previewError(cause: unknown): string {
+  if (cause instanceof ApiError) return cause.message;
+  return cause instanceof Error ? cause.message : "预览不可用";
+}
+
+function PreviewBrowser({ tab }: { tab: WindowTab }) {
+  const browser = tab.browser;
+  const [session, setSession] = useState<PreviewSession | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [nonce, setNonce] = useState(0);
+  const [openingExternal, setOpeningExternal] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const frameName = `preview-${tab.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
+  useEffect(() => {
+    if (!browser) return;
+    let cancelled = false;
+    const attempt = nonce;
+    setLoading(true);
+    setError("");
+    setSession(null);
+    resolvePreview(browser.serviceId, browser.path)
+      .then((value) => {
+        if (cancelled || attempt !== nonce) return;
+        setSession(value);
+        setLoading(false);
+      })
+      .catch((cause: unknown) => {
+        if (cancelled || attempt !== nonce) return;
+        setError(previewError(cause));
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [browser, nonce]);
+
+  useEffect(() => {
+    if (session) formRef.current?.submit();
+  }, [session]);
+
+  const openExternal = async () => {
+    if (!browser || openingExternal) return;
+    setOpeningExternal(true);
+    setError("");
+    const target = window.open("about:blank", "_blank");
+    try {
+      if (!target) throw new Error("浏览器阻止了新窗口");
+      target.opener = null;
+      const value = await resolvePreview(browser.serviceId, browser.path, "external");
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = value.bootstrapUrl;
+      form.target = `preview-external-${Date.now()}`;
+      target.name = form.target;
+      form.style.display = "none";
+      for (const [name, val] of [
+        ["ticket", value.ticket],
+        ["path", browser.path],
+      ] as const) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = val;
+        form.append(input);
+      }
+      document.body.append(form);
+      form.submit();
+      form.remove();
+    } catch (cause) {
+      target?.close();
+      setError(previewError(cause));
+    } finally {
+      setOpeningExternal(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-col bg-surface">
+      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line bg-surface-2/45 px-2">
+        <IconButton label="后退" disabled className="h-6 w-6">
+          <ArrowLeft size={13} />
+        </IconButton>
+        <IconButton label="前进" disabled className="h-6 w-6">
+          <ArrowRight size={13} />
+        </IconButton>
+        <IconButton
+          label="刷新预览"
+          onClick={() => setNonce((value) => value + 1)}
+          className="h-6 w-6"
+        >
+          <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
+        </IconButton>
+        <div className="mx-1 flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-line bg-surface px-2">
+          <ShieldCheck size={11} className="shrink-0 text-success" />
+          <span
+            title="预览地址"
+            className="h-full min-w-0 flex-1 truncate font-mono text-[10.5px] leading-7 text-ink-2"
+          >
+            {session ? `${session.origin}${browser?.path ?? "/"}` : "解析预览来源…"}
+          </span>
+          {loading ? <Loader2 size={11} className="animate-spin text-ink-3" /> : null}
+        </div>
+        <IconButton
+          label="在独立来源打开"
+          onClick={() => void openExternal()}
+          disabled={openingExternal}
+          className="h-6 w-6"
+        >
+          <ExternalLink size={12} />
+        </IconButton>
+      </div>
+
+      <div className="relative min-h-0 flex-1 bg-white">
+        {error ? (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-surface text-center">
+            <p role="alert" title={error} className="max-w-[360px] px-4 text-[12px] text-ink-2">
+              无法访问
+            </p>
+            <button
+              type="button"
+              className="text-[11px] text-accent underline"
+              onClick={() => setNonce((value) => value + 1)}
+            >
+              刷新
+            </button>
+          </div>
+        ) : null}
+        <form
+          ref={formRef}
+          method="POST"
+          action={session?.bootstrapUrl ?? ""}
+          target={frameName}
+          hidden
+        >
+          <input type="hidden" name="ticket" value={session?.ticket ?? ""} readOnly />
+        </form>
+        <iframe
+          name={frameName}
+          title="项目预览"
+          data-testid="preview-frame"
+          src="about:blank"
+          sandbox="allow-scripts allow-forms allow-same-origin"
+          referrerPolicy="no-referrer"
+          className="h-full w-full border-0 bg-white"
+        />
+        {loading ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-surface/60 text-[11px] text-ink-3">
+            正在建立隔离预览…
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex h-6 shrink-0 items-center gap-1.5 border-t border-line bg-surface-2/50 px-2 font-mono text-[9px] text-ink-3">
+        <Globe2 size={10} />
+        <span>独立来源 · 不共享管理 Cookie · iframe 权限最小化</span>
+        <span className="ml-auto">{session ? new URL(session.origin).host : "—"}</span>
+      </div>
+    </div>
+  );
+}
+
+function MockBrowser({ tab }: { tab: WindowTab }) {
   const [address, setAddress] = useState(
     tab.resourceId.startsWith("http") ? tab.resourceId : "http://localhost:5173/dashboard",
   );
@@ -50,9 +221,6 @@ export function BrowserView({ tab }: { tab: WindowTab }) {
           />
           {loading ? <Loader2 size={11} className="animate-spin text-ink-3" /> : null}
         </form>
-        <IconButton label="在外部打开（Demo 不请求网络）" disabled className="h-6 w-6">
-          <ExternalLink size={12} />
-        </IconButton>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto bg-[#f7f8fa]">

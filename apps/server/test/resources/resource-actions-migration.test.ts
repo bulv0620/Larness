@@ -67,7 +67,7 @@ it("upgrades v7 with an empty resource_actions table and preserves projects, loc
       journal.entries = complete;
       await writeFile(journalPath, JSON.stringify(journal));
       runMigrations(opened.db, old);
-      expect(appliedMigrationCount(opened.sqlite)).toBe(9);
+      expect(appliedMigrationCount(opened.sqlite)).toBe(10);
       expect(opened.sqlite.prepare("SELECT * FROM projects").all()).toEqual(previous.projects);
       expect(opened.sqlite.prepare("SELECT * FROM resource_locks").all()).toEqual(previous.locks);
       expect(opened.sqlite.prepare("SELECT * FROM resource_streams").all()).toEqual(

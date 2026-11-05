@@ -1,109 +1,88 @@
-# 任务：M3 临时服务登记、持久服务与 Preview
+# 任务：M3 开发服务与隔离预览
 
-> draft，2026-11-02。保留 M3-1～M3-6 ID；补 M3-0 / M3-3b / M3-5b 细分，均 todo。依赖满足也不得跳过 G-Spec-M3。仅文档规划，未开始实施；每卡估 1–2 天，实际超出先拆分。一次一个任务、先红测试、单任务提交。
-
-## 状态总表
+> 实施中；2026-11-05 G-Spec-M3 按推荐批准，仅先做 M3-0。一次一个任务、先必要失败测试、独立提交；远程 HTTPS 实测延后至上线实验并标未验证。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M3-0 | 服务 / 预览身份与退出 PoC | G2；G-Spec-M3；Q-002 / 003 / 026 / 027 | `todo` |
-| M3-1 | 临时服务登记、查询与退出退登 | M3-0 | `todo` |
-| M3-2 | 服务窗口项目筛选、卡片与详情 | M3-1 | `todo` |
-| M3-3 | PreviewRegistry、HTTP / WS 固定上游 | M3-1 | `todo` |
-| M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `todo` |
-| M3-4 | Browser 与 Agent 预览卡片 / HMR | M3-2/M3-3b | `todo` |
-| M3-5 | PM2 持久资源、隔离交付与对账 | M3-1；Q-003 / Q-027 | `todo` |
-| M3-5b | 持久服务人工 / AI 统一动作接线 | M3-4/M3-5 | `todo` |
-| M3-6 | M3 整体交付与 G3 | M3-5b | `todo` |
+| M3-0 | 开发执行身份与隔离预览PoC | G2 / G-Spec-M3 / Q-002 / Q-026 | `done`（G-PoC 2026-11-05） |
+| M3-1 | 临时登记、查询与退出退登 | M3-0 / G-PoC-M3 | `done`（2026-11-05） |
+| M3-2 | 当前项目服务卡片与详情 | M3-1 | `done`（2026-11-05） |
+| M3-3 | PreviewRegistry与固定上游HTTP/WS | M3-1 | `done`（2026-11-05） |
+| M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `done`（2026-11-05） |
+| M3-4 | Browser/Agent卡片、HMR与开发API | M3-2 / M3-3b | `done`（2026-11-05） |
+| M3-6 | M3开发闭环与G3 | M3-4 | `done`（G3 2026-11-05） |
 
-## 任务卡
+## 规格准备（不计入七项实施任务）
 
-### M3-0 服务 / 预览身份与退出 PoC
+- [x] M3-P `done`：用户授权的技术规格评审材料，仅文档；完成材料不代表G-Spec批准或M3-0启动。
 
-- 状态：`todo`；依赖：G2；G-Spec-M3；Q-002 / 003 / 026 / 027；全局 G-Spec-M3 / 技术问题门禁均需满足。
-- [ ] 先失败测试：真实 PTY / 端口、临时证书 / 浏览器、隔离 PM2；记录平台和残留清理。
-- [ ] 交付：PTY 后代与 endpoint 身份、端口复用、独立来源 / HTTPS / WS、PM2 与 TUI 退出策略记录，失败不放行未知目标。
-- [ ] 验收：S4–S9/S11/S12，按 spec 与服务契约完成真实资源 / 权限 / 失败证据。
-- [ ] 验证：`pnpm check` / `pnpm build`；UI / 安全有浏览器和人类 review；最终全量回归。
-- [ ] 更新 spec / contract / tasks / ROADMAP / STATUS，单任务提交；涉及 schema 每任务最多一迁移。
-- 计划路径：packages/resources/；apps/server/src/modules/services / preview / api / ws；apps/web/src/features/windows / services；packages/shared；e2e* / scripts / 本切片验收记录（按任务相关部分修改）。
+## 编号迁移（非活动任务，不计为完成）
 
-### M3-1 临时服务登记、查询与退出退登
+| 原编号 | 新归属 | 原因 |
+|---|---|---|
+| M3-5 | M4-0 / M4-3 | PM2交付PoC与持久运行整体归M4 |
+| M3-5b | M4-3b | 人/AI持久服务操作与卡片归M4 |
 
-- 状态：`todo`；依赖：M3-0；全局 G-Spec-M3 / 技术问题门禁均需满足。
-- [ ] 先失败测试：同终端多个 endpoint、命令退而 Shell 活、重复登记、源未知、DB 故障 / 跨项目拒绝。
-- [ ] 交付：services 临时绑定迁移、scope 授权、查询 / 登记、源退出 / 对账退登、日志引用与事件；不 spawn / PM2。
-- [ ] 验收：S1/S4–S6/S9/S12/S13，按 spec 与服务契约完成真实资源 / 权限 / 失败证据。
-- [ ] 验证：`pnpm check` / `pnpm build`；UI / 安全有浏览器和人类 review；最终全量回归。
-- [ ] 更新 spec / contract / tasks / ROADMAP / STATUS，单任务提交；涉及 schema 每任务最多一迁移。
-- 计划路径：packages/resources/；apps/server/src/modules/services / preview / api / ws；apps/web/src/features/windows / services；packages/shared；e2e* / scripts / 本切片验收记录（按任务相关部分修改）。
+M3-6依赖M3-4，不能再依赖已迁出的任务；S10/S11移至M4 D9/D10。
 
-### M3-2 服务窗口项目筛选、卡片与详情
+## M3-0 开发执行身份与隔离预览PoC
+- 状态：`done`（2026-11-05 G-PoC-M3 人类确认；分支 `task/m3-0-preview-poc`）；远程 HTTPS 延后至上线实验。
+- 范围：P1/P2 执行与监听身份、P3 本机隔离来源/票据/Cookie、P4 真实 Vite/HMR/开发 API、P5 故障与策略；远程独立注册域 HTTPS 延后至上线实验，本任务只标未验证。
+- 2026-11-05 交付：12 项真实测试通过（P1/P2 3 项、P3 2 项、P4 1 项、P5 6 项）；证据、残余窗口、Vite 7 实际版本与远程未验证边界见 [poc.md](poc.md)。浏览器项需 `LARNESS_POC_BROWSER=1`。
+- 待确认：G-PoC-M3（本机证据 + check-to-connect 窗口 + 远程 HTTPS 延后）；登记策略/慢消费者/真实 DB 属 M3-1 实现验证，不在本 PoC 冒充完成。
+- [x] 先写会失败的真实资源/权限/边界测试。
+- [ ] 交付：按review P1–P5验证真实PTY/监听归属、独立来源/Cookie、HTTP/WS/HMR/API、端口复用、同Shell重启、策略与故障。poc.md记录版本/命令/延迟/connect竞态与支持矩阵，获G-PoC后才能M3-1。
+- [ ] 验收：S3/S4/S6–S9/S13/S14/S16–S18，自主无人工停等、非法目标仍拒绝，失败不伪报。
+- [x] 按任务风险完成必要类型/格式/单元/集成及相关浏览器验证，记录平台与未运行项；安全生命周期证据不省略。
+- [x] 同步契约/spec/tasks/STATUS，单任务提交，新增schema每任务最多一份迁移；不改源码/用户数据作为测试捷径。
 
-- 状态：`todo`；依赖：M3-1；全局 G-Spec-M3 / 技术问题门禁均需满足。
-- [ ] 先失败测试：真实列表 / 详情、两客户端、过滤不停止、临时退登及旧详情失效；不显示模拟运行指标。
-- [ ] 交付：无服务 Tab；左上筛选 + 卡片 / 详情 / 关联日志 / 打开终端；窗口隐藏恢复，顶部主机采样。
-- [ ] 验收：S1/S2/S4/S5/S15，按 spec 与服务契约完成真实资源 / 权限 / 失败证据。
-- [ ] 验证：`pnpm check` / `pnpm build`；UI / 安全有浏览器和人类 review；最终全量回归。
-- [ ] 更新 spec / contract / tasks / ROADMAP / STATUS，单任务提交；涉及 schema 每任务最多一迁移。
-- 计划路径：packages/resources/；apps/server/src/modules/services / preview / api / ws；apps/web/src/features/windows / services；packages/shared；e2e* / scripts / 本切片验收记录（按任务相关部分修改）。
+## M3-1 临时登记、查询与退出退登
+- 状态：`done`（2026-11-05；分支 `task/m3-1-registration`）；依赖：M3-0 / G-PoC-M3；验收见 [acceptance-m3-1.md](acceptance-m3-1.md)。
+- 2026-11-05 进度：`0010_services` 迁移、共享 DTO/事件 schema、执行身份适配、ServiceManager 核心、resource-action 分派、`/api/services` 列表/详情/日志、App/RunningServer 接线与 1 秒 reconcile、Agent `register_temporary_service`/`list_services` 工具完成；真实 PTY 登记/幂等/冲突/退登/重启换身份/事件补拉、人工审批流与 Agent 免二次审批测试通过。待补：终端显式关闭连带退登、服务端重启恢复对账、DB 失败负例与 WS service 订阅。
+- [x] 测试覆盖真实资源/权限/边界；首个 registry 切片实现先于测试，偏差与失败记录见验收。
+- [x] 交付：temporary 绑定/状态/日志引用/事件补拉、幂等登记、源退出退登、resource-action 分派、Agent 单次策略授权；`0010_services` 一份迁移；不 spawn/PM2。
+- [x] 验收：S1/S4–S6/S9/S12/S13/S16/S18；自主无人工停等、非法目标仍拒绝。
+- [x] 必要类型/格式/单元/集成验证通过；WS 与重启亦覆盖，平台/未运行项见验收。
+- [x] 契约/spec/tasks/STATUS 同步；未改用户源码/数据作为捷径。
 
-### M3-3 PreviewRegistry、HTTP / WS 固定上游
+## M3-2 当前项目服务卡片与详情
+- 状态：`done`（2026-11-05）；依赖：M3-1；验收见 [acceptance-m3-2.md](acceptance-m3-2.md)。
+- 交付：真实服务窗口（卡片/详情/关联终端输出/打开终端/结束提示/空态）、L2 登记审批对话框、无服务 Tab；真实 Chromium E2E 与组件测试通过；同时修复项目删除的外键回归。
+- [x] 先写会失败的真实资源/权限/边界测试。
+- [ ] 交付：当前项目卡片/关联终端输出/详情/打开终端/登记入口、空态和旧服务结束提示，隐藏与恢复无启停、副作用不靠布局触发。
+- [ ] 验收：S1/S2/S4/S5/S15/S18，自主无人工停等、非法目标仍拒绝，失败不伪报。
+- [x] 按任务风险完成必要类型/格式/单元/集成及相关浏览器验证，记录平台与未运行项；安全生命周期证据不省略。
+- [x] 同步契约/spec/tasks/STATUS，单任务提交，新增schema每任务最多一份迁移；不改源码/用户数据作为测试捷径。
 
-- 状态：`todo`；依赖：M3-1；全局 G-Spec-M3 / 技术问题门禁均需满足。
-- [ ] 先失败测试：真实 HTTP+WS、终止 / 端口复用、重定向 / host / 非法目标 / 票据过期、DB 失败关闭。
-- [ ] 交付：核验活跃登记 / generation、固定 loopback 上游、短期票据、HTTP / WS 代理与撤销已有连接。
-- [ ] 验收：S3/S6–S9/S13，按 spec 与服务契约完成真实资源 / 权限 / 失败证据。
-- [ ] 验证：`pnpm check` / `pnpm build`；UI / 安全有浏览器和人类 review；最终全量回归。
-- [ ] 更新 spec / contract / tasks / ROADMAP / STATUS，单任务提交；涉及 schema 每任务最多一迁移。
-- 计划路径：packages/resources/；apps/server/src/modules/services / preview / api / ws；apps/web/src/features/windows / services；packages/shared；e2e* / scripts / 本切片验收记录（按任务相关部分修改）。
+## M3-3 PreviewRegistry与固定上游HTTP/WS
+- 状态：`done`（2026-11-05）；依赖：M3-1；验收见 [acceptance-m3-3.md](acceptance-m3-3.md)。
+- 交付：PreviewRegistry、HTTP/WS 固定上游、票据/grant、resolve API、配置端口、事件撤销；真实测试通过。
+- [x] 先写会失败的真实资源/权限/边界测试。
+- [ ] 交付：独立来源/票据、固定loopback上游、活跃generation校验、源失效关闭已有流。
+- [ ] 验收：S3/S6–S9/S13/S16/S17，自主无人工停等、非法目标仍拒绝，失败不伪报。
+- [x] 按任务风险完成必要类型/格式/单元/集成及相关浏览器验证，记录平台与未运行项；安全生命周期证据不省略。
+- [x] 同步契约/spec/tasks/STATUS，单任务提交，新增schema每任务最多一份迁移；不改源码/用户数据作为测试捷径。
 
-### M3-3b 预览隔离与生命周期安全矩阵
+## M3-3b 预览隔离与生命周期安全矩阵
+- 状态：`done`（2026-11-05）；依赖：M3-3；验收见 [acceptance-m3-3b.md](acceptance-m3-3b.md)。
+- [x] 先写会失败的真实资源/权限/边界测试。
+- [ ] 交付：SSRF/管理端Cookie/API/票据重放与过期、DB失败、慢消费者、源未知和端口复用负例。
+- [ ] 验收：S6–S9/S13/S15–S18，自主无人工停等、非法目标仍拒绝，失败不伪报。
+- [x] 按任务风险完成必要类型/格式/单元/集成及相关浏览器验证，记录平台与未运行项；安全生命周期证据不省略。
+- [x] 同步契约/spec/tasks/STATUS，单任务提交，新增schema每任务最多一份迁移；不改源码/用户数据作为测试捷径。
 
-- 状态：`todo`；依赖：M3-3；全局 G-Spec-M3 / 技术问题门禁均需满足。
-- [ ] 先失败测试：真实浏览器跨来源攻击、管理端口 / 元数据负例、旧票据 / 流失效和秘密扫描。
-- [ ] 交付：独立来源 / Cookie / CSP / SSRF / 头过滤、慢消费者 / 断线恢复、失效路由 / 审计故障矩阵。
-- [ ] 验收：S6–S9/S13/S15，按 spec 与服务契约完成真实资源 / 权限 / 失败证据。
-- [ ] 验证：`pnpm check` / `pnpm build`；UI / 安全有浏览器和人类 review；最终全量回归。
-- [ ] 更新 spec / contract / tasks / ROADMAP / STATUS，单任务提交；涉及 schema 每任务最多一迁移。
-- 计划路径：packages/resources/；apps/server/src/modules/services / preview / api / ws；apps/web/src/features/windows / services；packages/shared；e2e* / scripts / 本切片验收记录（按任务相关部分修改）。
+## M3-4 Browser/Agent卡片、HMR与开发API
+- 状态：`done`（2026-11-05）；依赖：M3-2 / M3-3b；验收见 [acceptance-m3-4.md](acceptance-m3-4.md)。
+- [x] 先写会失败的真实资源/权限/边界测试。
+- [ ] 交付：真实Vite/HMR/前后端访问、卡片点击授权解析/去重、旧卡失效不启动进程。
+- [ ] 验收：S3/S8/S14–S18，自主无人工停等、非法目标仍拒绝，失败不伪报。
+- [x] 按任务风险完成必要类型/格式/单元/集成及相关浏览器验证，记录平台与未运行项；安全生命周期证据不省略。
+- [x] 同步契约/spec/tasks/STATUS，单任务提交，新增schema每任务最多一份迁移；不改源码/用户数据作为测试捷径。
 
-### M3-4 Browser 与 Agent 预览卡片 / HMR
-
-- 状态：`todo`；依赖：M3-2/M3-3b；全局 G-Spec-M3 / 技术问题门禁均需满足。
-- [ ] 先失败测试：真实 Vite 与后端、点击卡片 / 重复点击、源停止不重启、独立来源无管理凭据。
-- [ ] 交付：登记地址 / 卡片解析、Browser Tab 去重、停止后的失效页；项目 dev 前后端 API 与 HMR。
-- [ ] 验收：S3/S8/S14/S15，按 spec 与服务契约完成真实资源 / 权限 / 失败证据。
-- [ ] 验证：`pnpm check` / `pnpm build`；UI / 安全有浏览器和人类 review；最终全量回归。
-- [ ] 更新 spec / contract / tasks / ROADMAP / STATUS，单任务提交；涉及 schema 每任务最多一迁移。
-- 计划路径：packages/resources/；apps/server/src/modules/services / preview / api / ws；apps/web/src/features/windows / services；packages/shared；e2e* / scripts / 本切片验收记录（按任务相关部分修改）。
-
-### M3-5 PM2 持久资源、隔离交付与对账
-
-- 状态：`todo`；依赖：M3-1；Q-003 / Q-027；全局 G-Spec-M3 / 技术问题门禁均需满足。
-- [ ] 先失败测试：隔离 PM2_HOME、启动 / 停止 / restart、误标运行修复、权限 / 失败 / 重启 / 原生交付记录。
-- [ ] 交付：PM2Adapter 与命名空间 / 配置、持久字段迁移、实际状态 / 日志 / 健康、生命周期 PoC。
-- [ ] 验收：S10–S13，按 spec 与服务契约完成真实资源 / 权限 / 失败证据。
-- [ ] 验证：`pnpm check` / `pnpm build`；UI / 安全有浏览器和人类 review；最终全量回归。
-- [ ] 更新 spec / contract / tasks / ROADMAP / STATUS，单任务提交；涉及 schema 每任务最多一迁移。
-- 计划路径：packages/resources/；apps/server/src/modules/services / preview / api / ws；apps/web/src/features/windows / services；packages/shared；e2e* / scripts / 本切片验收记录（按任务相关部分修改）。
-
-### M3-5b 持久服务人工 / AI 统一动作接线
-
-- 状态：`todo`；依赖：M3-4/M3-5；全局 G-Spec-M3 / 技术问题门禁均需满足。
-- [ ] 先失败测试：同动作两来源、篡改 / 过期 / 重放、失败重查、停止保留配置 / 历史、临时动作拒绝。
-- [ ] 交付：服务卡片与工具共用动作授权 / 参数审批 / 锁 / 幂等 / 审计；M4 部署边界。
-- [ ] 验收：S2/S10/S11/S13，按 spec 与服务契约完成真实资源 / 权限 / 失败证据。
-- [ ] 验证：`pnpm check` / `pnpm build`；UI / 安全有浏览器和人类 review；最终全量回归。
-- [ ] 更新 spec / contract / tasks / ROADMAP / STATUS，单任务提交；涉及 schema 每任务最多一迁移。
-- 计划路径：packages/resources/；apps/server/src/modules/services / preview / api / ws；apps/web/src/features/windows / services；packages/shared；e2e* / scripts / 本切片验收记录（按任务相关部分修改）。
-
-### M3-6 M3 整体交付与 G3
-
-- 状态：`todo`；依赖：M3-5b；全局 G-Spec-M3 / 技术问题门禁均需满足。
-- [ ] 先失败测试：check / build、Demo / auth / prod、初始化 / 统一入口 / TUI 回归；记录真实平台与清理。
-- [ ] 交付：真实 dev / 登记 / Browser / 前后端 / PM2 / 双客户端闭环，acceptance.md 和 G3 人类验收。
-- [ ] 验收：S1–S15，按 spec 与服务契约完成真实资源 / 权限 / 失败证据。
-- [ ] 验证：`pnpm check` / `pnpm build`；UI / 安全有浏览器和人类 review；最终全量回归。
-- [ ] 更新 spec / contract / tasks / ROADMAP / STATUS，单任务提交；涉及 schema 每任务最多一迁移。
-- 计划路径：packages/resources/；apps/server/src/modules/services / preview / api / ws；apps/web/src/features/windows / services；packages/shared；e2e* / scripts / 本切片验收记录（按任务相关部分修改）。
+## M3-6 M3开发闭环与G3
+- 状态：`done`（2026-11-05）；依赖：M3-4。人类 G3 验收通过；整体材料见 [closure.md](closure.md)。
+- [x] 先写会失败的真实资源/权限/边界测试。
+- [x] 交付：真实dev→登记→预览→调试→Ctrl+C失效，两客户端/恢复/故障，G3人类验收。
+- [x] 验收：全部活动S场景，自主无人工停等、非法目标仍拒绝，失败不伪报。
+- [x] 按任务风险完成必要类型/格式/单元/集成及相关浏览器验证，记录平台与未运行项；安全生命周期证据不省略。
+- [x] 同步契约/spec/tasks/STATUS，单任务提交，新增schema每任务最多一份迁移；不改源码/用户数据作为测试捷径。

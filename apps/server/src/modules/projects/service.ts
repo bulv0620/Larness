@@ -9,6 +9,8 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { ProjectRow } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { rootHasWriter } from "../locks/repository.js";
+import { deleteResourceActionsForProject } from "../resources/repository.js";
+import { deleteServicesForProject } from "../services/repository.js";
 import { rootHasTerminal } from "../terminals/repository.js";
 import { ensureDefaultWorkspace } from "../workspaces/default.js";
 import {
@@ -295,6 +297,8 @@ export function deleteProject(
   immediateTransaction(options.db, (tx) => {
     if (rootHasWriter(tx, current.realPath, now) || rootHasTerminal(tx, current.realPath))
       throw new ProjectError("RESOURCE_LOCKED", "project root has an active writer");
+    deleteServicesForProject(tx, input.id);
+    deleteResourceActionsForProject(tx, input.id);
     deleteProjectRow(tx, input.id);
     appendAudit(tx, {
       action: "project.deleted",

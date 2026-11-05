@@ -1,6 +1,5 @@
 import { FileManagerError, GitError } from "@larness/resources";
 import {
-  GitActionDecisionSchema,
   GitActionSchema,
   GitBranchesQuerySchema,
   GitDiffQuerySchema,
@@ -15,7 +14,6 @@ import { HttpError } from "../errors.js";
 import type { GitManager } from "../modules/git/manager.js";
 
 const ProjectParams = z.object({ id: z.string().min(1).max(128) }).strict();
-const ActionParams = z.object({ id: z.string().min(1).max(128) }).strict();
 
 function mapFailure(error: unknown): HttpError {
   if (error instanceof GitError) return new HttpError(error.code, error.message);
@@ -37,11 +35,6 @@ export function registerGitRoutes(app: FastifyInstance, deps: AppServices, git: 
   const projectId = (request: FastifyRequest) => {
     const parsed = ProjectParams.safeParse(request.params);
     if (!parsed.success) throw new HttpError("VALIDATION_ERROR", "Invalid project ID");
-    return parsed.data.id;
-  };
-  const actionId = (request: FastifyRequest) => {
-    const parsed = ActionParams.safeParse(request.params);
-    if (!parsed.success) throw new HttpError("VALIDATION_ERROR", "Invalid action ID");
     return parsed.data.id;
   };
   async function run(request: FastifyRequest, action: () => unknown | Promise<unknown>) {
@@ -100,26 +93,4 @@ export function registerGitRoutes(app: FastifyInstance, deps: AppServices, git: 
     });
     return reply.code(201).send(result);
   });
-  app.get("/api/resource-actions/:id", (request) =>
-    run(request, () => git.action(actionId(request))),
-  );
-  app.post("/api/resource-actions/:id/decision", (request) =>
-    run(request, () => {
-      const parsed = GitActionDecisionSchema.safeParse(request.body);
-      if (!parsed.success) throw new HttpError("VALIDATION_ERROR", "Invalid Git decision");
-      return git.decideAction(actionId(request), parsed.data.decision, client(request));
-    }),
-  );
-  app.post("/api/resource-actions/:id/execute", (request) =>
-    run(request, async () => {
-      const body = request.body as unknown;
-      if (
-        body !== undefined &&
-        body !== null &&
-        (!(typeof body === "object") || Object.keys(body).length > 0)
-      )
-        throw new HttpError("VALIDATION_ERROR", "Git execution takes no parameters");
-      return git.executeAction(actionId(request), client(request));
-    }),
-  );
 }

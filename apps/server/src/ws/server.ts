@@ -7,6 +7,7 @@ import {
   CommandSubscriptionSchema,
   FileSubscriptionSchema,
   type ServerEvent,
+  ServiceSubscriptionSchema,
   TerminalInputSchema,
   type TerminalOutputEvent,
   TerminalSubscriptionSchema,
@@ -273,6 +274,23 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             }
             return;
           }
+          if (event.topic === "service") {
+            const grant = fileGrants.get(event.streamId);
+            if (!grant) return;
+            try {
+              assertFileScopeMetadata(deps.db, grant);
+              send(socket, event);
+            } catch {
+              subscriptions.delete(event.streamId);
+              fileGrants.delete(event.streamId);
+              send(socket, {
+                kind: "error",
+                code: "FORBIDDEN",
+                message: "Service subscription unavailable",
+              });
+            }
+            return;
+          }
           const grant = fileGrants.get(event.streamId);
           try {
             if (!grant) return;
@@ -406,7 +424,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             }
 
             const accepted: Array<{
-              topic: "system" | "agent" | "file" | "command" | "terminal";
+              topic: "system" | "agent" | "file" | "command" | "terminal" | "service";
               resourceId: string;
               key: string;
               currentSequence: number;
@@ -463,6 +481,42 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
                   });
                 } catch {
                   fileDenied("FORBIDDEN", "Terminal subscription denied", "terminal");
+                  return;
+                }
+                continue;
+              }
+              if (entry.topic === "service") {
+                const parsed = ServiceSubscriptionSchema.safeParse(entry);
+                if (!parsed.success) {
+                  fileDenied("VALIDATION_ERROR", "invalid service subscription", "service");
+                  return;
+                }
+                try {
+                  const grant = await resolveResourceStreamScope(
+                    deps.db,
+                    deps.dataDir,
+                    parsed.data.resourceId,
+                  );
+                  if (closed || !sessionActive()) {
+                    socket.close(1008, "session expired");
+                    return;
+                  }
+                  if (!grant) throw new Error("Missing service scope");
+                  assertFileScopeMetadata(deps.db, grant);
+                  const currentSequence = resourceSequence(deps.db, parsed.data.resourceId);
+                  if (parsed.data.after > currentSequence) {
+                    fileDenied("VALIDATION_ERROR", "event cursor is in the future", "service");
+                    return;
+                  }
+                  accepted.push({
+                    topic: "service",
+                    resourceId: parsed.data.resourceId,
+                    key: parsed.data.resourceId,
+                    currentSequence,
+                    grant,
+                  });
+                } catch {
+                  fileDenied("FORBIDDEN", "service subscription denied", "service");
                   return;
                 }
                 continue;
@@ -581,6 +635,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
               subscriptions.add(entry.key);
               if (entry.topic === "terminal") deps.terminals.subscribe(entry.key, owner);
               if (entry.topic === "command" && entry.grant) fileGrants.set(entry.key, entry.grant);
+              if (entry.topic === "service" && entry.grant) fileGrants.set(entry.key, entry.grant);
               if (entry.topic === "file" && entry.grant && entry.paths) {
                 fileGrants.set(entry.key, entry.grant);
                 try {

@@ -20,6 +20,7 @@ export interface WindowTab {
   originType: TabOrigin;
   file?: { scope: FileScope; path: string };
   git?: { path: string; staged: boolean };
+  browser?: { serviceId: string; path: string };
 }
 
 export interface Rect {
