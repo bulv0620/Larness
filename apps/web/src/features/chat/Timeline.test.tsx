@@ -56,3 +56,31 @@ it("keeps the final answer visible when a completed tool event arrives after the
   render(<Timeline />);
   expect(screen.getByText("项目文件已列出。")).toBeVisible();
 });
+it("shows a spinner at the process summary while the turn is running", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user-running",
+        kind: "message",
+        role: "user",
+        text: "run",
+        createdAt: 1,
+        turnId: "turn-running",
+      },
+      {
+        id: "tool-running",
+        kind: "tool",
+        name: "start_project_terminal",
+        summary: "启动终端",
+        args: "",
+        status: "running",
+        createdAt: 2,
+        turnId: "turn-running",
+      },
+    ],
+    activeTurnId: "turn-running",
+    isStreaming: true,
+  });
+  render(<Timeline />);
+  expect(screen.getByTestId("turn-running-spinner")).toBeTruthy();
+});

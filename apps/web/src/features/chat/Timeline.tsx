@@ -117,7 +117,18 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
                 active && !pending && "text-accent",
               )}
             >
-              <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
+              {active && !pending ? (
+                <Loader2
+                  size={13}
+                  data-testid="turn-running-spinner"
+                  className="mt-0.5 shrink-0 animate-spin text-accent motion-reduce:animate-none"
+                />
+              ) : (
+                <ChevronRight
+                  size={13}
+                  className={cn("mt-0.5 shrink-0", expanded && "rotate-90")}
+                />
+              )}
               <span className="min-w-0 break-words">{summary}</span>
             </button>
             {expanded ? (
