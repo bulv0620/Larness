@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-04 (+08:00)
-> 当前阶段：**M2 全部实现完成；M2-8 G2 候选，等待人类验收 / 纠错**
+> 最后更新：2026-11-05 (+08:00)
+> 当前阶段：**M2 / G2 已于 2026-11-05 通过人类整体验收；下一步 M3 规格评审（尚未开始）**
 
 ## 里程碑
 
@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo | `done` | G-S0 通过（2026-11-01）；`D0-1`–`D0-9` 完成 |
 | M0 | 工程底座与可信启动 | `done` | 2026-11-01 G0 通过（macOS 范围）；M0-1 ~ M0-9 完成 |
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
-| M2 | 开发资源与窗口层 | `in_progress` | M2-8 G2 候选；等待人类验收 |
+| M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 本机服务与 Preview | `draft` | 含预览隔离 PoC |
 | M4 | 部署闭环与权限加固 | `draft` | 依赖 M3 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
@@ -59,50 +59,11 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M2-20 `done`：2026-11-04 (+08:00)，task/m2-20-terminal-entry；终端简洁空态、仅运行资源恢复、历史结果点击前读实际状态，已关闭提示且不开Tab；沿用必要前端校验：相关终端21/21、Web类型/格式通过；见specs/042-terminal-entry/acceptance.md，用户自行界面验收。
-
-- M2-19 `done`：2026-11-04 (+08:00)，task/m2-19-composer-controls；审批盾牌专用菜单、发送左侧上下文小圆环，沿用仅必要Web校验：相关组件9/9、Web类型/格式、320px触屏布局通过；见specs/041-composer-controls/acceptance.md，界面用户自行验收。
-
-- M2-18 `done`：2026-11-04 (+08:00)，task/m2-18-chat-edge-blur；消息滚动区头尾blur/渐隐，保留布局和交互，按用户要求只做必要Web校验：相关组件7/7、Web类型/格式通过，视觉用户自行验收；见specs/039-chat-edge-blur/acceptance.md。
-
-- M2-17 `done`：2026-11-04 (+08:00)，task/m2-17-message-bubbles；回复消息框、复制右侧时间、紧凑审批/隐藏记录；按用户指令只做必要Web校验：相关组件7/7、Web类型/改动文件格式通过；用户自行界面验收，未跑全量check/build/E2E。见specs/038-message-bubbles/acceptance.md。
-
-- M2-16 `done`：2026-11-04 (+08:00)，task/m2-16-chat-theme；用户要求保持对话结构、样式与外围统一，按037/ADR-036复用主题token与共享按钮，验证浅/深/窄屏与既有交互。check（403/32/58）、build、Demo16/16、320px触屏44px目标通过；见specs/037-conversation-theme/acceptance.md。
-
-- M2-15 `done`：2026-11-04 (+08:00)，task/m2-15-conversation-ui；M2-14已提交，实施已批准的中央对话、真实过程/计划、底部审批、Composer和紧凑资源浮栏，验证滚动/输入/真实资源回归。check（403/32/58）、build、Demo15/15、相关生产11项分批通过；见specs/036-conversation-experience/acceptance.md。
-
-- M2-14 `done`：2026-11-04 (+08:00)，task/m2-14-agent-plan；用户批准紧凑对话预览，先补真实计划工具/持久事件/重放，再按M2-15实施对话UI。规格036 accepted，无新依赖/迁移。check（403/32/50）、build通过；真实计划/非法参数/取消/凭据/重放均已覆盖。
-
-- M2-13 `done`：2026-11-04，task/m2-13-default-project；默认工作区进入统一项目树，固定系统项目 API / 后端不可修改删除保护，默认 session / file / terminal 别名保留原资源域。check（400 / 32 / 49）、build、Demo 15/15、生产 M2 9 项分批通过；见 specs/035-default-project/acceptance.md。
-
-- M2-12 `done`：2026-11-04，分支 `task/m2-12-resource-sidebar`；右栏无视图 Tab，Git 不可用为灰色占位，文件树无连接 / 刷新行，空根灰色占位；保留监听 / 分区调整 / 失败恢复。check（399 / 32 / 49）、build、Demo 15/15、真实文件 / Git / 默认工作区 3 项分批通过；见 specs/034-resource-sidebar/acceptance.md。
-
-- M2-11 `done`：2026-11-04，分支 `task/m2-11-terminal-experience`；终端内容工具栏移除、Tab 控制菜单、空闲人工 Shell 直接输入、＋直接确认与账户默认 Shell；修复快速 fork 的终止快照竞态及恢复视图旧租约缓存。check（399 / 32 / 48）、build、Demo 15/15、生产 M2 9 项分批通过；见 specs/033-terminal-experience/acceptance.md。保留 AI 审批和租约。
-
-- M2-10 `done`：2026-11-04，分支 `task/m2-10-default-workspace`；共享默认目录、文件 / 终端 / 窗口归属和默认 AI 控制完成；旧独立目录不变。check（397 / 32 / 47）、build、生产 M2 9/9、Demo 15/15；验收见 specs/032-default-workspace/acceptance.md。
-
-- M2-9 `done`：2026-11-04，分支 `task/m2-9-project-windows`；项目窗口 / 浮栏 / Tab 滚动、终端名称与人工 Shell AI 控制、草稿刷新项目恢复完成。check（392 / 32 / 46）、build、Demo 15/15、生产终端 3/3；验收见 specs/031-project-windows/acceptance.md。共享默认工作区已由 M2-10 交付。
-
-- M2-8 测试修复 `done`：2026-11-04（+08:00），分支 `task/m2-8-git-approval-test`；修复 Git 审批组件测试在响应 / React 更新完成前查找执行按钮的竞态，保持审批行为；新增单次执行与面板关闭断言。针对性 2/2、check（server 389 / agent 32 / web 41）、build 通过。README 进度同步另行提交，G2 仍待人类。
-
-- 当前功能纠错：M2-9 / M2-10 / M2-11 / M2-12 / M2-13 / M2-14 / M2-15 / M2-16 / M2-17 / M2-18 / M2-19 / M2-20 已完成并逐任务提交；G2 候选等待人类 UI / 安全验收，未进入 M3。
-- M2-5 已验收：2026-11-03 人类“通过并继续”，Git 管理 / 资源动作 / Agent 工具交付完成并标 done。
-- M2-4d 已验收：2026-11-03 人类确认并继续；AI 终端控制 / 人工接管交付完成并标 done。
-- M2-4c 已验收：2026-11-03 人类确认并继续；启动 / 有界读取 / 显式停止、L2 审批与来源 Tab 交付完成并标 done。
-- M2-4b 已验收：2026-11-03 人类在 review 后要求开始 M2-4c，视为验收通过并标 done；真实终端创建/输入/双客户端观察、租约失效、关闭与恢复见 [验收记录](specs/030-dev-resources/acceptance.md)。
-
-- M2-P（仅文档）已完成起草：2026-11-02（+08:00），分支 `task/m2-spec-draft`。按人类“起草一下 m2 阶段”补齐 030 spec / plan / tasks / review、资源契约草案与 ADR-029 提案；check（server 297 / agent 32 / web 26）及文档链接 / 依赖检查通过；不启动功能实现、不安装依赖、不修改运行数据。
-
-- U0-0（仅文档）已完成：task/u0-0-unified-entry-spec，2026-11-02（+08:00）开始并完成。人类要求“先补充文档”；新增 ADR-028 / 017 spec / runtime-entry 契约草案和任务，不修改运行代码、配置/数据，不把方向认可当成具体设计或实施门禁已批准。
-- G-Spec-U / ADR-028 与先于 M2 的排期已获人类“开始实现”确认，当前按任务验收，见 specs/017-unified-entry/review.md。
-
-- 已完成：`M1` — 项目、会话与最小 Agent（M1-1 ~ M1-15）
-  - G1 于 2026-11-01 通过人类验收；自动化覆盖 `pnpm check`（agent 32 / server 239 / web 26）、`build`、demo E2E 15、auth + M1 E2E 2、prod E2E 2；
-  - 关键交付：项目登记 / 目录选择、会话 / Turn / 事件、文件工具与审批、模型 Profile / SecretStore、实时对话 / Markdown / 工具折叠、草稿会话、侧栏右键操作；
-  - 验收记录：[M1 acceptance](specs/020-workspace-agent/acceptance.md)。
-- 下一步：人类 G2 验收；不自行标记 G2 通过。
-- 阻塞项：无。
-- 待 review：M2 整体 G2（人类验收 / 纠错）；已知 auth 抖动、CSP unsafe-eval、git WS 未接线。
+- M2 / G2：`done`。2026-11-05 用户明确“所有修改内容验收通过，M2阶段也整体通过”，M2-0～28与M2-24b统一关闭；最终行为、范围、测试与遗留边界见 [M2收尾](specs/030-dev-resources/closure.md)。
+- M2-29：本次文档/合并发布收尾，分支 `task/m2-29-acceptance-close`；用户已授权合并到main并push。无产品代码变更，延用必要校验要求。
+- 当前无进行中的M2功能任务。下一步为M3的spec/plan/tasks评审与G-Spec-M3，仍为draft，本轮不启动M3实现。
+- 已知边界保留：认证E2E批量抖动、Monaco CSP unsafe-eval、Git 3秒轮询、macOS单平台验证；不以验收通过宣称这些问题已修复。
+- 以下“变更记录”和逐任务启动/交付段落均为历史记录；其中当时的in_progress、待人类或不合并/push要求，已由本次最终验收和明确发布授权替代。
 
 ## 已冻结
 
@@ -461,3 +422,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 ## M2-28 交付（2026-11-05 +08:00）
 - done，task/m2-28-git-feedback：去掉Git空态重试、刷新busy文字行，以原按钮忙状态反馈，实际失败/审批保留。必要校验，统一验收/合并/push仍待用户。
 - M2-28完成：Git不可用仅灰占位，刷新忙状态只在图标按钮中呈现，去掉busy整行文字；8项相关组件、Web类型/格式/diff通过。实际失败/审批保留，待统一验收。
+
+## M2-29 / G2 整体关闭（2026-11-05 +08:00）
+- 用户明确通过全部修改与M2整体；所有M2切片状态done，文档/契约入口已同步。已授权合并main并push；不自动启动M3。最终验收见030/closure.md，已有测试与已知边界据实保留。
+- 收尾必要检查：全仓Biome（458文件，保留4 warning/1 info）、全workspace类型、文档链接110处、M2切片状态与M3 draft一致性、diff检查通过；本次未重跑全量单元/构建/E2E。

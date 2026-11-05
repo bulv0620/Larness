@@ -1,10 +1,12 @@
 ---
 id: 033-terminal-experience
-status: active
+status: done
 milestone: M2
 created: 2026-11-04
 ---
 # M2-11 纯终端体验
+
+> **当前验收：2026-11-05 人类统一通过全部修改与 M2 / G2，本切片已完成。** 最终状态/范围/遗留边界见[收尾记录](../030-dev-resources/closure.md)。下文原日期的待验收/实施记录保留为历史证据，不再表示当前阻塞。
 人类在了解当前实现后要求继续优化；依赖 M2-10 done。
 
 ## 目标 / 非目标

@@ -1,8 +1,10 @@
 ---
-status: accepted
+status: done
 milestone: M2
 ---
 # M2-22 Agent 终端保留 Shell
+
+> **当前验收：2026-11-05 人类统一通过全部修改与 M2 / G2，本切片已完成。** 最终状态/范围/遗留边界见[收尾记录](../030-dev-resources/closure.md)。下文原日期的待验收/实施记录保留为历史证据，不再表示当前阻塞。
 用户在了解 Agent 直接把服务当 PTY 主进程后，明确要求解决：Ctrl+C 停服务后回到提示符，关闭 Tab / Agent 显式 stop 才结束整个终端。依赖 M2-21 done；ADR-038 记录该授权。
 
 ## 目标 / 非目标

@@ -1,8 +1,10 @@
 ---
-status: accepted
+status: done
 milestone: M2
 ---
 # M2-21 Agent 关闭终端同步 Tab
+
+> **当前验收：2026-11-05 人类统一通过全部修改与 M2 / G2，本切片已完成。** 最终状态/范围/遗留边界见[收尾记录](../030-dev-resources/closure.md)。下文原日期的待验收/实施记录保留为历史证据，不再表示当前阻塞。
 用户指出 Agent 已终止终端但 Tab / 浮栏仍残留，直接授权纠错。依赖 M2-20 done。
 
 ## 目标与非目标

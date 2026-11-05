@@ -1,5 +1,7 @@
 # M2-22 验证记录（2026-11-04 +08:00）
 
+> **当前验收：2026-11-05 人类统一通过全部修改与 M2 / G2，本切片已完成。** 最终状态/范围/遗留边界见[收尾记录](../030-dev-resources/closure.md)。下文原日期的待验收/实施记录保留为历史证据，不再表示当前阻塞。
+
 - 前置真实 PTY 回归先红：4/4 因服务退出后原 PTY 已结束、无法继续输入而失败。固定引导接入后通过；新增 missing/builtin 外部执行边界及显式子进程清理共 6 项。
 - `pnpm --filter @larness/server exec vitest run test/resources/terminal-dev-shell.test.ts test/resources/terminal-shell.test.ts test/resources/terminals.test.ts test/resources/terminal-process.test.ts test/agent/terminalTools.test.ts test/agent/terminalControl.test.ts`：6 文件 33/33 通过。
 - 真实证据：人工租约 Ctrl+C、监听端口释放/服务 PID 退出、同 terminalId RUNNING 和后续文件输入；0/9 返回、missing 程序和名为 eval 的外部程序失败后 Shell 可用；字面空格/引号/美元/换行/ETX/空参数无解释；显式 Shell exit 仍有正确终态退出码；显式 terminate 清理前台父子进程。

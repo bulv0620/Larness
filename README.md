@@ -6,11 +6,17 @@
 - 以对话驱动 Agent 读写项目、运行命令、管理终端 / 服务 / Git；
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
-> **当前状态：S0、M0（macOS 范围）与 M1 已验收；M2 功能已实现，G2 候选待人类验收，当前进入问题修复阶段。M3 仍为草案。**
+> **当前状态：S0、M0（macOS 范围）、M1 与 M2 均已验收；M2 / G2 于 2026-11-05 通过人类整体验收。下一步为 M3 规格评审，M3 尚未实现。**
 > 启动开发环境：`pnpm install && pnpm dev` → Server <http://127.0.0.1:3210/api/health> + Web <http://localhost:3210>，并直接进入 TUI。
 > 对话区已按紧凑单列重构，支持真实任务计划、折叠执行过程、输入框上方审批与小型资源浮栏；见 [对话区验收](specs/036-conversation-experience/acceptance.md)。
-> 当前进度见 [STATUS.md](STATUS.md)；M2 验收结果与已知问题见 [验收记录](specs/030-dev-resources/acceptance.md)。
+> 当前进度见 [STATUS.md](STATUS.md)；M2 最终验收与已知边界见 [收尾记录](specs/030-dev-resources/closure.md)，历史自动化证据见 [验收记录](specs/030-dev-resources/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
+
+## M2 已验收能力
+
+文件编辑与版本冲突、受管命令、可交接的真实终端、固定默认项目、项目窗口与最小化动画、紧凑对话和真实任务计划均已交付。输入框支持风险确认后的完全自主工具策略；Git 区支持暂存、取消暂存、确认放弃、提交和分支/推拉操作。
+
+已知边界：Git 使用 3 秒轮询；认证 E2E 曾有批量时序抖动；Monaco 生产 CSP 包含 unsafe-eval。验收范围为 macOS，Linux/Windows 尚未实机验收。详见M2收尾记录，服务登记/隔离预览/PM2仍属于M3。
 
 ## 文档地图
 
@@ -109,7 +115,7 @@ Agent 的启动指令示例：
 
 ```text
 请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md。
-S0、M0（macOS 范围）与 M1 已验收；M2 处于问题修复与 G2 待验收阶段。
+S0、M0（macOS 范围）、M1 与 M2 已验收；G2 已通过，下一步为 M3 规格评审。
 请以 STATUS.md、specs/ROADMAP.md 和当前任务卡为准，一次只处理一个任务。
 ```
 
@@ -144,7 +150,7 @@ S0、M0（macOS 范围）与 M1 已验收；M2 处于问题修复与 G2 待验�
     ├── 000-visual-demo/        # S0 视觉 Demo（已验收）
     ├── 010-foundation/         # M0 可信启动与认证
     ├── 020-workspace-agent/    # M1 项目 / 会话 / 最小 Agent
-    ├── 030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（G2 待验收）
+    ├── 030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（G2 已验收）
     ├── 040-services-preview/   # M3 服务与预览（草案）
     ├── 050-deploy/             # M4 部署闭环（草案）
     └── 060-extension/          # M5 多模型 / 自动化 / 更新（草案）

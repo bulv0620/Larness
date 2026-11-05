@@ -1,10 +1,12 @@
 ---
 id: 034-resource-sidebar
-status: active
+status: done
 milestone: M2
 created: 2026-11-04
 ---
 # M2-12 右侧资源区简化
+
+> **当前验收：2026-11-05 人类统一通过全部修改与 M2 / G2，本切片已完成。** 最终状态/范围/遗留边界见[收尾记录](../030-dev-resources/closure.md)。下文原日期的待验收/实施记录保留为历史证据，不再表示当前阻塞。
 人类直接要求；依赖 M2-11 done。
 
 ## 目标 / 非目标

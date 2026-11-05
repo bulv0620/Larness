@@ -10,7 +10,7 @@
 | S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
-| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `in_progress` | G-Spec-M2 / G-PoC-M2 已通过；M2-7 done / M2-8 review，G2 待人类 |
+| M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `done` | G2 于2026-11-05通过人类整体验收；范围与边界见030/closure.md |
 | M3 | 本机服务与 Preview | [040](040-services-preview/spec.md) | `draft` | G3 |
 | M4 | 部署闭环与权限加固 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
@@ -113,9 +113,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | U0-2 | supervisor 接线与共享配置/统一初始化 | U0-1 | `done` |
 | U0-3 | 同目录模式切换、真实 HMR 与整体交付 | U0-2 | `done`（2026-11-02 人类验收通过） |
 
-## 5. M2 开发资源与窗口层（M2-8 G2 候选）
+## 5. M2 开发资源与窗口层（G2 已通过）
 
-2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。2026-11-03 人类在阅读 [PoC 证据](030-dev-resources/poc.md) 后明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 已获人类“下一步”或“继续”确认并标 done；人类“下一步”确认 M2-3 done；人类“下一步”确认 M2-3b done；人类明确开始 M2-4b，确认 M2-4 done；M2-4b 已验收 done；人类要求开始 M2-4c；M2-4c 已验收 done；人类确认继续 M2-4d；M2-4d 已验收 done；人类确认继续 M2-5；M2-5 已验收 done；M2-5b / M2-6 / M2-7 已完成，M2-8 为 G2 候选待人类；后续纠错见 M2-9 / M2-10。
+2026-11-05 人类已统一通过 M2 与全部纠错；下段为历史实施顺序，当前以done表格和[最终收尾](030-dev-resources/closure.md)为准。
+
+2026-11-02 人类要求开始 M2，并确认按最新 spec；[spec](030-dev-resources/spec.md) / [plan](030-dev-resources/plan.md) / [tasks](030-dev-resources/tasks.md) / [ADR-029](../docs/adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2。2026-11-03 人类在阅读 [PoC 证据](030-dev-resources/poc.md) 后明确开始 M2-1，G-PoC-M2 通过；M2-1 / M2-1b / M2-2 已获人类“下一步”或“继续”确认并标 done；人类“下一步”确认 M2-3 done；人类“下一步”确认 M2-3b done；人类明确开始 M2-4b，确认 M2-4 done；M2-4b 已验收 done；人类要求开始 M2-4c；M2-4c 已验收 done；人类确认继续 M2-4d；M2-4d 已验收 done；人类确认继续 M2-5；M2-5 已验收 done；M2-5b / M2-6 / M2-7 已完成，2026-11-03 M2-8曾为G2候选；2026-11-05全部后续纠错已统一验收，M2 / G2 done。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
@@ -134,7 +136,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M2-5b | Git 资源区、Diff 与审批 UI | M2-5 | `done` |
 | M2-6 | 真实资源窗口、来源/项目筛选、分组与布局恢复 | M2-2, M2-4b, M2-5b | `done` |
 | M2-7 | 跨资源项目锁、fencing、并发与恢复验收 | M2-6 | `done` |
-| M2-8 | M2 整体验收与 G2 | M2-7 | `review`（G2 待人类） |
+| M2-8 | M2 整体验收与 G2 | M2-7 | `done`（2026-11-05人类验收） |
 
 ## M2 纠错
 
@@ -151,26 +153,29 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 | M2-16 | [对话区主题统一](037-conversation-theme/spec.md) | M2-15 done；用户直接要求 | `done`（2026-11-04） |
 
-| M2-17 | [消息框与紧凑审批](038-message-bubbles/spec.md) | M2-16 done；用户直接要求 | `done`（用户自行界面验收） |
+| M2-17 | [消息框与紧凑审批](038-message-bubbles/spec.md) | M2-16 done；用户直接要求 | `done`（2026-11-05人类验收） |
 
-| M2-18 | [消息边缘模糊过渡](039-chat-edge-blur/spec.md) | M2-17 done；用户截图指定 | `done`（用户自行视觉验收） |
+| M2-18 | [消息边缘模糊过渡](039-chat-edge-blur/spec.md) | M2-17 done；用户截图指定 | `done`（2026-11-05人类验收） |
 
-| M2-19 | [审批盾牌与上下文圆环](041-composer-controls/spec.md) | M2-18 done；用户直接要求 | `done`（用户自行界面验收） |
+| M2-19 | [审批盾牌与上下文圆环](041-composer-controls/spec.md) | M2-18 done；用户直接要求 | `done`（2026-11-05人类验收） |
 
-| M2-20 | [终端空态与历史入口](042-terminal-entry/spec.md) | M2-19 done；用户确认 | `done`（用户自行界面验收） |
+| M2-20 | [终端空态与历史入口](042-terminal-entry/spec.md) | M2-19 done；用户确认 | `done`（2026-11-05人类验收） |
 
-| M2-21 | [Agent 关闭终端同步 Tab](043-agent-terminal-close/spec.md) | M2-20 done；用户直接要求 | `done`（用户自行界面验收） |
+| M2-21 | [Agent 关闭终端同步 Tab](043-agent-terminal-close/spec.md) | M2-20 done；用户直接要求 | `done`（2026-11-05人类验收） |
 
-| M2-22 | [Agent 终端保留 Shell](044-agent-shell/spec.md) | M2-21 done；用户直接要求 | `done`（用户自行界面验收） |
+| M2-22 | [Agent 终端保留 Shell](044-agent-shell/spec.md) | M2-21 done；用户直接要求 | `done`（2026-11-05人类验收） |
 
-| M2-23 | [欢迎区与建议](045-workspace-polish/spec.md) | M2-22 done | `done`（待统一验收） |
-| M2-24 | 窗口关闭与动画 | M2-23 | `done`（待统一验收） |
-| M2-25 | 完全自主策略 | M2-24 | `done`（待统一验收） |
-| M2-26 | 互斥侧栏与 Git 精简 | M2-25 | `done`（待统一验收） |
+| M2-23 | [欢迎区与建议](045-workspace-polish/spec.md) | M2-22 done | `done`（2026-11-05统一验收） |
+| M2-24 | 窗口关闭与动画 | M2-23 | `done`（2026-11-05统一验收） |
+| M2-25 | 完全自主策略 | M2-24 | `done`（2026-11-05统一验收） |
+| M2-26 | 互斥侧栏与 Git 精简 | M2-25 | `done`（2026-11-05统一验收） |
 
-| M2-27 | [Git 文件行动作](046-git-file-actions/spec.md) | M2-26 / M2-24b done；用户直接要求 | `done`（待统一验收） |
+| M2-27 | [Git 文件行动作](046-git-file-actions/spec.md) | M2-26 / M2-24b done；用户直接要求 | `done`（2026-11-05统一验收） |
 
-| M2-28 | [Git 刷新反馈收敛](047-git-feedback/spec.md) | M2-27 done；用户直接要求 | `done`（待统一验收） |
+| M2-28 | [Git 刷新反馈收敛](047-git-feedback/spec.md) | M2-27 done；用户直接要求 | `done`（2026-11-05统一验收） |
+
+| M2-24b | 最小化位移/取消竞态修正 | M2-26 | `done`（2026-11-05统一验收） |
+| M2-29 | [M2文档收尾与合并发布](030-dev-resources/closure.md) | M2-28；人类通过G2并授权发布 | `done`（仅文档/交付） |
 
 ## 5.1 R0-0 资源生命周期与服务文档同步
 
@@ -267,7 +272,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 - 重启标原 PTY / 命令中断，未知旧进程未清理前不允许冲突写；TUI 退出清理受管进程；
 - check / build / Demo / auth / prod / 初始化 / 统一入口 / TUI 回归通过，真实 macOS dev / built 冒烟及人类 UI / 安全验收通过；其他平台仅据实记录。
 
-**状态：M2-8 已汇总候选，M2-9 / M2-10 已完成纠错；G2 仍待人类 UI / 安全验收。**
+**状态：G2 已于2026-11-05通过人类整体验收；M2-0～28及M2-24b均done。已知边界保留，见[最终收尾](030-dev-resources/closure.md)。**
 
 ### G3 服务与预览
 
