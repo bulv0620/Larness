@@ -179,6 +179,40 @@ it("shows unavailable Git as a muted empty state without repository actions", as
   expect(empty).not.toHaveClass("text-danger");
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "推送" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "重试" })).not.toBeInTheDocument();
+});
+
+it("keeps refresh feedback on the button without inserting a processing row", async () => {
+  let reads = 0;
+  let finish: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      if (url.includes("/git/status")) {
+        if (++reads > 1) await gate;
+        return new Response(JSON.stringify(statusView()), { status: 200 });
+      }
+      if (url.includes("/git/branches"))
+        return new Response(
+          JSON.stringify({ items: [{ name: "main", current: true, head: "a".repeat(40) }] }),
+          { status: 200 },
+        );
+      return new Response("{}", { status: 404 });
+    }),
+  );
+  renderPanel();
+  const refresh = await screen.findByRole("button", { name: "刷新 Git" });
+  fireEvent.click(refresh);
+  await waitFor(() => expect(refresh).toBeDisabled());
+  expect(refresh).toHaveAttribute("aria-busy", "true");
+  expect(screen.queryByText("正在处理…")).not.toBeInTheDocument();
+  expect(screen.getByText("a.txt")).toBeVisible();
+  finish?.();
+  await waitFor(() => expect(refresh).toBeEnabled());
+  expect(refresh).toHaveAttribute("aria-busy", "false");
 });
 
 it("unstages exact paths and only discards an untracked file after confirmation", async () => {

@@ -8,7 +8,6 @@ import {
   GitBranch,
   GitCommitHorizontal,
   GitPullRequest,
-  Loader2,
   Plus,
   RefreshCw,
   X,
@@ -71,18 +70,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
     return <p className="px-2 py-3 text-[10.5px] text-ink-3">暂无 Git 仓库</p>;
   if (status.isPending) return <p className="px-2 py-3 text-[10.5px] text-ink-3">读取 Git 状态…</p>;
   if (status.isError && !status.data)
-    return (
-      <div className="px-2 py-3 text-[10.5px] text-ink-3">
-        <p className="text-ink-3">Git 暂不可用</p>
-        <button
-          type="button"
-          onClick={() => void status.refetch()}
-          className="mt-1 hover:text-accent"
-        >
-          重试
-        </button>
-      </div>
-    );
+    return <p className="px-2 py-3 text-[10.5px] text-ink-3">Git 暂不可用</p>;
   const data = status.data;
   if (!data) return null;
   const changes = [
@@ -267,6 +255,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
           type="button"
           disabled={busy}
           aria-label="刷新 Git"
+          aria-busy={busy}
           title="刷新 Git"
           onClick={() => void run(async () => {})}
           className="rounded p-1.5 hover:bg-surface-2 disabled:opacity-40"
@@ -386,11 +375,6 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       {status.isError ? (
         <p role="status" className="px-2 text-[10px] text-ink-3">
           Git 状态读取失败，请刷新后继续。
-        </p>
-      ) : null}
-      {busy ? (
-        <p role="status" className="flex items-center gap-1 px-2 text-[10px] text-ink-3">
-          <Loader2 size={11} className="animate-spin" /> 正在处理…
         </p>
       ) : null}
       {error ? (
