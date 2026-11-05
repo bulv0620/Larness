@@ -49,12 +49,26 @@ Ctrl+C只停止前端命令时，前端退登与旧预览流失效，Shell保留
 沿用[services-preview](../../docs/contracts/services-preview.md)与M2 resource_events/operations。M3-1仅临时绑定/状态/事件、M3-3预览路由/票据；无PM2字段迁移或PM2配置。scope/project/session来自真实授权上下文，不由日志/PID单字段决定。预览域名/票据/参数/配置schema在Q-002/Q-026 PoC和技术评审后冻结，不在本次文档捏造已实现接口。
 策略通过现有授权上下文传播；自主不创建approvalId/人工批准事件，不改变API鉴权或秘密保护。所有关键事件先业务事务/seq提交再广播。
 
+本轮技术候选详[ADR-043](../../docs/adr/ADR-043-development-preview-authorization.md)和[M3技术契约](../../docs/contracts/m3-preview.md)，均未批准：登记executionId由后端生成；预览解析改POST并带CSRF/no-store，票据不入模型/URL；人工登记沿resource-actions，Agent沿Turn策略进共同核心。只新增temporary及必要action kind迁移，不加入PM2字段。
+
 ## 5. 安全、失败与恢复
 每次转发核对活跃绑定/generation；源退出或身份未知先拒绝已有和新路由，再提交退登/恢复对账，DB失败不能继续开放旧目标。预览与管理端独立来源，禁止同源iframe降级。临时日志引用终端有界游标，不再复制无限日志。未知目标失败关闭；自动重试读取不自动spawn/登记无关进程。PM2_HOME/退出策略Q-003/Q-027不再是M3阻塞项，归M4。
 
 ## 6. 测试与完成定义
 真实PTY/loopback HTTP+WS/Vite/隔离来源浏览器验证；FakeProvider仅替代模型。负例覆盖命令退但Shell活、端口复用、SSRF/Cookie/票据、DB故障、游标过期、两客户端、策略快照及自主无人工停等。
-- [ ] Q-002/Q-026技术方案、参数/配置/检测延迟与PoC、G-Spec-M3通过；
-- [ ] M3-0→1→2/3→3b→4→6相关任务完成，S1–S9/S12–S16真实证据齐全；
+- [ ] Q-002/Q-026推荐方案、ADR-043/候选契约与G-Spec-M3获人类批准，先M3-0；
+- [ ] M3-0真实证据与精确身份/Cookie协议/时限/支持矩阵获G-PoC-M3确认，再M3-1；
+- [ ] M3-0→1→2/3→3b→4→6相关任务完成，S1–S9/S12–S18真实证据齐全；
 - [ ] 按任务风险完成必要检查/构建与真实安全/浏览器验收，记录未运行项和平台边界；
 - [ ] G3人类验收、契约/STATUS更新。M4仍draft，PM2/部署不得以M3交付冒充完成。
+
+## 7. 本轮新增验收与待批准选择
+
+| ID | Given / When | Then |
+|---|---|---|
+| S17 | iframe被安全头/Cookie限制、远程无预览域或超限 | 明确不可用/隔离来源外部打开；不关闭浏览器保护、不删安全头、不降同源，超限稳定拒绝 |
+| S18 | 普通/严格/只读登记，或同PTY重新启动服务 | 登记L2按真实策略决定，只读拒绝登记；新执行重新核验，日志标为关联终端输出，不伪装精确命令切片 |
+
+推荐本机*.preview.localhost、远程独立注册域HTTPS；短期bootstrap换服务专用grant，跨站Cookie及本机HTTP兼容性先实测。仅实际loopback监听，通配监听不能通过loopback连接伪装。执行身份核验与connect之间仍有外部进程竞态，ps文本不是强句柄；PoC串绑/归属不足则回评审，不宣称绝对无竞态。
+
+退出事件优先、最多1秒对账、核验证据超过2秒陈旧即拒绝，正常负载退出到拒绝/断旧流目标不超过2秒；这是待实测指标，不承诺OS硬实时。每次新连接前后重验，不跨generation复用。M3-P仅准备材料，Q-002/Q-026尚未批准。G-Spec确认后先M3-0，提供poc.md并获G-PoC-M3确认精确身份适配/Cookie协议/时限/支持矩阵后才可M3-1；全部S1–S9/S12–S18纳入G3。

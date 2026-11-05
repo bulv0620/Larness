@@ -115,3 +115,5 @@
 - [ADR-041 Git 逐文件放弃与取消暂存](ADR-041-git-file-actions.md)：accepted（2026-11-05用户直接要求）；确认后放弃未暂存内容、取消暂存保留磁盘文件，不扩展为全仓/自动清理。
 
 - [ADR-042 开发运行/正式发布边界与策略化部署授权](ADR-042-service-deploy-boundary.md)：accepted（2026-11-05用户明确决定）；M3开发预览、M4全部PM2/持久发布；自主含部署完全免人工，旧005/030/040原文由此补充，不代表G-Spec/实现通过。
+
+- [ADR-043 开发预览来源、票据与服务执行身份](ADR-043-development-preview-authorization.md)：proposed（2026-11-05 M3技术规格评审）；独立来源、凭据交换、执行身份/失效和PoC门禁待人类确认，未实现。

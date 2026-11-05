@@ -204,3 +204,6 @@ Agent工具 `update_plan({title,steps:[{id,title,status,detail?}]})` 为L0元数
 
 ## ADR-042：服务/部署阶段与自主事件（2026-11-05，draft）
 M3 service事件只代表temporary登记/状态/退出；PM2/persistent与deployment事件属于M4。自主授权必须有策略决策/planHash/policySnapshotId和真实执行结果，但不发送虚假的tool.approval.required/resolved或人工批准事件，不让UI进入WAIT_APPROVAL。只有当前策略确需人工时才有审批事件/approvalId。关键授权/状态先事务持久化及seq递增再广播；具体新事件schema需技术评审冻结，本次没有协议代码变更。见[部署契约](deployment.md)。
+
+## M3事件候选（待审批，未实现）
+registered/status/unregistered拟含kind/status/terminalId/terminalExecutionId/endpointGeneration/reasonCode?，不含票据、Cookie、原始进程身份；详[m3-preview](m3-preview.md)。temporary不发送PM2 desiredState；日志引用已有终端游标、允许缺口，不伪造独立命令完整历史。失效先撤路由，状态与seq提交后广播；DB失败不伪造成功。

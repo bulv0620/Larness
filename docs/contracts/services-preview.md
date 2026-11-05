@@ -2,6 +2,8 @@
 
 > 2026-11-05：产品分工按[ADR-042](../adr/ADR-042-service-deploy-boundary.md)修订，补充ADR-030/040。M3仅temporary开发登记与隔离预览，persistent/PM2/正式发布整体属于M4。下列REST/DTO/DB为分阶段设计草案，G-Spec/PoC未通过，不代表已实现；[部署授权契约](deployment.md)说明自主免人工。
 
+> 本轮技术候选（待审批）详[m3-preview](m3-preview.md)/[ADR-043](../adr/ADR-043-development-preview-authorization.md)：原GET解析改POST、登记executionId改由后端生成；下表已同步候选差异，不是已实现API。
+
 ## 1. 两类服务和唯一进程控制者
 
 | 项目 | temporary 临时服务 | persistent 持久服务 |
@@ -48,10 +50,10 @@ Service 公共字段：`id, projectId?, workspaceSessionId?, sourceSessionId?, n
 |---|---|
 | GET `/api/services?projectId=&kind=&status=&cursor=&limit=` | 活跃临时登记 + 持久服务分页；默认 50、最大 200 |
 | GET `/api/services/:id` | 详情、进程来源 / 状态、可用操作；不返回凭据 |
-| POST `/api/services` | `{ kind: "temporary", terminalId, terminalExecutionId, name, endpoint }`；验证后登记，不 spawn；持久服务创建配置须M4完整发布流程 |
+| POST `/api/services` | `{ kind: "temporary", terminalId, name, endpoint }`；后端产生执行身份，人工准备动作经批准/执行后登记，Agent沿Turn授权调用共同核心；不spawn。详m3-preview；持久配置属M4 |
 | GET `/api/services/:id/logs?cursor=&limit=` | 受控读取关联日志，明确游标过期 / 截断；不接受文件路径 |
 | POST `/api/services/:id/actions` | M4：仅 persistent 的结构化 start / stop / restart，参数/配置快照授权（人工审批仅按策略需要）；temporary 返回 CONFLICT 并提示所属终端入口 |
-| GET `/api/preview/resolve?serviceId=&path=` | 绑定服务的相对路径转隔离预览目标，安全票据规则待 Q-002 PoC；不接受任意 upstream |
+| POST `/api/preview/resolve` | `{serviceId,path,mode}`；CSRF/no-store，浏览器点击领取短期票据，模型仅结构化目标；详m3-preview，待Q-002 PoC。不接受任意upstream |
 
 工具草案：`register_temporary_service` / `list_services` / `get_service` / `read_service_logs` / `resolve_service_preview`；持久服务的 `start_service` / `stop_service` / `restart_service` 统一走服务动作引擎。临时服务不提供独立 start / stop / restart 工具。撤销临时登记由资源退出 / 对账触发，不靠 Agent 记得调用 unregister；需要停止时必须到终端实际停止进程，不能仅隐藏卡片冒充停止。
 
