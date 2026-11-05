@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-05 (+08:00)
-> 当前阶段：**G-Spec-M3 已通过；M3-0 PoC 本机证据完成、待 G-PoC-M3（远程 HTTPS 延后至上线实验，未验证）**
+> 当前阶段：**G-PoC-M3 已通过（2026-11-05）；M3-1 临时登记/退登进行中（远程 HTTPS 延后至上线实验，未验证）**
 
 ## 里程碑
 
@@ -439,7 +439,11 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 ## G-Spec-M3 通过 / M3-0 启动（2026-11-05 +08:00）
 - 人类“按推荐批准吧，远程验证可以放到后续上线实验”。G-Spec-M3 通过：040 spec `ready`、ADR-043 `accepted`、Q-002/Q-026 移入已解决；仅授权 M3-0，G-PoC-M3 确认后才 M3-1。
 - 范围分级：M3-0 交 P1/P2 执行与监听身份、P3 本机隔离来源/票据/Cookie、P4 真实 Vite/HMR/开发 API、P5 故障与策略证据；远程独立注册域 HTTPS 延后至上线实验，本轮明确标未验证，不冒充 G-PoC/G3 通过。
-- 当前 M3-0 `in_progress`，分支 `task/m3-0-preview-poc`；先失败测试，真实 PTY/loopback/浏览器证据，临时数据与进程结束清理。
+- 当前 M3-0 `done`（G-PoC 2026-11-05 人类确认）；M3-1 启动，分支 `task/m3-1-registration`；先失败测试，真实 PTY/loopback/浏览器证据，临时数据与进程结束清理。
 - 本次文档同步：040 spec/plan/tasks/review、ADR-043、m3-preview 契约、open-questions、ROADMAP、STATUS。
 - M3-0 完成（2026-11-05，`review`）：新增 `apps/server/scripts/m3-poc/{identity,gateway}.ts` 与 4 个 PoC 测试文件；P1–P5 共 12 项真实测试通过（PTY 身份/端口复用、本机隔离来源/票据/Cookie、真实 Vite 7 HMR/相对 API、限额/故障/重启、请求体上限与慢读者隔离、策略映射），证据见 [poc.md](specs/040-services-preview/poc.md)；新增 `pnpm test:poc:m3`。
 - M3-0 边界：远程独立注册域 HTTPS 未验证（人类决定延后至上线实验）；check-to-connect 残余窗口已实测；登记策略/慢消费者/真实 DB 属 M3-1。`pnpm check` 暴露的既有 web 关闭断言已按 M2-24 现行行为对齐（仅测试），未改产品代码。G-PoC-M3 未提交，M3-1 未开始。
+
+## G-PoC-M3 通过 / M3-1 启动（2026-11-05 +08:00）
+- 人类确认 G-PoC-M3：接受 M3-0 的 12 项真实证据、残余竞态窗口、Vite 7.3.7 实际版本及远程 HTTPS 延后；M3-0 标 done。
+- M3-1 `in_progress`，分支 `task/m3-1-registration`：临时服务登记/查询/源退出退登、幂等、日志引用与事件补拉；先失败测试，真实 PTY/loopback/DB 证据，单任务一份迁移。
