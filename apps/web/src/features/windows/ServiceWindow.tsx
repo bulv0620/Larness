@@ -15,6 +15,7 @@ import {
   servicesKey,
 } from "@/features/services/api";
 import { listTerminals, openTerminal, readTerminal } from "@/features/terminals/api";
+import { ApiError } from "@/lib/api";
 import type { WindowTab } from "@/lib/windowTypes";
 import { useWindowStore } from "@/stores/windowStore";
 
@@ -30,6 +31,35 @@ function statusLabel(status: ServiceDto["status"]) {
 
 function timeLabel(value: number) {
   return new Date(value).toLocaleString("zh-CN", { hour12: false });
+}
+
+const TERMINAL_ACTION_CODES = new Set([
+  "PREVIEW_TARGET_INVALID",
+  "APPROVAL_INVALID",
+  "CONFLICT",
+  "RESOURCE_UNAVAILABLE",
+  "NOT_FOUND",
+  "EXPIRED",
+]);
+
+function registrationError(cause: unknown): string {
+  if (cause instanceof ApiError) {
+    if (cause.code === "PREVIEW_TARGET_INVALID") {
+      return "服务必须只监听 127.0.0.1 或 ::1；0.0.0.0 / :: 通配监听不能登记。请修改启动参数后重新登记。";
+    }
+    if (cause.code === "APPROVAL_INVALID" || cause.code === "EXPIRED") {
+      return "这次登记已结束（执行失败或过期），请重新登记。";
+    }
+    return cause.message;
+  }
+  return cause instanceof Error ? cause.message : "登记失败";
+}
+
+function closesAction(cause: unknown): boolean {
+  return (
+    cause instanceof ApiError &&
+    (TERMINAL_ACTION_CODES.has(cause.code) || cause.status === 401 || cause.status === 403)
+  );
 }
 
 const selectedServiceByTab = new Map<string, string>();
@@ -398,7 +428,7 @@ function RegisterServiceDialog({
         setError(`登记未完成：${action.status}`);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "登记失败");
+      setError(registrationError(cause));
     } finally {
       setBusy(false);
     }
@@ -412,12 +442,14 @@ function RegisterServiceDialog({
       const executed = await executeServiceAction(approved.id);
       const id = serviceIdFrom(executed.result);
       if (executed.status !== "COMPLETED" || !id) {
-        setError(`审批后登记未完成：${executed.status}`);
+        setPending(null);
+        setError(`登记未完成：${executed.status}，请重新登记。`);
         return;
       }
       await finish(id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "审批或执行失败");
+      if (closesAction(cause)) setPending(null);
+      setError(registrationError(cause));
     } finally {
       setBusy(false);
     }
@@ -430,7 +462,12 @@ function RegisterServiceDialog({
       setPending(null);
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "拒绝失败");
+      if (closesAction(cause)) {
+        setPending(null);
+        setError(registrationError(cause));
+        return;
+      }
+      setError(registrationError(cause));
     } finally {
       setBusy(false);
     }

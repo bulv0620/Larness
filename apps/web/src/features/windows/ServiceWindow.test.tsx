@@ -2,6 +2,7 @@ import type { ServiceActionView, ServiceDto } from "@larness/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
+import { ApiError } from "@/lib/api";
 import { ServiceWindow } from "./ServiceWindow";
 
 vi.mock("@/features/services/api", async (original) => ({
@@ -143,4 +144,56 @@ it("registers through the resource action and shows the new detail after approva
   fireEvent.click(await screen.findByRole("button", { name: "批准并登记" }));
   await waitFor(() => expect(executeServiceAction).toHaveBeenCalledWith("act_1"));
   expect(await screen.findByText("运行中")).toBeTruthy();
+});
+
+it("returns to the form when execution fails terminally instead of leaving a dead approval", async () => {
+  vi.mocked(listServices).mockResolvedValue([]);
+  vi.mocked(listTerminals).mockResolvedValue({
+    items: [{ id: terminalId, status: "RUNNING", title: "dev", role: "backend" }],
+    nextCursor: null,
+  } as never);
+  const pending: ServiceActionView = {
+    id: "act_failed",
+    projectId: "prj_1",
+    kind: "service.register",
+    risk: "L2",
+    status: "WAITING_APPROVAL",
+    params: {
+      kind: "temporary",
+      terminalId,
+      name: "web",
+      endpoint: { host: "127.0.0.1", port: 5173, protocol: "http" },
+    },
+    paramsHash: "h",
+    snapshotVersion: "s",
+    requestedBy: "c",
+    decidedBy: null,
+    expiresAt: 2,
+    decidedAt: null,
+    startedAt: null,
+    endedAt: null,
+    result: null,
+    createdAt: 1,
+  };
+  vi.mocked(createServiceAction).mockResolvedValue(pending);
+  vi.mocked(decideServiceAction).mockResolvedValue({ ...pending, status: "APPROVED" });
+  vi.mocked(executeServiceAction).mockRejectedValue(
+    new ApiError(403, "PREVIEW_TARGET_INVALID", "Only services bound to 127.0.0.1 or ::1"),
+  );
+  renderWindow({ ...tab, id: "tab-services-fail" });
+  const [register] = await screen.findAllByRole("button", { name: "登记服务" });
+  fireEvent.click(register);
+  await screen.findByText("登记临时服务");
+  await screen.findByRole("option", { name: /dev/ });
+  fireEvent.change(screen.getByLabelText("选择终端"), { target: { value: terminalId } });
+  fireEvent.change(screen.getByLabelText("服务名称"), { target: { value: "web" } });
+  fireEvent.change(screen.getByLabelText("服务端口"), { target: { value: "5173" } });
+  fireEvent.click(screen.getByRole("button", { name: "继续" }));
+  fireEvent.click(await screen.findByRole("button", { name: "批准并登记" }));
+
+  expect(await screen.findByText(/只监听 127\.0\.0\.1 或 ::1/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "批准并登记" })).toBeNull();
+  expect(screen.getByLabelText("服务名称")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "继续" }));
+  await waitFor(() => expect(createServiceAction).toHaveBeenCalledTimes(2));
 });
