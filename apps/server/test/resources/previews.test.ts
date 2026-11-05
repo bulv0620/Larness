@@ -41,7 +41,13 @@ async function waitFor(check: () => Promise<boolean>, label: string, timeoutMs =
 function serverSource(port: number): string {
   return [
     'import { createServer } from "node:http";',
-    "const server = createServer((request, response) => response.end(`${request.headers.host}|${request.headers.cookie ?? ''}`));",
+    "const server = createServer((request, response) => {",
+    '  const url = new URL(request.url ?? "/", "http://preview");',
+    '  if (url.pathname === "/redirect") { response.writeHead(302, { location: "http://evil.example/" }); response.end(); return; }',
+    '  if (url.pathname === "/cookie") { response.setHeader("set-cookie", "app=1; Domain=localhost; Path=/"); response.end("cookie"); return; }',
+    '  if (url.pathname === "/slow") { setTimeout(() => response.end("slow"), 2000); return; }',
+    "  response.end(`${request.headers.host}|${request.headers.cookie ?? ''}|${url.pathname}`);",
+    "});",
     'server.on("upgrade", (request, socket) => {',
     '  socket.write("HTTP/1.1 101 Switching Protocols\\r\\nUpgrade: websocket\\r\\nConnection: Upgrade\\r\\n\\r\\n");',
     '  socket.on("data", (data) => socket.write(`echo:${data}`));',
@@ -298,6 +304,107 @@ it("enforces ticket and grant expiry, session revocation and safe paths", async 
       await expect(
         registry.resolve({ serviceId: data.service.id, path: "http://evil.example/" }, data.client),
       ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    } finally {
+      await registry.stop();
+      await stopAuthorizedServer(data.f);
+    }
+  });
+}, 40_000);
+
+it("does not follow redirects or expose management API and cookies on the preview host", async () => {
+  await withTempDir(async (dir) => {
+    const data = await fixture(dir);
+    const registry = new PreviewRegistry({
+      db: data.f.running.db,
+      services: data.f.running.services,
+      events: data.f.running.resourceEvents,
+      port: 0,
+    });
+    await registry.start();
+    try {
+      const resolved = await registry.resolve({ serviceId: data.service.id }, data.client);
+      const host = new URL(resolved.origin).hostname;
+      const opened = await bootstrap(registry, resolved);
+      const cookie = opened.grant;
+
+      const redirect = await rawRequest(registry.port, host, {
+        path: "/redirect",
+        headers: { cookie },
+      });
+      expect(redirect.status).toBe(302);
+      expect(redirect.headers.location).toBe("http://evil.example/");
+
+      const appCookie = await rawRequest(registry.port, host, {
+        path: "/cookie",
+        headers: { cookie },
+      });
+      expect(appCookie.headers["set-cookie"]?.[0]).toContain("app=1");
+      expect(appCookie.headers["set-cookie"]?.[0]).not.toMatch(/domain=/i);
+
+      const managementPath = await rawRequest(registry.port, host, {
+        path: "/api/health",
+        headers: { cookie },
+      });
+      expect(managementPath.status).toBe(200);
+      expect(managementPath.body).toContain("|/api/health");
+
+      const managementCookie = await rawRequest(registry.port, host, {
+        path: "/",
+        headers: { cookie: "larness_session=stolen" },
+      });
+      expect(managementCookie.status).toBe(401);
+    } finally {
+      await registry.stop();
+      await stopAuthorizedServer(data.f);
+    }
+  });
+}, 40_000);
+
+it("limits concurrent preview requests and keeps revoked grants closed after port reuse", async () => {
+  await withTempDir(async (dir) => {
+    const data = await fixture(dir);
+    const registry = new PreviewRegistry({
+      db: data.f.running.db,
+      services: data.f.running.services,
+      events: data.f.running.resourceEvents,
+      port: 0,
+      maxConnections: 1,
+      maxBodyBytes: 16,
+    });
+    await registry.start();
+    try {
+      const resolved = await registry.resolve({ serviceId: data.service.id }, data.client);
+      const host = new URL(resolved.origin).hostname;
+      const opened = await bootstrap(registry, resolved);
+      const cookie = opened.grant;
+
+      const slow = http.request({
+        host: "127.0.0.1",
+        port: registry.port,
+        path: "/slow",
+        headers: { host: `${host}:${registry.port}`, cookie },
+      });
+      slow.on("error", () => undefined);
+      slow.end();
+      await delay(300);
+      const limited = await rawRequest(registry.port, host, {
+        path: "/",
+        headers: { cookie },
+      });
+      expect(limited.status).toBe(429);
+      slow.destroy();
+      await delay(150);
+
+      const oversized = await rawRequest(registry.port, host, {
+        method: "POST",
+        path: "/",
+        headers: { cookie, "content-type": "text/plain" },
+        body: "x".repeat(64),
+      });
+      expect(oversized.status).toBe(413);
+
+      data.f.running.services.unregister(data.service.id, "TEST_REUSE");
+      expect((await rawRequest(registry.port, host, { headers: { cookie } })).status).toBe(401);
     } finally {
       await registry.stop();
       await stopAuthorizedServer(data.f);
