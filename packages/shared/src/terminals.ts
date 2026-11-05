@@ -75,6 +75,7 @@ export const PreviewResultTargetSchema = z
     projectId: z.string().min(1).max(128),
     serviceId: z.string().regex(/^svc_[a-f0-9-]{36}$/),
     path: z.string().min(1).max(2048),
+    name: z.string().min(1).max(128).optional(),
   })
   .strict();
 export type PreviewResultTarget = z.infer<typeof PreviewResultTargetSchema>;

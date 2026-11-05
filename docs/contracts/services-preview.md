@@ -78,7 +78,7 @@ type ResourceResultTarget =
   | { kind: "preview"; serviceId: string; path: string };
 ```
 
-M2 文件修改工具结果 / 持久化 artifact 事件可附 file target，M3 登记并确认可预览后附 preview target。前端渲染“查看文件 / 打开预览”卡片，点击重新鉴权和解析当前资源，沿 resource-views 去重。版本已变化显示当前状态，不为卡片保存历史文件正文；服务已结束明确不可预览，不自动重启它。兼容已有 artifact 字段，以新增结构化字段接入并同步 shared schema / 测试，不把 markdown 任意 URL 当执行指令。
+M2 文件修改工具结果 / 持久化 artifact 事件可附 file target；M3 的 `register_temporary_service` 成功（RUNNING）后附 preview target（含可选服务名），`resolve_service_preview` 也返回 preview target。前端渲染“查看文件 / 打开预览”卡片，点击重新鉴权和解析当前资源，沿 resource-views 去重。版本已变化显示当前状态，不为卡片保存历史文件正文；服务已结束明确不可预览，不自动重启它。兼容已有 artifact 字段，以新增结构化字段接入并同步 shared schema / 测试，不把 markdown 任意 URL 当执行指令。
 
 ## 7. 未决技术事项（不影响已确认产品分工）
 

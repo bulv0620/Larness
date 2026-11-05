@@ -31,7 +31,7 @@
 | S13 未鉴权/CSRF/伪造 | resolve 无 CSRF 401/403；预览无 grant 401 |
 | S14 前端相对 API | Vite iframe E2E：`/api` 经 dev proxy 到第二终端后端 |
 | S15 日志/游标 | 关联终端有界输出；缺口/过期由终端输出契约覆盖，未做专门 UI 负例 |
-| S16 自主登记/预览 | Agent 工具 L0/L2 + 策略测试；真实 Turn E2E 调用 `resolve_service_preview` 并点击卡片打开 iframe；autonomous 不造 approvalId；非法目标仍拒绝 |
+| S16 自主登记/预览 | 服务登记成功后在消息成果区出现“打开预览 · <服务名>”，点击直接开预览窗； Agent 工具 L0/L2 + 策略测试；真实 Turn E2E 调用 `resolve_service_preview` 并点击卡片打开 iframe；autonomous 不造 approvalId；非法目标仍拒绝 |
 | S17 iframe 受限 | iframe 被拦时显示“无法访问 + 刷新”，可用右上角图标在独立来源打开；不删安全头、不降同源 |
 | S18 同 PTY 重启/策略 | 新 executionId、只读拒绝登记、严格/标准审批 |
 

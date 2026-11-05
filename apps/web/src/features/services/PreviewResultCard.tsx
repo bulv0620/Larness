@@ -19,7 +19,7 @@ export function PreviewResultCard({ target }: { target: PreviewResultTarget }) {
           })
         }
       >
-        打开预览 · {target.path}
+        打开预览 · {target.name ?? target.path}
       </button>
     </div>
   );

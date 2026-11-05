@@ -7,7 +7,7 @@
 - 服务详情“预览”：打开独立来源 Browser Tab；解析票据后以 **POST 表单**提交到 `/__bootstrap`，303 后 iframe 加载项目页；票据不进 URL/布局。
 - iframe `allow-scripts allow-forms allow-same-origin`、`no-referrer`；提供刷新、统一“无法访问”提示，以及工具栏“在独立来源打开”。
 - Browser Tab 以 `browser:<serviceId>:<path>` 去重；布局恢复保留真实服务窗口与 Browser Tab（修复旧迁移把真实 Tab 当 Demo 丢弃）。
-- Agent `resolve_service_preview`（L0）返回结构化 `{kind:"preview",serviceId,path}`，不发票据、不启动进程；时间线渲染“打开预览”卡片，点击复用 Browser Tab。
+- Agent `resolve_service_preview`（L0）与成功的 `register_temporary_service` 都返回结构化 preview target（登记结果含服务名），不发票据、不启动进程；时间线渲染“打开预览”卡片，点击复用 Browser Tab。
 - Vite 项目相对 `/api` 经项目 dev proxy 访问第二个终端后端，浏览器全程经预览网关。
 
 ## 证据

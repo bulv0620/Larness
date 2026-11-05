@@ -20,6 +20,7 @@ import {
   FileResultTargetSchema,
   InterruptTerminalParamsSchema,
   PlanParamsSchema,
+  type PreviewResultTarget,
   PreviewResultTargetSchema,
   ReadTerminalOutputParamsSchema,
   ReleaseTerminalControlParamsSchema,
@@ -220,6 +221,29 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 
     signal.addEventListener("abort", onAbort, { once: true });
   });
+}
+
+export function registeredServiceTarget(
+  toolName: string,
+  data: unknown,
+  projectId: string | null,
+): PreviewResultTarget | undefined {
+  if (toolName !== "register_temporary_service" || projectId === null) return undefined;
+  const parsed = z
+    .object({
+      serviceId: ServiceIdSchema,
+      status: z.string(),
+      name: z.string().min(1).max(128).optional(),
+    })
+    .safeParse(data);
+  if (!parsed.success || parsed.data.status !== "RUNNING") return undefined;
+  return {
+    kind: "preview",
+    projectId,
+    serviceId: parsed.data.serviceId,
+    path: "/",
+    ...(parsed.data.name === undefined ? {} : { name: parsed.data.name }),
+  };
 }
 
 export class TurnRunner {
@@ -870,6 +894,7 @@ export class TurnRunner {
                 summary: `临时服务 ${service.name} ${service.status}`,
                 data: {
                   serviceId: service.id,
+                  name: service.name,
                   status: service.status,
                   terminalId: service.terminalId,
                   endpoint: service.endpoint,
@@ -1316,14 +1341,19 @@ export class TurnRunner {
                     | { serviceId?: unknown; path?: unknown; projectId?: unknown }
                     | undefined)
                 : undefined;
+            const registeredTarget = registeredServiceTarget(
+              request.name,
+              result.result.data,
+              session.projectId,
+            );
             const previewTarget =
               session.projectId === null
                 ? undefined
                 : PreviewResultTargetSchema.safeParse({
                     kind: "preview",
                     projectId: session.projectId,
-                    serviceId: previewResult?.serviceId,
-                    path: previewResult?.path,
+                    serviceId: registeredTarget?.serviceId ?? previewResult?.serviceId,
+                    path: registeredTarget?.path ?? previewResult?.path,
                   });
             const terminalTarget =
               session.projectId === null
