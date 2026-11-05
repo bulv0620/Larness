@@ -219,3 +219,40 @@ describe("event reducer", () => {
     expect(items[0]).not.toHaveProperty("streaming", true);
   });
 });
+
+it("replays valid plan replacements and ignores malformed plan events", () => {
+  const plan = {
+    id: "plan_trn_1",
+    kind: "plan",
+    title: "修复",
+    turnId: "trn_1",
+    createdAt: 1,
+    steps: [{ id: "a", title: "检查", status: "running" }],
+  };
+  const items = eventsToTimeline([
+    event("plan.updated", { turnId: "trn_1", plan }),
+    event("plan.updated", {
+      turnId: "trn_1",
+      plan: { ...plan, steps: [{ ...plan.steps[0], status: "done" }] },
+    }),
+    event("plan.updated", { plan: { ...plan, steps: [{ status: "invented" }] } }),
+  ]);
+  expect(items).toHaveLength(1);
+  expect(items[0]).toMatchObject({ turnId: "trn_1", steps: [{ status: "done" }] });
+});
+
+it("keeps identical provider call IDs distinct across turns and restores terminal turn metadata", () => {
+  const items = eventsToTimeline([
+    event("user.message", { turnId: "t1", text: "first" }),
+    event("tool.requested", { turnId: "t1", toolCallId: "same", name: "read_file" }),
+    event("tool.completed", { turnId: "t1", toolCallId: "same", resultSummary: "first result" }),
+    event("turn.cancelled", { turnId: "t1", durationMs: 2000 }),
+    event("user.message", { turnId: "t2", text: "second" }),
+    event("tool.requested", { turnId: "t2", toolCallId: "same", name: "read_file" }),
+  ]);
+  expect(items.filter((item) => item.kind === "tool")).toMatchObject([
+    { turnId: "t1", status: "done", output: "first result" },
+    { turnId: "t2", status: "running" },
+  ]);
+  expect(items[0]).toMatchObject({ turnOutcome: "cancelled", durationMs: 2000 });
+});

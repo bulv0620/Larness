@@ -77,7 +77,11 @@ export function registerFileRoutes(
     run(request, async () => {
       const query = parse(FileReadQuerySchema, request.query);
       const scope =
-        "projectId" in query ? { projectId: query.projectId } : { sessionId: query.sessionId };
+        "projectId" in query
+          ? { projectId: query.projectId }
+          : "sessionId" in query
+            ? { sessionId: query.sessionId }
+            : { workspace: "default" as const };
       return getFile(options(request), scope, query);
     }),
   );
@@ -92,13 +96,17 @@ export function registerFileRoutes(
       return saveFile(options(request), body, client.id, idempotencyKey);
     }),
   );
-  for (const kind of ["projects", "sessions"] as const) {
+  for (const kind of ["projects", "sessions", "workspaces"] as const) {
     app.get<{ Params: { id: string } }>(`/api/${kind}/:id/files`, async (request) =>
       run(request, async () => {
         const query = parse(FileListQuerySchema, request.query);
         const scope = parse(
           FileScopeSchema,
-          kind === "projects" ? { projectId: request.params.id } : { sessionId: request.params.id },
+          kind === "projects"
+            ? { projectId: request.params.id }
+            : kind === "sessions"
+              ? { sessionId: request.params.id }
+              : { workspace: request.params.id },
         );
         return getDirectory(options(request), scope, query);
       }),

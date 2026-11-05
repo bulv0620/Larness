@@ -1,5 +1,10 @@
 import {
+  Button,
   cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -9,20 +14,50 @@ import {
   DropdownMenuTrigger,
   IconButton,
 } from "@larness/ui";
-import { ArrowUp, ChevronDown, Plus, Shield, Sparkles, Square } from "lucide-react";
-import { useEffect, useRef } from "react";
+import {
+  ArrowUp,
+  ChevronDown,
+  Plus,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Square,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useSnapshot } from "@/lib/queries";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 
 const policies = [
-  { id: "standard", label: "标准审批", detail: "L0/L1 自动，L2 询问" },
-  { id: "strict", label: "严格审批", detail: "所有写入都询问" },
-  { id: "readonly", label: "只读", detail: "禁止修改与执行" },
+  {
+    id: "standard",
+    label: "标准审批",
+    detail: "L0/L1 自动，L2 询问",
+    icon: ShieldCheck,
+    tone: "text-accent",
+  },
+  {
+    id: "strict",
+    label: "严格审批",
+    detail: "所有写入都询问",
+    icon: ShieldAlert,
+    tone: "text-warning",
+  },
+  {
+    id: "autonomous",
+    label: "完全自主",
+    detail: "所有工具免人工审批",
+    icon: ShieldAlert,
+    tone: "text-danger",
+  },
+  { id: "readonly", label: "只读", detail: "禁止修改与执行", icon: Shield, tone: "text-success" },
 ] as const;
 
 export function Composer() {
+  const [confirmAutonomous, setConfirmAutonomous] = useState(false);
   const { data } = useSnapshot();
   const draft = useComposerStore((state) => state.draft);
   const modelId = useComposerStore((state) => state.modelId);
@@ -39,6 +74,9 @@ export function Composer() {
 
   const model = data.models.find((item) => item.id === modelId) ?? data.models[0];
   const currentPolicy = policies.find((item) => item.id === policy) ?? policies[0];
+  const PolicyIcon = currentPolicy.icon;
+  const contextTokens = useTimelineStore((state) => state.contextTokens);
+  const pendingApproval = useTimelineStore((state) => pendingApprovals(state.items).length > 0);
 
   useEffect(() => {
     if (focusNonce > 0) textareaRef.current?.focus();
@@ -55,7 +93,7 @@ export function Composer() {
     const element = textareaRef.current;
     if (!element) return;
     element.style.height = "auto";
-    element.style.height = `${Math.min(180, Math.max(24, element.scrollHeight))}px`;
+    element.style.height = `${Math.min(180, Math.max(48, element.scrollHeight))}px`;
   }, [draft]);
 
   const appendContext = (token: string) => {
@@ -66,10 +104,7 @@ export function Composer() {
 
   const submit = () => {
     if (!hasSession || model === undefined) return;
-    if (isStreaming) {
-      stop();
-      return;
-    }
+    if (isStreaming || pendingApproval) return;
     const value = draft.trim();
     if (!value) return;
     void send(value);
@@ -78,22 +113,22 @@ export function Composer() {
   };
 
   return (
-    <div className="rounded-2xl border border-line bg-surface shadow-[0_2px_16px_rgba(15,23,42,.045)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:shadow-[0_0_0_4px_rgba(10,132,255,.08)]">
+    <div className="rounded-[18px] border border-line bg-surface shadow-[var(--shadow-card)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:ring-2 focus-within:ring-accent/10">
       <textarea
         ref={textareaRef}
         value={draft}
         rows={1}
-        placeholder={hasSession ? "描述任务，或粘贴日志 / 截图…" : "先新建或选择一个会话…"}
+        placeholder={hasSession ? "继续对话，或提出新的任务…" : "新建或选择一个会话…"}
         aria-label="对话输入"
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter" && !event.shiftKey) {
             if (event.nativeEvent.isComposing) return;
             event.preventDefault();
-            submit();
+            if (!isStreaming) submit();
           }
         }}
-        className="block max-h-[180px] min-h-[26px] w-full resize-none bg-transparent px-3.5 pt-3 text-[12.5px] leading-[1.6] text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
+        className="block max-h-[180px] min-h-[48px] w-full resize-none bg-transparent px-3.5 pt-3 text-[13px] leading-[1.65] text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
       />
       <div className="flex items-center gap-0.5 px-2 pb-2 pt-1">
         <DropdownMenu>
@@ -120,10 +155,12 @@ export function Composer() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex h-7 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
+              className="flex h-7 min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
             >
-              <Sparkles size={12} className="text-accent" />
-              <span className="max-w-[128px] truncate">{model?.label ?? "选择模型"}</span>
+              <Sparkles size={12} className="shrink-0 text-accent" />
+              <span className="max-w-[96px] truncate sm:max-w-[128px]">
+                {model?.label ?? "选择模型"}
+              </span>
               <ChevronDown size={11} className="text-ink-3" />
             </button>
           </DropdownMenuTrigger>
@@ -142,24 +179,25 @@ export function Composer() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="mx-1 h-3 w-px bg-line" />
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex h-7 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
+            <IconButton
+              label={`审批策略：${currentPolicy.label}`}
+              title={`${currentPolicy.label} · ${currentPolicy.detail}`}
+              className="h-7 w-7"
             >
-              <Shield size={12} className="text-ink-3" />
-              <span className="hidden sm:inline">{currentPolicy.label}</span>
-              <ChevronDown size={11} className="text-ink-3" />
-            </button>
+              <PolicyIcon size={15} className={currentPolicy.tone} aria-hidden="true" />
+            </IconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[230px]">
             <DropdownMenuLabel>审批策略</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={policy}
-              onValueChange={(value) => setPolicy(value as typeof policy)}
+              onValueChange={(value) => {
+                if (value === "autonomous" && policy !== "autonomous") setConfirmAutonomous(true);
+                else if (policies.some((item) => item.id === value))
+                  setPolicy(value as typeof policy);
+              }}
             >
               {policies.map((item) => (
                 <DropdownMenuRadioItem key={item.id} value={item.id} className="items-start py-2">
@@ -173,26 +211,27 @@ export function Composer() {
           </DropdownMenuContent>
         </DropdownMenu>
 
+        <span className="flex-1" />
+        <ContextUsage used={contextTokens} limit={model?.maxContextTokens ?? 128000} />
         {isStreaming ? (
           <button
             type="button"
-            onClick={submit}
+            onClick={stop}
             aria-label="停止执行"
-            className="ml-1 flex h-7 items-center gap-1.5 rounded-full bg-danger/10 px-2.5 text-[11px] font-medium text-danger transition-colors hover:bg-danger/15"
+            className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-danger/10 text-danger transition-colors hover:bg-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
           >
             <Square size={11} fill="currentColor" />
-            停止
           </button>
         ) : (
           <button
             type="button"
             onClick={submit}
-            disabled={!draft.trim() || !hasSession || model === undefined}
+            disabled={!draft.trim() || !hasSession || model === undefined || pendingApproval}
             aria-label="发送消息"
             className={cn(
-              "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-all",
-              draft.trim() && hasSession && model !== undefined
-                ? "bg-accent text-white shadow-[0_2px_8px_rgba(10,132,255,.3)] hover:brightness-110 active:scale-95"
+              "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
+              draft.trim() && hasSession && model !== undefined && !pendingApproval
+                ? "bg-accent text-white shadow-[var(--shadow-card)] hover:brightness-110 active:brightness-95"
                 : "bg-black/[.06] text-ink-3 dark:bg-white/[.08]",
             )}
           >
@@ -200,6 +239,90 @@ export function Composer() {
           </button>
         )}
       </div>
+      <Dialog open={confirmAutonomous} onOpenChange={setConfirmAutonomous}>
+        <DialogContent className="space-y-4 text-sm">
+          <DialogTitle>启用完全自主？</DialogTitle>
+          <DialogDescription>
+            Agent 将不再逐次请求工具审批，可自行修改或删除文件、执行命令、进行 Git
+            推送等操作。程序以本机账户权限运行，这不是沙箱。请仅在信任当前任务时启用；下一轮生效，随时可以切回标准审批。
+          </DialogDescription>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setConfirmAutonomous(false)}>
+              取消
+            </Button>
+            <Button
+              className="bg-danger text-white"
+              onClick={() => {
+                setPolicy("autonomous");
+                setConfirmAutonomous(false);
+              }}
+            >
+              确认启用
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function ContextUsage({ used, limit }: { used: number; limit: number }) {
+  const known = Number.isFinite(used) && used > 0 && Number.isFinite(limit) && limit > 0;
+  const percent = known ? Math.min(100, Math.max(0, Math.round((used / limit) * 100))) : 0;
+  const detail = known
+    ? `最近一轮上下文：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）`
+    : `上下文暂无统计 · 模型上限 ${limit.toLocaleString()} tokens`;
+  return (
+    <div
+      role="progressbar"
+      aria-label="上下文用量"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={known ? percent : undefined}
+      aria-valuetext={detail}
+      title={detail}
+      className={cn(
+        "flex h-7 w-7 shrink-0 items-center justify-center",
+        !known
+          ? "text-ink-3"
+          : percent >= 90
+            ? "text-danger"
+            : percent >= 75
+              ? "text-warning"
+              : "text-accent",
+      )}
+    >
+      <svg
+        aria-hidden="true"
+        width="18"
+        height="18"
+        viewBox="0 0 20 20"
+        className="-rotate-90"
+        fill="none"
+      >
+        <circle
+          cx="10"
+          cy="10"
+          r="7"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="text-line-strong"
+        />
+        {known ? (
+          <circle
+            cx="10"
+            cy="10"
+            r="7"
+            pathLength="100"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeDasharray="100"
+            strokeDashoffset={100 - percent}
+            className="transition-[stroke-dashoffset] duration-150 motion-reduce:transition-none"
+          />
+        ) : null}
+      </svg>
     </div>
   );
 }

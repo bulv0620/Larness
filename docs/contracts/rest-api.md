@@ -470,3 +470,26 @@ M2-3（2026-11-03）：GET `/api/commands/:id`、GET `/api/commands/:id/output?a
 M2-3b（2026-11-03）：run_command 仅由已授权的 Agent Turn 创建；未增加 POST `/api/commands`。真实命令卡片复用既有状态 / 输出 GET 与空对象 cancel（Cookie / Origin / CSRF）；取消单个命令与取消整个 Turn 分开。刷新 / 重连读状态和输出游标，不重复创建资源；截断 / 过期 / 缺口与停止未确认均显示当前真实状态。见 [资源契约 §15](m2-resources.md#15-m2-3b-agent-命令与执行卡片2026-11-03)。
 
 M2-4（2026-11-03）：已实现 `/api/terminals` 列表 / 人工创建及 `/:id` 状态、output、lease、resize、terminate，全部沿既有 Cookie / Origin / CSRF 守卫；创建要求风险确认与 Idempotency-Key，输入连接 ID 由真实 WS 产生。新增 TERMINAL_LEASE_REQUIRED(409)，后端校验 generation / 连接 / scope，不以输入前端状态授权。终端进程与浏览器布局 / 输入租约独立；完整参数与失败 / 保留边界见 [资源契约 §16](m2-resources.md#16-m2-4-terminalmanager-与输入租约后端2026-11-03)。
+
+### M2-9 终端改名（2026-11-04）
+
+`POST /api/terminals/:id/rename`：已认证 + Origin / CSRF，body `{ title: string }`，返回新增 nullable title 的 Terminal DTO；1–80 字符、非空、无控制字符 / 已知秘密。失败使用 VALIDATION_ERROR / UNAUTHENTICATED / FORBIDDEN / RESOURCE_UNAVAILABLE，审计不记录标题正文。详见 m2-resources §23。
+
+### M2-10 默认工作区（2026-11-04）
+
+- GET `/api/workspaces/default/files`：同项目文件树的查询参数 / 响应；其他 workspace ID 返回 VALIDATION_ERROR。
+- GET `/api/files?workspace=default&path=...`、PUT `/api/files` 的 scope `{ workspace: "default" }`：仅固定默认目录，不开放任意 dataDir 路径；鉴权、Origin / CSRF、相对路径 / 符号链接、秘密扫描、版本 / 幂等与审计沿用现有文件接口。
+- POST `/api/sessions` 不提供 projectId 时，新会话共用默认目录；Session DTO 增加 workspaceKind（project/default/session），旧独立会话仍返回原 workspacePath。
+- POST `/api/terminals` 支持默认 scope；默认会话别名归并为共享终端，workspaceSessionId=null。cwd 响应为实际绝对目录，执行入参仍相对授权根。详见 m2-resources §24。
+
+## M2-13 默认系统项目
+GET /api/projects 在列表首位返回固定系统项目 `{ id: "prj_default", kind: "default", name: "默认工作区", rootPath, realPath, ... }`；kind 为可选新增字段，普通登记项目沿用原结构。GET /api/projects/prj_default 可读固定描述；系统元数据时间 createdAt / updatedAt 为 0，表示内建资源而非用户登记时间。PATCH 合法名称 / settings 或 DELETE 该 ID 返回 FORBIDDEN（403）并审计；无认证仍 401，非法请求仍按 schema 拒绝。目录和内容不删除、不只读；不能将默认目录重复登记为普通项目（409）。
+POST /api/sessions 的 projectId=prj_default 归一为现有默认会话域（DTO projectId=null、workspaceKind=default）。文件 projectId=prj_default 是 workspace:default 的 HTTP scope 别名；终端 create scope 及 list projectId 同样归一为默认域，返回原 null 归属 / ID。文件事件 / WS 订阅仍使用 workspace:default，不创建新的事件流、窗口分组或租约。历史独立会话不归入默认项目，无数据库迁移。
+
+## M2-25 完全自主策略（ADR-040）
+现有 Session PATCH approvalPolicyId 与 Turn executionContext.policy 枚举增加 autonomous；新 Turn 持久化选择时的快照，运行中更改只影响下一轮。明确选择该策略时已登记 Agent 工具 L0–L3 均无需人工逐次审批，执行仍校验参数、客户端/资源范围、锁/fencing/幂等/预算/取消/租约/秘密保护，仍有审计与持久事件。其他策略与人工 Git 资源审批保持。客户端选择前风险弹窗确认，取消不更改，危险色盾牌持续可见；这不是沙箱，不扩大工具能力或授权管理接口。未鉴权/非法枚举拒绝，无 DB列/迁移/新 REST路径。
+
+## M2-27 Git 单文件恢复与取消暂存（ADR-041）
+现有 Git resource-action 接口新增 `{ action: "unstage", paths: string[] }`（1–200条精确路径）及 `{ action: "discard", path: string, confirmed: true }`（单文件）。动作仍按 L1 复用已鉴权/CSRF 的创建和执行、项目锁、快照重验、过期、审计与幂等，无新增路径/DB列/依赖，不注册新 Agent 工具。
+unstage仅恢复选定index到HEAD；无HEAD使用仅index移除，工作区不变；重命名同时恢复原路径index。discard仅处理未暂存变更，tracked从index恢复工作区，已暂存内容保留；untracked经确认后仅删除指定普通文件，不递归、不含忽略文件、不清理全仓。冲突、目录、symlink/非普通文件及越界拒绝。Git以字面pathspec执行，通配符不扩张。
+discard动作创建时和执行锁前/锁后读取目标内容哈希，发现后续内容或状态变化拒绝覆盖；外部进程仍不受项目锁隔离，不宣称OS原子性。untracked枚举使用--untracked-files=all，文件逐条呈现而非目录清理。UI放弃按钮先显示路径与丢失/删除后果，取消不创建写动作，确认后才调用；取消暂存无丢弃确认，因为它保留磁盘内容。编辑器内存草稿不自动删除，监听/版本冲突继续保护。

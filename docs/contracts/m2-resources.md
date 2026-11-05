@@ -1,4 +1,7 @@
-# M2 资源契约（设计已批准，按任务实施）
+# M2 资源契约（M2 / G2 已验收）
+
+> 当前状态：2026-11-05 M2与全部纠错通过人类整体验收，见[最终收尾](../../specs/030-dev-resources/closure.md)。下文逐日期描述为实施历史，后续修订条款优先；M3服务/预览契约仍为规划，不视为已实现。
+
 
 > 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；M2-1b 文件监听 / 订阅 / 补拉已实施，详见 §12；M2-2 文件编辑与结果卡片已实施，详见 §13；M2-3 命令执行后端已实施，详见 §14；M2-3b Agent 命令与实时卡片已实施，详见 §15；M2-4 PTY 与输入租约后端已实施，详见 §16；后续接口仍按任务逐步落地。
 
@@ -46,7 +49,7 @@ FileEntry 为 `{ path, name, type: "file" | "directory", size? }`。稳定排序
 | 方法 / 路径 | 输入 / 输出 |
 |---|---|
 | GET `/api/terminals` | 按 projectId / workspaceSessionId / 全局过滤；返回分页资源，不读取客户端 Tab |
-| POST `/api/terminals` | `{ scope?, cwd?: ".", sourceSessionId?, riskAcknowledged: true }`；服务端固定平台 Shell；201 Terminal |
+| POST `/api/terminals` | `{ scope?, cwd?: ".", sourceSessionId?, riskAcknowledged: true }`；服务端选择本机账户默认 Shell（ADR-033）；201 Terminal |
 | GET `/api/terminals/:id` | Terminal 与当前租约元数据 |
 | POST `/api/terminals/:id/terminate` | `{ confirmed: true }`；主动关闭终端 Tab 或显式终止都经此能力，幂等停止；窗口关闭不调用 |
 | POST `/api/terminals/:id/resize` | `{ connectionId, leaseGeneration, cols, rows }`；cols 2–500、rows 1–300 |
@@ -284,7 +287,7 @@ stdout / stderr 分别流式 UTF-8 解码、按已知秘密与敏感字段跨块
 
 ### 创建、范围与恢复
 
-- POST `/api/terminals` 实施 §4，必须确认 riskAcknowledged=true，并提供 1–128 字符 Idempotency-Key；同一真实客户端 / kind / key 相同参数复用原资源，不同参数 CONFLICT。不接受 env、程序、args、owner、policy 等额外字段。人工 Shell 固定 `/bin/sh -i`（当前 POSIX 实现），初始 80×24 / xterm-256color，环境复用白名单并固定 HISTFILE=/dev/null，不继承 Shell 选择 / 管理环境 / SecretStore 明文。
+- POST `/api/terminals` 实施 §4，必须确认 riskAcknowledged=true，并提供 1–128 字符 Idempotency-Key；同一真实客户端 / kind / key 相同参数复用原资源，不同参数 CONFLICT。不接受 env、程序、args、owner、policy 等额外字段。人工 Shell 按 ADR-033 使用本机账户默认 Shell + `-i`（当前 POSIX 实现；绝对可执行文件检查失败回退 `/bin/sh`），初始 80×24 / xterm-256color，环境复用白名单并固定 HISTFILE=/dev/null，不接受 Web / 模型的 Shell 选择，不继承管理环境 / SecretStore 明文。
 - 项目 / 独立会话复用 canonical scope 与 cwd 授权；无 scope 使用 `<dataDir>/sessions/global-terminal/workspace`，逐层拒绝目录链接。sourceSessionId 仅用于来源且必须匹配实际 scope；全局终端不接受伪造来源会话。cwd 在 spawn 前重验；登记变化 / 主机最后时刻的路径替换仍不构成 OS 隔离。
 - 内部 createDev 仅作为后续工具底座，需真实活动 Turn / 项目 / 发起客户端与授权断言，程序 / 参数 / cwd / role 使用 Zod；没有公共 dev 创建路由。相同项目 + role 的活跃记录在数据库唯一，相同启动哈希复用，参数不同 CONFLICT。程序参数的已知凭据字面量拒绝，持久 launch_params_json 为脱敏摘要、launch_params_hash 绑定原规范化参数；不把摘要当可恢复启动脚本。
 - 唯一 0007_terminals 迁移新增 terminals / terminal_leases，补 reason_code / output_cursor 和人机 principal 预留列 / input_sequence，不修改旧迁移。终端 ID 为 term_UUID，executionId 为本次资源 ID；进程身份仅作本代关联 / 恢复诊断，不进入 DTO。
@@ -422,3 +425,49 @@ pull / push 创建 L2 资源动作后显示面板内审批：params / 风险 / �
 本地布局键仍为 `larness.windows.v2`，版本升到 3；迁移补 `viewKey` / `createdAt`、修正失效 activeTab、移除空窗口。真实模式迁移丢弃 `prj_larness`、Demo 终端 / 服务 / Browser、无 file 元数据的文件 Tab 与无 git 元数据的 Diff Tab；服务 / Browser 真实资源在 M3 前不显示假状态。Demo 模式保留旧 Tab。顶部真实模式只枚举文件 / 终端，已有窗口恢复 filter / activeTab / 最小化状态；不因恢复创建或终止资源。
 
 窗口 close / minimize、文件 / Diff 关闭不停止资源；终端 Tab 主动关闭仍走已确认 terminate。Git 区当前 3s 查询轮询，未新增 git WS 事件；其他资源事件保持既有订阅 / 补拉。验证覆盖 viewKey 去重、跨项目 Diff、布局迁移 / Demo 清理、既有文件 realpath 去重与终端关闭 / 恢复；仅 macOS Chromium。
+
+## 23. M2-9 项目窗口与终端交互（2026-11-04）
+
+- ADR-031 / specs/031-project-windows/spec.md 明确替代原跨项目展示；按项目浮栏恢复窗口，无 header 入口 / 项目筛选器。窗口关闭不关闭 Tab。
+- POST `/api/terminals/:id/rename`：`{ title: string }`，1–80 字符、trim 后非空、拒绝控制字符 / 已知 SecretStore 凭据；鉴权 / CSRF / scope 与既有终端相同。返回 Terminal DTO（新增 `title: string | null`），空值使用 role / Shell 短名。
+- 改名写入 `terminals.title`，不修改 role / 启动参数 / 去重身份；事务内写 terminal.status 事件与 terminal.renamed 审计，提交后广播；审计与事件 payload 不含名称。多客户端重新查询名称，不启动或停止进程。
+- Agent acquire / input / interrupt / release 与 read_terminal_output 可作用同项目手动 Shell 和 dev；stop_project_terminal 仍只停止 Agent dev。旧 generation / 跨项目 / 人工持权拒绝规则保留。Turn 上下文含最多 50 个当前项目 RUNNING 终端的 ID / 名称 / mode（标签视为不可信元数据，计入上下文预算），不自动获取输入权。
+- 数据迁移 0009_terminal_title 只新增 nullable title 列。旧名称默认 null，原资源和 lease 不变；无新依赖 / 配置 / 认证协议。回滚旧程序须保留扩展列，勿删除业务数据；布局 v4 仅本地视图拆分。
+
+## 24. M2-10 默认工作区（2026-11-04）
+
+- 新未关联项目会话使用固定 `dataDir/sessions/global-terminal/workspace`（复用已有全局终端目录）。旧会话 workspacePath 保留；新默认会话不要求目录为空，不在创建 / 归档 / 失败时删除目录内容。
+- FileScope 增加 `{ workspace: "default" }`，严格拒绝其他 workspace / 与 projectId、sessionId 混用。`GET /api/files?workspace=default&path=...`，`GET /api/workspaces/default/files`；PUT /api/files 与 TerminalCreate.scope 接受该 scope。既有鉴权 / CSRF / Origin / 版本 / 秘密扫描完整保留。
+- File resourceId `workspace:default`，streamId `file:workspace:default`；WS subscribe / replay 同既有协议，无需新协议号。新共享会话的 session scope 解析到同一根、scope key / 缓存 / 事件 / 写锁域；直接路径仍只允许根内相对路径。
+- Session DTO 新增 `workspaceKind: "project" | "default" | "session"`，从 projectId / workspacePath 与 dataDir 的固定路径派生；不是授权参数。默认会话终端不使用 workspaceSessionId 作为归属（null），保留创建来源字段；历史会话终端继续带 workspaceSessionId。
+- Terminal DTO.cwd 返回已授权实际绝对工作目录（root + 持久化相对 cwd），不再将 `.` 展示为主机位置；执行参数及数据行保持相对 cwd。
+- Agent read / control 按真实 session 授权根与 terminal operation 根等值匹配，支持默认共享 Shell、同项目 Shell 和历史同会话终端；null projectId 不授予其他历史 / 项目终端权限。默认 Shell 的输入 / 中断保留 L2 审批、人机租约与序号；具名项目 dev 启动 / Git 规则不变。
+- Web 左侧默认入口始终可见；无项目草稿 / 默认会话使用同一 global 视图组，旧独立会话使用 session 组。切换 / 刷新只切视图，不创建进程。默认文件结果卡片使用 workspace scope，精确鉴权后打开。
+- 无数据库迁移、依赖、配置或实际用户数据搬移；目录创建逐级拒绝符号链接 / 非目录，默认根被替换失败关闭。
+
+## 25. M2-11 纯终端体验
+人工 Shell 活动视图首次打开、已连接且终端空闲时自动申请一次输入租约并聚焦；已有人工 / AI 租约时不抢占。Agent dev 终端保持观察。主动释放后不自动再申请，点击内容 / Tab 菜单可重新申请；AI 显式接管仍走 takeover。内容无常驻运行 / 观察 / 开始输入工具栏；Tab 菜单提供交接 / 接管，双击或 F2 改名，× 显式终止。终态与异常继续可见。
+＋直接进入逐次创建风险确认；同次失败重试复用原 scope / 幂等键，取消不发创建请求。关闭窗口 / 断线不终止。Shell 选择见 §16 / ADR-033，初始尺寸、环境白名单、输出脱敏和所有输入审批 / 代际 / 序号校验不变。
+
+## 26. M2-12 右侧资源展示
+文件 / Git 直接上下展示，无全部 / 单项视图 Tab，保留分区折叠与高度调整。Git 查询不可用 / 非仓库为灰色简短占位，项目为空显示暂无仓库；不渲染写操作控件。文件树无常驻连接状态或刷新行，空根目录灰色占位；后台订阅、补拉、重连与实际读取失败的重新加载继续工作。文件保存 / 冲突与 Git 动作失败、审批、授权行为不变。
+
+## 27. M2-13 固定默认项目
+默认工作区作为 kind=default / id=prj_default 的内建项目进入项目树并置顶，后端描述来自原共享目录，项目更新 / 删除返回 FORBIDDEN 并审计，目录不可重复登记。名称 / 目录 / settings 固定，项目内容仍可编辑，默认会话 / 文件 / 终端保持原资源域和窗口身份。session / file / terminal 创建的默认项目别名归一至既有 workspace:default，文件 WS 继续使用其规范 resourceId / streamId。无需数据库迁移，不改写历史会话或终端。见 ADR-034、REST / data-model 契约；Git / M3 / dev 工具范围不扩展。
+
+### M2-21 终端停止完成元数据
+成功 stop_project_terminal 的持久化 tool.completed 附 closedTerminalTarget（既有 TerminalResultTarget 结构）及 originClientSessionId。只用于发起客户端核对真实终态后移除本地 Tab，实时 / 历史补拉均幂等处理；不改变其他客户端布局或触发新的资源操作。详见 ws-events / resource-views 的 M2-21。
+
+## M2-22 Agent 终端 Shell 生命周期（2026-11-04 / ADR-038）
+新建 mode=dev 终端由 Shell 承载初始批准程序；Ctrl+C / 程序正常或非零结束后，在同一 PTY / terminalId / PID 进入账户默认交互 Shell。Tab 保留，终端保持 RUNNING，人工可继续输入，AI 仍按原租约 / 逐次审批输入。RUNNING 只表示终端存活，不证明服务进程或 endpoint 仍在运行；服务失败/不存在通过原始输出核对，不能以创建成功宣称 ready。
+显式 stop_project_terminal / Tab 关闭仍终止整个终端和受管后代，确认后按 M2-21 移除发起客户端视图。窗口隐藏 / 最小化 / Turn 结束不停止资源。自然 Shell exit 才产生 terminal.exit 和终端退出码；初始程序返回值不再冒充终端退出码。
+已有资源不迁移/重启；同 role 同参数仍只复用终端，不重新执行初始命令，Agent 需先读输出、再通过批准输入在原终端启动所需命令，不得绕过人工持权。初始命令的 executable/args/cwd 与去重/幂等/审批绑定保持，shell 字段对新资源表示后续交互 Shell，旧行保留原值。
+实现采用固定 /bin/sh 交互引导脚本与位置参数：子 Shell exec -- 执行外部程序，父 Shell 捕获 INT，子命令正常接收 INT；随后 exec 已校验账户 Shell -i。不拼用户脚本、不注入按键或伪造租约。环境过滤、HISTFILE=/dev/null、输出脱敏、取消清理、未知停止隔离仍保留。无新接口 / 事件字段 / 数据迁移 / 依赖。未来临时服务必须核对真实子执行，不能仅看 PTY RUNNING。
+
+## M2-25 完全自主策略（ADR-040）
+现有 Session PATCH approvalPolicyId 与 Turn executionContext.policy 枚举增加 autonomous；新 Turn 持久化选择时的快照，运行中更改只影响下一轮。明确选择该策略时已登记 Agent 工具 L0–L3 均无需人工逐次审批，执行仍校验参数、客户端/资源范围、锁/fencing/幂等/预算/取消/租约/秘密保护，仍有审计与持久事件。其他策略与人工 Git 资源审批保持。客户端选择前风险弹窗确认，取消不更改，危险色盾牌持续可见；这不是沙箱，不扩大工具能力或授权管理接口。未鉴权/非法枚举拒绝，无 DB列/迁移/新 REST路径。
+
+## M2-27 Git 单文件恢复与取消暂存（ADR-041）
+现有 Git resource-action 接口新增 `{ action: "unstage", paths: string[] }`（1–200条精确路径）及 `{ action: "discard", path: string, confirmed: true }`（单文件）。动作仍按 L1 复用已鉴权/CSRF 的创建和执行、项目锁、快照重验、过期、审计与幂等，无新增路径/DB列/依赖，不注册新 Agent 工具。
+unstage仅恢复选定index到HEAD；无HEAD使用仅index移除，工作区不变；重命名同时恢复原路径index。discard仅处理未暂存变更，tracked从index恢复工作区，已暂存内容保留；untracked经确认后仅删除指定普通文件，不递归、不含忽略文件、不清理全仓。冲突、目录、symlink/非普通文件及越界拒绝。Git以字面pathspec执行，通配符不扩张。
+discard动作创建时和执行锁前/锁后读取目标内容哈希，发现后续内容或状态变化拒绝覆盖；外部进程仍不受项目锁隔离，不宣称OS原子性。untracked枚举使用--untracked-files=all，文件逐条呈现而非目录清理。UI放弃按钮先显示路径与丢失/删除后果，取消不创建写动作，确认后才调用；取消暂存无丢弃确认，因为它保留磁盘内容。编辑器内存草稿不自动删除，监听/版本冲突继续保护。

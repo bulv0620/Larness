@@ -443,6 +443,7 @@ export const terminals = sqliteTable(
     shell: text("shell").notNull(),
     mode: text("mode").$type<"shell" | "dev">().notNull(),
     role: text("role"),
+    title: text("title"),
     launchParamsJson: text("launch_params_json"),
     launchParamsHash: text("launch_params_hash"),
     createdByTurnId: text("created_by_turn_id"),

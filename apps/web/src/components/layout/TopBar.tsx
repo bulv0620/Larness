@@ -1,5 +1,4 @@
 import {
-  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -11,78 +10,22 @@ import {
   Hint,
   IconButton,
 } from "@larness/ui";
-import {
-  Bell,
-  Cpu,
-  Files,
-  Globe2,
-  MemoryStick,
-  Monitor,
-  Moon,
-  PanelLeft,
-  Server,
-  SquareTerminal,
-  Sun,
-} from "lucide-react";
+import { Bell, Cpu, MemoryStick, Monitor, Moon, PanelLeft, Sun } from "lucide-react";
 import { useTheme } from "@/app/ThemeProvider";
 import { StatusDot } from "@/components/common/StatusDot";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useLiveHost } from "@/lib/useLiveHost";
 import { useMediaQuery } from "@/lib/useMediaQuery";
-import type { WindowKind } from "@/lib/windowTypes";
+import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
-import { anyWindow, useWindowStore } from "@/stores/windowStore";
-
-const launchers: Array<{
-  kind: WindowKind;
-  label: string;
-  icon: typeof SquareTerminal;
-  resourceId: string;
-  title: string;
-  projectId: string | null;
-}> = [
-  {
-    kind: "terminal",
-    label: "终端",
-    icon: SquareTerminal,
-    resourceId: "ter_1",
-    title: "pnpm dev",
-    projectId: "prj_larness",
-  },
-  {
-    kind: "services",
-    label: "服务",
-    icon: Server,
-    resourceId: "svc_web_dev",
-    title: "web-dev",
-    projectId: "prj_larness",
-  },
-  {
-    kind: "browser",
-    label: "浏览器",
-    icon: Globe2,
-    resourceId: "browser_preview",
-    title: "localhost:5173",
-    projectId: "prj_larness",
-  },
-  {
-    kind: "files",
-    label: "文件",
-    icon: Files,
-    resourceId: "apps/web/src/app/AppShell.tsx",
-    title: "AppShell.tsx",
-    projectId: "prj_larness",
-  },
-];
 
 export function TopBar() {
   const { data } = useSnapshot();
   const { theme, resolved, setTheme } = useTheme();
-  const { projectId, toggleSidebar, setMobileSidebar } = useNavigationStore();
+  const { projectId, sessionId, toggleSidebar, setMobileSidebar } = useNavigationStore();
   const mobile = useMediaQuery("(max-width: 767px)");
-  const { windows, open } = useWindowStore();
   const hasPendingApproval = useTimelineStore((state) =>
     state.items.some((item) => item.kind === "approval" && item.status === "pending"),
   );
@@ -114,7 +57,7 @@ export function TopBar() {
 
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="truncate text-[12.5px] font-semibold tracking-[-.01em]">
-          {project?.name ?? "独立会话"}
+          {project?.name ?? unassignedWorkspaceLabel(sessionId, data.sessions)}
         </span>
         <span className="text-ink-3">/</span>
         <span className="flex items-center gap-1.5">
@@ -130,53 +73,6 @@ export function TopBar() {
       </div>
 
       <div className="ml-auto flex items-center gap-1">
-        {
-          <div className="hidden items-center gap-0.5 rounded-xl border border-line bg-surface-2/70 p-0.5 lg:flex">
-            {launchers
-              .filter(
-                (launcher) =>
-                  USE_MOCKS || launcher.kind === "files" || launcher.kind === "terminal",
-              )
-              .map((launcher) => {
-                const Icon = launcher.icon;
-                const active = Boolean(anyWindow(windows, launcher.kind));
-                return (
-                  <Hint key={launcher.kind} label={`打开${launcher.label}窗口`}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (USE_MOCKS) {
-                          open({ ...launcher, source: "header" });
-                          return;
-                        }
-                        const existing = anyWindow(windows, launcher.kind);
-                        if (existing) useWindowStore.getState().restore(existing.id);
-                        else
-                          open({
-                            kind: launcher.kind,
-                            resourceId: `${launcher.kind}:empty`,
-                            title: launcher.label,
-                            source: "header",
-                          });
-                      }}
-                      aria-label={`打开${launcher.label}窗口`}
-                      aria-pressed={active}
-                      className={cn(
-                        "flex h-7 items-center gap-1.5 rounded-[9px] px-2 text-[11px] font-medium transition-colors",
-                        active
-                          ? "bg-surface text-ink shadow-sm ring-1 ring-line"
-                          : "text-ink-2 hover:bg-black/[.04] hover:text-ink dark:hover:bg-white/[.06]",
-                      )}
-                    >
-                      <Icon size={13.5} strokeWidth={1.8} />
-                      <span className="hidden xl:inline">{launcher.label}</span>
-                    </button>
-                  </Hint>
-                );
-              })}
-          </div>
-        }
-
         {USE_MOCKS ? (
           <div className="mx-1 hidden items-center gap-3 rounded-xl border border-line bg-surface-2/60 px-2.5 py-1 xl:flex">
             <Hint label="Larness 主机 CPU 使用率">

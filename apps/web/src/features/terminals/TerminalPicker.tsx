@@ -1,8 +1,10 @@
-import type { FileScope } from "@larness/shared";
+import { DEFAULT_PROJECT_ID, type FileScope, type LiveTerminal } from "@larness/shared";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { queryClient, useSnapshot } from "@/lib/queries";
-import { createTerminal, listTerminals, openTerminal, terminalTitle } from "./api";
+import { SquareTerminal } from "lucide-react";
+import { useEffect } from "react";
+import { listTerminals, terminalTitle } from "./api";
+import { CreateTerminalButton } from "./CreateTerminalButton";
+import { TerminalOpenButton } from "./TerminalOpenButton";
 
 export function TerminalPicker({
   projectId,
@@ -11,113 +13,103 @@ export function TerminalPicker({
   projectId?: string | null;
   sessionId?: string;
 }) {
-  const { data: snapshot } = useSnapshot();
+  const scope: FileScope = projectId
+    ? { projectId }
+    : sessionId
+      ? { sessionId }
+      : { workspace: "default" };
   const query = useInfiniteQuery({
-    queryKey: ["terminals", "list"],
-    queryFn: ({ pageParam }) => listTerminals(pageParam),
+    queryKey: ["terminals", "list", projectId, sessionId],
+    queryFn: ({ pageParam }) => listTerminals(pageParam, scope),
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    getNextPageParam: (page, _pages, cursor) =>
+      page.nextCursor && page.nextCursor !== cursor ? page.nextCursor : undefined,
     refetchInterval: 3000,
   });
-  const [confirmation, setConfirmation] = useState<{ key: string; scope?: FileScope } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const inScope = (item: LiveTerminal) =>
+    projectId && projectId !== DEFAULT_PROJECT_ID
+      ? item.projectId === projectId
+      : sessionId
+        ? item.workspaceSessionId === sessionId
+        : !item.projectId && !item.workspaceSessionId;
   const items =
     query.data?.pages
       .flatMap((page) => page.items)
-      .filter(
-        (item) =>
-          projectId === undefined ||
-          (projectId
-            ? item.projectId === projectId
-            : sessionId
-              ? item.workspaceSessionId === sessionId
-              : !item.projectId && !item.workspaceSessionId),
-      ) ?? [];
+      .filter((item) => item.status === "RUNNING" && inScope(item)) ?? [];
+  const lastPageHasRunning =
+    query.data?.pages.at(-1)?.items.some((item) => item.status === "RUNNING" && inScope(item)) ??
+    false;
+  const { hasNextPage, isFetching, isError, fetchNextPage } = query;
+  useEffect(() => {
+    if (hasNextPage && !isFetching && !isError && !lastPageHasRunning) void fetchNextPage();
+  }, [hasNextPage, isFetching, isError, lastPageHasRunning, fetchNextPage]);
+  const searching =
+    query.isPending || query.isFetchingNextPage || (hasNextPage && !lastPageHasRunning && !isError);
   return (
-    <div className="h-full space-y-2 overflow-auto p-3 text-xs text-ink">
-      <div className="flex gap-3">
-        <button
-          type="button"
-          disabled={busy || confirmation !== null}
-          onClick={() =>
-            setConfirmation({
-              key: crypto.randomUUID(),
-              scope: projectId ? { projectId } : sessionId ? { sessionId } : undefined,
-            })
-          }
-        >
-          新建终端
-        </button>
-        <button type="button" onClick={() => void query.refetch()}>
-          刷新列表
-        </button>
-      </div>
-      {query.isError ? <p role="alert">终端列表读取失败，请重试。</p> : null}
-      {!items.length ? <p className="text-ink-3">暂无终端；打开窗口不会创建进程。</p> : null}
-      {items.map((item) => (
-        <button
-          className="block w-full rounded border border-line p-2 text-left hover:bg-surface-2"
-          type="button"
-          key={item.id}
-          aria-label={`打开终端 ${item.id}`}
-          onClick={() => openTerminal(item)}
-        >
-          <span>
-            {snapshot.projects.find((p) => p.id === item.projectId)?.name ??
-              (item.workspaceSessionId ? "独立会话" : "全局")}{" "}
-            · {terminalTitle(item)}
-          </span>
-          <span className="ml-2 text-ink-3">{item.status}</span>
-          <span className="block truncate text-ink-3">{item.cwd}</span>
-        </button>
-      ))}
-      {query.hasNextPage ? (
-        <button
-          type="button"
-          disabled={query.isFetchingNextPage}
-          onClick={() => void query.fetchNextPage()}
-        >
-          加载更多终端
-        </button>
-      ) : null}
-      {confirmation ? (
-        <div
-          role="dialog"
-          aria-label="创建终端确认"
-          className="space-y-3 rounded border border-line bg-surface p-3"
-        >
-          <p>
-            以 Larness 系统账户执行，项目目录不是沙箱。Shell
-            可访问主机文件和凭据，也可能并发修改源码。
+    <div className="flex h-full flex-col overflow-auto p-3 text-[12px] text-ink">
+      {isError ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <p role="alert" className="text-ink-3">
+            终端列表读取失败，请重试。
           </p>
-          <p>{confirmation.scope ? "在当前项目或独立会话工作区创建" : "在全局专用工作区创建"}</p>
           <button
             type="button"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                const item = await createTerminal(confirmation.scope, confirmation.key);
-                openTerminal(item);
-                setConfirmation(null);
-                void queryClient.invalidateQueries({ queryKey: ["terminals"] });
-              } catch {
-                setError("创建结果未确认，请重试核对；重试不会重复创建。");
-              } finally {
-                setBusy(false);
-              }
+            className="text-accent"
+            onClick={() => {
+              if (query.isFetchNextPageError) void fetchNextPage();
+              else void query.refetch();
             }}
           >
-            确认创建
+            重试
           </button>
-          <button type="button" disabled={busy} onClick={() => setConfirmation(null)}>
-            取消
-          </button>
+          {!items.length ? (
+            <CreateTerminalButton scope={scope} className="ml-auto text-accent" />
+          ) : null}
         </div>
       ) : null}
-      {error ? <p role="alert">{error}</p> : null}
+      {items.length ? (
+        <>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <span className="text-[11px] text-ink-3">运行中的终端</span>
+            <CreateTerminalButton scope={scope} className="text-accent" />
+          </div>
+          <div className="space-y-1">
+            {items.map((item) => (
+              <TerminalOpenButton
+                key={item.id}
+                terminalId={item.id}
+                projectId={item.projectId}
+                ariaLabel={`打开终端 ${item.id}`}
+                label={terminalTitle(item)}
+                className="w-full rounded-lg px-2 py-2 hover:bg-surface-2"
+              />
+            ))}
+          </div>
+        </>
+      ) : !searching && !isError ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3">
+          <SquareTerminal size={24} aria-hidden="true" className="text-ink-3/50" />
+          <p className="text-ink-3">暂无运行中的终端</p>
+          <CreateTerminalButton
+            scope={scope}
+            className="rounded-lg bg-accent px-3 py-1.5 text-white"
+          />
+        </div>
+      ) : null}
+      {searching ? (
+        <p role="status" className="py-3 text-center text-[11px] text-ink-3">
+          正在读取终端…
+        </p>
+      ) : null}
+      {hasNextPage && !searching && !isError ? (
+        <button
+          type="button"
+          className="mt-2 self-start text-[11px] text-accent"
+          onClick={() => void fetchNextPage()}
+        >
+          加载更多运行终端
+        </button>
+      ) : null}
     </div>
   );
 }

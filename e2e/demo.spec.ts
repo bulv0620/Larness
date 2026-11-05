@@ -12,7 +12,7 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.getByLabel("对话输入")).toBeVisible();
     await expect(page.getByText(/^最近/).first()).toBeVisible();
     await expect(page.getByLabel("项目资源", { exact: true }).getByRole("separator")).toHaveCount(
-      3,
+      1,
     );
 
     const fileHeader = page.getByRole("button", { name: /^文件/ }).first();
@@ -50,24 +50,19 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(
       page.getByLabel("项目资源", { exact: true }).getByText("当前项目暂无文件", { exact: true }),
     ).toBeVisible();
-    await expect(page.getByText("未检测到 Git 仓库", { exact: false })).toBeVisible();
+    await expect(page.getByText("暂无 Git 仓库", { exact: true })).toBeVisible();
   });
 
-  test("资源区 Tab 可聚焦单项并返回全部", async ({ page }) => {
-    await page.getByRole("tab", { name: /^文件/ }).click();
-    await expect(page.locator('aside[aria-label="项目资源"] section')).toHaveCount(1);
-    await expect(page.getByText("AppShell.tsx", { exact: true })).toBeVisible();
-    await expect(page.getByText("web-dev", { exact: true })).toHaveCount(0);
-    await expect(page.getByLabel("项目资源", { exact: true }).getByRole("separator")).toHaveCount(
-      0,
-    );
-
-    await page.getByRole("tab", { name: "全部" }).click();
-    await expect(page.locator('aside[aria-label="项目资源"] section')).toHaveCount(4);
-    await expect(page.getByLabel("项目资源", { exact: true }).getByRole("separator")).toHaveCount(
-      3,
-    );
-    await expect(page.getByText("web-dev", { exact: true })).toBeVisible();
+  test("右侧文件与 Git 同时展示且没有视图 Tab", async ({ page }) => {
+    const aside = page.getByLabel("项目资源", { exact: true });
+    await expect(aside.getByRole("tablist")).toHaveCount(0);
+    await expect(aside.getByRole("tab")).toHaveCount(0);
+    await expect(aside.locator("section")).toHaveCount(2);
+    await expect(aside.getByRole("button", { name: /^文件/ }).first()).toBeVisible();
+    await expect(aside.getByRole("button", { name: /^Git/ }).first()).toBeVisible();
+    await expect(aside.getByText("AppShell.tsx", { exact: true })).toBeVisible();
+    await expect(aside.getByRole("separator")).toHaveCount(1);
+    await expect(page.getByLabel("项目窗口")).toBeVisible();
   });
 
   test("上下文菜单与文件树折叠可用", async ({ page }) => {
@@ -84,12 +79,16 @@ test.describe("Larness S0 视觉 Demo", () => {
 
   test("折叠分区后剩余分区填满右栏", async ({ page }) => {
     const aside = page.getByLabel("项目资源", { exact: true });
-    await page.getByRole("button", { name: /^服务/ }).first().click();
+    await page
+      .getByLabel("项目资源", { exact: true })
+      .getByRole("button", { name: /^文件/ })
+      .first()
+      .click();
     await page.waitForTimeout(250);
 
     const sections = aside.locator("section");
-    await expect(sections).toHaveCount(4);
-    await expect(sections.nth(1)).toHaveCSS("min-height", "36px");
+    await expect(sections).toHaveCount(2);
+    await expect(sections.nth(0)).toHaveCSS("min-height", "36px");
 
     const asideBox = await aside.boundingBox();
     const lastBox = await sections.last().boundingBox();
@@ -100,29 +99,21 @@ test.describe("Larness S0 视觉 Demo", () => {
     expect(gap).toBeLessThan(20);
   });
 
-  test("窗口项目筛选按来源定位", async ({ page }) => {
-    await page.getByText("整理文档站首页导航", { exact: true }).first().click();
-    await page.getByText("pnpm docs:dev", { exact: true }).click();
-
-    const filter = page.getByLabel("项目筛选");
-    await expect(filter).toHaveValue("project:prj_docs");
-    const docsTab = page.getByTitle("docs-site · pnpm docs:dev");
-    await expect(docsTab).toBeVisible();
-
-    const filterBox = await filter.boundingBox();
-    const tabBox = await docsTab.boundingBox();
-    expect(filterBox).not.toBeNull();
-    expect(tabBox).not.toBeNull();
-    expect(Math.abs((filterBox?.y ?? 0) - (tabBox?.y ?? 0))).toBeLessThan(20);
-
+  test("项目窗口独立且没有 header 入口或项目筛选", async ({ page }) => {
+    await expect(page.locator("header").getByRole("button", { name: "打开终端窗口" })).toHaveCount(
+      0,
+    );
     await page.getByRole("button", { name: "打开终端窗口" }).click();
-    await expect(filter).toHaveValue("all");
-    await expect(page.getByTitle("larness-web · pnpm dev")).toBeVisible();
-    await expect(page.getByTitle("docs-site · pnpm docs:dev")).toBeVisible();
-
-    await filter.selectOption("project:prj_larness");
-    await expect(page.getByTitle("larness-web · pnpm dev")).toBeVisible();
-    await expect(page.getByTitle("docs-site · pnpm docs:dev")).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "pnpm dev" })).toBeVisible();
+    await expect(page.getByLabel("项目筛选")).toHaveCount(0);
+    await page.getByText("整理文档站首页导航", { exact: true }).first().click();
+    await expect(page.locator(".window-drag-handle")).toHaveCount(0);
+    await page.getByRole("button", { name: "打开终端窗口" }).click();
+    await expect(page.getByRole("tab", { name: "pnpm docs:dev" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "pnpm dev", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
+    await page.getByRole("button", { name: "打开终端窗口" }).click();
+    await expect(page.getByRole("tab", { name: "pnpm docs:dev" })).toBeVisible();
   });
 
   test("输入区与时间线之间没有硬分割线", async ({ page }) => {
@@ -197,7 +188,10 @@ test.describe("Larness S0 视觉 Demo", () => {
   });
 
   test("文件窗口加载 Monaco 只读内容", async ({ page }) => {
-    await page.getByRole("button", { name: "打开文件窗口" }).click();
+    await page
+      .getByLabel("项目资源", { exact: true })
+      .getByText("AppShell.tsx", { exact: true })
+      .click();
     await expect(page.locator(".monaco-editor")).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(".view-lines")).toContainText("ConversationWorkspace");
     await expect(page.getByText("只读预览")).toBeVisible();
@@ -205,16 +199,15 @@ test.describe("Larness S0 视觉 Demo", () => {
 
   test("发送消息、流式输出与部署审批", async ({ page }) => {
     await page.getByLabel("对话输入").fill("把开发服务启动起来，并给我一个预览。");
-    await page.getByLabel("发送消息").click();
-
-    await expect(page.getByText("执行计划").last()).toBeVisible();
-    await expect(page.getByText("开发服务器已启动", { exact: false })).toBeVisible({
-      timeout: 10_000,
-    });
-
+    await expect(page.getByLabel("发送消息")).toBeDisabled();
     await page.getByRole("button", { name: "批准部署" }).click();
     await expect(page.getByText("已批准部署", { exact: false })).toBeVisible();
     await expect(page.getByText("部署成功", { exact: true })).toBeVisible();
+    await page.getByLabel("发送消息").click();
+    await expect(page.getByRole("button", { name: /计划 ·/ }).last()).toBeVisible();
+    await expect(page.getByText("开发服务器已启动", { exact: false })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("键盘快捷键与窗口 Escape", async ({ page }) => {

@@ -20,6 +20,22 @@
 | ADR-011 | 内嵌预览仅限本机已登记 Web 服务 | 地址栏可输 `localhost:5173`；不做 Electron 窗口远控 |
 | ADR-012 | 开发服务 Native、长期服务 PM2 | Larness 自身由 OS 服务管理器 / Launcher 守护 |
 
+- [ADR-031 项目窗口与终端交互](ADR-031-project-resource-windows.md)：accepted（2026-11-04 人类直接指定），项目浮栏 / 窗口归属 / 手动 Shell AI 交接。
+
+- [ADR-032 共享默认工作区](ADR-032-shared-default-workspace.md)：accepted（2026-11-04 人类确认），新未关联会话共享目录、旧独立目录不变。
+- [ADR-033 纯终端体验](ADR-033-terminal-experience.md)：accepted（2026-11-04 人类要求继续优化）；Tab 控制菜单、空闲人工 Shell 直接输入、本机账户默认 Shell。
+- [ADR-034 固定默认项目](ADR-034-default-system-project.md)：accepted（2026-11-04 人类明确要求）；默认工作区进入项目树，服务端禁止修改 / 删除，保留旧资源域。
+
+
+
+- [ADR-035 紧凑对话流与底部审批](ADR-035-conversation-presentation.md)：accepted（2026-11-04 用户审批预览并要求重构）；真实任务计划、过程折叠、底部审批和小型资源浮栏。
+
+- [ADR-036 对话区复用外围视觉语言](ADR-036-conversation-theme.md)：accepted（2026-11-04 用户直接要求）；保持结构，统一主题色/状态/按钮/阴影。
+
+- [ADR-037 回复消息框与紧凑审批](ADR-037-message-bubbles.md)：accepted（2026-11-04 用户直接要求）；消息框、回复时间、紧凑审批与隐藏记录。
+
+- [ADR-038 Agent 终端的 Shell 生命周期](ADR-038-agent-terminal-shell.md)：accepted（2026-11-04 用户明确要求）；初始命令退出/中断后保留交互 Shell，显式关闭才终止终端。
+
 ## 2. 实现决策（本仓库冻结）
 
 | ID | 决策 | 说明 |
@@ -91,3 +107,9 @@
 ## 验证与回滚
 ## 后续
 ```
+
+- [ADR-039 文档窗口关闭与最小化](ADR-039-window-close.md)：accepted，按用户直接指定调整三种文档窗口关闭，终端/服务生命周期不变。
+
+- [ADR-040 完全自主审批策略](ADR-040-autonomous-policy.md)：accepted，用户明确要求免人工工具审批并风险确认；保持执行授权/范围/锁/审计。
+
+- [ADR-041 Git 逐文件放弃与取消暂存](ADR-041-git-file-actions.md)：accepted（2026-11-05用户直接要求）；确认后放弃未暂存内容、取消暂存保留磁盘文件，不扩展为全仓/自动清理。

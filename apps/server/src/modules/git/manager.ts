@@ -1,4 +1,7 @@
 import { createHash } from "node:crypto";
+import { constants } from "node:fs";
+import { lstat, open, realpath } from "node:fs/promises";
+import path from "node:path";
 import {
   GitError,
   parseBranches,
@@ -72,7 +75,7 @@ export class GitManager {
     const project = this.#project(projectId);
     const { stdout } = await runGit(
       project.realPath,
-      ["status", "--porcelain=v2", "-z", "--branch"],
+      ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"],
       { readOnly: true, timeoutMs: READ_TIMEOUT_MS },
     );
     const data = parseStatus(stdout);
@@ -155,7 +158,7 @@ export class GitManager {
     if (!action.success) fail("FORBIDDEN", "Invalid Git action");
     const project = this.#project(projectId);
     const payload = action.data;
-    return this.status(projectId).then((snapshot) => {
+    return this.#actionSnapshot(projectId, payload).then((snapshot) => {
       const now = this.#now();
       const risk = payload.action === "pull" || payload.action === "push" ? "L2" : "L1";
       const id = newId("act");
@@ -290,7 +293,8 @@ export class GitManager {
       fail("APPROVAL_INVALID", "Git action expired");
     }
     const project = this.#project(action.projectId);
-    const current = await this.status(project.id);
+    const payload = GitActionSchema.parse(JSON.parse(action.paramsJson));
+    const current = await this.#actionSnapshot(project.id, payload);
     if (current.snapshotVersion !== action.snapshotHash) {
       immediateTransaction(this.options.db, (tx) => {
         tx.update(resourceActions)
@@ -320,7 +324,7 @@ export class GitManager {
     });
     if (!lock.acquire()) throw new GitError("GIT_CONFLICT", "Project is locked by another writer");
     try {
-      const locked = await this.status(project.id);
+      const locked = await this.#actionSnapshot(project.id, payload);
       if (locked.snapshotVersion !== action.snapshotHash) {
         immediateTransaction(this.options.db, (tx) => {
           tx.update(resourceActions)
@@ -442,16 +446,114 @@ export class GitManager {
       lock.release();
     }
   }
+  async #actionSnapshot(projectId: string, action: GitAction) {
+    const snapshot = await this.status(projectId);
+    if (action.action !== "discard") return snapshot;
+    if (
+      snapshot.conflicts.some((item) => item.path === action.path) ||
+      (!snapshot.unstaged.some((item) => item.path === action.path) &&
+        !snapshot.untracked.includes(action.path))
+    )
+      throw new GitError("GIT_CONFLICT", "File has no discardable worktree change");
+    const root = this.#project(projectId).realPath;
+    const relative = validateGitPath(root, action.path);
+    if (relative.split("/").includes(".git") || (await realpath(root)) !== root)
+      throw new GitError("GIT_CONFLICT", "Invalid discard target");
+    let target = root,
+      missing = false;
+    const parts = relative.split("/");
+    for (const [index, part] of parts.entries()) {
+      target = path.join(target, part);
+      try {
+        const entry = await lstat(target);
+        if (
+          entry.isSymbolicLink() ||
+          (index === parts.length - 1 ? !entry.isFile() : !entry.isDirectory())
+        )
+          throw new GitError("GIT_CONFLICT", "Discard requires a regular project file");
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT" && index === parts.length - 1)
+          missing = true;
+        else throw error;
+      }
+    }
+    const hash = createHash("sha256")
+      .update(snapshot.snapshotVersion)
+      .update(missing ? "missing" : "file");
+    if (!missing) {
+      const file = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try {
+        const before = await file.stat();
+        if (!before.isFile()) throw new GitError("GIT_CONFLICT", "Discard requires a regular file");
+        const buffer = Buffer.alloc(65536);
+        for (;;) {
+          const { bytesRead } = await file.read(buffer);
+          if (!bytesRead) break;
+          hash.update(buffer.subarray(0, bytesRead));
+        }
+        const after = await file.stat();
+        if (before.size !== after.size || before.mtimeMs !== after.mtimeMs)
+          throw new GitError("GIT_CONFLICT", "File changed while preparing discard");
+      } finally {
+        await file.close();
+      }
+    }
+    return { ...snapshot, snapshotVersion: hash.digest("hex") };
+  }
   async #run(root: string, action: GitAction) {
     const status = parseStatus(
-      (await runGit(root, ["status", "--porcelain=v2", "-z", "--branch"], { readOnly: true }))
-        .stdout,
+      (
+        await runGit(
+          root,
+          ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"],
+          { readOnly: true },
+        )
+      ).stdout,
     );
     switch (action.action) {
       case "add": {
         const paths = action.paths.map((item) => validateGitPath(root, item));
         await runGit(root, ["add", "--", ...paths], { timeoutMs: WRITE_TIMEOUT_MS });
         return { action: "add", paths: paths.length };
+      }
+      case "unstage": {
+        const paths = new Set<string>();
+        for (const value of action.paths) {
+          const item = validateGitPath(root, value);
+          const entry = status.staged.find((file) => file.path === item);
+          if (!entry) throw new GitError("GIT_CONFLICT", "File is no longer staged");
+          paths.add(item);
+          if (entry.status === "renamed" && entry.origPath)
+            paths.add(validateGitPath(root, entry.origPath));
+        }
+        await runGit(
+          root,
+          [
+            "--literal-pathspecs",
+            ...(status.head && status.head !== "(initial)"
+              ? ["reset", "-q", "HEAD"]
+              : ["rm", "--cached", "-f"]),
+            "--",
+            ...paths,
+          ],
+          { timeoutMs: WRITE_TIMEOUT_MS },
+        );
+        return { action: "unstage", paths: paths.size };
+      }
+      case "discard": {
+        const file = validateGitPath(root, action.path);
+        if (status.conflicts.some((item) => item.path === file))
+          throw new GitError("GIT_CONFLICT", "Resolve conflicts before discarding");
+        if (status.untracked.includes(file))
+          await runGit(root, ["--literal-pathspecs", "clean", "-f", "--", file], {
+            timeoutMs: WRITE_TIMEOUT_MS,
+          });
+        else if (status.unstaged.some((item) => item.path === file))
+          await runGit(root, ["--literal-pathspecs", "restore", "--worktree", "--", file], {
+            timeoutMs: WRITE_TIMEOUT_MS,
+          });
+        else throw new GitError("GIT_CONFLICT", "File has no discardable worktree change");
+        return { action: "discard", path: file };
       }
       case "commit": {
         if (status.staged.length === 0)

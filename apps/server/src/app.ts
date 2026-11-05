@@ -136,7 +136,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerFileRoutes(app, options.services, resourceEvents);
     registerGitRoutes(app, options.services, git);
     registerResourceEventRoutes(app, options.services);
-    registerProjectRoutes(app, { db: options.services.db });
+    registerProjectRoutes(app, { db: options.services.db, dataDir: options.services.dataDir });
     registerSessionRoutes(app, {
       db: options.services.db,
       dataDir: options.services.dataDir,

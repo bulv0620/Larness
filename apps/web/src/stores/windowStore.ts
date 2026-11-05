@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { USE_MOCKS } from "@/lib/env";
+import { animateMinimize, cancelMinimize } from "@/lib/minimizeWindow";
 import { filterTabs, insertIntoTabGroup, isTabVisible } from "@/lib/windowFilters";
 import { clampRect, defaultRect } from "@/lib/windowGeometry";
 import type {
@@ -11,6 +12,17 @@ import type {
   WindowKind,
   WindowTab,
 } from "@/lib/windowTypes";
+
+export function resourceScopeKey(
+  projectId: string | null,
+  sessionId: string | null = null,
+): string {
+  return projectId ? `project:${projectId}` : sessionId ? `session:${sessionId}` : "global";
+}
+export function windowScopeKey(win: ManagedWindow): string {
+  const tab = win.tabs[0];
+  return resourceScopeKey(tab?.projectId ?? null, tab?.sourceSessionId ?? null);
+}
 
 type OpenSource = TabOrigin | "header";
 
@@ -28,6 +40,7 @@ interface OpenInput {
 }
 
 interface WindowState {
+  closeRequest: { windowId: string; tabIds: string[] } | null;
   windows: ManagedWindow[];
   focusedId: string | null;
   zCounter: number;
@@ -50,7 +63,7 @@ function viewport() {
 }
 
 function uid(prefix: string): string {
-  return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
+  return `${prefix}_${crypto.randomUUID()}`;
 }
 
 function topZ(windows: ManagedWindow[]): number {
@@ -113,7 +126,20 @@ export function migrateWindowLayout(persisted: unknown, _version: number): unkno
     const activeTabId = tabs.some((tab) => tab.id === win.activeTabId)
       ? win.activeTabId
       : (filterTabs(tabs, win.filter)[0]?.id ?? tabs[0]?.id ?? null);
-    return [{ ...win, tabs, activeTabId }];
+    const groups = new Map<string, WindowTab[]>();
+    for (const tab of tabs) {
+      const key = `${tab.kind}:${resourceScopeKey(tab.projectId, tab.sourceSessionId)}`;
+      groups.set(key, [...(groups.get(key) ?? []), tab]);
+    }
+    return [...groups.values()].map((group, index) => ({
+      ...win,
+      id: index === 0 ? win.id : `${win.id}:scope:${index}`,
+      tabs: group,
+      filter: { mode: "all" } as ProjectFilter,
+      activeTabId: group.some((tab) => tab.id === activeTabId)
+        ? activeTabId
+        : (group[0]?.id ?? null),
+    }));
   });
   const focusedId = windows.some((win) => win.id === value.focusedId)
     ? (value.focusedId ?? null)
@@ -129,6 +155,7 @@ export function migrateWindowLayout(persisted: unknown, _version: number): unkno
 export const useWindowStore = create<WindowState>()(
   persist(
     (set, get) => ({
+      closeRequest: null,
       windows: [],
       focusedId: null,
       zCounter: 10,
@@ -152,17 +179,21 @@ export const useWindowStore = create<WindowState>()(
             : kind === "git-diff" && git
               ? `diff:${projectId}:${git.path}`
               : `${kind}:${resourceId}`;
-        const tabMatch = state.windows.find((win) =>
-          win.tabs.some((tab) =>
-            tab.viewKey
-              ? tab.viewKey === viewKey
-              : tab.kind === kind && tab.resourceId === resourceId,
-          ),
+        const scope = resourceScopeKey(projectId, sessionId);
+        const tabMatch = state.windows.find(
+          (win) =>
+            windowScopeKey(win) === scope &&
+            win.tabs.some((tab) =>
+              tab.viewKey
+                ? tab.viewKey === viewKey
+                : tab.kind === kind && tab.resourceId === resourceId,
+            ),
         );
         const z = Math.max(state.zCounter + 1, topZ(state.windows) + 1);
         const preferred = preferredFilter(source, projectId);
 
         if (tabMatch) {
+          if (activate) cancelMinimize(tabMatch.id);
           const tab = tabMatch.tabs.find((item) =>
             item.viewKey
               ? item.viewKey === viewKey
@@ -228,8 +259,11 @@ export const useWindowStore = create<WindowState>()(
           ...(git ? { git } : {}),
         };
 
-        const sameKind = state.windows.find((win) => win.tabs.some((item) => item.kind === kind));
+        const sameKind = state.windows.find(
+          (win) => windowScopeKey(win) === scope && win.tabs.some((item) => item.kind === kind),
+        );
         if (sameKind) {
+          if (activate) cancelMinimize(sameKind.id);
           const tabs = insertIntoTabGroup(sameKind.tabs, tab);
           let filter = preferred ?? sameKind.filter;
           if (!isTabVisible(tab, filter)) filter = { mode: "all" };
@@ -261,7 +295,7 @@ export const useWindowStore = create<WindowState>()(
           filter,
           ...rect,
           z,
-          minimized: false,
+          minimized: !activate,
           maximized: false,
           pinned: false,
           restore: null,
@@ -275,6 +309,7 @@ export const useWindowStore = create<WindowState>()(
       },
 
       focus: (id) => {
+        cancelMinimize(id);
         const state = get();
         const target = state.windows.find((win) => win.id === id);
         if (!target) return;
@@ -290,32 +325,25 @@ export const useWindowStore = create<WindowState>()(
       },
 
       close: (id) => {
-        const state = get();
-        if (
-          state.windows
-            .find((win) => win.id === id)
-            ?.tabs.some(
-              (tab) =>
-                tab.file ||
-                (tab.kind === "terminal" &&
-                  (tab.resourceId.startsWith("term_") || tab.resourceId === "terminal:empty")),
-            )
-        ) {
-          get().hide(id);
-          return;
-        }
-        const windows = state.windows.filter((win) => win.id !== id);
-        set({
-          windows,
-          focusedId: windows.length ? (windows[windows.length - 1]?.id ?? null) : null,
-        });
+        const win = get().windows.find((item) => item.id === id);
+        if (!win) return;
+        if (win.tabs.some((tab) => ["files", "git-diff", "browser"].includes(tab.kind)))
+          set({ closeRequest: { windowId: id, tabIds: win.tabs.map((tab) => tab.id) } });
+        else get().hide(id);
       },
 
       hide: (id) => {
-        const state = get();
-        set({
-          windows: state.windows.map((win) => (win.id === id ? { ...win, minimized: true } : win)),
-          focusedId: state.windows.find((win) => win.id !== id && !win.minimized)?.id ?? null,
+        animateMinimize(id, () => {
+          const state = get();
+          set({
+            windows: state.windows.map((win) =>
+              win.id === id ? { ...win, minimized: true } : win,
+            ),
+            focusedId:
+              state.focusedId === id
+                ? (state.windows.find((win) => win.id !== id && !win.minimized)?.id ?? null)
+                : state.focusedId,
+          });
         });
       },
 
@@ -405,7 +433,7 @@ export const useWindowStore = create<WindowState>()(
     }),
     {
       name: "larness.windows.v2",
-      version: 3,
+      version: 4,
       migrate: migrateWindowLayout,
       partialize: (state) => ({
         windows: state.windows,

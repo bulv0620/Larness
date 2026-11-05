@@ -1,7 +1,8 @@
-import type { ModelProfile, ServerEvent } from "@larness/shared";
+import { type ModelProfile, type ServerEvent, WorkspaceKindSchema } from "@larness/shared";
 import { apiFetch } from "./api";
 
 export interface ApiProject {
+  kind?: "project" | "default";
   id: string;
   name: string;
   rootPath: string;
@@ -17,13 +18,14 @@ export interface ApiProject {
 }
 
 export interface ApiSession {
+  workspaceKind?: "project" | "default" | "session";
   id: string;
   projectId: string | null;
   workspacePath: string;
   title: string;
   status: "active" | "archived";
   modelProfileId: string | null;
-  approvalPolicyId: "standard" | "strict" | "readonly";
+  approvalPolicyId: "standard" | "strict" | "readonly" | "autonomous";
   createdAt: number;
   updatedAt: number;
   lastActivityAt: number;
@@ -198,7 +200,7 @@ export async function updateSession(
   input: {
     title?: string;
     modelProfileId?: string | null;
-    approvalPolicyId?: "standard" | "strict" | "readonly";
+    approvalPolicyId?: "standard" | "strict" | "readonly" | "autonomous";
   },
 ): Promise<ApiSession> {
   return apiFetch<ApiSession>(`/api/sessions/${encodeURIComponent(id)}`, {
@@ -277,6 +279,7 @@ export function toProjectView(project: ApiProject) {
   const index = Array.from(project.id).reduce((sum, char) => sum + char.charCodeAt(0), 0);
   return {
     id: project.id,
+    kind: project.kind,
     name: project.name,
     rootPath: project.realPath,
     branch: null,
@@ -298,6 +301,10 @@ export function toModelProfileView(model: ApiModelProfile): ModelProfile {
 
 export function toSessionView(session: ApiSession) {
   return {
+    workspaceKind: WorkspaceKindSchema.parse(
+      session.workspaceKind ?? (session.projectId ? "project" : "session"),
+    ),
+    workspacePath: session.workspacePath,
     id: session.id,
     projectId: session.projectId,
     title: session.title,

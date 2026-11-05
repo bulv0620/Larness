@@ -1,5 +1,4 @@
 import {
-  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -8,80 +7,51 @@ import {
   IconButton,
 } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontal, PanelRight, Sparkles } from "lucide-react";
+import { MoreHorizontal, PanelRight } from "lucide-react";
 import { useState } from "react";
-import { StatusDot } from "@/components/common/StatusDot";
-import { Composer } from "@/features/chat/Composer";
-import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
-import { Timeline } from "@/features/chat/Timeline";
+import { ResourceDock } from "@/components/windows/ResourceDock";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { archiveSession } from "@/lib/workspaceApi";
-import { useComposerStore } from "@/stores/composerStore";
+import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { Composer } from "./Composer";
+import { PendingApproval } from "./PendingApproval";
+import { RenameSessionDialog } from "./RenameSessionDialog";
+import { Timeline } from "./Timeline";
 
 export function ConversationWorkspace() {
   const { data } = useSnapshot();
-  const { projectId, sessionId } = useNavigationStore();
+  const { projectId, sessionId, resourceCollapsed, toggleResource } = useNavigationStore();
   const extra = useLocalSessionsStore((state) => state.extra);
-  const isStreaming = useTimelineStore((state) => state.isStreaming);
-  const contextTokens = useTimelineStore((state) => state.contextTokens);
-  const modelId = useComposerStore((state) => state.modelId);
-  const resourceCollapsed = useNavigationStore((state) => state.resourceCollapsed);
-  const toggleResource = useNavigationStore((state) => state.toggleResource);
-  const queryClient = useQueryClient();
+  const client = useQueryClient();
   const [renameOpen, setRenameOpen] = useState(false);
-
   const session = [...(USE_MOCKS ? extra : []), ...data.sessions].find(
     (item) => item.id === sessionId,
   );
-  const project = data.projects.find((item) => item.id === projectId) ?? null;
-  const model = data.models.find((item) => item.id === modelId) ?? data.models[0];
-  const maxContextTokens = model?.maxContextTokens ?? 128_000;
-  const contextPercent = Math.min(
-    100,
-    Math.round((contextTokens / Math.max(1, maxContextTokens)) * 100),
-  );
-  const running = isStreaming || session?.status === "running";
-
-  const archive = async (): Promise<void> => {
+  const project = data.projects.find((item) => item.id === projectId);
+  const archive = async () => {
     if (!session || USE_MOCKS) return;
-
     try {
       await archiveSession(session.id);
-      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+      await client.invalidateQueries({ queryKey: ["workspace"] });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "归档会话失败";
-      window.dispatchEvent(new CustomEvent("larness:workspace-error", { detail: message }));
+      window.dispatchEvent(
+        new CustomEvent("larness:workspace-error", {
+          detail: error instanceof Error ? error.message : "归档会话失败",
+        }),
+      );
     }
   };
-
   return (
-    <main className="flex min-w-0 flex-1 flex-col bg-canvas/55">
-      <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-line px-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <h1 className="truncate text-[13.5px] font-semibold tracking-[-.01em]">
-            {session?.title ?? "新会话"}
-          </h1>
-          <span
-            className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-[2px] text-[10px] font-medium",
-              running
-                ? "border-success/20 bg-success/10 text-success"
-                : "border-line bg-surface-2 text-ink-3",
-            )}
-          >
-            <StatusDot tone={running ? "running" : "idle"} pulse={running} />
-            {running ? "运行中" : "空闲"}
-          </span>
-        </div>
-        <span className="hidden min-w-0 items-center gap-1.5 truncate font-mono text-[10px] text-ink-3 md:flex">
-          <span className="text-ink-3/60">›</span>
-          {project?.rootPath ?? "独立会话工作目录"}
+    <main className="conversation-surface flex min-h-0 min-w-0 flex-1 flex-col bg-canvas/55">
+      <header className="flex h-12 shrink-0 items-center gap-3 px-4 sm:px-7">
+        <h1 className="min-w-0 truncate text-[12px] font-medium">{session?.title ?? "新会话"}</h1>
+        <span className="ml-auto hidden max-w-[40%] truncate text-[11px] text-ink-3 md:block">
+          {project?.name ?? unassignedWorkspaceLabel(sessionId, data.sessions)}
         </span>
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="ml-auto flex items-center gap-0.5 md:ml-0">
           <IconButton
             label={resourceCollapsed ? "展开项目资源" : "折叠项目资源"}
             className="hidden xl:inline-flex"
@@ -110,60 +80,20 @@ export function ConversationWorkspace() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
-
+      </header>
       <Timeline />
-
       <RenameSessionDialog
         session={session ? { id: session.id, title: session.title } : null}
         onClose={() => setRenameOpen(false)}
         open={renameOpen}
       />
-
-      <div data-testid="composer-dock" className="relative shrink-0 px-4 pb-4 pt-2">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 -top-5 h-5 bg-gradient-to-t from-canvas via-canvas/70 to-transparent"
-        />
-        <div className="relative mx-auto w-full max-w-[880px]">
-          <div className="mb-2 flex items-center gap-1.5 px-0.5 text-[10.5px] text-ink-3">
-            <Sparkles size={11.5} className="text-accent" />
-            <span className="font-medium text-ink-2">项目上下文</span>
-            <span>·</span>
-            <span>{project?.name ?? "独立会话"}</span>
-            <span>·</span>
-            <span className="font-mono">{project?.branch ?? "workspace"}</span>
-          </div>
+      <div data-testid="composer-dock" className="relative shrink-0 px-4 pb-3 pt-1 sm:px-7">
+        <div className="relative mx-auto w-full max-w-[760px]">
+          <ResourceDock />
+          <PendingApproval />
           <Composer />
-          <div className="mt-2 flex items-center gap-2 px-1 text-[9.5px] text-ink-3">
-            <span className="flex items-center gap-1.5">
-              <span>上下文</span>
-              <span className="font-mono text-ink-2">
-                {contextTokens > 0 ? formatTokens(contextTokens) : "—"} /{" "}
-                {formatTokens(maxContextTokens)}
-              </span>
-              <span className="h-1 w-14 overflow-hidden rounded-full bg-black/[.07] dark:bg-white/[.1]">
-                <span
-                  className="block h-full rounded-full bg-accent/70 transition-[width] duration-500"
-                  style={{ width: `${contextPercent}%` }}
-                />
-              </span>
-            </span>
-            <span className="ml-auto hidden items-center gap-1 sm:flex">
-              <span className="font-mono">Enter</span> 发送
-              <span className="mx-1 text-ink-3/50">·</span>
-              <span className="font-mono">Shift + Enter</span> 换行
-            </span>
-          </div>
         </div>
       </div>
     </main>
   );
-}
-
-function formatTokens(value: number): string {
-  if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(value >= 10_000 ? 0 : 1)}k`;
-  }
-  return String(value);
 }

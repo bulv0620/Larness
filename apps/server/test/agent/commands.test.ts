@@ -89,7 +89,7 @@ it("requires approval for arbitrary scripts, runs a real command and returns bou
   await withTempDir(async (dir) => {
     const f = await fixture(
       dir,
-      "require('node:fs').writeFileSync('ran','yes');console.log('public output');process.exitCode=7",
+      "require('node:fs').writeFileSync('ran','yes');console.log('token=display-private-value');console.log('public output');process.exitCode=7",
     );
     try {
       const running = f.runner.run(f.turn.turnId);
@@ -107,7 +107,10 @@ it("requires approval for arbitrary scripts, runs a real command and returns bou
         .prepare("SELECT status, exit_code FROM command_executions")
         .get();
       expect(row).toEqual({ status: "FAILED", exit_code: 7 });
-      expect(f.events.some((e) => e.type === "tool.command.created")).toBe(true);
+      expect(f.events.find((e) => e.type === "tool.command.created")?.payload).toMatchObject({
+        command: { executable: f.params.executable, cwd: "." },
+      });
+      expect(JSON.stringify(f.events)).not.toContain("display-private-value");
       const message = JSON.stringify(f.provider.calls.at(-1)?.messages);
       expect(message).toContain("public output");
       expect(message).toContain("exitCode");

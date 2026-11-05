@@ -19,6 +19,7 @@ import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { createCommandTool } from "../modules/agent/commandTool.js";
 import { createGitTools } from "../modules/agent/gitTool.js";
+import { createPlanTool } from "../modules/agent/planTool.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { createTerminalControlTools } from "../modules/agent/terminalControlTool.js";
@@ -220,6 +221,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
     if (options.turnRunner !== false) {
       const registry = createFileToolRegistry();
+      registry.register(createPlanTool({ db: opened.db, secretStore }));
       registry.register(createCommandTool({ db: opened.db, secretStore }));
       for (const tool of createTerminalTools({ db: opened.db, secretStore }))
         registry.register(tool);
@@ -227,6 +229,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         registry.register(tool);
       for (const tool of createGitTools()) registry.register(tool);
       const runner = new TurnRunner({
+        dataDir,
         db: opened.db,
         registry,
         commands,

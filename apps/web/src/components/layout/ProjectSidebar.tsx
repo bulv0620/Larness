@@ -1,3 +1,4 @@
+import { DEFAULT_PROJECT_ID } from "@larness/shared";
 import {
   Button,
   cn,
@@ -10,7 +11,6 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
-  Boxes,
   ChevronDown,
   ChevronRight,
   Clock3,
@@ -102,6 +102,10 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   ): void => {
     event.preventDefault();
     event.stopPropagation();
+    if (kind === "project" && id === DEFAULT_PROJECT_ID) {
+      setContext(null);
+      return;
+    }
     setContext({ kind, id, title, x: event.clientX, y: event.clientY });
   };
 
@@ -111,14 +115,21 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   );
 
   const newProjectSession = (projectId: string): void => {
-    startDraft(projectId);
+    startDraft(projectId === DEFAULT_PROJECT_ID ? null : projectId);
     focusComposer();
   };
 
+  const activeSession = sessions.find((item) => item.id === sessionId);
+  const defaultSelected =
+    projectId === null && (!activeSession || activeSession.workspaceKind === "default");
   const normalized = query.trim().toLowerCase();
   const projects = data.projects.map((project) => ({
     ...project,
-    sessions: sessions.filter((session) => session.projectId === project.id),
+    sessions: sessions.filter((session) =>
+      project.kind === "default"
+        ? session.workspaceKind === "default"
+        : session.projectId === project.id,
+    ),
   }));
   const visibleProjects = normalized
     ? projects.filter(
@@ -191,12 +202,22 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
         {visibleProjects.map((project) => {
           const expanded = expandedProjects[project.id] ?? true;
+          const isDefault = project.kind === "default";
+          const navigationProjectId = isDefault ? null : project.id;
+          const hasDraft = draftSession?.projectId === navigationProjectId;
           return (
-            <div key={project.id} className="mb-0.5">
+            <div key={project.id} data-project-id={project.id} className="mb-0.5">
               <div className="flex items-center gap-0.5">
                 <button
                   type="button"
-                  onClick={() => toggleProject(project.id)}
+                  aria-label={isDefault ? "默认工作区" : undefined}
+                  aria-pressed={isDefault ? defaultSelected : undefined}
+                  onClick={() => {
+                    if (isDefault && !defaultSelected) {
+                      startDraft(null);
+                      focusComposer();
+                    } else toggleProject(project.id);
+                  }}
                   onContextMenu={(event) => openContext(event, "project", project.id, project.name)}
                   aria-expanded={expanded}
                   className="flex h-[27px] min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 text-left text-[11.5px] text-ink-2 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"
@@ -213,7 +234,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                     <Folder size={10} />
                   </span>
                   <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
-                  {project.git ? (
+                  {isDefault ? (
+                    <span className="text-[9px] text-ink-3">内置</span>
+                  ) : project.git ? (
                     <span className="font-mono text-[9px] text-ink-3">
                       {project.branch ?? "git"}
                     </span>
@@ -235,13 +258,13 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
               {expanded ? (
                 <div className="ml-[13px] border-l border-line/70 pl-1">
-                  {draftSession?.projectId === project.id ? (
+                  {hasDraft ? (
                     <SessionRow
                       title="新会话"
                       draft
-                      active={draftSession.id === sessionId}
+                      active={draftSession?.id === sessionId}
                       running={false}
-                      onClick={() => startDraft(project.id)}
+                      onClick={() => startDraft(navigationProjectId)}
                     />
                   ) : null}
                   {project.sessions.length ? (
@@ -251,13 +274,13 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                         title={session.title}
                         active={session.id === sessionId}
                         running={session.id === sessionId && isStreaming}
-                        onClick={() => selectSession(session.id, project.id)}
+                        onClick={() => selectSession(session.id, navigationProjectId)}
                         onContextMenu={(event) =>
                           openContext(event, "session", session.id, session.title)
                         }
                       />
                     ))
-                  ) : draftSession?.projectId === project.id ? null : (
+                  ) : hasDraft ? null : (
                     <div className="px-2 py-1 text-[10.5px] text-ink-3">暂无会话</div>
                   )}
                 </div>
@@ -268,7 +291,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
         {visibleProjects.length === 0 ? (
           <div className="mx-1 rounded-lg border border-dashed border-line px-2.5 py-3 text-[10.5px] text-ink-3">
-            还没有登记项目。点击项目标题旁的 + 添加本机目录。
+            {normalized
+              ? "没有匹配的项目或会话"
+              : "还没有登记项目。点击项目标题旁的 + 添加本机目录。"}
           </div>
         ) : null}
 
@@ -278,15 +303,6 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
             {recent.length}
           </span>
         </div>
-        {draftSession?.projectId === null ? (
-          <SessionRow
-            title="新会话"
-            draft
-            active={draftSession.id === sessionId}
-            running={false}
-            onClick={() => startDraft(null)}
-          />
-        ) : null}
         {recent.map((session) => {
           const project = data.projects.find((item) => item.id === session.projectId);
           return (
@@ -313,7 +329,10 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                 </span>
               </span>
               <span className="flex items-center gap-1.5 pl-[17px] text-[9.5px] text-ink-3">
-                <span className="truncate">{project?.name ?? "独立会话"}</span>
+                <span className="truncate">
+                  {project?.name ??
+                    (session.workspaceKind === "default" ? "默认工作区" : "独立会话")}
+                </span>
                 <span>·</span>
                 <span className="shrink-0">{relativeTime(session.updatedAt)}</span>
               </span>
@@ -329,7 +348,6 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
           label="设置与模型"
           onClick={USE_MOCKS ? undefined : () => setSettingsOpen(true)}
         />
-        <BottomItem icon={Boxes} label="工作空间" />
         <div className="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-black/[.035] dark:hover:bg-white/[.05]">
           <div className="relative flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#ffd60a] to-[#ff9f0a] text-[10px] font-semibold text-[#1d1d1f]">
             B

@@ -56,7 +56,7 @@ export function CommandCard({ commandId }: { commandId: string }) {
       isActive(query.state.data?.status) && !query.state.error ? 2000 : false,
   });
   const active = isActive(state.data?.status);
-  const watch = useCommandWatch(commandId, active && !state.error);
+  useCommandWatch(commandId, active && !state.error);
   const output = useQuery({
     queryKey: ["command", commandId, "output"],
     queryFn: () =>
@@ -139,13 +139,10 @@ export function CommandCard({ commandId }: { commandId: string }) {
       <pre
         role="log"
         aria-label="命令输出"
-        className="max-h-64 overflow-auto whitespace-pre-wrap break-words border-t border-line bg-surface-2 px-3 py-2 font-mono text-[11px] text-ink-2"
+        className="max-h-[200px] overflow-auto whitespace-pre-wrap break-words border-t border-line bg-surface-2 px-3 py-2 font-mono text-[11px] text-ink-2"
       >
         {output.data?.text || (active ? "等待命令输出…" : "无可用输出")}
       </pre>
-      {active ? (
-        <p className="px-3 py-1 text-[10px] text-ink-3">{watch} · 关闭页面不会取消命令</p>
-      ) : null}
     </section>
   );
 }

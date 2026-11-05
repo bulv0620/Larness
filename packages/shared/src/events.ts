@@ -36,6 +36,8 @@ export interface MessageItem {
   createdAt: number;
   turnId?: string;
   streaming?: boolean;
+  turnOutcome?: "completed" | "failed" | "cancelled" | "interrupted";
+  durationMs?: number;
 }
 
 export interface PlanStep {
@@ -46,6 +48,7 @@ export interface PlanStep {
 }
 
 export interface PlanItem {
+  turnId?: string;
   id: string;
   kind: "plan";
   title: string;
@@ -54,6 +57,7 @@ export interface PlanItem {
 }
 
 export interface ToolItem {
+  turnId?: string;
   id: string;
   kind: "tool";
   name: string;
@@ -68,6 +72,7 @@ export interface ToolItem {
 }
 
 export interface ApprovalItem {
+  turnId?: string;
   id: string;
   kind: "approval";
   serviceName?: string;
@@ -84,6 +89,7 @@ export interface ApprovalItem {
 }
 
 export interface ArtifactItem {
+  turnId?: string;
   id: string;
   kind: "artifact";
   title: string;
@@ -95,6 +101,7 @@ export interface ArtifactItem {
 }
 
 export interface ErrorItem {
+  turnId?: string;
   id: string;
   kind: "error";
   message: string;

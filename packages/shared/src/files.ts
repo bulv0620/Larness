@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+export const WorkspaceKindSchema = z.enum(["project", "default", "session"]);
+
 export const MAX_EDITABLE_FILE_BYTES = 512 * 1024;
 const resourceId = z.string().min(1).max(128);
 export const FileScopeSchema = z.union([
+  z.object({ workspace: z.literal("default") }).strict(),
   z.object({ projectId: resourceId }).strict(),
   z.object({ sessionId: resourceId }).strict(),
 ]);
@@ -30,6 +33,13 @@ export const FileSaveSchema = z
   })
   .strict();
 export const FileReadQuerySchema = z.union([
+  z
+    .object({
+      workspace: z.literal("default"),
+      path: FilePathSchema,
+      version: FileVersionSchema.optional(),
+    })
+    .strict(),
   z
     .object({ projectId: resourceId, path: FilePathSchema, version: FileVersionSchema.optional() })
     .strict(),

@@ -5,13 +5,22 @@ import {
   TerminalEventSchema,
   TerminalOutputEventSchema,
 } from "@larness/shared";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
+import { MoreHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api";
 import { queryClient } from "@/lib/queries";
-import { ended, OutputSchema, readTerminal, terminalAction, terminalKey } from "./api";
+import { useWindowStore } from "@/stores/windowStore";
+import { OutputSchema, readTerminal, terminalAction, terminalKey, terminalTitle } from "./api";
 import "@xterm/xterm/css/xterm.css";
 
 const labels = {
@@ -29,6 +38,25 @@ export function LiveTerminalView({ id }: { id: string }) {
     queryFn: () => readTerminal(id),
     refetchInterval: 2000,
   });
+  const title = query.data ? terminalTitle(query.data) : null;
+  useEffect(() => {
+    if (title === null) return;
+    const state = useWindowStore.getState();
+    if (
+      !state.windows.some((win) =>
+        win.tabs.some((tab) => tab.resourceId === id && tab.title !== title),
+      )
+    )
+      return;
+    useWindowStore.setState({
+      windows: state.windows.map((win) => ({
+        ...win,
+        tabs: win.tabs.map((tab) =>
+          tab.resourceId === id && tab.title !== title ? { ...tab, title } : tab,
+        ),
+      })),
+    });
+  }, [id, title]);
   const snapshot = useRef(query.data);
   snapshot.current = query.data;
   const container = useRef<HTMLDivElement>(null);
@@ -37,6 +65,13 @@ export function LiveTerminalView({ id }: { id: string }) {
     takeover: () => Promise<void>;
     release: () => Promise<void>;
   } | null>(null);
+  const initialAcquire = useRef(false);
+  const [menuHost, setMenuHost] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    const state = useWindowStore.getState();
+    const tab = state.windows.flatMap((win) => win.tabs).find((tab) => tab.resourceId === id);
+    setMenuHost(tab ? document.getElementById(`terminal-controls-${tab.id}`) : null);
+  }, [id]);
   const [inputReady, setInputReady] = useState(false);
   const [connection, setConnection] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -62,6 +97,7 @@ export function LiveTerminalView({ id }: { id: string }) {
   useEffect(() => {
     const element = container.current;
     if (!element) return;
+    initialAcquire.current = false;
     let disposed = false,
       cursor = 0,
       syncing = false,
@@ -91,7 +127,9 @@ export function LiveTerminalView({ id }: { id: string }) {
     setError("");
     setConnection(null);
     const invalidate = () => {
-      if (!disposed) void queryClient.invalidateQueries({ queryKey: terminalKey(id) });
+      return disposed
+        ? Promise.resolve()
+        : queryClient.invalidateQueries({ queryKey: terminalKey(id) });
     };
     const canInput = () => {
       const row = snapshot.current;
@@ -220,9 +258,12 @@ export function LiveTerminalView({ id }: { id: string }) {
         const subscribed = Subscription.safeParse(raw);
         if (subscribed.success && subscribed.data.subscription.resourceId === id) {
           cid = subscribed.data.connectionId;
-          setConnection(cid);
           delay = 500;
-          invalidate();
+          // Refresh before considering automatic input: the cached lease may belong to
+          // the view we just closed, whose WebSocket has already been released.
+          void invalidate().then(() => {
+            if (!disposed && socket === ws && ws.readyState === WebSocket.OPEN) setConnection(cid);
+          });
           void sync();
           return;
         }
@@ -353,6 +394,37 @@ export function LiveTerminalView({ id }: { id: string }) {
       term.dispose();
     };
   }, [id]);
+  useEffect(() => {
+    if (
+      !connection ||
+      !query.data ||
+      query.data.status !== "RUNNING" ||
+      query.isError ||
+      initialAcquire.current
+    )
+      return;
+    initialAcquire.current = true;
+    // Only the initial open may request control automatically. Never reclaim a released lease.
+    if (
+      query.data.mode !== "shell" ||
+      (query.data.lease && query.data.lease.expiresAt > Date.now())
+    )
+      return;
+    let cancelled = false;
+    setBusy(true);
+    void control.current
+      ?.acquire()
+      .catch(() => {
+        if (!cancelled) void queryClient.invalidateQueries({ queryKey: terminalKey(id) });
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+      setBusy(false);
+    };
+  }, [connection, id, query.data, query.isError]);
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true);
     setError("");
@@ -368,54 +440,61 @@ export function LiveTerminalView({ id }: { id: string }) {
     <div
       data-testid="live-terminal"
       data-terminal-id={id}
+      data-input-state={ours ? "active" : aiControlled ? "agent" : "inactive"}
       className="flex h-full min-h-0 flex-col bg-[#0f1115] text-white/80"
     >
-      <div className="flex flex-wrap items-center gap-3 border-b border-white/10 p-2 text-[11px]">
-        <span role="status">{query.data ? labels[query.data.status] : "读取终端…"}</span>
-        <span>{ours ? "你正在控制" : aiControlled ? "AI 控制中" : "只读观察"}</span>
-        {lease && lease.expiresAt > now ? (
-          <span>
-            {lease.ownerType === "agent"
-              ? "AI 控制"
-              : `持有者 ${lease.ownerClientSessionId.slice(-8)}`}{" "}
-            · 到期 {new Date(lease.expiresAt).toLocaleTimeString()}
-          </span>
-        ) : null}
-        <button
-          type="button"
-          disabled={
-            busy ||
-            !connection ||
-            !query.data ||
-            query.isError ||
-            query.data.status !== "RUNNING" ||
-            (!held && !aiControlled && !!lease && lease.expiresAt > now)
-          }
-          onClick={() =>
-            void act(async () => {
-              if (held) await control.current?.release();
-              else if (aiControlled) await control.current?.takeover();
-              else await control.current?.acquire();
-            })
-          }
-        >
-          {held ? "释放输入权" : aiControlled ? "接管控制" : "获取输入权"}
-        </button>
-        <button
-          type="button"
-          disabled={
-            busy || !query.data || ended(query.data.status) || query.data.status === "STOPPING"
-          }
-          onClick={() => void act(() => terminalAction(id, "terminate", { confirmed: true }))}
-        >
-          终止终端
-        </button>
-      </div>
-      <div className="truncate px-2 py-1 text-[10px] text-white/50">
-        {query.data?.cwd} · 源码写入：
-        {query.data ? (query.data.writeBlocked ? "占用或待恢复" : "未占用") : "未知"}
-        。终端不占源码写锁；Shell 写入不受该锁串行保护。
-      </div>
+      {menuHost
+        ? createPortal(
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="终端操作"
+                  title="终端操作"
+                  className="flex w-7 items-center justify-center text-ink-3 hover:bg-surface-2 hover:text-ink"
+                >
+                  <MoreHorizontal size={14} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                onCloseAutoFocus={(event) => {
+                  event.preventDefault();
+                  if (ours)
+                    container.current
+                      ?.querySelector<HTMLTextAreaElement>(".xterm-helper-textarea")
+                      ?.focus();
+                }}
+              >
+                <DropdownMenuItem
+                  aria-label={held ? "释放输入权" : aiControlled ? "接管控制" : "获取输入权"}
+                  disabled={
+                    busy ||
+                    !connection ||
+                    !query.data ||
+                    query.isError ||
+                    query.data.status !== "RUNNING" ||
+                    (!held && !aiControlled && !!lease && lease.expiresAt > now)
+                  }
+                  onSelect={() =>
+                    void act(async () => {
+                      if (held) await control.current?.release();
+                      else if (aiControlled) await control.current?.takeover();
+                      else await control.current?.acquire();
+                    })
+                  }
+                >
+                  {held ? "交给 AI" : aiControlled ? "接管控制" : "输入终端"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>,
+            menuHost,
+          )
+        : null}
+      {query.data && query.data.status !== "RUNNING" ? (
+        <p role="status" className="px-2 text-xs">
+          {labels[query.data.status]}
+        </p>
+      ) : null}
       {query.data?.reasonCode ? (
         <p className="px-2 text-xs">状态原因：{query.data.reasonCode}</p>
       ) : null}
@@ -437,6 +516,19 @@ export function LiveTerminalView({ id }: { id: string }) {
         role="application"
         aria-label="交互终端"
         className="min-h-0 flex-1 p-2"
+        onPointerDown={() => {
+          if (
+            !held &&
+            !aiControlled &&
+            connection &&
+            !busy &&
+            (!lease || lease.expiresAt <= Date.now()) &&
+            query.data?.status === "RUNNING"
+          )
+            void act(async () => {
+              await control.current?.acquire();
+            });
+        }}
       />
       <pre role="log" aria-label="终端输出" aria-live="off" className="sr-only">
         {log}

@@ -7,39 +7,22 @@ import { fileError, listDirectory, scopeId } from "@/features/files/api";
 import { useFileWatch } from "@/features/files/useFileWatch";
 import { USE_MOCKS } from "@/lib/env";
 import { queryClient, useSnapshot } from "@/lib/queries";
+import { activeWorkspaceScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { DemoFileTreePanel } from "./DemoFileTreePanel";
 export function FileTreePanel({ projectId }: { projectId: string | null }) {
   const sessionId = useNavigationStore((state) => state.sessionId);
   const { data } = useSnapshot();
   if (USE_MOCKS) return <DemoFileTreePanel projectId={projectId} />;
-  const standalone = data.sessions.some((item) => item.id === sessionId && item.projectId === null);
-  if (!projectId && !standalone)
-    return <p className="p-3 text-[11px] text-ink-3">选择项目或独立会话后查看文件。</p>;
-  const scope = projectId ? { projectId } : { sessionId };
+  const scope = activeWorkspaceScope(projectId, sessionId, data.sessions);
   return <RealFileTree key={scopeId(scope)} scope={scope} />;
 }
 function RealFileTree({ scope }: { scope: FileScope }) {
   const [expanded, setExpanded] = useState<string[]>(["."]);
   const [error, setError] = useState<string | null>(null);
-  const status = useFileWatch(scope, expanded);
+  useFileWatch(scope, expanded);
   return (
     <div className="p-1.5 text-[11px] text-ink-2">
-      <div className="flex items-center gap-2 pb-1 text-[10px] text-ink-3">
-        <span className="min-w-0 flex-1 truncate" title={status}>
-          {status}
-        </span>
-        <button
-          type="button"
-          aria-label="刷新文件树"
-          onClick={() => {
-            setError(null);
-            void queryClient.resetQueries({ queryKey: ["files", scopeId(scope), "directory"] });
-          }}
-        >
-          刷新
-        </button>
-      </div>
       {error ? (
         <p role="alert" className="p-2 text-danger">
           {error}
@@ -59,9 +42,11 @@ function RealFileTree({ scope }: { scope: FileScope }) {
         }
         open={(path) => {
           setError(null);
-          void openFile(scope, path, "projectId" in scope ? "project" : "session").catch(
-            (error: unknown) => setError(fileError(error)),
-          );
+          void openFile(
+            scope,
+            path,
+            "projectId" in scope ? "project" : "workspace" in scope ? "global" : "session",
+          ).catch((error: unknown) => setError(fileError(error)));
         }}
       />
     </div>
@@ -150,6 +135,11 @@ function Directory({
             ) : null}
           </div>
         ))}
+      {path === "." &&
+      query.isSuccess &&
+      query.data.pages.every((page) => page.items.length === 0) ? (
+        <p className="px-2 py-3 text-[10.5px] text-ink-3">当前工作区暂无文件</p>
+      ) : null}
       {query.hasNextPage ? (
         <button
           type="button"

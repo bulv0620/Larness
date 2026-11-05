@@ -45,7 +45,7 @@ await shot("04-file-light.png", {
   width: 1440,
   height: 900,
   action: async (page) => {
-    await page.getByRole("button", { name: "打开文件窗口" }).click();
+    await page.getByLabel("项目资源", { exact: true }).getByText("AppShell.tsx", { exact: true }).click();
     await page.locator(".monaco-editor").waitFor({ state: "visible", timeout: 20_000 });
     await page.waitForTimeout(500);
   },

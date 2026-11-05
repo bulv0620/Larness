@@ -320,3 +320,86 @@ it("releases the agent lease when the Turn is cancelled but keeps the terminal r
     }
   });
 }, 15_000);
+
+it("controls a human-created project shell while refusing another project and a held human lease", async () => {
+  await withTempDir(async (dir) => {
+    const f = await fixture(dir);
+    const manager = f.started.running.terminals;
+    const context = {
+      clientSessionId: f.clientId,
+      projectId: f.projectId,
+      sessionId: f.sessionId,
+      turnId: f.turnId,
+      toolCallId: "shell-control",
+    };
+    try {
+      const terminal = await manager.create(f.clientId, "human-shell", {
+        scope: { projectId: f.projectId },
+        riskAcknowledged: true,
+      });
+      await expect(
+        manager.acquireAgent(terminal.id, { ...context, projectId: "another-project" }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      const acquired = await manager.acquireAgent(terminal.id, context);
+      const generation = acquired.lease?.generation ?? 0;
+      expect(generation).toBeGreaterThan(0);
+      await manager.inputAgent(
+        terminal.id,
+        context,
+        generation,
+        1,
+        "printf 'SHELL_CONTROL_%s\\n' ok\r",
+      );
+      await until(() => f.output(terminal.id).then((text) => text.includes("SHELL_CONTROL_ok")));
+      expect(
+        (await manager.readProjectTerminalOutput(terminal.id, f.projectId, 0, 100)).chunks.length,
+      ).toBeGreaterThan(0);
+      const cid = randomUUID();
+      manager.connect(f.clientId, cid, () => true);
+      manager.subscribe(terminal.id, cid);
+      await manager.takeover(terminal.id, f.clientId, cid);
+      await expect(manager.acquireAgent(terminal.id, context)).rejects.toMatchObject({
+        code: "TERMINAL_LEASE_REQUIRED",
+      });
+      await expect(
+        manager.inputAgent(terminal.id, context, generation, 2, "old\r"),
+      ).rejects.toMatchObject({ code: "TERMINAL_LEASE_REQUIRED" });
+      await expect(
+        manager.stopProjectDev(terminal.id, f.projectId, f.clientId),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    } finally {
+      await f.started.running.shutdown("test");
+    }
+  });
+});
+
+it("uses the approved Agent tools to type and read a manually created Shell", async () => {
+  await withTempDir(async (dir) => {
+    const f = await fixture(dir);
+    try {
+      const terminal = await f.started.running.terminals.create(f.clientId, "tool-shell", {
+        scope: { projectId: f.projectId },
+        riskAcknowledged: true,
+      });
+      const runner = f.runnerFor([
+        toolStep("acquire-shell", "acquire_terminal_control", { terminalId: terminal.id }),
+        toolStep("send-shell", "send_terminal_input", {
+          terminalId: terminal.id,
+          leaseGeneration: 1,
+          inputSequence: 1,
+          data: "printf 'AGENT_SHELL_%s\\n' ok\r",
+        }),
+        toolStep("read-shell", "read_terminal_output", { terminalId: terminal.id }),
+        textStep("shell done"),
+      ]);
+      const run = runner.run(f.turnId);
+      await f.approve();
+      expect((await run).status).toBe("COMPLETED");
+      await until(() => f.output(terminal.id).then((text) => text.includes("AGENT_SHELL_ok")));
+      expect((await f.started.running.terminals.read(terminal.id)).lease).toBeNull();
+      expect(f.events.filter((event) => event.type === "tool.failed")).toHaveLength(0);
+    } finally {
+      await f.started.running.shutdown("test");
+    }
+  });
+});

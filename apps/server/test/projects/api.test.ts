@@ -77,7 +77,9 @@ describe("projects API", () => {
           url: "/api/projects",
           headers: { cookie: started.cookie },
         });
-        expect(empty.json()).toEqual({ projects: [] });
+        expect(empty.json().projects).toEqual([
+          expect.objectContaining({ id: "prj_default", name: "默认工作区", kind: "default" }),
+        ]);
 
         const created = await started.running.app.inject({
           method: "POST",

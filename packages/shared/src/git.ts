@@ -14,6 +14,12 @@ const GitBranchNameSchema = z
 export const GitAddActionSchema = z
   .object({ action: z.literal("add"), paths: z.array(GitPathSchema).min(1).max(200) })
   .strict();
+export const GitUnstageActionSchema = z
+  .object({ action: z.literal("unstage"), paths: z.array(GitPathSchema).min(1).max(200) })
+  .strict();
+export const GitDiscardActionSchema = z
+  .object({ action: z.literal("discard"), path: GitPathSchema, confirmed: z.literal(true) })
+  .strict();
 export const GitCommitActionSchema = z
   .object({ action: z.literal("commit"), message: z.string().min(1).max(4000) })
   .strict();
@@ -27,6 +33,8 @@ export const GitPullActionSchema = z.object({ action: z.literal("pull") }).stric
 export const GitPushActionSchema = z.object({ action: z.literal("push") }).strict();
 export const GitActionSchema = z.union([
   GitAddActionSchema,
+  GitUnstageActionSchema,
+  GitDiscardActionSchema,
   GitCommitActionSchema,
   GitCreateBranchActionSchema,
   GitSwitchBranchActionSchema,

@@ -107,7 +107,9 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByText("项目文件已列出。")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("我先看一下。")).toHaveCount(0);
-    await expect(page.getByText("list_files").first()).toBeVisible();
+    await page.getByRole("button", { name: /执行过程 · 执行了 1 项操作/ }).click();
+    await expect(page.getByText("我先看一下。")).toBeVisible();
+    await page.getByRole("button", { name: /执行过程 · 执行了 1 项操作/ }).click();
     await expect(page.getByRole("heading", { name: "list" })).toBeVisible();
     await expect(page.getByText("草稿")).toHaveCount(0);
 
@@ -123,12 +125,12 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await sessionRename.getByRole("button", { name: "保存" }).click();
     await expect(sidebar.getByText("Renamed chat").first()).toBeVisible({ timeout: 10_000 });
 
-    await page.locator('button:has-text("标准审批")').first().click();
+    await page.getByRole("button", { name: /审批策略：/ }).click();
     await page.getByRole("menuitemradio", { name: /严格审批/ }).click();
 
     await composer.fill("approve");
     await page.getByRole("button", { name: "发送消息" }).click();
-    await expect(page.getByText("工具审批")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("region", { name: "待处理审批" })).toBeVisible({ timeout: 20_000 });
     await page.getByRole("button", { name: "批准执行" }).click();
     await expect(page.getByText("补丁已应用。")).toBeVisible({ timeout: 20_000 });
     await expect
@@ -150,7 +152,10 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByTestId("workspace-home")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("补丁已应用。")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("button", { name: "批准执行" })).toHaveCount(0);
-    await expect(page.getByText(/\/ 128k/)).toBeVisible();
+    await expect(page.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
+      "aria-valuetext",
+      /128,000/,
+    );
 
     await page.getByRole("button", { name: "设置与模型" }).click();
     const settings = page.getByRole("dialog");
@@ -171,7 +176,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
 
     await composer.fill("cancel");
     await page.getByRole("button", { name: "发送消息" }).click();
-    await expect(page.getByText("Agent 正在思考")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("正在处理…")).toBeVisible({ timeout: 10_000 });
     await page.getByRole("button", { name: "停止执行" }).click({ timeout: 10_000 });
     await expect(page.getByText("已停止当前执行。")).toBeVisible({ timeout: 20_000 });
 

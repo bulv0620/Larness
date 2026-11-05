@@ -6,10 +6,17 @@
 - 以对话驱动 Agent 读写项目、运行命令、管理终端 / 服务 / Git；
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
-> **当前状态：S0、M0（macOS 范围）与 M1 已验收；M2 功能已实现，G2 候选待人类验收，当前进入问题修复阶段。M3 仍为草案。**
+> **当前状态：S0、M0（macOS 范围）、M1 与 M2 均已验收；M2 / G2 于 2026-11-05 通过人类整体验收。下一步为 M3 规格评审，M3 尚未实现。**
 > 启动开发环境：`pnpm install && pnpm dev` → Server <http://127.0.0.1:3210/api/health> + Web <http://localhost:3210>，并直接进入 TUI。
-> 当前进度见 [STATUS.md](STATUS.md)；M2 验收结果与已知问题见 [验收记录](specs/030-dev-resources/acceptance.md)。
+> 对话区已按紧凑单列重构，支持真实任务计划、折叠执行过程、输入框上方审批与小型资源浮栏；见 [对话区验收](specs/036-conversation-experience/acceptance.md)。
+> 当前进度见 [STATUS.md](STATUS.md)；M2 最终验收与已知边界见 [收尾记录](specs/030-dev-resources/closure.md)，历史自动化证据见 [验收记录](specs/030-dev-resources/acceptance.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
+
+## M2 已验收能力
+
+文件编辑与版本冲突、受管命令、可交接的真实终端、固定默认项目、项目窗口与最小化动画、紧凑对话和真实任务计划均已交付。输入框支持风险确认后的完全自主工具策略；Git 区支持暂存、取消暂存、确认放弃、提交和分支/推拉操作。
+
+已知边界：Git 使用 3 秒轮询；认证 E2E 曾有批量时序抖动；Monaco 生产 CSP 包含 unsafe-eval。验收范围为 macOS，Linux/Windows 尚未实机验收。详见M2收尾记录，服务登记/隔离预览/PM2仍属于M3。
 
 ## 文档地图
 
@@ -79,6 +86,10 @@ Web：http://localhost:3210
 
 数据目录默认使用 OS 标准位置，可用 `LARNESS_DATA_DIR` 覆盖；`LARNESS_HOST` / `LARNESS_PORT` / `LARNESS_PUBLIC_URL` / `LARNESS_LOG_LEVEL` 覆盖配置。首次启动会在数据目录创建 `larness.db` 并执行迁移（WAL）；初始化只经本机 TUI / IPC，Web 不提供初始化入口。Web 默认使用真实本机 API（`/login`、`/pair`、工作台空态）。仅做 S0 Mock Demo 时使用 `VITE_USE_MOCKS=1 pnpm --filter @larness/web dev`，不是产品入口。
 
+左侧项目列表内置“默认工作区”，名称和目录固定，不能修改或删除项目；可以正常新建会话、编辑文件和使用终端。新建的未关联项目会话共享 `数据目录/sessions/global-terminal/workspace`；窗口和终端在切换默认会话、切项目后返回及刷新时保留。旧独立会话继续使用原目录，不自动搬移文件。
+
+空闲的手动终端打开即可输入，优先使用本机账户默认 Shell；Tab 右侧菜单可交给 AI 或接管控制，双击 / F2 改名，＋新建，× 关闭并终止终端。关闭或最小化窗口保留终端；AI 输入审批保持不变。
+
 真实模型 Key 在左侧“设置与模型”中添加，密文保存在 SQLite，AES-256-GCM 主密钥为数据目录 `secrets/master.key`（权限 0600），接口、日志与事件只返回掩码。已有密文时主密钥缺失或不匹配会拒绝启动，不自动重建；恢复时须使用匹配的数据库与原密钥。
 
 构建后运行完整产品：
@@ -104,7 +115,7 @@ Agent 的启动指令示例：
 
 ```text
 请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md。
-S0、M0（macOS 范围）与 M1 已验收；M2 处于问题修复与 G2 待验收阶段。
+S0、M0（macOS 范围）、M1 与 M2 已验收；G2 已通过，下一步为 M3 规格评审。
 请以 STATUS.md、specs/ROADMAP.md 和当前任务卡为准，一次只处理一个任务。
 ```
 
@@ -139,7 +150,7 @@ S0、M0（macOS 范围）与 M1 已验收；M2 处于问题修复与 G2 待验�
     ├── 000-visual-demo/        # S0 视觉 Demo（已验收）
     ├── 010-foundation/         # M0 可信启动与认证
     ├── 020-workspace-agent/    # M1 项目 / 会话 / 最小 Agent
-    ├── 030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（G2 待验收）
+    ├── 030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（G2 已验收）
     ├── 040-services-preview/   # M3 服务与预览（草案）
     ├── 050-deploy/             # M4 部署闭环（草案）
     └── 060-extension/          # M5 多模型 / 自动化 / 更新（草案）

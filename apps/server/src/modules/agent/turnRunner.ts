@@ -12,12 +12,14 @@ import {
   type ToolResult,
   type ToolSchema,
 } from "@larness/agent";
-import { FileManagerError, GitError } from "@larness/resources";
+import { FileManagerError, GitError, OutputRedactor } from "@larness/resources";
 import {
   AcquireTerminalControlParamsSchema,
   type AssistantDeltaEvent,
+  CommandParamsSchema,
   FileResultTargetSchema,
   InterruptTerminalParamsSchema,
+  PlanParamsSchema,
   ReadTerminalOutputParamsSchema,
   ReleaseTerminalControlParamsSchema,
   SendTerminalInputParamsSchema,
@@ -38,11 +40,28 @@ import type { GitManager } from "../git/manager.js";
 import { getProjectById } from "../projects/repository.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
 import type { TerminalManager } from "../terminals/manager.js";
+import { isDefaultWorkspace } from "../workspaces/default.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
 import { assembleContext } from "./contextAssembler.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
+
+function commandDisplay(params: unknown) {
+  const command = CommandParamsSchema.parse(params);
+  const redact = (value: string) => new OutputRedactor([]).push(value, true);
+  let hideNext = false;
+  return {
+    ...command,
+    executable: redact(command.executable),
+    cwd: redact(command.cwd),
+    args: command.args.map((value) => {
+      const hide = hideNext;
+      hideNext = /^--?(authorization|api[_-]?key|token|password|cookie|secret)$/i.test(value);
+      return hide ? "[Redacted]" : redact(value);
+    }),
+  };
+}
 
 const DEFAULT_BUDGET = {
   maxSteps: 30,
@@ -75,6 +94,7 @@ export interface TurnBudget {
 }
 
 export interface TurnRunnerOptions {
+  dataDir?: string;
   db: Database;
   registry: ToolRegistry;
   resolveProvider: ProviderResolver;
@@ -104,7 +124,7 @@ function isTerminal(status: TurnStatus): boolean {
 }
 
 function approvalPolicy(value: string): ApprovalPolicy {
-  return value === "strict" || value === "readonly" ? value : "standard";
+  return value === "strict" || value === "readonly" || value === "autonomous" ? value : "standard";
 }
 
 function truncateToolMessage(text: string): string {
@@ -276,7 +296,7 @@ export class TurnRunner {
         executionContext: z.object({
           clientSessionId: z.string().min(1),
           policySnapshotId: z.string().min(1),
-          policy: z.enum(["standard", "strict", "readonly"]),
+          policy: z.enum(["standard", "strict", "readonly", "autonomous"]),
         }),
       })
       .safeParse(turnInput);
@@ -383,6 +403,24 @@ export class TurnRunner {
           ...(this.#options.approvalTtlMs === undefined
             ? {}
             : { approvalTtlMs: this.#options.approvalTtlMs }),
+          updatePlan: async (params) => {
+            const plan = PlanParamsSchema.safeParse(params);
+            if (!plan.success)
+              return { ok: false, errorCode: "VALIDATION_ERROR", summary: "Invalid plan" };
+            if (checkBudget() !== "ok")
+              return { ok: false, errorCode: "FORBIDDEN", summary: "Turn no longer active" };
+            this.#emit(turn, session, "plan.updated", {
+              turnId: turn.id,
+              plan: {
+                ...plan.data,
+                id: `plan_${turn.id}`,
+                kind: "plan",
+                turnId: turn.id,
+                createdAt: startedAt,
+              },
+            });
+            return { ok: true, summary: "任务计划已更新" };
+          },
           runCommand: async (params, assertAuthorized) => {
             if (!snapshot || !this.#options.commands)
               return {
@@ -414,6 +452,7 @@ export class TurnRunner {
                       turnId: turn.id,
                       toolCallId: request.id,
                       commandId,
+                      command: commandDisplay(params),
                     }),
                 },
                 params,
@@ -489,7 +528,7 @@ export class TurnRunner {
               );
               return {
                 ok: true,
-                summary: `开发终端 ${row.role ?? "dev"} ${row.status}`,
+                summary: `开发终端 ${row.role ?? "dev"} ${row.status}；仅表示终端状态，服务状态请读取输出核对`,
                 data: {
                   terminalId: row.id,
                   role: row.role,
@@ -510,20 +549,20 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal read parameters",
               };
-            if (!this.#options.terminals || !session.projectId)
+            if (!this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
                 summary: "Project terminal context unavailable",
               };
             try {
-              const row = await this.#options.terminals.readProjectDev(
+              const row = await this.#options.terminals.readSessionTerminal(
                 parsed.data.terminalId,
-                session.projectId,
+                session.id,
               );
-              const page = await this.#options.terminals.readProjectDevOutput(
+              const page = await this.#options.terminals.readSessionTerminalOutput(
                 parsed.data.terminalId,
-                session.projectId,
+                session.id,
                 parsed.data.after,
                 parsed.data.limit,
               );
@@ -597,7 +636,7 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal control parameters",
               };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+            if (!snapshot || !this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -640,7 +679,7 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal input parameters",
               };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+            if (!snapshot || !this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -680,7 +719,7 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal interrupt parameters",
               };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+            if (!snapshot || !this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -716,7 +755,7 @@ export class TurnRunner {
                 errorCode: "VALIDATION_ERROR",
                 summary: "Invalid terminal release parameters",
               };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+            if (!snapshot || !this.#options.terminals)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -854,6 +893,7 @@ export class TurnRunner {
           registry: this.#options.registry,
           maxContextTokens: resolved.adapter.capabilities.maxContextTokens,
           contextRatio: this.#budget.contextRatio,
+          workspaceRoot: projectRoot,
         },
         session,
         turn,
@@ -1131,7 +1171,10 @@ export class TurnRunner {
               kind: "file",
               scope: session.projectId
                 ? { projectId: session.projectId }
-                : { sessionId: session.id },
+                : this.#options.dataDir &&
+                    isDefaultWorkspace(this.#options.dataDir, session.workspacePath)
+                  ? { workspace: "default" }
+                  : { sessionId: session.id },
               path: fileResult?.path,
               version: fileResult?.version,
             });
@@ -1154,12 +1197,32 @@ export class TurnRunner {
                 : terminalTarget?.success
                   ? terminalTarget.data
                   : undefined;
+            const stoppedTerminal =
+              request.name === "stop_project_terminal"
+                ? z
+                    .object({
+                      terminalId: z.string(),
+                      role: z.string().nullable(),
+                      status: z.enum(["EXITED", "TERMINATED"]),
+                    })
+                    .safeParse(result.result.data)
+                : undefined;
+            const closedTarget =
+              stoppedTerminal?.success && session.projectId !== null
+                ? TerminalResultTargetSchema.safeParse({
+                    kind: "terminal",
+                    projectId: session.projectId,
+                    terminalId: stoppedTerminal.data.terminalId,
+                    role: stoppedTerminal.data.role,
+                  })
+                : undefined;
             this.#emit(turn, session, "tool.completed", {
               turnId: turn.id,
               toolCallId: request.id,
               resultSummary: result.result.summary,
               ...(target === undefined ? {} : { resourceTarget: target }),
-              ...(terminalTarget?.success && snapshot
+              ...(closedTarget?.success ? { closedTerminalTarget: closedTarget.data } : {}),
+              ...((terminalTarget?.success || closedTarget?.success) && snapshot
                 ? { originClientSessionId: snapshot.clientSessionId }
                 : {}),
               ...(result.result.truncated === undefined

@@ -161,3 +161,48 @@
     scroll-behavior: auto !important;
   }
 }
+
+.window-tabs-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.window-tabs-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@media (pointer: coarse) {
+  .conversation-surface button,
+  .conversation-surface summary {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .conversation-surface textarea {
+    font-size: 16px;
+  }
+}
+
+.conversation-scroll-edge {
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0;
+  z-index: 1;
+  height: 24px;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.conversation-scroll-edge-top {
+  top: 0;
+  background: linear-gradient(to bottom, var(--canvas), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent);
+  mask-image: linear-gradient(to bottom, black, transparent);
+}
+
+.conversation-scroll-edge-bottom {
+  bottom: 0;
+  background: linear-gradient(to top, var(--canvas), transparent);
+  -webkit-mask-image: linear-gradient(to top, black, transparent);
+  mask-image: linear-gradient(to top, black, transparent);
+}

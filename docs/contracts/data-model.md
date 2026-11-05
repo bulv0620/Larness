@@ -228,3 +228,14 @@ M2-3（2026-11-03）：0006_commands 唯一新增 command_executions，operation
 M2-3b（2026-11-03，无迁移）：turns.input_json 新增仅后端写入的 executionContext `{clientSessionId?, policySnapshotId, policy}`，创建时固定真实发起客户端及策略，REST TurnDto / 模型上下文仍只公开 text；缺客户端上下文的旧 Turn 不能执行 run_command。审批参数哈希增加规范化命令与 session / Turn / client / 策略快照 / 根绑定，审批 scope 只保存脱敏摘要；command_executions 沿用 0006，Agent tool.command.created 持久关联 commandId，输出仍不进入 SQLite。
 
 M2-4（2026-11-03）：唯一 0007_terminals 新增 terminals / terminal_leases。Terminal 除 §7 字段外增加 reason_code / output_cursor；lease 保留 generation，并增加 owner_session_id / input_sequence，人机 principal 字段预留，只有人类连接路由已接入。活跃 dev 项目 + role 部分唯一索引；创建 ledger 与状态 / seq 同事务，输入只记序号 / 长度，不存输入正文，输出正文不进 SQLite。运行终端不长期持源码锁，创建 ledger 完成不代表资源结束；非持锁占位与重启 / 不确定屏障见 m2-resources §16。脱敏启动摘要与原参数哈希分开，不从摘要重启进程。旧项目 / 锁 / fencing / stream 迁移保留，30 天后只清理安全终态元数据，保留序号；无破坏性回滚。
+
+### M2-9 迁移 0009_terminal_title
+
+`terminals.title TEXT NULL`：共享显示名称；不复用 dev role、不改变活动 role 唯一索引。旧行自动 null；改名事务同时写审计与递增 terminal resource stream seq，再广播。非破坏迁移，无配置变化。
+
+### M2-10 共享默认目录（无迁移）
+
+新 sessions.project_id=null 行使用既有全局终端目录 dataDir/sessions/global-terminal/workspace；多个会话的 workspace_path 可以相同。原独立会话行、目录与文件保持不变。DTO workspaceKind 是派生字段，无新增列。File cache / operation / stream 的 scope_key 可为 workspace:default；真实默认写作业按相同根互斥。默认终端 workspace_session_id 为 null，创建来源与资源生命周期不变。共享目录不可随创建失败、归档、草稿切换或隐藏视图删除。
+
+## M2-13 内建默认项目
+prj_default 由固定系统描述提供，不插入可修改 / 删除的 projects 用户登记行；kind=default，固定名称 / 默认共享根，createdAt / updatedAt 为 0。默认 sessions.project_id / terminals.project_id 的 null 值、workspace:default 事件与资源操作键保持。默认项目 HTTP scope 别名规范化到该既有域，无数据库迁移。

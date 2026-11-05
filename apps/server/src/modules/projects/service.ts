@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process";
+import { realpath } from "node:fs/promises";
 import path from "node:path";
 import { canonicalDirectory, PathGuardError } from "@larness/resources";
-import type { ErrorCode } from "@larness/shared";
+import { DEFAULT_PROJECT_ID, type ErrorCode } from "@larness/shared";
 import { z } from "zod";
 import type { Database } from "../../db/client.js";
 import { appendAudit } from "../../db/repositories/audit.js";
@@ -9,6 +10,7 @@ import type { ProjectRow } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { rootHasWriter } from "../locks/repository.js";
 import { rootHasTerminal } from "../terminals/repository.js";
+import { ensureDefaultWorkspace } from "../workspaces/default.js";
 import {
   createProjectRow,
   deleteProjectRow,
@@ -29,6 +31,7 @@ export const ProjectSettingsSchema = z
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 
 export interface ProjectDto {
+  kind?: "project" | "default";
   id: string;
   name: string;
   rootPath: string;
@@ -57,6 +60,7 @@ export interface ProjectServiceOptions {
   db: Database;
   now?: () => number;
   detectGit?: GitDetector;
+  dataDir?: string;
 }
 
 const EMPTY_SETTINGS: ProjectSettings = {
@@ -89,6 +93,40 @@ function rowToDto(row: ProjectRow): ProjectDto {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
+}
+
+export async function getDefaultProjectDto(dataDir: string): Promise<ProjectDto> {
+  const root = await realpath(await ensureDefaultWorkspace(dataDir));
+  return {
+    id: DEFAULT_PROJECT_ID,
+    kind: "default",
+    name: "默认工作区",
+    rootPath: root,
+    realPath: root,
+    settings: defaultProjectSettings(),
+    gitDetected: false,
+    createdAt: 0,
+    updatedAt: 0,
+  };
+}
+
+function assertMutableProject(
+  options: ProjectServiceOptions,
+  id: string,
+  clientSessionId?: string,
+) {
+  if (id === DEFAULT_PROJECT_ID) {
+    appendAudit(options.db, {
+      action: "project.mutation.denied",
+      decision: "deny",
+      clientSessionId,
+      resourceType: "project",
+      resourceId: id,
+      details: { code: "FORBIDDEN" },
+      now: options.now?.() ?? Date.now(),
+    });
+    throw new ProjectError("FORBIDDEN", "Default project cannot be modified or deleted");
+  }
 }
 
 export function detectGit(root: string): Promise<boolean> {
@@ -143,6 +181,8 @@ export async function createProject(
     mapPathError(error);
   }
 
+  if (options.dataDir && realPath === (await getDefaultProjectDto(options.dataDir)).realPath)
+    throw new ProjectError("CONFLICT", "Default project is already registered");
   if (findProjectByRealPath(options.db, realPath) !== null) {
     throw new ProjectError("CONFLICT", "project directory is already registered");
   }
@@ -192,6 +232,7 @@ export function updateProject(
     clientSessionId?: string;
   },
 ): ProjectDto {
+  assertMutableProject(options, input.id, input.clientSessionId);
   const current = getProjectById(options.db, input.id);
 
   if (current === null) {
@@ -243,6 +284,7 @@ export function deleteProject(
   options: ProjectServiceOptions,
   input: { id: string; clientSessionId?: string },
 ): void {
+  assertMutableProject(options, input.id, input.clientSessionId);
   const current = getProjectById(options.db, input.id);
 
   if (current === null) {

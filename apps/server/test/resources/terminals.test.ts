@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 import { acquireResourceLock, releaseResourceLock } from "../../src/modules/locks/service.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { TerminalManager } from "../../src/modules/terminals/manager.js";
+import { resolveManualShell } from "../../src/modules/terminals/shell.js";
 import { withTempDir } from "../helpers.js";
 import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
@@ -39,6 +40,31 @@ it("creates one real PTY by idempotency key, lists shared resources, and termina
       expect(first.statusCode).toBe(201);
       const terminal = first.json();
       expect(terminal.writeBlocked).toBe(false);
+      expect(
+        f.running.sqlite.prepare("SELECT shell FROM terminals WHERE id = ?").get(terminal.id),
+      ).toEqual({ shell: await resolveManualShell() });
+      const rename = (title: string, h = headers) =>
+        f.running.app.inject({
+          method: "POST",
+          url: `/api/terminals/${terminal.id}/rename`,
+          headers: h,
+          payload: { title },
+        });
+      expect(
+        (await rename("frontend shell", { origin: f.origin } as typeof headers)).statusCode,
+      ).toBe(401);
+      expect((await rename("bad\u001bname")).statusCode).toBe(400);
+      expect((await rename("   ")).statusCode).toBe(400);
+      expect((await rename("x".repeat(81))).statusCode).toBe(400);
+      expect((await rename("frontend shell")).json().title).toBe("frontend shell");
+      expect(
+        (await f.running.app.inject({ url: `/api/terminals/${terminal.id}`, headers })).json()
+          .title,
+      ).toBe("frontend shell");
+      expect(
+        f.running.sqlite.prepare("SELECT title FROM terminals WHERE id = ?").get(terminal.id),
+      ).toEqual({ title: "frontend shell" });
+
       const lock = acquireResourceLock(
         { db: f.running.db },
         {
@@ -612,6 +638,13 @@ it("authorizes genuine standalone/global workspaces and rejects malformed or unc
     const f = await startAuthorizedServer(path.join(dir, "data"));
     const { createSession } = await import("../../src/modules/sessions/service.js");
     const session = await createSession({ db: f.running.db, dataDir: f.running.dataDir }, {});
+    // Preserve coverage for pre-ADR-032 standalone sessions; new sessions now share the default root.
+    const legacyRoot = path.join(f.running.dataDir, "sessions", session.id, "workspace");
+    await mkdir(legacyRoot, { recursive: true });
+    f.running.sqlite
+      .prepare("UPDATE sessions SET workspace_path = ? WHERE id = ?")
+      .run(legacyRoot, session.id);
+
     const headers = {
       cookie: f.cookie,
       origin: f.origin,
@@ -737,12 +770,30 @@ it("streams redacted PTY output with filtered environment and persists a real no
           executable: process.execPath,
           args: [
             "-e",
-            "const key=require('node:fs').readFileSync('value.txt','utf8');process.stdout.write(key.slice(0,8));setTimeout(()=>{console.log(key.slice(8));console.log('token=unknown-pty-secret');console.log(process.env.LARNESS_PTY_TEST_SECRET??'filtered');process.exitCode=9},100)",
+            "const key=require('node:fs').readFileSync('value.txt','utf8');process.stdout.write(key.slice(0,8));setTimeout(()=>{console.log(key.slice(8));console.log('token=unknown-pty-secret');console.log(process.env.LARNESS_PTY_TEST_SECRET??'filtered');console.log('COMMAND_EXIT_9');process.exitCode=9},100)",
           ],
         },
       );
-      await until(async () => (await f.running.terminals.read(row.id)).status === "EXITED");
-      expect(await f.running.terminals.read(row.id)).toMatchObject({ exitCode: 9 });
+      await until(async () =>
+        JSON.stringify(await f.running.terminals.output(row.id, 0, 500)).includes("COMMAND_EXIT_9"),
+      );
+      expect(await f.running.terminals.read(row.id)).toMatchObject({
+        status: "RUNNING",
+        exitCode: null,
+      });
+      const connection = await socketFor(f, f.cookie, row.id);
+      try {
+        const lease = await f.running.terminals.lease(row.id, client, {
+          action: "acquire",
+          connectionId: connection.connectionId,
+        });
+        if (!lease.lease) throw new Error("Missing terminal lease");
+        await connection.input(lease.lease.generation, 1, "exit 9\r");
+        await until(async () => (await f.running.terminals.read(row.id)).status === "EXITED");
+        expect(await f.running.terminals.read(row.id)).toMatchObject({ exitCode: 9 });
+      } finally {
+        connection.socket.terminate();
+      }
       const output = await f.running.terminals.output(row.id, 0, 500);
       expect(JSON.stringify(output)).not.toContain(secret);
       expect(JSON.stringify(output)).not.toContain("unknown-pty-secret");

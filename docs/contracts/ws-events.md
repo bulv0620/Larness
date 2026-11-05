@@ -87,14 +87,14 @@ interface ServerEvent<T = unknown> {
 | `user.message` | `turnId, text` | 是 |
 | `turn.created` | `turnId, status` | 是 |
 | `turn.status` | `turnId, status, reason?` | 是 |
-| `plan.updated` | `turnId, steps[]` | 是（M1 可选） |
+| `plan.updated` | `turnId, plan:{id,kind:"plan",title,steps[],createdAt,turnId}` | 是（M2-14） |
 | `assistant.delta` | `turnId, messageId, text` | 否（仅广播，完成时落最终消息） |
 | `assistant.message` | `turnId, messageId, text` | 是 |
 | `tool.requested` | `toolCallId, name, argsSummary` | 是 |
 | `tool.approval.required` | `toolCallId, approvalId, summary, scope, expiresAt` | 是 |
 | `tool.approval.resolved` | `approvalId, decision` | 是 |
 | `tool.started` | `toolCallId, name` | 是 |
-| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?`（M2-2 成功文件修改附授权 scope / path / version） | 是 |
+| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?`（M2-2 成功文件修改附授权 scope / path / version） | 是 |
 | `tool.failed` | `toolCallId, errorCode, message` | 是 |
 | `file.changed` | `path, changeType, version` | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
@@ -187,3 +187,17 @@ M2-3（2026-11-03）：新增 command 主题，resourceId / streamId 均为真�
 M2-3b（2026-11-03）：command 订阅已推送 `command.output`，信封为 `{kind:"command.output", resourceId:commandId, cursor, data, channel:"stdout"|"stderr", timestamp}`。脱敏块写入输出文件后才推送，单块 ≤16 KiB、不占 SQLite 关键 seq；缺口走输出 GET，慢连接沿用 8 MiB 背压断开。Session 流新增持久 `tool.command.created`，绑定真实 `{turnId, toolCallId, commandId}`，关联提交失败不启动命令；刷新重放只恢复卡片。状态与输出消费重查授权，页面卸载不 cancel。详见 [资源契约 §15](m2-resources.md#15-m2-3b-agent-命令与执行卡片2026-11-03)。
 
 M2-4（2026-11-03）：hello 和 terminal 订阅 ACK 新增 connectionId；订阅 `{topic:"terminal",resourceId:terminalId,after}`，状态 / 租约事件持久化后推送，资源 REST 补拉支持 terminalId（含全局）。新增 terminal.output 游标帧与 terminal.input / terminal.input.ack；输入实际绑定当前认证连接 / 租约 generation，8 KiB / 条、64 KiB/s，重复序号不重放，未来跳号拒绝。每次输入 / 推送重查授权，断线 / unsubscribe / 登出 / 撤销释放输入权，保留 PTY。慢消费者沿既有 8 MiB 背压断开。AI 控制与接管尚未接线，详见 [资源契约 §16](m2-resources.md#16-m2-4-terminalmanager-与输入租约后端2026-11-03)。
+
+### M2-10 默认文件流
+
+文件订阅 resourceId 新增精确值 `workspace:default`，对应 streamId `file:workspace:default`；paths / after / seq / resync 与项目流相同。鉴权后仅解析固定默认目录，未知 workspace 拒绝；事件先事务落库再广播。默认共享会话别名和直接 workspace scope 使用相同持久事件流，不对其他运行数据授权。无协议号变化。
+
+## M2-14 真实任务计划
+Agent工具 `update_plan({title,steps:[{id,title,status,detail?}]})` 为L0元数据操作，不取得项目写锁；每轮唯一 `plan_<turnId>` 全量替换，1–12步、ID唯一、最多一项running。状态pending/running/done/failed；拒绝非法参数和已知凭据。由Runner按现有Turn预算/取消/审计执行，先事务持久化plan.updated再广播；前端Zod校验并按ID覆盖，刷新重放。Turn结束不自动勾完计划；模型报告不是执行授权或验证证据。无DB/协议号变化。
+
+## M2-15 对话呈现补充
+`tool.command.created`新增可选`command`（CommandParamsSchema：executable/args/cwd/timeoutMs），仅在已授权Manager验证参数及凭据后、启动前写入；字段经输出脱敏器处理，敏感选项后的值隐藏，不包含环境。客户端Zod验证后用于折叠详情。命令输出仍经授权游标接口读取，不复制进消息。UI按turnId分轮，工具视图身份为turnId+toolCallId，防止Provider在不同轮复用call ID覆盖历史；历史无turnId按用户消息边界分组。Turn终态及durationMs从既有持久事件恢复。审批只在输入框上方可操作，后端确认前不乐观标成功，失败保留。
+
+## M2-21 Agent 终端关闭视图同步
+成功 `stop_project_terminal` 的 `tool.completed` 可附 `closedTerminalTarget: { kind: "terminal", projectId, terminalId, role }` 和 `originClientSessionId`。字段来自经过授权的真实 stop 结果（EXITED / TERMINATED）与 Turn 快照；失败 / 中断未知结果不附。事件先持久化再广播，兼容旧客户端忽略可选字段。不是打开资源的 resourceTarget，不生成“打开”结果卡或创建终端。
+发起客户端实时、补拉或初次历史加载时核对该目标；GET 最新资源确认 ID / 项目和已确认终态后移除对应本地 Tab，最后一个 Tab 移除时收起窗口。其他客户端保持结束视图，读取失败或未确认停止保留 Tab。重复通知 / 重放幂等，不发送第二次 terminate、不清除历史输出。

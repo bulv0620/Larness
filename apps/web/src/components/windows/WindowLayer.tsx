@@ -2,9 +2,16 @@ import { useEffect } from "react";
 import { WindowFrame } from "@/components/windows/WindowFrame";
 import { FileLifecycle } from "@/features/files/FileLifecycle";
 import { USE_MOCKS } from "@/lib/env";
-import { useWindowStore } from "@/stores/windowStore";
+import { useSnapshot } from "@/lib/queries";
+import { activeWindowScope } from "@/lib/workspaceScope";
+import { useNavigationStore } from "@/stores/navigationStore";
+import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
+import { WindowCloseDialog } from "./WindowCloseDialog";
 
 export function WindowLayer() {
+  const { projectId, sessionId } = useNavigationStore();
+  const { data } = useSnapshot();
+  const scope = activeWindowScope(projectId, sessionId, data.sessions);
   const windows = useWindowStore((state) => state.windows);
   const setBounds = useWindowStore((state) => state.setBounds);
 
@@ -33,9 +40,10 @@ export function WindowLayer() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
+      <WindowCloseDialog />
       {!USE_MOCKS ? <FileLifecycle /> : null}
       {windows
-        .filter((win) => !win.minimized)
+        .filter((win) => !win.minimized && windowScopeKey(win) === scope)
         .map((win) => (
           <WindowFrame key={win.id} window={win} />
         ))}

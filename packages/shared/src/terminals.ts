@@ -2,6 +2,22 @@ import { z } from "zod";
 import { CommandParamsSchema } from "./commands";
 import { FilePathSchema, FileResultTargetSchema, FileScopeSchema } from "./files";
 export const TerminalIdSchema = z.string().regex(/^term_[a-f0-9-]{36}$/);
+export const TerminalRenameSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1)
+      .max(80)
+      .refine((value) =>
+        [...value].every((char) => {
+          const code = char.codePointAt(0) ?? 0;
+          return code >= 32 && (code < 127 || code > 159);
+        }),
+      )
+      .transform((value) => value.trim())
+      .pipe(z.string().min(1)),
+  })
+  .strict();
 export const TerminalRoleSchema = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/);
 export const TerminalStatusSchema = z.enum([
   "CREATED",
@@ -166,6 +182,7 @@ export const TerminalSchema = z.object({
   shell: z.string(),
   mode: z.enum(["shell", "dev"]),
   role: z.string().nullable(),
+  title: z.string().nullable().default(null),
   status: TerminalStatusSchema,
   exitCode: z.number().nullable(),
   reasonCode: z.string().nullable(),

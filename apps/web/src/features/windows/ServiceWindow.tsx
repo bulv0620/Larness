@@ -2,12 +2,20 @@ import { Button, cn, IconButton, Tabs, TabsContent, TabsList, TabsTrigger } from
 import { ExternalLink, Play, RotateCw, Square, SquareTerminal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
+import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import type { WindowTab } from "@/lib/windowTypes";
 import { serviceLogs } from "@/mocks/fixtures";
 import { useWindowStore } from "@/stores/windowStore";
 
 export function ServiceWindow({ tab }: { tab: WindowTab }) {
+  if (!USE_MOCKS)
+    return (
+      <div className="flex h-full items-center justify-center text-xs text-ink-3">暂无服务</div>
+    );
+  return <DemoServiceWindow tab={tab} />;
+}
+function DemoServiceWindow({ tab }: { tab: WindowTab }) {
   const { data } = useSnapshot();
   const service = data.services.find((item) => item.id === tab.resourceId) ?? data.services[0];
   const open = useWindowStore((state) => state.open);

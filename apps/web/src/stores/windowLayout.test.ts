@@ -64,8 +64,8 @@ it("migrates layout identity and drops demo/service/browser tabs in real mode", 
     },
     2,
   ) as { windows: ManagedWindow[]; focusedId: string | null };
-  expect(migrated.windows).toHaveLength(1);
-  const tabs = migrated.windows[0]?.tabs ?? [];
+  expect(migrated.windows).toHaveLength(2);
+  const tabs = migrated.windows.flatMap((item) => item.tabs);
   expect(tabs.map((item) => item.id)).toEqual(["terminal", "file"]);
   expect(tabs[0]?.viewKey).toBe("terminal:term_00000000-0000-0000-0000-000000000001");
   expect(tabs[1]?.viewKey).toBe("file:/project/a.txt");
@@ -95,6 +95,43 @@ it("deduplicates Git diffs by project and path and updates staged metadata in pl
     projectId: "project-b",
   });
   windows = useWindowStore.getState().windows;
-  expect(windows).toHaveLength(1);
-  expect(windows[0]?.tabs.map((item) => item.projectId)).toEqual(["project-a", "project-b"]);
+  expect(windows).toHaveLength(2);
+  expect(windows.map((item) => item.tabs[0]?.projectId)).toEqual(["project-a", "project-b"]);
+});
+
+it("minimizing every window kind preserves its tabs and restores the same view", () => {
+  useWindowStore.setState({ windows: [], focusedId: null, lastFilters: {} });
+  for (const kind of ["files", "terminal", "browser", "git-diff"] as const) {
+    useWindowStore
+      .getState()
+      .open({ kind, resourceId: kind, title: kind, projectId: "a", source: "project" });
+  }
+  const previous = useWindowStore.getState().windows;
+  for (const item of previous) useWindowStore.getState().hide(item.id);
+  expect(useWindowStore.getState().windows).toHaveLength(previous.length);
+  expect(useWindowStore.getState().windows.every((item) => item.minimized)).toBe(true);
+  for (const item of previous) {
+    useWindowStore.getState().restore(item.id);
+    expect(useWindowStore.getState().windows.find((win) => win.id === item.id)?.tabs).toEqual(
+      item.tabs,
+    );
+  }
+});
+
+it("splits persisted mixed-project windows without losing tabs or their layout", () => {
+  const migrated = migrateWindowLayout(
+    {
+      windows: [
+        win([
+          tab({ id: "a", kind: "terminal", resourceId: "term_a", projectId: "a" }),
+          tab({ id: "b", kind: "terminal", resourceId: "term_b", projectId: "b" }),
+        ]),
+      ],
+    },
+    3,
+  ) as { windows: ManagedWindow[] };
+  expect(migrated.windows).toHaveLength(2);
+  expect(new Set(migrated.windows.map((item) => item.id)).size).toBe(2);
+  expect(migrated.windows.map((item) => item.tabs.map((t) => t.id))).toEqual([["a"], ["b"]]);
+  expect(migrated.windows.every((item) => item.width === 800)).toBe(true);
 });

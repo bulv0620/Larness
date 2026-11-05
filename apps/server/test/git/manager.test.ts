@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, symlink, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, it, vi } from "vitest";
 import { ProjectWriteLock } from "../../src/modules/agent/projectWriteLock.js";
@@ -7,7 +7,11 @@ import { GitManager } from "../../src/modules/git/manager.js";
 import { getProjectById } from "../../src/modules/projects/repository.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { withTempDir } from "../helpers.js";
-import { type AuthorizedServer, startAuthorizedServer } from "../support/server.js";
+import {
+  type AuthorizedServer,
+  startAuthorizedServer,
+  stopAuthorizedServer,
+} from "../support/server.js";
 
 function git(cwd: string, ...args: string[]) {
   return execFileSync("git", args, {
@@ -319,6 +323,150 @@ it("fails closed with GIT_UNAVAILABLE when Git cannot be executed", async () => 
     } finally {
       vi.unstubAllEnvs();
       await f.started.running.shutdown("test");
+    }
+  });
+});
+
+it("unstages without losing worktree changes and discards only unstaged content", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    const manager = f.started.running.git;
+    const run = async (input: unknown) => {
+      const prepared = await manager.createAction(f.projectId, input, f.clientId);
+      return manager.executeAction(prepared.id, f.clientId);
+    };
+    try {
+      await writeFile(path.join(f.repo, "a.txt"), "staged\n");
+      git(f.repo, "add", "--", "a.txt");
+      await writeFile(path.join(f.repo, "a.txt"), "unstaged\n");
+      expect((await run({ action: "discard", path: "a.txt", confirmed: true })).status).toBe(
+        "COMPLETED",
+      );
+      expect(await readFile(path.join(f.repo, "a.txt"), "utf8")).toBe("staged\n");
+      expect(git(f.repo, "show", ":a.txt")).toBe("staged");
+      expect((await run({ action: "unstage", paths: ["a.txt"] })).status).toBe("COMPLETED");
+      expect(await readFile(path.join(f.repo, "a.txt"), "utf8")).toBe("staged\n");
+      expect(git(f.repo, "diff", "--cached")).toBe("");
+      await writeFile(path.join(f.repo, "new.txt"), "keep");
+      git(f.repo, "add", "new.txt");
+      await run({ action: "unstage", paths: ["new.txt"] });
+      expect(await readFile(path.join(f.repo, "new.txt"), "utf8")).toBe("keep");
+      expect((await run({ action: "discard", path: "new.txt", confirmed: true })).status).toBe(
+        "COMPLETED",
+      );
+      await expect(readFile(path.join(f.repo, "new.txt"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});
+
+it("rejects unconfirmed or stale discard and treats wildcard paths literally", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    const manager = f.started.running.git;
+    try {
+      await writeFile(path.join(f.repo, "a.txt"), "changed\n");
+      await expect(
+        Promise.resolve().then(() =>
+          manager.createAction(f.projectId, { action: "discard", path: "a.txt" }, f.clientId),
+        ),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      const action = await manager.createAction(
+        f.projectId,
+        { action: "discard", path: "a.txt", confirmed: true },
+        f.clientId,
+      );
+      await writeFile(path.join(f.repo, "a.txt"), "newer edits\n");
+      await expect(manager.executeAction(action.id, f.clientId)).rejects.toMatchObject({
+        code: "GIT_CONFLICT",
+      });
+      expect(await readFile(path.join(f.repo, "a.txt"), "utf8")).toBe("newer edits\n");
+      for (const name of ["*.txt", "keep.txt"]) await writeFile(path.join(f.repo, name), "keep");
+      const remove = await manager.createAction(
+        f.projectId,
+        { action: "discard", path: "*.txt", confirmed: true },
+        f.clientId,
+      );
+      expect((await manager.executeAction(remove.id, f.clientId)).status).toBe("COMPLETED");
+      expect(await readFile(path.join(f.repo, "keep.txt"), "utf8")).toBe("keep");
+      expect((await manager.executeAction(remove.id, f.clientId)).status).toBe("COMPLETED");
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});
+
+it("handles unborn index, renames and deleted files without changing retained worktree data", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir),
+      manager = f.started.running.git;
+    const run = async (input: unknown) =>
+      manager.executeAction(
+        (await manager.createAction(f.projectId, input, f.clientId)).id,
+        f.clientId,
+      );
+    try {
+      git(f.repo, "mv", "a.txt", "renamed.txt");
+      expect((await run({ action: "unstage", paths: ["renamed.txt"] })).status).toBe("COMPLETED");
+      expect(git(f.repo, "diff", "--cached")).toBe("");
+      expect(await readFile(path.join(f.repo, "renamed.txt"), "utf8")).toBe("one\n");
+      await unlink(path.join(f.repo, "b.txt"));
+      expect((await run({ action: "discard", path: "b.txt", confirmed: true })).status).toBe(
+        "COMPLETED",
+      );
+      expect(await readFile(path.join(f.repo, "b.txt"), "utf8")).toBe("two\n");
+      git(f.repo, "switch", "--orphan", "unborn");
+      await writeFile(path.join(f.repo, "first.txt"), "new content");
+      git(f.repo, "add", "first.txt");
+      expect((await run({ action: "unstage", paths: ["first.txt"] })).status).toBe("COMPLETED");
+      expect(await readFile(path.join(f.repo, "first.txt"), "utf8")).toBe("new content");
+      expect((await manager.status(f.projectId)).staged).toEqual([]);
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});
+
+it("rejects discard of symlinks, directories and traversal and requires API authentication", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir),
+      manager = f.started.running.git;
+    try {
+      const outside = path.join(dir, "outside.txt");
+      await writeFile(outside, "keep outside");
+      await symlink(outside, path.join(f.repo, "link"));
+      await mkdir(path.join(f.repo, "folder"));
+      await writeFile(path.join(f.repo, "folder", "file.txt"), "keep nested");
+      for (const value of ["link", "folder", "../outside.txt"])
+        await expect(
+          manager.createAction(
+            f.projectId,
+            { action: "discard", path: value, confirmed: true },
+            f.clientId,
+          ),
+        ).rejects.toMatchObject({ code: "GIT_CONFLICT" });
+      expect(await readFile(outside, "utf8")).toBe("keep outside");
+      const response = await f.started.running.app.inject({
+        method: "POST",
+        url: `/api/projects/${f.projectId}/git/actions`,
+        headers: { origin: f.started.origin },
+        payload: { action: "discard", path: "folder/file.txt", confirmed: true },
+      });
+      expect(response.statusCode).toBe(401);
+      const action = await manager.createAction(
+        f.projectId,
+        { action: "discard", path: "folder/file.txt", confirmed: true },
+        f.clientId,
+      );
+      expect((await manager.executeAction(action.id, f.clientId)).status).toBe("COMPLETED");
+      await expect(readFile(path.join(f.repo, "folder", "file.txt"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      await stopAuthorizedServer(f.started);
     }
   });
 });

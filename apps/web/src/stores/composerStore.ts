@@ -3,10 +3,10 @@ import { create } from "zustand";
 interface ComposerState {
   draft: string;
   modelId: string;
-  policy: "standard" | "strict" | "readonly";
+  policy: "standard" | "strict" | "readonly" | "autonomous";
   setDraft: (draft: string) => void;
   setModelId: (modelId: string) => void;
-  setPolicy: (policy: "standard" | "strict" | "readonly") => void;
+  setPolicy: (policy: "standard" | "strict" | "readonly" | "autonomous") => void;
 }
 
 export const useComposerStore = create<ComposerState>((set) => ({
