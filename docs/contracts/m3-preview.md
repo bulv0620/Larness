@@ -18,7 +18,7 @@
 | GET /api/services/:id | 脱敏Service DTO、来源终端与可用操作 | L0，终态可查、无凭据 |
 | POST /api/services | `{kind:"temporary",terminalId,name,endpoint:{host,port,protocol:"http"}}`；executionId不由客户端填 | L2；仅登记不spawn；沿用既有资源动作prepare/审批/execute模式，拒绝参数替换；自主直接授权 |
 | GET /api/services/:id/logs | cursor、limit沿现有terminal输出字节/游标上限；返回terminalId、nextCursor、truncated/gap、脱敏chunk | L0；关联终端混合输出，非精确每命令日志；不复制第二份无限存储 |
-| POST /api/preview/resolve | `{serviceId,path:"/",mode:"embedded"\|"external"}`，path仅规范化同服务相对pathname/query，无scheme/host/反斜杠/编码逃逸 | L0读授权下领取短期bootstrap；必须CSRF、no-store、受限重试；回复隔离origin/受控入口/票据/expiry，浏览器内存暂存 |
+| POST /api/preview/resolve | `{serviceId,path:"/"}`，path仅规范化同服务相对pathname/query，无scheme/host/反斜杠/编码逃逸 | L0读授权下领取短期bootstrap；必须CSRF、no-store、受限重试；回复隔离origin/受控入口/票据/expiry，浏览器内存暂存 |
 
 候选工具：register_temporary_service=L2；list_services/get_service/read_service_logs/resolve_service_preview=L0。只有登记工具结果可含`{kind:"preview",serviceId,path}`，不附票据；解析工具面向模型仅返回可打开的结构化目标与状态，实际凭据仅在点击时发给浏览器。解析不替用户启动浏览器或运行项目进程。standard/strict登记走真实审批；readonly登记deny、读已登记服务allow；autonomous所有合法动作allow、不造approvalId。人工动作继承现有资源动作显式授权机制，不伪造Turn或信任请求自报策略。
 
@@ -40,7 +40,7 @@ M3-1一份新增services迁移，包含上述temporary字段、scope引用、sou
 2. 浏览器向独立来源受控bootstrap通过POST body消费，不把票据放URL/query/referrer；受控页面不运行项目脚本。验证确切管理Origin/登记目标/票据未用，再换opaque grant与重定向到已校验相对路径；消费失败不转发项目。嵌入与外部不能假设共享分区Cookie，分别bootstrap。
 3. grant最多15分钟且不超管理会话，host-only/HttpOnly，HTTPS Secure；内嵌跨站的SameSite/Partitioned实测冻结。管理会话登出/撤销/过期、服务失效、应用重启均撤grant和既有流。管理端仅可在其会话有效时续领，项目页不能自行获得管理票据。
 4. 每个grant独立随机host，host路由不是认证；请求需有效grant与活跃generation。Cookie鉴权只消费预览Cookie，绝不接受管理Cookie代替。明确验证Host/SNI/可信反代、WS Origin与grant，禁止通配管理CORS/危险postMessage。iframe `allow-scripts allow-forms allow-same-origin`且确实跨来源，其他权限默认关闭；外部窗口noopener/noreferrer。
-5. 固定dial已核验的数值本地地址/端口（回环/通配用127.0.0.1，具体本机地址用该地址），不DNS解析上游，不跟随302/307到其他源。仅允许同预览origin相对/可验证同上游的Location映射；其他导航给明确不可用/外部链接，不代理新目标。拒绝CONNECT/TRACE；HTTP常规方法仅转当前已授权项目服务，body不写日志。strip hop-by-hop、管理认证/CSRF/转发身份头及预览grant，Host按核验上游重建，X-Forwarded-*由网关重建；项目Cookie限当前预览host，不允许Domain扩大，保留项目应用登录且拒绝覆盖网关保留Cookie名。保留并组合项目CSP/X-Frame-Options；无法嵌入则外部打开，不通用删头。浏览器脚本仍可发外网请求，绝不宣称浏览器或OS网络沙箱。
+5. 固定dial已核验的数值本地地址/端口（回环/通配用127.0.0.1，具体本机地址用该地址），不DNS解析上游，不跟随302/307到其他源。仅允许同预览origin相对/可验证同上游的Location映射；其他导航给明确不可用，不代理新目标。拒绝CONNECT/TRACE；HTTP常规方法仅转当前已授权项目服务，body不写日志。strip hop-by-hop、管理认证/CSRF/转发身份头及预览grant，Host按核验上游重建，X-Forwarded-*由网关重建；项目Cookie限当前预览host，不允许Domain扩大，保留项目应用登录且拒绝覆盖网关保留Cookie名。保留并组合项目CSP/X-Frame-Options；无法嵌入则显示不可用，不通用删头、不降同源。浏览器脚本仍可发外网请求，绝不宣称浏览器或OS网络沙箱。
 6. 每次建立上游连接前后重验监听owner/birth/launch/generation，成功前不发项目请求；禁用跨generation连接复用，失效销毁现有HTTP/WS。最多1秒对账、核验证据最大2秒陈旧，核验超时/异常直接拒绝。PoC必须记录connect竞态残余，不声称纯端口代理原子绑定进程；若串绑或身份不足返回评审，不降低授权标准。
 
 候选资源预算（M3-0需实测，变化须更新候选/评审）：每client每service最多32个活动HTTP和8个WS，全实例最多256个上游连接；connect/身份探测2秒、普通HTTP首响应头10秒、空闲60秒；非流式请求/响应各16MiB，SSE/WS按64KiB单帧或chunk、1MiB排队上限与背压处理，WS最长grant剩余寿命；取消/超限断开并稳定反馈。不得为支持Vite关闭身份/授权/预算；上传、大资源/特殊流式兼容性按实测披露。
@@ -53,7 +53,7 @@ M3-1一份新增services迁移，包含上述temporary字段、scope引用、sou
 | 管理端localhost、本机浏览器 | 独立*.preview.localhost监听；解析/HTTP Cookie/iframe必须Chromium实测，不假定浏览器行为 |
 | 管理端HTTPS、远程浏览器 | 独立注册域与通配TLS/反代；项目端口仍loopback，只网关被反代 |
 | 通过局域网IP管理、无预览域 | 登记/日志仍可用；禁远程内嵌，提示配置独立HTTPS来源；不能给远程用户localhost链接冒充可访问 |
-| 跨站Cookie受限/项目拒绝iframe | 提供同等鉴权的隔离来源外部打开；不降级同源iframe或关浏览器保护 |
+| 跨站Cookie受限/项目拒绝iframe | 明确显示不可用；不降级同源iframe、不删安全头、不关浏览器保护 |
 | 其他浏览器/OS或无法证明进程身份 | 未验证标不支持/不可用，不由macOS/Chromium结果外推 |
 
 ## 6. PoC和实现门禁

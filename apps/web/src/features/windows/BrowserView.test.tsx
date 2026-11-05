@@ -32,7 +32,6 @@ it("resolves a one-time ticket and submits it through a POST bootstrap form, nev
     bootstrapUrl: "http://abc123.preview.localhost:3211/__bootstrap",
     ticket: "ticket-1",
     expiresAt: Date.now() + 30_000,
-    mode: "embedded",
   });
   const { container } = render(<BrowserView tab={tab} />);
   await waitFor(() => expect(resolvePreview).toHaveBeenCalledWith(tab.browser.serviceId, "/"));

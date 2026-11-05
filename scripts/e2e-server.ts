@@ -163,30 +163,6 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
     };
   }
 
-  if (input.startsWith("framed start ")) {
-    const port = Number(input.split(" ").at(-1));
-    if (!Number.isInteger(port) || port < 1 || port > 65535)
-      return { adapter: createFakeProvider([textStep("invalid framed port")]), model: "fake" };
-    return {
-      adapter: createFakeProvider([
-        toolStep({
-          id: "framed-frontend",
-          name: "start_project_terminal",
-          args: {
-            role: "frontend",
-            executable: process.execPath,
-            args: [
-              "-e",
-              `require("node:http").createServer((request, response) => { response.setHeader("x-frame-options", "DENY"); response.end("<html><body>FRAME_BLOCKED_PAGE</body></html>"); }).listen(${port}, "127.0.0.1", () => console.log("FRAME_READY"));`,
-            ],
-          },
-        }),
-        textStep("开发终端已启动。"),
-      ]),
-      model: "fake",
-    };
-  }
-
   if (input.startsWith("service start ")) {
     const port = Number(input.split(" ").at(-1));
     if (!Number.isInteger(port) || port < 1 || port > 65535)

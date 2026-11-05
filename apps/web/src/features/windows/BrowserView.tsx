@@ -1,13 +1,5 @@
 import { cn, IconButton } from "@larness/ui";
-import {
-  ArrowLeft,
-  ArrowRight,
-  ExternalLink,
-  Globe2,
-  Loader2,
-  RefreshCw,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Globe2, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { type PreviewSession, resolvePreview } from "@/features/services/api";
 import { ApiError } from "@/lib/api";
@@ -30,7 +22,6 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
-  const [openingExternal, setOpeningExternal] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const frameName = `preview-${tab.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
@@ -61,42 +52,6 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
     if (session) formRef.current?.submit();
   }, [session]);
 
-  const openExternal = async () => {
-    if (!browser || openingExternal) return;
-    setOpeningExternal(true);
-    setError("");
-    const target = window.open("about:blank", "_blank");
-    try {
-      if (!target) throw new Error("浏览器阻止了新窗口");
-      target.opener = null;
-      const value = await resolvePreview(browser.serviceId, browser.path, "external");
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = value.bootstrapUrl;
-      form.target = `preview-external-${Date.now()}`;
-      target.name = form.target;
-      form.style.display = "none";
-      for (const [name, val] of [
-        ["ticket", value.ticket],
-        ["path", browser.path],
-      ] as const) {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = name;
-        input.value = val;
-        form.append(input);
-      }
-      document.body.append(form);
-      form.submit();
-      form.remove();
-    } catch (cause) {
-      target?.close();
-      setError(previewError(cause));
-    } finally {
-      setOpeningExternal(false);
-    }
-  };
-
   return (
     <div className="flex h-full flex-col bg-surface">
       <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line bg-surface-2/45 px-2">
@@ -123,14 +78,6 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
           </span>
           {loading ? <Loader2 size={11} className="animate-spin text-ink-3" /> : null}
         </div>
-        <IconButton
-          label="在独立来源打开"
-          onClick={() => void openExternal()}
-          disabled={openingExternal}
-          className="h-6 w-6"
-        >
-          <ExternalLink size={12} />
-        </IconButton>
       </div>
 
       <div className="relative min-h-0 flex-1 bg-white">
@@ -145,13 +92,6 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
               onClick={() => setNonce((value) => value + 1)}
             >
               刷新
-            </button>
-            <button
-              type="button"
-              className="text-[11px] text-ink-3 underline"
-              onClick={() => void openExternal()}
-            >
-              在独立来源打开
             </button>
           </div>
         ) : null}
@@ -228,9 +168,6 @@ function MockBrowser({ tab }: { tab: WindowTab }) {
           />
           {loading ? <Loader2 size={11} className="animate-spin text-ink-3" /> : null}
         </form>
-        <IconButton label="在外部打开（Demo 不请求网络）" disabled className="h-6 w-6">
-          <ExternalLink size={12} />
-        </IconButton>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto bg-[#f7f8fa]">

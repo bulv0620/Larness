@@ -64,18 +64,13 @@ export interface PreviewSession {
   bootstrapUrl: string;
   ticket: string;
   expiresAt: number;
-  mode: "embedded" | "external";
 }
 
-export async function resolvePreview(
-  serviceId: string,
-  path = "/",
-  mode: "embedded" | "external" = "embedded",
-): Promise<PreviewSession> {
+export async function resolvePreview(serviceId: string, path = "/"): Promise<PreviewSession> {
   return apiFetch<PreviewSession>("/api/previews/resolve", {
     method: "POST",
     csrf: true,
-    body: { serviceId, path, mode },
+    body: { serviceId, path },
   });
 }
 

@@ -454,4 +454,4 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - M3-4 完成（2026-11-05）：独立 iframe 预览、票据 POST、Browser Tab 去重/布局恢复、Agent `resolve_service_preview` L0 与时间线卡片完成；真实 Vite 7 E2E 验证 HMR、相对 `/api`、无直连端口与预览后 Ctrl+C 退登。见 [验收](specs/040-services-preview/acceptance-m3-4.md)。
 - ADR-045（2026-11-05）：临时服务支持独立“删除登记”（不杀进程）与“停止服务”（终止已验证监听进程树、保留 Shell）；新增 DELETE/stop API 与 UI 确认。
 - ADR-044（2026-11-05）：按人类要求，登记不再限制绑定地址；通配监听可登记，预览按已核验地址拨号，访问失败显示不可用；身份/票据/隔离不变。
-- M3-6 review（2026-11-05）：整体材料见 [closure.md](specs/040-services-preview/closure.md)；`pnpm check` 442 / 2 skipped、build、服务与预览 E2E 单项通过；红测修复完成；Agent 预览卡片真实 Turn E2E 已通过：conversation 最终答复隐藏的真实 UI 回归已修；services/files/default-workspace/git 与 Demo 旧断言已对齐现行行为。最终 auth E2E 16/16（含两客户端、iframe 受限外部打开）、Demo 16/16、`pnpm check` 442、build 通过（根测试改为串行避免 PTY 并发超时）。G3 待人类验收，未标 done。
+- M3-6 review（2026-11-05）：整体材料见 [closure.md](specs/040-services-preview/closure.md)；`pnpm check` 442 / 2 skipped、build、服务与预览 E2E 单项通过；红测修复完成；Agent 预览卡片真实 Turn E2E 已通过：conversation 最终答复隐藏的真实 UI 回归已修；services/files/default-workspace/git 与 Demo 旧断言已对齐现行行为。最终 auth E2E 15/15（含两客户端）、Demo 16/16、`pnpm check` 442、build 通过（根测试改为串行避免 PTY 并发超时）。G3 待人类验收，未标 done。

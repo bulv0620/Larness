@@ -101,7 +101,7 @@ it("resolves a preview ticket through the authenticated API and fails closed whe
         method: "POST",
         url: "/api/previews/resolve",
         headers,
-        payload: { serviceId: data.service.id, path: "/", mode: "embedded" },
+        payload: { serviceId: data.service.id, path: "/" },
       });
       expect(resolved.statusCode).toBe(200);
       expect(resolved.headers["cache-control"]).toBe("no-store");

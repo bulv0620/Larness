@@ -11,7 +11,6 @@ const ResolveSchema = z
   .object({
     serviceId: ServiceIdSchema,
     path: z.string().min(1).max(2048).optional(),
-    mode: z.enum(["embedded", "external"]).default("embedded"),
   })
   .strict();
 

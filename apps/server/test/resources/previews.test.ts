@@ -169,7 +169,7 @@ it("resolves a ticket, consumes it once and proxies only the granted preview hos
     await registry.start();
     try {
       const resolved = await registry.resolve(
-        { serviceId: data.service.id, path: "/", mode: "embedded" },
+        { serviceId: data.service.id, path: "/" },
         data.client,
       );
       expect(resolved.bootstrapUrl).not.toContain(resolved.ticket);

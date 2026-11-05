@@ -5,7 +5,7 @@
 ## 交付
 
 - 服务详情“预览”：打开独立来源 Browser Tab；解析票据后以 **POST 表单**提交到 `/__bootstrap`，303 后 iframe 加载项目页；票据不进 URL/布局。
-- iframe `allow-scripts allow-forms allow-same-origin`、`no-referrer`；提供刷新、重新解析、独立来源外部打开与失败提示。
+- iframe `allow-scripts allow-forms allow-same-origin`、`no-referrer`；提供刷新与统一“无法访问”提示。
 - Browser Tab 以 `browser:<serviceId>:<path>` 去重；布局恢复保留真实服务窗口与 Browser Tab（修复旧迁移把真实 Tab 当 Demo 丢弃）。
 - Agent `resolve_service_preview`（L0）返回结构化 `{kind:"preview",serviceId,path}`，不发票据、不启动进程；时间线渲染“打开预览”卡片，点击复用 Browser Tab。
 - Vite 项目相对 `/api` 经项目 dev proxy 访问第二个终端后端，浏览器全程经预览网关。
@@ -18,7 +18,7 @@
 | S14 前端相对 API | 同 E2E：iframe 内 `/api/health` 显示后端 `ok`，经 Vite proxy 转发到第二终端 |
 | S8 隔离 | 既有 M3-3b 矩阵 + iframe sandbox/独立 host |
 | 票据不泄漏 | 组件测试：票据只在 POST 表单 input，不在 URL/文本 |
-| S17 iframe 受限 | `preview-fallback.spec.ts`：`X-Frame-Options: DENY` 下外部打开仍经同一票据/bootstrap 加载页面 |
+| S17 iframe 受限 | `X-Frame-Options: DENY` 下 iframe 被拦，统一显示“无法访问 + 刷新”；不删安全头 |
 | Agent 卡片 | `resolve_service_preview` L0 + 组件测试；真实 Turn E2E 中点击卡片打开 iframe |
 
 命令：
@@ -33,7 +33,7 @@ pnpm check
 
 ## 边界与未覆盖
 
-- 项目返回 `X-Frame-Options: DENY` 时 iframe 被浏览器拦截；真实 E2E 已验证“在独立来源打开”新窗口能加载同一项目页面。
+- 项目返回 `X-Frame-Options: DENY` 时 iframe 被浏览器拦截，预览显示不可用；不提供外部打开绕过。
 - Agent 预览卡片已在真实 Turn E2E 中验证：模型调用 `resolve_service_preview`，时间线出现“打开预览”，点击后 iframe 加载当前服务。
-- 外部打开依赖浏览器允许新窗口，未做弹窗拦截的自动化。
+- iframe 受限时不提供绕过入口，用户只能修改项目安全头或接受不可预览。
 - 远程独立域 HTTPS、其他浏览器/平台未验证；远程仍延后至上线实验。
