@@ -74,7 +74,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     ).toBeVisible();
     await page.getByRole("button", { name: "终端操作" }).click();
     await page.getByRole("menuitem", { name: "释放输入权" }).click();
-    await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
+    await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
     await page.getByRole("button", { name: "打开文件 default-note.txt", exact: true }).click();
     const editor = page.locator(".monaco-editor");
     await expect(editor).toBeVisible();
@@ -93,7 +93,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await page.getByRole("button", { name: "保存文件", exact: true }).click();
     expect((await saveResponse).status()).toBe(200);
     await expect(page.getByText(/UTF-8 · 已同步/)).toBeVisible();
-    await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
+    await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
     const createA = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === "/api/sessions" &&
@@ -121,7 +121,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await page.getByRole("button", { name: "恢复 default-note.txt", exact: true }).click();
     await expect(editor).toBeVisible();
     await expect(page.locator(".view-lines").first()).toContainText("shared saved");
-    await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
+    await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
     await page.getByRole("button", { name: "添加项目", exact: true }).click();
     await page.getByLabel("项目目录").fill(root);
     await page.getByRole("dialog").getByRole("button", { name: "添加项目", exact: true }).click();

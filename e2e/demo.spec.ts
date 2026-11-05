@@ -11,34 +11,20 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.getByLabel("项目资源", { exact: true })).toBeVisible();
     await expect(page.getByLabel("对话输入")).toBeVisible();
     await expect(page.getByText(/^最近/).first()).toBeVisible();
-    await expect(page.getByLabel("项目资源", { exact: true }).getByRole("separator")).toHaveCount(
-      1,
-    );
-
     const fileHeader = page.getByRole("button", { name: /^文件/ }).first();
     await fileHeader.click();
-    await expect(page.getByText("AppShell.tsx", { exact: true })).toHaveCount(0);
+    await expect(page.locator("#resource-files")).toHaveAttribute("aria-hidden", "true");
     await fileHeader.click();
+    await expect(page.locator("#resource-files")).toHaveAttribute("aria-hidden", "false");
     await expect(page.getByText("AppShell.tsx", { exact: true })).toBeVisible();
   });
 
-  test("双击分隔线均分相邻资源分区", async ({ page }) => {
-    const sections = page.locator('aside[aria-label="项目资源"] section');
-    const files = sections.nth(0);
-    const services = sections.nth(1);
-    const beforeFiles = await files.boundingBox();
-    const beforeServices = await services.boundingBox();
-    expect(beforeFiles).not.toBeNull();
-    expect(beforeServices).not.toBeNull();
-
-    await page.getByRole("separator", { name: "调整资源分区高度" }).first().dblclick();
+  test("切换资源分区时只有当前分区展开", async ({ page }) => {
+    const aside = page.getByLabel("项目资源", { exact: true });
+    await aside.getByRole("button", { name: /^Git/ }).first().click();
     await page.waitForTimeout(250);
-
-    const afterFiles = await files.boundingBox();
-    const afterServices = await services.boundingBox();
-    expect(afterFiles).not.toBeNull();
-    expect(afterServices).not.toBeNull();
-    expect(Math.abs((afterFiles?.height ?? 0) - (afterServices?.height ?? 0))).toBeLessThan(4);
+    await expect(aside.locator("#resource-files")).toHaveAttribute("aria-hidden", "true");
+    await expect(aside.locator("#resource-git")).toHaveAttribute("aria-hidden", "false");
   });
 
   test("切换项目时资源栏与空态跟随", async ({ page }) => {
@@ -61,7 +47,6 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(aside.getByRole("button", { name: /^文件/ }).first()).toBeVisible();
     await expect(aside.getByRole("button", { name: /^Git/ }).first()).toBeVisible();
     await expect(aside.getByText("AppShell.tsx", { exact: true })).toBeVisible();
-    await expect(aside.getByRole("separator")).toHaveCount(1);
     await expect(page.getByLabel("项目窗口")).toBeVisible();
   });
 
@@ -77,21 +62,17 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(tree.getByText("AppShell.tsx", { exact: true })).toBeVisible();
   });
 
-  test("折叠分区后剩余分区填满右栏", async ({ page }) => {
+  test("展开 Git 后文件分区收起且 Git 填满右栏", async ({ page }) => {
     const aside = page.getByLabel("项目资源", { exact: true });
-    await page
-      .getByLabel("项目资源", { exact: true })
-      .getByRole("button", { name: /^文件/ })
-      .first()
-      .click();
+    await aside.getByRole("button", { name: /^Git/ }).first().click();
     await page.waitForTimeout(250);
 
     const sections = aside.locator("section");
     await expect(sections).toHaveCount(2);
-    await expect(sections.nth(0)).toHaveCSS("min-height", "36px");
-
+    const filesBox = await sections.nth(0).boundingBox();
     const asideBox = await aside.boundingBox();
     const lastBox = await sections.last().boundingBox();
+    expect(filesBox?.height ?? 0).toBeLessThan(60);
     expect(asideBox).not.toBeNull();
     expect(lastBox).not.toBeNull();
     const gap =
