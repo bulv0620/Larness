@@ -598,6 +598,16 @@ export class ServiceManager {
     };
   }
 
+  async verifyActive(id: string): Promise<ServiceDto> {
+    const row = serviceRow(this.#db, id);
+    if (row?.status !== "RUNNING") {
+      throw new FileManagerError("PREVIEW_UNAVAILABLE", "Service is not running");
+    }
+    const identity = parseExecutionIdentity(row.identityJson);
+    await verifyExecution(identity).catch(identityFailure);
+    return serviceDto(row);
+  }
+
   unregister(id: string, reasonCode: string, client?: string): ServiceDto | null {
     const now = this.#now();
     const event = immediateTransaction(this.#db, (tx) => {

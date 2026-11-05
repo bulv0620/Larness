@@ -31,6 +31,7 @@ import { reconcileFileOperations } from "../modules/files/service.js";
 import { GitManager } from "../modules/git/manager.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
+import { PreviewRegistry } from "../modules/previews/registry.js";
 import { ResourceEventBus } from "../modules/resources/events.js";
 import { ServiceManager } from "../modules/services/manager.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
@@ -73,6 +74,8 @@ export interface RunningServer {
   git: GitManager;
   terminals: TerminalManager;
   services: ServiceManager;
+  previews: PreviewRegistry | null;
+  resourceEvents: ResourceEventBus;
 }
 
 function createDefaultProviderResolver(db: Database, secretStore: SecretStore): ProviderResolver {
@@ -192,6 +195,21 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const git = new GitManager({ db: opened.db });
     const services = new ServiceManager({ db: opened.db, events: resourceEvents });
     services.start();
+    let previews: PreviewRegistry | null = null;
+    if (loaded.config.preview.enabled) {
+      try {
+        previews = new PreviewRegistry({
+          db: opened.db,
+          services,
+          events: resourceEvents,
+          idleTtlMinutes: loaded.config.auth.idleTtlMinutes,
+        });
+        await previews.start();
+      } catch (error) {
+        activeLogger.warn({ err: error }, "preview gateway unavailable");
+        previews = null;
+      }
+    }
     const terminals = new TerminalManager({
       db: opened.db,
       dataDir,
@@ -269,6 +287,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         terminals,
         git,
         services,
+        previews,
         ...(turnQueue === null
           ? {}
           : {
@@ -334,6 +353,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         await ipcServer.close();
         await turnQueue?.stop();
         services.stop();
+        await previews?.stop();
         cleanupScheduler.stop();
         await retention.stop();
         opened.close();
@@ -362,6 +382,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       terminals,
       git,
       services,
+      previews,
+      resourceEvents,
     };
   } catch (error) {
     logger?.error({ err: error }, "server failed to start");

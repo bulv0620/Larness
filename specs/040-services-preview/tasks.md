@@ -7,7 +7,7 @@
 | M3-0 | 开发执行身份与隔离预览PoC | G2 / G-Spec-M3 / Q-002 / Q-026 | `done`（G-PoC 2026-11-05） |
 | M3-1 | 临时登记、查询与退出退登 | M3-0 / G-PoC-M3 | `done`（2026-11-05） |
 | M3-2 | 当前项目服务卡片与详情 | M3-1 | `done`（2026-11-05） |
-| M3-3 | PreviewRegistry与固定上游HTTP/WS | M3-1 | `todo` |
+| M3-3 | PreviewRegistry与固定上游HTTP/WS | M3-1 | `in_progress` |
 | M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `todo` |
 | M3-4 | Browser/Agent卡片、HMR与开发API | M3-2 / M3-3b | `todo` |
 | M3-6 | M3开发闭环与G3 | M3-4 | `todo` |
@@ -55,7 +55,8 @@ M3-6依赖M3-4，不能再依赖已迁出的任务；S10/S11移至M4 D9/D10。
 - [ ] 同步契约/spec/tasks/STATUS，单任务提交，新增schema每任务最多一份迁移；不改源码/用户数据作为测试捷径。
 
 ## M3-3 PreviewRegistry与固定上游HTTP/WS
-- 状态：`todo`；依赖：M3-1；所有实现仍需G-Spec-M3。
+- 状态：`in_progress`（2026-11-05）；依赖：M3-1。
+- 进度：PreviewRegistry（30 秒一次性票据、POST bootstrap 换 15 分钟 host-only grant、固定 loopback HTTP/WS 转发、Host/会话/generation 校验、事件退登即撤销）与 `POST /api/previews/resolve` 已实现；真实 HTTP/WS/重放/过期/会话撤销/路径/退登测试通过。resolve 路由启用态、安全矩阵与 iframe 浏览器证据留 M3-3b/M3-4。
 - [ ] 先写会失败的真实资源/权限/边界测试。
 - [ ] 交付：独立来源/票据、固定loopback上游、活跃generation校验、源失效关闭已有流。
 - [ ] 验收：S3/S6–S9/S13/S16/S17，自主无人工停等、非法目标仍拒绝，失败不伪报。
