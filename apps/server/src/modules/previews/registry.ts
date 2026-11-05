@@ -21,6 +21,7 @@ import type { ServiceManager } from "../services/manager.js";
 export interface PreviewResolveInput {
   serviceId: string;
   path?: string;
+  mode?: "embedded" | "external";
 }
 
 export interface ResolvedPreview {
@@ -28,6 +29,7 @@ export interface ResolvedPreview {
   bootstrapUrl: string;
   ticket: string;
   expiresAt: number;
+  mode: "embedded" | "external";
 }
 
 export interface PreviewRegistryOptions {
@@ -49,6 +51,7 @@ interface TicketRecord {
   host: string;
   serviceId: string;
   path: string;
+  mode: "embedded" | "external";
   clientSessionId: string;
   expiresAt: number;
 }
@@ -262,6 +265,7 @@ export class PreviewRegistry {
     if (this.#port === 0) {
       throw new FileManagerError("PREVIEW_UNAVAILABLE", "Preview gateway is not running");
     }
+    const mode = input.mode ?? "embedded";
     const host = `${randomBytes(6).toString("hex")}.${this.#hostSuffix}`;
     const ticket = randomBytes(32).toString("base64url");
     const expiresAt = this.#now() + this.#ticketTtlMs;
@@ -270,6 +274,7 @@ export class PreviewRegistry {
       host,
       serviceId: service.id,
       path: target,
+      mode,
       clientSessionId,
       expiresAt,
     });
@@ -278,6 +283,7 @@ export class PreviewRegistry {
       bootstrapUrl: `http://${host}:${this.#port}${BOOTSTRAP_PATH}`,
       ticket,
       expiresAt,
+      mode,
     };
   }
 

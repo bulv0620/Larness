@@ -32,7 +32,7 @@
 | S14 前端相对 API | Vite iframe E2E：`/api` 经 dev proxy 到第二终端后端 |
 | S15 日志/游标 | 关联终端有界输出；缺口/过期由终端输出契约覆盖，未做专门 UI 负例 |
 | S16 自主登记/预览 | Agent 工具 L0/L2 + 策略测试；真实 Turn E2E 调用 `resolve_service_preview` 并点击卡片打开 iframe；autonomous 不造 approvalId；非法目标仍拒绝 |
-| S17 iframe 受限 | 项目返回 `X-Frame-Options: DENY` 时 iframe 被拦，统一显示“无法访问 + 刷新”；不删安全头、不降同源 |
+| S17 iframe 受限 | iframe 被拦时显示“无法访问 + 刷新”，可用右上角图标在独立来源打开；不删安全头、不降同源 |
 | S18 同 PTY 重启/策略 | 新 executionId、只读拒绝登记、严格/标准审批 |
 
 ## 本轮验证
@@ -55,7 +55,7 @@
 
 1. 远程独立注册域 HTTPS 未验证，延后到上线实验；不宣称远程预览支持。
 2. 两认证客户端已做服务卡片/独立预览 E2E；多客户端窗口布局的像素级差异仍未断言。
-3. iframe 被 `X-Frame-Options`/CSP 拒绝时统一显示不可用；不提供外部打开绕过，`frame-ancestors` 组合未单独注入。
+3. iframe 被 `X-Frame-Options`/CSP 拒绝时统一显示不可用；工具栏图标提供隔离外部打开（本轮未保留专门 E2E，仅有组件/API 覆盖）。
 4. Agent `resolve_service_preview` 卡片已在真实 Turn E2E 验证；仍未覆盖模型自主决定调用与非法目标的多轮组合。
 5. DB 故障以事件提交失败/会话撤销注入，未做磁盘满、DB 句柄损坏。
 6. 仅 macOS + Chromium；日志为关联终端输出，不保证逐命令切片；每客户端预算仅实现并发/请求体上限。
@@ -64,6 +64,6 @@
 ## G3 人类验收项
 
 - [ ] 体验服务窗口：登记 → 卡片/详情 → 预览 → 打开终端 → Ctrl+C 退登。
-- [ ] 接受 iframe 预览、不可用状态与“服务已结束”行为。
+- [ ] 接受 iframe 预览、右上角外部打开、不可用状态与“服务已结束”行为。
 - [ ] 接受上述已知边界（尤其远程 HTTPS 延后、M2 E2E/Demo 旧断言未修）。
 - [ ] 确认 G3 通过；M3 标 done 后进入 M4（PM2/正式运行/发布）。

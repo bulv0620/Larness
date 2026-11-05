@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { BrowserView } from "./BrowserView";
@@ -32,8 +32,10 @@ it("resolves a one-time ticket and submits it through a POST bootstrap form, nev
     bootstrapUrl: "http://abc123.preview.localhost:3211/__bootstrap",
     ticket: "ticket-1",
     expiresAt: Date.now() + 30_000,
+    mode: "embedded",
   });
   const { container } = render(<BrowserView tab={tab} />);
+  expect(screen.getByRole("button", { name: "在独立来源打开" })).toBeTruthy();
   await waitFor(() => expect(resolvePreview).toHaveBeenCalledWith(tab.browser.serviceId, "/"));
   await waitFor(() => expect(submit).toHaveBeenCalled());
   const form = container.querySelector("form");
