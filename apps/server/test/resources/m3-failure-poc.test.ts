@@ -220,3 +220,87 @@ it("rejects HTTP and WebSocket connections beyond the configured limit", async (
     await new Promise<void>((resolve) => wsUpstream.close(() => resolve()));
   }
 }, 20_000);
+
+it("rejects an oversized request body instead of forwarding it", async () => {
+  let upstreamBytes = 0;
+  const upstream = await startServer((req, res) => {
+    req.on("data", (chunk: Buffer) => {
+      upstreamBytes += chunk.length;
+    });
+    req.on("end", () => res.end("ok"));
+  });
+  const gateway = new PreviewGateway({ maxBodyBytes: 1024 });
+  const port = await gateway.listen();
+  try {
+    const issued = gateway.issue({ serviceId: "web", port: upstream.port });
+    const cookie = await grantOf(port, issued);
+    const response = await new Promise<RawResponse>((resolve, reject) => {
+      const req = request(
+        {
+          host: "127.0.0.1",
+          port,
+          path: "/",
+          method: "POST",
+          headers: { host: `${issued.host}:${port}`, cookie, "content-type": "text/plain" },
+        },
+        (res) => {
+          let body = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk: string) => {
+            body += chunk;
+          });
+          res.on("end", () => resolve({ status: res.statusCode ?? 0, headers: res.headers, body }));
+        },
+      );
+      req.on("error", reject);
+      req.end(Buffer.alloc(4096, "a"));
+    });
+    expect(response.status).toBe(413);
+    expect(upstreamBytes).toBe(0);
+  } finally {
+    await gateway.close();
+    await upstream.close();
+  }
+}, 20_000);
+
+it("keeps serving a small request while another client stops reading a large stream", async () => {
+  const upstream = await startServer((req, res) => {
+    if (req.url === "/big") {
+      res.writeHead(200, { "content-type": "application/octet-stream" });
+      const timer = setInterval(() => res.write(Buffer.alloc(64 * 1024)), 5);
+      res.on("close", () => clearInterval(timer));
+      return;
+    }
+    res.end("small-ok");
+  });
+  const gateway = new PreviewGateway();
+  const port = await gateway.listen();
+  try {
+    const big = gateway.issue({ serviceId: "big", port: upstream.port });
+    const small = gateway.issue({ serviceId: "small", port: upstream.port });
+    const bigCookie = await grantOf(port, big);
+    const smallCookie = await grantOf(port, small);
+    const slow = request({
+      host: "127.0.0.1",
+      port,
+      path: "/big",
+      headers: { host: `${big.host}:${port}`, cookie: bigCookie },
+    });
+    slow.end();
+    await new Promise<void>((resolve) => {
+      slow.on("response", (response) => {
+        response.pause();
+        resolve();
+      });
+    });
+    const started = Date.now();
+    const fast = await virtualRequest(port, small.host, "/", smallCookie);
+    expect(fast.status).toBe(200);
+    expect(fast.body).toBe("small-ok");
+    expect(Date.now() - started).toBeLessThan(2000);
+    slow.destroy();
+  } finally {
+    await gateway.close();
+    await upstream.close();
+  }
+}, 20_000);

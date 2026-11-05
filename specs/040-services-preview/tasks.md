@@ -28,7 +28,7 @@ M3-6依赖M3-4，不能再依赖已迁出的任务；S10/S11移至M4 D9/D10。
 ## M3-0 开发执行身份与隔离预览PoC
 - 状态：`review`（2026-11-05 PoC 本机范围完成，待 G-PoC-M3；分支 `task/m3-0-preview-poc`）；依赖：G2 / G-Spec-M3 / Q-002 / Q-026。
 - 范围：P1/P2 执行与监听身份、P3 本机隔离来源/票据/Cookie、P4 真实 Vite/HMR/开发 API、P5 故障与策略；远程独立注册域 HTTPS 延后至上线实验，本任务只标未验证。
-- 2026-11-05 交付：10 项真实测试通过（P1/P2 3 项、P3 2 项、P4 1 项、P5 4 项），连续 3 次全通过；证据、残余窗口、Vite 7 实际版本与远程未验证边界见 [poc.md](poc.md)。浏览器项需 `LARNESS_POC_BROWSER=1`。
+- 2026-11-05 交付：12 项真实测试通过（P1/P2 3 项、P3 2 项、P4 1 项、P5 6 项）；证据、残余窗口、Vite 7 实际版本与远程未验证边界见 [poc.md](poc.md)。浏览器项需 `LARNESS_POC_BROWSER=1`。
 - 待确认：G-PoC-M3（本机证据 + check-to-connect 窗口 + 远程 HTTPS 延后）；登记策略/慢消费者/真实 DB 属 M3-1 实现验证，不在本 PoC 冒充完成。
 - [ ] 先写会失败的真实资源/权限/边界测试。
 - [ ] 交付：按review P1–P5验证真实PTY/监听归属、独立来源/Cookie、HTTP/WS/HMR/API、端口复用、同Shell重启、策略与故障。poc.md记录版本/命令/延迟/connect竞态与支持矩阵，获G-PoC后才能M3-1。

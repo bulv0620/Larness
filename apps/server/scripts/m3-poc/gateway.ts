@@ -35,6 +35,7 @@ export interface PreviewGatewayOptions {
   grantTtlMs?: number;
   maxHttp?: number;
   maxWs?: number;
+  maxBodyBytes?: number;
   upstreamIdleMs?: number;
   onGrant?: (grant: GrantSnapshot) => void;
 }
@@ -146,6 +147,7 @@ export class PreviewGateway {
   readonly #grantTtlMs: number;
   readonly #maxHttp: number;
   readonly #maxWs: number;
+  readonly #maxBodyBytes: number;
   readonly #upstreamIdleMs: number;
   readonly #onGrant: ((grant: GrantSnapshot) => void) | undefined;
   readonly #sockets = new Set<Socket>();
@@ -159,6 +161,7 @@ export class PreviewGateway {
     this.#grantTtlMs = options.grantTtlMs ?? 15 * 60_000;
     this.#maxHttp = options.maxHttp ?? 32;
     this.#maxWs = options.maxWs ?? 8;
+    this.#maxBodyBytes = options.maxBodyBytes ?? 16 * 1024 * 1024;
     this.#upstreamIdleMs = options.upstreamIdleMs ?? 10_000;
     this.#onGrant = options.onGrant;
     this.#server = createServer((req, res) => {
@@ -311,6 +314,23 @@ export class PreviewGateway {
   }
 
   #proxy(req: IncomingMessage, res: ServerResponse, url: URL, grant: GrantRecord): void {
+    const declared = Number(req.headers["content-length"]);
+    if (Number.isFinite(declared) && declared > this.#maxBodyBytes) {
+      res.writeHead(413, { "cache-control": "no-store" });
+      res.end("preview payload too large");
+      req.resume();
+      return;
+    }
+    let received = 0;
+    let rejected = false;
+    const reject = () => {
+      if (rejected) return;
+      rejected = true;
+      req.unpipe(upstream);
+      upstream.destroy();
+      if (!res.headersSent) res.writeHead(413, { "cache-control": "no-store" });
+      res.end("preview payload too large");
+    };
     const upstream = request(
       {
         host: "127.0.0.1",
@@ -335,6 +355,10 @@ export class PreviewGateway {
     upstream.on("error", () => {
       if (!res.headersSent) res.writeHead(502, { "cache-control": "no-store" });
       res.end("preview upstream unavailable");
+    });
+    req.on("data", (chunk: Buffer) => {
+      received += chunk.length;
+      if (received > this.#maxBodyBytes) reject();
     });
     req.pipe(upstream);
   }
