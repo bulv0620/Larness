@@ -18,7 +18,7 @@
 | S14 前端相对 API | 同 E2E：iframe 内 `/api/health` 显示后端 `ok`，经 Vite proxy 转发到第二终端 |
 | S8 隔离 | 既有 M3-3b 矩阵 + iframe sandbox/独立 host |
 | 票据不泄漏 | 组件测试：票据只在 POST 表单 input，不在 URL/文本 |
-| Agent 卡片 | `resolve_service_preview` L0 + `PreviewResultCard` 测试：打开去重 Browser Tab |
+| Agent 卡片 | `resolve_service_preview` L0 + 组件测试；真实 Turn E2E 中点击卡片打开 iframe |
 
 命令：
 
@@ -33,6 +33,6 @@ pnpm check
 ## 边界与未覆盖
 
 - 项目返回 `X-Frame-Options/CSP frame-ancestors` 时只能由浏览器判定；界面提供外部打开，但未做自动化浏览器负例。
-- Agent 预览卡片目前有工具与组件测试，未在完整 Turn E2E 中让模型返回该 target。
+- Agent 预览卡片已在真实 Turn E2E 中验证：模型调用 `resolve_service_preview`，时间线出现“打开预览”，点击后 iframe 加载当前服务。
 - 外部打开依赖浏览器允许新窗口，未做弹窗拦截的自动化。
 - 远程独立域 HTTPS、其他浏览器/平台未验证；远程仍延后至上线实验。

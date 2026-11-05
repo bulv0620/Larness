@@ -195,6 +195,31 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
     };
   }
 
+  if (input === "preview service") {
+    const projectId = session.projectId;
+    const service =
+      projectId === null
+        ? undefined
+        : (running.sqlite
+            .prepare(
+              "SELECT id FROM services WHERE project_id = ? AND status = 'RUNNING' ORDER BY created_at DESC LIMIT 1",
+            )
+            .get(projectId) as { id: string } | undefined);
+    if (!service)
+      return { adapter: createFakeProvider([textStep("暂无可预览服务。")]), model: "fake" };
+    return {
+      adapter: createFakeProvider([
+        toolStep({
+          id: "preview-service",
+          name: "resolve_service_preview",
+          args: { serviceId: service.id, path: "/" },
+        }),
+        textStep("预览已就绪。"),
+      ]),
+      model: "fake",
+    };
+  }
+
   if (input === "ai control") {
     const projectId = session.projectId;
     const terminal =

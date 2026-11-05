@@ -31,7 +31,7 @@
 | S13 未鉴权/CSRF/伪造 | resolve 无 CSRF 401/403；预览无 grant 401 |
 | S14 前端相对 API | Vite iframe E2E：`/api` 经 dev proxy 到第二终端后端 |
 | S15 日志/游标 | 关联终端有界输出；缺口/过期由终端输出契约覆盖，未做专门 UI 负例 |
-| S16 自主登记/预览 | Agent 工具 L0/L2 + 策略测试；autonomous 不造 approvalId；非法目标仍拒绝 |
+| S16 自主登记/预览 | Agent 工具 L0/L2 + 策略测试；真实 Turn E2E 调用 `resolve_service_preview` 并点击卡片打开 iframe；autonomous 不造 approvalId；非法目标仍拒绝 |
 | S17 iframe 受限 | 界面提供独立来源外部打开；未自动化 XFO/CSP 拒绝场景 |
 | S18 同 PTY 重启/策略 | 新 executionId、只读拒绝登记、严格/标准审批 |
 
@@ -50,7 +50,7 @@
 1. 远程独立注册域 HTTPS 未验证，延后到上线实验；不宣称远程预览支持。
 2. 两认证客户端同时预览/服务卡片布局未做专门 E2E（终端双客户端已有 M2 证据）。
 3. iframe 被 CSP/X-Frame-Options 拒绝时只有人工外部打开入口，未做浏览器负例。
-4. Agent `resolve_service_preview` 卡片有工具/组件测试，完整模型 Turn E2E 未跑。
+4. Agent `resolve_service_preview` 卡片已在真实 Turn E2E 验证；仍未覆盖模型自主决定调用与非法目标的多轮组合。
 5. DB 故障以事件提交失败/会话撤销注入，未做磁盘满、DB 句柄损坏。
 6. 仅 macOS + Chromium；日志为关联终端输出，不保证逐命令切片；每客户端预算仅实现并发/请求体上限。
 7. 认证 E2E 首轮抖动在本轮未能单独复现（修复后全量 14/14）；仍需注意既有批量抖动历史，不保证每次本机全量稳定。
