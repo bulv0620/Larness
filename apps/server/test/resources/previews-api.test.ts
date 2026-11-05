@@ -137,7 +137,7 @@ it("resolves a preview ticket through the authenticated API and fails closed whe
   });
 }, 40_000);
 
-it("returns PREVIEW_UNAVAILABLE when preview is disabled", async () => {
+it("returns PREVIEW_DISABLED when preview is disabled", async () => {
   await withTempDir(async (dir) => {
     const f = await startAuthorizedServer(path.join(dir, "data"));
     try {

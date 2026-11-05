@@ -49,11 +49,21 @@ it("resolves a one-time ticket and submits it through a POST bootstrap form, nev
   submit.mockRestore();
 });
 
-it("explains how to enable preview when the gateway is disabled", async () => {
+it("shows a generic unreachable state with refresh when the service is gone", async () => {
   vi.mocked(resolvePreview).mockRejectedValue(
-    new ApiError(503, "PREVIEW_UNAVAILABLE", "Preview is not enabled"),
+    new ApiError(401, "PREVIEW_UNAVAILABLE", "Service is not available for preview"),
+  );
+  const { findByText, queryByText } = render(<BrowserView tab={tab} />);
+  expect(await findByText("无法访问")).toBeTruthy();
+  expect(await findByText("刷新")).toBeTruthy();
+  expect(queryByText(/preview\.enabled/)).toBeNull();
+});
+
+it("keeps the same unreachable state when the gateway is disabled", async () => {
+  vi.mocked(resolvePreview).mockRejectedValue(
+    new ApiError(503, "PREVIEW_DISABLED", "Preview is not enabled"),
   );
   const { findByText } = render(<BrowserView tab={tab} />);
-  expect(await findByText(/预览功能未开启/)).toBeTruthy();
-  expect(await findByText(/preview\.enabled=true/)).toBeTruthy();
+  expect(await findByText("无法访问")).toBeTruthy();
+  expect(await findByText("刷新")).toBeTruthy();
 });

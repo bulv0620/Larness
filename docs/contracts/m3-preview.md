@@ -24,7 +24,7 @@
 
 人工POST登记的响应为资源动作（PREPARED/WAIT_APPROVAL及actionId），通过现有`/api/resource-actions/:id`查询、`/decision`决定及`/execute`执行；execute成功才返回serviceId。M2目前这些路由实际绑定GitManager，实现M3时须按resource kind分派，不能只改前端假装通用。Agent走现有Turn工具审批后调用同一登记核心，不再制造第二次人工审批。自主只针对已授权Agent，人工动作不会从其他会话借用自主策略；后端operation_id/请求快照/审批/fencing及事务保证沿用，具体resource_actions kind扩展在M3-1同迁移完成。
 
-返回稳定错误：现有UNAUTHENTICATED/ORIGIN_INVALID/CSRF_INVALID/VALIDATION_ERROR/NOT_FOUND/RESOURCE_UNAVAILABLE/RESOURCE_LOCKED/CONFLICT/APPROVAL_INVALID与PREVIEW_TARGET_INVALID；拟新增PREVIEW_UNAVAILABLE（来源或浏览器模式不可用）、PREVIEW_GRANT_INVALID（票据/访问grant无效），细节不泄漏PID/秘密。未知身份或会话撤销不得200伪报成功。重复票据消费拒绝；禁止通过GET签发长期访问权限。
+返回稳定错误：现有UNAUTHENTICATED/ORIGIN_INVALID/CSRF_INVALID/VALIDATION_ERROR/NOT_FOUND/RESOURCE_UNAVAILABLE/RESOURCE_LOCKED/CONFLICT/APPROVAL_INVALID与PREVIEW_TARGET_INVALID；拟新增PREVIEW_UNAVAILABLE（来源/服务/会话不可用）、PREVIEW_DISABLED（网关未启用）、PREVIEW_GRANT_INVALID（票据/访问grant无效），细节不泄漏PID/秘密。未知身份或会话撤销不得200伪报成功。重复票据消费拒绝；禁止通过GET签发长期访问权限。
 
 ## 3. Service DTO、存储与事件
 候选DTO：`id, projectId, sourceSessionId?, name, kind:"temporary", status, terminalId, terminalExecutionId, endpointGeneration, endpoint:{host,port,protocol}, previewEligible, reasonCode?, createdAt, updatedAt, endedAt?`。原始进程身份快照仅服务端保存。RUNNING表示身份/监听已核验，不等于业务HTTP健康；404/登录跳转/业务报错不因此伪报进程退出。

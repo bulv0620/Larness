@@ -30,7 +30,7 @@ export function registerPreviewRoutes(
   app.post("/api/previews/resolve", async (request, reply) => {
     try {
       const active = session(request);
-      if (!registry) throw new HttpError("PREVIEW_UNAVAILABLE", "Preview is not enabled");
+      if (!registry) throw new HttpError("PREVIEW_DISABLED", "Preview is not enabled");
       const parsed = ResolveSchema.safeParse(request.body);
       if (!parsed.success) throw new HttpError("VALIDATION_ERROR", "Invalid preview request");
       const result = await registry.resolve(parsed.data, active.id);

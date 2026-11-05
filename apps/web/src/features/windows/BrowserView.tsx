@@ -20,9 +20,7 @@ export function BrowserView({ tab }: { tab: WindowTab }) {
 }
 
 function previewError(cause: unknown): string {
-  if (cause instanceof ApiError && cause.code === "PREVIEW_UNAVAILABLE") {
-    return "预览功能未开启。请退出 Larness，在数据目录 config.json 设置 preview.enabled=true（可选 preview.port，默认 3211），重启后重新登记服务并打开预览。";
-  }
+  if (cause instanceof ApiError) return cause.message;
   return cause instanceof Error ? cause.message : "预览不可用";
 }
 
@@ -138,15 +136,15 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
       <div className="relative min-h-0 flex-1 bg-white">
         {error ? (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-surface text-center">
-            <p role="alert" className="max-w-[360px] px-4 text-[12px] text-danger">
-              {error}
+            <p role="alert" title={error} className="max-w-[360px] px-4 text-[12px] text-ink-2">
+              无法访问
             </p>
             <button
               type="button"
               className="text-[11px] text-accent underline"
               onClick={() => setNonce((value) => value + 1)}
             >
-              重新解析预览
+              刷新
             </button>
             <button
               type="button"
