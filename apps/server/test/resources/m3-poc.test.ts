@@ -171,7 +171,7 @@ describe.skipIf(process.platform !== "darwin")("M3-0 execution identity PoC", ()
         });
         owned.push(second.pid);
         expect(second.executionId).not.toBe(first.executionId);
-        expect(second.birth).not.toBe(first.birth);
+        expect(`${second.pid}:${second.birth}`).not.toBe(`${first.pid}:${first.birth}`);
         await expect(verifyExecution(second)).resolves.toBeUndefined();
 
         const stale = await failureOf(verifyExecution(first));

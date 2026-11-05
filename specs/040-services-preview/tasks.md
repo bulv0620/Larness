@@ -4,7 +4,7 @@
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M3-0 | 开发执行身份与隔离预览PoC | G2 / G-Spec-M3 / Q-002 / Q-026 | `in_progress` |
+| M3-0 | 开发执行身份与隔离预览PoC | G2 / G-Spec-M3 / Q-002 / Q-026 | `review` |
 | M3-1 | 临时登记、查询与退出退登 | M3-0 / G-PoC-M3 | `todo` |
 | M3-2 | 当前项目服务卡片与详情 | M3-1 | `todo` |
 | M3-3 | PreviewRegistry与固定上游HTTP/WS | M3-1 | `todo` |
@@ -26,9 +26,10 @@
 M3-6依赖M3-4，不能再依赖已迁出的任务；S10/S11移至M4 D9/D10。
 
 ## M3-0 开发执行身份与隔离预览PoC
-- 状态：`in_progress`（2026-11-05 人类批准 G-Spec-M3 后启动，分支 `task/m3-0-preview-poc`）；依赖：G2 / G-Spec-M3 / Q-002 / Q-026。
+- 状态：`review`（2026-11-05 PoC 本机范围完成，待 G-PoC-M3；分支 `task/m3-0-preview-poc`）；依赖：G2 / G-Spec-M3 / Q-002 / Q-026。
 - 范围：P1/P2 执行与监听身份、P3 本机隔离来源/票据/Cookie、P4 真实 Vite/HMR/开发 API、P5 故障与策略；远程独立注册域 HTTPS 延后至上线实验，本任务只标未验证。
-- 2026-11-05 进度：P1/P2 三项真实测试通过（同 PTY Ctrl+C 后 Shell 存活并重新绑定、终端外进程复用同一端口被拒绝、`0.0.0.0` 通配监听被拒绝），并实测 check-to-connect 残余窗口；P3–P5 未开始，G-PoC 未提交。
+- 2026-11-05 交付：9 项真实测试通过（P1/P2 3 项、P3 2 项、P4 1 项、P5 3 项），证据、残余窗口、Vite 7 实际版本与远程未验证边界见 [poc.md](poc.md)。浏览器项需 `LARNESS_POC_BROWSER=1`。
+- 待确认：G-PoC-M3（本机证据 + check-to-connect 窗口 + 远程 HTTPS 延后）；登记策略/慢消费者/真实 DB 属 M3-1 实现验证，不在本 PoC 冒充完成。
 - [ ] 先写会失败的真实资源/权限/边界测试。
 - [ ] 交付：按review P1–P5验证真实PTY/监听归属、独立来源/Cookie、HTTP/WS/HMR/API、端口复用、同Shell重启、策略与故障。poc.md记录版本/命令/延迟/connect竞态与支持矩阵，获G-PoC后才能M3-1。
 - [ ] 验收：S3/S4/S6–S9/S13/S14/S16–S18，自主无人工停等、非法目标仍拒绝，失败不伪报。
