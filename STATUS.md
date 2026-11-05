@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-05 (+08:00)
-> 当前阶段：**G-PoC-M3 已通过；M3-1～M3-4 已完成（2026-11-05）；M3-6 整体闭环/G3 进行中（远程 HTTPS 延后，未验证）**
+> 当前阶段：**M3-1～M3-4 done；M3-6 review，G3 待人类验收（远程 HTTPS 延后，未验证）**
 
 ## 里程碑
 
@@ -451,4 +451,5 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - M3-2 完成（2026-11-05）：服务窗口（卡片/详情/日志/打开终端/结束提示/L2 登记审批）组件测试 + 真实 Chromium E2E 通过；修复项目删除未清理 services/resource_actions 的外键回归。见 [验收](specs/040-services-preview/acceptance-m3-2.md)。
 - M3-3 完成（2026-11-05）：PreviewRegistry、HTTP/WS 固定上游、票据/grant、resolve API、`preview.port` 配置与事件撤销通过真实测试；见 [验收](specs/040-services-preview/acceptance-m3-3.md)。
 - M3-3b 完成（2026-11-05）：Host/路径/重定向/管理 API 与 Cookie/票据重放过期/会话撤销/退登/限额/请求体/WS 无 grant 负例通过；DB 故障仅以会话撤销验证，见 [验收](specs/040-services-preview/acceptance-m3-3b.md)。
-- M3-4 完成（2026-11-05）：独立 iframe 预览、票据 POST、Browser Tab 去重/布局恢复、Agent `resolve_service_preview` L0 与时间线卡片完成；真实 Vite 7 E2E 验证 HMR、相对 `/api` 与无直连端口。见 [验收](specs/040-services-preview/acceptance-m3-4.md)。M3-6 整体闭环/G3 进行中。
+- M3-4 完成（2026-11-05）：独立 iframe 预览、票据 POST、Browser Tab 去重/布局恢复、Agent `resolve_service_preview` L0 与时间线卡片完成；真实 Vite 7 E2E 验证 HMR、相对 `/api`、无直连端口与预览后 Ctrl+C 退登。见 [验收](specs/040-services-preview/acceptance-m3-4.md)。
+- M3-6 review（2026-11-05）：整体材料见 [closure.md](specs/040-services-preview/closure.md)；`pnpm check` 442 / 2 skipped、build、服务与预览 E2E 单项通过；完整 auth E2E 9/14（4 项 M2 既有失败）、Demo 12/15（旧 S0 布局断言）。G3 待人类验收，未标 done。

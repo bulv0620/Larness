@@ -128,7 +128,7 @@ test("M3-2 registers a live dev service and shows cards, detail, logs and the ow
     await expect(serviceWindow.getByText(`127.0.0.1:${port}`)).toBeVisible();
     await serviceWindow.getByRole("button", { name: /web/ }).click();
     await serviceWindow.getByRole("button", { name: "打开终端" }).click();
-    const terminalWindow = page.getByRole("dialog", { name: "frontend", exact: true });
+    const terminalWindow = page.getByRole("dialog", { name: "backend", exact: true });
     await expect(terminalWindow).toBeVisible();
     await expect(terminalWindow.getByTestId("live-terminal")).toBeVisible();
     await page.screenshot({ path: path.join(tmpdir(), "larness-m3-2-services.png") });

@@ -11,7 +11,7 @@
 | M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `done` | G2 于2026-11-05通过人类整体验收；范围与边界见030/closure.md |
-| M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `in_progress` | G-Spec-M3 通过（2026-11-05）；M3-0 done（G-PoC 2026-11-05）；M3-1～M3-4 done（2026-11-05）；M3-6 进行中，G3 待验收 |
+| M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `in_progress` | G-Spec-M3 通过（2026-11-05）；M3-0 done（G-PoC 2026-11-05）；M3-1～M3-4 done（2026-11-05）；M3-6 review，G3 待人类验收 |
 | M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `draft` | G4 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
 
@@ -198,7 +198,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M3-3 | PreviewRegistry/HTTP/WS固定上游 | M3-1 | `done`（2026-11-05） |
 | M3-3b | 预览隔离与生命周期安全矩阵 | M3-3 | `done`（2026-11-05） |
 | M3-4 | Browser/Agent卡片/HMR/开发API | M3-2/M3-3b | `done`（2026-11-05） |
-| M3-6 | 开发预览整体验收与G3 | M3-4 | `in_progress` |
+| M3-6 | 开发预览整体验收与G3 | M3-4 | `review` |
 
 编号迁移（非活动任务，不计完成）：旧M3-5的PM2 PoC/持久运行移至M4-0/M4-3；旧M3-5b的人/AI动作移至M4-3b。M3-6不再依赖迁出项，旧S10/S11移至M4 D9/D10。
 
