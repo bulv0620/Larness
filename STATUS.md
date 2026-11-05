@@ -440,4 +440,5 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 人类“按推荐批准吧，远程验证可以放到后续上线实验”。G-Spec-M3 通过：040 spec `ready`、ADR-043 `accepted`、Q-002/Q-026 移入已解决；仅授权 M3-0，G-PoC-M3 确认后才 M3-1。
 - 范围分级：M3-0 交 P1/P2 执行与监听身份、P3 本机隔离来源/票据/Cookie、P4 真实 Vite/HMR/开发 API、P5 故障与策略证据；远程独立注册域 HTTPS 延后至上线实验，本轮明确标未验证，不冒充 G-PoC/G3 通过。
 - 当前 M3-0 `in_progress`，分支 `task/m3-0-preview-poc`；先失败测试，真实 PTY/loopback/浏览器证据，临时数据与进程结束清理。
-- 本次文档同步：040 spec/plan/tasks/review、ADR-043、m3-preview 契约、open-questions、ROADMAP、STATUS；无运行代码/依赖/数据变更。
+- 本次文档同步：040 spec/plan/tasks/review、ADR-043、m3-preview 契约、open-questions、ROADMAP、STATUS。
+- M3-0 进度（2026-11-05）：新增 `apps/server/scripts/m3-poc/identity.ts`、`apps/server/test/resources/m3-poc.test.ts`；3 项真实测试通过（执行/监听身份、Ctrl+C 后 Shell 存活与重新绑定、端口复用/通配拒绝），并记录 check-to-connect 残余竞态。P3–P5 未开始；未跑全量 check/build/E2E，不能视为 G-PoC 通过。
