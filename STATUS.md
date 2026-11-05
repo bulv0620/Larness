@@ -459,5 +459,5 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 ## M3 完成 / G3 通过（2026-11-05 +08:00）
 - 人类确认 G3 通过：M3-6 标 `done`，M3 关闭；远程独立注册域 HTTPS 仍标未验证，留待上线实验。
 - 最终证据：`pnpm check` 446 / 2 skipped、`pnpm build`、auth E2E 15/15、Demo E2E 16/16；服务/预览真实 Chromium E2E 通过。
-- 收尾材料见 [closure.md](specs/040-services-preview/closure.md)；分支 `task/m3-1-registration` 合并回 `main` 并推送。
+- 收尾材料见 [closure.md](specs/040-services-preview/closure.md)；分支 `task/m3-1-registration` 已合并回 `main`（45f343e）并推送 `origin/main`。
 - 下一步：M4 规格评审，不在本轮自动开始实现。
