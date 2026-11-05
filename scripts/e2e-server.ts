@@ -177,7 +177,7 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
                 id: "service-frontend",
                 name: "start_project_terminal",
                 args: {
-                  role: "frontend",
+                  role: "backend",
                   executable: process.execPath,
                   args: [
                     "-e",

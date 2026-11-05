@@ -69,7 +69,20 @@ export const TerminalResultTargetSchema = z
   })
   .strict();
 export type TerminalResultTarget = z.infer<typeof TerminalResultTargetSchema>;
-export const ResourceTargetSchema = z.union([FileResultTargetSchema, TerminalResultTargetSchema]);
+export const PreviewResultTargetSchema = z
+  .object({
+    kind: z.literal("preview"),
+    projectId: z.string().min(1).max(128),
+    serviceId: z.string().regex(/^svc_[a-f0-9-]{36}$/),
+    path: z.string().min(1).max(2048),
+  })
+  .strict();
+export type PreviewResultTarget = z.infer<typeof PreviewResultTargetSchema>;
+export const ResourceTargetSchema = z.union([
+  FileResultTargetSchema,
+  TerminalResultTargetSchema,
+  PreviewResultTargetSchema,
+]);
 export type ResourceTarget = z.infer<typeof ResourceTargetSchema>;
 export const TerminalTakeoverSchema = z.object({ connectionId: z.string().uuid() }).strict();
 export const AcquireTerminalControlParamsSchema = z

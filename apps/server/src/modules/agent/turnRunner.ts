@@ -20,10 +20,12 @@ import {
   FileResultTargetSchema,
   InterruptTerminalParamsSchema,
   PlanParamsSchema,
+  PreviewResultTargetSchema,
   ReadTerminalOutputParamsSchema,
   ReleaseTerminalControlParamsSchema,
   SendTerminalInputParamsSchema,
   type ServerEvent,
+  ServiceIdSchema,
   ServiceRegisterInputSchema,
   StopProjectTerminalParamsSchema,
   TerminalDevSchema,
@@ -882,6 +884,54 @@ export class TurnRunner {
               };
             }
           },
+          resolveServicePreview: async (params) => {
+            const parsed = z
+              .object({
+                serviceId: ServiceIdSchema,
+                path: z.string().min(1).max(2048).default("/"),
+              })
+              .strict()
+              .safeParse(params);
+            if (!parsed.success)
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid preview target",
+              };
+            if (!this.#options.services || !session.projectId)
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Service context unavailable",
+              };
+            try {
+              const service = this.#options.services.get(parsed.data.serviceId);
+              if (service.projectId !== session.projectId)
+                return { ok: false, errorCode: "FORBIDDEN", summary: "Service is not accessible" };
+              if (service.status !== "RUNNING")
+                return {
+                  ok: false,
+                  errorCode: "PREVIEW_UNAVAILABLE",
+                  summary: "Service is not running",
+                };
+              return {
+                ok: true,
+                summary: `预览 ${service.name}${parsed.data.path}`,
+                data: {
+                  kind: "preview",
+                  projectId: session.projectId,
+                  serviceId: service.id,
+                  path: parsed.data.path,
+                },
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Preview target unavailable",
+              };
+            }
+          },
           listServices: async (params) => {
             if (!this.#options.services || !session.projectId)
               return {
@@ -1260,6 +1310,21 @@ export class TurnRunner {
               request.name === "start_project_terminal"
                 ? (result.result.data as { terminalId?: unknown; role?: unknown } | undefined)
                 : undefined;
+            const previewResult =
+              request.name === "resolve_service_preview"
+                ? (result.result.data as
+                    | { serviceId?: unknown; path?: unknown; projectId?: unknown }
+                    | undefined)
+                : undefined;
+            const previewTarget =
+              session.projectId === null
+                ? undefined
+                : PreviewResultTargetSchema.safeParse({
+                    kind: "preview",
+                    projectId: session.projectId,
+                    serviceId: previewResult?.serviceId,
+                    path: previewResult?.path,
+                  });
             const terminalTarget =
               session.projectId === null
                 ? undefined
@@ -1272,9 +1337,11 @@ export class TurnRunner {
             const target =
               fileTarget.success && fileResult
                 ? fileTarget.data
-                : terminalTarget?.success
-                  ? terminalTarget.data
-                  : undefined;
+                : previewTarget?.success
+                  ? previewTarget.data
+                  : terminalTarget?.success
+                    ? terminalTarget.data
+                    : undefined;
             const stoppedTerminal =
               request.name === "stop_project_terminal"
                 ? z

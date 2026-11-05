@@ -99,6 +99,11 @@ function mainSource(value: string): string {
     '    document.querySelector("#app").textContent = next.value;',
     "  });",
     "}",
+    'fetch("/api/health")',
+    "  .then((response) => response.text())",
+    "  .then((text) => {",
+    '    document.querySelector("#api").textContent = text;',
+    "  });",
     "",
   ].join("\n");
 }
@@ -109,6 +114,7 @@ test("M3-4 previews a real Vite app through an isolated iframe with HMR and no d
   test.setTimeout(120_000);
   const root = mkdtempSync(path.join(tmpdir(), "larness-preview-e2e-"));
   const port = await freePort();
+  const apiPort = await freePort();
   const requests: string[] = [];
   const sockets: string[] = [];
   const errors: string[] = [];
@@ -118,7 +124,11 @@ test("M3-4 previews a real Vite app through an isolated iframe with HMR and no d
   try {
     writeFileSync(
       path.join(root, "index.html"),
-      '<!doctype html><html><body><div id="app"></div><script type="module" src="/main.js"></script></body></html>',
+      '<!doctype html><html><body><div id="app"></div><div id="api"></div><script type="module" src="/main.js"></script></body></html>',
+    );
+    writeFileSync(
+      path.join(root, "vite.config.mjs"),
+      `export default { server: { proxy: { "/api": "http://127.0.0.1:${apiPort}" } } };\n`,
     );
     writeFileSync(path.join(root, "main.js"), mainSource("v1"));
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -128,21 +138,33 @@ test("M3-4 previews a real Vite app through an isolated iframe with HMR and no d
     await page.getByRole("dialog").getByRole("button", { name: "添加项目" }).click();
     await page.getByRole("button", { name: `在 ${path.basename(root)} 中新建会话` }).click();
     const composer = page.getByLabel("对话输入");
-    await composer.fill(`vite start ${port}`);
+    await composer.fill(`service start ${apiPort}`);
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByRole("button", { name: "批准执行" })).toBeVisible();
     await page.getByRole("button", { name: "批准执行" }).click();
     await expect(page.getByText("开发终端已启动。", { exact: true })).toBeVisible({
       timeout: 20_000,
     });
+    await composer.fill(`vite start ${port}`);
+    await page.getByRole("button", { name: "发送消息" }).click();
+    await expect(page.getByRole("button", { name: "批准执行" })).toBeVisible();
+    await page.getByRole("button", { name: "批准执行" }).click();
+    await expect(page.getByText("开发终端已启动。", { exact: true }).last()).toBeVisible({
+      timeout: 20_000,
+    });
     await waitForVite(port);
+    await waitForVite(apiPort);
 
     await page.getByRole("button", { name: "打开服务窗口" }).click();
     const serviceWindow = page.getByRole("dialog", { name: "服务", exact: true });
     await expect(serviceWindow.getByText("当前项目暂无服务")).toBeVisible();
     await serviceWindow.getByRole("button", { name: "登记服务" }).first().click();
     const dialog = page.getByRole("dialog", { name: "登记临时服务" });
-    await dialog.getByLabel("选择终端").selectOption({ index: 1 });
+    const frontendOption = dialog.getByRole("option", { name: /frontend/ });
+    await expect(frontendOption).toBeAttached();
+    await dialog
+      .getByLabel("选择终端")
+      .selectOption((await frontendOption.getAttribute("value")) ?? "");
     await dialog.getByLabel("服务名称").fill("web");
     await dialog.getByLabel("服务端口").fill(String(port));
     await dialog.getByRole("button", { name: "继续" }).click();
@@ -156,6 +178,7 @@ test("M3-4 previews a real Vite app through an isolated iframe with HMR and no d
     await expect(browser).toBeVisible();
     const frame = browser.frameLocator('[data-testid="preview-frame"]');
     await expect(frame.locator("#app")).toHaveText("v1", { timeout: 20_000 });
+    await expect(frame.locator("#api")).toHaveText("ok", { timeout: 20_000 });
 
     writeFileSync(path.join(root, "main.js"), mainSource("v2"));
     await expect(frame.locator("#app")).toHaveText("v2", { timeout: 20_000 });

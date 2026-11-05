@@ -1,5 +1,5 @@
 import { defineTool, type ToolDefinition } from "@larness/agent";
-import { ServiceRegisterInputSchema } from "@larness/shared";
+import { ServiceIdSchema, ServiceRegisterInputSchema } from "@larness/shared";
 import { z } from "zod";
 
 const ListSchema = z.object({ limit: z.number().int().min(1).max(200).default(50) }).strict();
@@ -18,6 +18,24 @@ export function createServiceTools(): ToolDefinition[] {
       handler: async (args, context) =>
         context.registerService
           ? context.registerService(args)
+          : { ok: false, errorCode: "FORBIDDEN", summary: "Service context unavailable" },
+    }),
+    defineTool({
+      name: "resolve_service_preview",
+      description:
+        "Resolve a structured preview target for an active temporary service in the current project. This is a read-only intent: it issues no ticket and starts nothing. The user opens the preview from the card, where the backend re-authorizes and issues a short-lived ticket for the isolated preview origin.",
+      riskLevel: "L0",
+      requiresProjectLock: false,
+      schema: z
+        .object({
+          serviceId: ServiceIdSchema,
+          path: z.string().min(1).max(2048).default("/"),
+        })
+        .strict(),
+      summarize: (args) => `解析预览 ${args.serviceId.slice(-6)}${args.path}`,
+      handler: async (args, context) =>
+        context.resolveServicePreview
+          ? context.resolveServicePreview(args)
           : { ok: false, errorCode: "FORBIDDEN", summary: "Service context unavailable" },
     }),
     defineTool({

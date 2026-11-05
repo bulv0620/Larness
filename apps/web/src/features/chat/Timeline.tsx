@@ -3,6 +3,7 @@ import { cn } from "@larness/ui";
 import { ArrowDown, ChevronRight, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
+import { PreviewResultCard } from "@/features/services/PreviewResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
@@ -83,7 +84,11 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     const target = tool.resourceTarget;
     if (target)
       targets.set(
-        target.kind === "file" ? JSON.stringify([target.scope, target.path]) : target.terminalId,
+        target.kind === "file"
+          ? JSON.stringify([target.scope, target.path])
+          : target.kind === "preview"
+            ? `preview:${target.serviceId}:${target.path}`
+            : target.terminalId,
         target,
       );
   }
@@ -141,6 +146,8 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
             {[...targets.entries()].map(([key, target]) =>
               target.kind === "file" ? (
                 <FileResultCard key={key} target={target} />
+              ) : target.kind === "preview" ? (
+                <PreviewResultCard key={key} target={target} />
               ) : (
                 <TerminalResultCard key={key} target={target} />
               ),
