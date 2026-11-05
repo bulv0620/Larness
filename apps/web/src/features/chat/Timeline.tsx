@@ -159,7 +159,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
           </div>
         ) : null}
         {targets.size ? (
-          <div className="space-y-1 border-t border-line pt-2 text-[12px]">
+          <section aria-label="本次成果" className="flex flex-wrap gap-1.5 pt-0.5">
             {[...targets.entries()].map(([key, target]) =>
               target.kind === "file" ? (
                 <FileResultCard key={key} target={target} />
@@ -169,7 +169,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
                 <TerminalResultCard key={key} target={target} />
               ),
             )}
-          </div>
+          </section>
         ) : null}
         {items
           .filter(
