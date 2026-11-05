@@ -51,8 +51,14 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     if (item.kind === "tool") lastOperation = index;
     if (item.kind === "message" && item.role === "assistant") lastAssistant = index;
   });
-  // A message becomes the final answer only when it follows the last operation.
-  const answer = lastAssistant > lastOperation ? items[lastAssistant] : undefined;
+  // A completed turn always ends with its last assistant message. Live event
+  // delivery can interleave a tool completion after the final message; do not
+  // hide the answer in that case. While the turn is active, only a message after
+  // the last operation counts as final.
+  const answer =
+    lastAssistant >= 0 && (lastAssistant > lastOperation || user?.turnOutcome === "completed")
+      ? items[lastAssistant]
+      : undefined;
   const latestCommentary =
     active && !answer
       ? [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant")
