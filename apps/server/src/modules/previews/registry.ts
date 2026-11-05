@@ -111,7 +111,11 @@ function rewriteSetCookie(value: string): string {
   return parts.join("; ");
 }
 
-function upstreamHeaders(headers: IncomingHttpHeaders, port: number): OutgoingHttpHeaders {
+function upstreamHeaders(
+  headers: IncomingHttpHeaders,
+  host: string,
+  port: number,
+): OutgoingHttpHeaders {
   const copy: OutgoingHttpHeaders = { ...headers };
   for (const name of [
     "host",
@@ -132,11 +136,15 @@ function upstreamHeaders(headers: IncomingHttpHeaders, port: number): OutgoingHt
   delete copy.cookie;
   const project = projectCookieHeader(headers.cookie);
   if (project) copy.cookie = project;
-  copy.host = `127.0.0.1:${port}`;
+  copy.host = `${host}:${port}`;
   return copy;
 }
 
-function upgradeHeaders(headers: IncomingHttpHeaders, port: number): OutgoingHttpHeaders {
+function upgradeHeaders(
+  headers: IncomingHttpHeaders,
+  host: string,
+  port: number,
+): OutgoingHttpHeaders {
   const copy: OutgoingHttpHeaders = { ...headers };
   for (const name of [
     "host",
@@ -150,7 +158,7 @@ function upgradeHeaders(headers: IncomingHttpHeaders, port: number): OutgoingHtt
   delete copy.cookie;
   const project = projectCookieHeader(headers.cookie);
   if (project) copy.cookie = project;
-  copy.host = `127.0.0.1:${port}`;
+  copy.host = `${host}:${port}`;
   return copy;
 }
 
@@ -313,8 +321,9 @@ export class PreviewRegistry {
       return;
     }
     try {
-      const service = await this.#verify(grant.serviceId);
-      this.#proxy(req, res, url, service.endpoint.port);
+      await this.#verify(grant.serviceId);
+      const target = this.#services.dialTarget(grant.serviceId);
+      this.#proxy(req, res, url, target.host, target.port);
     } catch {
       this.revokeService(grant.serviceId);
       res.writeHead(401, { "cache-control": "no-store" });
@@ -408,7 +417,7 @@ export class PreviewRegistry {
     }
   }
 
-  #proxy(req: IncomingMessage, res: ServerResponse, url: URL, port: number): void {
+  #proxy(req: IncomingMessage, res: ServerResponse, url: URL, host: string, port: number): void {
     this.#active++;
     res.on("close", () => {
       this.#active--;
@@ -422,11 +431,11 @@ export class PreviewRegistry {
     }
     const upstream = request(
       {
-        host: "127.0.0.1",
+        host,
         port,
         method: req.method,
         path: `${url.pathname}${url.search}`,
-        headers: upstreamHeaders(req.headers, port),
+        headers: upstreamHeaders(req.headers, host, port),
       },
       (upstreamResponse) => {
         res.writeHead(
@@ -470,9 +479,9 @@ export class PreviewRegistry {
       socket.end("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
       return;
     }
-    let port = 0;
+    let target: { host: string; port: number };
     try {
-      port = this.#services.get(grant.serviceId).endpoint.port;
+      target = this.#services.dialTarget(grant.serviceId);
     } catch {
       socket.destroy();
       return;
@@ -481,7 +490,7 @@ export class PreviewRegistry {
       socket.end("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n");
       return;
     }
-    const upstream = connect(port, "127.0.0.1");
+    const upstream = connect(target.port, target.host);
     grant.sockets.add(socket as Socket);
     upstream.on("error", () => socket.destroy());
     socket.on("error", () => upstream.destroy());
@@ -492,7 +501,9 @@ export class PreviewRegistry {
     });
     upstream.on("connect", () => {
       const lines = [`${req.method ?? "GET"} ${req.url ?? "/"} HTTP/1.1`];
-      for (const [name, value] of Object.entries(upgradeHeaders(req.headers, port))) {
+      for (const [name, value] of Object.entries(
+        upgradeHeaders(req.headers, target.host, target.port),
+      )) {
         if (value === undefined) continue;
         for (const item of Array.isArray(value) ? value : [value]) lines.push(`${name}: ${item}`);
       }

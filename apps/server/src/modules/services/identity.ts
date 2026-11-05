@@ -10,6 +10,7 @@ export interface ExecutionIdentity {
   pid: number;
   birth: string;
   address: string;
+  dialHost: string;
   port: number;
 }
 
@@ -38,6 +39,7 @@ interface ListenerInfo {
   port: number;
   wildcard: boolean;
   loopback: boolean;
+  dialHost: string;
 }
 
 async function run(command: string, args: string[]): Promise<string> {
@@ -77,18 +79,22 @@ export async function processSnapshot(): Promise<ProcessInfo[]> {
 
 function parseAddress(
   value: string,
-): { address: string; port: number; wildcard: boolean; loopback: boolean } | undefined {
+):
+  | { address: string; port: number; wildcard: boolean; loopback: boolean; dialHost: string }
+  | undefined {
   const separator = value.lastIndexOf(":");
   if (separator < 0) return undefined;
   const port = Number(value.slice(separator + 1));
   if (!Number.isInteger(port) || port <= 0) return undefined;
   let host = value.slice(0, separator);
   if (host.startsWith("[") && host.endsWith("]")) host = host.slice(1, -1);
+  const wildcard = host === "*" || host === "0.0.0.0" || host === "::";
   return {
     address: value,
     port,
-    wildcard: host === "*" || host === "0.0.0.0" || host === "::",
+    wildcard,
     loopback: host === "127.0.0.1" || host === "::1",
+    dialHost: wildcard ? "127.0.0.1" : host,
   };
 }
 
@@ -147,12 +153,6 @@ export async function probeExecution(input: ProbeInput): Promise<ExecutionIdenti
   if (owners.size > 1)
     throw new ServiceIdentityError("LISTENER_OWNER_AMBIGUOUS", "Port has multiple listeners");
   const socket = sockets[0];
-  if (sockets.some((item) => item.wildcard || !item.loopback)) {
-    throw new ServiceIdentityError(
-      "LISTENER_NOT_LOOPBACK",
-      "Only services bound to 127.0.0.1 or ::1 can be registered",
-    );
-  }
   const owner = processes.find((item) => item.pid === socket.pid);
   if (!owner) throw new ServiceIdentityError("LISTENER_OWNER_UNKNOWN", "Listener owner is unknown");
   if (!descendsFrom(processes, owner.pid, leader.pid)) {
@@ -168,6 +168,7 @@ export async function probeExecution(input: ProbeInput): Promise<ExecutionIdenti
     pid: owner.pid,
     birth: owner.birth,
     address: socket.address,
+    dialHost: socket.dialHost,
     port: socket.port,
   };
 }
@@ -183,9 +184,6 @@ export async function verifyExecution(identity: ExecutionIdentity): Promise<void
   if (!socket) throw new ServiceIdentityError("LISTENER_GONE", "Service endpoint is gone");
   if (socket.address !== identity.address) {
     throw new ServiceIdentityError("LISTENER_ADDRESS_CHANGED", "Service address changed");
-  }
-  if (socket.wildcard || !socket.loopback) {
-    throw new ServiceIdentityError("LISTENER_NOT_LOOPBACK", "Service is no longer loopback only");
   }
   const owner = processes.find((item) => item.pid === socket.pid);
   if (!owner || owner.birth !== identity.birth) {
@@ -218,6 +216,7 @@ export function parseExecutionIdentity(json: string): ExecutionIdentity {
     pid: value.pid,
     birth: value.birth,
     address: value.address,
+    dialHost: value.dialHost ?? value.address.replace(/^\[|\]$/g, "").split(":")[0],
     port: value.port,
   };
 }

@@ -262,7 +262,7 @@ it("registers a verified temporary service, replays events and unregisters when 
   });
 }, 40_000);
 
-it("rejects listeners outside the terminal tree, wildcard listeners and missing endpoints", async () => {
+it("rejects listeners outside the terminal tree and missing endpoints, but accepts wildcard bind", async () => {
   await withTempDir(async (dir) => {
     const fixtureData = await fixture(dir);
     const { f, root, project, client, context, manager, services, operation } = fixtureData;
@@ -316,19 +316,19 @@ it("rejects listeners outside the terminal tree, wildcard listeners and missing 
         async () => (await listeningSockets(wildcardPort)).length > 0,
         "wildcard listener",
       );
-      await expect(
-        services.register(
-          {
-            projectId: project.id,
-            operationId: operation(),
-            terminalId: wildcardTerminal.id,
-            kind: "temporary",
-            name: "wildcard",
-            endpoint: { host: "127.0.0.1", port: wildcardPort, protocol: "http" },
-          },
-          client,
-        ),
-      ).rejects.toMatchObject({ code: "PREVIEW_TARGET_INVALID" });
+      const wildcard = await services.register(
+        {
+          projectId: project.id,
+          operationId: operation(),
+          terminalId: wildcardTerminal.id,
+          kind: "temporary",
+          name: "wildcard",
+          endpoint: { host: "127.0.0.1", port: wildcardPort, protocol: "http" },
+        },
+        client,
+      );
+      expect(wildcard.status).toBe("RUNNING");
+      expect(wildcard.endpoint.port).toBe(wildcardPort);
 
       const emptyPort = await freePort();
       await expect(

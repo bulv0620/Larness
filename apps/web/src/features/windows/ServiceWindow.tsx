@@ -45,7 +45,7 @@ const TERMINAL_ACTION_CODES = new Set([
 function registrationError(cause: unknown): string {
   if (cause instanceof ApiError) {
     if (cause.code === "PREVIEW_TARGET_INVALID") {
-      return "服务必须只监听 127.0.0.1 或 ::1；0.0.0.0 / :: 通配监听不能登记。请修改启动参数后重新登记。";
+      return "无法登记：该端口没有可核验、且属于此终端的监听。请确认服务已在该终端启动；能登记但访问不了时，预览会显示不可用。";
     }
     if (cause.code === "APPROVAL_INVALID" || cause.code === "EXPIRED") {
       return "这次登记已结束（执行失败或过期），请重新登记。";

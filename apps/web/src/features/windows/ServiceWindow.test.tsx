@@ -191,7 +191,7 @@ it("returns to the form when execution fails terminally instead of leaving a dea
   fireEvent.click(screen.getByRole("button", { name: "继续" }));
   fireEvent.click(await screen.findByRole("button", { name: "批准并登记" }));
 
-  expect(await screen.findByText(/只监听 127\.0\.0\.1 或 ::1/)).toBeTruthy();
+  expect(await screen.findByText(/没有可核验、且属于此终端的监听/)).toBeTruthy();
   expect(screen.queryByRole("button", { name: "批准并登记" })).toBeNull();
   expect(screen.getByLabelText("服务名称")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "继续" }));

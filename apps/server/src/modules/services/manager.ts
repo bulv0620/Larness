@@ -598,6 +598,15 @@ export class ServiceManager {
     };
   }
 
+  dialTarget(id: string): { host: string; port: number } {
+    const row = serviceRow(this.#db, id);
+    if (row?.status !== "RUNNING") {
+      throw new FileManagerError("PREVIEW_UNAVAILABLE", "Service is not running");
+    }
+    const identity = parseExecutionIdentity(row.identityJson);
+    return { host: identity.dialHost, port: identity.port };
+  }
+
   async verifyActive(id: string): Promise<ServiceDto> {
     const row = serviceRow(this.#db, id);
     if (row?.status !== "RUNNING") {

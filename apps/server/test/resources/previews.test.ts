@@ -38,7 +38,7 @@ async function waitFor(check: () => Promise<boolean>, label: string, timeoutMs =
   throw new Error(`Timed out waiting for ${label}`);
 }
 
-function serverSource(port: number): string {
+function serverSource(port: number, host = "127.0.0.1"): string {
   return [
     'import { createServer } from "node:http";',
     "const server = createServer((request, response) => {",
@@ -52,7 +52,7 @@ function serverSource(port: number): string {
     '  socket.write("HTTP/1.1 101 Switching Protocols\\r\\nUpgrade: websocket\\r\\nConnection: Upgrade\\r\\n\\r\\n");',
     '  socket.on("data", (data) => socket.write(`echo:${data}`));',
     "});",
-    `server.listen(${port}, "127.0.0.1");`,
+    `server.listen(${port}, ${JSON.stringify(host)});`,
     'console.log("READY");',
     "",
   ].join("\n");
@@ -92,7 +92,7 @@ function rawRequest(
   });
 }
 
-async function fixture(dir: string) {
+async function fixture(dir: string, host = "127.0.0.1") {
   const f = await startAuthorizedServer(path.join(dir, "data"));
   const root = path.join(dir, "project");
   await mkdir(root);
@@ -111,7 +111,7 @@ async function fixture(dir: string) {
   updateTurnRow(f.running.db, turn.turnId, { status: "RUNNING" });
   const port = await freePort();
   const serverPath = path.join(root, "server.mjs");
-  await writeFile(serverPath, serverSource(port));
+  await writeFile(serverPath, serverSource(port, host));
   const terminal = await f.running.terminals.createDev(
     {
       clientSessionId: client,
@@ -405,6 +405,32 @@ it("limits concurrent preview requests and keeps revoked grants closed after por
 
       data.f.running.services.unregister(data.service.id, "TEST_REUSE");
       expect((await rawRequest(registry.port, host, { headers: { cookie } })).status).toBe(401);
+    } finally {
+      await registry.stop();
+      await stopAuthorizedServer(data.f);
+    }
+  });
+}, 40_000);
+
+it("previews a wildcard-bound dev service through its loopback dial target", async () => {
+  await withTempDir(async (dir) => {
+    const data = await fixture(dir, "0.0.0.0");
+    const registry = new PreviewRegistry({
+      db: data.f.running.db,
+      services: data.f.running.services,
+      events: data.f.running.resourceEvents,
+      port: 0,
+    });
+    await registry.start();
+    try {
+      const resolved = await registry.resolve({ serviceId: data.service.id }, data.client);
+      const host = new URL(resolved.origin).hostname;
+      const opened = await bootstrap(registry, resolved);
+      const response = await rawRequest(registry.port, host, {
+        headers: { cookie: opened.grant },
+      });
+      expect(response.status).toBe(200);
+      expect(response.body).toContain(`127.0.0.1:${data.port}`);
     } finally {
       await registry.stop();
       await stopAuthorizedServer(data.f);

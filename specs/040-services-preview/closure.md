@@ -23,7 +23,7 @@
 | S3 独立来源 HTTP/WS/HMR | registry 测试 + Vite iframe E2E（HMR v1→v2） |
 | S4 Ctrl+C 退登、Shell 保留 | 服务端真实 PTY 测试；preview E2E 在预览后 Ctrl+C，详情变“已结束”、预览按钮禁用 |
 | S5 显式关闭终端撤销全部 endpoint | 服务端多 endpoint 测试 |
-| S6 端口复用/旧票据 | 注册侧拒绝终端外/通配监听；退登后旧 grant 401 |
+| S6 端口复用/旧票据 | 注册侧拒绝终端外/未知归属监听；退登后旧 grant 401；通配监听按 ADR-044 允许登记 |
 | S7 SSRF/管理端口/任意 URL | 路径/Host/重定向矩阵（M3-3b） |
 | S8 管理 Cookie/API 隔离 | 管理 Cookie 不能当 grant、预览 host 不挂管理 API、上游不收 grant |
 | S9 身份/DB 失败 | 非 RUNNING/身份失败 503/401；事件插入失败回滚；会话撤销 401 |
@@ -44,6 +44,9 @@
 - Demo E2E：**16/16 通过**（4 项旧 S0 布局断言已按现行互斥分区更新）。
 - 根 `pnpm test` 改为串行 workspace，避免 Web/Server 测试并发争抢导致既有 5 秒 PTY 超时；`pnpm check` 通过（server 442 / 2 skipped）。
 
+
+## ADR-044：绑定地址简化（2026-11-05）
+人类明确“终端监听端口就创建入口，访问不了显示访问不了”。登记不再以绑定地址拒绝：`0.0.0.0`/`::`/具体本机地址均可登记；网关按已核验的 dialHost 访问（回环/通配用 `127.0.0.1`，具体地址用该地址），失败时预览显示不可用而不撤销登记。身份、票据、grant、管理隔离保持不变；文档不再承诺“端口无需公网暴露”。详见 [ADR-044](../../docs/adr/ADR-044-preview-binding-simplification.md)。
 
 ## 已知边界（不冒充完成）
 

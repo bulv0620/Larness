@@ -1,6 +1,6 @@
 # ADR-043 开发预览来源、票据与服务执行身份
 
-- 状态：accepted；2026-11-05 人类按[评审包](../../specs/040-services-preview/review.md)推荐批准 G-Spec-M3，仅授权先做 M3-0。远程独立注册域 HTTPS 实测延后至后续上线实验，本 ADR 的远程条款仍是设计约束，但未获实测验证，不得宣称已支持。
+- 状态：accepted；2026-11-05 人类按[评审包](../../specs/040-services-preview/review.md)推荐批准 G-Spec-M3，仅授权先做 M3-0。第 5 条“拒绝 0.0.0.0/:: 通配监听”已由 [ADR-044](ADR-044-preview-binding-simplification.md) 修订；身份/票据/隔离条款继续有效。远程独立注册域 HTTPS 实测延后至后续上线实验，本 ADR 的远程条款仍是设计约束，但未获实测验证，不得宣称已支持。
 - 关联：[040评审包](../../specs/040-services-preview/review.md)、[技术候选契约](../contracts/m3-preview.md)、ADR-030/038/040/042。
 
 ## 背景

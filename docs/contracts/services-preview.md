@@ -22,10 +22,10 @@ AI 与人调用同一后端能力：临时进程通过 Terminal 工具 / UI 控�
 ## 2. Terminal → 登记 → 预览流程
 
 1. Agent 经终端工具或用户经终端启动 dev；前后端可以是不同 terminalId，各有项目来源。
-2. Agent / 用户提交发现的 endpoint 供登记，或受控探测产生候选；**日志中的 URL 只是候选，不自动授权**。后端核对终端归属、该次执行仍活跃、实际监听与 loopback 目标，不扫描并收养无关主机服务。
+2. Agent / 用户提交发现的 endpoint 供登记，或受控探测产生候选；**日志中的 URL 只是候选，不自动授权**。后端核对终端归属、该次执行仍活跃、实际监听与可核验的本地目标，不扫描并收养无关主机服务。
 3. 事务保存临时服务绑定与注册事件，发布服务卡片；登记不得再启动进程。允许同一绑定重复请求返回同一 serviceId。
 4. 目标监听 / 健康检查成功且允许预览后，生成绑定 serviceId 与相对页面路径的预览结果卡片；未 ready 显示 starting / unavailable，不提供虚假可用入口。
-5. 点击卡片 → 验证当前认证 / 服务归属 → PreviewRegistry 核对活跃绑定 → 发短期票据 → Browser Tab 加载独立预览来源 → HTTP / WS 转发到 Larness 主机的 loopback 端口。
+5. 点击卡片 → 验证当前认证 / 服务归属 → PreviewRegistry 核对活跃绑定 → 发短期票据 → Browser Tab 加载独立预览来源 → HTTP / WS 转发到 Larness 主机已核验的本地端口。
 6. 源进程停止、终端结束、绑定身份不明或监听被其他进程接管，立即禁止新预览并关闭已有代理流；持久化退登 / 状态事件后更新所有客户端。端口后来被占用不能继承原授权；重新启动应重新登记 / 校验，不能仅凭端口号复活旧票据。
 
 源状态不明、DB 写失败、重启恢复尚未完成时失败关闭。终端事件和定期对账共同驱动失效；不能只依赖浏览器在线或只依赖日志正则。进程后代 / endpoint 归属识别的各平台实现及检测延迟须在 M3-0 PoC 明确，不把未知绑定标 ready。
@@ -38,7 +38,7 @@ Service 公共字段：`id, projectId?, workspaceSessionId?, sourceSessionId?, n
 
 - `kind=temporary`：必须有 terminalId、terminalExecutionId、endpointGeneration；不能有可由 ServiceManager 执行的独立启动配置。状态 `REGISTERING / STARTING / RUNNING / UNHEALTHY / UNREGISTERED / UNKNOWN`；未验证不能 RUNNING。退登后不在活跃卡片列表，详情可显示 ended。
 - `kind=persistent`：runtime 固定 pm2，保存受管 PM2 标识 / 配置引用 / 部署关联；不得信任客户端自报 PID / PM2 ID。状态 `STOPPED / STARTING / RUNNING / UNHEALTHY / STOPPING / FAILED / UNKNOWN`，desiredState 与 observedState 分开。
-- endpoint 由后端归一化为已验证的 loopback host / port / 协议，不接受任意 upstream；正式 publicUrl 独立字段且不能自动用于预览。
+- endpoint 由后端归一化为已验证的本地 host / port / 协议，不接受任意 upstream；正式 publicUrl 独立字段且不能自动用于预览。
 - 临时日志引用终端执行输出和游标，不复制出第二套无限日志；持久日志由 PM2Adapter 受控读取、轮转 / 脱敏。持久 stdout / stderr 默认沿数据契约 14 天 / 100 MiB，细分限额实施前冻结。
 - 临时服务进程未知即预览不可用；持久服务数据库记录不能代替 PM2 实际状态。进程存在不等于 HTTP 健康。
 

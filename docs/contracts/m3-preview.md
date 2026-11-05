@@ -4,10 +4,10 @@
 
 ## 1. 执行身份与登记
 - terminalId标识PTY资源；后端已有launchId标识该次PTY启动；新terminalExecutionId标识此次已验证的服务进程树/监听实例。它不是TerminalLease.generation、TurnId、terminalId或仅PID。
-- 登记先确认已授权scope与terminal一致，再核对terminal launch、监听owner及birth、终端后代关系/服务工作负载边界、指定loopback端口独占监听。执行身份和endpointGeneration只由后端产生；原有ps文本不能当强身份已证实。M3-0验证现有OS工具/接口是否足够，不新增原生库。
+- 登记先确认已授权scope与terminal一致，再核对terminal launch、监听owner及birth、终端后代关系/服务工作负载边界、指定端口独占监听（不限制绑定地址，允许通配）。执行身份和endpointGeneration只由后端产生；原有ps文本不能当强身份已证实。M3-0验证现有OS工具/接口是否足够，不新增原生库。
 - 手动/AI在同一个保留Shell里重新启动后可重新登记；不得因为原PTY还RUNNING就沿用旧execution/grant。同一存活执行/端点幂等返回同一serviceId；不同请求名不悄悄重命名已有服务，冲突返回CONFLICT。多个endpoint可关联同一执行，分别授权generation。
 - 登记必须明确服务工作负载根及监听owner；绑定的源执行结束即退登，即使Shell或孤立子进程还存活也不继承登记。新的服务工作负载须重新核验登记；Shell空闲、端口移交无关进程、归属未知均不可替代。无法证明的重父化/多owner/SO_REUSEPORT拒绝。进程退出可证明时立即撤销；未知标UNKNOWN、撤路由、保留终端，不发信号“修复”。
-- 日志URL仅候选；无全主机扫描或后台自动收养。人工在服务空态通过“登记服务”选择当前项目终端/loopback端口，Agent调用同一登记能力。0.0.0.0/::监听给明确不可预览原因，由用户/Agent另行按终端权限调整。
+- 日志URL仅候选；无全主机扫描或后台自动收养。人工在服务空态通过“登记服务”选择当前项目终端/loopback端口，Agent调用同一登记能力。0.0.0.0/:: 监听按 ADR-044 允许登记，预览经 127.0.0.1 拨号；访问失败显示不可用，不自动改绑定。
 
 ## 2. 管理REST与Agent风险
 所有管理接口要求现有会话、scope与限流；POST还要求Origin/CSRF，变更沿用操作幂等/锁/审计。请求采用strict Zod，拒绝多余授权字段；名称1–80字符、端口1–65535、host仅127.0.0.1或::1，协议本阶段固定http（WS复用同一监听），无任意URL/文件路径/客户端PID。
@@ -40,7 +40,7 @@ M3-1一份新增services迁移，包含上述temporary字段、scope引用、sou
 2. 浏览器向独立来源受控bootstrap通过POST body消费，不把票据放URL/query/referrer；受控页面不运行项目脚本。验证确切管理Origin/登记目标/票据未用，再换opaque grant与重定向到已校验相对路径；消费失败不转发项目。嵌入与外部不能假设共享分区Cookie，分别bootstrap。
 3. grant最多15分钟且不超管理会话，host-only/HttpOnly，HTTPS Secure；内嵌跨站的SameSite/Partitioned实测冻结。管理会话登出/撤销/过期、服务失效、应用重启均撤grant和既有流。管理端仅可在其会话有效时续领，项目页不能自行获得管理票据。
 4. 每个grant独立随机host，host路由不是认证；请求需有效grant与活跃generation。Cookie鉴权只消费预览Cookie，绝不接受管理Cookie代替。明确验证Host/SNI/可信反代、WS Origin与grant，禁止通配管理CORS/危险postMessage。iframe `allow-scripts allow-forms allow-same-origin`且确实跨来源，其他权限默认关闭；外部窗口noopener/noreferrer。
-5. 固定dial已核验的数值loopback地址/端口，不DNS解析上游，不跟随302/307到其他源。仅允许同预览origin相对/可验证同上游的Location映射；其他导航给明确不可用/外部链接，不代理新目标。拒绝CONNECT/TRACE；HTTP常规方法仅转当前已授权项目服务，body不写日志。strip hop-by-hop、管理认证/CSRF/转发身份头及预览grant，Host按核验上游重建，X-Forwarded-*由网关重建；项目Cookie限当前预览host，不允许Domain扩大，保留项目应用登录且拒绝覆盖网关保留Cookie名。保留并组合项目CSP/X-Frame-Options；无法嵌入则外部打开，不通用删头。浏览器脚本仍可发外网请求，绝不宣称浏览器或OS网络沙箱。
+5. 固定dial已核验的数值本地地址/端口（回环/通配用127.0.0.1，具体本机地址用该地址），不DNS解析上游，不跟随302/307到其他源。仅允许同预览origin相对/可验证同上游的Location映射；其他导航给明确不可用/外部链接，不代理新目标。拒绝CONNECT/TRACE；HTTP常规方法仅转当前已授权项目服务，body不写日志。strip hop-by-hop、管理认证/CSRF/转发身份头及预览grant，Host按核验上游重建，X-Forwarded-*由网关重建；项目Cookie限当前预览host，不允许Domain扩大，保留项目应用登录且拒绝覆盖网关保留Cookie名。保留并组合项目CSP/X-Frame-Options；无法嵌入则外部打开，不通用删头。浏览器脚本仍可发外网请求，绝不宣称浏览器或OS网络沙箱。
 6. 每次建立上游连接前后重验监听owner/birth/launch/generation，成功前不发项目请求；禁用跨generation连接复用，失效销毁现有HTTP/WS。最多1秒对账、核验证据最大2秒陈旧，核验超时/异常直接拒绝。PoC必须记录connect竞态残余，不声称纯端口代理原子绑定进程；若串绑或身份不足返回评审，不降低授权标准。
 
 候选资源预算（M3-0需实测，变化须更新候选/评审）：每client每service最多32个活动HTTP和8个WS，全实例最多256个上游连接；connect/身份探测2秒、普通HTTP首响应头10秒、空闲60秒；非流式请求/响应各16MiB，SSE/WS按64KiB单帧或chunk、1MiB排队上限与背压处理，WS最长grant剩余寿命；取消/超限断开并稳定反馈。不得为支持Vite关闭身份/授权/预算；上传、大资源/特殊流式兼容性按实测披露。
