@@ -153,25 +153,31 @@ test.describe("Larness S0 视觉 Demo", () => {
 
   test("窗口打开、隐藏、恢复、最大化与关闭", async ({ page }) => {
     await page.getByRole("button", { name: "打开终端窗口" }).click();
-    await expect(page.locator(".window-drag-handle")).toHaveCount(1);
-    await expect(page.locator(".xterm")).toBeVisible();
+    const frame = page.locator("[data-window-frame]");
+    const terminal = frame.locator(".xterm");
+    await expect(terminal).toBeVisible();
+    await terminal.evaluate((node) => node.setAttribute("data-original-screen", "true"));
 
     await page.getByRole("button", { name: "隐藏窗口" }).click();
-    await expect(page.locator(".window-drag-handle")).toHaveCount(0);
+    await expect(frame).toBeHidden();
+    await expect(frame).toHaveCount(1);
+    await expect(terminal).toHaveAttribute("data-original-screen", "true");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
 
     await page.getByRole("button", { name: "打开终端窗口" }).click();
-    await expect(page.locator(".window-drag-handle")).toHaveCount(1);
+    await expect(terminal).toBeVisible();
+    await expect(terminal).toHaveAttribute("data-original-screen", "true");
     await page.getByRole("button", { name: "最大化窗口" }).click();
     await expect(page.getByRole("button", { name: "还原窗口" })).toBeVisible();
     await page.getByRole("button", { name: "还原窗口" }).click();
     await page.getByRole("button", { name: "关闭窗口" }).click();
-    await expect(page.locator(".window-drag-handle")).toHaveCount(0);
+    await expect(frame).toBeHidden();
   });
 
   test("点击窗口外同时最小化资源窗口，保留原有 Tab", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1080 });
     const dock = page.getByRole("navigation", { name: "项目窗口" });
-    const frames = page.locator("[data-window-frame]");
+    const frames = page.locator("[data-window-frame]:visible");
     await dock.getByRole("button", { name: "打开终端窗口" }).click();
     await dock.getByRole("button", { name: "打开服务窗口" }).click();
     await expect(frames).toHaveCount(2);
@@ -192,7 +198,7 @@ test.describe("Larness S0 视觉 Demo", () => {
     const serviceButton = dock.getByRole("button", { name: "打开服务窗口" });
     await terminalButton.click();
     await serviceButton.click();
-    const frames = page.locator("[data-window-frame]");
+    const frames = page.locator("[data-window-frame]:visible");
     await expect(frames).toHaveCount(2);
     const terminal = frames.filter({ has: page.getByRole("tab", { name: "pnpm dev" }) });
     const service = page.getByRole("dialog", { name: "web-dev", exact: true });
@@ -249,7 +255,7 @@ test.describe("Larness S0 视觉 Demo", () => {
       .toBe(true);
     await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
     await dock.getByRole("button", { name: "打开服务窗口" }).click();
-    await expect(page.locator("[data-window-frame]")).toHaveCount(1);
+    await expect(page.locator("[data-window-frame]:visible")).toHaveCount(1);
     await expect(page.getByRole("dialog", { name: "web-dev", exact: true })).toBeVisible();
   });
 
@@ -289,7 +295,7 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.locator(".window-drag-handle")).toHaveCount(1);
     await page.locator(".window-drag-handle").click();
     await page.keyboard.press("Escape");
-    await expect(page.locator(".window-drag-handle")).toHaveCount(0);
+    await expect(page.locator(".window-drag-handle")).toBeHidden();
   });
 
   test("窄屏隐藏资源栏并打开移动端导航", async ({ page }) => {

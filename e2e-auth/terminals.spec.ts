@@ -125,7 +125,8 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
       element.setAttribute("data-restored-screen", "original");
     });
     await other.getByRole("button", { name: "隐藏窗口", exact: true }).click();
-    await expect(observer).toHaveCount(0);
+    await expect(observer).toBeHidden();
+    await expect(observer.locator(".xterm")).toHaveAttribute("data-restored-screen", "original");
     const restoredCursors: string[] = [];
     other.on("request", (request) => {
       const url = new URL(request.url());
@@ -273,7 +274,8 @@ test("M2 terminal lease failures, expiry and logout preserve the PTY and permit 
     await terminal.locator(".xterm-helper-textarea").press("Enter");
     await expect(terminal.getByRole("log")).toContainText("HANDOFF_alive");
     await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
-    await expect(terminal).toHaveCount(0);
+    await expect(terminal).toBeHidden();
+    await expect(terminal).toHaveCount(1);
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(terminal).toHaveAttribute("data-terminal-id", id);
     await expect(terminal.getByRole("log")).toContainText("HANDOFF_alive");

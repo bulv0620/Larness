@@ -39,11 +39,21 @@ const labels = {
   INTERRUPTED: "已中断",
 };
 
-export function LiveTerminalView({ id, tabId }: { id: string; tabId: string }) {
+export function LiveTerminalView({
+  id,
+  tabId,
+  visible,
+}: {
+  id: string;
+  tabId: string;
+  visible: boolean;
+}) {
   const screens = useTerminalScreens();
   const query = useQuery({
     queryKey: terminalKey(id),
     queryFn: () => readTerminal(id),
+    enabled: visible,
+    staleTime: 0,
     refetchOnMount: "always",
     refetchInterval: 2000,
   });
@@ -76,6 +86,7 @@ export function LiveTerminalView({ id, tabId }: { id: string; tabId: string }) {
   const snapshot = useRef(query.data);
   snapshot.current = query.data;
   const container = useRef<HTMLDivElement>(null);
+  const screenRef = useRef<ReturnType<typeof createTerminalScreen> | null>(null);
   const control = useRef<{
     acquire: () => Promise<void>;
     takeover: () => Promise<void>;
@@ -96,6 +107,7 @@ export function LiveTerminalView({ id, tabId }: { id: string; tabId: string }) {
   const [now, setNow] = useState(Date.now());
   const lease = query.data?.lease;
   const held =
+    visible &&
     !!connection &&
     lease?.ownerConnectionId === connection &&
     lease.expiresAt > now &&
@@ -120,13 +132,27 @@ export function LiveTerminalView({ id, tabId }: { id: string; tabId: string }) {
     if (!showTerminal || !element) return;
     const screen = screens.get(tabId) ?? createTerminalScreen();
     screens.set(tabId, screen);
-    const { terminal: term, fit } = screen;
+    screenRef.current = screen;
+    const term = screen.terminal;
     if (term.element) element.appendChild(term.element);
     else term.open(element);
-    term.options.cursorBlink = true;
     setGap(screen.gap);
     setLog(screen.ready ? screen.log : "");
     setReplaying(!screen.ready);
+    return () => {
+      screenRef.current = null;
+      term.element?.remove();
+    };
+  }, [screens, showTerminal, tabId, terminalEnded]);
+
+  useLayoutEffect(() => {
+    setConnection(null);
+    setInputReady(false);
+    const element = container.current;
+    const screen = screenRef.current;
+    if (!visible || !showTerminal || !element || !screen) return;
+    const { terminal: term, fit } = screen;
+    term.options.cursorBlink = true;
     initialAcquire.current = false;
     let disposed = false,
       syncing = false,
@@ -141,7 +167,6 @@ export function LiveTerminalView({ id, tabId }: { id: string; tabId: string }) {
     let queue: string[] = [],
       queueBytes = 0;
     setError("");
-    setConnection(null);
     const invalidate = () => {
       return disposed
         ? Promise.resolve()
@@ -436,11 +461,11 @@ export function LiveTerminalView({ id, tabId }: { id: string; tabId: string }) {
       term.options.disableStdin = true;
       term.options.cursorBlink = false;
       term.blur();
-      term.element?.remove();
     };
-  }, [id, screens, showTerminal, tabId, terminalEnded]);
+  }, [id, showTerminal, visible]);
   useEffect(() => {
     if (
+      !visible ||
       replaying ||
       !connection ||
       !query.data ||
@@ -470,7 +495,7 @@ export function LiveTerminalView({ id, tabId }: { id: string; tabId: string }) {
       cancelled = true;
       setBusy(false);
     };
-  }, [connection, id, query.data, query.isError, replaying]);
+  }, [connection, id, query.data, query.isError, replaying, visible]);
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true);
     setError("");

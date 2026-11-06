@@ -46,7 +46,8 @@ export function WindowFrame({ window: win }: { window: ManagedWindow }) {
           height: ref.offsetHeight,
         })
       }
-      style={{ zIndex: win.z, display: "flex", flexDirection: "column" }}
+      style={{ zIndex: win.z, display: win.minimized ? "none" : "flex", flexDirection: "column" }}
+      inert={win.minimized}
       data-window-frame={win.id}
       role="dialog"
       aria-label={title}
@@ -118,7 +119,7 @@ export function WindowFrame({ window: win }: { window: ManagedWindow }) {
       {activeTab?.kind !== "services" ? <WindowTabs window={win} /> : null}
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab ? (
-          <WindowContent tab={activeTab} />
+          <WindowContent tab={activeTab} visible={!win.minimized} />
         ) : (
           <div className="flex h-full items-center justify-center text-[11px] text-ink-3">
             暂无打开的 Tab

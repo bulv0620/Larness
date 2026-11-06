@@ -182,6 +182,14 @@ test("M3-4 previews a real Vite app through an isolated iframe with HMR and no d
 
     writeFileSync(path.join(root, "main.js"), mainSource("v2"));
     await expect(frame.locator("#app")).toHaveText("v2", { timeout: 20_000 });
+    await frame.locator("#app").evaluate((node) => node.setAttribute("data-preview-state", "kept"));
+    await browser.getByRole("button", { name: "隐藏窗口" }).click();
+    const iframe = page.getByTestId("preview-frame");
+    await expect(iframe).toBeHidden();
+    await expect(iframe).toHaveCount(1);
+    await page.getByRole("button", { name: "恢复 预览 web" }).click();
+    await expect(iframe).toBeVisible();
+    await expect(frame.locator("#app")).toHaveAttribute("data-preview-state", "kept");
 
     expect(
       requests.some(

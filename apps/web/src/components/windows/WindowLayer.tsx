@@ -1,13 +1,23 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { WindowFrame } from "@/components/windows/WindowFrame";
 import { FileLifecycle } from "@/features/files/FileLifecycle";
 import { TerminalScreenProvider } from "@/features/terminals/TerminalScreens";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
+import type { ManagedWindow } from "@/lib/windowTypes";
 import { activeWindowScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
 import { WindowCloseDialog } from "./WindowCloseDialog";
+
+function WindowSlot({ window }: { window: ManagedWindow }) {
+  const [opened, setOpened] = useState(!window.minimized);
+  if (!opened) {
+    if (window.minimized) return null;
+    setOpened(true);
+  }
+  return <WindowFrame window={window} />;
+}
 
 export function WindowLayer() {
   const { projectId, sessionId } = useNavigationStore();
@@ -68,9 +78,9 @@ export function WindowLayer() {
         <WindowCloseDialog />
         {!USE_MOCKS ? <FileLifecycle /> : null}
         {windows
-          .filter((win) => !win.minimized && windowScopeKey(win) === scope)
+          .filter((win) => windowScopeKey(win) === scope)
           .map((win) => (
-            <WindowFrame key={win.id} window={win} />
+            <WindowSlot key={win.id} window={win} />
           ))}
       </div>
     </TerminalScreenProvider>

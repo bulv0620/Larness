@@ -47,9 +47,11 @@ async function readLatestRunning(scope: FileScope, signal: AbortSignal) {
 export function TerminalPicker({
   projectId,
   sessionId,
+  visible = true,
 }: {
   projectId?: string | null;
   sessionId?: string;
+  visible?: boolean;
 }) {
   const scope: FileScope = projectId
     ? { projectId }
@@ -59,13 +61,15 @@ export function TerminalPicker({
   const { data, isFetchedAfterMount, isError, isFetching, refetch } = useQuery({
     queryKey: ["terminals", "restore", projectId, sessionId],
     queryFn: ({ signal }) => readLatestRunning(scope, signal),
+    enabled: visible,
+    staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
-    if (data && isFetchedAfterMount && !isError && !isFetching) openTerminal(data);
-  }, [data, isFetchedAfterMount, isError, isFetching]);
+    if (visible && data && isFetchedAfterMount && !isError && !isFetching) openTerminal(data);
+  }, [data, isFetchedAfterMount, isError, isFetching, visible]);
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-3 text-[12px] text-ink">

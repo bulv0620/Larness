@@ -6,12 +6,16 @@ import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import type { WindowTab } from "@/lib/windowTypes";
 
-export function TerminalWindow({ tab }: { tab: WindowTab }) {
+export function TerminalWindow({ tab, visible }: { tab: WindowTab; visible: boolean }) {
   if (!USE_MOCKS)
     return tab.resourceId === "terminal:empty" ? (
-      <TerminalPicker projectId={tab.projectId} sessionId={tab.sourceSessionId ?? undefined} />
+      <TerminalPicker
+        projectId={tab.projectId}
+        sessionId={tab.sourceSessionId ?? undefined}
+        visible={visible}
+      />
     ) : (
-      <LiveTerminalView key={tab.id} id={tab.resourceId} tabId={tab.id} />
+      <LiveTerminalView key={tab.id} id={tab.resourceId} tabId={tab.id} visible={visible} />
     );
   return <DemoTerminalWindow tab={tab} />;
 }

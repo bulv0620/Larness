@@ -5,13 +5,13 @@ import { ServiceWindow } from "@/features/windows/ServiceWindow";
 import { TerminalWindow } from "@/features/windows/TerminalWindow";
 import type { WindowTab } from "@/lib/windowTypes";
 
-export function WindowContent({ tab }: { tab: WindowTab | undefined }) {
+export function WindowContent({ tab, visible }: { tab: WindowTab | undefined; visible: boolean }) {
   if (!tab) return null;
   switch (tab.kind) {
     case "files":
       return <FileWindow tab={tab} />;
     case "terminal":
-      return <TerminalWindow tab={tab} />;
+      return <TerminalWindow tab={tab} visible={visible} />;
     case "services":
       return <ServiceWindow tab={tab} />;
     case "browser":
