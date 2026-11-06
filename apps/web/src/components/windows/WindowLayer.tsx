@@ -62,7 +62,7 @@ export function WindowLayer() {
       // Menus and confirmation dialogs can be portalled outside their window frame.
       if (
         event.target.closest(
-          '[data-window-frame], [data-window-dock], [role="dialog"], [role="alertdialog"], [role="menu"]',
+          '[data-window-frame], [data-window-dock], [data-project-resources], [role="dialog"], [role="alertdialog"], [role="menu"]',
         )
       )
         return;

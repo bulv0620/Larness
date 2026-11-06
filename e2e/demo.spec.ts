@@ -259,14 +259,34 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.getByRole("dialog", { name: "web-dev", exact: true })).toBeVisible();
   });
 
-  test("文件窗口加载 Monaco 只读内容", async ({ page }) => {
-    await page
-      .getByLabel("项目资源", { exact: true })
-      .getByText("AppShell.tsx", { exact: true })
-      .click();
+  test("资源区切换文件时保留窗口和 Monaco 只读预览", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 1080 });
+    const resources = page.getByLabel("项目资源", { exact: true });
+    await resources.getByText("AppShell.tsx", { exact: true }).click();
     await expect(page.locator(".monaco-editor")).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(".view-lines")).toContainText("ConversationWorkspace");
     await expect(page.getByText("只读预览")).toBeVisible();
+
+    await page.getByRole("button", { name: "打开终端窗口" }).click();
+    const terminal = page.getByRole("dialog", { name: "pnpm dev", exact: true });
+    await expect(terminal).toBeVisible();
+    const file = page.getByRole("dialog", { name: "AppShell.tsx", exact: true });
+    // Opening another tab can cancel the window's animation before the click returns.
+    await file.evaluate((frame) => {
+      document.addEventListener(
+        "pointerdown",
+        () => {
+          frame.dataset.animatingOnPointerDown = String(frame.getAnimations().length > 0);
+        },
+        { capture: true, once: true },
+      );
+    });
+    await resources.getByText("README.md", { exact: true }).click();
+    const reopened = page.getByRole("dialog", { name: "README.md", exact: true });
+    await expect(reopened.getByRole("tab", { name: "README.md", selected: true })).toBeVisible();
+    await expect(reopened).toHaveAttribute("data-animating-on-pointer-down", "false");
+    await expect(terminal).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("resource-panel-file-switch.png") });
   });
 
   test("发送消息、流式输出与部署审批", async ({ page }) => {

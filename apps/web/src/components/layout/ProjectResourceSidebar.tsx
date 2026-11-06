@@ -33,6 +33,7 @@ export function ProjectResourceSidebar() {
   return (
     <aside
       aria-label="项目资源"
+      data-project-resources
       className="hidden shrink-0 bg-surface/40 xl:flex xl:flex-col"
       style={{ width: resourceWidth }}
     >
