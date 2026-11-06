@@ -148,7 +148,11 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         {items
           .filter((item) => item.kind === "plan")
           .map((item) => (
-            <TimelineItemView key={item.id} item={item} />
+            <TimelineItemView
+              key={item.id}
+              item={item}
+              turnActive={active && user?.turnOutcome === undefined}
+            />
           ))}
         {latestCommentary ? <TimelineItemView item={latestCommentary} /> : null}
         {answer ? <TimelineItemView item={answer} /> : null}

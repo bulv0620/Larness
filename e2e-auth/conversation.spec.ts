@@ -84,5 +84,21 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
     expect(box && box.x >= 0 && box.x + box.width <= width).toBeTruthy();
   }
   await page.screenshot({ path: path.join(tmpdir(), "larness-m2-15-mobile.png") });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await input.fill("conversation plan cancel");
+  await page.getByRole("button", { name: "发送消息" }).click();
+  const unfinished = page.getByRole("button", { name: /计划 · 0\/2/ });
+  await unfinished.click();
+  const steps = page.getByRole("list", { name: "检查项目", exact: true }).last();
+  await expect(steps.locator(".animate-spin")).toBeVisible();
+  await page.getByRole("button", { name: "停止执行" }).click();
+  await expect(page.getByText("已停止当前执行。")).toBeVisible();
+  await expect(steps.locator(".animate-spin")).toHaveCount(0);
+  await expect(steps.getByText("未完成", { exact: true })).toBeVisible();
+  await page.reload();
+  await unfinished.click();
+  await expect(steps.getByText("未完成", { exact: true })).toBeVisible();
+  await expect(steps.locator(".animate-spin")).toHaveCount(0);
   expect(errors).toEqual([]);
 });

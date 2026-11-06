@@ -9,12 +9,18 @@ import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore } from "@/stores/windowStore";
 import { MarkdownText } from "./MarkdownText";
 
-export function TimelineItemView({ item }: { item: TimelineItem }) {
+export function TimelineItemView({
+  item,
+  turnActive = false,
+}: {
+  item: TimelineItem;
+  turnActive?: boolean;
+}) {
   switch (item.kind) {
     case "message":
       return <MessageBubble item={item} />;
     case "plan":
-      return <PlanCard item={item} />;
+      return <PlanCard item={item} turnActive={turnActive} />;
     case "tool":
       return <ToolCard item={item} />;
     case "approval":
@@ -100,10 +106,18 @@ function MessageBubble({ item }: { item: MessageItem }) {
   );
 }
 
-function PlanCard({ item }: { item: PlanItem }) {
+const planStepLabels = {
+  done: "已完成：",
+  running: "进行中：",
+  failed: "失败：",
+  pending: "待做：",
+  unfinished: "未完成",
+};
+
+function PlanCard({ item, turnActive }: { item: PlanItem; turnActive: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const done = item.steps.filter((step) => step.status === "done").length;
-  const current = item.steps.find((step) => step.status === "running");
+  const current = turnActive ? item.steps.find((step) => step.status === "running") : undefined;
   return (
     <div className="text-[12px] text-ink-3">
       <button
@@ -120,35 +134,32 @@ function PlanCard({ item }: { item: PlanItem }) {
       </button>
       {expanded ? (
         <ol aria-label={item.title} className="ml-5 mt-1 space-y-1.5">
-          {item.steps.map((step) => (
-            <li key={step.id} className="flex items-start gap-2">
-              {step.status === "done" ? (
-                <Check size={13} className="mt-0.5 shrink-0 text-success" />
-              ) : step.status === "running" ? (
-                <Loader2
-                  size={13}
-                  className="mt-0.5 shrink-0 animate-spin text-accent motion-reduce:animate-none"
-                />
-              ) : step.status === "failed" ? (
-                <X size={13} className="mt-0.5 shrink-0 text-danger" />
-              ) : (
-                <Circle size={13} className="mt-0.5 shrink-0" />
-              )}
-              <span className="min-w-0 break-words">
-                <span className="sr-only">
-                  {step.status === "done"
-                    ? "已完成："
-                    : step.status === "running"
-                      ? "进行中："
-                      : step.status === "failed"
-                        ? "失败："
-                        : "待做："}
+          {item.steps.map((step) => {
+            const status = step.status === "running" && !turnActive ? "unfinished" : step.status;
+            return (
+              <li key={step.id} className="flex items-start gap-2">
+                {status === "done" ? (
+                  <Check size={13} className="mt-0.5 shrink-0 text-success" />
+                ) : status === "running" ? (
+                  <Loader2
+                    size={13}
+                    className="mt-0.5 shrink-0 animate-spin text-accent motion-reduce:animate-none"
+                  />
+                ) : status === "failed" ? (
+                  <X size={13} className="mt-0.5 shrink-0 text-danger" />
+                ) : (
+                  <Circle size={13} className="mt-0.5 shrink-0" />
+                )}
+                <span className="min-w-0 break-words">
+                  {step.title}
+                  <span className={status === "unfinished" ? "ml-2" : "sr-only"}>
+                    {planStepLabels[status]}
+                  </span>
+                  {step.detail ? <span className="ml-2">{step.detail}</span> : null}
                 </span>
-                {step.title}
-                {step.detail ? <span className="ml-2">{step.detail}</span> : null}
-              </span>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
       ) : null}
     </div>

@@ -60,7 +60,7 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
     }
   })();
 
-  if (input === "conversation plan") {
+  if (input === "conversation plan" || input === "conversation plan cancel") {
     const step = (done: number) =>
       toolStep({
         id: `plan_${done}`,
@@ -77,6 +77,12 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
           ],
         },
       });
+    if (input === "conversation plan cancel") {
+      return {
+        adapter: createFakeProvider([step(0), { ...step(2), delayMs: 15_000 }]),
+        model: "fake",
+      };
+    }
     return {
       adapter: createFakeProvider([
         step(0),

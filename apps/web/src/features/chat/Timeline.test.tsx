@@ -1,5 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import type { ServerEvent } from "@larness/shared";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, it } from "vitest";
+import { applyServerEvent, eventsToTimeline } from "@/lib/eventReducer";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { Timeline } from "./Timeline";
 
@@ -84,3 +86,87 @@ it("shows a spinner at the process summary while the turn is running", () => {
   render(<Timeline />);
   expect(screen.getByTestId("turn-running-spinner")).toBeTruthy();
 });
+
+it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])(
+  "stops an unfinished plan on %s and keeps it stopped on replay",
+  (terminalEvent) => {
+    const turnId = "turn-plan";
+    const base = {
+      kind: "event",
+      protocolVersion: 1,
+      topic: "agent",
+      streamId: "session",
+      timestamp: 1,
+    } as const;
+    const start: ServerEvent[] = [
+      {
+        ...base,
+        eventId: "user",
+        sequence: 1,
+        type: "user.message",
+        payload: { turnId, text: "更新样式" },
+      },
+      {
+        ...base,
+        eventId: "plan",
+        sequence: 2,
+        type: "plan.updated",
+        payload: {
+          turnId,
+          plan: {
+            id: "plan-turn",
+            kind: "plan",
+            turnId,
+            title: "样式调整",
+            createdAt: 1,
+            steps: [
+              { id: "read", title: "读取样式", status: "done" },
+              { id: "edit", title: "修改样式", status: "running" },
+              { id: "verify", title: "验证页面", status: "pending" },
+            ],
+          },
+        },
+      },
+    ];
+    const terminal: ServerEvent = {
+      ...base,
+      eventId: "terminal",
+      sequence: 3,
+      type: terminalEvent,
+      payload: { turnId },
+    };
+    useTimelineStore.setState({
+      items: eventsToTimeline(start),
+      isStreaming: true,
+      activeTurnId: turnId,
+    });
+    const view = render(<Timeline />);
+    fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 修改样式" }));
+    const plan = screen.getByRole("list", { name: "样式调整" });
+    expect(plan.querySelector(".animate-spin")).toBeInTheDocument();
+
+    act(() => {
+      useTimelineStore.setState((state) => ({
+        items: applyServerEvent(state.items, terminal),
+        isStreaming: false,
+        activeTurnId: null,
+      }));
+    });
+    expect(plan.querySelector(".animate-spin")).not.toBeInTheDocument();
+    expect(within(plan).getByText("未完成", { exact: true })).toBeVisible();
+    expect(within(plan).getByText("已完成：", { exact: true })).toBeInTheDocument();
+    expect(within(plan).getByText("待做：", { exact: true })).toBeInTheDocument();
+
+    view.unmount();
+    useTimelineStore.setState({
+      items: eventsToTimeline([...start, terminal]),
+      isStreaming: true,
+      activeTurnId: "turn-next",
+    });
+    render(<Timeline />);
+    fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 样式调整" }));
+    const replayedPlan = screen.getByRole("list", { name: "样式调整" });
+    expect(replayedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
+    expect(within(replayedPlan).getByText("未完成", { exact: true })).toBeVisible();
+  },
+);
