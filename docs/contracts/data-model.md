@@ -160,9 +160,9 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `file_versions` | M2-1 已实施 | `scope_key, path, real_path, version_hash, size, mtime, updated_at`；scope + path 唯一，不存正文 |
 | `resource_operations` | M2-1 已实施 | 写意图、幂等结果、规范化根 / 版本、锁 / fencing；字段及状态见 m2-resources §11 |
 | `resource_streams` / `resource_events` | M2-1 已实施 | stream 序号事务递增，事件不含正文；通知 / 补拉属于 M2-1b |
-| `services` | M3仅temporary绑定/状态；M4扩展persistent/PM2 | `id, project_id?, name, kind(temporary/persistent), terminal_id?, terminal_execution_id?, endpoint_generation?, pm2_identity?, config_ref?, desired_state?, observed_state, endpoint_json?, preview_eligible, created_at, updated_at`（kind 约束见服务契约） |
-| `service_logs` | M3临时引用；M4持久日志 | `service_id, cursor, chunk, created_at`（或落盘 + 索引） |
-| `deployments` | M4 | `id, service_id, commit_sha, artifact_ref, status, plan_json, created_at` |
+| `services` | M3 开发服务 | 保存终端、执行和端点绑定、状态及预览资格。日志引用终端输出 |
+| 正式服务仓储 | M4 | 独立正式 ID、受管 PM2 绑定、配置引用、期望状态与观察状态 |
+| 正式部署仓储 | M4 | 独立部署 ID、正式目标、来源项目、不可变产物、计划、授权、版本与结果 |
 | `scheduled_jobs` | M5 | `id, name, schedule, scope, policy, enabled, created_at` |
 | `job_runs` | M5 | `id, job_id, status, started_at, ended_at, log_ref` |
 | `update_runs` | M5 | `id, from_version, to_version, status, started_at, ended_at` |
@@ -241,7 +241,7 @@ M2-4（2026-11-03）：唯一 0007_terminals 新增 terminals / terminal_leases�
 prj_default 由固定系统描述提供，不插入可修改 / 删除的 projects 用户登记行；kind=default，固定名称 / 默认共享根，createdAt / updatedAt 为 0。默认 sessions.project_id / terminals.project_id 的 null 值、workspace:default 事件与资源操作键保持。默认项目 HTTP scope 别名规范化到该既有域，无数据库迁移。
 
 ## ADR-042：分阶段服务与部署记录（2026-11-05，draft）
-M3只实现temporary执行/endpoint绑定、状态/日志引用/预览，services中的pm2_identity/config_ref/desired_state等persistent字段由M4实现，不在M3提前迁移。M4产物/计划/当前版本/授权决策/部署结果与历史，准确表/列/联合约束按技术评审分任务冻结。人工审批记录和策略允许记录分开：自主有真实policySnapshotId/actor/scope/planHash/时效/决策来源，无人工approvalId；只有人工分支才关联approvalId，不能用空审批伪报批准。记录按事务/seq/审计和幂等写入。无本次DB迁移，见[部署契约](deployment.md)。
+按 [ADR-048](../adr/ADR-048-service-domain-separation.md)，`services` 保持 M3 开发绑定和历史。M4 在同一业务数据库新增独立正式仓储及部署记录，部署目标引用正式 ID，来源项目和产物用于追溯及授权校验。运维日志和事件流独立，业务事件仍与 seq 事务提交。审批与策略记录分别绑定领域及作用域，只有人工分支关联 approvalId。表、列、约束、迁移与留存按对应任务冻结。见 [部署契约](deployment.md)。
 
 ## M3技术候选（待审批，未实现）
 [m3-preview](m3-preview.md)限定M3-1只新增temporary服务及必要action kind迁移：terminalExecutionId/generation由后端产生、与输入租约独立；原始身份仅内部、日志引用终端存储。票据/grant只保存短期内存hash，重启撤销，业务事件和seq事务持久化；不加入PM2字段或明文凭据，精确DDL在PoC后冻结。

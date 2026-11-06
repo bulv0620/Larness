@@ -2,6 +2,8 @@
 
 > M3 已交付临时服务登记、查询、Agent 工具、资源事件及本机隔离预览。当前绑定规则见 [ADR-044](../adr/ADR-044-preview-binding-simplification.md)，其余身份与授权沿用 [ADR-043](../adr/ADR-043-development-preview-authorization.md)。下文保留 PoC 阶段的候选条款和预算。实际交付与验证范围见 [M3 收尾记录](../../specs/040-services-preview/closure.md)，远程独立注册域 HTTPS 尚未实测。
 
+> 按 [ADR-048](../adr/ADR-048-service-domain-separation.md)，本契约的服务 ID、接口、预览、工具及事件均用于开发域。M4 正式运维见 [部署契约](deployment.md)。
+
 ## 1. 执行身份与登记
 - terminalId标识PTY资源；后端已有launchId标识该次PTY启动；新terminalExecutionId标识此次已验证的服务进程树/监听实例。它不是TerminalLease.generation、TurnId、terminalId或仅PID。
 - 登记先确认已授权scope与terminal一致，再核对terminal launch、监听owner及birth、终端后代关系/服务工作负载边界、指定端口独占监听（不限制绑定地址，允许通配）。执行身份和endpointGeneration只由后端产生；原有ps文本不能当强身份已证实。M3-0验证现有OS工具/接口是否足够，不新增原生库。
@@ -18,7 +20,7 @@
 | GET /api/services/:id | 脱敏Service DTO、来源终端与可用操作 | L0，终态可查、无凭据 |
 | POST /api/services | `{kind:"temporary",terminalId,name,endpoint:{host,port,protocol:"http"}}`；executionId不由客户端填 | L2；仅登记不spawn；沿用既有资源动作prepare/审批/execute模式，拒绝参数替换；自主直接授权 |
 | GET /api/services/:id/logs | cursor、limit沿现有terminal输出字节/游标上限；返回terminalId、nextCursor、truncated/gap、脱敏chunk | L0；关联终端混合输出，非精确每命令日志；不复制第二份无限存储 |
-| POST /api/preview/resolve | `{serviceId,path:"/"}`，path仅规范化同服务相对pathname/query，无scheme/host/反斜杠/编码逃逸 | L0读授权下领取短期bootstrap；必须CSRF、no-store、受限重试；回复隔离origin/受控入口/票据/expiry，浏览器内存暂存 |
+| POST /api/previews/resolve | `{serviceId,path:"/",mode:"embedded"}`，path仅规范化同服务相对pathname/query，无scheme/host/反斜杠/编码逃逸 | L0读授权下领取短期bootstrap；必须CSRF、no-store、受限重试；回复隔离origin/受控入口/票据/expiry，浏览器内存暂存 |
 
 已注册 Agent 工具为 `register_temporary_service`（L2）、`list_services` 与 `resolve_service_preview`（L0），仅在登记项目作用域提供。登记工具的 `endpoint.host` 仍用 `127.0.0.1` 或 `::1`，后端按所选终端及端口核验实际监听，通配绑定可直接登记。登记和预览解析都可提供结构化预览目标，实际票据仅在点击时发给浏览器。解析不启动浏览器或项目进程。standard/strict 登记需要审批，readonly 拒绝登记但允许读取，autonomous 对合法操作免人工审批。人工动作沿用资源动作授权。
 

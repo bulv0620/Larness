@@ -68,7 +68,8 @@ Launcher / Updater 的完整实现属于 M5；M0-9 后 `node app.js` 以 TUI 为
 | ToolRegistry | 工具 schema、参数校验、审批、执行路由、审计 | 向模型暴露秘密 |
 | TerminalManager | PTY 创建 / 写入 / resize / 终止、控制权租约 | 长期服务托管 |
 | CommandRunner | 非交互短命令、超时、输出截断、取消 | 为每条命令创建终端 Tab |
-| ServiceManager / Registry | 临时服务的终端绑定登记 / 展示 / 预览资格；持久服务的 PM2Adapter、日志 / 健康 / 对账 | 独立 spawn / 启停临时服务；把 PM2 当安全沙箱 |
+| ServiceManager / Registry | 会话开发服务的终端绑定登记、关联日志及预览资格 | 正式服务发布、PM2 进程管理 |
+| 服务运维模块（M4） | 独立正式资源、部署、PM2Adapter、日志、健康与对账 | 复用开发登记、终端绑定或预览作为正式服务身份 |
 | FileManager | 授权路径读写、版本冲突检测、文件监听 | 对任意 Shell 提供文件隔离 |
 | GitManager | status / diff / commit / branch 等结构化操作 | 绕过后端策略/快照/审计自动push |
 | PreviewRegistry / Proxy | 登记 loopback 目标、票据、HTTP / WS 转发 | 任意内网 URL 代理 |
@@ -149,20 +150,21 @@ POST /api/sessions/:id/turns
 ### 5.4 资源与视图
 
 ```text
-UI 操作 ──REST/WS──► ResourceManager ──► OS / PTY / PM2 / Git
-Agent 工具 ──ToolRegistry──► 同一 ResourceManager
+聊天浮窗 / 开发工具 ──开发 API / 工具组──► 开发服务模块 ──► PTY / Preview
+服务运维页 / 运维工具 ──运维 API / 工具组──► 正式运维模块 ──► PM2
+各资源的 UI 与 Agent 共用该资源的后端，并走相同的鉴权、策略与审计设施
 ```
 
 - 关闭 / 最小化窗口只隐藏视图；主动关闭终端 Tab 经后端 `terminate` 终止资源，失败保留 Tab；文件 / Browser Tab 关闭不影响源资源。服务窗口无服务Tab，采用当前项目卡片/详情（ADR-031/042）。
 - 同一 Terminal 可被多个客户端观看，交互输入需租约。
-- 服务与终端由 Larness 拥有，可带 `projectId`，Session 只是创建来源。
+- 开发服务绑定终端执行，按项目或工作区核验。正式服务从授权发布计划建立，来源项目用于追溯与授权核验，当前聊天与终端不控制其生命周期。
 - Tab 身份、来源、项目筛选、分组与去重规则见 [resource-views.md](../contracts/resource-views.md)。
 
 ### 5.5 临时服务、持久服务与结果入口
 
 终端启动 dev → 核验该次执行与 loopback endpoint → 登记临时服务 → 服务窗口卡片 → 目标 ready 后 AI 预览卡片 → 点击打开隔离预览。终端源命令退出 / PTY 结束自动退登并撤销代理；ServiceRegistry 不另 spawn、不接管进程、不交 PM2。
 
-M4构建/产物/计划 → 按策略授权（自主免人工，其他策略需要时询问）→ 唯一PM2Adapter首次运行/替换 → 健康/版本记录 → 持久卡片/管理。人/AI共用后端能力和审计，不绕过受管PM2边界。M3只完成上段开发登记/预览，不先实现PM2。服务窗口当前项目卡片/详情，无服务Tab或项目切换；临时卡片打开终端，持久操作/版本发布属于M4。
+M4 的来源项目与构建产物 → 发布计划 → 运维作用域与策略校验 → PM2 首次运行或版本替换 → 健康和版本记录 → 左侧「服务运维」。运维 UI 与独立运维工具共用正式后端。两域各有资源身份、仓储、REST、事件和 Agent 执行上下文，基础鉴权、锁、审计和事件设施共用。见 [ADR-048](../adr/ADR-048-service-domain-separation.md)。
 
 文件工具结果附 scope / path 卡片，点击打开文件 Tab；可预览服务结果附 serviceId / 相对页面路径卡片，点击解析当前授权后打开 Browser Tab。卡片只打开视图，不重新执行工具、启动资源或自动开放端口。详细契约见 [services-preview.md](../contracts/services-preview.md)。
 

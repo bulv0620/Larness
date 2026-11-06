@@ -121,3 +121,5 @@
 - [ADR-046 PM2 交付与正式服务退出边界](ADR-046-pm2-delivery-and-lifecycle.md)：accepted（2026-11-06）。TUI 检查全局 PM2 并在缺失时补装；管理进程异常退出或正常退出 TUI 时正式服务继续运行，重开后对账并展示实际状态。补充 ADR-023，安装与接入细节待 M4-0。
 
 - [ADR-047 正式服务的服务运维入口](ADR-047-service-operations-entry.md)：accepted（2026-11-06）。正式 PM2 服务通过左侧「服务运维」管理，聊天服务浮窗仅显示临时开发服务。补充 ADR-030/042 的展示规则，按 M4-3b 交付。
+
+- [ADR-048 会话开发服务与正式服务运维分域](ADR-048-service-domain-separation.md)：accepted（2026-11-06）。分离资源、数据、REST、事件、Agent 工具与执行上下文。鉴权、策略等基础设施可复用，正式部署保留来源追溯。补充 ADR-030/042/047。

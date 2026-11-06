@@ -427,13 +427,10 @@ Turn 创建成功返回 `202`：
 | POST | `/api/terminals/:id/lease` | M2 |
 | GET | `/api/projects/:id/git/status` | M2 |
 | POST | `/api/projects/:id/git/actions` | M2 |
-| GET / POST | `/api/services` | M3临时登记；M4扩展持久服务 |
-| POST | `/api/services/:id/actions` | M4持久动作，临时返回所属终端入口 |
-| GET | `/api/services/:id/logs?cursor=` | M3引用终端日志；M4扩展PM2日志 |
-| POST | `/api/preview/resolve` | M3技术候选：CSRF/no-store短期票据，详[m3-preview](m3-preview.md)；未实现 |
-| POST | `/api/deployments/plan` | M4 |
-| POST | `/api/deployments/:id/approve` | M4人工审批条件分支；自主不依赖此调用 |
-| GET | `/api/deployments/:id` | M4 |
+| GET / POST | `/api/services` | M3 开发服务查询与登记 |
+| GET | `/api/services/:id/logs?cursor=` | M3 引用终端日志 |
+| POST | `/api/previews/resolve` | M3 为已授权的开发服务签发短期票据，见 [M3 技术契约](m3-preview.md) |
+| 待冻结 | `/api/service-ops/` 下独立接口 | M4 正式服务、操作、日志和部署，见 [部署契约](deployment.md) |
 | GET / POST | `/api/jobs` | M5 |
 | GET | `/api/updates/check` | M5 |
 | POST | `/api/updates/install` | M5 |
@@ -499,7 +496,7 @@ unstage仅恢复选定index到HEAD；无HEAD使用仅index移除，工作区不�
 discard动作创建时和执行锁前/锁后读取目标内容哈希，发现后续内容或状态变化拒绝覆盖；外部进程仍不受项目锁隔离，不宣称OS原子性。untracked枚举使用--untracked-files=all，文件逐条呈现而非目录清理。UI放弃按钮先显示路径与丢失/删除后果，取消不创建写动作，确认后才调用；取消暂存无丢弃确认，因为它保留磁盘内容。编辑器内存草稿不自动删除，监听/版本冲突继续保护。
 
 ## ADR-042：M3/M4与自主部署（2026-11-05，草案阶段划分）
-M3仅temporary登记/查询/日志与隔离预览；全部PM2/persistent创建/运行/启停和部署属于M4，见[服务契约](services-preview.md)和[部署契约](deployment.md)。autonomous的已授权Agent业务操作无人工审批/确认停等，包括首次发布/版本替换/重启/停止/支持的恢复；后端必须有计划/产物/目标/策略快照和授权记录，不伪造approvalId。标准/严格按风险询问，只读拒绝写入。部署approve端点仅用于需要人工的分支，自主由真实后端策略授权后继续，不能要求再调用人类approve。当前接口是规划摘要，详细schema/执行触发方式需G-Spec-M4冻结；没有本次运行代码/API/数据库变更。
+M3 开发登记、查询、终端日志和隔离预览沿用 [开发契约](services-preview.md)。M4 正式运维和部署按 [ADR-048](../adr/ADR-048-service-domain-separation.md) 使用独立命名空间、ID、动作和授权，详细后缀和 schema 由对应任务冻结。autonomous 对已授权的运维 Agent 动作免人工停等，后端继续验证计划、产物、目标、策略快照与授权。标准/严格按风险询问，只读拒绝写入。见 [部署契约](deployment.md)。
 
 ## M3技术候选（待审批，未实现）
 服务登记由后端产生执行身份，人工沿resource-actions准备/决策/execute、Agent沿Turn策略调用共同核心；当前Git路由不代表已通用。预览解析候选改POST，不交凭据给模型/事件/URL；新字段/错误码与失败边界见[m3-preview](m3-preview.md)。

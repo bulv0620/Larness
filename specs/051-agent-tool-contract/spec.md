@@ -24,6 +24,8 @@ created: 2026-11-06
 3. 每条影响操作范围或安全的承诺都要有执行层验收，覆盖合法输入和至少一个会扩大范围、越权或误报成功的反例。工具或 prompt 变更还要通过实际上下文组装验证模型收到的描述、schema 和作用域。禁止只核对源码常量或只用文本快照替代执行测试。
 4. 新增或修改此类能力的 spec 必须列出上述验证和受影响表面。测试纳入常规检查。无法自动化的表面需在验收中记录可复核的检查与结果。
 
+M4 按 [ADR-048](../../docs/adr/ADR-048-service-domain-separation.md) 分域。现有 `register_temporary_service`、`list_services`、`resolve_service_preview` 只处理临时开发服务。正式服务使用独立的运维工具组和上下文。通过实际模型请求校验各上下文的工具描述、schema、system prompt 与结果语义，通过执行层验证合法输入和伪造工具名、目标或作用域的反例。M4 实施验收见 [D14–D16](../050-deploy/spec.md#3-验收场景)。
+
 ## 验收场景
 
 | ID | Given | When | Then |

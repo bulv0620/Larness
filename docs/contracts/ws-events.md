@@ -115,13 +115,13 @@ interface ServerEvent<T = unknown> {
 
 PTY 输出不逐字节入库：使用限长环形缓冲 + 可选落盘日志；游标回放走 `GET /api/terminals/:id/output?after=`。
 
-### 4.3 `service`（streamId = serviceId）
+### 4.3 开发 `service`（streamId = serviceId）
 
 | type | payload |
 |---|---|
-| `service.status` | `desiredState`, `observedState`, `pid?`, `port?` |
-| `service.log` | `chunk`, `cursor` |
-| `deployment.status` | `deploymentId`, `phase` |
+| `service.registered` / `service.status` / `service.unregistered` | 临时服务状态和终端绑定，见 [M3 技术契约](m3-preview.md) |
+
+正式服务状态、日志和部署在独立运维事件流中处理。事件名及 payload 按 M4 对应任务冻结，订阅、事件补拉和日志读取均校验资源领域及作用域。
 
 ### 4.4 `system`（streamId = `system`）
 
@@ -207,7 +207,7 @@ Agent工具 `update_plan({title,steps:[{id,title,status,detail?}]})` 为L0元数
 发起客户端实时、补拉或初次历史加载时核对该目标；GET 最新资源确认 ID / 项目和已确认终态后移除对应本地 Tab，最后一个 Tab 移除时收起窗口。其他客户端保持结束视图，读取失败或未确认停止保留 Tab。重复通知 / 重放幂等，不发送第二次 terminate、不清除历史输出。
 
 ## ADR-042：服务/部署阶段与自主事件（2026-11-05，draft）
-M3 service事件只代表temporary登记/状态/退出；PM2/persistent与deployment事件属于M4。自主授权必须有策略决策/planHash/policySnapshotId和真实执行结果，但不发送虚假的tool.approval.required/resolved或人工批准事件，不让UI进入WAIT_APPROVAL。只有当前策略确需人工时才有审批事件/approvalId。关键授权/状态先事务持久化及seq递增再广播；具体新事件schema需技术评审冻结，本次没有协议代码变更。见[部署契约](deployment.md)。
+M3 的 `service.*` 及其 streamId 保持开发服务语义。M4 的正式运维和部署使用独立事件类型与流标识，后端按实际领域核验订阅和补拉。共用事件持久化与 seq 事务。自主授权记录真实策略决策、planHash、policySnapshotId 和结果，只有策略要求人工时才发审批事件或记录 approvalId。见 [部署契约](deployment.md) 与 [ADR-048](../adr/ADR-048-service-domain-separation.md)。
 
 ## M3事件候选（待审批，未实现）
 registered/status/unregistered拟含kind/status/terminalId/terminalExecutionId/endpointGeneration/reasonCode?，不含票据、Cookie、原始进程身份；详[m3-preview](m3-preview.md)。temporary不发送PM2 desiredState；日志引用已有终端游标、允许缺口，不伪造独立命令完整历史。失效先撤路由，状态与seq提交后广播；DB失败不伪造成功。
