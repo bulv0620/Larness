@@ -1,10 +1,48 @@
 import { DEFAULT_PROJECT_ID, type FileScope, type LiveTerminal } from "@larness/shared";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { SquareTerminal } from "lucide-react";
 import { useEffect } from "react";
-import { listTerminals, terminalTitle } from "./api";
+import { ApiError } from "@/lib/api";
+import { listTerminals, openTerminal, readTerminal } from "./api";
 import { CreateTerminalButton } from "./CreateTerminalButton";
-import { TerminalOpenButton } from "./TerminalOpenButton";
+
+function isInScope(item: LiveTerminal, scope: FileScope): boolean {
+  if ("projectId" in scope && scope.projectId !== DEFAULT_PROJECT_ID)
+    return item.projectId === scope.projectId;
+  if ("sessionId" in scope) return item.workspaceSessionId === scope.sessionId;
+  return !item.projectId && !item.workspaceSessionId;
+}
+
+async function readLatestRunning(scope: FileScope, signal: AbortSignal) {
+  const candidates: LiveTerminal[] = [];
+  const seenCursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    signal.throwIfAborted();
+    const page = await listTerminals(cursor, scope);
+    candidates.push(
+      ...page.items.filter((item) => item.status === "RUNNING" && isInScope(item, scope)),
+    );
+    cursor = page.nextCursor ?? undefined;
+    if (cursor) {
+      if (seenCursors.has(cursor)) throw new Error("Repeated terminal cursor");
+      seenCursors.add(cursor);
+    }
+  } while (cursor);
+
+  for (const candidate of candidates.reverse()) {
+    signal.throwIfAborted();
+    const current = await readTerminal(candidate.id).catch((error: unknown) => {
+      if (error instanceof ApiError && error.status === 404) return null;
+      throw error;
+    });
+    if (!current) continue;
+    if (current.id !== candidate.id || !isInScope(current, scope))
+      throw new Error("Terminal scope changed");
+    if (current.status === "RUNNING") return current;
+  }
+  return null;
+}
 
 export function TerminalPicker({
   projectId,
@@ -18,98 +56,43 @@ export function TerminalPicker({
     : sessionId
       ? { sessionId }
       : { workspace: "default" };
-  const query = useInfiniteQuery({
-    queryKey: ["terminals", "list", projectId, sessionId],
-    queryFn: ({ pageParam }) => listTerminals(pageParam, scope),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (page, _pages, cursor) =>
-      page.nextCursor && page.nextCursor !== cursor ? page.nextCursor : undefined,
-    refetchInterval: 3000,
+  const { data, isFetchedAfterMount, isError, isFetching, refetch } = useQuery({
+    queryKey: ["terminals", "restore", projectId, sessionId],
+    queryFn: ({ signal }) => readLatestRunning(scope, signal),
+    refetchOnMount: "always",
+    refetchOnWindowFocus: false,
   });
-  const inScope = (item: LiveTerminal) =>
-    projectId && projectId !== DEFAULT_PROJECT_ID
-      ? item.projectId === projectId
-      : sessionId
-        ? item.workspaceSessionId === sessionId
-        : !item.projectId && !item.workspaceSessionId;
-  const items =
-    query.data?.pages
-      .flatMap((page) => page.items)
-      .filter((item) => item.status === "RUNNING" && inScope(item)) ?? [];
-  const lastPageHasRunning =
-    query.data?.pages.at(-1)?.items.some((item) => item.status === "RUNNING" && inScope(item)) ??
-    false;
-  const { hasNextPage, isFetching, isError, fetchNextPage } = query;
+
   useEffect(() => {
-    if (hasNextPage && !isFetching && !isError && !lastPageHasRunning) void fetchNextPage();
-  }, [hasNextPage, isFetching, isError, lastPageHasRunning, fetchNextPage]);
-  const searching =
-    query.isPending || query.isFetchingNextPage || (hasNextPage && !lastPageHasRunning && !isError);
+    if (data && isFetchedAfterMount && !isError && !isFetching) openTerminal(data);
+  }, [data, isFetchedAfterMount, isError, isFetching]);
+
   return (
-    <div className="flex h-full flex-col overflow-auto p-3 text-[12px] text-ink">
-      {isError ? (
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+    <div className="flex h-full flex-col items-center justify-center gap-3 p-3 text-[12px] text-ink">
+      {isError && !isFetching ? (
+        <>
           <p role="alert" className="text-ink-3">
-            终端列表读取失败，请重试。
+            无法恢复终端，请重试。
           </p>
-          <button
-            type="button"
-            className="text-accent"
-            onClick={() => {
-              if (query.isFetchNextPageError) void fetchNextPage();
-              else void query.refetch();
-            }}
-          >
+          <button type="button" className="text-accent" onClick={() => void refetch()}>
             重试
           </button>
-          {!items.length ? (
-            <CreateTerminalButton scope={scope} className="ml-auto text-accent" />
-          ) : null}
-        </div>
-      ) : null}
-      {items.length ? (
-        <>
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="text-[11px] text-ink-3">运行中的终端</span>
-            <CreateTerminalButton scope={scope} className="text-accent" />
-          </div>
-          <div className="space-y-1">
-            {items.map((item) => (
-              <TerminalOpenButton
-                key={item.id}
-                terminalId={item.id}
-                projectId={item.projectId}
-                ariaLabel={`打开终端 ${item.id}`}
-                label={terminalTitle(item)}
-                className="w-full rounded-lg px-2 py-2 hover:bg-surface-2"
-              />
-            ))}
-          </div>
+          <CreateTerminalButton scope={scope} className="text-accent" />
         </>
-      ) : !searching && !isError ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3">
+      ) : !isFetchedAfterMount || isFetching || data ? (
+        <p role="status" className="text-ink-3">
+          正在读取终端…
+        </p>
+      ) : (
+        <>
           <SquareTerminal size={24} aria-hidden="true" className="text-ink-3/50" />
           <p className="text-ink-3">暂无运行中的终端</p>
           <CreateTerminalButton
             scope={scope}
             className="rounded-lg bg-accent px-3 py-1.5 text-white"
           />
-        </div>
-      ) : null}
-      {searching ? (
-        <p role="status" className="py-3 text-center text-[11px] text-ink-3">
-          正在读取终端…
-        </p>
-      ) : null}
-      {hasNextPage && !searching && !isError ? (
-        <button
-          type="button"
-          className="mt-2 self-start text-[11px] text-accent"
-          onClick={() => void fetchNextPage()}
-        >
-          加载更多运行终端
-        </button>
-      ) : null}
+        </>
+      )}
     </div>
   );
 }

@@ -212,6 +212,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M3-8 | [任务结束后停止计划动画](036-conversation-experience/spec.md#m3-8-任务结束后的计划显示) | M2-14、M3-7 done，用户直接反馈 | `done` |
 | M3-9 | [任务结束后显示成果](036-conversation-experience/spec.md#m3-9-任务结束后显示成果) | M2-15、M3-8 done，用户直接指令 | `done` |
 | M3-10 | [Agent 工具描述与执行契约](051-agent-tool-contract/spec.md) | G3 done，用户直接指令 | `done` |
+| M3-11 | [工作区前端交互优化](052-workspace-polish/spec.md) | M3-10 done，用户直接指令 | `review` |
 
 ## 7. M4 持久运行与版本发布（草案）
 

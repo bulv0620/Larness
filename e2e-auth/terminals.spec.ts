@@ -104,10 +104,7 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
     await expect(terminal).toHaveAttribute("data-terminal-id", /^term_/);
     const id = (await terminal.getAttribute("data-terminal-id")) ?? "";
     await other.getByRole("button", { name: "打开终端窗口" }).click();
-    await other
-      .getByRole("dialog", { name: "终端", exact: true })
-      .getByRole("button", { name: `打开终端 ${id}` })
-      .click();
+    await expect(other.getByTestId("live-terminal")).toHaveAttribute("data-terminal-id", id);
     await expect(terminal).toHaveAttribute("data-input-state", "active");
     await expect(other.getByTestId("live-terminal")).toHaveAttribute(
       "data-input-state",
@@ -153,7 +150,14 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
     await expect(terminal).toBeVisible();
     await page.getByRole("button", { name: `关闭 Shell ${id.slice(-6)}`, exact: true }).click();
     await expect(terminal).toHaveCount(0);
-    await expect(other.getByTestId("live-terminal")).toContainText("已终止");
+    const ended = other.getByTestId("live-terminal");
+    await expect(ended).toContainText("已终止");
+    await expect(ended.locator(".xterm")).toHaveCount(0);
+    await expect(ended).not.toContainText("REAL_PTY_shared");
+    await other.reload();
+    await expect(ended).toContainText("已终止");
+    await expect(ended.locator(".xterm")).toHaveCount(0);
+    await other.screenshot({ path: path.join(tmpdir(), "larness-m3-11-terminal-ended.png") });
     expect(creates).toBe(1);
     expect(errors).toEqual([]);
   } finally {
@@ -185,10 +189,7 @@ test("M2 terminal lease failures, expiry and logout preserve the PTY and permit 
     await expect(terminal).toHaveAttribute("data-terminal-id", /^term_/);
     const id = (await terminal.getAttribute("data-terminal-id")) ?? "";
     await other.getByRole("button", { name: "打开终端窗口" }).click();
-    await other
-      .getByRole("dialog", { name: "终端", exact: true })
-      .getByRole("button", { name: `打开终端 ${id}` })
-      .click();
+    await expect(other.getByTestId("live-terminal")).toHaveAttribute("data-terminal-id", id);
     await page.route(`**/api/terminals/${id}/lease`, (route) => {
       if (route.request().postDataJSON().action === "renew")
         return route.fulfill({

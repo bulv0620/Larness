@@ -143,7 +143,14 @@ it.each(["completed", "cancelled"] as const)(
     });
     const results = screen.getByRole("region", { name: "本次成果" });
     expect(within(results).getByRole("button", fileButton)).toBeVisible();
-    expect(screen.getByText("检查报告")).toBeVisible();
+    const artifact = screen.getByText("检查报告");
+    const answer = screen.getByText("文档已更新。");
+    const copy = screen.getByRole("button", { name: "复制答复" });
+    const time = screen.getByRole("time");
+    expect(artifact).toBeVisible();
+    expect(answer.compareDocumentPosition(results)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(results.compareDocumentPosition(copy)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(artifact.compareDocumentPosition(time)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
     act(() => useTimelineStore.setState({ isStreaming: true, activeTurnId: "turn-next" }));
     expect(within(results).getByRole("button", fileButton)).toBeVisible();

@@ -20,7 +20,14 @@ import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api";
 import { queryClient } from "@/lib/queries";
 import { useWindowStore } from "@/stores/windowStore";
-import { OutputSchema, readTerminal, terminalAction, terminalKey, terminalTitle } from "./api";
+import {
+  ended,
+  OutputSchema,
+  readTerminal,
+  terminalAction,
+  terminalKey,
+  terminalTitle,
+} from "./api";
 import "@xterm/xterm/css/xterm.css";
 
 const labels = {
@@ -36,8 +43,11 @@ export function LiveTerminalView({ id }: { id: string }) {
   const query = useQuery({
     queryKey: terminalKey(id),
     queryFn: () => readTerminal(id),
+    refetchOnMount: "always",
     refetchInterval: 2000,
   });
+  const terminalEnded = query.data ? ended(query.data.status) : false;
+  const showTerminal = query.isFetchedAfterMount && !!query.data && !terminalEnded;
   const title = query.data ? terminalTitle(query.data) : null;
   useEffect(() => {
     if (title === null) return;
@@ -95,8 +105,9 @@ export function LiveTerminalView({ id }: { id: string }) {
     !query.isError;
 
   useEffect(() => {
+    setLog("");
     const element = container.current;
-    if (!element) return;
+    if (!showTerminal || !element) return;
     initialAcquire.current = false;
     let disposed = false,
       cursor = 0,
@@ -122,7 +133,6 @@ export function LiveTerminalView({ id }: { id: string }) {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(element);
-    setLog("");
     setGap(false);
     setError("");
     setConnection(null);
@@ -393,7 +403,7 @@ export function LiveTerminalView({ id }: { id: string }) {
       socket?.close();
       term.dispose();
     };
-  }, [id]);
+  }, [id, showTerminal]);
   useEffect(() => {
     if (
       !connection ||
@@ -501,38 +511,42 @@ export function LiveTerminalView({ id }: { id: string }) {
       {query.data?.exitCode !== null && query.data?.exitCode !== undefined ? (
         <p className="px-2 text-xs">退出码 {query.data.exitCode}</p>
       ) : null}
-      {gap ? (
+      {!terminalEnded && gap ? (
         <p role="status" className="px-2 text-xs text-amber-300">
           部分历史输出已过期或缺失，当前回放不完整。
         </p>
       ) : null}
-      {error || query.isError ? (
+      {query.isError || (!terminalEnded && error) ? (
         <p role="alert" className="px-2 text-xs text-red-300">
-          {error || "终端不可用，请刷新核对；不会自动重建。"}
+          {(!terminalEnded && error) || "终端不可用，请刷新核对；不会自动重建。"}
         </p>
       ) : null}
-      <div
-        ref={container}
-        role="application"
-        aria-label="交互终端"
-        className="min-h-0 flex-1 p-2"
-        onPointerDown={() => {
-          if (
-            !held &&
-            !aiControlled &&
-            connection &&
-            !busy &&
-            (!lease || lease.expiresAt <= Date.now()) &&
-            query.data?.status === "RUNNING"
-          )
-            void act(async () => {
-              await control.current?.acquire();
-            });
-        }}
-      />
-      <pre role="log" aria-label="终端输出" aria-live="off" className="sr-only">
-        {log}
-      </pre>
+      {showTerminal ? (
+        <>
+          <div
+            ref={container}
+            role="application"
+            aria-label="交互终端"
+            className="min-h-0 flex-1 p-2"
+            onPointerDown={() => {
+              if (
+                !held &&
+                !aiControlled &&
+                connection &&
+                !busy &&
+                (!lease || lease.expiresAt <= Date.now()) &&
+                query.data?.status === "RUNNING"
+              )
+                void act(async () => {
+                  await control.current?.acquire();
+                });
+            }}
+          />
+          <pre role="log" aria-label="终端输出" aria-live="off" className="sr-only">
+            {log}
+          </pre>
+        </>
+      ) : null}
     </div>
   );
 }

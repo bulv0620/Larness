@@ -5,7 +5,7 @@ import { useWindowTitle } from "@/components/windows/useWindowTitle";
 import { WindowContent } from "@/components/windows/WindowContent";
 import { WindowTabs } from "@/components/windows/WindowTabs";
 import { useSnapshot } from "@/lib/queries";
-import { filterTabs } from "@/lib/windowFilters";
+import { activeWindowTab, filterTabs } from "@/lib/windowFilters";
 import type { ManagedWindow } from "@/lib/windowTypes";
 import { useWindowStore } from "@/stores/windowStore";
 
@@ -18,7 +18,7 @@ export function WindowFrame({ window: win }: { window: ManagedWindow }) {
   const setBounds = useWindowStore((state) => state.setBounds);
   const { data } = useSnapshot();
   const visibleTabs = filterTabs(win.tabs, win.filter);
-  const activeTab = visibleTabs.find((tab) => tab.id === win.activeTabId) ?? visibleTabs[0];
+  const activeTab = activeWindowTab(visibleTabs, win.activeTabId);
   const title = useWindowTitle(activeTab, data);
 
   return (

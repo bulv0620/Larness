@@ -47,6 +47,8 @@ it("resolves a one-time ticket and submits it through a POST bootstrap form, nev
   const iframe = container.querySelector("iframe");
   expect(iframe?.getAttribute("sandbox")).toBe("allow-scripts allow-forms allow-same-origin");
   expect(container.textContent).not.toContain("ticket-1");
+  expect(screen.getByText("独立来源", { exact: true })).toHaveClass("whitespace-nowrap");
+  expect(screen.queryByText(/不共享管理 Cookie/)).not.toBeInTheDocument();
   submit.mockRestore();
 });
 

@@ -16,7 +16,7 @@ import { ended, readTerminal, stopConfirmed, terminalAction } from "@/features/t
 import { CreateTerminalButton } from "@/features/terminals/CreateTerminalButton";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
-import { filterTabs } from "@/lib/windowFilters";
+import { activeWindowTab, filterTabs } from "@/lib/windowFilters";
 import type { ManagedWindow, WindowKind } from "@/lib/windowTypes";
 import { useWindowStore } from "@/stores/windowStore";
 
@@ -48,7 +48,9 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
   const setActiveTab = useWindowStore((state) => state.setActiveTab);
   const closeTab = useWindowStore((state) => state.closeTab);
   const { data } = useSnapshot();
-  const visible = filterTabs(win.tabs, win.filter).filter(
+  const filtered = filterTabs(win.tabs, win.filter);
+  const activeTabId = activeWindowTab(filtered, win.activeTabId)?.id;
+  const visible = filtered.filter(
     (tab) => tab.kind !== "terminal" || tab.resourceId !== "terminal:empty",
   );
   const kind = win.tabs[0]?.kind;
@@ -62,12 +64,12 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
     const observer = new ResizeObserver(check);
     observer.observe(el);
     check();
-    el.querySelector(`[data-tab-id="${win.activeTabId}"]`)?.scrollIntoView?.({
+    el.querySelector(`[data-tab-id="${activeTabId}"]`)?.scrollIntoView?.({
       block: "nearest",
       inline: "nearest",
     });
     return () => observer.disconnect();
-  }, [win.tabs, win.activeTabId]);
+  }, [win.tabs, activeTabId]);
 
   return (
     <div className="relative flex h-8 shrink-0 items-stretch border-b border-line bg-surface-2/35">
@@ -96,7 +98,7 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
         onKeyDown={(event) => {
           if (!(event.target instanceof HTMLElement) || event.target.getAttribute("role") !== "tab")
             return;
-          const current = visible.findIndex((tab) => tab.id === win.activeTabId);
+          const current = visible.findIndex((tab) => tab.id === activeTabId);
           const index =
             event.key === "ArrowRight"
               ? (current + 1) % visible.length
@@ -120,7 +122,7 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
         }}
       >
         {visible.map((tab) => {
-          const active = tab.id === win.activeTabId;
+          const active = tab.id === activeTabId;
           const project = data.projects.find((item) => item.id === tab.projectId) ?? null;
 
           const label = projectLabel(tab.projectId, tab.originType, project?.name);
@@ -244,7 +246,7 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
       ) : null}
       {kind === "terminal" ? (
         <>
-          <div id={`terminal-controls-${win.activeTabId}`} className="flex shrink-0" />
+          <div id={`terminal-controls-${activeTabId}`} className="flex shrink-0" />
           <CreateTerminalButton
             label="新建终端 Tab"
             className="flex w-8 shrink-0 items-center justify-center text-ink-3 hover:bg-surface-2 hover:text-ink"

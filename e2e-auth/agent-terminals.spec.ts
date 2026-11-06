@@ -96,11 +96,9 @@ test("M2-4c agent starts two approved project dev terminals and exposes non-focu
     await expect(page.getByText("开发终端已启动。", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "打开终端窗口" }).click();
+    await expect(page.getByRole("tab", { name: "backend", selected: true })).toBeVisible();
+    await page.getByRole("tab", { name: "frontend", exact: true }).click();
     const terminalWindow = page.getByRole("dialog", { name: "frontend", exact: true });
-    await expect(terminalWindow).toBeVisible();
-    await expect(terminalWindow.getByRole("tab", { name: "frontend", exact: true })).toBeVisible();
-    await expect(terminalWindow.getByRole("tab", { name: "backend", exact: true })).toBeVisible();
-    await terminalWindow.getByRole("tab", { name: "frontend", exact: true }).click();
     await expect(terminalWindow.getByRole("log")).toContainText("FRONT_READY", {
       timeout: 15000,
     });
@@ -141,10 +139,13 @@ test("M2-4d human takes over agent terminal control and the old generation is re
     await expect(page.getByText("开发终端已启动。", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "打开终端窗口" }).click();
+    await page.getByRole("tab", { name: "frontend", exact: true }).click();
     const terminalWindow = page.getByRole("dialog", { name: "frontend", exact: true });
     await expect(terminalWindow).toBeVisible();
     await composer.fill("ai control");
     await page.getByRole("button", { name: "发送消息" }).click();
+    await expect(terminalWindow).toHaveCount(0);
+    await page.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(terminalWindow.getByTestId("live-terminal")).toHaveAttribute(
       "data-input-state",
       "agent",

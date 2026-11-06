@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { USE_MOCKS } from "@/lib/env";
 import { animateMinimize, cancelMinimize } from "@/lib/minimizeWindow";
-import { filterTabs, insertIntoTabGroup, isTabVisible } from "@/lib/windowFilters";
+import { activeWindowTab, filterTabs, insertIntoTabGroup, isTabVisible } from "@/lib/windowFilters";
 import { clampRect, defaultRect } from "@/lib/windowGeometry";
 import type {
   ManagedWindow,
@@ -50,6 +50,7 @@ interface WindowState {
   focus: (id: string) => void;
   close: (id: string) => void;
   hide: (id: string) => void;
+  hideScope: (scope: string) => void;
   restore: (id: string) => void;
   toggleMaximize: (id: string) => void;
   togglePin: (id: string) => void;
@@ -126,9 +127,6 @@ export function migrateWindowLayout(persisted: unknown, _version: number): unkno
         createdAt: tab.createdAt ?? now + counter++,
       }));
     if (!tabs.length) return [];
-    const activeTabId = tabs.some((tab) => tab.id === win.activeTabId)
-      ? win.activeTabId
-      : (filterTabs(tabs, win.filter)[0]?.id ?? tabs[0]?.id ?? null);
     const groups = new Map<string, WindowTab[]>();
     for (const tab of tabs) {
       const key = `${tab.kind}:${resourceScopeKey(tab.projectId, tab.sourceSessionId)}`;
@@ -139,9 +137,7 @@ export function migrateWindowLayout(persisted: unknown, _version: number): unkno
       id: index === 0 ? win.id : `${win.id}:scope:${index}`,
       tabs: group,
       filter: { mode: "all" } as ProjectFilter,
-      activeTabId: group.some((tab) => tab.id === activeTabId)
-        ? activeTabId
-        : (group[0]?.id ?? null),
+      activeTabId: activeWindowTab(group, win.activeTabId)?.id ?? null,
     }));
   });
   const focusedId = windows.some((win) => win.id === value.focusedId)
@@ -299,7 +295,7 @@ export const useWindowStore = create<WindowState>()(
         const managed: ManagedWindow = {
           id: uid("win"),
           tabs: [tab],
-          activeTabId: tab.id,
+          activeTabId: activate ? tab.id : null,
           filter,
           ...rect,
           z,
@@ -321,11 +317,14 @@ export const useWindowStore = create<WindowState>()(
         const state = get();
         const target = state.windows.find((win) => win.id === id);
         if (!target) return;
-        if (state.focusedId === id && !target.minimized) return;
+        const activeTabId =
+          activeWindowTab(filterTabs(target.tabs, target.filter), target.activeTabId)?.id ?? null;
+        if (state.focusedId === id && !target.minimized && activeTabId === target.activeTabId)
+          return;
         const z = Math.max(state.zCounter + 1, topZ(state.windows) + 1);
         set({
           windows: state.windows.map((win) =>
-            win.id === id ? { ...win, minimized: false, z } : win,
+            win.id === id ? { ...win, activeTabId, minimized: false, z } : win,
           ),
           focusedId: id,
           zCounter: z,
@@ -352,6 +351,23 @@ export const useWindowStore = create<WindowState>()(
                 ? (state.windows.find((win) => win.id !== id && !win.minimized)?.id ?? null)
                 : state.focusedId,
           });
+        });
+      },
+
+      hideScope: (scope) => {
+        const state = get();
+        const ids = new Set(
+          state.windows
+            .filter((win) => !win.minimized && windowScopeKey(win) === scope)
+            .map((win) => win.id),
+        );
+        if (!ids.size) return;
+        for (const id of ids) cancelMinimize(id);
+        set({
+          windows: state.windows.map((win) =>
+            ids.has(win.id) ? { ...win, minimized: true } : win,
+          ),
+          focusedId: state.focusedId && ids.has(state.focusedId) ? null : state.focusedId,
         });
       },
 
@@ -406,8 +422,7 @@ export const useWindowStore = create<WindowState>()(
         }
         const tabs = target.tabs.filter((tab) => tab.id !== tabId);
         const visible = filterTabs(tabs, target.filter);
-        const activeTabId =
-          target.activeTabId === tabId ? (visible[0]?.id ?? null) : target.activeTabId;
+        const activeTabId = activeWindowTab(visible, target.activeTabId)?.id ?? null;
         set({
           windows: state.windows.map((win) =>
             win.id === windowId ? { ...win, tabs, activeTabId } : win,
@@ -429,8 +444,7 @@ export const useWindowStore = create<WindowState>()(
         const target = state.windows.find((win) => win.id === windowId);
         if (!target) return;
         const visible = filterTabs(target.tabs, filter);
-        const activeTabId =
-          visible.find((tab) => tab.id === target.activeTabId)?.id ?? visible[0]?.id ?? null;
+        const activeTabId = activeWindowTab(visible, target.activeTabId)?.id ?? null;
         set({
           windows: state.windows.map((win) =>
             win.id === windowId ? { ...win, filter, activeTabId } : win,

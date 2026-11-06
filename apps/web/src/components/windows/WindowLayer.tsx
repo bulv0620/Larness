@@ -38,6 +38,29 @@ export function WindowLayer() {
     return () => window.clearTimeout(timer);
   }, [setBounds]);
 
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || !(event.target instanceof Element)) return;
+      // A modal handles its own backdrop and may be waiting for a pending operation.
+      if (
+        document.querySelector(
+          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+        )
+      )
+        return;
+      // Menus and confirmation dialogs can be portalled outside their window frame.
+      if (
+        event.target.closest(
+          '[data-window-frame], [data-window-dock], [role="dialog"], [role="alertdialog"], [role="menu"]',
+        )
+      )
+        return;
+      useWindowStore.getState().hideScope(scope);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [scope]);
+
   return (
     <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
       <WindowCloseDialog />

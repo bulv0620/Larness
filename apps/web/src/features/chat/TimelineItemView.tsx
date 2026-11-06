@@ -1,7 +1,7 @@
 import type { ArtifactItem, MessageItem, PlanItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
 import { Check, ChevronRight, Circle, Copy, Loader2, X } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
 import { PreviewResultCard } from "@/features/services/PreviewResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
@@ -42,7 +42,7 @@ export function TimelineItemView({
   }
 }
 
-function MessageBubble({ item }: { item: MessageItem }) {
+export function MessageBubble({ item, children }: { item: MessageItem; children?: ReactNode }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   if (item.role === "user")
@@ -74,6 +74,7 @@ function MessageBubble({ item }: { item: MessageItem }) {
       <div className="w-fit min-w-0 max-w-full rounded-2xl rounded-tl-md border border-line bg-surface px-3.5 py-2.5 shadow-[var(--shadow-card)]">
         <MarkdownText text={item.text} />
       </div>
+      {children}
       {!item.streaming && item.text ? (
         <div className="mt-1 flex items-center gap-2 px-0.5">
           <button

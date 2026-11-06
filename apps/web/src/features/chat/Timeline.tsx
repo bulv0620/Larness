@@ -8,7 +8,7 @@ import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { CommandCard } from "./CommandCard";
-import { TimelineItemView } from "./TimelineItemView";
+import { MessageBubble, TimelineItemView } from "./TimelineItemView";
 import { Welcome } from "./Welcome";
 
 interface TurnGroup {
@@ -102,6 +102,30 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const filePaths = new Set(
     [...targets.values()].filter((target) => target.kind === "file").map((target) => target.path),
   );
+  const artifacts = items.filter(
+    (item) => item.kind === "artifact" && !filePaths.has(item.title.replace(/^已修改 /, "")),
+  );
+  const results =
+    !turnActive && (targets.size > 0 || artifacts.length > 0) ? (
+      <div className="mt-2 space-y-2">
+        {targets.size > 0 ? (
+          <section aria-label="本次成果" className="flex flex-wrap gap-1.5 pt-0.5">
+            {[...targets.entries()].map(([key, target]) =>
+              target.kind === "file" ? (
+                <FileResultCard key={key} target={target} />
+              ) : target.kind === "preview" ? (
+                <PreviewResultCard key={key} target={target} />
+              ) : (
+                <TerminalResultCard key={key} target={target} />
+              ),
+            )}
+          </section>
+        ) : null}
+        {artifacts.map((item) => (
+          <TimelineItemView key={item.id} item={item} />
+        ))}
+      </div>
+    ) : null;
   return (
     <section aria-label="对话轮次" className="min-w-0">
       {user ? <TimelineItemView item={user} /> : null}
@@ -152,34 +176,19 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
             <TimelineItemView key={item.id} item={item} turnActive={turnActive} />
           ))}
         {latestCommentary ? <TimelineItemView item={latestCommentary} /> : null}
-        {answer ? <TimelineItemView item={answer} /> : null}
+        {answer?.kind === "message" ? (
+          <MessageBubble item={answer}>{results}</MessageBubble>
+        ) : (
+          results
+        )}
         {active && !pending && !runningTool && !answer && !latestCommentary ? (
           <div role="status" className="flex items-center gap-2 text-[12px] text-ink-3">
             <Loader2 size={12} className="animate-spin text-accent motion-reduce:animate-none" />
             正在处理…
           </div>
         ) : null}
-        {!turnActive && targets.size ? (
-          <section aria-label="本次成果" className="flex flex-wrap gap-1.5 pt-0.5">
-            {[...targets.entries()].map(([key, target]) =>
-              target.kind === "file" ? (
-                <FileResultCard key={key} target={target} />
-              ) : target.kind === "preview" ? (
-                <PreviewResultCard key={key} target={target} />
-              ) : (
-                <TerminalResultCard key={key} target={target} />
-              ),
-            )}
-          </section>
-        ) : null}
         {items
-          .filter(
-            (item) =>
-              item.kind === "error" ||
-              (!turnActive &&
-                item.kind === "artifact" &&
-                !filePaths.has(item.title.replace(/^已修改 /, ""))),
-          )
+          .filter((item) => item.kind === "error")
           .map((item) => (
             <TimelineItemView key={item.id} item={item} />
           ))}

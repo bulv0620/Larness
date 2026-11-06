@@ -52,6 +52,7 @@ export function ResourceDock() {
     <div className="pointer-events-none relative z-10 mb-1.5 flex justify-center px-1">
       <nav
         aria-label="项目窗口"
+        data-window-dock
         className="window-tabs-scroll pointer-events-auto flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[10px] border border-line bg-surface/90 p-0.5 shadow-[var(--shadow-card)] backdrop-blur-xl"
       >
         {(["terminal", "services"] as const).map((kind) => {

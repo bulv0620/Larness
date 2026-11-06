@@ -138,8 +138,9 @@ it("finds running terminals after a page of history and revalidates restoration"
   );
   vi.mocked(readTerminal).mockResolvedValue(row());
   picker();
-  fireEvent.click(await screen.findByRole("button", { name: `打开终端 ${id}` }));
   await waitFor(() => expect(openTerminal).toHaveBeenCalledWith(row()));
+  expect(readTerminal).toHaveBeenCalledWith(id);
+  expect(screen.queryByRole("button", { name: /^打开终端/ })).toBeNull();
   expect(listTerminals).toHaveBeenCalledWith(id, { projectId: "p" });
 });
 it("shows query failure with retry instead of a false empty state", async () => {
@@ -175,14 +176,96 @@ it.each([
 });
 
 it("retains a retry when looking beyond ended-history pages fails", async () => {
-  vi.mocked(listTerminals)
-    .mockResolvedValueOnce({ items: [row("TERMINATED")], nextCursor: id })
+  const readNext = vi
+    .fn()
     .mockRejectedValueOnce(new Error("offline"))
     .mockResolvedValueOnce({ items: [row()], nextCursor: null });
+  vi.mocked(listTerminals).mockImplementation(async (cursor) =>
+    cursor ? readNext() : { items: [row("TERMINATED")], nextCursor: id },
+  );
+  vi.mocked(readTerminal).mockResolvedValue(row());
   picker();
   expect(await screen.findByRole("alert")).toBeVisible();
   expect(screen.queryByText("暂无运行中的终端")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "重试" }));
-  expect(await screen.findByRole("button", { name: `打开终端 ${id}` })).toBeVisible();
-  expect(vi.mocked(listTerminals).mock.calls.at(-1)).toEqual([id, { projectId: "p" }]);
+  await waitFor(() => expect(openTerminal).toHaveBeenCalledWith(row()));
+  expect(listTerminals).toHaveBeenCalledWith(id, { projectId: "p" });
+});
+
+it("restores the newest running terminal and skips a candidate that exited during lookup", async () => {
+  const older = { ...row(), id: "older" };
+  const newest = { ...row(), id: "newest" };
+  vi.mocked(listTerminals).mockImplementation(async (cursor) =>
+    cursor ? { items: [newest], nextCursor: null } : { items: [older], nextCursor: older.id },
+  );
+  vi.mocked(readTerminal)
+    .mockResolvedValueOnce({ ...newest, status: "EXITED" })
+    .mockResolvedValueOnce(older);
+  picker();
+  await waitFor(() => expect(openTerminal).toHaveBeenCalledExactlyOnceWith(older));
+  expect(vi.mocked(readTerminal).mock.calls).toEqual([[newest.id], [older.id]]);
+});
+
+it("selects the rightmost real terminal tab when the placeholder was previously selected", () => {
+  const { open } = useWindowStore.getState();
+  open({ kind: "terminal", resourceId: "terminal:empty", title: "终端", projectId: "p" });
+  open({
+    kind: "terminal",
+    resourceId: "term_first",
+    title: "前端",
+    projectId: "p",
+    activate: false,
+  });
+  open({
+    kind: "terminal",
+    resourceId: "term_last",
+    title: "后端",
+    projectId: "p",
+    activate: false,
+  });
+  const win = useWindowStore.getState().windows[0];
+  if (!win) throw Error("Missing window");
+  const view = render(<WindowTabs window={win} />);
+  expect(screen.getByRole("tab", { name: "后端" })).toHaveAttribute("aria-selected", "true");
+  view.rerender(
+    <WindowTabs
+      window={{
+        ...win,
+        activeTabId: win.tabs.find((tab) => tab.resourceId === "term_first")?.id ?? null,
+      }}
+    />,
+  );
+  expect(screen.getByRole("tab", { name: "前端" })).toHaveAttribute("aria-selected", "true");
+});
+
+it("first opens the last background terminal and remembers that choice on restore", () => {
+  const { open, restore } = useWindowStore.getState();
+  open({
+    kind: "terminal",
+    resourceId: "term_first",
+    title: "前端",
+    projectId: "p",
+    activate: false,
+  });
+  open({
+    kind: "terminal",
+    resourceId: "term_last",
+    title: "后端",
+    projectId: "p",
+    activate: false,
+  });
+  const win = useWindowStore.getState().windows[0];
+  if (!win) throw Error("Missing window");
+  restore(win.id);
+  open({
+    kind: "terminal",
+    resourceId: "term_new",
+    title: "测试",
+    projectId: "p",
+    activate: false,
+  });
+  const restored = useWindowStore.getState().windows[0];
+  if (!restored) throw Error("Missing restored window");
+  render(<WindowTabs window={restored} />);
+  expect(screen.getByRole("tab", { name: "后端" })).toHaveAttribute("aria-selected", "true");
 });

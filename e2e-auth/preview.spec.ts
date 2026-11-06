@@ -191,6 +191,18 @@ test("M3-4 previews a real Vite app through an isolated iframe with HMR and no d
     expect(sockets.some((url) => url.includes("preview.localhost"))).toBe(true);
     expect(errors).toEqual([]);
     await page.screenshot({ path: path.join(tmpdir(), "larness-m3-4-preview.png") });
+
+    const bounds = await browser.boundingBox();
+    if (!bounds) throw new Error("Preview window is missing");
+    const edge = bounds.x + bounds.width - 2;
+    const middle = bounds.y + bounds.height / 2;
+    await page.mouse.move(edge, middle);
+    await page.mouse.down();
+    await page.mouse.move(edge - bounds.width + 390, middle, { steps: 5 });
+    await page.mouse.up();
+    await expect(browser).toHaveCSS("width", "420px");
+    await expect(browser.getByText("独立来源", { exact: true })).toHaveCSS("white-space", "nowrap");
+    await browser.screenshot({ path: path.join(tmpdir(), "larness-m3-11-preview-narrow.png") });
   } finally {
     if (await cleanupProject(page, root)) rmSync(root, { recursive: true, force: true });
   }

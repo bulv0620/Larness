@@ -168,6 +168,26 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.locator(".window-drag-handle")).toHaveCount(0);
   });
 
+  test("点击窗口外同时最小化资源窗口，保留原有 Tab", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1080 });
+    const dock = page.getByRole("navigation", { name: "项目窗口" });
+    const frames = page.locator("[data-window-frame]");
+    await dock.getByRole("button", { name: "打开终端窗口" }).click();
+    await dock.getByRole("button", { name: "打开服务窗口" }).click();
+    await expect(frames).toHaveCount(2);
+    await frames.last().getByRole("button", { name: "置顶窗口" }).click();
+    await expect(frames).toHaveCount(2);
+
+    const theme = page.getByRole("button", { name: "外观与主题" });
+    await theme.click();
+    await expect(frames).toHaveCount(0);
+    await expect(page.getByRole("menuitemradio", { name: /深色/ })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await dock.getByRole("button", { name: "打开终端窗口" }).click();
+    await expect(page.getByRole("tab", { name: "pnpm dev", selected: true })).toBeVisible();
+    await expect(frames).toHaveCount(1);
+  });
+
   test("最大化资源窗口盖住终端和服务浮栏", async ({ page }) => {
     const dock = page.getByRole("navigation", { name: "项目窗口" });
     await dock.getByRole("button", { name: "打开终端窗口" }).click();

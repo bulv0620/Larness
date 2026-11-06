@@ -174,9 +174,8 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
       </div>
 
       <div className="flex h-6 shrink-0 items-center gap-1.5 border-t border-line bg-surface-2/50 px-2 font-mono text-[9px] text-ink-3">
-        <Globe2 size={10} />
-        <span>独立来源 · 不共享管理 Cookie · iframe 权限最小化</span>
-        <span className="ml-auto">{session ? new URL(session.origin).host : "—"}</span>
+        <Globe2 size={10} className="shrink-0" />
+        <span className="whitespace-nowrap">独立来源</span>
       </div>
     </div>
   );
@@ -228,9 +227,8 @@ function MockBrowser({ tab }: { tab: WindowTab }) {
       </div>
 
       <div className="flex h-6 shrink-0 items-center gap-1.5 border-t border-line bg-surface-2/50 px-2 font-mono text-[9px] text-ink-3">
-        <Globe2 size={10} />
-        <span>Preview · Mock iframe 占位 · 未发起真实请求</span>
-        <span className="ml-auto">localhost:5173</span>
+        <Globe2 size={10} className="shrink-0" />
+        <span className="whitespace-nowrap">演示预览</span>
       </div>
     </div>
   );
