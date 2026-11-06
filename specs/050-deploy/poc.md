@@ -19,4 +19,4 @@
 
 `pnpm test:poc:m4` 通过 5 项，`VITEST_MAX_WORKERS=3 pnpm check` 通过 608 项（3 项既有跳过，5 项需联网的实验由专用命令执行），`pnpm build` 通过。本任务没有新增浏览器 UI，因此未运行浏览器 E2E。
 
-M4-0 已提交实验供 G-PoC-M4 评审。M4-1 依赖该门禁。
+M4-0 已提交实验供 G-PoC-M4 评审。2026-11-06 用户确认 G-PoC-M4 通过，M4-0 标 `done`，允许开始 M4-1。

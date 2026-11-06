@@ -12,7 +12,7 @@
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `done` | G2 于2026-11-05通过人类整体验收；范围与边界见030/closure.md |
 | M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 全部 done；远程 HTTPS 延后并标未验证 |
-| M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `draft` | G4 |
+| M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `in_progress` | G4；G-Spec-M4 / G-PoC-M4 已通过 |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
 
 关键路径：
@@ -221,8 +221,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M4-P | [技术评审材料](050-deploy/review.md) | G3、M3-11 完成；用户要求开启 M4 | `done`（仅材料） |
-| M4-0 | PM2全局初始化/命名空间/退出恢复PoC | M4-P；G-Spec-M4 | `review`，见[实测](050-deploy/poc.md) |
-| M4-1 | Validate/Build/Artifact/Plan | M4-0；G-PoC-M4 | `todo` |
+| M4-0 | PM2全局初始化/命名空间/退出恢复PoC | M4-P；G-Spec-M4 | `done`（G-PoC-M4 2026-11-06），见[实测](050-deploy/poc.md) |
+| M4-1 | Validate/Build/Artifact/Plan | M4-0；G-PoC-M4 | `in_progress` |
 | M4-2 | 策略授权与条件人工审批 | M4-1 | `todo` |
 | M4-3 | PM2持久运行/Apply/健康/版本/对账 | M4-2 | `todo` |
 | M4-3b | 服务运维页与独立运维 Agent 工具 | M4-3 | `todo` |
@@ -309,10 +309,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 - 不含PM2；Q-003/Q-027在M4解决，不以正式部署未交付阻塞G3。
 - **2026-11-05 人类验收通过**：M3-6 标 done，M3 关闭；远程 HTTPS 仍为未验证项，留待上线实验。
 
-### G-Spec-M4（通过）/ G-PoC-M4（待确认）
+### G-Spec-M4 / G-PoC-M4（已通过）
 
 - 2026-11-06 用户确认正常退出 TUI 后正式服务继续运行，重开可查看实际状态。G-Spec-M4 通过，先执行 [M4-0 隔离实验](050-deploy/review.md)。
 - G-PoC-M4 审阅 [M4-0 的 P1–P5 真实证据](050-deploy/poc.md)，确认交付与退出边界后才能开始 M4-1。产品验收仍按 G4 执行。
+- **2026-11-06 用户确认 G-PoC-M4 通过**：接受 P1–P5 证据与已记录边界，M4-0 标 `done`，允许开始 M4-1。
 
 ### G4 持久运行与版本发布
 

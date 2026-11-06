@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-06 (+08:00)
-> **M3 已通过 G3，后续工作区优化及 Agent 工具纠错（M3-7～M3-11）于 2026-11-06 全部通过验收。G-Spec-M4 已通过，M4-0 隔离实验待 G-PoC-M4 评审。远程 HTTPS 留待上线实验验证。**
+> **M3 已通过 G3，后续工作区优化及 Agent 工具纠错（M3-7～M3-11）于 2026-11-06 全部通过验收。G-Spec-M4 / G-PoC-M4 已通过，M4-0 标 done，当前实施 M4-1。远程 HTTPS 留待上线实验验证。**
 
 ## 里程碑
 
@@ -12,7 +12,7 @@
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
-| M4 | 持久运行与版本发布 | `in_progress` | M4-0 真实实验通过，待 G-PoC-M4 |
+| M4 | 持久运行与版本发布 | `in_progress` | G-Spec-M4 / G-PoC-M4 通过（2026-11-06）；M4-0 done，M4-1 实施中 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
 
 ## 初始化修复（2026-11-02）
@@ -59,11 +59,13 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- 2026-11-06 用户确认 G-PoC-M4 通过，并要求按 M4-1 → M4-4 逐任务完成、每个任务提交后继续。M4-0 标 `done`。当前 M4-1 `in_progress`，分支 `task/m4-1-validate-build-plan`：先冻结 Validate/Build/Artifact/Plan 的接口、数据与安全边界，再写失败测试，随后实现并验证。PM2 实际 Apply、健康核验与运行对账仍归 M4-3。
+
 - M4-P 分域规格补充（2026-11-06，分支 `task/m4-p-service-domain-separation`）。按用户要求分离会话开发服务和正式运维的资源、协议、事件、Agent 工具与执行上下文。补充 [ADR-048](docs/adr/ADR-048-service-domain-separation.md) 及 D14–D16，按 M4-1～M4-4 任务落地。文档校验与 `VITEST_MAX_WORKERS=3 pnpm check` 通过，本次为设计更新。
 
 - M4-P 规格补充（2026-11-06，分支 `task/m4-p-service-operations`）。按用户要求将正式 PM2 服务规划为左侧与「自动化任务」同级的「服务运维」，聊天浮窗只展示临时开发服务。已补充 [ADR-047](docs/adr/ADR-047-service-operations-entry.md) 和 D13 验收，UI 归 M4-3b。文档校验和 `VITEST_MAX_WORKERS=3 pnpm check` 通过，本次仅修改规格与契约。
 
-- M4-0 `review`（2026-11-06 20:47 +08:00 开始，分支 `task/m4-0-pm2-poc`）。先写失败测试，后在 macOS arm64 跑通 P1–P5。正常退出和实际 Server SIGKILL 后正式服务保持同一 PID 与 HTTP 健康，重开后从 PM2 重新核验并展示给实验调用者。临时实例已清理。见 [M4-0 证据](specs/050-deploy/poc.md)。M4-1 待 G-PoC-M4。
+- M4-0 `done`（2026-11-06 20:47 +08:00 开始，分支 `task/m4-0-pm2-poc`）。先写失败测试，后在 macOS arm64 跑通 P1–P5。正常退出和实际 Server SIGKILL 后正式服务保持同一 PID 与 HTTP 健康，重开后从 PM2 重新核验并展示给实验调用者。临时实例已清理。2026-11-06 用户确认 G-PoC-M4 通过。见 [M4-0 证据](specs/050-deploy/poc.md)。
 - M4-0 验证通过 `pnpm test:poc:m4`、`VITEST_MAX_WORKERS=3 pnpm check`、`pnpm build`。PM2 信号退出写 dump 的行为已记录为 Q-029，产品秘密注入在 M4-3 开工前处理。
 
 - M4-P `done`（2026-11-06，分支 `task/m4-p-spec-review`）。按用户指定方向更新 ADR-046 与 P1–P5：TUI 初始化检查全局 PM2，缺失时补装；Larness 管理进程异常退出时正式服务继续运行。用户随后确认正常退出也继续运行，重开可查看实际状态。见 [M4 评审包](specs/050-deploy/review.md)。
