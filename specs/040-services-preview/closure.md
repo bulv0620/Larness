@@ -80,4 +80,8 @@
 
 本次合并前在本机 macOS 通过 `pnpm check`、`pnpm build`、Demo E2E 17/17 和构建版定向认证 E2E 3/3，定向用例为 sidebar、conversation 和 M1 文件成果。分任务的自动化范围见 [侧栏与窗口任务](../049-workspace-sidebar/tasks.md)和 [对话区任务](../036-conversation-experience/tasks.md)。
 
+## G3 后 Agent 工具纠错验收
+
+2026-11-06 用户确认 M3-10 通过并授权合并与推送。实现提交 `1d9447b` 对齐了启动和登记提示、模型上下文与实际 Turn 策略，并约束 Git 操作的字面路径、分支和推送范围。相关回归及未验证范围见 [M3-10 验收记录](../051-agent-tool-contract/tasks.md)。
+
 M4 下一步是技术规格评审。DeepSeek 官方接入与上下文用量排在 M5-1，依赖 G4。 [M4 评审入口](../050-deploy/review.md) · [M5 DeepSeek 草案](../061-deepseek-integration/spec.md)

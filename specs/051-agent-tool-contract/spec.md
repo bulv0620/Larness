@@ -2,7 +2,7 @@
 id: 051-agent-tool-contract
 title: Agent 工具描述与执行契约
 milestone: M3
-status: active
+status: done
 depends_on: [040-services-preview]
 created: 2026-11-06
 ---
