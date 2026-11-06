@@ -69,3 +69,5 @@ M3仅开发登记/隔离预览，Q-002/Q-026仍属M3；Q-003/Q-027移到M4 PM2�
 
 ## M3规格评审已通过（2026-11-05）
 人类“按推荐批准”，远程验证延后至上线实验；评审材料见[040/review](../specs/040-services-preview/review.md)，决策见[ADR-043](adr/ADR-043-development-preview-authorization.md)。Q-002/Q-026 已移入“已解决”，仅授权先做 M3-0；G-PoC-M3 确认后 M3-1。
+
+2026-11-06 开启 M4 评审。Q-003/Q-027 的候选、备选及 P1–P5 验收见 [M4 评审包](../specs/050-deploy/review.md)和 [ADR-046 提案](adr/ADR-046-pm2-delivery-and-lifecycle.md)。两项仍待人类确认。

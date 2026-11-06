@@ -1,6 +1,8 @@
 # 持久服务与版本发布契约草案（M4）
 
-> draft，2026-11-05；[ADR-042](../adr/ADR-042-service-deploy-boundary.md)产品规则已批准，具体REST/schema/DB/配置及实现仍需G-Spec-M4/PoC。与[服务契约](services-preview.md)、[050 spec](../../specs/050-deploy/spec.md)配套，不把本草案当已实现接口。
+> draft，2026-11-06；[ADR-042](../adr/ADR-042-service-deploy-boundary.md)产品规则已批准，具体REST/schema/DB/配置及实现仍需G-Spec-M4/PoC。与[服务契约](services-preview.md)、[050 spec](../../specs/050-deploy/spec.md)配套，不把本草案当已实现接口。
+
+候选运行时、实例身份和退出边界见 [ADR-046 提案](../adr/ADR-046-pm2-delivery-and-lifecycle.md)及 [M4 评审包](../../specs/050-deploy/review.md)。先完成 G-Spec-M4 和隔离 PoC，再按任务冻结产品接口。
 
 ## 1. 阶段与身份
 M3提供开发终端的temporary登记/隔离预览。M4负责全部persistent/PM2交付和运行、构建产物、计划/策略授权、首次发布/版本替换/健康/记录与支持的恢复。ServiceManager/PM2Adapter/日志/健康/实际状态对账只实现一套，部署与日常操作复用。后端绑定本实例受管PM2身份，不能凭客户端PID/PM2 id、端口或日志收养无关服务。

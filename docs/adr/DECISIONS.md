@@ -117,3 +117,5 @@
 - [ADR-042 开发运行/正式发布边界与策略化部署授权](ADR-042-service-deploy-boundary.md)：accepted（2026-11-05用户明确决定）；M3开发预览、M4全部PM2/持久发布；自主含部署完全免人工，旧005/030/040原文由此补充，不代表G-Spec/实现通过。
 
 - [ADR-043 开发预览来源、票据与服务执行身份](ADR-043-development-preview-authorization.md)：proposed（2026-11-05 M3技术规格评审）；独立来源、凭据交换、执行身份/失效和PoC门禁待人类确认，未实现。
+
+- [ADR-046 PM2 交付与正式服务退出边界](ADR-046-pm2-delivery-and-lifecycle.md)：proposed（2026-11-06）。Q-003/Q-027 候选及 M4-0 实验范围待人类确认。
