@@ -145,7 +145,7 @@ function PlanCard({ item, turnActive }: { item: PlanItem; turnActive: boolean })
                     size={13}
                     className="mt-0.5 shrink-0 animate-spin text-accent motion-reduce:animate-none"
                   />
-                ) : status === "failed" ? (
+                ) : status === "failed" || status === "unfinished" ? (
                   <X size={13} className="mt-0.5 shrink-0 text-danger" />
                 ) : (
                   <Circle size={13} className="mt-0.5 shrink-0" />
