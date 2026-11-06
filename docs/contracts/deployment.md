@@ -1,6 +1,6 @@
 # 正式服务运维与版本发布契约草案（M4）
 
-> draft，2026-11-06。产品边界见 [ADR-042](../adr/ADR-042-service-deploy-boundary.md) 和 [ADR-048](../adr/ADR-048-service-domain-separation.md)。G-Spec-M4 已通过，接口细节与实现按后续门禁及对应任务评审。开发服务另见 [M3 契约](services-preview.md)。
+> draft，2026-11-06。产品边界见 [ADR-042](../adr/ADR-042-service-deploy-boundary.md) 和 [ADR-048](../adr/ADR-048-service-domain-separation.md)。G-Spec-M4 / G-PoC-M4 已通过。M4-1 冻结 Validate/Build/Artifact/Plan 的内部接口、数据与安全边界，见 [M4-1 技术冻结](../../specs/050-deploy/m4-1-design.md)；PM2 Apply、健康与运行协议仍按 M4-3/M4-3b 冻结。开发服务另见 [M3 契约](services-preview.md)。
 
 TUI 初始化检查全局 PM2 并在缺失时补装。正式服务由独立守护进程托管，Larness 管理进程异常退出或 TUI 正常退出时继续运行。重开后对账并展示实际状态。生命周期、实例身份和隔离实验见 [ADR-046](../adr/ADR-046-pm2-delivery-and-lifecycle.md)及 [M4 评审包](../../specs/050-deploy/review.md)。完成隔离 PoC 后，按任务冻结产品接口。
 
@@ -14,6 +14,16 @@ REST 使用独立的 `/api/service-ops/` 命名空间，承载正式服务、动
 ## 2. 计划与动作边界
 计划描述真实目标scope/service、旧/新版本、来源和不可变artifact哈希、启动配置/secretRef引用、影响、健康策略/超时和支持的恢复边界。确切字段/规范化/时效由技术评审冻结，存储不含秘密明文。
 首次部署和任何artifact/version/config变更走计划；同版本同配置start/stop/restart走日常服务动作，不能用restart注入新产物/环境配置。构建步骤本身也经过策略授权。正式公网配置与管理端隔离预览分离，不自动开放端口。
+
+### 2.1 M4-1 冻结（2026-11-06）
+
+- **输入**：`DeploymentSpec`（strict）包含 `version`、`build.command/cwd/outputDir/timeoutMs`、`start.command/cwd`、`health.path/port/timeoutMs/intervalMs`、`recovery.strategy/maxAttempts`。命令为 argv 数组、`shell:false`；`cwd`/`outputDir` 必须留在项目根内；`outputDir` 不能是项目根或 `.git`；健康端口 1024–65535 且不能占用受管 Server / 预览端口。完整字段与限额见 [M4-1 技术冻结](../../specs/050-deploy/m4-1-design.md)。
+- **目标**：只接受 `tgt_<uuid>` 或项目内唯一名称；`svc_*`、`trm_*`、`cmd_*`、终端 ID、端口、URL 不能作为正式目标。目标、产物、构建、计划 ID 前缀分别为 `tgt_` / `art_` / `bld_` / `plan_`。
+- **数据**：唯一迁移 `0011_deployments` 新增 `deployment_targets`、`deployment_builds`、`deployment_artifacts`、`deployment_plans`。`deployment_targets.current_artifact_id/current_version` 只由成功部署记录更新，M4-1 只读。产物路径相对 `dataDir/artifacts/deploy`，构建日志相对 `dataDir/logs/deploy`，均不在源码目录。
+- **产物**：真实构建进程、项目写锁、有界日志、环境白名单、输出脱敏；复制不跟随符号链接，拒绝特殊文件/越界/超限；按排序路径、大小与文件 SHA-256 计算树哈希；文件 0400、目录 0700；DB 记录与 `artifact.json` 清单双重核验。
+- **计划**：规范化 JSON + `planHash = SHA-256(canonicalJson(document))`；绑定 target/project/artifact/artifactHash/specHash/previous version/health/recovery/impact/expiresAt；TTL 30 分钟。`databaseRollback` 固定 `unsupported`，旧产物回滚能力按是否存在 previous artifact 记录，不承诺数据库回滚。
+- **失败**：构建失败/超时/取消无 artifact、target 不变；计划/产物/目标/当前版本/哈希/锁不符一律拒绝；`verifyPlan` 在 M4-2 授权和 M4-3 apply 前重算哈希与产物内容。
+- **接口**：M4-1 不新增 REST / WS / Agent 工具；`/api/service-ops/` 的精确路由、事件与工具装配仍归 M4-3 / M4-3b。M4-1 的内部 manager/repository 由后续任务调用。
 
 ## 3. 授权分支
 

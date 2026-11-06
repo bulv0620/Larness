@@ -1,5 +1,6 @@
 export * from "./commands";
 export * from "./config";
+export * from "./deployments";
 export * from "./domain";
 export * from "./errors";
 export * from "./events";

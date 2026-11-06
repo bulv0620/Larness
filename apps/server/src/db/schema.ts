@@ -570,3 +570,135 @@ export const terminalLeases = sqliteTable("terminal_leases", {
   inputSequence: integer("input_sequence").notNull().default(0),
 });
 export type TerminalLeaseRow = typeof terminalLeases.$inferSelect;
+
+export const deploymentTargets = sqliteTable(
+  "deployment_targets",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    name: text("name").notNull(),
+    currentArtifactId: text("current_artifact_id"),
+    currentVersion: text("current_version"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("deployment_targets_project_name").on(table.projectId, table.name),
+    index("deployment_targets_project_updated").on(table.projectId, table.updatedAt),
+    check(
+      "deployment_targets_current",
+      sql`(${table.currentArtifactId} IS NULL) = (${table.currentVersion} IS NULL)`,
+    ),
+  ],
+);
+export type DeploymentTargetRow = typeof deploymentTargets.$inferSelect;
+
+export const deploymentBuilds = sqliteTable(
+  "deployment_builds",
+  {
+    id: text("id").primaryKey(),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => deploymentTargets.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    requestKey: text("request_key").notNull(),
+    requestedBy: text("requested_by").notNull(),
+    status: text("status").$type<import("@larness/shared").DeploymentBuildStatus>().notNull(),
+    specJson: text("spec_json").notNull(),
+    specHash: text("spec_hash").notNull(),
+    reasonCode: text("reason_code"),
+    logRef: text("log_ref").notNull(),
+    startedAt: integer("started_at"),
+    endedAt: integer("ended_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("deployment_builds_request").on(table.requestKey),
+    index("deployment_builds_target_created").on(table.targetId, table.createdAt),
+    index("deployment_builds_status").on(table.status),
+    check(
+      "deployment_builds_status",
+      sql`${table.status} IN ('RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED')`,
+    ),
+  ],
+);
+export type DeploymentBuildRow = typeof deploymentBuilds.$inferSelect;
+
+export const deploymentArtifacts = sqliteTable(
+  "deployment_artifacts",
+  {
+    id: text("id").primaryKey(),
+    buildId: text("build_id")
+      .notNull()
+      .references(() => deploymentBuilds.id),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => deploymentTargets.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    version: text("version").notNull(),
+    artifactHash: text("artifact_hash").notNull(),
+    artifactPath: text("artifact_path").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    fileCount: integer("file_count").notNull(),
+    specJson: text("spec_json").notNull(),
+    specHash: text("spec_hash").notNull(),
+    sourceJson: text("source_json").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("deployment_artifacts_build").on(table.buildId),
+    uniqueIndex("deployment_artifacts_target_version").on(table.targetId, table.version),
+    index("deployment_artifacts_target_created").on(table.targetId, table.createdAt),
+    check("deployment_artifacts_hash", sql`length(${table.artifactHash}) = 64`),
+    check("deployment_artifacts_size", sql`${table.sizeBytes} >= 0`),
+    check("deployment_artifacts_count", sql`${table.fileCount} >= 0`),
+  ],
+);
+export type DeploymentArtifactRow = typeof deploymentArtifacts.$inferSelect;
+
+export const deploymentPlans = sqliteTable(
+  "deployment_plans",
+  {
+    id: text("id").primaryKey(),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => deploymentTargets.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    artifactId: text("artifact_id")
+      .notNull()
+      .references(() => deploymentArtifacts.id),
+    previousArtifactId: text("previous_artifact_id").references(() => deploymentArtifacts.id),
+    previousVersion: text("previous_version"),
+    version: text("version").notNull(),
+    planJson: text("plan_json").notNull(),
+    planHash: text("plan_hash").notNull(),
+    status: text("status").$type<import("@larness/shared").DeploymentPlanStatus>().notNull(),
+    expiresAt: integer("expires_at").notNull(),
+    requestKey: text("request_key").notNull(),
+    requestedBy: text("requested_by").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("deployment_plans_request").on(table.requestKey),
+    index("deployment_plans_target_created").on(table.targetId, table.createdAt),
+    index("deployment_plans_status_expires").on(table.status, table.expiresAt),
+    check(
+      "deployment_plans_status",
+      sql`${table.status} IN ('READY', 'WAITING_APPROVAL', 'AUTHORIZED', 'APPLYING', 'HEALTH_CHECK', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED', 'INVALIDATED', 'UNKNOWN')`,
+    ),
+    check("deployment_plans_hash", sql`length(${table.planHash}) = 64`),
+    check(
+      "deployment_plans_previous",
+      sql`(${table.previousArtifactId} IS NULL) = (${table.previousVersion} IS NULL)`,
+    ),
+  ],
+);
+export type DeploymentPlanRow = typeof deploymentPlans.$inferSelect;

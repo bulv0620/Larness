@@ -33,6 +33,7 @@ import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/mod
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { PreviewRegistry } from "../modules/previews/registry.js";
 import { ResourceEventBus } from "../modules/resources/events.js";
+import { DeploymentManager } from "../modules/service-ops/deployments.js";
 import { ServiceManager } from "../modules/services/manager.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
@@ -74,6 +75,7 @@ export interface RunningServer {
   git: GitManager;
   terminals: TerminalManager;
   services: ServiceManager;
+  deployments: DeploymentManager;
   previews: PreviewRegistry | null;
   resourceEvents: ResourceEventBus;
 }
@@ -136,6 +138,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   let turnQueue: TurnQueue | null = null;
   let commandManager: CommandManager | null = null;
   let terminalManager: TerminalManager | null = null;
+  let deploymentManager: DeploymentManager | null = null;
   let requestShutdown: ((reason: string) => void) | null = null;
 
   try {
@@ -221,6 +224,21 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     terminalManager = terminals;
     await terminals.recover();
     services.recover();
+    const deployments = new DeploymentManager({
+      db: opened.db,
+      dataDir,
+      secrets: () => {
+        try {
+          return listEncryptedSecrets(opened.db)
+            .map((secret) => secretStore.decrypt(secret))
+            .filter((value) => value.length > 0);
+        } catch {
+          return [];
+        }
+      },
+    });
+    deploymentManager = deployments;
+    deployments.recover();
     ensureDefaultModelProfiles(opened.db);
 
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger: activeLogger });
@@ -288,6 +306,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         terminals,
         git,
         services,
+        deployments,
         previews,
         ...(turnQueue === null
           ? {}
@@ -355,6 +374,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         await turnQueue?.stop();
         services.stop();
         await previews?.stop();
+        await deployments.close();
         cleanupScheduler.stop();
         await retention.stop();
         opened.close();
@@ -383,6 +403,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       terminals,
       git,
       services,
+      deployments,
       previews,
       resourceEvents,
     };
@@ -398,6 +419,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
     await terminalManager?.close();
     await commandManager?.close();
+    await deploymentManager?.close();
     if (app !== null) {
       await app.close().catch(() => undefined);
     }

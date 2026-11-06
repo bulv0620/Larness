@@ -31,6 +31,7 @@ import { FileWatchManager } from "./modules/files/watcher.js";
 import { GitManager } from "./modules/git/manager.js";
 import type { PreviewRegistry } from "./modules/previews/registry.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
+import { DeploymentManager } from "./modules/service-ops/deployments.js";
 import { ServiceManager } from "./modules/services/manager.js";
 import { TerminalManager } from "./modules/terminals/manager.js";
 import { resolveRequestId } from "./request-id.js";
@@ -51,6 +52,7 @@ export interface AppServices {
   terminals?: TerminalManager;
   git?: GitManager;
   services?: ServiceManager;
+  deployments?: DeploymentManager;
   previews?: PreviewRegistry | null;
   resourceEvents?: ResourceEventBus;
 }
@@ -112,6 +114,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     const serviceManager =
       options.services.services ??
       new ServiceManager({ db: options.services.db, events: resourceEvents });
+    const deployments =
+      options.services.deployments ??
+      new DeploymentManager({ db: options.services.db, dataDir: options.services.dataDir });
     const terminals =
       options.services.terminals ??
       new TerminalManager({
@@ -131,6 +136,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       await terminals.close();
       await commands.close();
       await fileWatches.close();
+      await deployments.close();
     });
     registerAuthRoutes(app, options.services);
     if (options.services.secretStore !== undefined) {

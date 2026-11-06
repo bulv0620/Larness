@@ -49,6 +49,14 @@
 | `PREVIEW_TARGET_INVALID` | 403 | 代理目标未登记或被禁止 |
 | `PREVIEW_DISABLED` | 503 | 预览网关未启用 |
 | `PREVIEW_UNAVAILABLE` | 503 | 服务或预览来源当前不可用 |
+| `DEPLOY_TARGET_INVALID` | 400 | 正式目标格式错误、项目不匹配或由开发资源冒充 |
+| `DEPLOY_SPEC_INVALID` | 400 | 部署输入 schema、路径、端口或限额不合法 |
+| `DEPLOY_BUILD_FAILED` | 422 | 真实构建失败、超时或输出无效；不产生产物 |
+| `DEPLOY_ARTIFACT_INVALID` | 409 | 产物缺失、越界、哈希不符或不可信 |
+| `DEPLOY_PLAN_INVALID` | 409 | 计划内容、哈希或绑定不一致 |
+| `DEPLOY_PLAN_EXPIRED` | 410 | 计划超出有效期 |
+| `DEPLOY_CONFLICT` | 409 | 版本、目标、请求键冲突或构建并发 |
+| `DEPLOY_UNAVAILABLE` | 503 | 部署数据目录 / 产物根不可用 |
 | `PROVIDER_UNAVAILABLE` | 503 | 模型 Provider 不可用 |
 | `DEV_WEB_UNAVAILABLE` | 503 | 受管开发前端暂不可用；仅用于 ADR-028 开发页面转发 |
 | `PROVIDER_AUTH_FAILED` | 502 | 模型 Provider 拒绝凭据 / 未配置 Key |
@@ -436,6 +444,8 @@ Turn 创建成功返回 `202`：
 | POST | `/api/updates/install` | M5 |
 
 未列出的接口默认不存在；新增必须同步本文件、Zod schema 与测试。
+
+M4-1（2026-11-06）只交付部署目标、构建、产物与计划的内部 manager/repository，未新增 REST / WS / Agent 工具。上述 `DEPLOY_*` 错误码先由内部模块稳定使用，REST 映射归 M4-3；`/api/service-ops/` 的鉴权、CSRF、Origin、作用域与响应 schema 在 M4-3 冻结。
 
 ## 9. 速率与大小限制
 

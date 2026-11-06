@@ -161,8 +161,11 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `resource_operations` | M2-1 已实施 | 写意图、幂等结果、规范化根 / 版本、锁 / fencing；字段及状态见 m2-resources §11 |
 | `resource_streams` / `resource_events` | M2-1 已实施 | stream 序号事务递增，事件不含正文；通知 / 补拉属于 M2-1b |
 | `services` | M3 开发服务 | 保存终端、执行和端点绑定、状态及预览资格。日志引用终端输出 |
-| 正式服务仓储 | M4 | 独立正式 ID、受管 PM2 绑定、配置引用、期望状态与观察状态 |
-| 正式部署仓储 | M4 | 独立部署 ID、正式目标、来源项目、不可变产物、计划、授权、版本与结果 |
+| `deployment_targets` | M4-1 已实施 | 独立正式目标：`id, project_id, name, current_artifact_id, current_version, created_at, updated_at`；`UNIQUE(project_id,name)` |
+| `deployment_builds` | M4-1 已实施 | 真实构建：`id, target_id, project_id, request_key, requested_by, status, spec_json, spec_hash, reason_code, log_ref, started_at, ended_at, created_at`；`UNIQUE(request_key)` |
+| `deployment_artifacts` | M4-1 已实施 | 不可变产物：`id, build_id, target_id, project_id, version, artifact_hash, artifact_path, size_bytes, file_count, spec_json, spec_hash, source_json, created_at`；`UNIQUE(build_id)`、`UNIQUE(target_id,version)` |
+| `deployment_plans` | M4-1 已实施 | 发布计划：`id, target_id, project_id, artifact_id, previous_artifact_id, previous_version, version, plan_json, plan_hash, status, expires_at, request_key, requested_by, created_at`；`UNIQUE(request_key)` |
+| 正式服务运行/PM2 绑定 | M4-3 | 受管实例身份、启动配置引用、期望状态与观察状态、部署结果与版本历史 |
 | `scheduled_jobs` | M5 | `id, name, schedule, scope, policy, enabled, created_at` |
 | `job_runs` | M5 | `id, job_id, status, started_at, ended_at, log_ref` |
 | `update_runs` | M5 | `id, from_version, to_version, status, started_at, ended_at` |
@@ -242,6 +245,10 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 
 ## ADR-042：分阶段服务与部署记录（2026-11-05，draft）
 按 [ADR-048](../adr/ADR-048-service-domain-separation.md)，`services` 保持 M3 开发绑定和历史。M4 在同一业务数据库新增独立正式仓储及部署记录，部署目标引用正式 ID，来源项目和产物用于追溯及授权校验。运维日志和事件流独立，业务事件仍与 seq 事务提交。审批与策略记录分别绑定领域及作用域，只有人工分支关联 approvalId。表、列、约束、迁移与留存按对应任务冻结。见 [部署契约](deployment.md)。
+
+## M4-1 迁移 0011_deployments（2026-11-06）
+
+新增 `deployment_targets` / `deployment_builds` / `deployment_artifacts` / `deployment_plans`，schemaVersion 10 → 11。旧表、旧数据、资源流序号与锁/fencing 不变。产物与构建日志位于 `dataDir/artifacts/deploy`、`dataDir/logs/deploy`，不在源码目录；DB 只存元数据、规范化 spec、哈希与相对路径，不含秘密或构建输出正文。`deployment_targets.current_artifact_id/current_version` 是最近一次成功部署指针，M4-1 只读，M4-3 成功后更新。精确列/约束见 [部署契约 §2.1](deployment.md#21-m4-1-冻结2026-11-06) 与 [M4-1 技术冻结](../../specs/050-deploy/m4-1-design.md)。
 
 ## M3技术候选（待审批，未实现）
 [m3-preview](m3-preview.md)限定M3-1只新增temporary服务及必要action kind迁移：terminalExecutionId/generation由后端产生、与输入租约独立；原始身份仅内部、日志引用终端存储。票据/grant只保存短期内存hash，重启撤销，业务事件和seq事务持久化；不加入PM2字段或明文凭据，精确DDL在PoC后冻结。
