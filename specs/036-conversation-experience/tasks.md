@@ -6,3 +6,5 @@
 
 - [x] M3-8 `done`（2026-11-06）。先复现四种终态后计划仍转圈，再修复实时呈现和历史重放。通过 `pnpm check`、`pnpm build`、Demo E2E 17/17，以及开发版和构建版各 1 项认证对话 E2E。认证 E2E 本轮限对话场景。分支 `task/m3-8-plan-terminal-state`。
 - [x] M3-9 `done`（2026-11-06）。复现成果提前显示，验证正常完成和取消后成果出现，以及后续任务运行时历史成果仍可查看。通过 `pnpm check`、Web 构建、Demo E2E 17/17 和 M1 认证文件成果 E2E（重跑 1/1）。认证 E2E 本轮限 M1 场景。分支 `task/m3-9-defer-turn-results`。
+
+2026-11-06 用户统一验收通过 M3-8 和 M3-9。 [M3 收尾记录](../040-services-preview/closure.md#g3-后工作区优化验收)

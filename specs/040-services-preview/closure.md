@@ -31,7 +31,7 @@
 | S13 未鉴权/CSRF/伪造 | resolve 无 CSRF 401/403；预览无 grant 401 |
 | S14 前端相对 API | Vite iframe E2E：`/api` 经 dev proxy 到第二终端后端 |
 | S15 日志/游标 | 关联终端有界输出；缺口/过期由终端输出契约覆盖，未做专门 UI 负例 |
-| S16 自主登记/预览 | 服务登记成功后在消息成果区出现“打开预览 · <服务名>”，点击直接开预览窗； Agent 工具 L0/L2 + 策略测试；真实 Turn E2E 调用 `resolve_service_preview` 并点击卡片打开 iframe；autonomous 不造 approvalId；非法目标仍拒绝 |
+| S16 自主登记/预览 | 服务登记成功且本轮结束后，成果区提供“打开预览 · <服务名>”。真实 Turn E2E 调用 `resolve_service_preview` 并点击卡片打开 iframe。Agent 工具 L0/L2 与策略测试覆盖自主执行的授权记录和非法目标拒绝 |
 | S17 iframe 受限 | iframe 被拦时显示“无法访问 + 刷新”，可用右上角图标在独立来源打开；不删安全头、不降同源 |
 | S18 同 PTY 重启/策略 | 新 executionId、只读拒绝登记、严格/标准审批 |
 
@@ -67,3 +67,17 @@
 - [x] 接受 iframe 预览、右上角外部打开、不可用状态与“服务已结束”行为。
 - [x] 接受上述已知边界（尤其远程 HTTPS 延后）。
 - [x] 确认 G3 通过；M3 标 done，下一步 M4 规格评审。
+
+## G3 后工作区优化验收
+
+2026-11-06 用户确认本轮修改全部验收通过。
+
+| 任务 | 验收行为 | 实现提交 |
+|---|---|---|
+| M3-7 | 后台任务状态与会话选择独立。每个项目默认最多显示五条会话，历史可展开及搜索。资源窗口覆盖浮栏 | `00f329d` |
+| M3-8 | Turn 结束后计划停止旋转，原进行中步骤显示红叉和「未完成」，历史重放保留真实进度 | `0bdd8ee`、`4c4b140` |
+| M3-9 | 本轮成果在 Turn 结束后显示，取消、失败和中断后仍可访问已产出结果 | `1c4a523` |
+
+本次合并前在本机 macOS 通过 `pnpm check`、`pnpm build`、Demo E2E 17/17 和构建版定向认证 E2E 3/3，定向用例为 sidebar、conversation 和 M1 文件成果。分任务的自动化范围见 [侧栏与窗口任务](../049-workspace-sidebar/tasks.md)和 [对话区任务](../036-conversation-experience/tasks.md)。
+
+M4 下一步是技术规格评审。DeepSeek 官方接入与上下文用量排在 M5-1，依赖 G4。 [M4 评审入口](../050-deploy/review.md) · [M5 DeepSeek 草案](../061-deepseek-integration/spec.md)

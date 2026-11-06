@@ -1,7 +1,7 @@
 # 系统架构总览
 
 > 状态：已冻结（v1.0）· 来源：`larness.md` 第 10–20、33–41 章
-> 本文只描述跨里程碑的稳定结构；具体功能见 `specs/`。资源生命周期与服务分工已按 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md) 修订；M2已于2026-11-05通过G2；M3开发预览/M4持久发布按ADR-042分界，均仍待各自规格/PoC门禁。
+> 本文描述跨里程碑的稳定结构。M2 和 M3 已分别通过 G2 和 G3，M4 持久发布待规格评审。资源生命周期和服务分工见 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md) 与 [ADR-042](../adr/ADR-042-service-deploy-boundary.md)。
 
 ## 1. 定位
 

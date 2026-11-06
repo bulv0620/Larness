@@ -204,6 +204,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 ## 6.1 G3 后工作区交互修正
 
+2026-11-06 用户确认下列优化全部验收通过。 [M3 收尾记录](040-services-preview/closure.md#g3-后工作区优化验收)
+
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M3-7 | [项目会话状态、折叠与浮栏层级](049-workspace-sidebar/spec.md) | G3 done，用户直接指令 | `done` |
@@ -232,6 +234,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-3 | Launcher / Updater、签名、UpdateLock、回滚 | G4 | `todo` |
 | M5-4 | Windows / Linux PoC、打包与安装说明 | M5-1 ~ M5-3 | `todo` |
 | M5-5 | 安全加固、发布验收清单、文档定稿 | M5-4 | `todo` |
+
+[061 DeepSeek 官方接入与上下文用量](061-deepseek-integration/spec.md) 排入 M5-1，依赖 M4 通过 G4。规格为 `draft`，任务拆分见 [061 任务草案](061-deepseek-integration/tasks.md)。
 
 ## 9. 门禁
 
