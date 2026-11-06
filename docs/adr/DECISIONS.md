@@ -118,4 +118,4 @@
 
 - [ADR-043 开发预览来源、票据与服务执行身份](ADR-043-development-preview-authorization.md)：proposed（2026-11-05 M3技术规格评审）；独立来源、凭据交换、执行身份/失效和PoC门禁待人类确认，未实现。
 
-- [ADR-046 PM2 交付与正式服务退出边界](ADR-046-pm2-delivery-and-lifecycle.md)：proposed（2026-11-06）。Q-003/Q-027 候选及 M4-0 实验范围待人类确认。
+- [ADR-046 PM2 交付与正式服务退出边界](ADR-046-pm2-delivery-and-lifecycle.md)：proposed（2026-11-06）。用户确定全局安装与 TUI 缺失补装、管理进程异常退出时正式服务继续运行；正常退出及 M4-0 实验范围待确认。

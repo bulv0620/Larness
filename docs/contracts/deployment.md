@@ -2,7 +2,7 @@
 
 > draft，2026-11-06；[ADR-042](../adr/ADR-042-service-deploy-boundary.md)产品规则已批准，具体REST/schema/DB/配置及实现仍需G-Spec-M4/PoC。与[服务契约](services-preview.md)、[050 spec](../../specs/050-deploy/spec.md)配套，不把本草案当已实现接口。
 
-候选运行时、实例身份和退出边界见 [ADR-046 提案](../adr/ADR-046-pm2-delivery-and-lifecycle.md)及 [M4 评审包](../../specs/050-deploy/review.md)。先完成 G-Spec-M4 和隔离 PoC，再按任务冻结产品接口。
+TUI 初始化检查全局 PM2 并在缺失时补装。正式服务由独立守护进程托管，Larness 管理进程异常退出时继续运行。正常退出候选、实例身份和隔离实验见 [ADR-046 提案](../adr/ADR-046-pm2-delivery-and-lifecycle.md)及 [M4 评审包](../../specs/050-deploy/review.md)。完成 G-Spec-M4 和隔离 PoC 后，按任务冻结产品接口。
 
 ## 1. 阶段与身份
 M3提供开发终端的temporary登记/隔离预览。M4负责全部persistent/PM2交付和运行、构建产物、计划/策略授权、首次发布/版本替换/健康/记录与支持的恢复。ServiceManager/PM2Adapter/日志/健康/实际状态对账只实现一套，部署与日常操作复用。后端绑定本实例受管PM2身份，不能凭客户端PID/PM2 id、端口或日志收养无关服务。
@@ -28,7 +28,7 @@ M3提供开发终端的temporary登记/隔离预览。M4负责全部persistent/P
 - 自主授权记录包含决策来源为策略、policySnapshotId/actor/scope/planHash/时效，人工审批记录仅在需要时关联approvalId；具体字段/表和事件名待技术评审。
 - apply前复核当前受管版本/PM2身份和授权；重复请求不重复替换。超时/结果未知先对账，不盲目spawn；停止保留配置与版本历史。
 - 失败可由获策略授权的Agent执行已支持的恢复，自主不强制等待人工；不可逆迁移或不支持回滚要明确，不虚报恢复完成。
-- PM2_HOME/命名空间/启动/关闭行为、Q-003/Q-027在M4冻结；产物/PM2运行数据/日志与源码目录分离，不操作其他PM2实例。
+- 每个 Larness 实例使用源码外的私有 `PM2_HOME`，产物、PM2 运行数据及日志也与源码目录分离。全局安装检查不接入用户默认实例，运行操作只作用于已核验的受管实例。Q-003 的安装细节和 Q-027 的生命周期按 M4 门禁冻结。
 
 ## 5. 必要验证
 真实隔离PM2/项目构建/HTTP健康/进程和DB故障，覆盖四策略、计划篡改/过期/锁失效/重复请求、自主无人工停等、同版本重启/版本变更界限、源临时服务不被收养。Mock只能替代LLM，平台与清理结果据实记录，不能据文档宣称G4已通过。
