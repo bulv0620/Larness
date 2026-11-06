@@ -22,9 +22,11 @@
 | Q-016 | 所有 Passkey 丢失 / TUI 不可用时如何恢复？ | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码仍为 P1 | 恢复流程、支持成本 | M4 |
 | Q-017 | 是否允许可同步 Passkey（iCloud / Google）？ | 允许；存储 `backupEligible` / `backupState` 并在设备列表展示，不承诺物理设备绑定 | 安全文案、撤销粒度 | M0-6 |
 | Q-018 | 是否保留 `允许本次` 临时访问？ | 保留；仅短期会话，不注册 Passkey，不产生长期凭据 | 兼容不支持 WebAuthn 的浏览器 | M0-5 |
-| Q-027 | 正常退出受管 TUI / 更新时，PM2 正式服务是否继续？ | 用户已确定 Larness 管理进程异常退出时继续运行。正常退出是否保留正式服务仍待确认，需要明确与 ADR-023 的边界 | 持久服务生命周期、上线 / 更新影响提示与验收 | 正常退出策略在 G-Spec-M4；更新影响在交付前 |
+| Q-029 | 正式服务如何接收 `secretRef`，避免 PM2 将明文写入元数据、dump 或日志？ | 待设计。PoC 确认 PM2 收到信号退出会写 dump；产品接入前用合成秘密验证所有落盘和输出路径 | PM2 正式服务注入与脱敏 | M4-3 开工前 |
 
 ## 已解决
+
+Q-027（2026-11-06）：Larness 管理进程异常退出或 TUI 正常退出时，正式 PM2 服务继续运行，重开后对账并展示实际状态。涉及 PM2 运行时替换的更新影响在对应交付前核实。见 [ADR-046](adr/ADR-046-pm2-delivery-and-lifecycle.md)。
 
 Q-002 / Q-026（2026-11-05）：人类按[评审包](../specs/040-services-preview/review.md)推荐批准 G-Spec-M3，[ADR-043](adr/ADR-043-development-preview-authorization.md) 转 accepted。Q-002 采用本机 `*.preview.localhost` + 远程独立注册域/通配 DNS/HTTPS 反代；Q-026 采用后端核验 launch/执行/监听 owner+birth/generation、≤1 秒对账、证据陈旧 >2 秒拒绝，并接受 connect 竞态残余风险。远程 HTTPS 实测延后至后续上线实验，M3-0 先做本机证据；实现细节由 G-PoC 冻结，未验证项不得宣称支持。
 
@@ -70,4 +72,4 @@ M3仅开发登记/隔离预览，Q-002/Q-026仍属M3；Q-003/Q-027移到M4 PM2�
 ## M3规格评审已通过（2026-11-05）
 人类“按推荐批准”，远程验证延后至上线实验；评审材料见[040/review](../specs/040-services-preview/review.md)，决策见[ADR-043](adr/ADR-043-development-preview-authorization.md)。Q-002/Q-026 已移入“已解决”，仅授权先做 M3-0；G-PoC-M3 确认后 M3-1。
 
-2026-11-06 开启 M4 评审。用户已确定 TUI 初始化检查全局 PM2 并自动补装、管理进程异常退出时正式服务继续运行。正常退出策略与 P1–P5 隔离实验范围待 G-Spec-M4 确认，见 [M4 评审包](../specs/050-deploy/review.md)和 [ADR-046 提案](adr/ADR-046-pm2-delivery-and-lifecycle.md)。
+2026-11-06 G-Spec-M4 已通过，M4-0 先验证全局 PM2 初始化、专用守护、退出独立性和重开后的实际状态。见 [M4 评审包](../specs/050-deploy/review.md)。

@@ -1,17 +1,15 @@
 # G-Spec-M4 评审包
 
-> 2026-11-06 更新 M4 评审。用户已确定 PM2 全局安装与管理服务异常退出的边界。G-Spec-M4 仍待确认正常退出策略和隔离实验范围。
+> 2026-11-06，G-Spec-M4 通过。用户确认正常退出 TUI 后正式服务继续运行，重开后可查看实际状态。
 
-[规格](spec.md) · [实施计划](plan.md) · [任务](tasks.md) · [部署契约草案](../../docs/contracts/deployment.md) · [ADR-046 提案](../../docs/adr/ADR-046-pm2-delivery-and-lifecycle.md)
+[规格](spec.md) · [实施计划](plan.md) · [任务](tasks.md) · [部署契约草案](../../docs/contracts/deployment.md) · [ADR-046](../../docs/adr/ADR-046-pm2-delivery-and-lifecycle.md)
 
 ## 已确定的方向
 
 - **Q-003**　TUI 启动初始化时检查全局 PM2。已装且兼容就直接使用，缺失时由 TUI 自动全局安装。安装范围为启动 TUI 的 Node/npm 环境所使用的全局 prefix。 [PM2 安装说明](https://pm2.keymetrics.io/docs/usage/quick-start/) · [npm prefix](https://docs.npmjs.com/cli/v10/commands/npm-prefix/)
 - **Q-027 异常退出**　正式服务由独立的 PM2 守护进程托管。Larness 管理进程异常退出时，已运行的正式服务继续提供访问。Larness 重开后读取 PM2 的实际状态并核对服务身份、版本、启动配置与健康。
 
-## 待确认的决策
-
-**Q-027 正常退出**　建议正常退出 TUI 时停止 Larness 管理进程及临时开发资源，保留正式服务。如果选择退出时一并停止正式服务，需要先核验服务身份，退出会中断业务访问。保留正式服务的方案需要为 [ADR-023](../../docs/adr/ADR-023-tui-as-managed-entry.md) 增加一项例外。Larness 更新按安全点处理，涉及 PM2 运行时替换时单独评估影响。
+- **Q-027 正常退出**　TUI 停止 Larness 管理进程及临时开发资源，保留正式服务。重开后从独立 PM2 实例读取实际状态并对账，缺失或不可验证时显示实际异常或未知。ADR-046 为 [ADR-023](../../docs/adr/ADR-023-tui-as-managed-entry.md) 增加正式服务例外。Larness 更新按安全点处理，涉及 PM2 运行时替换时单独评估影响。
 
 ## 实验方案
 
@@ -35,7 +33,7 @@
 
 ## 两道门禁
 
-1. **G-Spec-M4** 确认正常退出策略、ADR-046 候选和 M4-0 实验范围。批准后才用临时全局 prefix 和专用 `PM2_HOME` 运行 PoC。
+1. **G-Spec-M4** 已通过。M4-0 用临时全局 prefix 和专用 `PM2_HOME` 验证 P1–P5。
 2. **G-PoC-M4** 评审真实证据，确认交付与退出边界后才进入 M4-1。产物路径与配额、输入快照、计划规范化与时效、授权生命周期、健康与恢复策略及正式 API、数据和配置，按对应任务在实现前评审。D1–D12 的产品验收归后续实现和 G4。
 
-M4-P 交付本评审材料。M4-0 尚未运行。
+M4-P 交付本评审材料。M4-0 实测完成，证据见 [poc.md](poc.md)，待 G-PoC-M4 评审。
