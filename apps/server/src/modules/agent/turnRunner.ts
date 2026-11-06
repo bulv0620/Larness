@@ -1045,6 +1045,7 @@ export class TurnRunner {
           db: this.#options.db,
           registry: this.#options.registry,
           maxContextTokens: resolved.adapter.capabilities.maxContextTokens,
+          policy,
           contextRatio: this.#budget.contextRatio,
           workspaceRoot: projectRoot,
         },

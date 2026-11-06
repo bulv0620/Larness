@@ -137,9 +137,12 @@ it("registers through the resource action and shows the new detail after approva
     result: { serviceId },
   });
   renderWindow({ ...tab, id: "tab-services-2" });
+  expect(await screen.findByText(/实际监听端口登记/)).toBeTruthy();
   const [register] = await screen.findAllByRole("button", { name: "登记服务" });
   fireEvent.click(register);
   await screen.findByText("登记临时服务");
+  expect(screen.getByText(/选择当前项目.*服务的监听端口/)).toBeTruthy();
+  expect(screen.getByText(/0\.0\.0\.0.*可登记/)).toBeTruthy();
   await screen.findByRole("option", { name: /dev/ });
   fireEvent.change(screen.getByLabelText("选择终端"), { target: { value: terminalId } });
   fireEvent.change(screen.getByLabelText("服务名称"), { target: { value: "web" } });
@@ -182,7 +185,7 @@ it("returns to the form when execution fails terminally instead of leaving a dea
   vi.mocked(createServiceAction).mockResolvedValue(pending);
   vi.mocked(decideServiceAction).mockResolvedValue({ ...pending, status: "APPROVED" });
   vi.mocked(executeServiceAction).mockRejectedValue(
-    new ApiError(403, "PREVIEW_TARGET_INVALID", "Only services bound to 127.0.0.1 or ::1"),
+    new ApiError(403, "PREVIEW_TARGET_INVALID", "Listener does not belong to this terminal"),
   );
   renderWindow({ ...tab, id: "tab-services-fail" });
   const [register] = await screen.findAllByRole("button", { name: "登记服务" });

@@ -26,7 +26,9 @@ export const ServiceRegisterInputSchema = z
     kind: ServiceKindSchema,
     terminalId: TerminalIdSchema,
     name: z.string().trim().min(1).max(80),
-    endpoint: ServiceEndpointSchema,
+    endpoint: ServiceEndpointSchema.describe(
+      "Use the terminal listener's port and a loopback host value. The backend discovers the actual bind address, including wildcard listeners.",
+    ),
   })
   .strict();
 export type ServiceRegisterInput = z.infer<typeof ServiceRegisterInputSchema>;

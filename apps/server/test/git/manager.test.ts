@@ -205,6 +205,118 @@ it("binds L2 push approval, consumes it once, and rejects snapshot changes or ex
   });
 });
 
+it("uses literal paths for diff and staging when a filename contains a glob", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    try {
+      const manager = f.started.running.git;
+      await writeFile(path.join(f.repo, "a[1].txt"), "literal\n");
+      await writeFile(path.join(f.repo, "a1.txt"), "pattern match\n");
+      git(f.repo, "add", "--", ".");
+      git(f.repo, "commit", "-qm", "glob filenames");
+      await writeFile(path.join(f.repo, "a[1].txt"), "literal edited\n");
+      await writeFile(path.join(f.repo, "a1.txt"), "pattern match edited\n");
+
+      const diff = await manager.diff(f.projectId, "a[1].txt", false);
+      const add = await manager.createAction(
+        f.projectId,
+        { action: "add", paths: ["a[1].txt"] },
+        f.clientId,
+      );
+      await manager.executeAction(add.id, f.clientId);
+      const status = await manager.status(f.projectId);
+      expect(status.staged.map((item) => item.path)).toEqual(["a[1].txt"]);
+      expect(status.unstaged.map((item) => item.path)).toEqual(["a1.txt"]);
+      expect(diff.diff).toContain("+literal edited");
+      expect(diff.diff).not.toContain("+pattern match edited");
+    } finally {
+      await f.started.running.shutdown("test");
+    }
+  });
+});
+
+it("does not create a local branch when switching to a remote-only name", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    try {
+      const manager = f.started.running.git;
+      git(f.repo, "push", "-q", "origin", "HEAD:refs/heads/remote-only");
+      git(f.repo, "fetch", "-q", "origin");
+      const action = await manager.createAction(
+        f.projectId,
+        { action: "switchBranch", name: "remote-only" },
+        f.clientId,
+      );
+      await expect(manager.executeAction(action.id, f.clientId)).rejects.toMatchObject({
+        code: "GIT_CONFLICT",
+      });
+      expect(git(f.repo, "branch", "--show-current")).toBe("main");
+      expect(git(f.repo, "branch", "--list", "remote-only")).toBe("");
+    } finally {
+      await f.started.running.shutdown("test");
+    }
+  });
+});
+
+it("rejects a non-fast-forward push even with a forced default refspec", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    try {
+      const manager = f.started.running.git;
+      const initial = git(f.repo, "rev-parse", "HEAD");
+      await writeFile(path.join(f.repo, "a.txt"), "remote head\n");
+      git(f.repo, "commit", "-qam", "advance upstream");
+      git(f.repo, "push", "-q");
+      const upstream = git(f.remote, "rev-parse", "main");
+      git(f.repo, "update-ref", "refs/heads/main", initial);
+      git(f.repo, "config", "remote.origin.push", "+refs/heads/main:refs/heads/main");
+
+      const push = await manager.createAction(f.projectId, { action: "push" }, f.clientId);
+      manager.decideAction(push.id, "approve", f.clientId);
+      await expect(manager.executeAction(push.id, f.clientId)).rejects.toMatchObject({
+        code: "GIT_CONFLICT",
+      });
+      expect(git(f.remote, "rev-parse", "main")).toBe(upstream);
+    } finally {
+      await f.started.running.shutdown("test");
+    }
+  });
+});
+
+it("pushes only the configured upstream branch, ignoring push remotes, refspecs and tags", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    try {
+      const manager = f.started.running.git;
+      git(f.repo, "push", "-qu", "origin", "HEAD:refs/heads/target");
+      const initial = git(f.remote, "rev-parse", "main");
+      const other = path.join(dir, "other.git");
+      git(dir, "init", "-q", "--bare", other);
+      git(f.repo, "remote", "add", "other", other);
+      git(f.repo, "config", "branch.main.pushRemote", "other");
+      for (const remote of ["origin", "other"])
+        git(f.repo, "config", `remote.${remote}.push`, "refs/heads/main:refs/heads/unrelated");
+      git(f.repo, "config", "remote.origin.mirror", "true");
+      await writeFile(path.join(f.repo, "a.txt"), "ahead\n");
+      git(f.repo, "commit", "-qam", "advance upstream only");
+      git(f.repo, "tag", "-am", "tag", "v1");
+      git(f.repo, "config", "push.followTags", "true");
+
+      const push = await manager.createAction(f.projectId, { action: "push" }, f.clientId);
+      manager.decideAction(push.id, "approve", f.clientId);
+      expect((await manager.executeAction(push.id, f.clientId)).status).toBe("COMPLETED");
+      expect(git(f.remote, "rev-parse", "target")).toBe(git(f.repo, "rev-parse", "HEAD"));
+      expect(git(f.remote, "rev-parse", "main")).toBe(initial);
+      expect(git(f.remote, "for-each-ref", "--format=%(refname)")).toBe(
+        "refs/heads/main\nrefs/heads/target",
+      );
+      expect(git(other, "for-each-ref")).toBe("");
+    } finally {
+      await f.started.running.shutdown("test");
+    }
+  });
+});
+
 it("pulls ff-only, refuses non-fast-forward and dirty branch switches without stashing", async () => {
   await withTempDir(async (dir) => {
     const f = await repoFixture(dir);

@@ -41,7 +41,9 @@ export const TerminalDevSchema = z
     role: TerminalRoleSchema,
     executable: z.string(),
     args: z.array(z.string()),
-    cwd: FilePathSchema.default("."),
+    cwd: FilePathSchema.default(".").describe(
+      "Project-relative working directory. Defaults to the project root (.). Use the package directory for a direct package command.",
+    ),
   })
   .strict()
   .superRefine((value, ctx) => {

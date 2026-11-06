@@ -1,13 +1,13 @@
-# M3 技术契约候选
+# M3 服务登记与预览技术契约
 
-> 候选，2026-11-05；M3-1 已按 §1–§3 落地 temporary 服务表、登记 resource-action、`/api/services` 读接口、Agent 工具与 `service.*` 事件；预览路由/票据（§4）仍待 M3-3。配套[ADR-043](../adr/ADR-043-development-preview-authorization.md)（已 accepted）与[评审包](../../specs/040-services-preview/review.md)。G-Spec-M3 已于 2026-11-05 批准方案与 PoC 边界；字段/时限仍是候选，由 M3-0 与 G-PoC 冻结。远程独立注册域 HTTPS 实测延后至上线实验，远程分项标未验证。尚无 API/schema/配置实现；与服务总契约的冲突以本候选明确列出的变更为评审对象，不把旧草案当已实现接口。
+> M3 已交付临时服务登记、查询、Agent 工具、资源事件及本机隔离预览。当前绑定规则见 [ADR-044](../adr/ADR-044-preview-binding-simplification.md)，其余身份与授权沿用 [ADR-043](../adr/ADR-043-development-preview-authorization.md)。下文保留 PoC 阶段的候选条款和预算。实际交付与验证范围见 [M3 收尾记录](../../specs/040-services-preview/closure.md)，远程独立注册域 HTTPS 尚未实测。
 
 ## 1. 执行身份与登记
 - terminalId标识PTY资源；后端已有launchId标识该次PTY启动；新terminalExecutionId标识此次已验证的服务进程树/监听实例。它不是TerminalLease.generation、TurnId、terminalId或仅PID。
 - 登记先确认已授权scope与terminal一致，再核对terminal launch、监听owner及birth、终端后代关系/服务工作负载边界、指定端口独占监听（不限制绑定地址，允许通配）。执行身份和endpointGeneration只由后端产生；原有ps文本不能当强身份已证实。M3-0验证现有OS工具/接口是否足够，不新增原生库。
 - 手动/AI在同一个保留Shell里重新启动后可重新登记；不得因为原PTY还RUNNING就沿用旧execution/grant。同一存活执行/端点幂等返回同一serviceId；不同请求名不悄悄重命名已有服务，冲突返回CONFLICT。多个endpoint可关联同一执行，分别授权generation。
 - 登记必须明确服务工作负载根及监听owner；绑定的源执行结束即退登，即使Shell或孤立子进程还存活也不继承登记。新的服务工作负载须重新核验登记；Shell空闲、端口移交无关进程、归属未知均不可替代。无法证明的重父化/多owner/SO_REUSEPORT拒绝。进程退出可证明时立即撤销；未知标UNKNOWN、撤路由、保留终端，不发信号“修复”。
-- 日志URL仅候选；无全主机扫描或后台自动收养。人工在服务空态通过“登记服务”选择当前项目终端/loopback端口，Agent调用同一登记能力。0.0.0.0/:: 监听按 ADR-044 允许登记，预览经 127.0.0.1 拨号；访问失败显示不可用，不自动改绑定。
+- 日志 URL 仅作候选。人工通过“登记服务”选择当前项目终端并填写实际监听端口，Agent 调用同一登记能力。0.0.0.0/:: 监听按 ADR-044 可登记，预览经 127.0.0.1 拨号。访问失败显示不可用，不自动改绑定、全主机扫描或后台收养进程。
 
 ## 2. 管理REST与Agent风险
 所有管理接口要求现有会话、scope与限流；POST还要求Origin/CSRF，变更沿用操作幂等/锁/审计。请求采用strict Zod，拒绝多余授权字段；名称1–80字符、端口1–65535、host仅127.0.0.1或::1，协议本阶段固定http（WS复用同一监听），无任意URL/文件路径/客户端PID。
@@ -20,7 +20,7 @@
 | GET /api/services/:id/logs | cursor、limit沿现有terminal输出字节/游标上限；返回terminalId、nextCursor、truncated/gap、脱敏chunk | L0；关联终端混合输出，非精确每命令日志；不复制第二份无限存储 |
 | POST /api/preview/resolve | `{serviceId,path:"/"}`，path仅规范化同服务相对pathname/query，无scheme/host/反斜杠/编码逃逸 | L0读授权下领取短期bootstrap；必须CSRF、no-store、受限重试；回复隔离origin/受控入口/票据/expiry，浏览器内存暂存 |
 
-候选工具：register_temporary_service=L2；list_services/get_service/read_service_logs/resolve_service_preview=L0。只有登记工具结果可含`{kind:"preview",serviceId,path}`，不附票据；解析工具面向模型仅返回可打开的结构化目标与状态，实际凭据仅在点击时发给浏览器。解析不替用户启动浏览器或运行项目进程。standard/strict登记走真实审批；readonly登记deny、读已登记服务allow；autonomous所有合法动作allow、不造approvalId。人工动作继承现有资源动作显式授权机制，不伪造Turn或信任请求自报策略。
+已注册 Agent 工具为 `register_temporary_service`（L2）、`list_services` 与 `resolve_service_preview`（L0），仅在登记项目作用域提供。登记工具的 `endpoint.host` 仍用 `127.0.0.1` 或 `::1`，后端按所选终端及端口核验实际监听，通配绑定可直接登记。登记和预览解析都可提供结构化预览目标，实际票据仅在点击时发给浏览器。解析不启动浏览器或项目进程。standard/strict 登记需要审批，readonly 拒绝登记但允许读取，autonomous 对合法操作免人工审批。人工动作沿用资源动作授权。
 
 人工POST登记的响应为资源动作（PREPARED/WAIT_APPROVAL及actionId），通过现有`/api/resource-actions/:id`查询、`/decision`决定及`/execute`执行；execute成功才返回serviceId。M2目前这些路由实际绑定GitManager，实现M3时须按resource kind分派，不能只改前端假装通用。Agent走现有Turn工具审批后调用同一登记核心，不再制造第二次人工审批。自主只针对已授权Agent，人工动作不会从其他会话借用自主策略；后端operation_id/请求快照/审批/fencing及事务保证沿用，具体resource_actions kind扩展在M3-1同迁移完成。
 

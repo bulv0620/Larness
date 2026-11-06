@@ -59,6 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M3-10 `review`（2026-11-06 17:11 +08:00 开始，`task/m3-10-agent-tool-contract`）。已修正 Agent 策略/作用域、终端与服务说明、登记文案和 Git 执行边界。模型上下文与执行层回归列入规格门禁。check、build、Demo 17 项及认证 E2E 5 项通过，待人类抽查。见 [验收记录](specs/051-agent-tool-contract/tasks.md)。
+
 - 2026-11-06 用户确认 M3-7～M3-9 全部验收通过。汇总见 [M3 收尾记录](specs/040-services-preview/closure.md#g3-后工作区优化验收)。
 
 - [061 DeepSeek 官方接入与上下文用量](specs/061-deepseek-integration/spec.md) 排入 M5-1，依赖 M4 通过 G4。草案待确认默认模型迁移和推理数据保留方案。

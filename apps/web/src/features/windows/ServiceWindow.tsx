@@ -160,7 +160,7 @@ function LiveServiceWindow({
             <div className="space-y-1">
               <p className="text-[12px] font-medium text-ink">当前项目暂无服务</p>
               <p className="max-w-[320px] text-[11px] text-ink-3">
-                服务必须先在项目终端中运行，再按实际 loopback 端口登记；登记不会启动或重启进程。
+                在项目终端启动服务后，可按实际监听端口登记。登记不会启动或重启进程。
               </p>
             </div>
             <Button size="sm" onClick={() => setRegisterOpen(true)}>
@@ -555,8 +555,7 @@ function RegisterServiceDialog({
       <DialogContent className="w-[420px] space-y-3 text-sm">
         <DialogTitle>登记临时服务</DialogTitle>
         <DialogDescription>
-          选择当前项目里已在运行的终端与 loopback
-          端口。后端会核验监听确实属于该终端；不会启动、重启或收养进程。
+          选择当前项目中运行服务的终端并填写服务的监听端口。后端会核验监听是否属于该终端。
         </DialogDescription>
         {pending ? (
           <div className="space-y-3">
@@ -608,7 +607,7 @@ function RegisterServiceDialog({
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-[11px] font-medium text-ink-2">Loopback 端口</span>
+              <span className="text-[11px] font-medium text-ink-2">服务端口</span>
               <input
                 aria-label="服务端口"
                 value={port}
@@ -619,7 +618,7 @@ function RegisterServiceDialog({
               />
             </label>
             <p className="text-[10px] text-ink-3">
-              只接受 127.0.0.1 / ::1；0.0.0.0 监听会明确拒绝，不会偷偷重启服务。
+              填写所选终端中服务的实际监听端口。0.0.0.0 和 :: 等监听也可登记，无需改绑定或重启。
             </p>
             {error ? (
               <p role="alert" className="text-[11px] text-danger">

@@ -202,15 +202,16 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 编号迁移（非活动任务，不计完成）：旧M3-5的PM2 PoC/持久运行移至M4-0/M4-3；旧M3-5b的人/AI动作移至M4-3b。M3-6不再依赖迁出项，旧S10/S11移至M4 D9/D10。
 
-## 6.1 G3 后工作区交互修正
+## 6.1 G3 后纠错与工作区交互修正
 
-2026-11-06 用户确认下列优化全部验收通过。 [M3 收尾记录](040-services-preview/closure.md#g3-后工作区优化验收)
+2026-11-06 用户确认 M3-7～M3-9 已验收。 [M3 收尾记录](040-services-preview/closure.md#g3-后工作区优化验收)
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M3-7 | [项目会话状态、折叠与浮栏层级](049-workspace-sidebar/spec.md) | G3 done，用户直接指令 | `done` |
 | M3-8 | [任务结束后停止计划动画](036-conversation-experience/spec.md#m3-8-任务结束后的计划显示) | M2-14、M3-7 done，用户直接反馈 | `done` |
 | M3-9 | [任务结束后显示成果](036-conversation-experience/spec.md#m3-9-任务结束后显示成果) | M2-15、M3-8 done，用户直接指令 | `done` |
+| M3-10 | [Agent 工具描述与执行契约](051-agent-tool-contract/spec.md) | G3 done，用户直接指令 | `review` |
 
 ## 7. M4 持久运行与版本发布（草案）
 

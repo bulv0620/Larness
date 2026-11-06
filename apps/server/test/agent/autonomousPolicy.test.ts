@@ -73,6 +73,7 @@ it("uses the authenticated autonomous Turn snapshot without approval, still vali
         resolveProvider: () => ({ adapter: provider, model: "fake" }),
       });
       expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+      expect(provider.calls[0]?.messages[0]?.content).toContain("Turn approval policy: autonomous");
       expect(calls).toBe(2);
       expect(
         f.running.sqlite

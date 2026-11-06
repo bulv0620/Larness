@@ -97,7 +97,7 @@ export class GitManager {
     const path = validateGitPath(project.realPath, value);
     const numstat = await runGit(
       project.realPath,
-      ["diff", "--numstat", ...(staged ? ["--cached"] : []), "--", path],
+      ["--literal-pathspecs", "diff", "--numstat", ...(staged ? ["--cached"] : []), "--", path],
       { readOnly: true, timeoutMs: READ_TIMEOUT_MS },
     );
     const binary = numstat.stdout.split("\n").some((line) => line.startsWith("-\t-\t"));
@@ -105,6 +105,7 @@ export class GitManager {
       const result = await runGit(
         project.realPath,
         [
+          "--literal-pathspecs",
           "diff",
           "--no-ext-diff",
           "--no-textconv",
@@ -513,7 +514,9 @@ export class GitManager {
     switch (action.action) {
       case "add": {
         const paths = action.paths.map((item) => validateGitPath(root, item));
-        await runGit(root, ["add", "--", ...paths], { timeoutMs: WRITE_TIMEOUT_MS });
+        await runGit(root, ["--literal-pathspecs", "add", "--", ...paths], {
+          timeoutMs: WRITE_TIMEOUT_MS,
+        });
         return { action: "add", paths: paths.length };
       }
       case "unstage": {
@@ -571,7 +574,7 @@ export class GitManager {
       case "switchBranch": {
         this.#requireClean(status);
         await runGit(root, ["check-ref-format", "--branch", action.name], { readOnly: true });
-        await runGit(root, ["switch", action.name], { timeoutMs: WRITE_TIMEOUT_MS });
+        await runGit(root, ["switch", "--no-guess", action.name], { timeoutMs: WRITE_TIMEOUT_MS });
         return { action: "switchBranch", name: action.name };
       }
       case "pull": {
@@ -581,8 +584,34 @@ export class GitManager {
         return { action: "pull" };
       }
       case "push": {
-        if (!status.upstream) throw new GitError("GIT_CONFLICT", "Current branch has no upstream");
-        await runGit(root, ["push"], { readOnly: false, timeoutMs: WRITE_TIMEOUT_MS });
+        if (!status.upstream || !status.head)
+          throw new GitError("GIT_CONFLICT", "Current branch has no upstream");
+        const { stdout } = await runGit(
+          root,
+          [
+            "for-each-ref",
+            "--format=%(upstream:remotename)%00%(upstream:remoteref)",
+            `refs/heads/${status.branch}`,
+          ],
+          { readOnly: true, timeoutMs: READ_TIMEOUT_MS },
+        );
+        const [remote, destination, extra] = stdout.trimEnd().split("\0");
+        if (!remote || !destination?.startsWith("refs/heads/") || extra !== undefined)
+          throw new GitError("GIT_CONFLICT", "Current branch has no valid upstream branch");
+        await runGit(
+          root,
+          [
+            "-c",
+            `remote.${remote}.mirror=false`,
+            "push",
+            "--no-follow-tags",
+            "--recurse-submodules=no",
+            "--",
+            remote,
+            `${status.head}:${destination}`,
+          ],
+          { timeoutMs: WRITE_TIMEOUT_MS },
+        );
         return { action: "push", branch: status.branch };
       }
       default:

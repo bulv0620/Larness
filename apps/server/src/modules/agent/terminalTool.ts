@@ -40,8 +40,9 @@ export function createTerminalTools(options: {
     defineTool({
       name: "start_project_terminal",
       description:
-        "Create a persistent project terminal and run the approved dev program (for example pnpm dev) in the foreground. Ctrl+C or program exit returns to an interactive shell in the same PTY. RUNNING means the terminal is alive, not that the service is ready or still running; inspect output. Reuse returns the terminal without rerunning the program; use approved terminal input to restart it. Use a stable role such as frontend or backend; an active role with different parameters is a conflict. Requires per-call approval. Use run_command for finite tests/builds. The project directory is not a sandbox and the process may write files concurrently.",
+        "Create a persistent project terminal and run a dev program in the foreground. Inspect the project's scripts and use its declared entry point. Set project-relative cwd to the package directory when invoking a package command directly. The default cwd is the project root. Follow the current Turn's approval policy. Ctrl+C or program exit returns to an interactive shell in the same PTY. RUNNING confirms the terminal is alive. Inspect output for the listening port and verify service readiness separately. Reusing a role returns the terminal without rerunning the program. To restart from its idle shell, acquire the input lease and send the project's dev command. An active role with different parameters is a conflict. Use run_command for finite tests/builds. The process runs with host account permissions and may write files concurrently.",
       riskLevel: "L2",
+      requiresProject: true,
       requiresProjectLock: false,
       schema: startSchema,
       summarize: (args) => `启动项目终端 ${args.role}（项目目录不是沙箱；dev 进程可能并发写源码）`,
@@ -68,6 +69,7 @@ export function createTerminalTools(options: {
       description:
         "Close the entire dev terminal created by the agent in the current project, including its shell and managed descendants. Use interrupt_terminal to stop only the foreground command and keep the terminal usable. Waits for confirmed exit and does not stop human shell terminals. Stopping a Turn does not call this tool.",
       riskLevel: "L1",
+      requiresProject: true,
       requiresProjectLock: false,
       schema: StopProjectTerminalParamsSchema,
       summarize: (args) => `停止项目终端 ${args.terminalId.slice(-6)}`,

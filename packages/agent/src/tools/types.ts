@@ -44,6 +44,8 @@ export interface ToolDefinition {
   readonly schema: z.ZodType;
   readonly classifyRisk?: (args: unknown) => ToolRiskLevel;
   readonly summarize?: (args: unknown) => string;
+  /** Offer this tool to the model only in a registered project. */
+  readonly requiresProject?: boolean;
   /** Source writes need the shared project lock; read/process tools can opt out. */
   readonly requiresProjectLock?: boolean;
   execute(rawArgs: unknown, context: ToolContext): Promise<ToolResult>;
@@ -55,6 +57,7 @@ export interface ToolDefinitionInput<Schema extends z.ZodType> {
   riskLevel: ToolRiskLevel;
   schema: Schema;
   summarize?: (args: z.infer<Schema>) => string;
+  requiresProject?: boolean;
   requiresProjectLock?: boolean;
   handler: (args: z.infer<Schema>, context: ToolContext) => Promise<ToolResult>;
 }
@@ -67,6 +70,7 @@ export function defineTool<Schema extends z.ZodType>(
     description: input.description,
     riskLevel: input.riskLevel,
     schema: input.schema,
+    requiresProject: input.requiresProject ?? false,
     requiresProjectLock: input.requiresProjectLock ?? true,
     ...(input.summarize === undefined
       ? {}

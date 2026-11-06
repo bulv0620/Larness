@@ -107,10 +107,13 @@ test("M3-2 registers a live dev service and shows cards, detail, logs and the ow
     const serviceWindow = page.getByRole("dialog", { name: "服务", exact: true });
     await expect(serviceWindow).toBeVisible();
     await expect(serviceWindow.getByText("当前项目暂无服务")).toBeVisible();
+    await expect(serviceWindow.getByText(/实际监听端口登记/)).toBeVisible();
     await serviceWindow.getByRole("button", { name: "登记服务" }).first().click();
 
     const dialog = page.getByRole("dialog", { name: "登记临时服务" });
     await expect(dialog).toBeVisible();
+    await expect(dialog.getByText(/0\.0\.0\.0.*可登记/)).toBeVisible();
+    await dialog.screenshot({ path: test.info().outputPath("service-registration-dialog.png") });
     await dialog.getByLabel("选择终端").selectOption({ index: 1 });
     await dialog.getByLabel("服务名称").fill("web");
     await dialog.getByLabel("服务端口").fill(String(port));

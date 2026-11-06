@@ -168,7 +168,7 @@ M2 文件工具结果与 artifact 事件补结构化 `resourceTarget`，file tar
 
 人工显式“接管 AI 控制”由后端原子撤销 Agent generation 后授予人，旧 Agent 输入立即失败并告知 Turn 暂停终端操作；Agent 不自动抢回。两人工客户端不强抢，仍等待到期 / 主动交接。原始身份撤销、Turn 取消 / 结束、工具执行失效立即撤销相应 Agent 租约，但已成功交付的终端进程继续，只有显式中断 / 停止或终端 Tab 关闭才改变进程。人工断线同样只释放其输入租约。
 
-inputSequence 在该租约中递增，重复包不重放，迟到 generation 拒绝；每次输入 ≤ 8 KiB、速率沿人工 64 KiB/s 上限，工具调用 / Turn 预算另行限制。interrupt 发送当前终端的中断控制（例如 ETX），不将“已发中断”报告为“进程已退出”；需重读输出 / 状态确认。输入 / 中断前按实际程序 / 操作风险沿工具策略审批，不能在取得一次租约后无限绕过工具策略。原始输入正文、密码、Token 不进入日志 / 事件；只记长度、资源、执行关联和允许 / 拒绝，不引入自动填写主机凭据能力。
+inputSequence 在租约内递增，重复包不重放，迟到 generation 拒绝。每次输入 ≤ 8 KiB，速率沿人工 64 KiB/s 上限，工具调用和 Turn 预算另行限制。interrupt 发送中断控制（例如 ETX），需重读输出或状态确认进程是否退出。输入和中断各自按当前 Turn 策略授权。输入审计只记录元数据，Shell 和程序回显走现有终端输出脱敏链路。Agent 禁止输入密码、Token 等凭据。
 
 M2-4 定义共享 principal 租约存储 / 校验；M2-4d 已接工具、人机交接和真实 PTY 验证，实施细节见 §19。schema 在 M2-4d 已按 G-Spec-M2 落地。
 
@@ -341,13 +341,13 @@ Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical
 ### 工具与审批
 
 - `start_project_terminal({ role, executable, args, cwd? })` 复用 `TerminalDevSchema`；role 为 1–64 位受限字符，cwd 默认 `.`。projectId / sourceSessionId / Turn / toolCall / 真实发起 clientSessionId / policySnapshotId / AbortSignal 全部来自执行上下文，模型不能指定 scope、程序之外的 owner 或全局目录。会话无项目时拒绝。
-- 启动固定 L2，逐次审批；standard 要求审批、strict 同样要求、readonly 拒绝。审批哈希绑定规范化程序 / 参数 / cwd / role / 项目根 / 会话 / Turn / toolCall / 客户端 / 策略快照；批准后 spawn 前重验同一审批与 Turn 预算 / AbortSignal。已知 SecretStore 凭据字面量在审批摘要生成前拒绝；摘要展示完整规范化程序 / 参数 / cwd 及“项目目录不是沙箱、dev 进程可能并发写源码”的提示，审计只保存关联 ID / 风险 / 摘要，不保存原始参数或凭据。
+- 启动固定 L2。standard / strict 要求审批，readonly 拒绝，autonomous 免人工审批（ADR-040）。模型按当前 Turn 策略和仓库声明的脚本行动。直接运行子包命令时，使用子包的项目相对 cwd。需要审批时，哈希绑定规范化程序 / 参数 / cwd / role / 项目根 / 会话 / Turn / toolCall / 客户端 / 策略快照，批准后 spawn 前重验。所有策略保留 Turn 预算和取消检查。已知 SecretStore 凭据字面量在审批摘要生成前拒绝，审计不保存原始参数或凭据。
 - 同项目 + role 只允许一个活跃 dev 资源：相同 `launchParamsHash` 重试复用原 terminalId 并在工具结果标 `reused: true`；参数不同返回 `CONFLICT`，不自动杀旧进程或重建。启动结果返回 terminalId / role / status / exitCode / reused；立即退出的真实终态可见，不宣称 ready。
 - 三个工具设置 `requiresProjectLock: false`：启动 / 读取 / 停止不长期或临时占用源码写锁，符合 ADR-029；普通文件写、命令与 Git 仍走共同锁 / 版本校验。dev 进程是明确的主机写者，不受源码写锁串行保证，残余风险不宣传为沙箱。
 
 ### 读取、停止与生命周期
 
-- `read_terminal_output({ terminalId, after?, limit? })` 为 L0；只允许当前项目、Agent 创建（mode=dev）的终端。复用 TerminalManager 的脱敏游标页，单页最多 500 块 / 64 KiB；工具结果再限制 JSON 转义后约 12,000 字符并返回 truncated / resyncRequired / nextCursor；不申请或改变输入租约。人类 Shell 与其他项目 ID 一律拒绝。
+- `read_terminal_output({ terminalId, after?, limit? })` 为 L0，读取授权工作区内的 Shell 或 dev 终端，包括默认工作区。复用 TerminalManager 的脱敏游标页，单页最多 500 块 / 64 KiB。工具结果再限制 JSON 转义后约 12,000 字符并返回 truncated / resyncRequired / nextCursor，不申请或改变输入租约。其他工作区的终端 ID 拒绝。
 - `stop_project_terminal({ terminalId })` 为 L1；只允许当前项目、Agent 创建的 dev 终端，human shell 不在此工具范围。复用 `terminate` 的幂等停止并等待确认退出；成功返回 TERMINATED / EXITED，未确认返回 INTERRUPTED / 原因并保持资源可见。Turn 完成 / 取消不调用停止；创建尚未交付时 AbortSignal 仍清理未交付资源。
 - 工具结果事件 `tool.completed` 对成功启动附 `resourceTarget: { kind: "terminal", projectId, terminalId, role }` 与 `originClientSessionId`；发起客户端在实时事件中插入 `origin=agent` 的 Tab，不切 activeTab / 不抢窗口焦点；其他客户端只失效终端列表。历史重放不重新插入已关闭的 Tab；工具卡片提供显式“打开”，点击才聚焦。人工输入仍需 `获取输入权`，M2-4c 不授予 AI 输入。
 
@@ -362,8 +362,8 @@ Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical
 
 ### 工具、身份与审批
 
-- `acquire_terminal_control({ terminalId })` L1；projectId / sessionId / turnId / toolCallId / 真实 clientSessionId / AbortSignal 由 Turn 注入。只接受当前项目、Agent 创建的运行中 dev 终端。同 Turn 重复 acquire 复用当前 generation；human 或其他 Turn 持有时返回 `TERMINAL_LEASE_REQUIRED`，不强抢。
-- `send_terminal_input({ terminalId, leaseGeneration, inputSequence, data })` L2 逐次审批。data 单次 1–8192 UTF-8 字节；schema 拒绝已知 SecretStore 明文。审批哈希绑定 terminalId / generation / sequence / data，但 scope 摘要只显示目标与字节数，正文不进入审批记录、审计、Agent 事件或日志；审计只记 bytes / generation / sequence / ownerType。
+- `acquire_terminal_control({ terminalId })` L1。projectId / sessionId / turnId / toolCallId / 真实 clientSessionId / AbortSignal 由 Turn 注入。允许操作当前授权工作区内运行中的 Shell 或 dev 终端。同 Turn 重复 acquire 复用当前 generation。human 或其他 Turn 持有时返回 `TERMINAL_LEASE_REQUIRED`。
+- `send_terminal_input({ terminalId, leaseGeneration, inputSequence, data })` L2，按当前 Turn 策略授权。data 单次 1–8192 UTF-8 字节，schema 拒绝已知 SecretStore 明文。需要审批时，哈希绑定 terminalId / generation / sequence / data，审批摘要仅显示目标与字节数。审计只记录 bytes / generation / sequence / ownerType，Shell 或程序回显的内容会进入受脱敏的终端输出，Agent 禁止输入凭据。
 - `interrupt_terminal({ terminalId, leaseGeneration })` L2，向当前租约终端写入 ETX（Ctrl-C），只返回“中断已发送”和当前状态，不宣称进程退出；需重读输出 / 状态。`release_terminal_control({ terminalId, leaseGeneration })` L1，释放租约但保留 PTY。
 - 输入只接受当前 agent principal：ownerType=agent、ownerTurnId / ownerSessionId / ownerClientSessionId / generation 全部匹配且未过期；重复或更小 inputSequence 返回 accepted=false 不重放，跳号 VALIDATION_ERROR；单 Turn 每终端另有 64 KiB/s 窗口。旧 generation / human 接管后 / Turn 结束后输入一律拒绝。
 - Agent 租约 30s TTL，管理器对活跃 Turn 续租；Turn 完成 / 取消 / 失败、客户端登出或撤销、租约到期即清除。Turn 结束只释放输入控制，已交付终端继续运行；显式 stop / 关闭终端 Tab 才终止进程。创建未交付时仍由 M2-4c AbortSignal 清理。
@@ -395,7 +395,7 @@ Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical
 - POST actions 支持 `add`（1–200 显式路径）、`commit`（1–4000 字符）、`createBranch` / `switchBranch`、`pull`、`push`；无 reset / clean / force / 删除分支 / rebase / merge / 远端管理。add / commit / 分支为 L1（PREPARED），pull / push 为 L2（WAITING_APPROVAL）；5 分钟有效。
 - `resource_actions` 保存结构化 params / paramsHash / snapshotVersion / requestedBy / decidedBy / 状态 / 结果；`resource_operations` kind=git.action 作为关联记录，创建时 COMPLETED，执行进入 WRITING 并在终态收敛，避免未执行的意图占住共同根屏障。批准状态原子消费；重复 execute 返回同一终态，不重复副作用。
 - execute 前重算仓库快照并在取得项目写锁后再次核对；变化即 FAILED / GIT_CONFLICT，不执行。锁为既有 ProjectWriteLock / resource_locks；并发 execute 或另一项目写作业持锁时返回冲突，释放后可重试。执行状态先 RUNNING 再产生副作用，结果 / 审计与终态事务提交。
-- add 只 `git add -- <paths>`；commit 只提交已暂存内容，不 `-a`；create / switch 要求 staged / unstaged / conflicts 为空（untracked 不自动清理）；pull 要求干净、有 upstream、仅 `--ff-only`；push 只推当前分支到已配置 upstream，不 force / 不改远端。非快进 / 脏工作区 / 无 upstream 返回可恢复 GIT_CONFLICT，原文件保留。
+- add 与 diff 使用字面项目相对路径，明确列出的目录按 Git 目录语义处理。commit 只提交已暂存内容。create / switch 要求 staged / unstaged / conflicts 为空（untracked 不自动清理），switch 只接受已存在的本地分支。pull 要求干净、有 upstream、仅 `--ff-only`。push 显式将当前分支提交推到其配置的 upstream remote/ref，禁用镜像、额外标签及子模块推送，不采纳默认推送 refspec 或 pushRemote，不 force 或改写远端配置。非快进 / 脏工作区 / 无 upstream 返回可恢复 GIT_CONFLICT，原文件保留。
 
 ### Agent 工具
 

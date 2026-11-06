@@ -37,6 +37,7 @@ export function createGitTools(): ToolDefinition[] {
       name,
       description,
       riskLevel: "L0",
+      requiresProject: true,
       requiresProjectLock: false,
       schema,
       summarize,
@@ -54,6 +55,7 @@ export function createGitTools(): ToolDefinition[] {
       name,
       description,
       riskLevel,
+      requiresProject: true,
       requiresProjectLock: false,
       schema,
       summarize,
@@ -71,7 +73,7 @@ export function createGitTools(): ToolDefinition[] {
     read(
       "git_diff",
       "diff",
-      "Read a bounded text diff for one project-relative path, optionally staged.",
+      "Read a bounded text diff for one literal project-relative path, optionally staged.",
       Diff,
       (args) => `查看 Git Diff ${(args as { path: string }).path}`,
     ),
@@ -92,7 +94,7 @@ export function createGitTools(): ToolDefinition[] {
     action(
       "git_add",
       "L1",
-      "Stage only the explicitly listed project-relative paths. Never stages all changes or accepts Git flags.",
+      "Stage only the explicitly listed literal project-relative paths. An explicitly listed directory includes its contents.",
       Add,
       (args) => `暂存 ${(args as { paths: string[] }).paths.length} 个路径`,
     ),
