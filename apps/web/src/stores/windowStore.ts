@@ -355,20 +355,10 @@ export const useWindowStore = create<WindowState>()(
       },
 
       hideScope: (scope) => {
-        const state = get();
-        const ids = new Set(
-          state.windows
-            .filter((win) => !win.minimized && windowScopeKey(win) === scope)
-            .map((win) => win.id),
-        );
-        if (!ids.size) return;
-        for (const id of ids) cancelMinimize(id);
-        set({
-          windows: state.windows.map((win) =>
-            ids.has(win.id) ? { ...win, minimized: true } : win,
-          ),
-          focusedId: state.focusedId && ids.has(state.focusedId) ? null : state.focusedId,
-        });
+        const { windows, hide } = get();
+        for (const win of windows) {
+          if (!win.minimized && !win.pinned && windowScopeKey(win) === scope) hide(win.id);
+        }
       },
 
       restore: (id) => {

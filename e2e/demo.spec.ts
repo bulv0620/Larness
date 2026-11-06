@@ -175,9 +175,6 @@ test.describe("Larness S0 视觉 Demo", () => {
     await dock.getByRole("button", { name: "打开终端窗口" }).click();
     await dock.getByRole("button", { name: "打开服务窗口" }).click();
     await expect(frames).toHaveCount(2);
-    await frames.last().getByRole("button", { name: "置顶窗口" }).click();
-    await expect(frames).toHaveCount(2);
-
     const theme = page.getByRole("button", { name: "外观与主题" });
     await theme.click();
     await expect(frames).toHaveCount(0);
@@ -186,6 +183,54 @@ test.describe("Larness S0 视觉 Demo", () => {
     await dock.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(page.getByRole("tab", { name: "pnpm dev", selected: true })).toBeVisible();
     await expect(frames).toHaveCount(1);
+  });
+
+  test("点击外部保留置顶窗口，收起动画可从浮栏取消", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 1080 });
+    const dock = page.getByRole("navigation", { name: "项目窗口" });
+    const terminalButton = dock.getByRole("button", { name: "打开终端窗口" });
+    const serviceButton = dock.getByRole("button", { name: "打开服务窗口" });
+    await terminalButton.click();
+    await serviceButton.click();
+    const frames = page.locator("[data-window-frame]");
+    await expect(frames).toHaveCount(2);
+    const terminal = frames.filter({ has: page.getByRole("tab", { name: "pnpm dev" }) });
+    const service = page.getByRole("dialog", { name: "web-dev", exact: true });
+    await service.getByRole("button", { name: "置顶窗口" }).click();
+
+    // Hold the actual window animation midway to inspect hit testing and restore it.
+    await terminal.evaluate((frame) => {
+      document.addEventListener(
+        "pointerdown",
+        () => {
+          for (const animation of frame.getAnimations()) {
+            animation.pause();
+            animation.currentTime = 100;
+          }
+        },
+        { capture: true, once: true },
+      );
+    });
+    const composer = page.getByLabel("对话输入");
+    await composer.click();
+    await expect(service.getByRole("button", { name: "取消置顶" })).toBeVisible();
+    await expect(composer).toBeFocused();
+    await expect(terminal).toHaveCSS("pointer-events", "none");
+    await testInfo.attach("pinned-window-and-minimize", {
+      body: await page.screenshot(),
+      contentType: "image/png",
+    });
+
+    await terminalButton.click();
+    await expect(terminal).toHaveCSS("pointer-events", "auto");
+    await expect(terminal.getByRole("tab", { name: "pnpm dev", selected: true })).toBeVisible();
+    await serviceButton.click();
+    await service.getByRole("button", { name: "隐藏窗口" }).click();
+    await expect(service).toHaveCount(0);
+    await serviceButton.click();
+    await service.getByRole("button", { name: "取消置顶" }).click();
+    await composer.click();
+    await expect(frames).toHaveCount(0);
   });
 
   test("最大化资源窗口盖住终端和服务浮栏", async ({ page }) => {
@@ -204,7 +249,8 @@ test.describe("Larness S0 视觉 Demo", () => {
       .toBe(true);
     await page.getByRole("button", { name: "关闭窗口", exact: true }).click();
     await dock.getByRole("button", { name: "打开服务窗口" }).click();
-    await expect(page.locator("[data-window-frame]")).toBeVisible();
+    await expect(page.locator("[data-window-frame]")).toHaveCount(1);
+    await expect(page.getByRole("dialog", { name: "web-dev", exact: true })).toBeVisible();
   });
 
   test("文件窗口加载 Monaco 只读内容", async ({ page }) => {

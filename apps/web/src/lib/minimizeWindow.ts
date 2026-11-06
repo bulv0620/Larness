@@ -17,10 +17,11 @@ export function animateMinimize(id: string, complete: () => void) {
   const base = current && current !== "none" ? `${current} ` : "";
   const animation = frame.animate(
     [
-      { transform: `${base}translate(0, 0) scale(1)`, opacity: 1 },
+      { transform: `${base}translate(0, 0) scale(1)`, opacity: 1, pointerEvents: "none" },
       {
         transform: `${base}translate(${to.x + to.width / 2 - from.x - from.width / 2}px, ${to.y + to.height / 2 - from.y - from.height / 2}px) scale(.08)`,
         opacity: 0,
+        pointerEvents: "none",
       },
     ],
     { duration: 200, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" },
