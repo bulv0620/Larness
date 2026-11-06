@@ -23,7 +23,6 @@ function AuthRoutes() {
       <Route path="/" element={<HomeRoute />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/pair" element={<PairPage />} />
-      <Route path="/service-ops" element={<HomeRoute view="service-ops" />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

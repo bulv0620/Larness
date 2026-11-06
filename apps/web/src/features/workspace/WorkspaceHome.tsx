@@ -1,7 +1,7 @@
 import { AppShell } from "@/app/AppShell";
 import { useSessionMonitor } from "@/features/auth/useSessionMonitor";
 
-export function WorkspaceHome({ view = "workspace" }: { view?: "workspace" | "service-ops" }) {
+export function WorkspaceHome() {
   useSessionMonitor();
-  return <AppShell view={view} />;
+  return <AppShell />;
 }

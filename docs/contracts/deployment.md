@@ -7,7 +7,7 @@ TUI 初始化检查全局 PM2 并在缺失时补装。正式服务由独立守�
 ## 1. 阶段与身份
 M4 使用独立的正式服务身份、DTO、仓储和运维模块，负责 PM2 生命周期、构建产物、授权、发布、健康、记录与恢复。部署和日常运维共用一套 PM2Adapter、日志、健康和实际对账。后端绑定本实例受管 PM2 身份，不能凭客户端 PID、PM2 ID、端口或日志收养进程。
 
-正式服务通过左侧「服务运维」查看和管理，页面查询当前授权范围内的正式服务，独立于当前聊天或项目选择。部署记录保留来源项目及产物，绑定独立的正式目标。临时服务的 ID、执行、预览和授权不进入正式资源身份。见 [ADR-047](../adr/ADR-047-service-operations-entry.md)。
+正式服务通过左侧「服务运维」弹窗查看和管理，查询当前授权范围内的正式服务，独立于当前聊天或项目选择；入口不跳转页面（ADR-049）。部署记录保留来源项目及产物，绑定独立的正式目标。临时服务的 ID、执行、预览和授权不进入正式资源身份。见 [ADR-047](../adr/ADR-047-service-operations-entry.md)。
 
 REST 使用独立的 `/api/service-ops/` 命名空间，承载正式服务、动作、日志和部署。精确后缀及 schema 按对应任务冻结。运维状态、动作和部署使用独立事件类型和流标识。订阅、重放、详情和日志均核验运维领域与资源授权，正式地址不可解析为开发预览。
 
@@ -65,7 +65,7 @@ REST 使用独立的 `/api/service-ops/` 命名空间，承载正式服务、动
 - 唯一迁移 `0014_service_actions` 新增 `service_action_authorizations`（`sauth_`）；日常 start/stop/restart/recover 与发布计划分离，绑定 target、当前 artifactHash/version，不创建新产物、不能替换版本。
 - 动作 authorization 复用一个运维策略决策：autonomous 直接 AUTHORIZED；standard/strict 为 PENDING，人工 `decide`（记录 decidedBy）后 AUTHORIZED；readonly DENIED。消费一次性，服务当前版本/产物变化即拒绝。
 - REST：`POST /api/service-ops/services/:id/actions`、`GET /api/service-ops/service-actions/:id`、`POST /api/service-ops/service-actions/:id/decision`、`POST /api/service-ops/service-actions/:id/execute`；全部走既有会话/Origin/CSRF，execute 只允许同一 clientSession。
-- Web：左侧「服务运维」入口与 `/service-ops` 页面，展示正式服务列表、实际状态、版本/PID/健康、发布历史、日志，支持启动/停止/重启与人工审批。页面独立于当前聊天/项目；聊天浮窗仍只展示临时开发服务。
+- Web：左侧「服务运维」入口打开符合现有设计的 Dialog 弹窗（不新增 `/service-ops` 路由，ADR-049），展示正式服务列表、实际状态、版本/PID/健康、发布历史、日志，支持启动/停止/重启、人工审批与运维 Agent 指令。弹窗独立于当前聊天/项目；聊天浮窗仍只展示临时开发服务。
 - 运维 Agent 工具组与独立模型上下文仍待本任务后续接入；未接入前普通开发 Turn 不装配任何运维工具。
 
 ### 3.4 M4-3b 运维 Agent 上下文（2026-11-06）

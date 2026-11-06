@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, expect, it, vi } from "vitest";
-import { ServiceOpsPage } from "./ServiceOpsPage";
+import { ServiceOpsDialog } from "./ServiceOpsDialog";
 
 const { authorize, execute, decide } = vi.hoisted(() => ({
   authorize: vi.fn(),
@@ -101,7 +101,7 @@ function renderPage() {
   return render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <ServiceOpsPage />
+        <ServiceOpsDialog open onOpenChange={() => undefined} />
       </QueryClientProvider>
     </MemoryRouter>,
   );

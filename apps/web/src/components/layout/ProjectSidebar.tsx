@@ -28,13 +28,13 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
 import { StatusDot } from "@/components/common/StatusDot";
 import { useLogout } from "@/features/auth/useAuth";
 import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
 import { ModelSettingsDialog } from "@/features/models/ModelSettingsDialog";
 import { ProjectDialog } from "@/features/projects/ProjectDialog";
 import { RenameProjectDialog } from "@/features/projects/RenameProjectDialog";
+import { ServiceOpsDialog } from "@/features/serviceOps/ServiceOpsDialog";
 import { USE_MOCKS } from "@/lib/env";
 import { relativeTime } from "@/lib/format";
 import { useSnapshot } from "@/lib/queries";
@@ -74,7 +74,6 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     USE_MOCKS && state.isStreaming ? state.sessionId : null,
   );
   const newSession = useNewSession();
-  const navigate = useNavigate();
   const logout = useLogout();
   const queryClient = useQueryClient();
   const focusComposer = useNavigationStore((state) => state.focusComposer);
@@ -82,6 +81,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const [expandedSessionLists, setExpandedSessionLists] = useState<Record<string, boolean>>({});
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [serviceOpsOpen, setServiceOpsOpen] = useState(false);
   const [context, setContext] = useState<ContextTarget | null>(null);
   const [dialog, setDialog] = useState<SidebarDialog>(null);
 
@@ -384,7 +384,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <div className="shrink-0 border-t border-line px-2 py-2">
-        <BottomItem icon={Activity} label="服务运维" onClick={() => navigate("/service-ops")} />
+        <BottomItem icon={Activity} label="服务运维" onClick={() => setServiceOpsOpen(true)} />
         <BottomItem icon={Zap} label="自动化任务" />
         <BottomItem
           icon={Settings}
@@ -503,6 +503,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       />
 
       <ProjectDialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen} />
+      <ServiceOpsDialog open={serviceOpsOpen} onOpenChange={setServiceOpsOpen} />
       {!USE_MOCKS ? (
         <ModelSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       ) : null}
