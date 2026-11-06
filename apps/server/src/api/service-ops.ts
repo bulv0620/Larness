@@ -12,6 +12,7 @@ import { HttpError } from "../errors.js";
 import type { DeploymentAuthorizationService } from "../modules/service-ops/authorization.js";
 import type { DeploymentManager } from "../modules/service-ops/deployments.js";
 import type { DeploymentError } from "../modules/service-ops/errors.js";
+import type { ServiceActionAuthorizationService } from "../modules/service-ops/serviceActions.js";
 import type { ServiceOpsRuntime } from "../modules/service-ops/serviceOps.js";
 import { getSessionById } from "../modules/sessions/repository.js";
 
@@ -31,6 +32,15 @@ const AuthorizationCreateSchema = z
   })
   .strict();
 const ApprovalDecisionSchema = z.object({ decision: z.enum(["approve", "reject"]) }).strict();
+const ServiceActionRequestSchema = z
+  .object({
+    action: z.enum(["start", "stop", "restart", "recover"]),
+    requestKey: KeySchema,
+    sessionId: IdSchema.optional(),
+  })
+  .strict();
+const ServiceActionDecisionSchema = z.object({ decision: z.enum(["approve", "reject"]) }).strict();
+const ServiceActionExecuteSchema = z.object({ consumeKey: KeySchema }).strict();
 const ApplySchema = z
   .object({
     planId: IdSchema,
@@ -44,6 +54,7 @@ export interface ServiceOpsApiDeps {
   deployments: DeploymentManager;
   authorizations: DeploymentAuthorizationService;
   serviceOps: ServiceOpsRuntime;
+  serviceActions: ServiceActionAuthorizationService;
 }
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -165,6 +176,103 @@ export function registerServiceOpsRoutes(app: FastifyInstance, deps: ServiceOpsA
       deploymentError(error);
     }
   });
+
+  app.post<{ Params: { id: string } }>("/api/service-ops/services/:id/actions", async (request) => {
+    if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
+    const targetId = parse(IdSchema, request.params.id);
+    const body = parse(ServiceActionRequestSchema, request.body);
+    let selectedPolicy: DeploymentPolicy = "standard";
+    if (body.sessionId !== undefined) {
+      const session = getSessionById(deps.db, body.sessionId);
+      if (!session) throw new HttpError("VALIDATION_ERROR", "Session was not found");
+      selectedPolicy = policy(session.approvalPolicyId);
+    }
+    const service = deps.serviceOps.getService(targetId);
+    const context: DeploymentAuthorizationContext = {
+      domain: "service-ops",
+      projectId: service.projectId,
+      targetId,
+      action: body.action,
+      policy: selectedPolicy,
+      policySnapshotId: newId("psnap"),
+      actor: { type: "human", id: request.clientSession.id },
+      clientSessionId: request.clientSession.id,
+      sessionId: null,
+      turnId: null,
+    };
+    try {
+      return deps.serviceActions.authorize({
+        targetId,
+        action: body.action,
+        requestKey: body.requestKey,
+        context,
+      });
+    } catch (error) {
+      deploymentError(error);
+    }
+  });
+
+  app.get<{ Params: { id: string } }>("/api/service-ops/service-actions/:id", async (request) => {
+    if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
+    try {
+      return deps.serviceActions.get(parse(IdSchema, request.params.id));
+    } catch (error) {
+      deploymentError(error);
+    }
+  });
+
+  app.post<{ Params: { id: string } }>(
+    "/api/service-ops/service-actions/:id/decision",
+    async (request) => {
+      if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
+      const id = parse(IdSchema, request.params.id);
+      const body = parse(ServiceActionDecisionSchema, request.body);
+      try {
+        return deps.serviceActions.decide({
+          authorizationId: id,
+          decision: body.decision,
+          decidedBy: request.clientSession.id,
+        });
+      } catch (error) {
+        deploymentError(error);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/api/service-ops/service-actions/:id/execute",
+    async (request) => {
+      if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
+      const id = parse(IdSchema, request.params.id);
+      const body = parse(ServiceActionExecuteSchema, request.body);
+      const authorization = deps.serviceActions.get(id);
+      if (authorization.clientSessionId !== request.clientSession.id) {
+        throw new HttpError("FORBIDDEN", "Authorization belongs to another client");
+      }
+      const context: DeploymentAuthorizationContext = {
+        domain: "service-ops",
+        projectId: authorization.projectId,
+        targetId: authorization.targetId,
+        action: authorization.action,
+        policy: authorization.policy,
+        policySnapshotId: authorization.policySnapshotId,
+        actor: { type: authorization.actorType, id: authorization.actorId },
+        clientSessionId: authorization.clientSessionId,
+        sessionId: authorization.sessionId,
+        turnId: authorization.turnId,
+      };
+      try {
+        deps.serviceActions.consume({
+          authorizationId: id,
+          consumeKey: body.consumeKey,
+          context,
+        });
+        return await deps.serviceOps.executeAction(authorization.targetId, authorization.action);
+      } catch (error) {
+        deploymentError(error);
+      }
+    },
+  );
 
   app.post("/api/service-ops/apply", async (request) => {
     if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");

@@ -41,6 +41,7 @@ import {
   Pm2Adapter,
   type Pm2Global,
 } from "../modules/service-ops/pm2.js";
+import { ServiceActionAuthorizationService } from "../modules/service-ops/serviceActions.js";
 import { ServiceOpsRuntime } from "../modules/service-ops/serviceOps.js";
 import { ServiceManager } from "../modules/services/manager.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
@@ -87,6 +88,7 @@ export interface RunningServer {
   services: ServiceManager;
   deployments: DeploymentManager;
   deploymentAuthorizations: DeploymentAuthorizationService;
+  serviceActionAuthorizations: ServiceActionAuthorizationService;
   serviceOps: ServiceOpsRuntime;
   pm2Global: Pm2Global;
   previews: PreviewRegistry | null;
@@ -257,6 +259,10 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       deployments,
     });
     deploymentAuthorizations.recoverExpired();
+    const serviceActionAuthorizations = new ServiceActionAuthorizationService({
+      db: opened.db,
+    });
+    serviceActionAuthorizations.recoverExpired();
     let pm2Global: Pm2Global;
     if (options.pm2Global !== undefined) {
       pm2Global = options.pm2Global;
@@ -355,6 +361,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         services,
         deployments,
         deploymentAuthorizations,
+        serviceActionAuthorizations,
         serviceOps,
         previews,
         ...(turnQueue === null
@@ -465,6 +472,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       services,
       deployments,
       deploymentAuthorizations,
+      serviceActionAuthorizations,
       serviceOps,
       pm2Global,
       previews,

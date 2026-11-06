@@ -1,15 +1,18 @@
 import { chmod, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { DeploymentSpec } from "@larness/shared";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { newId } from "../../src/db/ids.js";
 import { runMigrations } from "../../src/db/migrate.js";
+import { serviceOpsServices } from "../../src/db/schema.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { listResourceEvents, ResourceEventBus } from "../../src/modules/resources/events.js";
 import { DeploymentAuthorizationService } from "../../src/modules/service-ops/authorization.js";
 import { DeploymentManager } from "../../src/modules/service-ops/deployments.js";
 import { ensureGlobalPm2 } from "../../src/modules/service-ops/pm2.js";
+import { ServiceActionAuthorizationService } from "../../src/modules/service-ops/serviceActions.js";
 import { ServiceOpsRuntime } from "../../src/modules/service-ops/serviceOps.js";
 import { serviceOpsRow } from "../../src/modules/service-ops/serviceOpsRepository.js";
 import { withTempDir } from "../helpers.js";
@@ -87,7 +90,7 @@ describe("service operations runtime without PM2", () => {
         events,
       });
       try {
-        const { planId, targetId } = await buildArtifact(manager, project.id);
+        const { planId, targetId, artifactId } = await buildArtifact(manager, project.id);
         const context = {
           domain: "service-ops",
           projectId: project.id,
@@ -131,6 +134,53 @@ describe("service operations runtime without PM2", () => {
           payload: { observedState: "failed", reasonCode: "PM2_UNAVAILABLE" },
         });
         expect(await runtime.reconcile()).toBe(1);
+
+        opened.db
+          .update(serviceOpsServices)
+          .set({ currentArtifactId: artifactId, currentVersion: "v1" })
+          .where(eq(serviceOpsServices.targetId, targetId))
+          .run();
+        const actionAuth = new ServiceActionAuthorizationService({ db: opened.db });
+        const actionContext = {
+          ...context,
+          action: "restart" as const,
+        };
+        const autonomousAction = actionAuth.authorize({
+          targetId,
+          action: "restart",
+          requestKey: "action-auto",
+          context: actionContext,
+        });
+        expect(autonomousAction.status).toBe("AUTHORIZED");
+        const consumedAction = actionAuth.consume({
+          authorizationId: autonomousAction.id,
+          consumeKey: "action-consume",
+          context: actionContext,
+        });
+        expect(consumedAction.status).toBe("CONSUMED");
+        await expect(runtime.executeAction(targetId, "restart")).rejects.toMatchObject({
+          code: "DEPLOY_UNAVAILABLE",
+        });
+        const standardAction = actionAuth.authorize({
+          targetId,
+          action: "stop",
+          requestKey: "action-standard",
+          context: { ...context, action: "stop", policy: "standard" },
+        });
+        expect(standardAction.status).toBe("PENDING");
+        const approvedAction = actionAuth.decide({
+          authorizationId: standardAction.id,
+          decision: "approve",
+          decidedBy: "client-test",
+        });
+        expect(approvedAction.status).toBe("AUTHORIZED");
+        const readonlyAction = actionAuth.authorize({
+          targetId,
+          action: "start",
+          requestKey: "action-readonly",
+          context: { ...context, action: "start", policy: "readonly" },
+        });
+        expect(readonlyAction.status).toBe("DENIED");
         const repeated = await runtime.apply({
           planId,
           authorizationId: authorization.authorization.id,
@@ -235,6 +285,46 @@ describe("service operations REST", () => {
           reasonCode: "PM2_UNAVAILABLE",
         });
 
+        started.running.db
+          .update(serviceOpsServices)
+          .set({ currentArtifactId: artifactId, currentVersion: "v1" })
+          .where(eq(serviceOpsServices.targetId, targetId))
+          .run();
+        const actionResponse = await started.running.app.inject({
+          method: "POST",
+          url: `/api/service-ops/services/${targetId}/actions`,
+          headers: auth,
+          payload: { action: "restart", requestKey: "rest-action", sessionId: session.id },
+        });
+        expect(actionResponse.statusCode).toBe(200);
+        const action = actionResponse.json() as { id: string; status: string };
+        expect(action.status).toBe("AUTHORIZED");
+        const executeResponse = await started.running.app.inject({
+          method: "POST",
+          url: `/api/service-ops/service-actions/${action.id}/execute`,
+          headers: auth,
+          payload: { consumeKey: "rest-action-exec" },
+        });
+        expect(executeResponse.statusCode).toBe(503);
+        expect(executeResponse.json()).toMatchObject({ error: { code: "DEPLOY_UNAVAILABLE" } });
+
+        const pendingActionResponse = await started.running.app.inject({
+          method: "POST",
+          url: `/api/service-ops/services/${targetId}/actions`,
+          headers: auth,
+          payload: { action: "stop", requestKey: "rest-action-standard" },
+        });
+        const pendingAction = pendingActionResponse.json() as { id: string; status: string };
+        expect(pendingAction.status).toBe("PENDING");
+        const actionDecision = await started.running.app.inject({
+          method: "POST",
+          url: `/api/service-ops/service-actions/${pendingAction.id}/decision`,
+          headers: auth,
+          payload: { decision: "approve" },
+        });
+        expect(actionDecision.statusCode).toBe(200);
+        expect(actionDecision.json()).toMatchObject({ status: "AUTHORIZED" });
+
         const serviceResponse = await started.running.app.inject({
           method: "GET",
           url: `/api/service-ops/services/${targetId}`,
@@ -244,7 +334,7 @@ describe("service operations REST", () => {
         expect(serviceResponse.json()).toMatchObject({
           targetId,
           observedState: "failed",
-          reasonCode: "PM2_UNAVAILABLE",
+          reasonCode: "DEPLOY_UNAVAILABLE",
         });
         const listResponse = await started.running.app.inject({
           method: "GET",
@@ -276,9 +366,14 @@ describe("service operations REST", () => {
           headers: { cookie: started.cookie },
         });
         expect(eventsResponse.statusCode).toBe(200);
-        expect(eventsResponse.json()).toMatchObject({
-          items: [{ topic: "service-ops", type: "service-ops.status" }],
-        });
+        const eventsBody = eventsResponse.json() as {
+          items: { topic: string; type: string }[];
+        };
+        expect(
+          eventsBody.items.some(
+            (item) => item.topic === "service-ops" && item.type === "service-ops.status",
+          ),
+        ).toBe(true);
 
         const unauthenticated = await started.running.app.inject({
           method: "GET",

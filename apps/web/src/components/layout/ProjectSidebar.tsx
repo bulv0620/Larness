@@ -10,6 +10,7 @@ import {
 } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  Activity,
   Archive,
   ChevronDown,
   ChevronRight,
@@ -27,6 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { StatusDot } from "@/components/common/StatusDot";
 import { useLogout } from "@/features/auth/useAuth";
 import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
@@ -72,6 +74,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     USE_MOCKS && state.isStreaming ? state.sessionId : null,
   );
   const newSession = useNewSession();
+  const navigate = useNavigate();
   const logout = useLogout();
   const queryClient = useQueryClient();
   const focusComposer = useNavigationStore((state) => state.focusComposer);
@@ -381,6 +384,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <div className="shrink-0 border-t border-line px-2 py-2">
+        <BottomItem icon={Activity} label="服务运维" onClick={() => navigate("/service-ops")} />
         <BottomItem icon={Zap} label="自动化任务" />
         <BottomItem
           icon={Settings}

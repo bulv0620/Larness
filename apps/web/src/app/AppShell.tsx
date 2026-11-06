@@ -7,6 +7,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { WindowLayer } from "@/components/windows/WindowLayer";
 import { ConversationWorkspace } from "@/features/chat/ConversationWorkspace";
 import { useSessionEvents } from "@/features/chat/useSessionEvents";
+import { ServiceOpsPage } from "@/features/serviceOps/ServiceOpsPage";
 import { USE_MOCKS } from "@/lib/env";
 import { queryClient, useSnapshot } from "@/lib/queries";
 import { useNewSession } from "@/lib/useNewSession";
@@ -14,7 +15,7 @@ import { activeWindowScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
 
-export function AppShell() {
+export function AppShell({ view = "workspace" }: { view?: "workspace" | "service-ops" }) {
   const { data, isPending, isError } = useSnapshot();
   const sessionId = useNavigationStore((state) => state.sessionId);
   const reconcileWorkspace = useNavigationStore((state) => state.reconcileWorkspace);
@@ -107,8 +108,8 @@ export function AppShell() {
             className="hidden md:block"
           />
         ) : null}
-        <ConversationWorkspace />
-        {!resourceCollapsed ? (
+        {view === "service-ops" ? <ServiceOpsPage /> : <ConversationWorkspace />}
+        {view === "workspace" && !resourceCollapsed ? (
           <>
             <SidebarResizeHandle
               side="right"
@@ -123,7 +124,7 @@ export function AppShell() {
             <ProjectResourceSidebar />
           </>
         ) : null}
-        <WindowLayer />
+        {view === "workspace" ? <WindowLayer /> : null}
       </div>
 
       {workspaceError ? (

@@ -34,6 +34,7 @@ import type { PreviewRegistry } from "./modules/previews/registry.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
 import type { DeploymentAuthorizationService } from "./modules/service-ops/authorization.js";
 import { DeploymentManager } from "./modules/service-ops/deployments.js";
+import type { ServiceActionAuthorizationService } from "./modules/service-ops/serviceActions.js";
 import type { ServiceOpsRuntime } from "./modules/service-ops/serviceOps.js";
 import { ServiceManager } from "./modules/services/manager.js";
 import { TerminalManager } from "./modules/terminals/manager.js";
@@ -57,6 +58,7 @@ export interface AppServices {
   services?: ServiceManager;
   deployments?: DeploymentManager;
   deploymentAuthorizations?: DeploymentAuthorizationService;
+  serviceActionAuthorizations?: ServiceActionAuthorizationService;
   serviceOps?: ServiceOpsRuntime;
   previews?: PreviewRegistry | null;
   resourceEvents?: ResourceEventBus;
@@ -157,12 +159,17 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerFileRoutes(app, options.services, resourceEvents);
     registerGitRoutes(app, options.services, git);
     registerServiceRoutes(app, options.services, serviceManager);
-    if (options.services.serviceOps && options.services.deploymentAuthorizations) {
+    if (
+      options.services.serviceOps &&
+      options.services.deploymentAuthorizations &&
+      options.services.serviceActionAuthorizations
+    ) {
       registerServiceOpsRoutes(app, {
         db: options.services.db,
         deployments,
         authorizations: options.services.deploymentAuthorizations,
         serviceOps: options.services.serviceOps,
+        serviceActions: options.services.serviceActionAuthorizations,
       });
     }
     registerResourceActionRoutes(app, options.services, { git, services: serviceManager });

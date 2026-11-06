@@ -892,3 +892,53 @@ export const serviceOpsDeployments = sqliteTable(
   ],
 );
 export type ServiceOpsDeploymentRow = typeof serviceOpsDeployments.$inferSelect;
+
+export const serviceActionAuthorizations = sqliteTable(
+  "service_action_authorizations",
+  {
+    id: text("id").primaryKey(),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => deploymentTargets.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    action: text("action").$type<import("@larness/shared").ServiceAction>().notNull(),
+    actorType: text("actor_type").$type<"human" | "agent">().notNull(),
+    actorId: text("actor_id").notNull(),
+    clientSessionId: text("client_session_id"),
+    sessionId: text("session_id"),
+    turnId: text("turn_id"),
+    policy: text("policy").$type<import("@larness/shared").DeploymentPolicy>().notNull(),
+    policySnapshotId: text("policy_snapshot_id").notNull(),
+    status: text("status").$type<import("@larness/shared").ServiceActionStatus>().notNull(),
+    artifactHash: text("artifact_hash").notNull(),
+    version: text("version").notNull(),
+    scopeJson: text("scope_json").notNull(),
+    scopeHash: text("scope_hash").notNull(),
+    requestKey: text("request_key").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+    decidedAt: integer("decided_at"),
+    decidedBy: text("decided_by"),
+    consumedAt: integer("consumed_at"),
+    consumeKey: text("consume_key"),
+    reasonCode: text("reason_code"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("service_action_authorizations_request").on(table.requestKey),
+    index("service_action_authorizations_target_status").on(table.targetId, table.status),
+    index("service_action_authorizations_status_expires").on(table.status, table.expiresAt),
+    check(
+      "service_action_authorizations_action",
+      sql`${table.action} IN ('start', 'stop', 'restart', 'recover')`,
+    ),
+    check(
+      "service_action_authorizations_status",
+      sql`${table.status} IN ('PENDING', 'AUTHORIZED', 'DENIED', 'EXPIRED', 'REVOKED', 'CONSUMED')`,
+    ),
+    check("service_action_authorizations_artifact_hash", sql`length(${table.artifactHash}) = 64`),
+    check("service_action_authorizations_scope_hash", sql`length(${table.scopeHash}) = 64`),
+  ],
+);
+export type ServiceActionAuthorizationRow = typeof serviceActionAuthorizations.$inferSelect;

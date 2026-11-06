@@ -3,7 +3,7 @@ import { AuthErrorState, AuthLoading } from "./AuthFrame";
 import { RequireAuth } from "./RequireAuth";
 import { useBootstrap } from "./useAuth";
 
-export function HomeRoute() {
+export function HomeRoute({ view = "workspace" }: { view?: "workspace" | "service-ops" }) {
   const bootstrap = useBootstrap();
 
   if (bootstrap.isPending) {
@@ -26,7 +26,7 @@ export function HomeRoute() {
 
   return (
     <RequireAuth redirectTo={unauthenticatedTo}>
-      <WorkspaceHome />
+      <WorkspaceHome view={view} />
     </RequireAuth>
   );
 }

@@ -169,6 +169,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `deployment_approvals` | M4-2 已实施 | 人工审批：`id, authorization_id, plan_id, target_id, project_id, status, plan_hash, artifact_hash, requested_by, decided_by, expires_at, decided_at, created_at`；`UNIQUE(authorization_id)` |
 | `service_ops_services` | M4-3 已实施 | 正式服务运行：`target_id, project_id, name, namespace, pm2_name, desired_state, observed_state, current_artifact_id, current_version, config_json, pid, last_health_at, reason_code, created_at, updated_at`；`pm2_name UNIQUE` |
 | `service_ops_deployments` | M4-3 已实施 | 发布记录：`id, target_id, project_id, plan_id, authorization_id, artifact_id, previous_artifact_id, previous_version, version, status, plan_hash, artifact_hash, actor_type, actor_id, policy, policy_snapshot_id, reason_code, health_json, result_json, started_at, ended_at, created_at`；`plan_id`/`authorization_id` UNIQUE |
+| `service_action_authorizations` | M4-3b 已实施 | 日常动作授权：`id, target_id, project_id, action, actor_type, actor_id, client_session_id, session_id, turn_id, policy, policy_snapshot_id, status, artifact_hash, version, scope_json, scope_hash, request_key, expires_at, decided_at, decided_by, consumed_at, consume_key, reason_code, created_at`；`UNIQUE(request_key)`；action start/stop/restart/recover |
 | `scheduled_jobs` | M5 | `id, name, schedule, scope, policy, enabled, created_at` |
 | `job_runs` | M5 | `id, job_id, status, started_at, ended_at, log_ref` |
 | `update_runs` | M5 | `id, from_version, to_version, status, started_at, ended_at` |
@@ -256,6 +257,10 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 ## M4-3 迁移 0013_service_ops（2026-11-06）
 
 新增 `service_ops_services` / `service_ops_deployments`，schemaVersion 12 → 13。旧表/数据/流序号不变；服务运行状态 `stopped/starting/running/unhealthy/stopping/failed/unknown`，部署状态 `APPLYING/HEALTH_CHECK/SUCCEEDED/FAILED/UNKNOWN`。事件复用 `resource_streams/resource_events`，streamId `ops:<targetId>`。PM2 守护、socket、dump 与日志位于 `dataDir/pm2`、`dataDir/logs/deploy`，不在源码目录；DB 不存 PM2 明文秘密。详见 [部署契约 §3.2](deployment.md#32-m4-3-冻结2026-11-06) 与 [M4-3 技术冻结](../../specs/050-deploy/m4-3-design.md)。
+
+## M4-3b 迁移 0014_service_actions（2026-11-06）
+
+新增 `service_action_authorizations`，schemaVersion 13 → 14。日常 start/stop/restart/recover 使用独立 `sauth_` 授权，绑定 target/当前 artifactHash/version；不改变发布计划与 M4-2 授权表。授权状态 PENDING/AUTHORIZED/DENIED/EXPIRED/REVOKED/CONSUMED；审批决策记录在同一条授权的 `decided_by`，不创建人工 plan approval。详见 [部署契约 §3.3](deployment.md#33-m4-3b-日常动作与运维页2026-11-06)。
 
 ## M3技术候选（待审批，未实现）
 [m3-preview](m3-preview.md)限定M3-1只新增temporary服务及必要action kind迁移：terminalExecutionId/generation由后端产生、与输入租约独立；原始身份仅内部、日志引用终端存储。票据/grant只保存短期内存hash，重启撤销，业务事件和seq事务持久化；不加入PM2字段或明文凭据，精确DDL在PoC后冻结。

@@ -451,6 +451,10 @@ Turn 创建成功返回 `202`：
 | POST | `/api/service-ops/authorizations` | M4-3 按会话策略申请运维授权（缺省 standard） |
 | POST | `/api/service-ops/approvals/:id` | M4-3 人工审批 standard/strict 授权 |
 | POST | `/api/service-ops/apply` | M4-3 消费授权并执行首次/替换发布 |
+| POST | `/api/service-ops/services/:id/actions` | M4-3b 申请日常 start/stop/restart/recover 授权 |
+| GET | `/api/service-ops/service-actions/:id` | M4-3b 日常动作授权状态 |
+| POST | `/api/service-ops/service-actions/:id/decision` | M4-3b 人工批/拒日常动作 |
+| POST | `/api/service-ops/service-actions/:id/execute` | M4-3b 消费授权并执行日常动作 |
 | GET | `/api/resource-events?streamId=ops:<targetId>` | M4-3 正式服务事件重放 |
 | WS `service-ops` | `{topic:"service-ops",resourceId:targetId,after}` | M4-3 实时正式服务状态/部署事件 |
 | GET / POST | `/api/jobs` | M5 |

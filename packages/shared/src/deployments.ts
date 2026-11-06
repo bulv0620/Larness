@@ -418,6 +418,53 @@ export const ServiceOpsEventPayloadSchema = z.object({
 });
 export type ServiceOpsEventPayload = z.infer<typeof ServiceOpsEventPayloadSchema>;
 
+export const ServiceActionAuthorizationIdSchema = z.string().regex(new RegExp(`^sauth_${UUID}$`));
+export type ServiceActionAuthorizationId = z.infer<typeof ServiceActionAuthorizationIdSchema>;
+export const ServiceActionSchema = z.enum(["start", "stop", "restart", "recover"]);
+export type ServiceAction = z.infer<typeof ServiceActionSchema>;
+export const ServiceActionStatusSchema = z.enum([
+  "PENDING",
+  "AUTHORIZED",
+  "DENIED",
+  "EXPIRED",
+  "REVOKED",
+  "CONSUMED",
+]);
+export type ServiceActionStatus = z.infer<typeof ServiceActionStatusSchema>;
+export const ServiceActionScopeSchema = z.strictObject({
+  domain: z.literal("service-ops"),
+  projectId: z.string().min(1).max(128),
+  targetId: DeploymentTargetIdSchema,
+  action: ServiceActionSchema,
+  artifactHash: z.string().regex(/^[a-f0-9]{64}$/),
+  version: DeploymentVersionSchema,
+});
+export type ServiceActionScope = z.infer<typeof ServiceActionScopeSchema>;
+export const ServiceActionAuthorizationDtoSchema = z.object({
+  id: ServiceActionAuthorizationIdSchema,
+  targetId: DeploymentTargetIdSchema,
+  projectId: z.string().min(1).max(128),
+  action: ServiceActionSchema,
+  actorType: z.enum(["human", "agent"]),
+  actorId: z.string().min(1).max(128),
+  clientSessionId: z.string().min(1).max(128).nullable(),
+  sessionId: z.string().min(1).max(128).nullable(),
+  turnId: z.string().min(1).max(128).nullable(),
+  policy: DeploymentPolicySchema,
+  policySnapshotId: z.string().min(1).max(128),
+  status: ServiceActionStatusSchema,
+  artifactHash: z.string().regex(/^[a-f0-9]{64}$/),
+  version: DeploymentVersionSchema,
+  scopeHash: z.string().regex(/^[a-f0-9]{64}$/),
+  expiresAt: z.int(),
+  decidedAt: z.int().nullable(),
+  decidedBy: z.string().min(1).max(128).nullable(),
+  consumedAt: z.int().nullable(),
+  reasonCode: z.string().max(64).nullable(),
+  createdAt: z.int(),
+});
+export type ServiceActionAuthorizationDto = z.infer<typeof ServiceActionAuthorizationDtoSchema>;
+
 export const DEPLOYMENT_APPROVAL_TTL_MS = 5 * 60_000;
 
 export const DeploymentArtifactManifestSchema = z.strictObject({

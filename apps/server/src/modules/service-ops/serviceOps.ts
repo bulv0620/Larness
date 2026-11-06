@@ -323,6 +323,169 @@ export class ServiceOpsRuntime {
     }
   }
 
+  async executeAction(
+    targetId: string,
+    action: "start" | "stop" | "restart" | "recover",
+  ): Promise<ServiceOpsServiceDto> {
+    const row = serviceOpsRow(this.#db, targetId);
+    if (!row) throw new DeploymentError("NOT_FOUND", "Formal service was not found");
+    if (!row.currentArtifactId || !row.currentVersion) {
+      throw new DeploymentError("DEPLOY_CONFLICT", "Formal service has no active version");
+    }
+    const target = targetById(this.#db, row.targetId);
+    const artifact = artifactById(this.#db, row.currentArtifactId);
+    if (!target || !artifact) {
+      throw new DeploymentError(
+        "DEPLOY_ARTIFACT_INVALID",
+        "Formal service artifact is unavailable",
+      );
+    }
+    const lock = acquireResourceLock(
+      { db: this.#db, now: this.#now },
+      {
+        resourceType: "service",
+        resourceId: target.id,
+        owner: "service-ops-action",
+        executionId: newId("act"),
+        ttlMs: LOCK_TTL_MS,
+      },
+    );
+    if (!lock) throw new DeploymentError("RESOURCE_LOCKED", "Formal service is busy");
+    const now = this.#now();
+    try {
+      if (action === "stop") {
+        if (this.#pm2 === null) {
+          throw new DeploymentError("DEPLOY_UNAVAILABLE", "PM2 is unavailable");
+        }
+        if (!(await this.#pm2.stop(row.pm2Name))) {
+          const current = await this.#pm2.find(row.pm2Name);
+          if (current !== "missing" && current !== "unknown" && current.status !== "stopped") {
+            throw new DeploymentError("DEPLOY_UNAVAILABLE", "Formal service did not stop");
+          }
+        }
+        const event = immediateTransaction(this.#db, (tx) => {
+          updateServiceOpsRow(tx, target.id, {
+            desiredState: "stopped",
+            observedState: "stopped",
+            pid: null,
+            reasonCode: null,
+            updatedAt: now,
+          });
+          appendAudit(tx, {
+            action: "service.action.stop",
+            decision: "allow",
+            resourceType: "service_ops_service",
+            resourceId: target.id,
+            details: { targetId: target.id, version: row.currentVersion },
+            now,
+          });
+          return appendResourceEvent(
+            tx,
+            `ops:${target.id}`,
+            "service-ops.status",
+            {
+              observedState: "stopped",
+              desiredState: "stopped",
+              version: row.currentVersion as ServiceOpsEventPayload["version"],
+              artifactHash: artifact.artifactHash,
+              pid: null,
+              deploymentId: null,
+              reasonCode: null,
+            } satisfies ServiceOpsEventPayload,
+            now,
+          );
+        });
+        this.#events.publish(event);
+        return this.#serviceDto(serviceOpsRow(this.#db, target.id));
+      }
+
+      if (this.#pm2 === null) {
+        throw new DeploymentError("DEPLOY_UNAVAILABLE", "PM2 is unavailable");
+      }
+      if (!["start", "restart", "recover"].includes(action)) {
+        throw new DeploymentError("DEPLOY_SPEC_INVALID", "Unsupported service action");
+      }
+      const config = await this.#writeConfig(target, artifact, storedSpec(artifact));
+      const app = await this.#pm2.find(row.pm2Name);
+      const started =
+        app !== "missing" && app !== "unknown" && app.status === "online"
+          ? await this.#pm2.restart(row.pm2Name)
+          : await this.#pm2.start(config.configPath, config.pm2Name);
+      if (!started) throw new DeploymentError("DEPLOY_UNAVAILABLE", "Formal service did not start");
+      const identity = await this.#appIdentity(config);
+      if (!identity || !(await this.#health(storedSpec(artifact).health))) {
+        await this.#pm2.stop(row.pm2Name).catch(() => false);
+        throw new DeploymentError("DEPLOY_UNAVAILABLE", "Formal service health check failed");
+      }
+      const event = immediateTransaction(this.#db, (tx) => {
+        updateServiceOpsRow(tx, target.id, {
+          desiredState: "running",
+          observedState: "running",
+          pid: identity.pid,
+          lastHealthAt: now,
+          reasonCode: null,
+          updatedAt: now,
+        });
+        appendAudit(tx, {
+          action: `service.action.${action}`,
+          decision: "allow",
+          resourceType: "service_ops_service",
+          resourceId: target.id,
+          details: { targetId: target.id, version: row.currentVersion },
+          now,
+        });
+        return appendResourceEvent(
+          tx,
+          `ops:${target.id}`,
+          "service-ops.status",
+          {
+            observedState: "running",
+            desiredState: "running",
+            version: row.currentVersion as ServiceOpsEventPayload["version"],
+            artifactHash: artifact.artifactHash,
+            pid: identity.pid,
+            deploymentId: null,
+            reasonCode: null,
+          } satisfies ServiceOpsEventPayload,
+          now,
+        );
+      });
+      this.#events.publish(event);
+      return this.#serviceDto(serviceOpsRow(this.#db, target.id));
+    } catch (error) {
+      const reason = error instanceof DeploymentError ? error.code : "DEPLOY_UNAVAILABLE";
+      const event = immediateTransaction(this.#db, (tx) => {
+        updateServiceOpsRow(tx, target.id, {
+          observedState: "failed",
+          reasonCode: reason,
+          updatedAt: this.#now(),
+        });
+        return appendResourceEvent(
+          tx,
+          `ops:${target.id}`,
+          "service-ops.status",
+          {
+            observedState: "failed",
+            desiredState: row.desiredState,
+            version: row.currentVersion as ServiceOpsEventPayload["version"],
+            artifactHash: artifact.artifactHash,
+            pid: null,
+            deploymentId: null,
+            reasonCode: reason,
+          } satisfies ServiceOpsEventPayload,
+          now,
+        );
+      });
+      this.#events.publish(event);
+      throw error;
+    } finally {
+      releaseResourceLock(
+        { db: this.#db, now: this.#now },
+        { id: lock.id, fencingToken: lock.fencingToken },
+      );
+    }
+  }
+
   async reconcile(): Promise<number> {
     let changed = 0;
     for (const row of listServiceOpsRows(this.#db)) {

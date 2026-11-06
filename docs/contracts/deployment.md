@@ -60,6 +60,14 @@ REST 使用独立的 `/api/service-ops/` 命名空间，承载正式服务、动
 - **事件**：streamId `ops:<targetId>`，类型 `service-ops.status` / `service-ops.deployment`，payload 只含状态/版本/哈希/PID/deploymentId/reasonCode；WS topic `service-ops`，REST 重放用 `/api/resource-events`。未知/非法 target 拒绝。
 - **边界**：只支持 Node 入口；Q-029 正式 secretRef 注入未交付，本任务只验证守护/应用不继承合成秘密且 dump/pm2.log/服务日志无标记；零停机、跨平台、主机重启/开机自启未验证。日志读取上限 1 MiB。
 
+### 3.3 M4-3b 日常动作与运维页（2026-11-06）
+
+- 唯一迁移 `0014_service_actions` 新增 `service_action_authorizations`（`sauth_`）；日常 start/stop/restart/recover 与发布计划分离，绑定 target、当前 artifactHash/version，不创建新产物、不能替换版本。
+- 动作 authorization 复用一个运维策略决策：autonomous 直接 AUTHORIZED；standard/strict 为 PENDING，人工 `decide`（记录 decidedBy）后 AUTHORIZED；readonly DENIED。消费一次性，服务当前版本/产物变化即拒绝。
+- REST：`POST /api/service-ops/services/:id/actions`、`GET /api/service-ops/service-actions/:id`、`POST /api/service-ops/service-actions/:id/decision`、`POST /api/service-ops/service-actions/:id/execute`；全部走既有会话/Origin/CSRF，execute 只允许同一 clientSession。
+- Web：左侧「服务运维」入口与 `/service-ops` 页面，展示正式服务列表、实际状态、版本/PID/健康、发布历史、日志，支持启动/停止/重启与人工审批。页面独立于当前聊天/项目；聊天浮窗仍只展示临时开发服务。
+- 运维 Agent 工具组与独立模型上下文仍待本任务后续接入；未接入前普通开发 Turn 不装配任何运维工具。
+
 ## 4. 状态、数据、事件与恢复
 - 当前版本、desired/observed、部署阶段/结果分别记录；进程在不等于健康，数据库RUNNING不代替实际PM2状态。
 - 正式运行状态包含停止、启动中、运行、非健康、停止中、失败与未知。正式停止保留配置和部署历史，删除按独立授权流程设计。
