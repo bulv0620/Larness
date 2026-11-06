@@ -42,6 +42,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const user = items.find(
     (item): item is MessageItem => item.kind === "message" && item.role === "user",
   );
+  const turnActive = active && user?.turnOutcome === undefined;
   const tools = items.filter(
     (item): item is ToolItem => item.kind === "tool" && item.name !== "update_plan",
   );
@@ -148,11 +149,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         {items
           .filter((item) => item.kind === "plan")
           .map((item) => (
-            <TimelineItemView
-              key={item.id}
-              item={item}
-              turnActive={active && user?.turnOutcome === undefined}
-            />
+            <TimelineItemView key={item.id} item={item} turnActive={turnActive} />
           ))}
         {latestCommentary ? <TimelineItemView item={latestCommentary} /> : null}
         {answer ? <TimelineItemView item={answer} /> : null}
@@ -162,7 +159,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
             正在处理…
           </div>
         ) : null}
-        {targets.size ? (
+        {!turnActive && targets.size ? (
           <section aria-label="本次成果" className="flex flex-wrap gap-1.5 pt-0.5">
             {[...targets.entries()].map(([key, target]) =>
               target.kind === "file" ? (
@@ -179,7 +176,9 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
           .filter(
             (item) =>
               item.kind === "error" ||
-              (item.kind === "artifact" && !filePaths.has(item.title.replace(/^已修改 /, ""))),
+              (!turnActive &&
+                item.kind === "artifact" &&
+                !filePaths.has(item.title.replace(/^已修改 /, ""))),
           )
           .map((item) => (
             <TimelineItemView key={item.id} item={item} />

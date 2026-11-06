@@ -59,6 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M3-9 `done`（2026-11-06 09:18 +08:00 开始，`task/m3-9-defer-turn-results`）。会话成果在对应 Turn 结束后显示。验证见[任务记录](specs/036-conversation-experience/tasks.md)。
+
 - M3-8 `done`（2026-11-06 09:07 +08:00 开始，`task/m3-8-plan-terminal-state`）。Turn 结束后，计划内最后上报为进行中的步骤停止转圈，显示红叉和「未完成」。验证见[任务记录](specs/036-conversation-experience/tasks.md)。
 
 - M3-7 `done`（2026-11-05 22:54 +08:00 开始，`task/m3-7-workspace-sidebar`）。已修正会话活动指示、每项目折叠与浮栏层级，验证见[任务记录](specs/049-workspace-sidebar/tasks.md)。

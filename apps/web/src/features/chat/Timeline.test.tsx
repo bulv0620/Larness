@@ -87,6 +87,69 @@ it("shows a spinner at the process summary while the turn is running", () => {
   expect(screen.getByTestId("turn-running-spinner")).toBeTruthy();
 });
 
+it.each(["completed", "cancelled"] as const)(
+  "holds results until the current turn is %s",
+  (outcome) => {
+    const turnId = "turn-results";
+    const fileButton = { name: "查看文件 · note.txt" };
+    useTimelineStore.setState({
+      isStreaming: true,
+      activeTurnId: turnId,
+      items: [
+        { id: "user", kind: "message", role: "user", text: "更新文档", createdAt: 1, turnId },
+        {
+          id: "tool",
+          kind: "tool",
+          name: "apply_patch",
+          summary: "修改文件",
+          args: "",
+          status: "done",
+          createdAt: 2,
+          turnId,
+          resourceTarget: { kind: "file", scope: { projectId: "project" }, path: "note.txt" },
+        },
+        {
+          id: "report",
+          kind: "artifact",
+          title: "检查报告",
+          description: "文档检查结果",
+          meta: "",
+          createdAt: 3,
+          turnId,
+        },
+        {
+          id: "answer",
+          kind: "message",
+          role: "assistant",
+          text: "文档已更新。",
+          createdAt: 4,
+          turnId,
+        },
+      ],
+    });
+    render(<Timeline />);
+    expect(screen.getByText("文档已更新。")).toBeVisible();
+    expect(screen.queryByRole("region", { name: "本次成果" })).not.toBeInTheDocument();
+    expect(screen.queryByText("检查报告")).not.toBeInTheDocument();
+
+    act(() => {
+      useTimelineStore.setState((state) => ({
+        isStreaming: false,
+        activeTurnId: null,
+        items: state.items.map((item) =>
+          item.id === "user" && item.kind === "message" ? { ...item, turnOutcome: outcome } : item,
+        ),
+      }));
+    });
+    const results = screen.getByRole("region", { name: "本次成果" });
+    expect(within(results).getByRole("button", fileButton)).toBeVisible();
+    expect(screen.getByText("检查报告")).toBeVisible();
+
+    act(() => useTimelineStore.setState({ isStreaming: true, activeTurnId: "turn-next" }));
+    expect(within(results).getByRole("button", fileButton)).toBeVisible();
+  },
+);
+
 it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])(
   "stops an unfinished plan on %s and keeps it stopped on replay",
   (terminalEvent) => {
