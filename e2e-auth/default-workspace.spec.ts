@@ -94,6 +94,8 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     expect((await saveResponse).status()).toBe(200);
     await expect(page.getByText(/UTF-8 · 已同步/)).toBeVisible();
     await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
+    const restoreFile = page.getByRole("button", { name: "恢复 default-note.txt", exact: true });
+    await expect(restoreFile).toBeVisible();
     const createA = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === "/api/sessions" &&
@@ -118,7 +120,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await expect(page.getByText("收到。", { exact: true })).toBeVisible();
     await page.reload();
     await expect(page.getByRole("banner")).toContainText("默认工作区");
-    await page.getByRole("button", { name: "恢复 default-note.txt", exact: true }).click();
+    await restoreFile.click();
     await expect(editor).toBeVisible();
     await expect(page.locator(".view-lines").first()).toContainText("shared saved");
     await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
