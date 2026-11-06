@@ -26,6 +26,7 @@ export async function startAuthorizedServer(
     turnRunner?: boolean;
     providerResolver?: ProviderResolver;
     preview?: { enabled: boolean; port?: number };
+    env?: NodeJS.ProcessEnv;
   } = {},
 ): Promise<AuthorizedServer> {
   if (options.preview) {
@@ -34,7 +35,7 @@ export async function startAuthorizedServer(
   const port = await getFreePort();
   const origin = `http://localhost:${port}`;
   const running = await startServer({
-    env: { LARNESS_DATA_DIR: dir, LARNESS_PORT: String(port) },
+    env: { LARNESS_DATA_DIR: dir, LARNESS_PORT: String(port), ...options.env },
     logDestination: createLogSink().stream,
     turnRunner: options.turnRunner ?? false,
     ...(options.providerResolver === undefined

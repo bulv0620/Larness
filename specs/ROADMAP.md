@@ -225,8 +225,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M4-1 | Validate/Build/Artifact/Plan | M4-0；G-PoC-M4 | `done`（2026-11-06，见[验收](050-deploy/acceptance-m4-1.md)） |
 | M4-2 | 策略授权与条件人工审批 | M4-1 | `done`（2026-11-06，见[验收](050-deploy/acceptance-m4-2.md)） |
 | M4-3 | PM2持久运行/Apply/健康/版本/对账 | M4-2 | `done`（2026-11-06，见[验收](050-deploy/acceptance-m4-3.md)） |
-| M4-3b | 服务运维页与独立运维 Agent 工具 | M4-3 | `in_progress` |
-| M4-4 | 正式发布/恢复/策略整体验收G4 | M4-3b | `todo` |
+| M4-3b | 服务运维页与独立运维 Agent 工具 | M4-3 | `done`（2026-11-06，见[验收](050-deploy/acceptance-m4-3b.md)） |
+| M4-4 | 正式发布/恢复/策略整体验收G4 | M4-3b | `review`（G4 待人类，见[验收](050-deploy/acceptance-m4-4.md)） |
 
 ## 8. M5 扩展与加固（草案）
 

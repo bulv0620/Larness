@@ -395,6 +395,26 @@ describe("service operations REST", () => {
           ),
         ).toBe(true);
 
+        const formalAsDev = await started.running.app.inject({
+          method: "GET",
+          url: `/api/services/${targetId}`,
+          headers: auth,
+        });
+        expect(formalAsDev.statusCode).toBe(404);
+        const devAsFormal = await started.running.app.inject({
+          method: "GET",
+          url: `/api/service-ops/services/svc_00000000-0000-4000-8000-000000000001`,
+          headers: { cookie: started.cookie },
+        });
+        expect(devAsFormal.statusCode).toBe(404);
+        const formalAsPreview = await started.running.app.inject({
+          method: "POST",
+          url: "/api/previews/resolve",
+          headers: auth,
+          payload: { serviceId: targetId, path: "/", mode: "embedded" },
+        });
+        expect(formalAsPreview.statusCode).toBe(503);
+
         const unauthenticated = await started.running.app.inject({
           method: "GET",
           url: "/api/service-ops/services",
