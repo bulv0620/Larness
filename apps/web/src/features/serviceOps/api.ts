@@ -80,3 +80,15 @@ export async function executeServiceAction(
     }),
   );
 }
+
+export async function createFormalAgentTurn(input: {
+  targetId: string;
+  sessionId: string;
+  text: string;
+}): Promise<{ turnId: string; sessionId: string }> {
+  return apiFetch(`/api/service-ops/services/${encodeURIComponent(input.targetId)}/agent-turns`, {
+    method: "POST",
+    csrf: true,
+    body: { sessionId: input.sessionId, input: input.text },
+  });
+}

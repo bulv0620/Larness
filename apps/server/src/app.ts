@@ -170,6 +170,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         authorizations: options.services.deploymentAuthorizations,
         serviceOps: options.services.serviceOps,
         serviceActions: options.services.serviceActionAuthorizations,
+        ...(options.services.turnControls === undefined
+          ? {}
+          : { turnControls: options.services.turnControls }),
       });
     }
     registerResourceActionRoutes(app, options.services, { git, services: serviceManager });

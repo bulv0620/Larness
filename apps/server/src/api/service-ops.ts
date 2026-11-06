@@ -15,6 +15,7 @@ import type { DeploymentError } from "../modules/service-ops/errors.js";
 import type { ServiceActionAuthorizationService } from "../modules/service-ops/serviceActions.js";
 import type { ServiceOpsRuntime } from "../modules/service-ops/serviceOps.js";
 import { getSessionById } from "../modules/sessions/repository.js";
+import { createTurn } from "../modules/sessions/turns.js";
 
 const IdSchema = z.string().min(1).max(128);
 const KeySchema = z.string().min(1).max(256);
@@ -55,6 +56,7 @@ export interface ServiceOpsApiDeps {
   authorizations: DeploymentAuthorizationService;
   serviceOps: ServiceOpsRuntime;
   serviceActions: ServiceActionAuthorizationService;
+  turnControls?: { enqueue(turnId: string, sessionId: string): void };
 }
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -271,6 +273,38 @@ export function registerServiceOpsRoutes(app: FastifyInstance, deps: ServiceOpsA
       } catch (error) {
         deploymentError(error);
       }
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/api/service-ops/services/:id/agent-turns",
+    async (request) => {
+      if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
+      const targetId = parse(IdSchema, request.params.id);
+      const body = parse(
+        z
+          .object({
+            sessionId: IdSchema,
+            input: z.string().min(1).max(100_000),
+          })
+          .strict(),
+        request.body,
+      );
+      deps.serviceOps.getService(targetId);
+      if (!getSessionById(deps.db, body.sessionId)) {
+        throw new HttpError("VALIDATION_ERROR", "Session was not found");
+      }
+      const turn = createTurn(
+        { db: deps.db },
+        {
+          sessionId: body.sessionId,
+          text: body.input,
+          clientSessionId: request.clientSession.id,
+          executionContext: { domain: "service-ops", targetId },
+        },
+      );
+      deps.turnControls?.enqueue(turn.turnId, turn.sessionId);
+      return { ...turn, domain: "service-ops", targetId };
     },
   );
 

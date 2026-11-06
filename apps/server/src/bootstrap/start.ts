@@ -1,7 +1,12 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDeepSeekProvider, createFileToolRegistry, ProviderError } from "@larness/agent";
+import {
+  createDeepSeekProvider,
+  createFileToolRegistry,
+  ProviderError,
+  ToolRegistry,
+} from "@larness/agent";
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import type { DestinationStream, Logger } from "pino";
@@ -22,6 +27,7 @@ import { createGitTools } from "../modules/agent/gitTool.js";
 import { createPlanTool } from "../modules/agent/planTool.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
+import { createServiceOpsTools } from "../modules/agent/serviceOpsTool.js";
 import { createServiceTools } from "../modules/agent/serviceTool.js";
 import { createTerminalControlTools } from "../modules/agent/terminalControlTool.js";
 import { createTerminalTools } from "../modules/agent/terminalTool.js";
@@ -317,6 +323,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
     if (options.turnRunner !== false) {
       const registry = createFileToolRegistry();
+      const opsRegistry = new ToolRegistry();
+      for (const tool of createServiceOpsTools()) opsRegistry.register(tool);
       registry.register(createPlanTool({ db: opened.db, secretStore }));
       registry.register(createCommandTool({ db: opened.db, secretStore }));
       for (const tool of createTerminalTools({ db: opened.db, secretStore }))
@@ -333,6 +341,9 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         terminals,
         git,
         services,
+        opsRegistry,
+        serviceOps,
+        serviceActionAuthorizations,
         resolveProvider:
           options.providerResolver ?? createDefaultProviderResolver(opened.db, secretStore),
         publish: publishAgentEvent,

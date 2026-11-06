@@ -5,13 +5,15 @@ import type {
 } from "@larness/shared";
 import { Button, cn } from "@larness/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Play, RefreshCw, RotateCw, Square, Terminal } from "lucide-react";
+import { Activity, Play, RefreshCw, RotateCw, Send, Square, Terminal } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { StatusDot } from "@/components/common/StatusDot";
 import { relativeTime } from "@/lib/format";
 import { useNavigationStore } from "@/stores/navigationStore";
 import {
   authorizeServiceAction,
+  createFormalAgentTurn,
   decideServiceAction,
   executeServiceAction,
   listFormalDeployments,
@@ -47,7 +49,9 @@ function newKey(prefix: string): string {
 
 export function ServiceOpsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const sessionId = useNavigationStore((state) => state.sessionId);
+  const [agentInput, setAgentInput] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pending, setPending] = useState<ServiceActionAuthorizationDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +149,26 @@ export function ServiceOpsPage() {
   });
 
   const busy = authorize.isPending || execute.isPending || approve.isPending;
+
+  const askAgent = useMutation({
+    mutationFn: async () => {
+      if (!selected || !sessionId) throw new Error("请先选择会话");
+      if (!agentInput.trim()) throw new Error("请输入运维指令");
+      return createFormalAgentTurn({
+        targetId: selected.targetId,
+        sessionId,
+        text: agentInput.trim(),
+      });
+    },
+    onSuccess: () => {
+      setAgentInput("");
+      setError(null);
+      navigate("/");
+    },
+    onError: (cause: unknown) => {
+      setError(cause instanceof Error ? cause.message : "无法创建运维任务");
+    },
+  });
 
   return (
     <section
@@ -300,6 +324,39 @@ export function ServiceOpsPage() {
                     <p className="px-2 py-2 text-[11px] text-ink-3">暂无发布记录</p>
                   )}
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-line bg-surface p-3">
+                <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-ink-2">
+                  <Send size={13} /> 让运维 Agent 处理
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={agentInput}
+                    onChange={(event) => setAgentInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) askAgent.mutate();
+                    }}
+                    placeholder={
+                      sessionId
+                        ? "例如：检查这个服务为什么异常并重启"
+                        : "先在左侧选择一个会话再使用 Agent"
+                    }
+                    disabled={!sessionId || busy}
+                    className="h-8 min-w-0 flex-1 rounded-md border border-line bg-canvas px-2 text-[11.5px] text-ink outline-none focus:border-accent/50 disabled:opacity-60"
+                  />
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    disabled={!sessionId || busy || !agentInput.trim()}
+                    onClick={() => askAgent.mutate()}
+                  >
+                    发送
+                  </Button>
+                </div>
+                <p className="mt-1.5 text-[10px] text-ink-3">
+                  Agent 只获得该正式目标的运维工具；版本变更仍需发布计划。
+                </p>
               </div>
 
               <div className="rounded-xl border border-line bg-surface">

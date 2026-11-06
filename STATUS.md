@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M4-3b `in_progress`（2026-11-06，分支 `task/m4-3b-service-ops-ui`，部分交付）。已实现独立 `sauth_` 日常动作授权（start/stop/restart/recover）、真实 PM2 动作、`/api/service-ops/services/:id/actions` 等 REST，以及左侧「服务运维」入口与 `/service-ops` 页面（列表/状态/版本/PID/健康/发布历史/日志/启停重启/人工审批）。新增 service actions 迁移（schemaVersion 14）、运行时/REST/迁移/组件测试；`VITEST_MAX_WORKERS=3 pnpm check` 通过（web 125、agent 33/1 skip、server 489/8 skip；647 passed/9 skipped）。**运维 Agent 独立工具组/模型上下文、跨域 D13–D16 端到端、浏览器验证仍未完成**，本任务不标 done。
+- M4-3b `in_progress`（2026-11-06，分支 `task/m4-3b-service-ops-ui`，部分交付）。已实现独立 `sauth_` 日常动作授权（start/stop/restart/recover）、真实 PM2 动作、`/api/service-ops/services/:id/actions` 等 REST、左侧「服务运维」入口与 `/service-ops` 页面（列表/状态/版本/PID/健康/发布历史/日志/启停重启/人工审批），以及独立运维 Agent 工具组、`service-ops` domain 上下文/`agent-turns` 入口与跨域反例。新增 service actions 迁移（schemaVersion 14）、运行时/REST/迁移/组件/上下文测试；`VITEST_MAX_WORKERS=3 pnpm check` 通过（web 125、agent 33/1 skip、server 492/8 skip；650 passed/9 skipped）与 `pnpm build` 通过。**真实模型/浏览器端到端、两客户端事件订阅与完整 D13–D16 矩阵仍未完成**，本任务不标 done。
 
 - M4-3 `done`（2026-11-06，分支 `task/m4-3-pm2-runtime`）。交付全局 PM2 检查/补装与私有 `PM2_HOME`、唯一 PM2Adapter、`service_ops_services`/`service_ops_deployments`（schemaVersion 13）、`ServiceOpsRuntime` 首次/替换/健康/回滚/对账、`/api/service-ops/` REST、`service-ops` WS/事件与日志，TUI 受管入口自动初始化。真实 PM2 测试（`pnpm test:pm2:m4`）通过：临时 prefix 复用 7.1.2、TUI 入口、v1→v2、v3 健康失败回滚 v2、停止后对账、日志/事件、合成秘密未进入应用环境/dump/日志。`VITEST_MAX_WORKERS=3 pnpm check`（web 124、agent 33/1 skip、server 488/8 skip；645 passed/9 skipped）与 `pnpm build` 通过。D9/D11 端到端、日常 start/stop/restart、运维 UI/Agent 工具归 M4-3b/M4-4；Q-029 正式 secretRef 注入仍未关闭。详见 [验收](specs/050-deploy/acceptance-m4-3.md)。
 - M4-3 边界：只支持 Node 入口、非零停机；真实 PM2 测试安装到临时 prefix 并清理，未改动全局/用户默认 PM2。

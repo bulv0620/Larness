@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { newId } from "../../src/db/ids.js";
 import { runMigrations } from "../../src/db/migrate.js";
-import { serviceOpsServices } from "../../src/db/schema.js";
+import { serviceOpsServices, turns } from "../../src/db/schema.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { listResourceEvents, ResourceEventBus } from "../../src/modules/resources/events.js";
 import { DeploymentAuthorizationService } from "../../src/modules/service-ops/authorization.js";
@@ -324,6 +324,26 @@ describe("service operations REST", () => {
         });
         expect(actionDecision.statusCode).toBe(200);
         expect(actionDecision.json()).toMatchObject({ status: "AUTHORIZED" });
+
+        const agentTurnResponse = await started.running.app.inject({
+          method: "POST",
+          url: `/api/service-ops/services/${targetId}/agent-turns`,
+          headers: auth,
+          payload: { sessionId: session.id, input: "检查正式服务并重启" },
+        });
+        expect(agentTurnResponse.statusCode).toBe(200);
+        const agentTurn = agentTurnResponse.json() as {
+          turnId: string;
+          domain: string;
+          targetId: string;
+        };
+        expect(agentTurn).toMatchObject({ domain: "service-ops", targetId });
+        const turnRow = started.running.db
+          .select()
+          .from(turns)
+          .where(eq(turns.id, agentTurn.turnId))
+          .get();
+        expect(turnRow?.inputJson).toContain('"domain":"service-ops"');
 
         const serviceResponse = await started.running.app.inject({
           method: "GET",

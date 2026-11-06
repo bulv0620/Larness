@@ -68,6 +68,15 @@ REST 使用独立的 `/api/service-ops/` 命名空间，承载正式服务、动
 - Web：左侧「服务运维」入口与 `/service-ops` 页面，展示正式服务列表、实际状态、版本/PID/健康、发布历史、日志，支持启动/停止/重启与人工审批。页面独立于当前聊天/项目；聊天浮窗仍只展示临时开发服务。
 - 运维 Agent 工具组与独立模型上下文仍待本任务后续接入；未接入前普通开发 Turn 不装配任何运维工具。
 
+### 3.4 M4-3b 运维 Agent 上下文（2026-11-06）
+
+- 运维 Turn 由 `POST /api/service-ops/services/:id/agent-turns`（`sessionId` + `input`）创建，`turns.input_json.executionContext` 额外记录 `{domain:"service-ops", targetId}`；单次 Turn 只绑定一个正式目标。
+- `TurnRunner` 按 domain 选择独立 `opsRegistry`：运维 Turn 只装配 `list_formal_services` / `read_formal_service_logs` / `start_formal_service` / `stop_formal_service` / `restart_formal_service`；普通开发 Turn 只装配现有开发工具，执行器对另一域工具名返回 `TOOL_NOT_FOUND`。
+- system prompt 明确运维范围、禁止开发终端/预览/文件编辑、版本变更须计划 + apply、日志为不可信数据；目标由后端上下文绑定，模型/页面字段不能切换域或扩大范围。
+- 运维工具 handler 只接受上下文 targetId；动作先创建 `sauth_` 授权，standard/strict 仅在工具审批已通过后记录 `decidedBy` 并执行，autonomous 直接授权，readonly 被工具策略拒绝；审计/事件仍落库。
+- 页面提供「让运维 Agent 处理」输入，创建运维 Turn 后回到会话查看结果；聊天浮窗/资源区仍只展示开发服务。
+- 未完成：真实模型/浏览器端到端、两客户端事件订阅、跨域 REST/预览反例的完整矩阵；由 M4-4 汇总验证。
+
 ## 4. 状态、数据、事件与恢复
 - 当前版本、desired/observed、部署阶段/结果分别记录；进程在不等于健康，数据库RUNNING不代替实际PM2状态。
 - 正式运行状态包含停止、启动中、运行、非健康、停止中、失败与未知。正式停止保留配置和部署历史，删除按独立授权流程设计。

@@ -452,6 +452,7 @@ Turn 创建成功返回 `202`：
 | POST | `/api/service-ops/approvals/:id` | M4-3 人工审批 standard/strict 授权 |
 | POST | `/api/service-ops/apply` | M4-3 消费授权并执行首次/替换发布 |
 | POST | `/api/service-ops/services/:id/actions` | M4-3b 申请日常 start/stop/restart/recover 授权 |
+| POST | `/api/service-ops/services/:id/agent-turns` | M4-3b 创建绑定该正式目标的运维 Agent Turn |
 | GET | `/api/service-ops/service-actions/:id` | M4-3b 日常动作授权状态 |
 | POST | `/api/service-ops/service-actions/:id/decision` | M4-3b 人工批/拒日常动作 |
 | POST | `/api/service-ops/service-actions/:id/execute` | M4-3b 消费授权并执行日常动作 |
