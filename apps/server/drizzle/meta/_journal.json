@@ -85,6 +85,13 @@
       "when": 1793903600000,
       "tag": "0012_deployment_authorizations",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793907200000,
+      "tag": "0013_service_ops",
+      "breakpoints": true
     }
   ]
 }

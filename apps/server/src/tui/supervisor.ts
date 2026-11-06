@@ -23,7 +23,7 @@ import {
 import { waitChildMessage } from "../dev-web/managed.js";
 import { resolveDataDir } from "../platform/paths.js";
 
-const READY_TIMEOUT_MS = 25_000;
+const READY_TIMEOUT_MS = 90_000;
 const LOG_LIMIT = 300;
 
 function isLoopbackHostname(hostname: string): boolean {
@@ -329,6 +329,7 @@ export async function startManagedRuntime(
         ...process.env,
         LARNESS_LOG_STDERR: "0",
         LARNESS_TUI_CHILD: "1",
+        LARNESS_PM2_AUTO_INSTALL: process.env.LARNESS_PM2_AUTO_INSTALL ?? "1",
         ...(options.dev ? { LARNESS_SERVE_WEB: "0" } : {}),
       },
       stdio: options.dev ? ["ignore", "pipe", "pipe", "ipc"] : ["ignore", "pipe", "pipe"],

@@ -11,7 +11,15 @@ export const WorkspaceSessionNotificationSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal(WORKSPACE_SESSIONS_CHANGED) }),
 ]);
 
-export type EventTopic = "command" | "agent" | "terminal" | "service" | "git" | "file" | "system";
+export type EventTopic =
+  | "command"
+  | "agent"
+  | "terminal"
+  | "service"
+  | "service-ops"
+  | "git"
+  | "file"
+  | "system";
 
 export interface ServerEvent<T = unknown> {
   kind: "event";

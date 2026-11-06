@@ -19,9 +19,16 @@ export const FileSubscriptionSchema = z
     after: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
   })
   .strict();
+export const ServiceOpsStreamIdSchema = z.string().regex(/^ops:tgt_[0-9a-f-]{36}$/);
 export const ResourceEventsQuerySchema = z
   .object({
-    streamId: z.union([FileStreamIdSchema, CommandIdSchema, TerminalIdSchema, ServiceIdSchema]),
+    streamId: z.union([
+      FileStreamIdSchema,
+      CommandIdSchema,
+      TerminalIdSchema,
+      ServiceIdSchema,
+      ServiceOpsStreamIdSchema,
+    ]),
     after: z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
     limit: z.coerce.number().int().min(1).max(500).default(100),
   })

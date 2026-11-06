@@ -12,6 +12,7 @@ import {
   type ServerEvent,
   ServiceEventPayloadSchema,
   ServiceIdSchema,
+  ServiceOpsEventPayloadSchema,
   TerminalIdSchema,
   type TerminalOutputEvent,
   TerminalPayloadSchema,
@@ -19,6 +20,7 @@ import {
 import type { Database } from "../../db/client.js";
 import { commandRow } from "../commands/repository.js";
 import { assertFileScopeMetadata, resolveFileScope } from "../files/scope.js";
+import { targetById } from "../service-ops/repository.js";
 import { serviceRow } from "../services/repository.js";
 import { terminalRow } from "../terminals/repository.js";
 import { type ResourceEventRow, readResourceEvents, resourceSequence } from "./repository.js";
@@ -35,6 +37,20 @@ export function fileStreamScope(streamId: string): FileScope {
       : { sessionId: id };
 }
 export function resourceEventDto(row: ResourceEventRow): ServerEvent {
+  if (row.streamId.startsWith("ops:")) {
+    return {
+      kind: "event",
+      protocolVersion: 1,
+      topic: "service-ops",
+      eventId: row.id,
+      streamId: row.streamId,
+      resourceId: row.streamId.slice(4),
+      sequence: row.seq,
+      timestamp: row.createdAt,
+      type: row.type,
+      payload: ServiceOpsEventPayloadSchema.parse(JSON.parse(row.payloadJson)),
+    };
+  }
   if (ServiceIdSchema.safeParse(row.streamId).success)
     return {
       kind: "event",
@@ -147,6 +163,13 @@ export class ResourceEventBus {
   }
 }
 export async function resolveResourceStreamScope(db: Database, dataDir: string, streamId: string) {
+  if (streamId.startsWith("ops:")) {
+    const targetId = streamId.slice(4);
+    if (!targetId || !targetById(db, targetId)) {
+      throw new FileManagerError("NOT_FOUND", "Service operations target not found");
+    }
+    return null;
+  }
   if (ServiceIdSchema.safeParse(streamId).success) {
     const row = serviceRow(db, streamId);
     if (!row) throw new FileManagerError("NOT_FOUND", "Service not found");

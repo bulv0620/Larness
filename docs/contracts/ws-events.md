@@ -121,7 +121,7 @@ PTY 输出不逐字节入库：使用限长环形缓冲 + 可选落盘日志；�
 |---|---|
 | `service.registered` / `service.status` / `service.unregistered` | 临时服务状态和终端绑定，见 [M3 技术契约](m3-preview.md) |
 
-正式服务状态、日志和部署在独立运维事件流中处理。事件名及 payload 按 M4 对应任务冻结，订阅、事件补拉和日志读取均校验资源领域及作用域。M4-1 只实现部署目标 / 构建 / 产物 / 计划的内部记录，M4-2 只实现运维授权 / 人工审批 service 与独立表；两者均未新增事件类型或流标识，持久事件、订阅与补拉归 M4-3。
+正式服务状态、日志和部署在独立运维事件流中处理。M4-3 已冻结：订阅 `{topic:"service-ops",resourceId:<tgt_ targetId>,after}`，streamId `ops:<targetId>`；事件类型 `service-ops.status` / `service-ops.deployment`，payload 为 `{observedState,desiredState,version,artifactHash,pid,deploymentId,reasonCode}`，不含日志正文或秘密。订阅、补拉、日志读取均校验域/作用域与 target 存在；`GET /api/resource-events?streamId=ops:<targetId>` 重放。M4-1/M4-2 的构建/产物/计划与授权记录不直接产生事件。
 
 ### 4.4 `system`（streamId = `system`）
 

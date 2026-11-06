@@ -799,3 +799,96 @@ export const deploymentApprovals = sqliteTable(
   ],
 );
 export type DeploymentApprovalRow = typeof deploymentApprovals.$inferSelect;
+
+export const serviceOpsServices = sqliteTable(
+  "service_ops_services",
+  {
+    targetId: text("target_id")
+      .primaryKey()
+      .references(() => deploymentTargets.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    name: text("name").notNull(),
+    namespace: text("namespace").notNull(),
+    pm2Name: text("pm2_name").notNull().unique(),
+    desiredState: text("desired_state")
+      .$type<import("@larness/shared").ServiceOpsDesiredState>()
+      .notNull(),
+    observedState: text("observed_state")
+      .$type<import("@larness/shared").ServiceOpsObservedState>()
+      .notNull(),
+    currentArtifactId: text("current_artifact_id").references(() => deploymentArtifacts.id),
+    currentVersion: text("current_version"),
+    configJson: text("config_json").notNull(),
+    pid: integer("pid"),
+    lastHealthAt: integer("last_health_at"),
+    reasonCode: text("reason_code"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("service_ops_services_project").on(table.projectId, table.updatedAt),
+    check("service_ops_services_desired", sql`${table.desiredState} IN ('running', 'stopped')`),
+    check(
+      "service_ops_services_observed",
+      sql`${table.observedState} IN ('stopped', 'starting', 'running', 'unhealthy', 'stopping', 'failed', 'unknown')`,
+    ),
+  ],
+);
+export type ServiceOpsServiceRow = typeof serviceOpsServices.$inferSelect;
+
+export const serviceOpsDeployments = sqliteTable(
+  "service_ops_deployments",
+  {
+    id: text("id").primaryKey(),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => deploymentTargets.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => deploymentPlans.id),
+    authorizationId: text("authorization_id")
+      .notNull()
+      .references(() => deploymentAuthorizations.id),
+    artifactId: text("artifact_id")
+      .notNull()
+      .references(() => deploymentArtifacts.id),
+    previousArtifactId: text("previous_artifact_id").references(() => deploymentArtifacts.id),
+    previousVersion: text("previous_version"),
+    version: text("version").notNull(),
+    status: text("status").$type<import("@larness/shared").ServiceOpsDeploymentStatus>().notNull(),
+    planHash: text("plan_hash").notNull(),
+    artifactHash: text("artifact_hash").notNull(),
+    actorType: text("actor_type").$type<"human" | "agent">().notNull(),
+    actorId: text("actor_id").notNull(),
+    policy: text("policy").$type<import("@larness/shared").DeploymentPolicy>().notNull(),
+    policySnapshotId: text("policy_snapshot_id").notNull(),
+    reasonCode: text("reason_code"),
+    healthJson: text("health_json"),
+    resultJson: text("result_json"),
+    startedAt: integer("started_at").notNull(),
+    endedAt: integer("ended_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("service_ops_deployments_plan").on(table.planId),
+    uniqueIndex("service_ops_deployments_authorization").on(table.authorizationId),
+    index("service_ops_deployments_target_created").on(table.targetId, table.createdAt),
+    index("service_ops_deployments_status").on(table.status),
+    check(
+      "service_ops_deployments_status",
+      sql`${table.status} IN ('APPLYING', 'HEALTH_CHECK', 'SUCCEEDED', 'FAILED', 'UNKNOWN')`,
+    ),
+    check("service_ops_deployments_plan_hash", sql`length(${table.planHash}) = 64`),
+    check("service_ops_deployments_artifact_hash", sql`length(${table.artifactHash}) = 64`),
+    check(
+      "service_ops_deployments_previous",
+      sql`(${table.previousArtifactId} IS NULL) = (${table.previousVersion} IS NULL)`,
+    ),
+  ],
+);
+export type ServiceOpsDeploymentRow = typeof serviceOpsDeployments.$inferSelect;

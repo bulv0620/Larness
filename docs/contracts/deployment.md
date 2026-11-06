@@ -49,12 +49,23 @@ REST 使用独立的 `/api/service-ops/` 命名空间，承载正式服务、动
 - **错误**：新增 `DEPLOY_AUTH_REQUIRED`(409)、`DEPLOY_AUTH_INVALID`(409)、`DEPLOY_APPROVAL_INVALID`(409)、`DEPLOY_APPROVAL_EXPIRED`(410)。计划/产物错误沿用 M4-1。
 - **审计**：`deployment.authorization.requested/granted/denied/expired/revoked/invalidated/consumed`、`deployment.approval.requested/granted/denied/expired`、`deployment.plan.revoked`；不含秘密。M4-2 未新增 REST/WS/Agent 工具；人工审批的 HTTP/UI 入口与运维事件归 M4-3/M4-3b。详见 [M4-2 技术冻结](../../specs/050-deploy/m4-2-design.md)。
 
+### 3.2 M4-3 冻结（2026-11-06）
+
+- **PM2**：TUI 启动检查全局 PM2，缺失时安装固定 `pm2@7.1.2`；已装兼容复用。每实例 `PM2_HOME=<dataDir>/pm2`、命名空间 `larness`、应用名 `larness-<targetId>`。观测走 socket-only RPC，不拉起守护；动作通过已校验入口执行。测试可用 `LARNESS_PM2_PREFIX` 临时 prefix；TUI 子进程设置 `LARNESS_PM2_AUTO_INSTALL=1`，失败只限制运维。实现见 [M4-3 技术冻结](../../specs/050-deploy/m4-3-design.md)。
+- **替换**：先 `delete <name>` 再 `startOrRestart` 新配置（PM2 不会原地更新 script/cwd）；失败用旧产物配置回滚并健康核验，记录 `*_ROLLED_BACK`。非零停机。
+- **数据**：唯一迁移 `0013_service_ops` 新增 `service_ops_services` / `service_ops_deployments`（ID `dep_`）；服务当前版本同时写 `deployment_targets.current_*`；计划随 apply 进入 APPLYING/HEALTH_CHECK 并到 SUCCEEDED/FAILED。
+- **Apply**：plan READY + verifyPlan + verifyArtifact → service 锁 → consumeAuthorization → 部署/计划 APPLYING → PM2 启动 → HEALTH_CHECK → HTTP 2xx 健康 → 同事务成功记录/事件；失败保留记录/日志/旧版本。锁冲突不消费授权。
+- **对账**：启动后台 `reconcile`，观察 PM2/健康更新 observedState；不自动启动。正常/异常退出不停止 PM2 守护或正式服务，仅测试清理调用适配器 close。
+- **REST**（均走既有 Cookie/Origin/CSRF 守卫）：`GET /api/service-ops/status`、`GET /api/service-ops/services`、`GET /api/service-ops/services/:id`、`GET /:id/deployments`、`GET /:id/logs`；`POST /api/service-ops/plans`、`POST /api/service-ops/authorizations`、`POST /api/service-ops/approvals/:id`、`POST /api/service-ops/apply`。人工策略从 body `sessionId` 的 Session `approvalPolicyId` 读取，缺省 standard；客户端不能自报 autonomous。
+- **事件**：streamId `ops:<targetId>`，类型 `service-ops.status` / `service-ops.deployment`，payload 只含状态/版本/哈希/PID/deploymentId/reasonCode；WS topic `service-ops`，REST 重放用 `/api/resource-events`。未知/非法 target 拒绝。
+- **边界**：只支持 Node 入口；Q-029 正式 secretRef 注入未交付，本任务只验证守护/应用不继承合成秘密且 dump/pm2.log/服务日志无标记；零停机、跨平台、主机重启/开机自启未验证。日志读取上限 1 MiB。
+
 ## 4. 状态、数据、事件与恢复
 - 当前版本、desired/observed、部署阶段/结果分别记录；进程在不等于健康，数据库RUNNING不代替实际PM2状态。
 - 正式运行状态包含停止、启动中、运行、非健康、停止中、失败与未知。正式停止保留配置和部署历史，删除按独立授权流程设计。
 - 正式日志由 PM2Adapter 受控读取、轮转与脱敏，保留基线为 14 天 / 100 MiB，细分限额在实施前冻结。日志游标独立于开发终端。
 - 关键状态/授权决策及seq事务先提交再广播；状态事件与有界日志分开，失败不伪报成功。
-- 自主授权记录包含决策来源为策略、policySnapshotId/actor/scope/planHash/时效，人工审批记录仅在需要时关联approvalId；字段/表已由 M4-2 冻结，正式运维事件名仍待 M4-3 技术评审。
+- 自主授权记录包含决策来源为策略、policySnapshotId/actor/scope/planHash/时效，人工审批记录仅在需要时关联approvalId；字段/表已由 M4-2 冻结，运维事件由 M4-3 冻结。
 - apply前复核当前受管版本/PM2身份和授权；重复请求不重复替换。超时/结果未知先对账，不盲目spawn；停止保留配置与版本历史。
 - 失败可由获策略授权的Agent执行已支持的恢复，自主不强制等待人工；不可逆迁移或不支持回滚要明确，不虚报恢复完成。
 - 每个 Larness 实例使用源码外的私有 `PM2_HOME`，产物、PM2 运行数据及日志也与源码目录分离。全局安装检查不接入用户默认实例，运行操作只作用于已核验的受管实例。Q-003 的安装细节按 M4 门禁冻结，Q-027 依 ADR-046。守护不可达时显示未知，观察请求不启动守护进程。正式服务的秘密注入路径须覆盖 PM2 元数据、dump 与日志的落盘检查，见 [M4-0 实测](../../specs/050-deploy/poc.md)。

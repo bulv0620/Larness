@@ -44,7 +44,7 @@ class Session:
         self.original = termios.tcgetattr(self.slave)
         self.resize(*size, notify=False)
         env = {k: v for k, v in os.environ.items() if not k.startswith("LARNESS_")}
-        env.update(TERM=term, NO_COLOR="1", LARNESS_DATA_DIR=str(directory))
+        env.update(TERM=term, NO_COLOR="1", LARNESS_DATA_DIR=str(directory), LARNESS_PM2_AUTO_INSTALL="0")
         self.cache_directory = tempfile.TemporaryDirectory(prefix="larness-pty-cache-", dir="/tmp") if dev else None
         self.cache_root = Path(self.cache_directory.name) if self.cache_directory else directory / "temporary"
         if dev:
@@ -151,7 +151,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="larness-tui-pty-") as temp:
         root = Path(temp)
         non_tty = root / "non-tty"
-        env = {**os.environ, "LARNESS_DATA_DIR": str(non_tty), "TERM": "xterm"}
+        env = {**os.environ, "LARNESS_DATA_DIR": str(non_tty), "TERM": "xterm", "LARNESS_PM2_AUTO_INSTALL": "0"}
         result = subprocess.run([NODE, "app.js"], cwd=ROOT, env=env, capture_output=True, timeout=10)
         assert result.returncode != 0 and b"TTY" in result.stderr
         assert not non_tty.exists(), "Non-TTY invocation started the server"

@@ -7,6 +7,7 @@ import {
   CommandSubscriptionSchema,
   FileSubscriptionSchema,
   type ServerEvent,
+  ServiceOpsSubscriptionSchema,
   ServiceSubscriptionSchema,
   TerminalInputSchema,
   type TerminalOutputEvent,
@@ -33,6 +34,7 @@ import {
   resolveResourceStreamScope,
 } from "../modules/resources/events.js";
 import { resourceSequence } from "../modules/resources/repository.js";
+import { targetById } from "../modules/service-ops/repository.js";
 import { getSessionById } from "../modules/sessions/repository.js";
 import type { TerminalManager } from "../modules/terminals/manager.js";
 import { sessionEvents } from "../security/session-events.js";
@@ -284,6 +286,10 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             }
             return;
           }
+          if (event.topic === "service-ops") {
+            send(socket, event);
+            return;
+          }
           if (event.topic === "service") {
             const grant = fileGrants.get(event.streamId);
             if (!grant) return;
@@ -434,7 +440,14 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
             }
 
             const accepted: Array<{
-              topic: "system" | "agent" | "file" | "command" | "terminal" | "service";
+              topic:
+                | "system"
+                | "agent"
+                | "file"
+                | "command"
+                | "terminal"
+                | "service"
+                | "service-ops";
               resourceId: string;
               key: string;
               currentSequence: number;
@@ -529,6 +542,30 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
                   fileDenied("FORBIDDEN", "service subscription denied", "service");
                   return;
                 }
+                continue;
+              }
+              if (entry.topic === "service-ops") {
+                const parsed = ServiceOpsSubscriptionSchema.safeParse(entry);
+                if (!parsed.success || !targetById(deps.db, parsed.data.resourceId)) {
+                  fileDenied(
+                    "VALIDATION_ERROR",
+                    "invalid service operations subscription",
+                    "service-ops",
+                  );
+                  return;
+                }
+                const key = `ops:${parsed.data.resourceId}`;
+                const currentSequence = resourceSequence(deps.db, key);
+                if (parsed.data.after > currentSequence) {
+                  fileDenied("VALIDATION_ERROR", "event cursor is in the future", "service-ops");
+                  return;
+                }
+                accepted.push({
+                  topic: "service-ops",
+                  resourceId: parsed.data.resourceId,
+                  key,
+                  currentSequence,
+                });
                 continue;
               }
               if (entry.topic === "command") {

@@ -442,14 +442,24 @@ Turn 创建成功返回 `202`：
 | GET / POST | `/api/services` | M3 开发服务查询与登记 |
 | GET | `/api/services/:id/logs?cursor=` | M3 引用终端日志 |
 | POST | `/api/previews/resolve` | M3 为已授权的开发服务签发短期票据，见 [M3 技术契约](m3-preview.md) |
-| 待冻结 | `/api/service-ops/` 下独立接口 | M4 正式服务、操作、日志和部署，见 [部署契约](deployment.md) |
+| GET | `/api/service-ops/status` | M4-3 正式运维可用性 |
+| GET | `/api/service-ops/services` | M4-3 正式服务列表（实际观察状态） |
+| GET | `/api/service-ops/services/:id` | M4-3 正式服务详情 |
+| GET | `/api/service-ops/services/:id/deployments` | M4-3 发布历史 |
+| GET | `/api/service-ops/services/:id/logs` | M4-3 受控 PM2 日志（≤1 MiB） |
+| POST | `/api/service-ops/plans` | M4-3 从已验证产物生成计划 |
+| POST | `/api/service-ops/authorizations` | M4-3 按会话策略申请运维授权（缺省 standard） |
+| POST | `/api/service-ops/approvals/:id` | M4-3 人工审批 standard/strict 授权 |
+| POST | `/api/service-ops/apply` | M4-3 消费授权并执行首次/替换发布 |
+| GET | `/api/resource-events?streamId=ops:<targetId>` | M4-3 正式服务事件重放 |
+| WS `service-ops` | `{topic:"service-ops",resourceId:targetId,after}` | M4-3 实时正式服务状态/部署事件 |
 | GET / POST | `/api/jobs` | M5 |
 | GET | `/api/updates/check` | M5 |
 | POST | `/api/updates/install` | M5 |
 
 未列出的接口默认不存在；新增必须同步本文件、Zod schema 与测试。
 
-M4-1（2026-11-06）只交付部署目标、构建、产物与计划的内部 manager/repository，未新增 REST / WS / Agent 工具。M4-2（2026-11-06）只交付运维授权/人工审批 service 与两张独立表，同样未新增路由；`dauth_`/`dapv_` 不能与开发工具 `apv_` 互认。上述 `DEPLOY_*` 错误码先由内部模块稳定使用，REST 映射、人工审批 HTTP 入口与 `/api/service-ops/` 的鉴权、CSRF、Origin、作用域与响应 schema 在 M4-3 冻结。
+M4-1（2026-11-06）交付部署目标、构建、产物与计划的内部 manager/repository。M4-2 交付运维授权/审批 service 与独立表。M4-3（2026-11-06）交付上表 `/api/service-ops/` 路由与 `service-ops` 事件/WS；全部沿用现有 Cookie/Origin/CSRF 守卫，人工策略从 body `sessionId` 的 Session `approvalPolicyId` 读取，缺省 standard，客户端不能自报 autonomous；`dauth_`/`dapv_` 不能与开发工具 `apv_` 互认。未交付的服务动作（同版本 start/stop/restart）属 M4-3b，不能通过 apply/restart 绕过计划。
 
 ## 9. 速率与大小限制
 

@@ -47,6 +47,21 @@ export function insertTarget(db: DbExecutor, row: DeploymentTargetRow): void {
   db.insert(deploymentTargets).values(row).run();
 }
 
+export function setTargetCurrent(
+  db: DbExecutor,
+  targetId: string,
+  input: { artifactId: string; version: string; updatedAt: number },
+): void {
+  db.update(deploymentTargets)
+    .set({
+      currentArtifactId: input.artifactId,
+      currentVersion: input.version,
+      updatedAt: input.updatedAt,
+    })
+    .where(eq(deploymentTargets.id, targetId))
+    .run();
+}
+
 export function buildById(db: DbExecutor, id: string): DeploymentBuildRow | null {
   return db.select().from(deploymentBuilds).where(eq(deploymentBuilds.id, id)).get() ?? null;
 }

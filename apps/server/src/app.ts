@@ -15,6 +15,7 @@ import { registerPreviewRoutes } from "./api/previews.js";
 import { registerProjectRoutes } from "./api/projects.js";
 import { registerResourceActionRoutes } from "./api/resource-actions.js";
 import { registerResourceEventRoutes } from "./api/resource-events.js";
+import { registerServiceOpsRoutes } from "./api/service-ops.js";
 import { registerServiceRoutes } from "./api/services.js";
 import { registerSessionRoutes, type TurnControls } from "./api/sessions.js";
 import { registerStaticRoutes } from "./api/static.js";
@@ -31,7 +32,9 @@ import { FileWatchManager } from "./modules/files/watcher.js";
 import { GitManager } from "./modules/git/manager.js";
 import type { PreviewRegistry } from "./modules/previews/registry.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
+import type { DeploymentAuthorizationService } from "./modules/service-ops/authorization.js";
 import { DeploymentManager } from "./modules/service-ops/deployments.js";
+import type { ServiceOpsRuntime } from "./modules/service-ops/serviceOps.js";
 import { ServiceManager } from "./modules/services/manager.js";
 import { TerminalManager } from "./modules/terminals/manager.js";
 import { resolveRequestId } from "./request-id.js";
@@ -53,6 +56,8 @@ export interface AppServices {
   git?: GitManager;
   services?: ServiceManager;
   deployments?: DeploymentManager;
+  deploymentAuthorizations?: DeploymentAuthorizationService;
+  serviceOps?: ServiceOpsRuntime;
   previews?: PreviewRegistry | null;
   resourceEvents?: ResourceEventBus;
 }
@@ -152,6 +157,14 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerFileRoutes(app, options.services, resourceEvents);
     registerGitRoutes(app, options.services, git);
     registerServiceRoutes(app, options.services, serviceManager);
+    if (options.services.serviceOps && options.services.deploymentAuthorizations) {
+      registerServiceOpsRoutes(app, {
+        db: options.services.db,
+        deployments,
+        authorizations: options.services.deploymentAuthorizations,
+        serviceOps: options.services.serviceOps,
+      });
+    }
     registerResourceActionRoutes(app, options.services, { git, services: serviceManager });
     registerPreviewRoutes(app, options.services, options.services.previews ?? null);
     registerResourceEventRoutes(app, options.services);

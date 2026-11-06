@@ -28,7 +28,8 @@
     "test:smoke:unified": "pnpm --filter @larness/server exec tsx scripts/smoke-unified.ts",
     "test:poc:m2": "pnpm --filter @larness/server exec tsx scripts/run-m2-poc.ts",
     "test:poc:m3": "LARNESS_POC_BROWSER=1 pnpm --filter @larness/server exec vitest run test/resources/m3-poc.test.ts test/resources/m3-preview-poc.test.ts test/resources/m3-vite-poc.test.ts test/resources/m3-failure-poc.test.ts test/resources/m3-policy-poc.test.ts",
-    "test:poc:m4": "LARNESS_POC_PM2=1 pnpm --filter @larness/server exec vitest run test/resources/m4-poc.test.ts"
+    "test:poc:m4": "LARNESS_POC_PM2=1 pnpm --filter @larness/server exec vitest run test/resources/m4-poc.test.ts",
+    "test:pm2:m4": "LARNESS_POC_PM2=1 pnpm --filter @larness/server exec vitest run test/resources/service-ops-pm2.test.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.4",

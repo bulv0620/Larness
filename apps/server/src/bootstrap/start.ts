@@ -35,6 +35,13 @@ import { PreviewRegistry } from "../modules/previews/registry.js";
 import { ResourceEventBus } from "../modules/resources/events.js";
 import { DeploymentAuthorizationService } from "../modules/service-ops/authorization.js";
 import { DeploymentManager } from "../modules/service-ops/deployments.js";
+import {
+  ensureGlobalPm2,
+  inspectGlobalPm2,
+  Pm2Adapter,
+  type Pm2Global,
+} from "../modules/service-ops/pm2.js";
+import { ServiceOpsRuntime } from "../modules/service-ops/serviceOps.js";
 import { ServiceManager } from "../modules/services/manager.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
@@ -56,6 +63,8 @@ export interface StartServerOptions {
   version?: string;
   turnRunner?: boolean;
   providerResolver?: ProviderResolver;
+  pm2Global?: Pm2Global;
+  pm2?: Pm2Adapter | null;
 }
 
 export interface RunningServer {
@@ -78,6 +87,8 @@ export interface RunningServer {
   services: ServiceManager;
   deployments: DeploymentManager;
   deploymentAuthorizations: DeploymentAuthorizationService;
+  serviceOps: ServiceOpsRuntime;
+  pm2Global: Pm2Global;
   previews: PreviewRegistry | null;
   resourceEvents: ResourceEventBus;
 }
@@ -246,6 +257,35 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       deployments,
     });
     deploymentAuthorizations.recoverExpired();
+    let pm2Global: Pm2Global;
+    if (options.pm2Global !== undefined) {
+      pm2Global = options.pm2Global;
+    } else if (env.LARNESS_PM2_AUTO_INSTALL === "1") {
+      pm2Global = await ensureGlobalPm2({
+        prefix: env.LARNESS_PM2_PREFIX,
+        ...(env.LARNESS_PM2_REGISTRY === undefined ? {} : { registry: env.LARNESS_PM2_REGISTRY }),
+      });
+      activeLogger.info({ status: pm2Global.status }, "PM2 global initialization");
+    } else {
+      pm2Global =
+        env.LARNESS_PM2_INSPECT === "1"
+          ? await inspectGlobalPm2({ prefix: env.LARNESS_PM2_PREFIX })
+          : { status: "missing" };
+    }
+    const pm2 =
+      options.pm2 === undefined
+        ? pm2Global.status === "ready"
+          ? new Pm2Adapter(pm2Global, dataDir)
+          : null
+        : options.pm2;
+    const serviceOps = new ServiceOpsRuntime({
+      db: opened.db,
+      dataDir,
+      deployments,
+      authorizations: deploymentAuthorizations,
+      pm2,
+      events: resourceEvents,
+    });
     ensureDefaultModelProfiles(opened.db);
 
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger: activeLogger });
@@ -314,6 +354,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         git,
         services,
         deployments,
+        deploymentAuthorizations,
+        serviceOps,
         previews,
         ...(turnQueue === null
           ? {}
@@ -358,6 +400,17 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       },
       "server listening",
     );
+
+    if (serviceOps.available()) {
+      void serviceOps
+        .reconcile()
+        .then((changed) => {
+          if (changed > 0) activeLogger.info({ changed }, "reconciled formal services");
+        })
+        .catch((error: unknown) => {
+          activeLogger.warn({ err: error }, "formal service reconciliation failed");
+        });
+    }
 
     const shutdown = createShutdown({
       app,
@@ -412,6 +465,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       services,
       deployments,
       deploymentAuthorizations,
+      serviceOps,
+      pm2Global,
       previews,
       resourceEvents,
     };

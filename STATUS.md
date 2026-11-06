@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-06 (+08:00)
-> **M3 已通过 G3，后续工作区优化及 Agent 工具纠错（M3-7～M3-11）于 2026-11-06 全部通过验收。G-Spec-M4 / G-PoC-M4 已通过，M4-0 / M4-1 / M4-2 标 done，当前实施 M4-3。远程 HTTPS 留待上线实验验证。**
+> **M3 已通过 G3，后续工作区优化及 Agent 工具纠错（M3-7～M3-11）于 2026-11-06 全部通过验收。G-Spec-M4 / G-PoC-M4 已通过，M4-0 / M4-1 / M4-2 / M4-3 标 done，当前实施 M4-3b。远程 HTTPS 留待上线实验验证。**
 
 ## 里程碑
 
@@ -12,7 +12,7 @@
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
-| M4 | 持久运行与版本发布 | `in_progress` | G-Spec-M4 / G-PoC-M4 通过（2026-11-06）；M4-0 / M4-1 / M4-2 done，M4-3 实施中 |
+| M4 | 持久运行与版本发布 | `in_progress` | G-Spec-M4 / G-PoC-M4 通过（2026-11-06）；M4-0 / M4-1 / M4-2 / M4-3 done，M4-3b 实施中 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
 
 ## 初始化修复（2026-11-02）
@@ -58,6 +58,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 运行依赖只按 ADR-027 显式声明现有版本的两个纯 JS 宽度工具；无原生库/协议/DB 变化。
 
 ## 当前工作
+
+- M4-3 `done`（2026-11-06，分支 `task/m4-3-pm2-runtime`）。交付全局 PM2 检查/补装与私有 `PM2_HOME`、唯一 PM2Adapter、`service_ops_services`/`service_ops_deployments`（schemaVersion 13）、`ServiceOpsRuntime` 首次/替换/健康/回滚/对账、`/api/service-ops/` REST、`service-ops` WS/事件与日志，TUI 受管入口自动初始化。真实 PM2 测试（`pnpm test:pm2:m4`）通过：临时 prefix 复用 7.1.2、TUI 入口、v1→v2、v3 健康失败回滚 v2、停止后对账、日志/事件、合成秘密未进入应用环境/dump/日志。`VITEST_MAX_WORKERS=3 pnpm check`（web 124、agent 33/1 skip、server 488/8 skip；645 passed/9 skipped）与 `pnpm build` 通过。D9/D11 端到端、日常 start/stop/restart、运维 UI/Agent 工具归 M4-3b/M4-4；Q-029 正式 secretRef 注入仍未关闭。详见 [验收](specs/050-deploy/acceptance-m4-3.md)。
+- M4-3 边界：只支持 Node 入口、非零停机；真实 PM2 测试安装到临时 prefix 并清理，未改动全局/用户默认 PM2。
 
 - M4-2 `done`（2026-11-06，分支 `task/m4-2-plan-authorization`）。交付独立运维授权/人工审批表与唯一迁移 `0012_deployment_authorizations`（schemaVersion 12）、`DeploymentAuthorizationService`、四策略决策、项目/目标/actor/policySnapshot 作用域、计划撤销/授权撤销/一次性消费/幂等/过期恢复；standard/strict 真实人工批准、readonly 拒绝、autonomous 无审批记录。新增 12 项测试；`VITEST_MAX_WORKERS=3 pnpm check`（web 124、agent 33/1 skip、server 483/7 skip；640 passed/8 skipped）与 `pnpm build` 通过。REST/UI 人工审批入口、apply 前复核、PM2 运行仍归 M4-3/M4-3b，未冒充端到端通过。详见 [验收](specs/050-deploy/acceptance-m4-2.md)。
 - M4-2 边界：`consumeAuthorization` 与真实 apply 之间仍有校验窗口，M4-3 必须在持锁执行前再次 `verifyAuthorization`/`verifyPlan`；policySnapshotId 与运维上下文的真实创建/撤销归 M4-3b/Q-030。

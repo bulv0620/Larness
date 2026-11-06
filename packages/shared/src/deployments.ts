@@ -334,6 +334,90 @@ export const DeploymentApprovalDtoSchema = z.object({
 });
 export type DeploymentApprovalDto = z.infer<typeof DeploymentApprovalDtoSchema>;
 
+export const ServiceOpsDeploymentIdSchema = z.string().regex(new RegExp(`^dep_${UUID}$`));
+export type ServiceOpsDeploymentId = z.infer<typeof ServiceOpsDeploymentIdSchema>;
+
+export const ServiceOpsDesiredStateSchema = z.enum(["running", "stopped"]);
+export const ServiceOpsObservedStateSchema = z.enum([
+  "stopped",
+  "starting",
+  "running",
+  "unhealthy",
+  "stopping",
+  "failed",
+  "unknown",
+]);
+export type ServiceOpsDesiredState = z.infer<typeof ServiceOpsDesiredStateSchema>;
+export type ServiceOpsObservedState = z.infer<typeof ServiceOpsObservedStateSchema>;
+
+export const ServiceOpsServiceDtoSchema = z.object({
+  targetId: DeploymentTargetIdSchema,
+  projectId: z.string().min(1).max(128),
+  name: DeploymentTargetNameSchema,
+  version: DeploymentVersionSchema.nullable(),
+  artifactHash: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .nullable(),
+  desiredState: ServiceOpsDesiredStateSchema,
+  observedState: ServiceOpsObservedStateSchema,
+  pid: z.int().positive().nullable(),
+  lastHealthAt: z.int().nullable(),
+  reasonCode: z.string().max(64).nullable(),
+  updatedAt: z.int(),
+});
+export type ServiceOpsServiceDto = z.infer<typeof ServiceOpsServiceDtoSchema>;
+
+export const ServiceOpsDeploymentStatusSchema = z.enum([
+  "APPLYING",
+  "HEALTH_CHECK",
+  "SUCCEEDED",
+  "FAILED",
+  "UNKNOWN",
+]);
+export type ServiceOpsDeploymentStatus = z.infer<typeof ServiceOpsDeploymentStatusSchema>;
+
+export const ServiceOpsDeploymentDtoSchema = z.object({
+  id: ServiceOpsDeploymentIdSchema,
+  targetId: DeploymentTargetIdSchema,
+  planId: DeploymentPlanIdSchema,
+  authorizationId: DeploymentAuthorizationIdSchema,
+  artifactId: DeploymentArtifactIdSchema,
+  previousArtifactId: DeploymentArtifactIdSchema.nullable(),
+  previousVersion: DeploymentVersionSchema.nullable(),
+  version: DeploymentVersionSchema,
+  status: ServiceOpsDeploymentStatusSchema,
+  planHash: z.string().regex(/^[a-f0-9]{64}$/),
+  artifactHash: z.string().regex(/^[a-f0-9]{64}$/),
+  reasonCode: z.string().max(64).nullable(),
+  startedAt: z.int(),
+  endedAt: z.int().nullable(),
+  createdAt: z.int(),
+});
+export type ServiceOpsDeploymentDto = z.infer<typeof ServiceOpsDeploymentDtoSchema>;
+
+export const ServiceOpsSubscriptionSchema = z
+  .object({
+    topic: z.literal("service-ops"),
+    resourceId: DeploymentTargetIdSchema,
+    after: z.int().min(0).max(Number.MAX_SAFE_INTEGER).default(0),
+  })
+  .strict();
+
+export const ServiceOpsEventPayloadSchema = z.object({
+  observedState: ServiceOpsObservedStateSchema,
+  desiredState: ServiceOpsDesiredStateSchema,
+  version: DeploymentVersionSchema.nullable(),
+  artifactHash: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .nullable(),
+  pid: z.int().positive().nullable(),
+  deploymentId: ServiceOpsDeploymentIdSchema.nullable(),
+  reasonCode: z.string().max(64).nullable(),
+});
+export type ServiceOpsEventPayload = z.infer<typeof ServiceOpsEventPayloadSchema>;
+
 export const DEPLOYMENT_APPROVAL_TTL_MS = 5 * 60_000;
 
 export const DeploymentArtifactManifestSchema = z.strictObject({
