@@ -33,6 +33,7 @@ import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/mod
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { PreviewRegistry } from "../modules/previews/registry.js";
 import { ResourceEventBus } from "../modules/resources/events.js";
+import { DeploymentAuthorizationService } from "../modules/service-ops/authorization.js";
 import { DeploymentManager } from "../modules/service-ops/deployments.js";
 import { ServiceManager } from "../modules/services/manager.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
@@ -76,6 +77,7 @@ export interface RunningServer {
   terminals: TerminalManager;
   services: ServiceManager;
   deployments: DeploymentManager;
+  deploymentAuthorizations: DeploymentAuthorizationService;
   previews: PreviewRegistry | null;
   resourceEvents: ResourceEventBus;
 }
@@ -239,6 +241,11 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     });
     deploymentManager = deployments;
     deployments.recover();
+    const deploymentAuthorizations = new DeploymentAuthorizationService({
+      db: opened.db,
+      deployments,
+    });
+    deploymentAuthorizations.recoverExpired();
     ensureDefaultModelProfiles(opened.db);
 
     const cleanupScheduler = startCleanupScheduler(opened.db, { logger: activeLogger });
@@ -404,6 +411,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       git,
       services,
       deployments,
+      deploymentAuthorizations,
       previews,
       resourceEvents,
     };

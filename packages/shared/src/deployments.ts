@@ -228,6 +228,114 @@ export const DeploymentPlanDtoSchema = z.object({
 });
 export type DeploymentPlanDto = z.infer<typeof DeploymentPlanDtoSchema>;
 
+export const DeploymentAuthorizationIdSchema = z.string().regex(new RegExp(`^dauth_${UUID}$`));
+export const DeploymentApprovalIdSchema = z.string().regex(new RegExp(`^dapv_${UUID}$`));
+export type DeploymentAuthorizationId = z.infer<typeof DeploymentAuthorizationIdSchema>;
+export type DeploymentApprovalId = z.infer<typeof DeploymentApprovalIdSchema>;
+
+export const DeploymentActionSchema = z.enum(["apply", "start", "stop", "restart", "recover"]);
+export type DeploymentAction = z.infer<typeof DeploymentActionSchema>;
+
+export const DeploymentPolicySchema = z.enum(["standard", "strict", "readonly", "autonomous"]);
+export type DeploymentPolicy = z.infer<typeof DeploymentPolicySchema>;
+
+export const DeploymentActorSchema = z.strictObject({
+  type: z.enum(["human", "agent"]),
+  id: z.string().min(1).max(128),
+});
+export type DeploymentActor = z.infer<typeof DeploymentActorSchema>;
+
+export const DeploymentAuthorizationContextSchema = z.strictObject({
+  domain: z.literal("service-ops"),
+  projectId: z.string().min(1).max(128),
+  targetId: DeploymentTargetIdSchema,
+  action: DeploymentActionSchema.default("apply"),
+  policy: DeploymentPolicySchema,
+  policySnapshotId: z.string().min(1).max(128),
+  actor: DeploymentActorSchema,
+  clientSessionId: z.string().min(1).max(128).nullable().default(null),
+  sessionId: z.string().min(1).max(128).nullable().default(null),
+  turnId: z.string().min(1).max(128).nullable().default(null),
+});
+export type DeploymentAuthorizationContext = z.infer<typeof DeploymentAuthorizationContextSchema>;
+
+export const DeploymentAuthorizationScopeSchema = z.strictObject({
+  domain: z.literal("service-ops"),
+  projectId: z.string().min(1).max(128),
+  targetId: DeploymentTargetIdSchema,
+  planId: DeploymentPlanIdSchema,
+  action: DeploymentActionSchema,
+  planHash: z.string().regex(/^[a-f0-9]{64}$/),
+  artifactHash: z.string().regex(/^[a-f0-9]{64}$/),
+});
+export type DeploymentAuthorizationScope = z.infer<typeof DeploymentAuthorizationScopeSchema>;
+
+export const DeploymentAuthorizationStatusSchema = z.enum([
+  "PENDING",
+  "AUTHORIZED",
+  "DENIED",
+  "EXPIRED",
+  "REVOKED",
+  "CONSUMED",
+  "INVALIDATED",
+]);
+export type DeploymentAuthorizationStatus = z.infer<typeof DeploymentAuthorizationStatusSchema>;
+
+export const DeploymentApprovalStatusSchema = z.enum([
+  "PENDING",
+  "APPROVED",
+  "DENIED",
+  "EXPIRED",
+  "REVOKED",
+]);
+export type DeploymentApprovalStatus = z.infer<typeof DeploymentApprovalStatusSchema>;
+
+export const DeploymentAuthorizationDtoSchema = z.object({
+  id: DeploymentAuthorizationIdSchema,
+  planId: DeploymentPlanIdSchema,
+  targetId: DeploymentTargetIdSchema,
+  projectId: z.string().min(1).max(128),
+  action: DeploymentActionSchema,
+  actorType: z.enum(["human", "agent"]),
+  actorId: z.string().min(1).max(128),
+  clientSessionId: z.string().min(1).max(128).nullable(),
+  sessionId: z.string().min(1).max(128).nullable(),
+  turnId: z.string().min(1).max(128).nullable(),
+  policy: DeploymentPolicySchema,
+  policySnapshotId: z.string().min(1).max(128),
+  status: DeploymentAuthorizationStatusSchema,
+  planHash: z.string().regex(/^[a-f0-9]{64}$/),
+  artifactHash: z.string().regex(/^[a-f0-9]{64}$/),
+  scope: DeploymentAuthorizationScopeSchema,
+  scopeHash: z.string().regex(/^[a-f0-9]{64}$/),
+  approvalId: DeploymentApprovalIdSchema.nullable(),
+  expiresAt: z.int(),
+  decidedAt: z.int().nullable(),
+  consumedAt: z.int().nullable(),
+  reasonCode: z.string().max(64).nullable(),
+  createdAt: z.int(),
+});
+export type DeploymentAuthorizationDto = z.infer<typeof DeploymentAuthorizationDtoSchema>;
+
+export const DeploymentApprovalDtoSchema = z.object({
+  id: DeploymentApprovalIdSchema,
+  authorizationId: DeploymentAuthorizationIdSchema,
+  planId: DeploymentPlanIdSchema,
+  targetId: DeploymentTargetIdSchema,
+  projectId: z.string().min(1).max(128),
+  status: DeploymentApprovalStatusSchema,
+  planHash: z.string().regex(/^[a-f0-9]{64}$/),
+  artifactHash: z.string().regex(/^[a-f0-9]{64}$/),
+  requestedBy: z.string().min(1).max(128),
+  decidedBy: z.string().min(1).max(128).nullable(),
+  expiresAt: z.int(),
+  decidedAt: z.int().nullable(),
+  createdAt: z.int(),
+});
+export type DeploymentApprovalDto = z.infer<typeof DeploymentApprovalDtoSchema>;
+
+export const DEPLOYMENT_APPROVAL_TTL_MS = 5 * 60_000;
+
 export const DeploymentArtifactManifestSchema = z.strictObject({
   version: z.literal(1),
   artifactId: DeploymentArtifactIdSchema,

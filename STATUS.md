@@ -1,7 +1,7 @@
 # STATUS
 
 > 最后更新：2026-11-06 (+08:00)
-> **M3 已通过 G3，后续工作区优化及 Agent 工具纠错（M3-7～M3-11）于 2026-11-06 全部通过验收。G-Spec-M4 / G-PoC-M4 已通过，M4-0 / M4-1 标 done，当前实施 M4-2。远程 HTTPS 留待上线实验验证。**
+> **M3 已通过 G3，后续工作区优化及 Agent 工具纠错（M3-7～M3-11）于 2026-11-06 全部通过验收。G-Spec-M4 / G-PoC-M4 已通过，M4-0 / M4-1 / M4-2 标 done，当前实施 M4-3。远程 HTTPS 留待上线实验验证。**
 
 ## 里程碑
 
@@ -12,7 +12,7 @@
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
-| M4 | 持久运行与版本发布 | `in_progress` | G-Spec-M4 / G-PoC-M4 通过（2026-11-06）；M4-0 / M4-1 done，M4-2 实施中 |
+| M4 | 持久运行与版本发布 | `in_progress` | G-Spec-M4 / G-PoC-M4 通过（2026-11-06）；M4-0 / M4-1 / M4-2 done，M4-3 实施中 |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
 
 ## 初始化修复（2026-11-02）
@@ -59,10 +59,13 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M4-2 `done`（2026-11-06，分支 `task/m4-2-plan-authorization`）。交付独立运维授权/人工审批表与唯一迁移 `0012_deployment_authorizations`（schemaVersion 12）、`DeploymentAuthorizationService`、四策略决策、项目/目标/actor/policySnapshot 作用域、计划撤销/授权撤销/一次性消费/幂等/过期恢复；standard/strict 真实人工批准、readonly 拒绝、autonomous 无审批记录。新增 12 项测试；`VITEST_MAX_WORKERS=3 pnpm check`（web 124、agent 33/1 skip、server 483/7 skip；640 passed/8 skipped）与 `pnpm build` 通过。REST/UI 人工审批入口、apply 前复核、PM2 运行仍归 M4-3/M4-3b，未冒充端到端通过。详见 [验收](specs/050-deploy/acceptance-m4-2.md)。
+- M4-2 边界：`consumeAuthorization` 与真实 apply 之间仍有校验窗口，M4-3 必须在持锁执行前再次 `verifyAuthorization`/`verifyPlan`；policySnapshotId 与运维上下文的真实创建/撤销归 M4-3b/Q-030。
+
 - M4-1 `done`（2026-11-06，分支 `task/m4-1-validate-build-plan`）。交付正式目标/构建/不可变产物/发布计划的内部 manager、仓储与唯一迁移 `0011_deployments`（schemaVersion 11）；真实构建、失败/超时/取消、符号链接/限额、环境秘密与日志脱敏、项目锁、Git 来源、计划哈希/过期/篡改/旧新版本、启动恢复共 20 项新测试通过。`VITEST_MAX_WORKERS=3 pnpm check`（web 124、agent 33/1 skip、server 471/7 skip；628 passed/8 skipped）与 `pnpm build` 通过。D2/D3 的 PM2 启动/替换/真实健康、D8 恢复执行仍归 M4-3，未冒充端到端通过；M4-1 无 UI，未跑浏览器。详见 [验收](specs/050-deploy/acceptance-m4-1.md)。
 - M4-1 环境说明：DSH `workspace-write` 沙箱拒绝 `/bin/ps` 会使既有 `runCommand` 返回 `STOP_UNCONFIRMED`；最终在允许进程检查的环境复跑通过，与既有 M2-4b 记录一致。
 
-- 2026-11-06 用户确认 G-PoC-M4 通过，并要求按 M4-1 → M4-4 逐任务完成、每个任务提交后继续。M4-0 标 `done`；当前 M4-2 `in_progress`，分支 `task/m4-2-plan-authorization`，先冻结授权记录/策略快照/TTL/审批绑定与撤销边界，再写失败测试。PM2 实际 Apply 与运行对账仍归 M4-3。
+- 2026-11-06 用户确认 G-PoC-M4 通过，并要求按 M4-1 → M4-4 逐任务完成、每个任务提交后继续。M4-0 标 `done`；当前 M4-3 `in_progress`，分支 `task/m4-3-pm2-runtime`，先冻结 PM2Adapter、正式资源/仓储、REST/事件、健康/对账与恢复边界，再写失败测试。
 
 - M4-P 分域规格补充（2026-11-06，分支 `task/m4-p-service-domain-separation`）。按用户要求分离会话开发服务和正式运维的资源、协议、事件、Agent 工具与执行上下文。补充 [ADR-048](docs/adr/ADR-048-service-domain-separation.md) 及 D14–D16，按 M4-1～M4-4 任务落地。文档校验与 `VITEST_MAX_WORKERS=3 pnpm check` 通过，本次为设计更新。
 

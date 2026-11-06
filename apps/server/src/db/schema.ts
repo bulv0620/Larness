@@ -702,3 +702,100 @@ export const deploymentPlans = sqliteTable(
   ],
 );
 export type DeploymentPlanRow = typeof deploymentPlans.$inferSelect;
+
+export const deploymentAuthorizations = sqliteTable(
+  "deployment_authorizations",
+  {
+    id: text("id").primaryKey(),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => deploymentPlans.id),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => deploymentTargets.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    action: text("action").$type<import("@larness/shared").DeploymentAction>().notNull(),
+    actorType: text("actor_type").$type<"human" | "agent">().notNull(),
+    actorId: text("actor_id").notNull(),
+    clientSessionId: text("client_session_id"),
+    sessionId: text("session_id"),
+    turnId: text("turn_id"),
+    policy: text("policy").$type<import("@larness/shared").DeploymentPolicy>().notNull(),
+    policySnapshotId: text("policy_snapshot_id").notNull(),
+    status: text("status")
+      .$type<import("@larness/shared").DeploymentAuthorizationStatus>()
+      .notNull(),
+    planHash: text("plan_hash").notNull(),
+    artifactHash: text("artifact_hash").notNull(),
+    scopeJson: text("scope_json").notNull(),
+    scopeHash: text("scope_hash").notNull(),
+    approvalId: text("approval_id"),
+    requestKey: text("request_key").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+    decidedAt: integer("decided_at"),
+    consumedAt: integer("consumed_at"),
+    consumeKey: text("consume_key"),
+    reasonCode: text("reason_code"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("deployment_authorizations_request").on(table.requestKey),
+    index("deployment_authorizations_plan_status").on(table.planId, table.status),
+    index("deployment_authorizations_target_status").on(table.targetId, table.status),
+    index("deployment_authorizations_status_expires").on(table.status, table.expiresAt),
+    check("deployment_authorizations_action", sql`${table.action} = 'apply'`),
+    check("deployment_authorizations_actor", sql`${table.actorType} IN ('human', 'agent')`),
+    check(
+      "deployment_authorizations_policy",
+      sql`${table.policy} IN ('standard', 'strict', 'readonly', 'autonomous')`,
+    ),
+    check(
+      "deployment_authorizations_status",
+      sql`${table.status} IN ('PENDING', 'AUTHORIZED', 'DENIED', 'EXPIRED', 'REVOKED', 'CONSUMED', 'INVALIDATED')`,
+    ),
+    check("deployment_authorizations_plan_hash", sql`length(${table.planHash}) = 64`),
+    check("deployment_authorizations_artifact_hash", sql`length(${table.artifactHash}) = 64`),
+    check("deployment_authorizations_scope_hash", sql`length(${table.scopeHash}) = 64`),
+  ],
+);
+export type DeploymentAuthorizationRow = typeof deploymentAuthorizations.$inferSelect;
+
+export const deploymentApprovals = sqliteTable(
+  "deployment_approvals",
+  {
+    id: text("id").primaryKey(),
+    authorizationId: text("authorization_id")
+      .notNull()
+      .references(() => deploymentAuthorizations.id),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => deploymentPlans.id),
+    targetId: text("target_id")
+      .notNull()
+      .references(() => deploymentTargets.id),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id),
+    status: text("status").$type<import("@larness/shared").DeploymentApprovalStatus>().notNull(),
+    planHash: text("plan_hash").notNull(),
+    artifactHash: text("artifact_hash").notNull(),
+    requestedBy: text("requested_by").notNull(),
+    decidedBy: text("decided_by"),
+    expiresAt: integer("expires_at").notNull(),
+    decidedAt: integer("decided_at"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("deployment_approvals_authorization").on(table.authorizationId),
+    index("deployment_approvals_status_expires").on(table.status, table.expiresAt),
+    check(
+      "deployment_approvals_status",
+      sql`${table.status} IN ('PENDING', 'APPROVED', 'DENIED', 'EXPIRED', 'REVOKED')`,
+    ),
+    check("deployment_approvals_plan_hash", sql`length(${table.planHash}) = 64`),
+    check("deployment_approvals_artifact_hash", sql`length(${table.artifactHash}) = 64`),
+  ],
+);
+export type DeploymentApprovalRow = typeof deploymentApprovals.$inferSelect;

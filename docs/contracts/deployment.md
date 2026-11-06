@@ -39,12 +39,22 @@ REST 使用独立的 `/api/service-ops/` 命名空间，承载正式服务、动
 统一流程为`PLAN → AUTHORIZE → APPLY → HEALTH_CHECK → RECORD`，人工需要时AUTHORIZE才分支到WAIT_APPROVAL。自主直接记录策略允许后执行，不创建approvalId或伪造人工approval.granted，不显示审批卡片。操作者/真实scope/策略快照、planHash/artifactHash、有限授权、锁/fencing、幂等、预算/取消、审计/秘密保护仍必须校验。
 计划/目标/版本/配置篡改、过期/撤销、身份不明或锁失效一律拒绝。计划变更后重新生成/授权，自主重决策仍不询问用户。独立DeploymentJob与Turn结束后的grant生命周期必须在M4技术评审确定，禁止无限复用旧Turn授权。M2人工Git独立资源动作及本机认证/设备管理通道未因此扩权，不能由未授权调用者自报autonomous获得能力。
 
+### 3.1 M4-2 冻结（2026-11-06）
+
+- **记录**：唯一迁移 `0012_deployment_authorizations` 新增 `deployment_authorizations` 与 `deployment_approvals`；ID 前缀 `dauth_` / `dapv_`，不复用开发工具 `apv_`、服务 `svc_`、终端或命令 ID。授权表 `UNIQUE(request_key)`，审批表 `UNIQUE(authorization_id)`。
+- **上下文**：`DeploymentAuthorizationContext`（strict）必须含 `domain:"service-ops"`、真实 project/target/action/policy/policySnapshotId/actor；human 需 clientSessionId，agent 需 sessionId+turnId。项目/目标必须与计划一致；开发领域上下文、`svc_*`/`trm_*`/`cmd_*`、工具审批 ID 均拒绝。M4-2 只支持 `action:"apply"`，日常动作授权随 M4-3b。
+- **策略**：`decideDeploymentAccess(policy, risk)` 与既有 `decideToolAccess` 同语义。apply=L2：standard/strict 创建 PENDING 授权 + PENDING `deployment_approvals`；readonly 记录 DENIED；autonomous 直接 AUTHORIZED，`approval_id=null`，不创建 `dapv_`、不写 `approval.granted`。
+- **绑定**：授权保存 planHash/artifactHash/scopeHash（scope 含 domain/project/target/plan/action/两个哈希）、actor、policySnapshotId、expiresAt（不超过计划到期）。人工审批 `expiresAt=min(now+5min, 授权到期)`。
+- **校验**：`verifyAuthorization` 检查状态/到期/上下文/计划（含目标 current 指针与产物哈希）；计划/产物/目标变化标记 INVALIDATED。`consumeAuthorization` 一次性消费，`consume_key` 相同幂等、不同拒绝。`revokePlan` 将 READY 计划置 CANCELLED 并使 PENDING/AUTHORIZED 授权 INVALIDATED；`revokeAuthorization` 立即失效。
+- **错误**：新增 `DEPLOY_AUTH_REQUIRED`(409)、`DEPLOY_AUTH_INVALID`(409)、`DEPLOY_APPROVAL_INVALID`(409)、`DEPLOY_APPROVAL_EXPIRED`(410)。计划/产物错误沿用 M4-1。
+- **审计**：`deployment.authorization.requested/granted/denied/expired/revoked/invalidated/consumed`、`deployment.approval.requested/granted/denied/expired`、`deployment.plan.revoked`；不含秘密。M4-2 未新增 REST/WS/Agent 工具；人工审批的 HTTP/UI 入口与运维事件归 M4-3/M4-3b。详见 [M4-2 技术冻结](../../specs/050-deploy/m4-2-design.md)。
+
 ## 4. 状态、数据、事件与恢复
 - 当前版本、desired/observed、部署阶段/结果分别记录；进程在不等于健康，数据库RUNNING不代替实际PM2状态。
 - 正式运行状态包含停止、启动中、运行、非健康、停止中、失败与未知。正式停止保留配置和部署历史，删除按独立授权流程设计。
 - 正式日志由 PM2Adapter 受控读取、轮转与脱敏，保留基线为 14 天 / 100 MiB，细分限额在实施前冻结。日志游标独立于开发终端。
 - 关键状态/授权决策及seq事务先提交再广播；状态事件与有界日志分开，失败不伪报成功。
-- 自主授权记录包含决策来源为策略、policySnapshotId/actor/scope/planHash/时效，人工审批记录仅在需要时关联approvalId；具体字段/表和事件名待技术评审。
+- 自主授权记录包含决策来源为策略、policySnapshotId/actor/scope/planHash/时效，人工审批记录仅在需要时关联approvalId；字段/表已由 M4-2 冻结，正式运维事件名仍待 M4-3 技术评审。
 - apply前复核当前受管版本/PM2身份和授权；重复请求不重复替换。超时/结果未知先对账，不盲目spawn；停止保留配置与版本历史。
 - 失败可由获策略授权的Agent执行已支持的恢复，自主不强制等待人工；不可逆迁移或不支持回滚要明确，不虚报恢复完成。
 - 每个 Larness 实例使用源码外的私有 `PM2_HOME`，产物、PM2 运行数据及日志也与源码目录分离。全局安装检查不接入用户默认实例，运行操作只作用于已核验的受管实例。Q-003 的安装细节按 M4 门禁冻结，Q-027 依 ADR-046。守护不可达时显示未知，观察请求不启动守护进程。正式服务的秘密注入路径须覆盖 PM2 元数据、dump 与日志的落盘检查，见 [M4-0 实测](../../specs/050-deploy/poc.md)。

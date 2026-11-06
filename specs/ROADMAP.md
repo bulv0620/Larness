@@ -223,8 +223,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M4-P | [技术评审材料](050-deploy/review.md) | G3、M3-11 完成；用户要求开启 M4 | `done`（仅材料） |
 | M4-0 | PM2全局初始化/命名空间/退出恢复PoC | M4-P；G-Spec-M4 | `done`（G-PoC-M4 2026-11-06），见[实测](050-deploy/poc.md) |
 | M4-1 | Validate/Build/Artifact/Plan | M4-0；G-PoC-M4 | `done`（2026-11-06，见[验收](050-deploy/acceptance-m4-1.md)） |
-| M4-2 | 策略授权与条件人工审批 | M4-1 | `in_progress` |
-| M4-3 | PM2持久运行/Apply/健康/版本/对账 | M4-2 | `todo` |
+| M4-2 | 策略授权与条件人工审批 | M4-1 | `done`（2026-11-06，见[验收](050-deploy/acceptance-m4-2.md)） |
+| M4-3 | PM2持久运行/Apply/健康/版本/对账 | M4-2 | `in_progress` |
 | M4-3b | 服务运维页与独立运维 Agent 工具 | M4-3 | `todo` |
 | M4-4 | 正式发布/恢复/策略整体验收G4 | M4-3b | `todo` |
 

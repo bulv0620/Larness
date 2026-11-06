@@ -22,7 +22,7 @@ describe("migrations", () => {
         expect(opened.sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
         expect(opened.sqlite.pragma("busy_timeout", { simple: true })).toBe(5000);
         expect(quickCheck(opened.sqlite)).toBe(true);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(11);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(12);
 
         const tables = opened.sqlite
           .prepare(
@@ -57,6 +57,8 @@ describe("migrations", () => {
             "deployment_builds",
             "deployment_artifacts",
             "deployment_plans",
+            "deployment_authorizations",
+            "deployment_approvals",
           ]),
         );
 
@@ -75,7 +77,7 @@ describe("migrations", () => {
 
       try {
         runMigrations(opened.db);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(11);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(12);
       } finally {
         opened.close();
       }
@@ -184,7 +186,7 @@ describe("migrations", () => {
         const copy = openDatabase(target);
 
         try {
-          expect(appliedMigrationCount(copy.sqlite)).toBe(11);
+          expect(appliedMigrationCount(copy.sqlite)).toBe(12);
         } finally {
           copy.close();
         }

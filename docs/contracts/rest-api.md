@@ -55,6 +55,10 @@
 | `DEPLOY_ARTIFACT_INVALID` | 409 | 产物缺失、越界、哈希不符或不可信 |
 | `DEPLOY_PLAN_INVALID` | 409 | 计划内容、哈希或绑定不一致 |
 | `DEPLOY_PLAN_EXPIRED` | 410 | 计划超出有效期 |
+| `DEPLOY_AUTH_REQUIRED` | 409 | 尚无可用授权或仍在等待人工审批 |
+| `DEPLOY_AUTH_INVALID` | 409 | 运维领域 / 作用域 / actor / 策略快照 / 哈希 / 状态不匹配，或已撤销、过期、消费 |
+| `DEPLOY_APPROVAL_INVALID` | 409 | 部署人工审批不存在、非 PENDING、绑定不匹配或跨域 ID |
+| `DEPLOY_APPROVAL_EXPIRED` | 410 | 部署人工审批过期 |
 | `DEPLOY_CONFLICT` | 409 | 版本、目标、请求键冲突或构建并发 |
 | `DEPLOY_UNAVAILABLE` | 503 | 部署数据目录 / 产物根不可用 |
 | `PROVIDER_UNAVAILABLE` | 503 | 模型 Provider 不可用 |
@@ -445,7 +449,7 @@ Turn 创建成功返回 `202`：
 
 未列出的接口默认不存在；新增必须同步本文件、Zod schema 与测试。
 
-M4-1（2026-11-06）只交付部署目标、构建、产物与计划的内部 manager/repository，未新增 REST / WS / Agent 工具。上述 `DEPLOY_*` 错误码先由内部模块稳定使用，REST 映射归 M4-3；`/api/service-ops/` 的鉴权、CSRF、Origin、作用域与响应 schema 在 M4-3 冻结。
+M4-1（2026-11-06）只交付部署目标、构建、产物与计划的内部 manager/repository，未新增 REST / WS / Agent 工具。M4-2（2026-11-06）只交付运维授权/人工审批 service 与两张独立表，同样未新增路由；`dauth_`/`dapv_` 不能与开发工具 `apv_` 互认。上述 `DEPLOY_*` 错误码先由内部模块稳定使用，REST 映射、人工审批 HTTP 入口与 `/api/service-ops/` 的鉴权、CSRF、Origin、作用域与响应 schema 在 M4-3 冻结。
 
 ## 9. 速率与大小限制
 

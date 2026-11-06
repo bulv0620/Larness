@@ -165,6 +165,8 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `deployment_builds` | M4-1 已实施 | 真实构建：`id, target_id, project_id, request_key, requested_by, status, spec_json, spec_hash, reason_code, log_ref, started_at, ended_at, created_at`；`UNIQUE(request_key)` |
 | `deployment_artifacts` | M4-1 已实施 | 不可变产物：`id, build_id, target_id, project_id, version, artifact_hash, artifact_path, size_bytes, file_count, spec_json, spec_hash, source_json, created_at`；`UNIQUE(build_id)`、`UNIQUE(target_id,version)` |
 | `deployment_plans` | M4-1 已实施 | 发布计划：`id, target_id, project_id, artifact_id, previous_artifact_id, previous_version, version, plan_json, plan_hash, status, expires_at, request_key, requested_by, created_at`；`UNIQUE(request_key)` |
+| `deployment_authorizations` | M4-2 已实施 | 运维授权：`id, plan_id, target_id, project_id, action, actor_type, actor_id, client_session_id, session_id, turn_id, policy, policy_snapshot_id, status, plan_hash, artifact_hash, scope_json, scope_hash, approval_id, request_key, expires_at, decided_at, consumed_at, consume_key, reason_code, created_at`；`UNIQUE(request_key)`；仅 `action='apply'` |
+| `deployment_approvals` | M4-2 已实施 | 人工审批：`id, authorization_id, plan_id, target_id, project_id, status, plan_hash, artifact_hash, requested_by, decided_by, expires_at, decided_at, created_at`；`UNIQUE(authorization_id)` |
 | 正式服务运行/PM2 绑定 | M4-3 | 受管实例身份、启动配置引用、期望状态与观察状态、部署结果与版本历史 |
 | `scheduled_jobs` | M5 | `id, name, schedule, scope, policy, enabled, created_at` |
 | `job_runs` | M5 | `id, job_id, status, started_at, ended_at, log_ref` |
