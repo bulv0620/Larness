@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M3-11 `review`，2026-11-06 17:38 +08:00 开始，`task/m3-11-workspace-polish`。五项前端优化首轮已通过 check、build、Demo 18 项与认证 E2E 16 项。19:09 +08:00 按用户反馈补齐置顶保护与收起动画，复验 check、build、Demo 19 项与定向认证 E2E 3 项通过。见 [验收记录](specs/052-workspace-polish/tasks.md)。
+- M3-11 `review`，2026-11-06 17:38 +08:00 开始，`task/m3-11-workspace-polish`。五项前端优化首轮已通过 check、build、Demo 18 项与认证 E2E 16 项。19:09 +08:00 按用户反馈补齐置顶保护与收起动画，复验 check、build、Demo 19 项与定向认证 E2E 3 项通过。19:20 +08:00 按反馈修正终端重开时重放历史，保留当前页面内的终端画面并按游标补读。check、build、Demo 19 项和定向认证 E2E 6 项通过。见 [验收记录](specs/052-workspace-polish/tasks.md)。
 
 - M3-10 `done`（2026-11-06 用户验收通过，实现提交 `1d9447b`）。已修正 Agent 策略与作用域、终端与服务说明、登记文案和 Git 执行边界。模型上下文与执行层回归列入规格门禁。check、build、Demo 17 项及定向认证 E2E 5 项通过。见 [验收记录](specs/051-agent-tool-contract/tasks.md)。
 

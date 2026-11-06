@@ -120,11 +120,56 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
     await expect(other.getByTestId("live-terminal").getByRole("log")).toContainText(
       "REAL_PTY_shared",
     );
+    const observer = other.getByTestId("live-terminal");
+    await observer.locator(".xterm").evaluate((element) => {
+      element.setAttribute("data-restored-screen", "original");
+    });
+    await other.getByRole("button", { name: "隐藏窗口", exact: true }).click();
+    await expect(observer).toHaveCount(0);
+    const restoredCursors: string[] = [];
+    other.on("request", (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === `/api/terminals/${id}/output`)
+        restoredCursors.push(url.searchParams.get("after") ?? "");
+    });
+    await terminal
+      .locator(".xterm-helper-textarea")
+      .pressSequentially("printf 'WHILE_%s\\n' hidden");
+    await terminal.locator(".xterm-helper-textarea").press("Enter");
+    await expect(terminal.getByRole("log")).toContainText("WHILE_hidden");
+
+    await other.getByRole("button", { name: "打开终端窗口" }).click();
+    await expect(observer.locator(".xterm")).toHaveAttribute("data-restored-screen", "original");
+    await expect(observer.getByRole("log")).toContainText("REAL_PTY_shared");
+    await expect(observer.getByRole("log")).toContainText("WHILE_hidden");
+    expect(restoredCursors.length).toBeGreaterThan(0);
+    expect(restoredCursors.every((cursor) => Number(cursor) > 0)).toBe(true);
     await (await controlMenu(page, "释放输入权")).click();
     await (await controlMenu(other, "获取输入权")).click();
     await expect(other.getByTestId("live-terminal")).toHaveAttribute("data-input-state", "active");
-    await page.reload();
-    await expect(terminal).toHaveAttribute("data-terminal-id", id);
+    let releaseReplay: (() => void) | undefined;
+    const replay = new Promise<void>((resolve) => {
+      releaseReplay = resolve;
+    });
+    await page.route(
+      (url) =>
+        url.pathname === `/api/terminals/${id}/output` && Number(url.searchParams.get("after")) > 0,
+      async (route) => {
+        await replay;
+        await route.continue();
+      },
+      { times: 1 },
+    );
+    try {
+      await page.reload();
+      await expect(terminal).toHaveAttribute("data-terminal-id", id);
+      await expect(terminal.getByText("正在恢复终端输出…")).toBeVisible();
+      await expect(terminal.locator(".xterm")).toHaveCount(1);
+      await expect(terminal.locator(".xterm")).toBeHidden();
+    } finally {
+      releaseReplay?.();
+    }
+    await expect(terminal.locator(".xterm")).toBeVisible();
     await expect(terminal.getByRole("log")).toContainText("REAL_PTY_shared");
     await expect(terminal).toHaveAttribute("data-input-state", "inactive");
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-4b-observer.png") });
@@ -291,6 +336,10 @@ test("M2-9 project terminal rename, tab overflow and dock restoration", async ({
     await expect(terminal).toHaveAttribute("data-terminal-id", id);
     await page.reload();
     await expect(page.getByRole("tab", { name: "我的开发终端", exact: true })).toBeVisible();
+    await expect(terminal.getByRole("log")).toContainText(realpathSync(root));
+    await terminal.locator(".xterm").evaluate((element) => {
+      element.setAttribute("data-restored-screen", "first-tab");
+    });
     // Real terminals with long names exercise the same fixed-height strip without CSS mocks.
     for (let index = 0; index < 7; index++) {
       const previousId = await terminal.getAttribute("data-terminal-id");
@@ -324,6 +373,8 @@ test("M2-9 project terminal rename, tab overflow and dock restoration", async ({
     });
     await page.getByRole("tab", { name: "我的开发终端", exact: true }).click();
     await expect(terminal).toHaveAttribute("data-terminal-id", id);
+    await expect(terminal.locator(".xterm")).toHaveAttribute("data-restored-screen", "first-tab");
+    await expect(terminal.getByRole("log")).toContainText(realpathSync(root));
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-9-terminal-tabs.png") });
     await page.getByRole("button", { name: "关闭 我的开发终端", exact: true }).click();
     await expect(tabs.getByRole("tab")).toHaveCount(7);

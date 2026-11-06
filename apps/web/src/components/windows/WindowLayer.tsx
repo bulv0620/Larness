@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { WindowFrame } from "@/components/windows/WindowFrame";
 import { FileLifecycle } from "@/features/files/FileLifecycle";
+import { TerminalScreenProvider } from "@/features/terminals/TerminalScreens";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { activeWindowScope } from "@/lib/workspaceScope";
@@ -62,14 +63,16 @@ export function WindowLayer() {
   }, [scope]);
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
-      <WindowCloseDialog />
-      {!USE_MOCKS ? <FileLifecycle /> : null}
-      {windows
-        .filter((win) => !win.minimized && windowScopeKey(win) === scope)
-        .map((win) => (
-          <WindowFrame key={win.id} window={win} />
-        ))}
-    </div>
+    <TerminalScreenProvider windows={windows}>
+      <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
+        <WindowCloseDialog />
+        {!USE_MOCKS ? <FileLifecycle /> : null}
+        {windows
+          .filter((win) => !win.minimized && windowScopeKey(win) === scope)
+          .map((win) => (
+            <WindowFrame key={win.id} window={win} />
+          ))}
+      </div>
+    </TerminalScreenProvider>
   );
 }

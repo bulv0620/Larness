@@ -11,7 +11,7 @@ export function TerminalWindow({ tab }: { tab: WindowTab }) {
     return tab.resourceId === "terminal:empty" ? (
       <TerminalPicker projectId={tab.projectId} sessionId={tab.sourceSessionId ?? undefined} />
     ) : (
-      <LiveTerminalView key={tab.resourceId} id={tab.resourceId} />
+      <LiveTerminalView key={tab.id} id={tab.resourceId} tabId={tab.id} />
     );
   return <DemoTerminalWindow tab={tab} />;
 }

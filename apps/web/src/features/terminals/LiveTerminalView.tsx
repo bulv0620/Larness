@@ -6,16 +6,15 @@ import {
   TerminalOutputEventSchema,
 } from "@larness/shared";
 import {
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
-import { FitAddon } from "@xterm/addon-fit";
-import { Terminal } from "@xterm/xterm";
 import { MoreHorizontal } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { apiFetch } from "@/lib/api";
 import { queryClient } from "@/lib/queries";
@@ -28,6 +27,7 @@ import {
   terminalKey,
   terminalTitle,
 } from "./api";
+import { createTerminalScreen, useTerminalScreens } from "./TerminalScreens";
 import "@xterm/xterm/css/xterm.css";
 
 const labels = {
@@ -39,7 +39,8 @@ const labels = {
   INTERRUPTED: "已中断",
 };
 
-export function LiveTerminalView({ id }: { id: string }) {
+export function LiveTerminalView({ id, tabId }: { id: string; tabId: string }) {
+  const screens = useTerminalScreens();
   const query = useQuery({
     queryKey: terminalKey(id),
     queryFn: () => readTerminal(id),
@@ -47,7 +48,12 @@ export function LiveTerminalView({ id }: { id: string }) {
     refetchInterval: 2000,
   });
   const terminalEnded = query.data ? ended(query.data.status) : false;
-  const showTerminal = query.isFetchedAfterMount && !!query.data && !terminalEnded;
+  const verified = query.isFetchedAfterMount && query.isSuccess;
+  const [verifiedOnce, setVerifiedOnce] = useState(false);
+  useEffect(() => {
+    if (verified) setVerifiedOnce(true);
+  }, [verified]);
+  const showTerminal = (verified || verifiedOnce) && !!query.data && !terminalEnded;
   const title = query.data ? terminalTitle(query.data) : null;
   useEffect(() => {
     if (title === null) return;
@@ -78,15 +84,14 @@ export function LiveTerminalView({ id }: { id: string }) {
   const initialAcquire = useRef(false);
   const [menuHost, setMenuHost] = useState<HTMLElement | null>(null);
   useEffect(() => {
-    const state = useWindowStore.getState();
-    const tab = state.windows.flatMap((win) => win.tabs).find((tab) => tab.resourceId === id);
-    setMenuHost(tab ? document.getElementById(`terminal-controls-${tab.id}`) : null);
-  }, [id]);
+    setMenuHost(document.getElementById(`terminal-controls-${tabId}`));
+  }, [tabId]);
   const [inputReady, setInputReady] = useState(false);
   const [connection, setConnection] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [gap, setGap] = useState(false);
   const [log, setLog] = useState("");
+  const [replaying, setReplaying] = useState(true);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const lease = query.data?.lease;
@@ -104,13 +109,26 @@ export function LiveTerminalView({ id }: { id: string }) {
     query.data?.status === "RUNNING" &&
     !query.isError;
 
-  useEffect(() => {
-    setLog("");
+  useLayoutEffect(() => {
+    if (terminalEnded) {
+      screens.get(tabId)?.terminal.dispose();
+      screens.delete(tabId);
+      setLog("");
+      return;
+    }
     const element = container.current;
     if (!showTerminal || !element) return;
+    const screen = screens.get(tabId) ?? createTerminalScreen();
+    screens.set(tabId, screen);
+    const { terminal: term, fit } = screen;
+    if (term.element) element.appendChild(term.element);
+    else term.open(element);
+    term.options.cursorBlink = true;
+    setGap(screen.gap);
+    setLog(screen.ready ? screen.log : "");
+    setReplaying(!screen.ready);
     initialAcquire.current = false;
     let disposed = false,
-      cursor = 0,
       syncing = false,
       delay = 500;
     let socket: WebSocket | undefined;
@@ -122,18 +140,6 @@ export function LiveTerminalView({ id }: { id: string }) {
     let pending: number | null = null;
     let queue: string[] = [],
       queueBytes = 0;
-    const term = new Terminal({
-      fontSize: 12,
-      fontFamily: "ui-monospace, Menlo, monospace",
-      cursorBlink: true,
-      scrollback: 2000,
-      disableStdin: true,
-      theme: { background: "#0f1115", foreground: "#d7dae0" },
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(element);
-    setGap(false);
     setError("");
     setConnection(null);
     const invalidate = () => {
@@ -188,32 +194,58 @@ export function LiveTerminalView({ id }: { id: string }) {
       queueBytes += size;
       drain();
     });
+    const finishReplay = () => {
+      if (screen.ready) return;
+      screen.ready = true;
+      setLog(screen.log);
+      setReplaying(false);
+    };
     const sync = async () => {
       if (syncing || disposed) return;
       syncing = true;
       try {
-        // Consume bounded pages in order. WS is a wakeup; HTTP is the replay source.
+        // A write already queued before detach still belongs to this screen.
+        await screen.pendingWrite;
+        // WS is a wakeup; HTTP is the source of ordered, bounded output pages.
         for (let page = 0; page < 8 && !disposed; page++) {
           const result = OutputSchema.parse(
             await apiFetch(
-              `/api/terminals/${encodeURIComponent(id)}/output?after=${cursor}&limit=100`,
+              `/api/terminals/${encodeURIComponent(id)}/output?after=${screen.cursor}&limit=100`,
             ),
           );
           if (disposed) return;
-          if (result.resyncRequired || result.truncated) setGap(true);
+          screen.gap ||= result.resyncRequired || result.truncated;
+          let cursor = screen.cursor;
+          const output: string[] = [];
           for (const chunk of result.chunks) {
             if (chunk.cursor <= cursor) continue;
-            if (chunk.cursor !== cursor + 1) setGap(true);
-            await new Promise<void>((resolve) => term.write(chunk.data, resolve));
-            if (disposed) return;
-            setLog((old) => (old + chunk.data).slice(-16384));
+            if (chunk.cursor !== cursor + 1) screen.gap = true;
+            output.push(chunk.data);
             cursor = chunk.cursor;
           }
-          cursor = Math.max(cursor, result.nextCursor);
-          if (!result.chunks.length) break;
+          if (screen.gap) setGap(true);
+          const nextCursor = Math.max(cursor, result.nextCursor);
+          if (!output.length) {
+            screen.cursor = nextCursor;
+            finishReplay();
+            break;
+          }
+          const text = output.join("");
+          screen.pendingWrite = new Promise<void>((resolve) => {
+            term.write(text, () => {
+              screen.cursor = nextCursor;
+              screen.log = (screen.log + text).slice(-16384);
+              resolve();
+            });
+          });
+          await screen.pendingWrite;
+          if (!disposed && screen.ready) setLog(screen.log);
         }
       } catch {
-        if (!disposed) setError("输出读取失败，正在重试；历史可能不完整。");
+        if (!disposed) {
+          setError("输出读取失败，正在重试；历史可能不完整。");
+          finishReplay();
+        }
       } finally {
         syncing = false;
       }
@@ -401,11 +433,15 @@ export function LiveTerminalView({ id }: { id: string }) {
       observer.disconnect();
       input.dispose();
       socket?.close();
-      term.dispose();
+      term.options.disableStdin = true;
+      term.options.cursorBlink = false;
+      term.blur();
+      term.element?.remove();
     };
-  }, [id, showTerminal]);
+  }, [id, screens, showTerminal, tabId, terminalEnded]);
   useEffect(() => {
     if (
+      replaying ||
       !connection ||
       !query.data ||
       query.data.status !== "RUNNING" ||
@@ -434,7 +470,7 @@ export function LiveTerminalView({ id }: { id: string }) {
       cancelled = true;
       setBusy(false);
     };
-  }, [connection, id, query.data, query.isError]);
+  }, [connection, id, query.data, query.isError, replaying]);
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true);
     setError("");
@@ -479,6 +515,7 @@ export function LiveTerminalView({ id }: { id: string }) {
                   aria-label={held ? "释放输入权" : aiControlled ? "接管控制" : "获取输入权"}
                   disabled={
                     busy ||
+                    replaying ||
                     !connection ||
                     !query.data ||
                     query.isError ||
@@ -523,11 +560,16 @@ export function LiveTerminalView({ id }: { id: string }) {
       ) : null}
       {showTerminal ? (
         <>
+          {replaying ? (
+            <p role="status" className="px-2 pt-2 text-xs text-white/60">
+              正在恢复终端输出…
+            </p>
+          ) : null}
           <div
             ref={container}
             role="application"
             aria-label="交互终端"
-            className="min-h-0 flex-1 p-2"
+            className={cn("min-h-0 flex-1 p-2", replaying && "invisible")}
             onPointerDown={() => {
               if (
                 !held &&
