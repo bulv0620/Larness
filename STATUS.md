@@ -59,6 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M4-P 规格补充（2026-11-06，分支 `task/m4-p-service-operations`）。按用户要求将正式 PM2 服务规划为左侧与「自动化任务」同级的「服务运维」，聊天浮窗只展示临时开发服务。已补充 [ADR-047](docs/adr/ADR-047-service-operations-entry.md) 和 D13 验收，UI 归 M4-3b。文档校验和 `VITEST_MAX_WORKERS=3 pnpm check` 通过，本次仅修改规格与契约。
+
 - M4-0 `review`（2026-11-06 20:47 +08:00 开始，分支 `task/m4-0-pm2-poc`）。先写失败测试，后在 macOS arm64 跑通 P1–P5。正常退出和实际 Server SIGKILL 后正式服务保持同一 PID 与 HTTP 健康，重开后从 PM2 重新核验并展示给实验调用者。临时实例已清理。见 [M4-0 证据](specs/050-deploy/poc.md)。M4-1 待 G-PoC-M4。
 - M4-0 验证通过 `pnpm test:poc:m4`、`VITEST_MAX_WORKERS=3 pnpm check`、`pnpm build`。PM2 信号退出写 dump 的行为已记录为 Q-029，产品秘密注入在 M4-3 开工前处理。
 

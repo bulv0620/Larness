@@ -119,3 +119,5 @@
 - [ADR-043 开发预览来源、票据与服务执行身份](ADR-043-development-preview-authorization.md)：proposed（2026-11-05 M3技术规格评审）；独立来源、凭据交换、执行身份/失效和PoC门禁待人类确认，未实现。
 
 - [ADR-046 PM2 交付与正式服务退出边界](ADR-046-pm2-delivery-and-lifecycle.md)：accepted（2026-11-06）。TUI 检查全局 PM2 并在缺失时补装；管理进程异常退出或正常退出 TUI 时正式服务继续运行，重开后对账并展示实际状态。补充 ADR-023，安装与接入细节待 M4-0。
+
+- [ADR-047 正式服务的服务运维入口](ADR-047-service-operations-entry.md)：accepted（2026-11-06）。正式 PM2 服务通过左侧「服务运维」管理，聊天服务浮窗仅显示临时开发服务。补充 ADR-030/042 的展示规则，按 M4-3b 交付。
