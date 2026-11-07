@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c / M5-1d-1 / d-2a / d-2b / d-2d `review` |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / b / d / e `done`；M5-1c `review`；M5-2 spec `draft` |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,7 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1d-4 `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：跨 Provider 上下文中性、切换提示、圆环 hover、回归与验收记录（`specs/063-multi-provider/closure-d4.md`）。
+- M5-2 Scheduler `draft`（2026-11-07）：新增 [064 规格](specs/064-scheduler/spec.md)、plan、tasks，仅文档；待 D1–D4 确认后转 `ready`，再按 M5-2-1 → 2-4 实现。
+- M5-1d `done`（2026-11-07 人类验收）：跨 Provider 上下文中性、切换提示、圆环 hover、回归与验收记录（`specs/063-multi-provider/closure-d4.md`）；M5-1d-1 / 2a / 2b / 2c / 2d / 3 / 4 全部关闭。
 - M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
@@ -241,6 +242,19 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 圆环：hover 显示单次输入 / 模型窗口 / 百分比的简单提示（Radix Tooltip），未知统计显示「暂无统计 · 模型窗口」。
 - 回归：`pnpm check`（web 135、agent 40/1、server 523/10）、`pnpm build`、auth E2E `m1`、Demo 19/19。
 - 验收记录：`specs/063-multi-provider/closure-d4.md`；真实第三方兼容端点、GLM 图片输入、真实长会话压缩质量列为未验证。
+
+## M5-1d 验收（2026-11-07）
+
+- 用户确认 M5-1d 验收通过；M5-1d-1 / 2a / 2b / 2c / 2d / 3 / 4 由 `review` 转 `done`，063 spec 关闭。
+- 验收依据：[closure-d4.md](specs/063-multi-provider/closure-d4.md) 的矩阵；`pnpm check`（web 135、agent 40 通过 / 1 跳过、server 523 通过 / 10 跳过）、`pnpm build`、auth E2E `m1`、Demo 19/19。
+- 保留未验证边界：真实第三方兼容端点、GLM 图片输入、真实长会话压缩质量；不以验收通过宣称已验证。
+- M5-1c 仍为 `review`（单次用量圆环此前交付，未在本轮验收声明中单独确认）。
+
+## M5-2 规格草案（2026-11-07）
+
+- 新增 [064 Scheduler](specs/064-scheduler/spec.md)、[plan](specs/064-scheduler/plan.md)、[tasks](specs/064-scheduler/tasks.md)，仅文档；迁移 / REST / WS / UI 均未实现。
+- 范围：Cron / 固定间隔、脚本与 Agent 任务、JobRun、并发 / 超时 / 错过触发、失败提示、运行历史。
+- 待确认：D1 脚本执行方式、D2 Agent 任务审批默认、D3 Agent 会话组织、D4 错过触发默认；确认后转 `ready` 并开始 M5-2-1。
 
 ## 已冻结
 

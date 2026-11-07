@@ -2,7 +2,7 @@
 id: 063-multi-provider
 title: 多 Provider、能力矩阵与上下文压缩
 milestone: M5
-status: ready
+status: done
 depends_on: [061-deepseek-integration, 050-deploy]
 owners: [human]
 created: 2026-11-07
@@ -11,7 +11,7 @@ updated: 2026-11-07
 
 # 多 Provider、能力矩阵与上下文压缩（M5-1d）
 
-> 状态：`ready`（D1–D4 已确认；M5-1a/b/c/e 已交付，M5-1d-1/2a/2b/2d 已实现）。本切片是 061 的其余范围（GLM、通用兼容端点、压缩、跨模型迁移）。
+> 状态：`done`（2026-11-07 人类验收）。D1–D4 已确认；M5-1d-1/2a/2b/2d/2c/3/4 全部交付并关闭。本切片是 061 的其余范围（GLM、通用兼容端点、压缩、跨模型迁移）。
 
 ## 1. 目标
 
