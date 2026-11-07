@@ -79,6 +79,8 @@ interface RawStreamPart {
 
 const CONTEXT_LIMIT_PATTERN =
   /context (?:length|window)|maximum context|too many tokens|token limit|input is too long|context_length_exceeded/;
+const QUOTA_PATTERN =
+  /insufficient balance|insufficient quota|quota exceeded|no available resources?|余额不足|资源包|请充值|payment required|\b1113\b/i;
 const CONTENT_FILTER_PATTERN = /content filter|content_filter|safety|moderation|flagged/;
 
 function mapFinishReason(value: unknown): ProviderFinishReason {
@@ -156,6 +158,14 @@ export function classifyProviderError(error: unknown): ProviderError {
 
     if (status === 401 || status === 403) {
       return providerFailure("PROVIDER_AUTH_FAILED", "provider rejected the credential", status);
+    }
+
+    if (status === 402 || (status === 429 && QUOTA_PATTERN.test(haystack))) {
+      return providerFailure(
+        "PROVIDER_QUOTA_EXHAUSTED",
+        "模型账户余额不足或资源包不可用，请充值后重试",
+        status,
+      );
     }
 
     if (status === 429) {

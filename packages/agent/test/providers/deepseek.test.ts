@@ -110,6 +110,20 @@ describe("DeepSeek stream mapping", () => {
     ]);
   });
 
+  it("maps provider quota exhaustion separately from rate limits", async () => {
+    const quota = apiError(
+      429,
+      "provider rate limit reached",
+      JSON.stringify({ error: { code: "1113", message: "余额不足或无可用资源包,请充值。" } }),
+    );
+    const chunks = await collect(mapAiSdkStream(parts([{ type: "error", error: quota }])));
+
+    expect(chunks[0]).toMatchObject({
+      type: "error",
+      error: { code: "PROVIDER_QUOTA_EXHAUSTED", retryable: false },
+    });
+  });
+
   it("maps provider errors and content filtering to stable codes", async () => {
     const unauthorized = await collect(
       mapAiSdkStream(parts([{ type: "error", error: apiError(401, "Unauthorized") }])),

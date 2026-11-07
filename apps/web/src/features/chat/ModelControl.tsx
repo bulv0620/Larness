@@ -193,12 +193,15 @@ export function ModelControl({
                             key={`${group.credentialProfileId}:${item.id}`}
                             type="button"
                             aria-pressed={selected}
+                            disabled={item.contextWindow === null}
                             onClick={() => selectModel(item.id, group.credentialProfileId)}
                             className={cn(
                               "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] transition-colors",
-                              selected
-                                ? "bg-black/[.04] text-ink dark:bg-white/[.06]"
-                                : "text-ink-2 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]",
+                              item.contextWindow === null
+                                ? "cursor-not-allowed text-ink-3 opacity-50"
+                                : selected
+                                  ? "bg-black/[.04] text-ink dark:bg-white/[.06]"
+                                  : "text-ink-2 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]",
                             )}
                           >
                             <span className="min-w-0 flex-1 truncate">{item.label}</span>

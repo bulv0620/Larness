@@ -65,6 +65,7 @@
 | `DEV_WEB_UNAVAILABLE` | 503 | 受管开发前端暂不可用；仅用于 ADR-028 开发页面转发 |
 | `PROVIDER_AUTH_FAILED` | 502 | 模型 Provider 拒绝凭据 / 未配置 Key |
 | `PROVIDER_RATE_LIMITED` | 429 | 模型 Provider 限流 |
+| `PROVIDER_QUOTA_EXHAUSTED` | 402 | 模型 Provider 账户余额 / 资源包 / 配额不足 |
 | `PROVIDER_CONTEXT_LIMIT` | 413 | 上下文超出模型上限 |
 | `PROVIDER_CONTENT_FILTERED` | 422 | 模型 Provider 内容过滤 |
 | `PROVIDER_UNKNOWN` | 502 | Provider 未分类错误 |

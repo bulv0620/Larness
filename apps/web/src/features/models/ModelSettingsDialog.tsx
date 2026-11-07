@@ -185,174 +185,178 @@ export function ModelSettingsDialog({
           密钥只保存在本机加密存储中，接口与日志不会返回明文。模型与思考档位只影响下一轮。
         </DialogDescription>
 
-        <section className="mt-4">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-2">
-            <KeyRound size={12} /> 凭据
-          </div>
-          <div className="mt-2 space-y-1.5">
-            {credentials.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[11px] text-ink-3">
-                还没有密钥。添加 DeepSeek Key 后即可同步官方模型目录。
-              </p>
-            ) : (
-              credentials.map((credential) => (
-                <div
-                  key={credential.id}
-                  className="flex items-center gap-2 rounded-lg border border-line bg-surface-2/60 px-2.5 py-1.5"
-                >
-                  <span className="min-w-0 flex-1 truncate text-[11.5px]">
-                    {credential.label}
-                    <span className="ml-1.5 font-mono text-[10px] text-ink-3">
-                      {credential.masked}
-                    </span>
-                  </span>
-                  <span className="rounded-full bg-surface px-1.5 py-[1px] text-[9px] text-ink-3">
-                    {credential.provider}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label={`删除 ${credential.label}`}
-                    disabled={busy}
-                    onClick={() => void removeKey(credential.id)}
-                    className="flex h-6 w-6 items-center justify-center rounded text-ink-3 hover:bg-danger/10 hover:text-danger disabled:opacity-50"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div className="mt-2 flex gap-1">
-            {(["deepseek", "glm"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={provider === option}
-                onClick={() => {
-                  setProvider(option);
-                  setLabel(option === "glm" ? "GLM Key" : "DeepSeek Key");
-                }}
-                className={`h-7 rounded-lg px-2.5 text-[10.5px] transition-colors ${
-                  provider === option
-                    ? "bg-accent-soft text-accent"
-                    : "bg-surface-2 text-ink-3 hover:text-ink"
-                }`}
-              >
-                {option === "glm" ? "GLM" : "DeepSeek"}
-              </button>
-            ))}
-          </div>
-          <div className="mt-1.5 grid grid-cols-[110px_1fr_auto] gap-1.5">
-            <input
-              value={label}
-              onChange={(event) => setLabel(event.target.value)}
-              aria-label="凭据名称"
-              className="h-8 rounded-lg border border-line bg-surface-2 px-2 text-[11px] outline-none focus:border-accent/40"
-            />
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
-              aria-label="API Key"
-              placeholder="sk-…"
-              autoComplete="off"
-              className="h-8 rounded-lg border border-line bg-surface-2 px-2 font-mono text-[11px] outline-none focus:border-accent/40"
-            />
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={busy || !apiKey.trim()}
-              onClick={() => void saveKey()}
-            >
-              添加
-            </Button>
-          </div>
-        </section>
-
-        <section className="mt-5">
-          <div className="flex items-center justify-between">
-            <div className="text-[11px] font-semibold text-ink-2">模型目录</div>
-            <button
-              type="button"
-              disabled={refreshing || credentials.length === 0}
-              onClick={() => void refresh()}
-              className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[10.5px] text-ink-3 hover:bg-surface-2 hover:text-ink disabled:opacity-50"
-            >
-              {refreshing ? (
-                <Loader2 size={12} className="animate-spin" />
+        <div className="mt-4 max-h-[min(64vh,620px)] overflow-y-auto pr-1">
+          <section className="mt-0">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-ink-2">
+              <KeyRound size={12} /> 凭据
+            </div>
+            <div className="mt-2 space-y-1.5">
+              {credentials.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[11px] text-ink-3">
+                  还没有密钥。添加 DeepSeek Key 后即可同步官方模型目录。
+                </p>
               ) : (
-                <RefreshCw size={12} />
-              )}
-              刷新
-            </button>
-          </div>
-          <p className="mt-1 text-[10px] text-ink-3">
-            {syncedLabel}
-            {catalog?.stale ? " · 当前为上次成功同步的记录" : ""}
-            {catalog?.lastRefreshError ? ` · 最近失败：${catalog.lastRefreshError}` : ""}
-          </p>
-
-          <div className="mt-2 space-y-1.5">
-            {groups.length > 0 ? (
-              groups.map((group) => (
-                <div key={group.credentialProfileId}>
-                  <div className="px-0.5 pb-1 text-[10px] text-ink-3">
-                    {group.provider === "glm"
-                      ? "GLM"
-                      : group.provider === "openai-compatible"
-                        ? "兼容"
-                        : "DeepSeek"}{" "}
-                    · {group.credentialLabel}
+                credentials.map((credential) => (
+                  <div
+                    key={credential.id}
+                    className="flex items-center gap-2 rounded-lg border border-line bg-surface-2/60 px-2.5 py-1.5"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[11.5px]">
+                      {credential.label}
+                      <span className="ml-1.5 font-mono text-[10px] text-ink-3">
+                        {credential.masked}
+                      </span>
+                    </span>
+                    <span className="rounded-full bg-surface px-1.5 py-[1px] text-[9px] text-ink-3">
+                      {credential.provider}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`删除 ${credential.label}`}
+                      disabled={busy}
+                      onClick={() => void removeKey(credential.id)}
+                      className="flex h-6 w-6 items-center justify-center rounded text-ink-3 hover:bg-danger/10 hover:text-danger disabled:opacity-50"
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </div>
-                  {group.models.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[10.5px] text-ink-3">
-                      该 Key 还没有可用模型，请刷新目录。
-                    </p>
-                  ) : (
-                    group.models.map((model) => {
-                      const selected =
-                        model.id === selectedModelId &&
-                        group.credentialProfileId === sessionCredentialProfileId;
-                      return (
-                        <button
-                          key={`${group.credentialProfileId}:${model.id}`}
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void selectModel(model.id, group.credentialProfileId)}
-                          className={`mb-1 flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${
-                            selected
-                              ? "border-accent/30 bg-accent-soft/70"
-                              : "border-line bg-surface hover:bg-surface-2/60"
-                          }`}
-                        >
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[11.5px] font-medium text-ink">
-                              {model.label}
+                ))
+              )}
+            </div>
+
+            <div className="mt-2 flex gap-1">
+              {(["deepseek", "glm"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={provider === option}
+                  onClick={() => {
+                    setProvider(option);
+                    setLabel(option === "glm" ? "GLM Key" : "DeepSeek Key");
+                  }}
+                  className={`h-7 rounded-lg px-2.5 text-[10.5px] transition-colors ${
+                    provider === option
+                      ? "bg-accent-soft text-accent"
+                      : "bg-surface-2 text-ink-3 hover:text-ink"
+                  }`}
+                >
+                  {option === "glm" ? "GLM" : "DeepSeek"}
+                </button>
+              ))}
+            </div>
+            <div className="mt-1.5 grid grid-cols-[110px_1fr_auto] gap-1.5">
+              <input
+                value={label}
+                onChange={(event) => setLabel(event.target.value)}
+                aria-label="凭据名称"
+                className="h-8 rounded-lg border border-line bg-surface-2 px-2 text-[11px] outline-none focus:border-accent/40"
+              />
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                aria-label="API Key"
+                placeholder="sk-…"
+                autoComplete="off"
+                className="h-8 rounded-lg border border-line bg-surface-2 px-2 font-mono text-[11px] outline-none focus:border-accent/40"
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={busy || !apiKey.trim()}
+                onClick={() => void saveKey()}
+              >
+                添加
+              </Button>
+            </div>
+          </section>
+
+          <section className="mt-5">
+            <div className="flex items-center justify-between">
+              <div className="text-[11px] font-semibold text-ink-2">模型目录</div>
+              <button
+                type="button"
+                disabled={refreshing || credentials.length === 0}
+                onClick={() => void refresh()}
+                className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[10.5px] text-ink-3 hover:bg-surface-2 hover:text-ink disabled:opacity-50"
+              >
+                {refreshing ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={12} />
+                )}
+                刷新
+              </button>
+            </div>
+            <p className="mt-1 text-[10px] text-ink-3">
+              {syncedLabel}
+              {catalog?.stale ? " · 当前为上次成功同步的记录" : ""}
+              {catalog?.lastRefreshError ? ` · 最近失败：${catalog.lastRefreshError}` : ""}
+            </p>
+
+            <div className="mt-2 space-y-1.5">
+              {groups.length > 0 ? (
+                groups.map((group) => (
+                  <div key={group.credentialProfileId}>
+                    <div className="px-0.5 pb-1 text-[10px] text-ink-3">
+                      {group.provider === "glm"
+                        ? "GLM"
+                        : group.provider === "openai-compatible"
+                          ? "兼容"
+                          : "DeepSeek"}{" "}
+                      · {group.credentialLabel}
+                    </div>
+                    {group.models.length === 0 ? (
+                      <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[10.5px] text-ink-3">
+                        该 Key 还没有可用模型，请刷新目录。
+                      </p>
+                    ) : (
+                      group.models.map((model) => {
+                        const selected =
+                          model.id === selectedModelId &&
+                          group.credentialProfileId === sessionCredentialProfileId;
+                        return (
+                          <button
+                            key={`${group.credentialProfileId}:${model.id}`}
+                            type="button"
+                            disabled={busy || model.contextWindow === null}
+                            onClick={() => void selectModel(model.id, group.credentialProfileId)}
+                            className={`mb-1 flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                              selected
+                                ? "border-accent/30 bg-accent-soft/70"
+                                : model.contextWindow === null
+                                  ? "cursor-not-allowed border-line bg-surface opacity-45"
+                                  : "border-line bg-surface hover:bg-surface-2/60"
+                            }`}
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[11.5px] font-medium text-ink">
+                                {model.label}
+                              </span>
+                              <span className="block truncate text-[10px] text-ink-3">
+                                {formatWindow(model.contextWindow)} · {levelLabels(model)}
+                              </span>
                             </span>
-                            <span className="block truncate text-[10px] text-ink-3">
-                              {formatWindow(model.contextWindow)} · {levelLabels(model)}
-                            </span>
-                          </span>
-                          {selected ? <Check size={13} className="text-accent" /> : null}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              ))
-            ) : (
-              <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[11px] text-ink-3">
-                {credentials.length === 0
-                  ? "添加凭据后可同步官方目录。"
-                  : "目录为空，点击刷新从官方端点同步。"}
-              </p>
-            )}
-          </div>
-          <p className="mt-1.5 text-[10px] text-ink-3">
-            {sessionId ? "选择会保存到当前会话。" : "选择会话后可将模型保存到该会话。"}
-          </p>
-        </section>
+                            {selected ? <Check size={13} className="text-accent" /> : null}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[11px] text-ink-3">
+                  {credentials.length === 0
+                    ? "添加凭据后可同步官方目录。"
+                    : "目录为空，点击刷新从官方端点同步。"}
+                </p>
+              )}
+            </div>
+            <p className="mt-1.5 text-[10px] text-ink-3">
+              {sessionId ? "选择会保存到当前会话。" : "选择会话后可将模型保存到该会话。"}
+            </p>
+          </section>
+        </div>
 
         {loading ? (
           <p className="mt-3 flex items-center gap-1.5 text-[11px] text-ink-3">

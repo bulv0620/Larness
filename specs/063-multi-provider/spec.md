@@ -104,6 +104,7 @@ updated: 2026-11-07
 | 无对应 Provider 凭据 | `409 MODEL_CREDENTIAL_MISSING`，不调用上游 |
 | 目录不可用 | 保留该 Key 旧缓存，`stale: true`，不影响其他组 |
 | 自定义 endpoint 非 HTTPS / 内网 / 元数据地址 | `400 VALIDATION_ERROR` 或 `403 FORBIDDEN`，不发起请求 |
+| Provider 账户余额 / 资源包不足（如 GLM 1113） | `402 PROVIDER_QUOTA_EXHAUSTED`，提示充值；不退化为限流 |
 | Provider 不支持工具调用 | 该 Turn 在创建前拒绝，或降级为纯文本并明确提示（按模型能力） |
 | 摘要超时 / 失败 | 降级截断，Turn 继续，事件 `degraded: true` |
 | 跨模型能力不足 | 明确提示并保留原模型，不静默降级 |

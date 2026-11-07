@@ -30,6 +30,7 @@
 - [x] 能力展示：窗口、思考档位、未知窗口不可选；Provider 标签。
 - [x] 设置页增加 DeepSeek / GLM Provider 选择；分组模型列表保存到当前会话。
 - [x] 测试：多组渲染、选择绑定到 Key、切换 Key 后用量不串。
+- [x] 修正：设置弹窗限高滚动；未知窗口模型禁用；GLM 余额不足映射 `PROVIDER_QUOTA_EXHAUSTED`。
 
 ## M5-1d-2c 自定义兼容端点
 
