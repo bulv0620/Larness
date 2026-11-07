@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c `review`（2026-11-07） |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c `review`；M5-1d 规格 `draft` |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,6 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M5-1d 规格草案（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：[063 多 Provider / 能力矩阵 / 上下文压缩](specs/063-multi-provider/spec.md) 已起草，待 D1–D4 确认后转 `ready`；仅文档。
 - M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
@@ -148,6 +149,13 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - Web 维护按模型的最新单次用量；圆环使用「所选模型的最近一次单次输入 ÷ 同次窗口」，无匹配时显示「暂无统计 · 模型窗口 X tokens」；整轮累计仍由 `turn.completed.usage` 提供。
 - 验证：auth E2E `m1` 断言 `单次输入：12,000 / 1,048,576`（E2E Provider 现在回传 usage 与目录窗口）；Demo 19/19；`pnpm check` 通过（web 135、agent 35 通过 / 1 跳过、server 503 通过 / 10 跳过）；`pnpm build` 通过。
 - 未验证：真实官方端点的 usage 口径（PoC 未覆盖流式 usage）；旧会话无 `model.usage` 时按「暂无统计」处理。
+
+## M5-1d 规格草案（2026-11-07）
+
+- 分支 `task/m5-1d-multi-provider-spec`；新增 [063 规格](specs/063-multi-provider/spec.md)、[plan](specs/063-multi-provider/plan.md)、[tasks](specs/063-multi-provider/tasks.md)，仅文档。
+- 范围：GLM / OpenAI-compatible Provider、多 Key 分组与凭据绑定、能力矩阵、上下文压缩（70% 触发 + 结构化摘要 + 降级）、跨模型切换。
+- 待确认：D1 是否新增 `@ai-sdk/openai-compatible`；D2 兼容端点是否允许任意公网 HTTPS；D3 压缩阈值 / 摘要模型；D4 是否允许跨 Provider 迁移。
+- 未写代码、未迁移数据库；D1–D4 确认后转 `ready` 并开始 M5-1d-1。
 
 ## 已冻结
 

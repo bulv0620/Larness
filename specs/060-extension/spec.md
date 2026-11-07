@@ -16,7 +16,7 @@ updated: 2026-10-31
 
 ## 1. 目标
 
-- 多 Provider：GLM / OpenAI-compatible 适配，能力声明、契约测试、上下文压缩与跨模型迁移。
+- 多 Provider：GLM / OpenAI-compatible 适配，能力声明、契约测试、上下文压缩与跨模型迁移（DeepSeek 部分见 061；其余见 063）。
 - Scheduler：Cron / 固定间隔、JS 脚本与受限 Agent 任务、JobRun、限流、超时、失败通知。
 - 更新：每日检查、手动安装、签名校验、独立 Launcher / Updater、UpdateLock、健康检查、回滚。
 - 跨平台：Windows / Linux PoC、打包、安装说明、支持范围。
