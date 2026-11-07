@@ -37,6 +37,7 @@ function groupTurns(items: TimelineItem[]): TurnGroup[] {
 }
 
 function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
+  const send = useTimelineStore((state) => state.send);
   const items = group.items;
   const user = items.find(
     (item): item is MessageItem => item.kind === "message" && item.role === "user",
@@ -189,7 +190,11 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         {items
           .filter((item) => item.kind === "error")
           .map((item) => (
-            <TimelineItemView key={item.id} item={item} />
+            <TimelineItemView
+              key={item.id}
+              item={item}
+              onRetry={user ? () => void send(user.text) : undefined}
+            />
           ))}
       </div>
     </section>

@@ -12,9 +12,11 @@ import { MarkdownText } from "./MarkdownText";
 export function TimelineItemView({
   item,
   turnActive = false,
+  onRetry,
 }: {
   item: TimelineItem;
   turnActive?: boolean;
+  onRetry?: () => void;
 }) {
   switch (item.kind) {
     case "message":
@@ -39,6 +41,15 @@ export function TimelineItemView({
           )}
         >
           {item.message}
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="ml-2 text-[11px] text-accent hover:underline"
+            >
+              重试
+            </button>
+          ) : null}
         </div>
       );
   }
