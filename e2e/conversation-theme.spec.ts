@@ -58,6 +58,9 @@ test("conversation actions follow the outer light/dark theme without expanding t
   await expect(page.getByText(/正在执行，可先编辑|工作区上下文/)).toHaveCount(0);
   await page.getByRole("button", { name: "发送消息" }).click();
   await expect(page.getByRole("button", { name: "停止执行" })).toBeVisible();
+  const process = page.getByRole("button", { name: /执行过程/ }).last();
+  await expect(process).toBeVisible();
+  await process.click();
   await expect(page.getByRole("button", { name: /计划 ·/ }).last()).toBeVisible();
   await page.getByRole("button", { name: "停止执行" }).click();
   await expect(page.getByRole("button", { name: "发送消息" })).toBeVisible();

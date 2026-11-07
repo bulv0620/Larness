@@ -53,7 +53,13 @@ beforeEach(() => {
     thinking: "medium",
   });
   useNavigationStore.setState({ sessionId: "test" });
-  useTimelineStore.setState({ items: [], isStreaming: false, contextTokens: 32000 });
+  useTimelineStore.setState({
+    items: [],
+    isStreaming: false,
+    modelUsage: {
+      "deepseek-flash": { inputTokens: 32_000, contextWindow: 128_000, updatedAt: 1 },
+    },
+  });
 });
 it("offers the approval policies and reflects each selection on the shield", async () => {
   const user = userEvent.setup();
@@ -73,13 +79,23 @@ it("shows bounded context usage immediately before send/stop and distinguishes u
   render(<Composer />);
   const ring = screen.getByRole("progressbar", { name: "上下文用量" });
   expect(ring).toHaveAttribute("aria-valuenow", "25");
-  expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("32,000 / 128,000"));
+  expect(ring).toHaveAttribute(
+    "aria-valuetext",
+    expect.stringContaining("单次输入：32,000 / 128,000"),
+  );
   expect(ring.nextElementSibling).toBe(screen.getByRole("button", { name: "发送消息" }));
-  act(() => useTimelineStore.setState({ contextTokens: 256000, isStreaming: true }));
+  act(() =>
+    useTimelineStore.setState({
+      modelUsage: {
+        "deepseek-flash": { inputTokens: 256_000, contextWindow: 128_000, updatedAt: 2 },
+      },
+      isStreaming: true,
+    }),
+  );
   expect(ring).toHaveAttribute("aria-valuenow", "100");
   expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("256,000"));
   expect(ring.nextElementSibling).toBe(screen.getByRole("button", { name: "停止执行" }));
-  act(() => useTimelineStore.setState({ contextTokens: 0 }));
+  act(() => useTimelineStore.setState({ modelUsage: {} }));
   expect(ring).not.toHaveAttribute("aria-valuenow");
   expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("暂无统计"));
 });
@@ -121,4 +137,8 @@ it("switches model and thinking from the two-level menu", async () => {
   expect(useComposerStore.getState().modelId).toBe("deepseek-chat");
   expect(useComposerStore.getState().thinking).toBe("off");
   expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Chat · 不支持" })).toBeVisible();
+  expect(screen.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
+    "aria-valuetext",
+    expect.stringContaining("暂无统计"),
+  );
 });

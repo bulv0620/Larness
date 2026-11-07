@@ -15,6 +15,8 @@ import {
   eventsToTimeline,
   eventTurnId,
   isTerminalTurnEvent,
+  type ModelUsageEntry,
+  modelUsageFromEvents,
 } from "@/lib/eventReducer";
 import { queryClient } from "@/lib/queries";
 import { appendAssistantMessage, applyReasoningDelta, applyTurnEvent } from "@/lib/timeline";
@@ -69,6 +71,7 @@ interface TimelineState {
   activeTurnId: string | null;
   turnStartedAt: number | null;
   contextTokens: number;
+  modelUsage: Record<string, ModelUsageEntry>;
   lastSeq: number;
   load: (sessionId: string) => Promise<void>;
   disconnect: () => void;
@@ -184,6 +187,10 @@ function applyEventToState(event: ServerEvent, live = false): void {
       : typeof usage?.totalTokens === "number"
         ? usage.totalTokens
         : state.contextTokens;
+  const modelUsage =
+    event.type === "model.usage"
+      ? { ...state.modelUsage, ...modelUsageFromEvents([event]) }
+      : state.modelUsage;
 
   useTimelineStore.setState({
     items: terminal
@@ -193,6 +200,7 @@ function applyEventToState(event: ServerEvent, live = false): void {
     activeTurnId: terminal ? null : activeTurnId,
     isStreaming: nextStreaming,
     contextTokens,
+    modelUsage,
     turnStartedAt:
       terminal || nextStreaming
         ? terminal
@@ -300,6 +308,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   activeTurnId: null,
   turnStartedAt: null,
   contextTokens: 0,
+  modelUsage: {},
   lastSeq: 0,
 
   load: async (sessionId) => {
@@ -315,6 +324,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       activeTurnId: null,
       turnStartedAt: null,
       contextTokens: 0,
+      modelUsage: {},
       lastSeq: 0,
     });
 
@@ -356,6 +366,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         activeTurnId: detail.activeTurn?.id ?? null,
         turnStartedAt: detail.activeTurn?.createdAt ?? null,
         contextTokens: contextTokensFromEvents(events),
+        modelUsage: modelUsageFromEvents(events),
       });
       const client = queryClient.getQueryData<{ clientSessionId?: string }>(["session"]);
       for (const event of events) {

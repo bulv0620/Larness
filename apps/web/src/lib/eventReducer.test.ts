@@ -5,6 +5,7 @@ import {
   applyServerEvent,
   eventsToTimeline,
   isTerminalTurnEvent,
+  modelUsageFromEvents,
 } from "./eventReducer";
 
 let sequence = 0;
@@ -255,4 +256,36 @@ it("keeps identical provider call IDs distinct across turns and restores termina
     { turnId: "t2", status: "running" },
   ]);
   expect(items[0]).toMatchObject({ turnOutcome: "cancelled", durationMs: 2000 });
+});
+
+it("keeps the latest single-request usage per model", () => {
+  const usage = modelUsageFromEvents([
+    event("model.usage", {
+      turnId: "trn_1",
+      model: "deepseek-flash",
+      inputTokens: 40_000,
+      contextWindow: 1_048_576,
+    }),
+    event("model.usage", {
+      turnId: "trn_1",
+      model: "deepseek-flash",
+      inputTokens: 80_000,
+      contextWindow: 1_048_576,
+    }),
+    event("model.usage", {
+      turnId: "trn_2",
+      model: "deepseek-chat",
+      inputTokens: 20_000,
+      contextWindow: 128_000,
+    }),
+  ]);
+
+  expect(usage["deepseek-flash"]).toMatchObject({
+    inputTokens: 80_000,
+    contextWindow: 1_048_576,
+  });
+  expect(usage["deepseek-chat"]).toMatchObject({
+    inputTokens: 20_000,
+    contextWindow: 128_000,
+  });
 });

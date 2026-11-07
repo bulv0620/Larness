@@ -154,7 +154,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByRole("button", { name: "批准执行" })).toHaveCount(0);
     await expect(page.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
       "aria-valuetext",
-      /1,048,576/,
+      /单次输入：12,000 \/ 1,048,576/,
     );
 
     await page.getByRole("button", { name: "设置与模型" }).click();

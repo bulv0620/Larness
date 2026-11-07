@@ -230,6 +230,55 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("persists one model.usage event per model request with its window", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "usage" });
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              { type: "tool-call", toolCall: { id: "call_list", name: "list_files", args: {} } },
+              {
+                type: "finish",
+                finishReason: "tool-calls",
+                usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+              },
+            ],
+          },
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake", contextWindow: 1_048_576 }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const usageEvents = listSessionEvents(opened.db, session.id).items.filter(
+          (event) => event.type === "model.usage",
+        );
+        expect(usageEvents).toHaveLength(2);
+        expect(usageEvents[0]?.payload).toEqual({
+          turnId: turn.turnId,
+          model: "fake",
+          inputTokens: 100,
+          outputTokens: 10,
+          totalTokens: 110,
+          contextWindow: 1_048_576,
+        });
+        expect(usageEvents[1]?.payload).toMatchObject({ inputTokens: 3, contextWindow: 1_048_576 });
+        expect(usageEvents[0]?.sequence).toBeLessThan(usageEvents[1]?.sequence ?? 0);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("keeps reasoning in memory for the tool loop and never persists it", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

@@ -280,6 +280,31 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
   );
 }
 
+export interface ModelUsageEntry {
+  inputTokens: number;
+  contextWindow: number;
+  updatedAt: number;
+}
+
+export function modelUsageFromEvents(events: ServerEvent[]): Record<string, ModelUsageEntry> {
+  const usage: Record<string, ModelUsageEntry> = {};
+
+  for (const event of events) {
+    if (event.type !== "model.usage") continue;
+
+    const source = payload(event);
+    const model = stringField(source, "model");
+    const inputTokens = numberField(source, "inputTokens");
+    const contextWindow = numberField(source, "contextWindow");
+
+    if (model === undefined || inputTokens === undefined || contextWindow === undefined) continue;
+
+    usage[model] = { inputTokens, contextWindow, updatedAt: event.timestamp };
+  }
+
+  return usage;
+}
+
 export function eventsToTimeline(events: ServerEvent[]): TimelineItem[] {
   return events.reduce<TimelineItem[]>((items, event) => applyServerEvent(items, event), []);
 }

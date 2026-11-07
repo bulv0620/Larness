@@ -238,9 +238,9 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M5-1a | [DeepSeek 官方目录、模型与档位选择](061-deepseek-integration/spec.md)（A1–A4、A8–A10） | G4；061 spec ready | `done`（2026-11-07 人类验收） |
-| M5-1b | 思考模式工具续跑与推理数据 PoC 门禁（A5、A11） | M5-1a | `review`（2026-11-07 交付） |
-| M5-1c | 单次请求用量与上下文圆环（A6、A7） | M5-1a | `todo` |
-| M5-1e | 思考过程与统一执行过程区（A12） | M5-1b | `review`（2026-11-07 交付） |
+| M5-1b | 思考模式工具续跑与推理数据 PoC 门禁（A5、A11） | M5-1a | `done`（2026-11-07 人类验收） |
+| M5-1c | 单次请求用量与上下文圆环（A6、A7） | M5-1a | `review`（2026-11-07 交付） |
+| M5-1e | 思考过程与统一执行过程区（A12） | M5-1b | `done`（2026-11-07 人类验收） |
 | M5-2 | Scheduler：Cron、JS / Agent Job、JobRun、限流 | G4 | `todo` |
 | M5-3 | Launcher / Updater、签名、UpdateLock、回滚 | G4 | `todo` |
 | M5-4 | Windows / Linux PoC、打包与安装说明 | M5-1a ~ M5-1c、M5-2、M5-3 | `todo` |

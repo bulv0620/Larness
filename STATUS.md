@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a `done`；M5-1b / M5-1e `review`（2026-11-07）；M5-1c 待做 |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c `review`（2026-11-07） |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,8 +59,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1e `review`（2026-11-07，分支 `task/m5-1e-process-view`）：思考过程经临时 WS 增量展示，与计划、工具合并为「执行过程」区，运行展开、结束折叠；不落库。
-- M5-1b `review`（2026-11-07，分支 `task/m5-1b-tool-continuation`）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
+- M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
+- M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
+- M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
 - M5-1a `done`（2026-11-07，分支 `task/m5-1a-model-catalog`，人类验收通过）：官方目录、模型与思考档位选择、Turn 快照与 Provider 参数、Composer 两级菜单与设置页已交付。
 - M5-1 规格补全（2026-11-07）：用户确认三项决策——旧模型档案全部忽略（保留数据不删除）、思考默认开启、推理数据先实测再定；[061 spec](specs/061-deepseek-integration/spec.md) 转 `ready`，[ADR-053](docs/adr/ADR-053-model-catalog-thinking.md) 记录决策，契约与 [ROADMAP](specs/ROADMAP.md) 已同步。
 - M4 / G4 `done`（2026-11-07）。用户确认 M4 与后续修改全部验收通过，并授权合并到 `main`、推送 GitHub。M4-4 与 M4-R0～R4 关闭。当前 Agent 通过普通项目会话执行 PM2 命令，服务运维提供人工控制与当前列表。最终范围与检查见 [M4 收尾](specs/050-deploy/closure.md)。
@@ -140,6 +141,13 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 安全：推理正文不写入 SQLite、日志、审计，不进入其他会话或跨模型上下文；刷新 / 重连后消失。
 - 验证：`pnpm check` 通过（web 134、agent 35 通过 / 1 跳过、server 502 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
 - 未验证：真实应用目视与截图待用户验收；mock/Demo 未注入 reasoning，仍不显示思考块。
+
+## M5-1c 交付（2026-11-07）
+
+- 分支 `task/m5-1c-request-usage`；每次模型请求完成且有 usage 时，TurnRunner 在事务内写入 `model.usage` 事件（seq 递增）并广播，payload 只含 `turnId/model/inputTokens/outputTokens/totalTokens/contextWindow`。
+- Web 维护按模型的最新单次用量；圆环使用「所选模型的最近一次单次输入 ÷ 同次窗口」，无匹配时显示「暂无统计 · 模型窗口 X tokens」；整轮累计仍由 `turn.completed.usage` 提供。
+- 验证：auth E2E `m1` 断言 `单次输入：12,000 / 1,048,576`（E2E Provider 现在回传 usage 与目录窗口）；Demo 19/19；`pnpm check` 通过（web 135、agent 35 通过 / 1 跳过、server 503 通过 / 10 跳过）；`pnpm build` 通过。
+- 未验证：真实官方端点的 usage 口径（PoC 未覆盖流式 usage）；旧会话无 `model.usage` 时按「暂无统计」处理。
 
 ## 已冻结
 

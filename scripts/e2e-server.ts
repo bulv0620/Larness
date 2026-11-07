@@ -36,7 +36,11 @@ function textStep(text: string): { chunks: ProviderChunk[] } {
   return {
     chunks: [
       { type: "text-delta", text },
-      { type: "finish", finishReason: "stop" },
+      {
+        type: "finish",
+        finishReason: "stop",
+        usage: { inputTokens: 12_000, outputTokens: 800, totalTokens: 12_800 },
+      },
     ],
   };
 }
@@ -83,7 +87,8 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
     if (input === "conversation plan cancel") {
       return {
         adapter: createFakeProvider([step(0), { ...step(2), delayMs: 15_000 }]),
-        model: "fake",
+        model: turn.model ?? "deepseek-flash",
+        contextWindow: 1_048_576,
       };
     }
     return {
@@ -100,7 +105,8 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
           ).join("\n\n") + "\n\n计划验证结束。",
         ),
       ]),
-      model: "fake",
+      model: turn.model ?? "deepseek-flash",
+      contextWindow: 1_048_576,
     };
   }
 
@@ -138,14 +144,19 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
         },
         textStep("开发终端已启动。"),
       ]),
-      model: "fake",
+      model: turn.model ?? "deepseek-flash",
+      contextWindow: 1_048_576,
     };
   }
 
   if (input.startsWith("vite start ")) {
     const port = Number(input.split(" ").at(-1));
     if (!Number.isInteger(port) || port < 1 || port > 65535)
-      return { adapter: createFakeProvider([textStep("invalid vite port")]), model: "fake" };
+      return {
+        adapter: createFakeProvider([textStep("invalid vite port")]),
+        model: turn.model ?? "deepseek-flash",
+        contextWindow: 1_048_576,
+      };
     const viteBin = path.join(root, "apps/web/node_modules/vite/bin/vite.js");
     return {
       adapter: createFakeProvider([
@@ -168,14 +179,19 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
         },
         textStep("开发终端已启动。"),
       ]),
-      model: "fake",
+      model: turn.model ?? "deepseek-flash",
+      contextWindow: 1_048_576,
     };
   }
 
   if (input.startsWith("service start ")) {
     const port = Number(input.split(" ").at(-1));
     if (!Number.isInteger(port) || port < 1 || port > 65535)
-      return { adapter: createFakeProvider([textStep("invalid service port")]), model: "fake" };
+      return {
+        adapter: createFakeProvider([textStep("invalid service port")]),
+        model: turn.model ?? "deepseek-flash",
+        contextWindow: 1_048_576,
+      };
     return {
       adapter: createFakeProvider([
         {
@@ -200,7 +216,8 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
         },
         textStep("开发终端已启动。"),
       ]),
-      model: "fake",
+      model: turn.model ?? "deepseek-flash",
+      contextWindow: 1_048_576,
     };
   }
 
@@ -215,7 +232,11 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
             )
             .get(projectId) as { id: string } | undefined);
     if (!service)
-      return { adapter: createFakeProvider([textStep("暂无可预览服务。")]), model: "fake" };
+      return {
+        adapter: createFakeProvider([textStep("暂无可预览服务。")]),
+        model: turn.model ?? "deepseek-flash",
+        contextWindow: 1_048_576,
+      };
     return {
       adapter: createFakeProvider([
         toolStep({
@@ -225,7 +246,8 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
         }),
         textStep("预览已就绪。"),
       ]),
-      model: "fake",
+      model: turn.model ?? "deepseek-flash",
+      contextWindow: 1_048_576,
     };
   }
 
@@ -239,7 +261,12 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
               "SELECT id FROM terminals WHERE project_id = ? AND role = 'frontend' AND status = 'RUNNING' ORDER BY created_at DESC LIMIT 1",
             )
             .get(projectId) as { id: string } | undefined);
-    if (!terminal) return { adapter: createFakeProvider([textStep("no terminal")]), model: "fake" };
+    if (!terminal)
+      return {
+        adapter: createFakeProvider([textStep("no terminal")]),
+        model: turn.model ?? "deepseek-flash",
+        contextWindow: 1_048_576,
+      };
     const lease = running.sqlite
       .prepare("SELECT generation FROM terminal_leases WHERE terminal_id = ?")
       .get(terminal.id) as { generation: number } | undefined;
@@ -272,7 +299,8 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
         },
         textStep("done"),
       ]),
-      model: "fake",
+      model: turn.model ?? "deepseek-flash",
+      contextWindow: 1_048_576,
     };
   }
 
@@ -289,7 +317,8 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
         }),
         textStep("命令结果已读取。"),
       ]),
-      model: "fake",
+      model: turn.model ?? "deepseek-flash",
+      contextWindow: 1_048_576,
     };
   }
 
@@ -298,7 +327,8 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
       adapter: createFakeProvider([
         { delayMs: 8_000, chunks: [{ type: "text-delta", text: "late" }] },
       ]),
-      model: "fake",
+      model: turn.model ?? "deepseek-flash",
+      contextWindow: 1_048_576,
     };
   }
 
@@ -324,10 +354,15 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
           }),
           textStep("补丁已应用。"),
         ]),
-        model: "fake",
+        model: turn.model ?? "deepseek-flash",
+        contextWindow: 1_048_576,
       };
     } catch {
-      return { adapter: createFakeProvider([textStep("找不到 note.txt。")]), model: "fake" };
+      return {
+        adapter: createFakeProvider([textStep("找不到 note.txt。")]),
+        model: turn.model ?? "deepseek-flash",
+        contextWindow: 1_048_576,
+      };
     }
   }
 
@@ -346,11 +381,16 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
         },
         textStep("项目文件已列出。"),
       ]),
-      model: "fake",
+      model: turn.model ?? "deepseek-flash",
+      contextWindow: 1_048_576,
     };
   }
 
-  return { adapter: createFakeProvider([textStep("收到。")]), model: "fake" };
+  return {
+    adapter: createFakeProvider([textStep("收到。")]),
+    model: turn.model ?? "deepseek-flash",
+    contextWindow: 1_048_576,
+  };
 };
 
 running = await startServer({

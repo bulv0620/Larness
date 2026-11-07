@@ -73,7 +73,8 @@ export function Composer() {
   const model = catalogModels.find((item) => item.id === modelId) ?? catalogModels[0];
   const currentPolicy = policies.find((item) => item.id === policy) ?? policies[0];
   const PolicyIcon = currentPolicy.icon;
-  const contextTokens = useTimelineStore((state) => state.contextTokens);
+  const modelUsage = useTimelineStore((state) => state.modelUsage);
+  const usage = model ? modelUsage[model.id] : undefined;
   const pendingApproval = useTimelineStore((state) => pendingApprovals(state.items).length > 0);
 
   useEffect(() => {
@@ -212,7 +213,10 @@ export function Composer() {
         </DropdownMenu>
 
         <span className="flex-1" />
-        <ContextUsage used={contextTokens} limit={model?.contextWindow ?? 128000} />
+        <ContextUsage
+          used={usage?.inputTokens ?? null}
+          limit={usage?.contextWindow ?? model?.contextWindow ?? 128000}
+        />
         {isStreaming ? (
           <button
             type="button"
@@ -266,12 +270,12 @@ export function Composer() {
   );
 }
 
-function ContextUsage({ used, limit }: { used: number; limit: number }) {
-  const known = Number.isFinite(used) && used > 0 && Number.isFinite(limit) && limit > 0;
+function ContextUsage({ used, limit }: { used: number | null; limit: number }) {
+  const known = used !== null && Number.isFinite(used) && used > 0 && limit > 0;
   const percent = known ? Math.min(100, Math.max(0, Math.round((used / limit) * 100))) : 0;
   const detail = known
-    ? `最近一轮上下文：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）`
-    : `上下文暂无统计 · 模型上限 ${limit.toLocaleString()} tokens`;
+    ? `单次输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）`
+    : `暂无统计 · 模型窗口 ${limit.toLocaleString()} tokens`;
   return (
     <div
       role="progressbar"

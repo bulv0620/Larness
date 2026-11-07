@@ -1177,6 +1177,19 @@ export class TurnRunner {
 
         usage = addUsage(usage, stepUsage);
 
+        if (stepUsage !== undefined) {
+          this.#emit(turn, session, "model.usage", {
+            turnId: turn.id,
+            model: resolved.model,
+            ...(stepUsage.inputTokens === undefined ? {} : { inputTokens: stepUsage.inputTokens }),
+            ...(stepUsage.outputTokens === undefined
+              ? {}
+              : { outputTokens: stepUsage.outputTokens }),
+            ...(stepUsage.totalTokens === undefined ? {} : { totalTokens: stepUsage.totalTokens }),
+            contextWindow: resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens,
+          });
+        }
+
         const afterStep = checkBudget();
 
         if (afterStep === "cancel") {
