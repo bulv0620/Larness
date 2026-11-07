@@ -614,3 +614,50 @@ GET `/:id/logs` 继续不接受客户端文件路径。按 ADR-052，精确 PM2 
 ### M4-R4 当前服务列表
 
 `GET /api/service-ops/services` 的 `items` 排除可靠 PM2 对账确认已不存在的应用。已停止但仍登记在 PM2 的应用保留。失联或身份冲突不推断删除，沿用上次确认存在性。原目标 ID 的详情/历史仍可查询，重新部署同名应用恢复原关联；响应 schema 不变。
+
+## M5-2 定时任务（2026-11-07）
+
+已认证 + CSRF 的 `/api/jobs` 接口；时间均为 Unix 毫秒。
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/jobs` | 任务列表（不含脚本源码） |
+| GET | `/api/jobs/summary` | `{total, enabled, running, failedLast24h}` |
+| POST | `/api/jobs` | 创建任务 |
+| GET | `/api/jobs/:id` | 详情（脚本任务含源码） |
+| PATCH | `/api/jobs/:id` | 修改名称、计划、启停、超时、策略等 |
+| DELETE | `/api/jobs/:id` | 归档并取消运行中的运行；历史保留 |
+| POST | `/api/jobs/:id/run` | 立即执行；运行中返回 `CONFLICT` |
+| GET | `/api/jobs/:id/runs` | 运行历史（`limit` / `cursor`） |
+| GET | `/api/job-runs/:id` | 运行详情（脱敏输出 / 会话链接） |
+| POST | `/api/job-runs/:id/cancel` | 取消运行中的运行 |
+
+创建 / 修改 body 使用严格 Zod schema：
+
+```ts
+type JobInput = {
+  name: string;                    // 1–80，非空
+  projectId: string | null;        // null = 默认工作区
+  kind: "script" | "agent";
+  schedule:
+    | { type: "cron"; expression: string; timezone: string }   // 5 字段，最短 1 分钟
+    | { type: "interval"; seconds: number; timezone: string };  // 60–604800
+  enabled: boolean;
+  timeoutSeconds: number;          // 60–3600，默认 600
+  missedPolicy: "skip" | "run_once";
+  script?: { source: string };     // kind=script；≤64 KiB
+  agent?: {                         // kind=agent
+    prompt: string;                 // ≤10 KiB
+    model?: string | null;
+    credentialProfileId?: string | null;
+    thinking?: string | null;
+    approvalPolicy: "readonly" | "autonomous";
+  };
+};
+```
+
+- 任务 DTO 的 `projectId=null` 表示默认工作区；列表返回 `nextRunAt` / `lastRunAt` / `lastStatus`，不返回 `script.source` 或 `agent.prompt`。
+- 运行 DTO：`{id, jobId, trigger, status, scheduledFor, startedAt, endedAt, durationMs, exitCode, sessionId, turnId, output, errorCode, errorMessage}`；`output` 已限长 / 脱敏。
+- 限额：最多 100 个任务；手动触发 10 秒限流，超出 `RATE_LIMITED`。运行中的手动触发返回 `CONFLICT`。
+- 错误沿用稳定码：`VALIDATION_ERROR` / `UNAUTHENTICATED` / `FORBIDDEN` / `CSRF_INVALID` / `NOT_FOUND` / `CONFLICT` / `RATE_LIMITED`。运行内部 `errorCode` 可为 `JOB_SCRIPT_FAILED` / `JOB_TIMEOUT` / `JOB_RUN_CANCELLED` / `JOB_AGENT_FAILED` / `JOB_INTERRUPTED` / `JOB_OVERLAP`，不作为 REST 错误码。
+- 任务定义不接受秘密；Agent 只存 `credentialProfileId`。增删改、立即执行、取消、启停写审计，审计不含提示词 / 脚本 / 输出正文。

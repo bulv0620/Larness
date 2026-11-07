@@ -138,3 +138,7 @@ accepted，用户明确批准。允许精确 PM2 登记且属于本项目的普�
 ## ADR-053 · DeepSeek 官方模型目录与思考档位（2026-11-07）
 
 accepted，用户直接指定方向。旧模型 Profile 全部忽略（保留数据不删除），改为官方目录驱动的模型选择；思考默认开启，档位随 Turn 固定；推理数据先实测、暂不落库；圆环改为单次请求口径；输入框按 Codex 风格提供模型 / 档位浮层。见 [ADR-053](ADR-053-model-catalog-thinking.md) 与 [061 spec](../../specs/061-deepseek-integration/spec.md)。
+
+## ADR-054 · 定时任务的执行、权限与恢复边界（2026-11-07）
+
+accepted，用户确认 D1–D4。单进程 SQLite 调度；5 字段 Cron + `cron-parser`，任务显式时区，错过默认 skip / 可选 run_once；同任务不重叠、全局并发 2；脚本以 `node` 子进程在项目根目录执行，非沙箱、环境白名单、输出有界脱敏；Agent 任务只允许 `readonly` / `autonomous`，专用隐藏会话；仅应用内通知；重启不自动重跑。见 [ADR-054](ADR-054-scheduler-execution.md) 与 [064 spec](../../specs/064-scheduler/spec.md)。

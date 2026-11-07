@@ -14,6 +14,7 @@ export type SessionKind = "once" | "passkey";
 export type ChallengeType = "registration" | "authentication";
 export type AuditDecision = "allow" | "deny" | "info";
 export type SessionStatus = "active" | "archived";
+export type SessionOrigin = "user" | "scheduled";
 export type TurnStatus =
   | "QUEUED"
   | "PREPARING"
@@ -27,6 +28,19 @@ export type TurnStatus =
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ResourceLockType = "project" | "service" | "file" | "git" | "global-maintenance";
 export type ModelProviderId = "deepseek" | "glm" | "openai-compatible";
+export type ScheduledJobKind = "script" | "agent";
+export type ScheduledJobScheduleType = "cron" | "interval";
+export type ScheduledJobRunTrigger = "scheduled" | "manual" | "catch_up";
+export type ScheduledJobRunStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "timed_out"
+  | "cancelled"
+  | "interrupted"
+  | "skipped";
+export type ScheduledJobApprovalPolicy = "readonly" | "autonomous";
 
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
@@ -57,6 +71,7 @@ export const sessions = sqliteTable(
     workspacePath: text("workspace_path").notNull(),
     title: text("title").notNull(),
     status: text("status").$type<SessionStatus>().notNull().default("active"),
+    origin: text("origin").$type<SessionOrigin>().notNull().default("user"),
     modelProfileId: text("model_profile_id"),
     credentialProfileId: text("credential_profile_id"),
     model: text("model"),
@@ -69,6 +84,7 @@ export const sessions = sqliteTable(
   (table) => [
     index("idx_sessions_project_updated").on(table.projectId, table.updatedAt),
     index("idx_sessions_updated").on(table.updatedAt),
+    index("idx_sessions_origin").on(table.origin, table.updatedAt),
   ],
 );
 
@@ -1009,3 +1025,71 @@ export const serviceActionAuthorizations = sqliteTable(
   ],
 );
 export type ServiceActionAuthorizationRow = typeof serviceActionAuthorizations.$inferSelect;
+
+export const scheduledJobs = sqliteTable(
+  "scheduled_jobs",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<ScheduledJobKind>().notNull(),
+    scheduleType: text("schedule_type").$type<ScheduledJobScheduleType>().notNull(),
+    cronExpression: text("cron_expression"),
+    intervalSeconds: integer("interval_seconds"),
+    timezone: text("timezone").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    overlapPolicy: text("overlap_policy").notNull().default("skip"),
+    missedPolicy: text("missed_policy").notNull().default("skip"),
+    timeoutSeconds: integer("timeout_seconds").notNull().default(600),
+    scriptSource: text("script_source"),
+    agentPrompt: text("agent_prompt"),
+    agentModel: text("agent_model"),
+    agentCredentialProfileId: text("agent_credential_profile_id").references(
+      () => credentialProfiles.id,
+      { onDelete: "set null" },
+    ),
+    agentThinking: text("agent_thinking"),
+    agentApprovalPolicy: text("agent_approval_policy").$type<ScheduledJobApprovalPolicy>(),
+    sessionId: text("session_id").references(() => sessions.id, { onDelete: "set null" }),
+    nextRunAt: integer("next_run_at"),
+    lastRunAt: integer("last_run_at"),
+    lastStatus: text("last_status").$type<ScheduledJobRunStatus>(),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+    archivedAt: integer("archived_at"),
+  },
+  (table) => [
+    index("idx_scheduled_jobs_due").on(table.enabled, table.archivedAt, table.nextRunAt),
+    index("idx_scheduled_jobs_project").on(table.projectId, table.updatedAt),
+  ],
+);
+
+export const scheduledJobRuns = sqliteTable(
+  "scheduled_job_runs",
+  {
+    id: text("id").primaryKey(),
+    jobId: text("job_id")
+      .notNull()
+      .references(() => scheduledJobs.id, { onDelete: "cascade" }),
+    trigger: text("trigger").$type<ScheduledJobRunTrigger>().notNull(),
+    status: text("status").$type<ScheduledJobRunStatus>().notNull(),
+    scheduledFor: integer("scheduled_for").notNull(),
+    startedAt: integer("started_at"),
+    endedAt: integer("ended_at"),
+    durationMs: integer("duration_ms"),
+    sessionId: text("session_id").references(() => sessions.id, { onDelete: "set null" }),
+    turnId: text("turn_id").references(() => turns.id, { onDelete: "set null" }),
+    exitCode: integer("exit_code"),
+    output: text("output"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("idx_scheduled_job_runs_job").on(table.jobId, table.createdAt),
+    index("idx_scheduled_job_runs_status").on(table.status, table.createdAt),
+  ],
+);
+
+export type ScheduledJobRow = typeof scheduledJobs.$inferSelect;
+export type ScheduledJobRunRow = typeof scheduledJobRuns.$inferSelect;

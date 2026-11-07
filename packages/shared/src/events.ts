@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ResourceTarget } from "./terminals";
 
 export const WORKSPACE_SESSIONS_CHANGED = "workspace.sessions.changed";
+export const WORKSPACE_JOBS_CHANGED = "workspace.jobs.changed";
 
 export const WorkspaceSessionNotificationSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -10,6 +11,10 @@ export const WorkspaceSessionNotificationSchema = z.discriminatedUnion("kind", [
   }),
   z.object({ kind: z.literal(WORKSPACE_SESSIONS_CHANGED) }),
 ]);
+
+export const WorkspaceJobsNotificationSchema = z.object({
+  kind: z.literal(WORKSPACE_JOBS_CHANGED),
+});
 
 export type EventTopic =
   | "command"

@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / b / d / e `done`；M5-1c `review`；M5-2 spec `draft` |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / b / c / d / e `done`；M5-2-1 `review` |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,9 +59,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-2 Scheduler `draft`（2026-11-07）：新增 [064 规格](specs/064-scheduler/spec.md)、plan、tasks，仅文档；待 D1–D4 确认后转 `ready`，再按 M5-2-1 → 2-4 实现。
+- M5-2-1 `review`（2026-11-07，分支 `task/m5-2-scheduler-spec`）：迁移 `0022_scheduler`、调度核心、脚本执行、REST / WS、审计与限额已交付；`pnpm check` 与 `pnpm build` 通过。下一步 M5-2-2（Agent 定时任务）。
 - M5-1d `done`（2026-11-07 人类验收）：跨 Provider 上下文中性、切换提示、圆环 hover、回归与验收记录（`specs/063-multi-provider/closure-d4.md`）；M5-1d-1 / 2a / 2b / 2c / 2d / 3 / 4 全部关闭。
-- M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
+- M5-1c `done`（2026-11-07 人类验收，随 M5-1d 关闭）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
 - M5-1a `done`（2026-11-07，分支 `task/m5-1a-model-catalog`，人类验收通过）：官方目录、模型与思考档位选择、Turn 快照与 Provider 参数、Composer 两级菜单与设置页已交付。
@@ -248,13 +248,23 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 用户确认 M5-1d 验收通过；M5-1d-1 / 2a / 2b / 2c / 2d / 3 / 4 由 `review` 转 `done`，063 spec 关闭。
 - 验收依据：[closure-d4.md](specs/063-multi-provider/closure-d4.md) 的矩阵；`pnpm check`（web 135、agent 40 通过 / 1 跳过、server 523 通过 / 10 跳过）、`pnpm build`、auth E2E `m1`、Demo 19/19。
 - 保留未验证边界：真实第三方兼容端点、GLM 图片输入、真实长会话压缩质量；不以验收通过宣称已验证。
-- M5-1c 仍为 `review`（单次用量圆环此前交付，未在本轮验收声明中单独确认）。
+- M5-1c 随本轮验收一并关闭（2026-11-07 人类确认）。
 
-## M5-2 规格草案（2026-11-07）
+## M5-2 规格确认与启动（2026-11-07）
 
-- 新增 [064 Scheduler](specs/064-scheduler/spec.md)、[plan](specs/064-scheduler/plan.md)、[tasks](specs/064-scheduler/tasks.md)，仅文档；迁移 / REST / WS / UI 均未实现。
-- 范围：Cron / 固定间隔、脚本与 Agent 任务、JobRun、并发 / 超时 / 错过触发、失败提示、运行历史。
-- 待确认：D1 脚本执行方式、D2 Agent 任务审批默认、D3 Agent 会话组织、D4 错过触发默认；确认后转 `ready` 并开始 M5-2-1。
+- D1–D4 已确认：脚本内联源码 + 子进程 node；Agent 默认 `readonly`、`autonomous` 二次确认；每任务一个隐藏专用会话；错过触发默认 `skip`、可按任务 `run_once`。
+- [064 Scheduler](specs/064-scheduler/spec.md) 转 `ready`；`cron-parser@5.10.4` 与仅应用内通知随之采用。ADR-054 与 REST / WS / 数据模型契约同步。
+- 当前 M5-2-1 `review`：迁移 `0022_scheduler`、调度核心、脚本执行、REST 与通知已交付；Agent 执行归 M5-2-2。
+
+## M5-2-1 交付（2026-11-07）
+
+- 迁移 `0022_scheduler`（schemaVersion 21 → 22）：`scheduled_jobs`、`scheduled_job_runs`、`sessions.origin`；只新增，旧会话默认 `user`。
+- 调度：5 字段 Cron / 间隔、IANA 时区、DST、`skip` / `run_once`、overlap `skipped`、全局并发 2、超时、取消、启动恢复、200 条 / 30 天保留。
+- 脚本：内联源码写数据目录临时 `.mjs`，`node` 子进程在项目真实根目录执行；环境白名单、输出 64 KiB + 脱敏、POSIX 进程组终止；明确非沙箱。
+- REST：`/api/jobs` 列表 / 详情 / 创建 / 修改 / 归档 / 立即执行 / 运行历史 / 取消 / summary；认证 + CSRF + 项目边界 + 审计 + 限额；`workspace.jobs.changed` 通知。
+- 会话：普通列表默认过滤 `origin='user'`；任务专用会话按 ID 可读。
+- 验证：`pnpm check` 通过（web 135、agent 40 通过 / 1 跳过、server 549 通过 / 10 跳过）；`pnpm build` 通过；`test/jobs` 26 项通过。
+- 边界：Agent 任务创建当前返回 `VALIDATION_ERROR`（M5-2-2 启用）；Windows 脚本任务不支持（M5-4）；休眠 / 真实任务 UI 尚未验证。
 
 ## 已冻结
 

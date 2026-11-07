@@ -308,3 +308,64 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 ## M5-1 迁移 0015_model_catalog（2026-11-07）
 
 新增 `model_catalog_cache`，schemaVersion 14 → 15；`sessions` 增加可空 `model` / `thinking`，`turns` 增加可空 `thinking` / `context_window`。只加表与可空列，不删除、不回填 `model_profiles` / `credential_profiles`，旧 Session / Turn 读取不变；`agent_events` 复用既有表承载 `model.usage`（payload 只含展示字段，推理正文不落库）。迁移前自动备份，失败拒绝启动。详见 [061 spec](../../specs/061-deepseek-integration/spec.md) 与 [ADR-053](../adr/ADR-053-model-catalog-thinking.md)。
+
+## M5-2 迁移 0022_scheduler（2026-11-07）
+
+新增 `scheduled_jobs` / `scheduled_job_runs`，schemaVersion 21 → 22；`sessions` 增加 `origin TEXT NOT NULL DEFAULT 'user'`（`user` / `scheduled`）。只加表与默认列，不删除、不回填旧数据；旧会话自动为 `user`，普通会话列表默认只返回 `origin='user'`，任务专用会话仍可按 ID 读取。
+
+```sql
+CREATE TABLE scheduled_jobs (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  project_id TEXT REFERENCES projects(id) ON DELETE CASCADE, -- NULL = 默认工作区
+  kind TEXT NOT NULL,                       -- script | agent
+  schedule_type TEXT NOT NULL,              -- cron | interval
+  cron_expression TEXT,
+  interval_seconds INTEGER,
+  timezone TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  overlap_policy TEXT NOT NULL DEFAULT 'skip',
+  missed_policy TEXT NOT NULL DEFAULT 'skip', -- skip | run_once
+  timeout_seconds INTEGER NOT NULL DEFAULT 600,
+  script_source TEXT,
+  agent_prompt TEXT,
+  agent_model TEXT,
+  agent_credential_profile_id TEXT REFERENCES credential_profiles(id) ON DELETE SET NULL,
+  agent_thinking TEXT,
+  agent_approval_policy TEXT,               -- readonly | autonomous
+  session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+  next_run_at INTEGER,
+  last_run_at INTEGER,
+  last_status TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  archived_at INTEGER
+);
+CREATE INDEX idx_scheduled_jobs_due ON scheduled_jobs(enabled, archived_at, next_run_at);
+CREATE INDEX idx_scheduled_jobs_project ON scheduled_jobs(project_id, updated_at);
+
+CREATE TABLE scheduled_job_runs (
+  id TEXT PRIMARY KEY,
+  job_id TEXT NOT NULL REFERENCES scheduled_jobs(id) ON DELETE CASCADE,
+  trigger TEXT NOT NULL,                    -- scheduled | manual | catch_up
+  status TEXT NOT NULL,                     -- queued|running|succeeded|failed|timed_out|cancelled|interrupted|skipped
+  scheduled_for INTEGER NOT NULL,
+  started_at INTEGER,
+  ended_at INTEGER,
+  duration_ms INTEGER,
+  session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+  turn_id TEXT REFERENCES turns(id) ON DELETE SET NULL,
+  exit_code INTEGER,
+  output TEXT,
+  error_code TEXT,
+  error_message TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX idx_scheduled_job_runs_job ON scheduled_job_runs(job_id, created_at);
+CREATE INDEX idx_scheduled_job_runs_status ON scheduled_job_runs(status, created_at);
+CREATE INDEX idx_sessions_origin ON sessions(origin, updated_at);
+```
+
+- 任务删除采用 `archived_at` 归档；运行历史保留。只有所属项目被删除时才级联删除任务与运行。
+- 每个任务保留最近 200 条运行且不超过 30 天；清理不删除任务。
+- 迁移前自动备份；迁移只前进。详见 [064 spec](../../specs/064-scheduler/spec.md)。

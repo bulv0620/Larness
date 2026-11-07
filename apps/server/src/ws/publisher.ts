@@ -3,6 +3,7 @@ import {
   type AssistantDeltaEvent,
   type AssistantReasoningDeltaEvent,
   type ServerEvent,
+  WORKSPACE_JOBS_CHANGED,
   WORKSPACE_SESSIONS_CHANGED,
 } from "@larness/shared";
 
@@ -15,6 +16,10 @@ export type AgentStreamEvent = ServerEvent | AssistantDeltaEvent | AssistantReas
 
 export function publishWorkspaceSessionsChanged(): void {
   agentEventBus.emit(WORKSPACE_SESSIONS_CHANGED);
+}
+
+export function publishJobsChanged(): void {
+  agentEventBus.emit(WORKSPACE_JOBS_CHANGED);
 }
 
 export function publishAgentEvent(event: AgentStreamEvent): void {

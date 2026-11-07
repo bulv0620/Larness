@@ -220,3 +220,15 @@ M3 的 `service.*` 及其 streamId 保持开发服务语义。M4 的正式运维
 
 ## M3事件候选（待审批，未实现）
 registered/status/unregistered拟含kind/status/terminalId/terminalExecutionId/endpointGeneration/reasonCode?，不含票据、Cookie、原始进程身份；详[m3-preview](m3-preview.md)。temporary不发送PM2 desiredState；日志引用已有终端游标、允许缺口，不伪造独立命令完整历史。失效先撤路由，状态与seq提交后广播；DB失败不伪造成功。
+
+## M5-2 任务变更通知（2026-11-07）
+
+调度器不新增带序号的持久事件流。JobRun 状态变化后，通过 `system` 主题发送非持久通知：
+
+```json
+{ "kind": "workspace.jobs.changed" }
+```
+
+- 客户端收到后重拉 `/api/jobs`、`/api/jobs/summary` 与当前任务详情；失败角标来自 `failedLast24h`。
+- 通知不携带脚本、提示词、输出、错误正文或秘密；不是权威状态，丢失时可轮询或重连后重拉。
+- 任务运行历史与详情只经认证 REST 读取；任务专用会话的事件仍走既有 `agent` 主题与序号。

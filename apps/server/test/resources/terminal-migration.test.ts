@@ -147,7 +147,7 @@ it("adds nullable terminal names to a populated v8 database without changing res
       });
       expect(opened.sqlite.prepare("SELECT * FROM terminal_leases").all()).toEqual(leases);
       runMigrations(opened.db, old);
-      expect(appliedMigrationCount(opened.sqlite)).toBe(21);
+      expect(appliedMigrationCount(opened.sqlite)).toBe(22);
       expect(opened.sqlite.pragma("foreign_key_check")).toEqual([]);
     } finally {
       opened.close();

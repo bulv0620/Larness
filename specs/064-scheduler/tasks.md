@@ -2,13 +2,13 @@
 
 > 状态：`todo | in_progress | blocked | review | done`。一个任务一个提交。
 > 开始任务前更新 `STATUS.md`；完成后勾选本表并更新 `ROADMAP.md`。
-> 门禁：[spec](spec.md) 转 `ready`（D1–D4 确认）后才可开始 M5-2-1。
+> 门禁已过：[spec](spec.md) 于 2026-11-07 转 `ready`（D1–D4 确认）。M5-2-1 已交付（`review`），下一步 M5-2-2。
 
 ## 状态总表
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M5-2-1 | 调度核心、脚本任务与 REST | 064 spec ready | `todo` |
+| M5-2-1 | 调度核心、脚本任务与 REST | 064 spec ready | `review` |
 | M5-2-2 | Agent 定时任务与策略快照 | M5-2-1 | `todo` |
 | M5-2-3 | 自动化任务 UI 与通知 | M5-2-2 | `todo` |
 | M5-2-4 | 调度整体验收 | M5-2-3 | `todo` |
@@ -17,11 +17,11 @@
 
 ### M5-2-1 调度核心、脚本任务与 REST
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：064 spec ready（D1–D4 确认）
 - 目标：持久化任务与运行、Cron / 间隔触发、并发 / 超时 / 恢复、脚本执行、REST 与通知。
 - 交付物：
-  - 迁移 `0021_scheduler`：`scheduled_jobs`、`scheduled_job_runs`、`sessions.origin`；集成迁移计数测试。
+  - 迁移 `0022_scheduler`：`scheduled_jobs`、`scheduled_job_runs`、`sessions.origin`；集成迁移计数测试。
   - `modules/jobs/`：repository、schedule（cron-parser、IANA 时区、DST）、scheduler（tick / 认领 / missed / 恢复）、runner（状态机 / 并发 / 超时 / 取消）、scriptRunner、service（校验 / 限额 / 审计）。
   - `api/jobs.ts`：列表 / 详情 / 创建 / 修改 / 删除 / 立即执行 / 运行历史 / 取消 / summary；认证 + CSRF + 项目边界。
   - `workspace.jobs.changed` 系统通知；`shared` 类型与 schema。
@@ -34,8 +34,15 @@
   - 单元：表达式解析、下一时间、时区 / DST、missed、overlap、输出截断 / 脱敏、环境白名单。
   - 集成：迁移、repository、REST 认证 / CSRF / 限额、脚本生命周期、恢复、保留。
 - 涉及路径：
-  - `apps/server/drizzle/0021_scheduler.sql`、`apps/server/src/db/schema.ts`、`apps/server/src/modules/jobs/*`、`apps/server/src/api/jobs.ts`、`apps/server/src/bootstrap/start.ts`、`apps/server/src/app.ts`、`packages/shared/src/jobs.ts`、`docs/contracts/*`
-- 备注：本任务不接 Agent 任务执行；schedule 的 Agent 分支可先校验后拒绝，避免半成品。
+  - `apps/server/drizzle/0022_scheduler.sql`、`apps/server/src/db/schema.ts`、`apps/server/src/modules/jobs/*`、`apps/server/src/api/jobs.ts`、`apps/server/src/bootstrap/start.ts`、`apps/server/src/app.ts`、`packages/shared/src/jobs.ts`、`docs/contracts/*`
+- 交付（2026-11-07）：
+  - [x] 迁移 `0022_scheduler`（schemaVersion 22）：两表 + `sessions.origin`；迁移计数与列断言。
+  - [x] 调度核心：5 字段 Cron / 间隔、任务时区、DST、missed `skip` / `run_once`、overlap `skipped`、全局并发、超时、取消、恢复、保留。
+  - [x] 脚本执行：数据目录临时 `.mjs`、项目真实根目录、`node` 子进程、环境白名单、输出 64 KiB、脱敏、进程组终止。
+  - [x] REST / WS：列表、详情、创建、修改、归档、立即执行、运行历史、取消、summary；`workspace.jobs.changed` 通知；认证 + CSRF + 项目边界 + 审计 + 限额。
+  - [x] 会话列表默认只显示 `origin='user'`；任务专用会话按 ID 可读。
+  - [x] 测试：`test/jobs` 5 个文件 26 项；`pnpm check`（server 549 / 10 skip，web 135，agent 40 / 1 skip）；`pnpm build`。
+- 备注：本任务不接 Agent 任务执行；Agent 任务在服务端返回 `VALIDATION_ERROR`，M5-2-2 再启用。Windows 脚本任务暂不支持，留 M5-4。
 
 ### M5-2-2 Agent 定时任务与策略快照
 

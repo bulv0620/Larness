@@ -1,6 +1,6 @@
 # M5-2 实施计划：定时任务与调度器
 
-> 对应 [spec](spec.md)。本文件只讲“怎么做”，不改变需求；D1–D4 确认、spec 转 `ready` 后执行。
+> 对应 [spec](spec.md)。本文件只讲“怎么做”，不改变需求；D1–D4 已于 2026-11-07 确认，spec 已转 `ready`。
 
 ## 1. 技术方案
 
@@ -17,7 +17,7 @@
 
 Cron 解析使用 `cron-parser@5.10.4`（纯 JS，传递依赖 `luxon@3`）；只暴露 5 字段表达式，最短 1 分钟。DST 行为以库的 IANA 时区计算为准，并用固定日期测试锁定：
 
-- 春季不存在的本地时间：不执行，顺延到下一次有效时间；
+- 春季不存在的本地时间：顺延到当天最近的有效本地时间（02:30 → 03:30）；
 - 秋季重复的本地时间：只执行一次；
 - 保存的 `next_run_at` 始终是绝对 Unix 毫秒，重启后不因本地时区偏移重复。
 
@@ -37,7 +37,7 @@ Cron 解析使用 `cron-parser@5.10.4`（纯 JS，传递依赖 `luxon@3`）；�
 
 ```text
 新增：
-apps/server/drizzle/0021_scheduler.sql
+apps/server/drizzle/0022_scheduler.sql
 apps/server/drizzle/meta/0021_snapshot.json
 apps/server/src/modules/jobs/repository.ts
 apps/server/src/modules/jobs/schedule.ts          # cron / interval / next_run_at / DST
@@ -142,7 +142,7 @@ scheduled trigger + overlap ──> skipped
 
 ## 5. 数据与迁移
 
-- 迁移 `0021_scheduler`：两表 + `sessions.origin` 可空默认列；`scheduled_jobs.project_id` 可空（NULL = 默认工作区）；只新增，不删除 / 回填。
+- 迁移 `0022_scheduler`：两表 + `sessions.origin` 可空默认列；`scheduled_jobs.project_id` 可空（NULL = 默认工作区）；只新增，不删除 / 回填。
 - `sessions.origin` 默认 `'user'`；旧会话自动为 `user`。`listSessionRows` 默认过滤 `origin='user'`，任务详情 / 直接 ID 查询仍可读 `scheduled`。
 - 索引：`(enabled, archived_at, next_run_at)`、`(project_id, updated_at)`、`(job_id, created_at)`、`(status, created_at)`、`(origin, updated_at)`。
 - 迁移前沿用现有备份机制；回滚只能回退程序，DB 迁移不回退。

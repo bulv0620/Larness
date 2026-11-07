@@ -2,7 +2,7 @@
 id: 064-scheduler
 title: 定时任务与调度器
 milestone: M5
-status: draft
+status: ready
 depends_on: [050-deploy, 063-multi-provider]
 owners: [human]
 created: 2026-11-07
@@ -11,7 +11,7 @@ updated: 2026-11-07
 
 # 定时任务与调度器（M5-2）
 
-> 状态：`draft`。D1–D4 确认、契约补齐后转 `ready`；转 `ready` 前不得写实现代码。
+> 状态：`ready`。D1–D4 已于 2026-11-07 确认；M5-2-1 已交付（`review`），后续任务见 [tasks](tasks.md)。
 > 源设计：[larness.md](../../larness.md) §4.9、§21；左侧栏已有「自动化任务」入口但无后端。
 
 ## 1. 背景与问题
@@ -123,7 +123,7 @@ And 打开自动化任务面板后角标清除（仅本地已读状态，不改�
 ```gherkin
 Given Cron 任务 J 使用 America/New_York，表达式 30 2 * * *
 When 进入春季 DST 跳过的本地 02:30
-Then 该次不执行，下一次有效本地时间执行
+Then 该次顺延到当天最近的有效本地时间 03:30，不重复执行
 And 秋季重复的本地 01:30 只执行一次
 And Asia/Shanghai 等无 DST 时区不受影响
 ```
@@ -293,7 +293,7 @@ Web 收到后重拉 `/api/jobs` 与当前详情；失败角标由 `summary.faile
 
 ## 8. 数据与迁移
 
-迁移 `0021_scheduler`（schemaVersion 21），只新增表与可空列，不删除 / 回填旧数据。
+迁移 `0022_scheduler`（schemaVersion 22），只新增表与可空列，不删除 / 回填旧数据。
 
 ```sql
 CREATE TABLE scheduled_jobs (
@@ -405,16 +405,16 @@ CREATE INDEX idx_sessions_origin ON sessions(origin, updated_at);
 
 ## 13. 开放问题与待确认决策
 
-| ID | 问题 | 推荐默认 | 需要决策 |
-|---|---|---|---|
-| D1 | 脚本任务的源码与执行方式 | 源码存 DB，运行时写入数据目录临时 `.mjs`，以子进程 `node` 在项目根目录执行；不提供项目内脚本文件路径 | 人类 |
-| D2 | Agent 任务默认审批策略 | 默认 `readonly`；创建 / 修改为 `autonomous` 时二次确认风险 | 人类 |
-| D3 | Agent 任务会话组织 | 每个任务一个专用会话（`sessions.origin=scheduled`，不在普通会话列表显示），每次运行追加 Turn，可回看 | 人类 |
-| D4 | 错过触发默认策略 | 默认 `skip`；任务可改 `run_once`（最多补 1 次） | 人类 |
-| D5 | Cron 解析依赖 | 新增 `cron-parser@5.10.4`（纯 JS，传递依赖 `luxon@3`，Node ≥18），不自研 Cron / DST | 规格确认时一并批准 |
-| D6 | 通知范围 | 仅应用内角标 / 面板；不接系统通知、邮件、Webhook | 规格确认时一并批准 |
+| ID | 问题 | 决定（2026-11-07 人类确认） |
+|---|---|---|
+| D1 | 脚本任务的源码与执行方式 | 内联源码存 DB，运行时写入数据目录临时 `.mjs`，以子进程 `node` 在项目根目录执行；不提供项目内脚本文件路径 |
+| D2 | Agent 任务默认审批策略 | 默认 `readonly`；创建 / 修改为 `autonomous` 时二次确认风险 |
+| D3 | Agent 任务会话组织 | 每个任务一个专用会话（`sessions.origin=scheduled`，不在普通会话列表显示），每次运行追加 Turn，可回看 |
+| D4 | 错过触发默认策略 | 默认 `skip`；任务可改 `run_once`（最多补 1 次） |
+| D5 | Cron 解析依赖 | 新增 `cron-parser@5.10.4`（纯 JS，传递依赖 `luxon@3`，Node ≥18），不自研 Cron / DST；随 D1–D4 一并采用 |
+| D6 | 通知范围 | 仅应用内角标 / 面板；不接系统通知、邮件、Webhook；随 D1–D4 一并采用 |
 
-确认 D1–D4 后：本 spec 转 `ready`，补 `docs/contracts/rest-api.md` / `ws-events.md` / `data-model.md`，并新增 ADR 记录调度器执行边界。
+D1–D4 已于 2026-11-07 确认：本 spec 转 `ready`；契约已补，调度器执行边界见 [ADR-054](../../docs/adr/ADR-054-scheduler-execution.md)。
 
 ## 14. 完成定义
 

@@ -35,6 +35,8 @@ import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.j
 import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileOperations } from "../modules/files/service.js";
 import { GitManager } from "../modules/git/manager.js";
+import { JobRuntime } from "../modules/jobs/runtime.js";
+import { JobService } from "../modules/jobs/service.js";
 import { type DeepSeekCatalogFetcher, resolveCatalogProvider } from "../modules/models/catalog.js";
 import { assertSafeEndpoint } from "../modules/models/endpoint.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
@@ -92,6 +94,7 @@ export interface RunningServer {
   logger: Logger;
   shutdown: Shutdown;
   turnQueue: TurnQueue | null;
+  jobRuntime: JobRuntime;
   commands: CommandManager;
   git: GitManager;
   terminals: TerminalManager;
@@ -224,6 +227,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   let ipc: IpcServer | null = null;
   let app: FastifyInstance | null = null;
   let turnQueue: TurnQueue | null = null;
+  let jobRuntime: JobRuntime | null = null;
   let commandManager: CommandManager | null = null;
   let terminalManager: TerminalManager | null = null;
   let deploymentManager: DeploymentManager | null = null;
@@ -418,6 +422,15 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       });
     }
 
+    jobRuntime = new JobRuntime({
+      db: opened.db,
+      dataDir,
+      logger: activeLogger,
+      enabled: env.LARNESS_SCHEDULER_ENABLED !== "0",
+      maxConcurrent: Number.parseInt(env.LARNESS_SCHEDULER_MAX_CONCURRENT ?? "2", 10) || 2,
+    });
+    const jobs = new JobService({ db: opened.db, control: jobRuntime });
+
     app = createApp({
       logger: activeLogger,
       services: {
@@ -437,6 +450,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         deploymentAuthorizations,
         serviceActionAuthorizations,
         serviceOps,
+        jobs,
         previews,
         ...(turnQueue === null
           ? {}
@@ -463,6 +477,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       host: loaded.config.server.host,
       port: loaded.config.server.port,
     });
+    jobRuntime.start();
 
     activeLogger.info(
       {
@@ -512,6 +527,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         }
 
         await ipcServer.close();
+        await jobRuntime?.stop();
         await turnQueue?.stop();
         services.stop();
         await previews?.stop();
@@ -540,6 +556,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       logger: activeLogger,
       shutdown,
       turnQueue,
+      jobRuntime,
       commands,
       terminals,
       git,

@@ -29,6 +29,7 @@ export interface SessionDto {
   workspaceKind: "project" | "default" | "session";
   title: string;
   status: SessionStatus;
+  origin: "user" | "scheduled";
   modelProfileId: string | null;
   credentialProfileId: string | null;
   model: string | null;
@@ -80,6 +81,7 @@ export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
         : "session",
     title: row.title,
     status: row.status,
+    origin: row.origin,
     modelProfileId: row.modelProfileId,
     credentialProfileId: row.credentialProfileId,
     model: row.model,

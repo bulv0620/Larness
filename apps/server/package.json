@@ -28,6 +28,7 @@
     "@simplewebauthn/server": "^14.0.3",
     "ai": "^6.0.320",
     "better-sqlite3": "^11.10.0",
+    "cron-parser": "5.10.4",
     "diff": "^9.0.0",
     "drizzle-orm": "^0.45.4",
     "env-paths": "^4.0.0",

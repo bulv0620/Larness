@@ -2,6 +2,7 @@ import { and, desc, eq, exists, inArray, ne } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import {
+  type SessionOrigin,
   type SessionRow,
   sessions,
   type TurnRow,
@@ -31,6 +32,7 @@ export interface CreateSessionRowInput {
   model?: string | null;
   thinking?: string | null;
   approvalPolicyId: string;
+  origin?: SessionOrigin;
   now: number;
 }
 
@@ -41,6 +43,7 @@ export function createSessionRow(db: DbExecutor, input: CreateSessionRowInput): 
     workspacePath: input.workspacePath,
     title: input.title,
     status: "active",
+    origin: input.origin ?? "user",
     modelProfileId: input.modelProfileId,
     credentialProfileId: input.credentialProfileId ?? null,
     model: input.model ?? null,
@@ -63,7 +66,7 @@ export function listSessionRows(
   db: DbExecutor,
   options: { projectId?: string; limit: number },
 ): { session: SessionRow; hasActiveTurn: boolean }[] {
-  const active = ne(sessions.status, "archived");
+  const active = and(ne(sessions.status, "archived"), eq(sessions.origin, "user"));
   const where =
     options.projectId === undefined
       ? active
