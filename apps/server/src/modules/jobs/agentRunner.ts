@@ -68,6 +68,19 @@ export class AgentJobExecutor {
   ): Promise<JobExecutionResult> {
     const session = await this.#ensureSession(job);
 
+    if (signal.aborted) {
+      return {
+        status: "cancelled",
+        exitCode: null,
+        output: "",
+        truncated: false,
+        errorCode: "JOB_RUN_CANCELLED",
+        errorMessage: "运行已取消",
+        sessionId: session.id,
+        turnId: null,
+      };
+    }
+
     if (this.#enqueue === undefined) {
       return {
         status: "failed",
@@ -274,7 +287,7 @@ export class AgentJobExecutor {
   async #ensureSession(job: ScheduledJobRow): Promise<SessionRow> {
     if (job.sessionId !== null) {
       const existing = getSessionById(this.#db, job.sessionId);
-      if (existing !== null) {
+      if (existing !== null && existing.status !== "archived") {
         if (job.projectId === null) {
           await ensureDefaultWorkspace(this.#dataDir);
         }
