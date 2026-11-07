@@ -156,6 +156,7 @@ it("switches model and thinking from the two-level menu", async () => {
   expect(within(reopened).getByText("DeepSeek · DeepSeek Key")).toBeVisible();
   expect(within(reopened).getByText("GLM · GLM Key")).toBeVisible();
   expect(within(reopened).queryByText("Hidden Model")).toBeNull();
+  expect(within(reopened).queryByText("Unknown Window")).toBeNull();
 
   await user.click(within(reopened).getByRole("button", { name: /GLM-4.6/ }));
   expect(useComposerStore.getState().modelId).toBe("glm-4.6");

@@ -97,7 +97,7 @@ export function Composer() {
   const groups: ApiCatalogGroup[] = catalog?.groups ?? (catalog ? [catalog] : []);
   const visibleGroups = groups.map((group) => ({
     ...group,
-    models: group.models.filter((item) => item.visible !== false),
+    models: group.models.filter((item) => item.visible !== false && item.contextWindow !== null),
   }));
   const pairs = visibleGroups.flatMap((group) =>
     group.models.map((item) => ({ group, model: item })),

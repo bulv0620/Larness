@@ -81,6 +81,7 @@ export function ModelSettingsDialog({
   const [provider, setProvider] = useState<"deepseek" | "glm">("deepseek");
   const [label, setLabel] = useState("DeepSeek Key");
   const [apiKey, setApiKey] = useState("");
+  const [showUnavailable, setShowUnavailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,6 +91,12 @@ export function ModelSettingsDialog({
     view.kind === "key"
       ? groups.find((group) => group.credentialProfileId === view.credentialId)
       : undefined;
+  const models = activeGroup
+    ? activeGroup.models.filter((model) => showUnavailable || model.contextWindow !== null)
+    : [];
+  const unavailableCount = activeGroup
+    ? activeGroup.models.filter((model) => model.contextWindow === null).length
+    : 0;
   const credentialMask = (credentialId: string) =>
     credentials.find((credential) => credential.id === credentialId)?.masked ?? "";
 
@@ -118,6 +125,7 @@ export function ModelSettingsDialog({
   useEffect(() => {
     if (!open) {
       setApiKey("");
+      setShowUnavailable(false);
       setView({ kind: "list" });
       return;
     }
@@ -328,6 +336,17 @@ export function ModelSettingsDialog({
                 <RefreshCw size={12} className={busy ? "animate-spin" : undefined} />
                 刷新目录
               </Button>
+              {unavailableCount > 0 ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-pressed={showUnavailable}
+                  aria-label={showUnavailable ? "隐藏不可用模型" : "显示不可用模型"}
+                  onClick={() => setShowUnavailable((value) => !value)}
+                >
+                  {showUnavailable ? "隐藏不可用" : `显示不可用 (${unavailableCount})`}
+                </Button>
+              ) : null}
               <Button
                 size="sm"
                 variant="ghost"
@@ -341,12 +360,14 @@ export function ModelSettingsDialog({
             <div className="min-h-0 flex-1 overflow-y-auto">
               {activeGroup === undefined ? (
                 <p className="px-4 py-3 text-[11px] text-ink-3">目录不可用，请刷新。</p>
-              ) : activeGroup.models.length === 0 ? (
+              ) : models.length === 0 ? (
                 <p className="px-4 py-3 text-[11px] text-ink-3">
-                  该 Key 还没有可用模型，点“刷新目录”同步。
+                  {activeGroup.models.length === 0
+                    ? "该 Key 还没有可用模型，点“刷新目录”同步。"
+                    : "暂无可选模型；可显示不可用项查看原因。"}
                 </p>
               ) : (
-                activeGroup.models.map((model) => {
+                models.map((model) => {
                   const selected =
                     model.id === sessionModelId &&
                     activeGroup.credentialProfileId === sessionCredentialId;
