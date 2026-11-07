@@ -14,7 +14,7 @@ interface ComposerState {
 export const useComposerStore = create<ComposerState>((set) => ({
   draft: "",
   modelId: "deepseek-flash",
-  thinking: "default",
+  thinking: "medium",
   policy: "standard",
   setDraft: (draft) => set({ draft }),
   setModelId: (modelId) => set({ modelId }),

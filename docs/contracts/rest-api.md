@@ -452,7 +452,7 @@ Turn 创建成功返回 `202`：
       "contextWindow": 1048576,
       "thinking": {
         "supported": true,
-        "levels": [{ "id": "low", "label": "低" }, { "id": "high", "label": "高" }, { "id": "max", "label": "最高" }]
+        "levels": [{ "id": "low", "label": "低" }, { "id": "medium", "label": "中" }, { "id": "high", "label": "高" }]
       },
       "default": true
     }
@@ -467,7 +467,7 @@ Turn 创建成功返回 `202`：
 
 Session / Turn 的模型选择：
 
-- `model` 为目录中的模型 id；`thinking` 为 `off` / `default` / 官方档位 id。`PATCH /api/sessions/:id` 保存选择，`POST /api/sessions/:id/turns` 可覆盖本轮选择。
+- `model` 为目录中的模型 id；`thinking` 为 `off` / `low` / `medium` / `high`（旧 `default` 读取归一为 `medium`）。Provider 侧按 `low`→`low`、`medium`→`high`、`high`→`max` 发送。`PATCH /api/sessions/:id` 保存选择，`POST /api/sessions/:id/turns` 可覆盖本轮选择。
 - Turn 创建时快照 `provider`、`model`、`thinking`、`context_window` 与凭据引用；运行中改选只影响下一 Turn。
 - 模型不在目录内或档位不属于该模型时返回 `400 MODEL_UNSUPPORTED`，不创建 Turn，也不调用上游。
 - 旧客户端传 `modelProfileId` 仍按快照兼容解析；档案已忽略或凭据缺失时失败关闭。`GET /api/models` 保留兼容但不再被 UI 使用。

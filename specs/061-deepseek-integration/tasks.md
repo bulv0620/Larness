@@ -9,7 +9,7 @@
 - [x] 迁移 `0015_model_catalog`：`model_catalog_cache` 表 + `sessions.model` / `sessions.thinking` + `turns.thinking` / `turns.context_window`（只加表与可空列）。
 - [x] 目录模块：固定官方端点、Secret Store 取凭据、Zod 校验、按凭据缓存、`GET /api/models/catalog` + `POST /api/models/catalog/refresh`、鉴权 / CSRF / 错误码。
 - [x] Session / Turn：`model` / `thinking` 校验与快照，旧 `modelProfileId` 兼容解析；运行中改选只影响下一 Turn。
-- [x] Provider：`thinking` 传入 `providerOptions.deepseek`（`enabled` / `disabled` + `low` / `high` / `max`），默认档位省略 `reasoningEffort`；非法值在调用上游前拒绝。
+- [x] Provider：`thinking` 传入 `providerOptions.deepseek`（`enabled` / `disabled`）；档位映射 `low`→`low`、`medium`→`high`、`high`→`max`；非法值在调用上游前拒绝。
 - [x] Web：Composer 模型 / 档位浮层（键盘、勾选、目录状态）、设置页凭据 + 目录 + 默认标记、旧 Profile 列表移除、无凭据引导。
 - [x] 测试：目录契约、鉴权、缓存隔离与 stale；Turn 校验与快照；Provider 参数；组件与认证 E2E。
 - [x] 验收记录：真实凭据同步目录；浏览器截图（1440 / 窄屏）；未验证项如实标注。

@@ -24,8 +24,8 @@ vi.mock("@/lib/queries", () => ({
             supported: true,
             levels: [
               { id: "low", label: "低" },
+              { id: "medium", label: "中" },
               { id: "high", label: "高" },
-              { id: "max", label: "最高" },
             ],
           },
           default: true,
@@ -49,7 +49,7 @@ beforeEach(() => {
     draft: "任务",
     policy: "standard",
     modelId: "deepseek-flash",
-    thinking: "default",
+    thinking: "medium",
   });
   useNavigationStore.setState({ sessionId: "test" });
   useTimelineStore.setState({ items: [], isStreaming: false, contextTokens: 32000 });
@@ -102,23 +102,24 @@ it("requires risk confirmation before switching to autonomous, with cancellation
 it("switches thinking from the slider and model from the model list", async () => {
   const user = userEvent.setup();
   render(<Composer />);
-  await user.click(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 默认" }));
+  await user.click(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 中" }));
   const popover = await screen.findByRole("dialog", { name: "模型与思考" });
-  expect(within(popover).getByText("默认")).toBeVisible();
+  expect(within(popover).getByText("中")).toBeVisible();
 
   const slider = within(popover).getByRole("slider", { name: "思考强度" });
-  expect(slider).toHaveAttribute("aria-valuenow", "1");
-  expect(slider).toHaveAttribute("aria-valuetext", "默认");
+  expect(slider).toHaveAttribute("aria-valuenow", "2");
+  expect(slider).toHaveAttribute("aria-valuetext", "中");
+  expect(slider).toHaveAttribute("aria-valuemax", "3");
   slider.focus();
   await user.keyboard("{End}");
-  expect(useComposerStore.getState().thinking).toBe("max");
-  expect(within(popover).getByRole("slider")).toHaveAttribute("aria-valuetext", "最高");
-  expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 最高" })).toBeVisible();
+  expect(useComposerStore.getState().thinking).toBe("high");
+  expect(within(popover).getByRole("slider")).toHaveAttribute("aria-valuetext", "高");
+  expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 高" })).toBeVisible();
 
   await user.click(within(popover).getByRole("button", { name: "切换模型：DeepSeek Flash" }));
   expect(within(popover).getByText("选择模型")).toBeVisible();
   await user.click(within(popover).getByRole("button", { name: /DeepSeek Chat/ }));
   expect(useComposerStore.getState().modelId).toBe("deepseek-chat");
-  expect(useComposerStore.getState().thinking).toBe("default");
-  expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Chat · 默认" })).toBeVisible();
+  expect(useComposerStore.getState().thinking).toBe("off");
+  expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Chat · 关闭" })).toBeVisible();
 });

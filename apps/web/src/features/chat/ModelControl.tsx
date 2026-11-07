@@ -13,12 +13,19 @@ interface ModelControlProps {
   onRefresh: () => Promise<void>;
 }
 
+const THINKING_LADDER = [
+  { id: "off", label: "关闭" },
+  { id: "low", label: "低" },
+  { id: "medium", label: "中" },
+  { id: "high", label: "高" },
+];
+
 function thinkingOptions(model: ApiCatalogModel | undefined): { id: string; label: string }[] {
-  if (model === undefined) {
+  if (model === undefined || !model.thinking.supported) {
     return [];
   }
 
-  return [{ id: "off", label: "关闭" }, { id: "default", label: "默认" }, ...model.thinking.levels];
+  return THINKING_LADDER;
 }
 
 function windowLabel(model: ApiCatalogModel): string {
@@ -49,8 +56,8 @@ export function ModelControl({
     0,
     options.findIndex((option) => option.id === thinking),
   );
-  const selectedLabel = options[selectedIndex]?.label ?? "默认";
-  const isOff = options[selectedIndex]?.id === "off";
+  const selectedLabel = options[selectedIndex]?.label ?? "关闭";
+  const isOff = options.length === 0 || options[selectedIndex]?.id === "off";
   const percent = options.length <= 1 ? 0 : (selectedIndex / (options.length - 1)) * 100;
 
   useEffect(() => {
@@ -91,7 +98,7 @@ export function ModelControl({
 
   const pickRatio = (clientX: number, element: HTMLElement) => {
     const rect = element.getBoundingClientRect();
-    const padding = 10;
+    const padding = 7;
     const usable = Math.max(1, rect.width - padding * 2);
     const ratio = Math.min(1, Math.max(0, (clientX - rect.left - padding) / usable));
     pickIndex(Math.round(ratio * (options.length - 1)));
@@ -136,7 +143,7 @@ export function ModelControl({
     onSelectModel(modelId);
     const next = models.find((item) => item.id === modelId);
     if (next !== undefined && !next.thinking.supported) {
-      onSelectThinking("default");
+      onSelectThinking("off");
     }
     setOpen(false);
   };
@@ -207,6 +214,12 @@ export function ModelControl({
                 </span>
               </button>
 
+              {models.length > 0 && options.length === 0 ? (
+                <p className="mx-1 mt-1 rounded-lg border border-dashed border-line px-2 py-1.5 text-[10.5px] leading-relaxed text-ink-3">
+                  该模型不支持思考档位，将使用非思考模式。
+                </p>
+              ) : null}
+
               {models.length === 0 ? (
                 <p className="mx-1 mt-1 rounded-lg border border-dashed border-line px-2 py-1.5 text-[10.5px] leading-relaxed text-ink-3">
                   {catalogError
@@ -242,30 +255,33 @@ export function ModelControl({
                     onPointerCancel={() => {
                       draggingRef.current = false;
                     }}
-                    className="relative mx-2.5 mt-1.5 h-7 cursor-pointer touch-none rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                    className="relative mx-2.5 mt-1 h-8 cursor-pointer touch-none rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                   >
-                    <div className="absolute inset-x-[10px] top-1/2 h-1.5 -translate-y-1/2">
-                      <div className="absolute inset-0 overflow-hidden rounded-full bg-black/[.08] dark:bg-white/[.12]">
-                        <div className="h-full bg-accent" style={{ width: `${percent}%` }} />
-                      </div>
-                      {options.map((option, index) => (
-                        <span
-                          key={option.id}
-                          aria-hidden="true"
-                          className={cn(
-                            "absolute top-1/2 h-[3px] w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full",
-                            index <= selectedIndex ? "bg-white/80" : "bg-black/25 dark:bg-white/40",
-                          )}
-                          style={{
-                            left: `${options.length <= 1 ? 0 : (index / (options.length - 1)) * 100}%`,
-                          }}
-                        />
-                      ))}
+                    <div className="absolute inset-x-0 top-1/2 h-6 -translate-y-1/2 overflow-hidden rounded-full bg-black/[.07] dark:bg-white/[.12]">
                       <div
-                        className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-line bg-surface shadow-sm"
-                        style={{ left: `${percent}%` }}
+                        className="h-full rounded-full bg-accent"
+                        style={{ width: `${percent}%` }}
                       />
                     </div>
+                    {options.map((option, index) => (
+                      <span
+                        key={option.id}
+                        aria-hidden="true"
+                        className={cn(
+                          "absolute top-1/2 h-[2px] w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-full",
+                          index <= selectedIndex ? "bg-white/70" : "bg-black/20 dark:bg-white/30",
+                        )}
+                        style={{
+                          left: `clamp(7px, ${
+                            options.length <= 1 ? 0 : (index / (options.length - 1)) * 100
+                          }%, calc(100% - 7px))`,
+                        }}
+                      />
+                    ))}
+                    <div
+                      className="pointer-events-none absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,.28)]"
+                      style={{ left: `clamp(7px, ${percent}%, calc(100% - 7px))` }}
+                    />
                   </div>
 
                   <div className="mx-2.5 mb-0.5 flex justify-between text-[9px] text-ink-3">
@@ -308,7 +324,9 @@ export function ModelControl({
                         <span className="block truncate text-[10px] text-ink-3">
                           {windowLabel(item)}
                           {item.thinking.supported
-                            ? ` · 思考 ${item.thinking.levels.map((level) => level.label).join("/")}`
+                            ? ` · 思考 ${THINKING_LADDER.slice(1)
+                                .map((level) => level.label)
+                                .join("/")}`
                             : ""}
                         </span>
                       </span>

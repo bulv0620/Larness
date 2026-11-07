@@ -56,7 +56,18 @@ export interface CatalogOptions {
 
 export type DeepSeekCatalogFetcher = (apiKey: string, signal: AbortSignal) => Promise<unknown>;
 
-const THINKING_LEVELS: ThinkingEffort[] = ["low", "high", "max"];
+/** User-facing ladder. Provider canonical tiers are low / high / max. */
+export const THINKING_LEVELS: readonly { id: "low" | "medium" | "high"; label: string }[] = [
+  { id: "low", label: "低" },
+  { id: "medium", label: "中" },
+  { id: "high", label: "高" },
+];
+
+const PROVIDER_EFFORT: Record<"low" | "medium" | "high", ThinkingEffort> = {
+  low: "low",
+  medium: "high",
+  high: "max",
+};
 
 export const DEEPSEEK_BUILTIN_CATALOG: readonly CatalogModel[] = [
   {
@@ -65,11 +76,7 @@ export const DEEPSEEK_BUILTIN_CATALOG: readonly CatalogModel[] = [
     contextWindow: 1_048_576,
     thinking: {
       supported: true,
-      levels: [
-        { id: "low", label: "低" },
-        { id: "high", label: "高" },
-        { id: "max", label: "最高" },
-      ],
+      levels: THINKING_LEVELS.map((level) => ({ ...level })),
     },
     default: true,
   },
@@ -173,10 +180,8 @@ export function createDeepSeekCatalogFetcher(
 function mergeCatalog(payload: z.infer<typeof upstreamSchema>): CatalogModel[] {
   const models = payload.data.map((entry) => {
     const builtin = DEEPSEEK_BUILTIN_CATALOG.find((item) => item.id === entry.id);
-    const levels = (entry.thinking?.levels ?? builtin?.thinking.levels ?? [])
-      .filter((level) => THINKING_LEVELS.includes(level.id as ThinkingEffort))
-      .map((level) => ({ id: level.id, label: level.label }));
-    const supported = entry.thinking?.supported ?? builtin?.thinking.supported ?? levels.length > 0;
+    const supported = entry.thinking?.supported ?? builtin?.thinking.supported ?? false;
+    const levels = supported ? THINKING_LEVELS.map((level) => ({ ...level })) : [];
 
     return {
       id: entry.id,
@@ -209,7 +214,18 @@ function parseModels(json: string): CatalogModel[] {
           default: z.boolean(),
         })
         .safeParse(entry);
-      return result.success ? [result.data] : [];
+      if (!result.success) {
+        return [];
+      }
+
+      return [
+        {
+          ...result.data,
+          thinking: result.data.thinking.supported
+            ? { supported: true, levels: THINKING_LEVELS.map((level) => ({ ...level })) }
+            : { supported: false, levels: [] },
+        },
+      ];
     });
   } catch {
     return [];
@@ -356,17 +372,23 @@ function recordFailure(
 
 function normalizeThinking(model: CatalogModel, thinking: string | null | undefined): string {
   if (thinking === undefined || thinking === null || thinking.length === 0) {
-    return "default";
+    return "medium";
   }
 
-  if (thinking === "off" || thinking === "default") {
+  if (thinking === "off") {
     return thinking;
   }
 
-  const supported =
-    model.thinking.supported && model.thinking.levels.some((level) => level.id === thinking);
+  // Legacy sessions stored "default"; the ladder now has explicit low / medium / high.
+  if (thinking === "default") {
+    return "medium";
+  }
 
-  if (!supported) {
+  if (!model.thinking.supported) {
+    throw new ModelError("MODEL_UNSUPPORTED", "thinking level is not supported by this model");
+  }
+
+  if (!THINKING_LEVELS.some((level) => level.id === thinking)) {
     throw new ModelError("MODEL_UNSUPPORTED", "thinking level is not supported by this model");
   }
 
@@ -407,11 +429,12 @@ export function mapThinkingSetting(thinking: string | null | undefined): {
     return { enabled: false };
   }
 
-  if (thinking === "low" || thinking === "high" || thinking === "max") {
-    return { enabled: true, effort: thinking };
+  if (thinking === "low" || thinking === "medium" || thinking === "high") {
+    return { enabled: true, effort: PROVIDER_EFFORT[thinking] };
   }
 
-  return { enabled: true };
+  // "default" is a legacy stored value; treat it as the middle tier.
+  return { enabled: true, effort: PROVIDER_EFFORT.medium };
 }
 
 export function resolveCatalogProvider(

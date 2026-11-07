@@ -11,8 +11,8 @@
 
 ## 2. 档位选择与发送（M5-1a）
 
-- `thinking` 取值 `off` / `default` / `low` / `high` / `max`；服务端按目标模型声明校验。
-- Provider 传 `providerOptions.deepseek.thinking` 与 `reasoningEffort`；「默认」省略 `reasoningEffort`。
+- `thinking` 取值 `off` / `low` / `medium` / `high`；服务端按模型是否支持思考校验，旧 `default` 归一为 `medium`。
+- Provider 传 `providerOptions.deepseek.thinking` 与 `reasoningEffort`；`low`→`low`、`medium`→`high`、`high`→`max`。
 - Turn 创建时固定快照；运行中 PATCH 只影响下一 Turn，已有 Turn 从 `turns.thinking` 读取。
 - UI：Composer 控件 + 浮层（模型段 / 档位段 / 目录状态），设置页改为凭据 + 目录 + 默认模型。
 

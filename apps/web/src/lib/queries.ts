@@ -68,8 +68,8 @@ export function useSnapshot() {
 
 const THINKING_LEVELS = [
   { id: "low", label: "低" },
+  { id: "medium", label: "中" },
   { id: "high", label: "高" },
-  { id: "max", label: "最高" },
 ];
 
 function mockCatalog(): ApiModelCatalog {

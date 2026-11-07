@@ -26,7 +26,7 @@ updated: 2026-11-07
 
 - **D1 旧档案全部忽略**：`model_profiles` 既有行保留数据、不删除，但不再进入模型选择、项目默认值与新 Turn 解析；历史 Session / Turn 的引用照常可读可展示。凭据与 Secret Store 继续复用。
 - **D2 完整官方接入**：以官方目录为准同步模型、窗口与可用档位，默认候选 `deepseek-flash`；模型与档位在输入框中直接可选，不再要求用户预先建 Profile。
-- **D3 思考默认开启**：新会话与新 Turn 默认开启思考，档位默认取官方默认（不发送 `reasoningEffort`）；用户可改选 低 / 高 / 最高。「关闭」保留为可选，便于对照与排障。
+- **D3 思考默认开启**：新会话与新 Turn 默认开启思考，初始档位「中」；档位固定为 关闭 / 低 / 中 / 高（2026-11-07 用户直接调整，取消「默认」档）。
 - **D4 推理数据先实测**：M5-1a 不持久化推理数据；M5-1b 内先用授权凭据实测同轮工具续跑、跨轮与进程重启要求，再按证据决定保留范围、有效期与清理。
 - **D5 UI 仿 Codex**：输入框工具栏的模型控件显示「模型名 · 档位」，点击打开浮层，模型与档位在同一浮层内分两段选择；键盘可用，当前项勾选。
 
@@ -74,8 +74,8 @@ updated: 2026-11-07
         "supported": true,
         "levels": [
           { "id": "low", "label": "低" },
-          { "id": "high", "label": "高" },
-          { "id": "max", "label": "最高" }
+          { "id": "medium", "label": "中" },
+          { "id": "high", "label": "高" }
         ]
       },
       "default": true
@@ -87,7 +87,7 @@ updated: 2026-11-07
 - `syncedAt: null` 表示从未成功同步；此时 `models` 为空，UI 提示「刷新目录」。
 - 窗口与档位缺失时按「未知」展示，不猜测数值，也不把未知模型当作可选。
 - `POST /api/sessions/:id/turns` 接受 `{ input, model?, thinking?, modelProfileId? }`；`PATCH /api/sessions/:id` 接受 `{ model?, thinking?, modelProfileId? }`。新字段优先；`modelProfileId` 仅兼容旧客户端。
-- Session / Turn DTO 增加 `model`、`thinking`；Turn 另加 `contextWindow` 快照。`thinking` 取值：`off` / `default` / 官方档位 id（如 `low`、`high`、`max`）。
+- Session / Turn DTO 增加 `model`、`thinking`；Turn 另加 `contextWindow` 快照。`thinking` 取值：`off` / `low` / `medium` / `high`；旧 `default` 读取时归一为 `medium`。
 - 校验：模型必须在当前目录（或官方内置兼容清单）内、凭据存在、档位属于该模型声明；否则拒绝且不创建 Turn。
 
 ### 5.2 事件与圆环
@@ -111,7 +111,7 @@ updated: 2026-11-07
 
 ### 5.4 Provider 参数
 
-- 思考开启：`providerOptions.deepseek.thinking = { type: "enabled" }`；选具体档位时再带 `reasoningEffort`（`low` / `high` / `max`）；「默认」不带 `reasoningEffort`。
+- 思考开启：`providerOptions.deepseek.thinking = { type: "enabled" }`；档位按强度映射到官方规范值：`low`→`low`、`medium`→`high`、`high`→`max`。
 - 关闭思考：`thinking = { type: "disabled" }`。
 - 思考开启时 SDK 忽略 `temperature` / `topP`，不作为错误处理。
 - `ProviderStepInput` 增加 `thinking`（`{ enabled: boolean; effort?: "low" | "high" | "max" }`）。
@@ -120,7 +120,7 @@ updated: 2026-11-07
 
 ### 5.5 UI
 
-- Composer 控件（仿 Codex）：底部药丸显示 `模型名 + 档位`（档位强调色）；点开为强度浮层——当前档位、模型名入口与分档滑杆（关闭 / 默认 / 低 / 高 / 最高，按目录声明裁剪）；点模型名进入模型列表（「选择模型 / 推荐模型集」，当前项勾选）。
+- Composer 控件（参考 Codex 交互）：底部药丸显示 `模型名 + 档位`（档位强调色）；点开为强度浮层——当前档位、模型名入口与分档滑杆（关闭 / 低 / 中 / 高）；点模型名进入模型列表（「选择模型 / 推荐模型集」，当前项勾选）。
 - 键盘：滑杆 ←→/Home/End 调整，模型列表 ↑↓/Enter 选择，Esc 关闭；焦点可见；窄屏不遮挡输入区。
 - 设置页模型区：凭据列表 + 目录（模型、窗口、档位、默认标记、同步时间、刷新按钮、stale / 错误状态）；选择保存到当前会话；旧 Profile 列表移除。
 - 无凭据：控件显示「未配置凭据」并引导到设置页。
@@ -157,8 +157,8 @@ updated: 2026-11-07
 |---|---|---|---|
 | A1 目录同步 | 已配置有效 DeepSeek 凭据 | 在设置页刷新目录 | 显示官方返回的兼容模型、窗口与档位；默认候选为 `deepseek-flash`；缓存写入并带 `syncedAt` |
 | A2 目录失败 | 已有一次成功同步的目录 | 凭据失效、限流、超时或字段缺失 | 保留上次记录并显示刷新失败与 `stale`；未知窗口 / 档位显示「未知」，不给假值 |
-| A3 默认选择 | 新会话，已同步目录 | 不修改选择直接发送 | 使用 `deepseek-flash`，请求带 `thinking.type=enabled` 且不带 `reasoningEffort`；UI 显示「默认」档位 |
-| A4 档位固定 | 所选模型提供多个档位 | 以「高」发送，再在运行中改选「低」 | 本轮每次模型请求继续用「高」；下一轮用「低」；非法档位后端返回 `MODEL_UNSUPPORTED` |
+| A3 默认选择 | 新会话，已同步目录 | 不修改选择直接发送 | 使用 `deepseek-flash`，请求带 `thinking.type=enabled` 与 `reasoningEffort=high`（中档映射）；UI 显示「中」 |
+| A4 档位固定 | 所选模型提供多个档位 | 以「高」发送，再在运行中改选「低」 | 本轮每次模型请求继续用「高」（`reasoningEffort=max`）；下一轮用「低」；非法档位后端返回 `MODEL_UNSUPPORTED` |
 | A5 工具续跑 | 官方端点开启思考 | 任务连续调用工具，再在同会话发下一轮 | 已授权工具正常执行并返回最终答复；同轮按官方协议回传推理数据，跨轮行为按 M5-1b 实测结论 |
 | A6 圆环口径 | 同一轮两次模型请求各有 40,000 和 80,000 输入 tokens，窗口为 1,048,576 | 第二次用量到达，随后刷新页面 | 圆环按 80,000 显示约 8%，文案写明单次输入；累计输入仍记录为 120,000 |
 | A7 历史与切换 | 旧记录只有累计用量，或统计来自另一模型 | 打开旧会话或切换模型 | 圆环显示「暂无统计」，直到所选模型有可匹配的单次统计 |

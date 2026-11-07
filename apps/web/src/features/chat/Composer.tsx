@@ -85,13 +85,16 @@ export function Composer() {
     if (sessionDetail === null || sessionDetail.id === hydratedSession.current) return;
     hydratedSession.current = sessionDetail.id;
     if (sessionDetail.model) setModelId(sessionDetail.model);
-    if (sessionDetail.thinking) setThinking(sessionDetail.thinking);
+    if (sessionDetail.thinking) {
+      setThinking(sessionDetail.thinking === "default" ? "medium" : sessionDetail.thinking);
+    }
   }, [sessionDetail, setModelId, setThinking]);
 
   useEffect(() => {
     if (catalogModels.length > 0 && !catalogModels.some((item) => item.id === modelId)) {
-      setModelId(catalogModels[0]?.id ?? modelId);
-      setThinking("default");
+      const first = catalogModels[0];
+      setModelId(first?.id ?? modelId);
+      setThinking(first?.thinking.supported ? "medium" : "off");
     }
   }, [catalogModels, modelId, setModelId, setThinking]);
 
@@ -118,8 +121,8 @@ export function Composer() {
     setModelId(nextModelId);
     const next = catalogModels.find((item) => item.id === nextModelId);
 
-    if (next !== undefined && !next.thinking.levels.some((level) => level.id === thinking)) {
-      setThinking("default");
+    if (next !== undefined && !next.thinking.supported) {
+      setThinking("off");
     }
   };
 

@@ -32,8 +32,8 @@ vi.mock("@/lib/queries", () => ({
             supported: true,
             levels: [
               { id: "low", label: "低" },
+              { id: "medium", label: "中" },
               { id: "high", label: "高" },
-              { id: "max", label: "最高" },
             ],
           },
           default: true,

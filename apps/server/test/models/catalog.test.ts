@@ -6,6 +6,7 @@ import {
   CatalogHttpError,
   type CatalogOptions,
   getModelCatalog,
+  mapThinkingSetting,
   refreshModelCatalog,
   resolveCatalogSelection,
 } from "../../src/modules/models/catalog.js";
@@ -93,7 +94,7 @@ describe("deepseek model catalog", () => {
           default: true,
           thinking: {
             supported: true,
-            levels: [{ id: "low" }, { id: "high" }, { id: "max" }],
+            levels: [{ id: "low" }, { id: "medium" }, { id: "high" }],
           },
         });
         expect(catalog.models[1]).toMatchObject({
@@ -224,9 +225,15 @@ describe("deepseek model catalog", () => {
 
         expect(resolveCatalogSelection(options.db, { model: "deepseek-flash" })).toEqual({
           model: "deepseek-flash",
-          thinking: "default",
+          thinking: "medium",
           contextWindow: 1_048_576,
         });
+        expect(
+          resolveCatalogSelection(options.db, { model: "deepseek-flash", thinking: "medium" }),
+        ).toMatchObject({ thinking: "medium" });
+        expect(
+          resolveCatalogSelection(options.db, { model: "deepseek-flash", thinking: "default" }),
+        ).toMatchObject({ thinking: "medium" });
         expect(
           resolveCatalogSelection(options.db, { model: "deepseek-flash", thinking: "high" }),
         ).toMatchObject({ thinking: "high" });
@@ -243,6 +250,11 @@ describe("deepseek model catalog", () => {
         expect(() => resolveCatalogSelection(options.db, { model: "unknown-model" })).toThrowError(
           ModelError,
         );
+
+        expect(mapThinkingSetting("off")).toEqual({ enabled: false });
+        expect(mapThinkingSetting("low")).toEqual({ enabled: true, effort: "low" });
+        expect(mapThinkingSetting("medium")).toEqual({ enabled: true, effort: "high" });
+        expect(mapThinkingSetting("high")).toEqual({ enabled: true, effort: "max" });
       } finally {
         opened.sqlite.close();
       }

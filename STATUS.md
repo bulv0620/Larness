@@ -115,12 +115,12 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - 迁移 `0015_model_catalog`：`model_catalog_cache` + `sessions.model/thinking` + `turns.thinking/context_window`，只加表与可空列，旧 Profile 行保留。
 - 目录：固定官方端点、Secret Store 取凭据、Zod 校验、按凭据缓存与 `stale` / `lastRefreshError`；`GET /api/models/catalog`、`POST /api/models/catalog/refresh`（认证 + CSRF）；新增 `MODEL_CREDENTIAL_MISSING` / `MODEL_CATALOG_INVALID` / `MODEL_UNSUPPORTED`。
-- 选择：Composer 模型 / 档位浮层（默认开启思考，默认档位省略 `reasoningEffort`，保留关闭），设置页凭据 + 目录 + 默认标记；会话保存选择，Turn 快照 provider/model/thinking/window；旧 `modelProfileId` 仅兼容解析。
-- Provider：`thinking` / `reasoningEffort`（enabled/disabled、low/high/max），非法值在调用上游前拒绝。
+- 选择：Composer 模型 / 档位浮层（默认开启思考，初始「中」；档位 关/低/中/高），设置页凭据 + 目录 + 默认标记；会话保存选择，Turn 快照 provider/model/thinking/window；旧 `modelProfileId` 仅兼容解析。
+- Provider：`thinking` / `reasoningEffort`（enabled/disabled；`low`→`low`、`medium`→`high`、`high`→`max`），非法值在调用上游前拒绝。
 - 验证：`pnpm check` 通过（server 501 通过 / 10 跳过、agent 34 通过 / 1 跳过、web 130 通过）；`pnpm build`；Demo 19/19；auth E2E `m1` + `conversation` 通过；prod E2E `m1`（首次右键菜单既有抖动，原样复跑通过）+ `conversation` 通过。
 - 未验证：真实官方端点同步与真实思考参数——本机无 `DEEPSEEK_API_KEY`，未使用用户已存凭据；思考模式工具续跑与推理数据回传属 M5-1b PoC；单次请求圆环属 M5-1c（当前圆环分母改为目录窗口，分子仍为整轮累计）。
 - 偏差：`/api/models` 保留为旧 Profile 查询（UI 不再使用）；项目默认模型档案不再影响新会话；设置页不提供全局默认模型，选择写入当前会话（spec 5.5 已同步）。
-- UI 调整（2026-11-07，同任务）：参考 Codex 的交互而非外观——底部药丸（模型 + 档位）、思考强度浮层（当前档位、模型名入口、五档滑杆、刷新）与模型列表；视觉沿用现有菜单 token、字号与圆角。单测覆盖滑杆键盘 / 拖拽与模型切换，浅色 / 深色 mock 截图目视通过。
+- UI 调整（2026-11-07，同任务）：参考 Codex 的交互而非外观——底部药丸（模型 + 档位）、思考强度浮层（当前档位、模型名入口、四档滑杆 关/低/中/高、刷新）与模型列表；视觉沿用现有菜单 token、字号与圆角。单测覆盖滑杆键盘 / 拖拽与模型切换，浅色 / 深色 mock 截图目视通过。
 
 ## 已冻结
 
