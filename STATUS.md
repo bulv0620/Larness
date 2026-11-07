@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1d-3 `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：70% 触发、当前模型摘要、`session_context_summaries`、`context.compressed`、降级截断与 UI 提示；跨模型整体验收归 d-4。
+- M5-1d-4 `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：跨 Provider 上下文中性、切换提示、圆环 hover、回归与验收记录（`specs/063-multi-provider/closure-d4.md`）。
 - M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
@@ -234,6 +234,13 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 安全：摘要经 `OutputRedactor` 处理后存储；不写事件、日志或审计正文；会话删除级联清理。
 - 验证：`pnpm check`（web 135、agent 40/1、server 522/10）、`pnpm build`、auth E2E `m1`。
 - 未验证：真实长会话触发的端到端 UI / 摘要质量（单元测试覆盖触发、成功、降级、无历史）。
+
+## M5-1d-4 交付（2026-11-07）
+
+- 跨模型切换：Composer 选择器显示「已切换到 …」提示；Session / Turn 快照新模型与凭据；上下文只使用 user / assistant 文本，不含推理或厂商私有字段。
+- 圆环：hover 显示单次输入 / 模型窗口 / 百分比的简单提示（Radix Tooltip），未知统计显示「暂无统计 · 模型窗口」。
+- 回归：`pnpm check`（web 135、agent 40/1、server 523/10）、`pnpm build`、auth E2E `m1`、Demo 19/19。
+- 验收记录：`specs/063-multi-provider/closure-d4.md`；真实第三方兼容端点、GLM 图片输入、真实长会话压缩质量列为未验证。
 
 ## 已冻结
 

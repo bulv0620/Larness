@@ -1,3 +1,4 @@
+import { TooltipProvider } from "@larness/ui";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -84,7 +85,11 @@ beforeEach(() => {
 });
 it("offers the approval policies and reflects each selection on the shield", async () => {
   const user = userEvent.setup();
-  render(<Composer />);
+  render(
+    <TooltipProvider>
+      <Composer />
+    </TooltipProvider>,
+  );
   await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
   const menu = screen.getByRole("menu");
   expect(within(menu).getAllByRole("menuitemradio")).toHaveLength(4);
@@ -97,7 +102,11 @@ it("offers the approval policies and reflects each selection on the shield", asy
   expect(useComposerStore.getState().policy).toBe("readonly");
 });
 it("shows bounded context usage immediately before send/stop and distinguishes unknown usage", () => {
-  render(<Composer />);
+  render(
+    <TooltipProvider>
+      <Composer />
+    </TooltipProvider>,
+  );
   const ring = screen.getByRole("progressbar", { name: "上下文用量" });
   expect(ring).toHaveAttribute("aria-valuenow", "25");
   expect(ring).toHaveAttribute(
@@ -123,7 +132,11 @@ it("shows bounded context usage immediately before send/stop and distinguishes u
 
 it("requires risk confirmation before switching to autonomous, with cancellation preserving policy", async () => {
   const user = userEvent.setup();
-  render(<Composer />);
+  render(
+    <TooltipProvider>
+      <Composer />
+    </TooltipProvider>,
+  );
   await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
   await user.click(screen.getByRole("menuitemradio", { name: /完全自主/ }));
   expect(useComposerStore.getState().policy).toBe("standard");
@@ -139,7 +152,11 @@ it("requires risk confirmation before switching to autonomous, with cancellation
 
 it("switches model and thinking from the two-level menu", async () => {
   const user = userEvent.setup();
-  render(<Composer />);
+  render(
+    <TooltipProvider>
+      <Composer />
+    </TooltipProvider>,
+  );
   await user.click(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 中" }));
   const popover = await screen.findByRole("dialog", { name: "模型与思考" });
   expect(within(popover).getByRole("button", { name: "模型：DeepSeek Flash" })).toBeVisible();
@@ -162,6 +179,7 @@ it("switches model and thinking from the two-level menu", async () => {
   expect(useComposerStore.getState().modelId).toBe("glm-4.6");
   expect(useComposerStore.getState().credentialProfileId).toBe("cred_glm");
   expect(useComposerStore.getState().thinking).toBe("on");
+  expect(screen.getByText("已切换到 GLM-4.6")).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "模型与思考：GLM-4.6 · 开启" }));
   const glmPopover = screen.getByRole("dialog", { name: "模型与思考" });
@@ -178,6 +196,7 @@ it("switches model and thinking from the two-level menu", async () => {
   expect(useComposerStore.getState().modelId).toBe("deepseek-chat");
   expect(useComposerStore.getState().credentialProfileId).toBe("cred_mock");
   expect(useComposerStore.getState().thinking).toBe("off");
+  expect(screen.getByText("已切换到 DeepSeek Chat")).toBeVisible();
   expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Chat · 不支持" })).toBeVisible();
   expect(screen.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
     "aria-valuetext",

@@ -171,4 +171,32 @@ describe("context compression", () => {
       }
     });
   });
+  it("keeps history provider-neutral across model switches", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, session, turn } = await fixture(dir);
+
+      try {
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+          },
+          session,
+          turn,
+        );
+        const history = context.messages.slice(1, -1);
+
+        expect(history.length).toBeGreaterThan(0);
+        expect(
+          history.every((message) => message.role === "user" || message.role === "assistant"),
+        ).toBe(true);
+        expect(JSON.stringify(history)).not.toContain("reasoning");
+        expect(JSON.stringify(history)).not.toContain("providerOptions");
+      } finally {
+        opened.sqlite.close();
+      }
+    });
+  });
 });

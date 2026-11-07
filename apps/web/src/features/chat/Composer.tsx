@@ -12,6 +12,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
+  Hint,
   IconButton,
 } from "@larness/ui";
 import { ArrowUp, Plus, Shield, ShieldAlert, ShieldCheck, Square } from "lucide-react";
@@ -73,6 +74,7 @@ function thinkingAllowed(
 
 export function Composer() {
   const [confirmAutonomous, setConfirmAutonomous] = useState(false);
+  const [switchNotice, setSwitchNotice] = useState<string | null>(null);
   const { catalog, error: catalogError } = useModelCatalog();
   const draft = useComposerStore((state) => state.draft);
   const modelId = useComposerStore((state) => state.modelId);
@@ -119,6 +121,12 @@ export function Composer() {
   useEffect(() => {
     if (focusNonce > 0) textareaRef.current?.focus();
   }, [focusNonce]);
+
+  useEffect(() => {
+    if (switchNotice === null) return;
+    const timer = setTimeout(() => setSwitchNotice(null), 4_000);
+    return () => clearTimeout(timer);
+  }, [switchNotice]);
 
   useEffect(() => {
     if (sessionDetail === null || sessionDetail.id === hydratedSession.current) return;
@@ -201,8 +209,12 @@ export function Composer() {
         pair.model.id === nextModelId && pair.group.credentialProfileId === nextCredentialProfileId,
     );
 
-    if (next !== undefined && !thinkingAllowed(next.model, thinking)) {
-      setThinking(defaultThinkingFor(next.model));
+    if (next !== undefined) {
+      setSwitchNotice(`已切换到 ${next.model.label}`);
+
+      if (!thinkingAllowed(next.model, thinking)) {
+        setThinking(defaultThinkingFor(next.model));
+      }
     }
   };
 
@@ -218,6 +230,11 @@ export function Composer() {
 
   return (
     <div className="rounded-[18px] border border-line bg-surface shadow-[var(--shadow-card)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:ring-2 focus-within:ring-accent/10">
+      {switchNotice ? (
+        <p role="status" className="px-3.5 pt-2 text-[10.5px] text-ink-3">
+          {switchNotice}
+        </p>
+      ) : null}
       <textarea
         ref={textareaRef}
         value={draft}
@@ -364,56 +381,57 @@ function ContextUsage({ used, limit }: { used: number | null; limit: number }) {
     ? `单次输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）`
     : `暂无统计 · 模型窗口 ${limit.toLocaleString()} tokens`;
   return (
-    <div
-      role="progressbar"
-      aria-label="上下文用量"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={known ? percent : undefined}
-      aria-valuetext={detail}
-      title={detail}
-      className={cn(
-        "flex h-7 w-7 shrink-0 items-center justify-center",
-        !known
-          ? "text-ink-3"
-          : percent >= 90
-            ? "text-danger"
-            : percent >= 75
-              ? "text-warning"
-              : "text-accent",
-      )}
-    >
-      <svg
-        aria-hidden="true"
-        width="18"
-        height="18"
-        viewBox="0 0 20 20"
-        className="-rotate-90"
-        fill="none"
+    <Hint label={detail} side="top">
+      <div
+        role="progressbar"
+        aria-label="上下文用量"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={known ? percent : undefined}
+        aria-valuetext={detail}
+        className={cn(
+          "flex h-7 w-7 shrink-0 items-center justify-center",
+          !known
+            ? "text-ink-3"
+            : percent >= 90
+              ? "text-danger"
+              : percent >= 75
+                ? "text-warning"
+                : "text-accent",
+        )}
       >
-        <circle
-          cx="10"
-          cy="10"
-          r="7"
-          stroke="currentColor"
-          strokeWidth="2"
-          className="text-line-strong"
-        />
-        {known ? (
+        <svg
+          aria-hidden="true"
+          width="18"
+          height="18"
+          viewBox="0 0 20 20"
+          className="-rotate-90"
+          fill="none"
+        >
           <circle
             cx="10"
             cy="10"
             r="7"
-            pathLength="100"
             stroke="currentColor"
             strokeWidth="2"
-            strokeLinecap="round"
-            strokeDasharray="100"
-            strokeDashoffset={100 - percent}
-            className="transition-[stroke-dashoffset] duration-150 motion-reduce:transition-none"
+            className="text-line-strong"
           />
-        ) : null}
-      </svg>
-    </div>
+          {known ? (
+            <circle
+              cx="10"
+              cy="10"
+              r="7"
+              pathLength="100"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeDasharray="100"
+              strokeDashoffset={100 - percent}
+              className="transition-[stroke-dashoffset] duration-150 motion-reduce:transition-none"
+            />
+          ) : null}
+        </svg>
+      </div>
+    </Hint>
   );
 }

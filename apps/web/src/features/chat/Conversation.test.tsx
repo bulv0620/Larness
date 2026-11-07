@@ -1,4 +1,5 @@
 import type { TimelineItem } from "@larness/shared";
+import { TooltipProvider } from "@larness/ui";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -153,7 +154,9 @@ it("puts interactive approval only above composer; retains it until confirmed an
       <Timeline />
       <footer>
         <PendingApproval />
-        <Composer />
+        <TooltipProvider>
+          <Composer />
+        </TooltipProvider>
       </footer>
     </>,
   );
@@ -189,7 +192,11 @@ it("Enter never stops a running turn and IME Enter never sends; stop stays expli
   const stop = vi.fn();
   const send = vi.fn();
   useTimelineStore.setState({ isStreaming: true, stop, send });
-  render(<Composer />);
+  render(
+    <TooltipProvider>
+      <Composer />
+    </TooltipProvider>,
+  );
   const input = screen.getByRole("textbox", { name: "对话输入" });
   fireEvent.change(input, { target: { value: "下一个任务" } });
   fireEvent.keyDown(input, { key: "Enter" });
