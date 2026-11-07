@@ -435,6 +435,14 @@ describe("deepseek model catalog", () => {
       supported: true,
       mode: "mandatory-levels",
     });
+    expect(byId.get("glm-5.3-flash")?.contextWindow).toBe(1_000_000);
+    expect(byId.get("glm-5.3-flashx")?.contextWindow).toBe(1_000_000);
+    expect(byId.get("glm-5.3-flashx-legal")?.thinking).toMatchObject({
+      supported: true,
+      mode: "mandatory-levels",
+    });
+    expect(byId.get("glm-5-turbo")?.contextWindow).toBe(200_000);
+    expect(byId.get("glm-5-turbo")?.thinking).toMatchObject({ supported: true, mode: "toggle" });
     expect(byId.get("glm-5.2")?.thinking).toMatchObject({ supported: true, mode: "levels" });
   });
 });

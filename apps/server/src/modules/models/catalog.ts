@@ -130,6 +130,13 @@ export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
     default: false,
   },
   {
+    id: "glm-5-turbo",
+    label: "GLM-5 Turbo",
+    contextWindow: 200_000,
+    thinking: { supported: true, mode: "toggle", levels: [] },
+    default: false,
+  },
+  {
     id: "glm-5.1",
     label: "GLM-5.1",
     contextWindow: 200_000,
@@ -150,6 +157,39 @@ export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
   {
     id: "glm-5.3",
     label: "GLM-5.3",
+    contextWindow: 1_000_000,
+    thinking: {
+      supported: true,
+      mode: "mandatory-levels",
+      levels: THINKING_LEVELS.map((level) => ({ ...level })),
+    },
+    default: false,
+  },
+  {
+    id: "glm-5.3-flash",
+    label: "GLM-5.3 Flash",
+    contextWindow: 1_000_000,
+    thinking: {
+      supported: true,
+      mode: "mandatory-levels",
+      levels: THINKING_LEVELS.map((level) => ({ ...level })),
+    },
+    default: false,
+  },
+  {
+    id: "glm-5.3-flashx",
+    label: "GLM-5.3 FlashX",
+    contextWindow: 1_000_000,
+    thinking: {
+      supported: true,
+      mode: "mandatory-levels",
+      levels: THINKING_LEVELS.map((level) => ({ ...level })),
+    },
+    default: false,
+  },
+  {
+    id: "glm-5.3-flashx-legal",
+    label: "GLM-5.3 FlashX Legal",
     contextWindow: 1_000_000,
     thinking: {
       supported: true,

@@ -44,7 +44,7 @@
 - [x] 兼容适配器发送 `thinking.type` 与 `reasoning_effort`（openai-compatible providerOptions）。
 - [x] UI 按模型动态显示档位；切换模型自动修正非法档位。
 - [x] 测试：GLM toggle / mandatory 校验、Provider options、选择器档位、内置窗口表回归。
-- [x] 真实目录刷新验证：4.7/5/5.1 200K、5.2/5.3 1M，模式正确。
+- [x] 真实目录刷新验证：4.7/5/5.1/5-Turbo 200K、5.2/5.3/5.3-Flash/FlashX 1M，模式正确。
 
 ## M5-1d-2c 自定义兼容端点
 

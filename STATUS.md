@@ -192,7 +192,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 服务端默认值：开关默认开、强制档位默认高、普通档位默认中；切换模型时 UI 自动修正非法档位。
 - 请求：兼容适配器通过 providerOptions 发送 `thinking: { type }`，档位模型附加 `reasoning_effort`；DeepSeek 路径不变。
 - 验证：`pnpm check`（web 135、agent 40 通过 / 1 跳过、server 512 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
-- 真实目录刷新验证：4.5/4.5-Air 128K、4.6/4.7/5/5.1 200K、5.2/5.3 1M；思考模式分别为 toggle / levels / mandatory-levels。5-turbo、5.3-flash* 仍未收录，保持禁用。
+- 真实目录刷新验证：4.5/4.5-Air 128K；4.6/4.7/5/5.1/5-Turbo 200K；5.2/5.3/5.3-Flash/FlashX 1M；思考模式分别为 toggle / levels / mandatory-levels。GLM 目录模型现已全部可选。
 - 未验证：GLM 真实对话（账户余额不足），只验证了请求组装与目录能力。
 
 ## 已冻结
