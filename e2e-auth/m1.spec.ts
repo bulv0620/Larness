@@ -159,7 +159,8 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
 
     await page.getByRole("button", { name: "设置与模型" }).click();
     const settings = page.getByRole("dialog");
-    await settings.getByRole("button", { name: /DeepSeek Chat/ }).click();
+    await settings.getByRole("button", { name: /E2E Key/ }).click();
+    await settings.getByRole("button", { name: /DeepSeek Chat .*上下文/ }).click();
     await page.keyboard.press("Escape");
     await expect(settings).toBeHidden();
 
@@ -179,11 +180,12 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByText("草稿")).toHaveCount(0);
 
     await page.getByRole("button", { name: "设置与模型" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "添加 Key" }).click();
     await page.getByRole("dialog").getByLabel("凭据名称").fill("E2E secret");
     await page.getByRole("dialog").getByLabel("API Key").fill("sk-e2e-secret-value");
     await page.getByRole("dialog").getByRole("button", { name: "添加" }).click();
     await expect(page.getByRole("dialog").getByText("sk-e2e-secret-value")).toHaveCount(0);
-    await expect(page.getByRole("dialog").getByText(/•+/)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("dialog").getByText(/•+/).first()).toBeVisible({ timeout: 10_000 });
     await page.keyboard.press("Escape");
 
     expect(pageErrors).toEqual([]);

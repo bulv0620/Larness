@@ -41,7 +41,7 @@ it("adds formal service runtime records without changing authorization data", as
       journal.entries = complete;
       await writeFile(journalPath, JSON.stringify(journal));
       runMigrations(opened.db, migrations);
-      expect(appliedMigrationCount(opened.sqlite)).toBe(16);
+      expect(appliedMigrationCount(opened.sqlite)).toBe(17);
       expect(opened.sqlite.prepare("SELECT * FROM resource_streams").all()).toEqual([
         { stream_id: "ops:tgt_fixture", last_seq: 2 },
       ]);

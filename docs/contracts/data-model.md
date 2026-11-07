@@ -251,6 +251,10 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 ## ADR-042：分阶段服务与部署记录（2026-11-05，draft）
 按 [ADR-048](../adr/ADR-048-service-domain-separation.md)，`services` 保持 M3 开发绑定和历史。M4 在同一业务数据库新增独立正式仓储及部署记录，部署目标引用正式 ID，来源项目和产物用于追溯及授权校验。运维日志和事件流独立，业务事件仍与 seq 事务提交。审批与策略记录分别绑定领域及作用域，只有人工分支关联 approvalId。表、列、约束、迁移与留存按对应任务冻结。见 [部署契约](deployment.md)。
 
+## M5-1d 迁移 0017_model_visibility（2026-11-07）
+
+新增 `model_visibility`（`id, credential_profile_id, model_id, visible, updated_at`，唯一键 `credential_profile_id + model_id`），schemaVersion 16 → 17。只保存用户对「会话选择器是否显示」的偏好，默认可见；删除凭据级联删除，不改目录缓存或历史 Turn。
+
 ## M4-1 迁移 0011_deployments（2026-11-06）
 
 新增 `deployment_targets` / `deployment_builds` / `deployment_artifacts` / `deployment_plans`，schemaVersion 10 → 11。旧表、旧数据、资源流序号与锁/fencing 不变。产物与构建日志位于 `dataDir/artifacts/deploy`、`dataDir/logs/deploy`，不在源码目录；DB 只存元数据、规范化 spec、哈希与相对路径，不含秘密或构建输出正文。`deployment_targets.current_artifact_id/current_version` 是最近一次成功部署指针，M4-1 只读，M4-3 成功后更新。精确列/约束见 [部署契约 §2.1](deployment.md#21-m4-1-冻结2026-11-06) 与 [M4-1 技术冻结](../../specs/050-deploy/m4-1-design.md)。

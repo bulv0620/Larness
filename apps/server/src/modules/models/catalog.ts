@@ -10,10 +10,12 @@ import {
   findLatestCredentialForProvider,
   getCredentialRow,
   getModelCatalogCache,
+  getModelVisibility,
   getSecretRow,
   listCredentialRows,
   recordModelCatalogFailure,
   saveModelCatalog,
+  setModelVisibilityRow,
 } from "./repository.js";
 import { ModelError } from "./service.js";
 
@@ -33,6 +35,8 @@ export interface CatalogModel {
   contextWindow: number | null;
   thinking: { supported: boolean; levels: CatalogThinkingLevel[] };
   default: boolean;
+  /** Whether the model appears in the conversation picker; defaults to true. */
+  visible?: boolean;
 }
 
 export interface CatalogGroup {
@@ -287,6 +291,12 @@ function groupFor(
 ): CatalogGroup {
   const row = getModelCatalogCache(db, credential.id);
 
+  const visibility = getModelVisibility(db, credential.id);
+  const models = (row === null ? [] : parseModels(row.modelsJson)).map((model) => ({
+    ...model,
+    visible: visibility.get(model.id) ?? true,
+  }));
+
   return {
     provider: credential.provider,
     credentialProfileId: credential.id,
@@ -294,7 +304,7 @@ function groupFor(
     syncedAt: row?.syncedAt ?? null,
     stale: row === null || row.syncedAt === null || row.lastErrorCode !== null,
     lastRefreshError: row?.lastErrorCode ?? null,
-    models: row === null ? [] : parseModels(row.modelsJson),
+    models,
   };
 }
 
@@ -612,4 +622,47 @@ export function resolveCatalogProvider(
     contextWindow,
     thinking: mapThinkingSetting(input.thinking),
   };
+}
+
+export function setCatalogModelVisibility(
+  options: CatalogOptions,
+  input: {
+    credentialProfileId: string;
+    modelId: string;
+    visible: boolean;
+    clientSessionId?: string;
+  },
+): void {
+  const credential = getCredentialRow(options.db, input.credentialProfileId);
+
+  if (credential === null) {
+    throw new ModelError("NOT_FOUND", "credential not found");
+  }
+
+  if (credential.provider !== "deepseek" && credential.provider !== "glm") {
+    throw new ModelError("MODEL_UNSUPPORTED", "catalog is not available for this provider");
+  }
+
+  if (!cachedModelsFor(options.db, credential.id).some((model) => model.id === input.modelId)) {
+    throw new ModelError("NOT_FOUND", "model is not in the cached catalog");
+  }
+
+  const now = options.now?.() ?? Date.now();
+  immediateTransaction(options.db, (tx) => {
+    setModelVisibilityRow(tx, {
+      credentialProfileId: credential.id,
+      modelId: input.modelId,
+      visible: input.visible,
+      now,
+    });
+    appendAudit(tx, {
+      action: "model.visibility.changed",
+      decision: "allow",
+      clientSessionId: input.clientSessionId,
+      resourceType: "model",
+      resourceId: input.modelId,
+      details: { credentialProfileId: credential.id, visible: input.visible },
+      now,
+    });
+  });
 }

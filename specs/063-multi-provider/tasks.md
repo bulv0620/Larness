@@ -31,6 +31,8 @@
 - [x] 设置页增加 DeepSeek / GLM Provider 选择；分组模型列表保存到当前会话。
 - [x] 测试：多组渲染、选择绑定到 Key、切换 Key 后用量不串。
 - [x] 修正：设置弹窗限高滚动；未知窗口模型禁用；GLM 余额不足映射 `PROVIDER_QUOTA_EXHAUSTED`。
+- [x] 弹窗按服务运维风格重构：Key 列表 → Key 详情（模型列表）；添加 Key 独立视图。
+- [x] 迁移 `0017_model_visibility` 与 `PATCH /api/models/catalog/visibility`；模型行眼睛图标控制是否出现在会话选择器，输入框选择器过滤隐藏模型。
 
 ## M5-1d-2c 自定义兼容端点
 

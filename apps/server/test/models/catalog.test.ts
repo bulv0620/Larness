@@ -9,6 +9,7 @@ import {
   mapThinkingSetting,
   refreshModelCatalog,
   resolveCatalogSelection,
+  setCatalogModelVisibility,
 } from "../../src/modules/models/catalog.js";
 import { createCredential, listModelDtos, ModelError } from "../../src/modules/models/service.js";
 import { SecretStore } from "../../src/security/secretStore.js";
@@ -318,6 +319,38 @@ describe("deepseek model catalog", () => {
             credentialProfileId: first.id,
           }),
         ).toMatchObject({ model: "deepseek-flash", credentialProfileId: first.id });
+      } finally {
+        opened.sqlite.close();
+      }
+    });
+  });
+  it("stores per-model visibility for the conversation picker", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+
+      try {
+        createCredential(options, {
+          provider: "deepseek",
+          label: "DeepSeek Key",
+          apiKey: "sk-test",
+        });
+        await refreshModelCatalog(
+          { ...options, fetcher: async () => catalogResponse(["deepseek-flash", "deepseek-chat"]) },
+          { clientSessionId: "bs_test" },
+        );
+
+        const group = getModelCatalog(options).groups[0];
+        expect(group?.models.find((model) => model.id === "deepseek-chat")?.visible).toBe(true);
+
+        setCatalogModelVisibility(options, {
+          credentialProfileId: group?.credentialProfileId ?? "",
+          modelId: "deepseek-chat",
+          visible: false,
+        });
+
+        expect(
+          getModelCatalog(options).models.find((model) => model.id === "deepseek-chat")?.visible,
+        ).toBe(false);
       } finally {
         opened.sqlite.close();
       }

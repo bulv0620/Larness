@@ -113,6 +113,7 @@ export interface ApiCatalogModel {
   contextWindow: number | null;
   thinking: { supported: boolean; levels: ApiCatalogThinkingLevel[] };
   default: boolean;
+  visible?: boolean;
 }
 
 export interface ApiCatalogGroup {
@@ -196,6 +197,18 @@ export async function listModels(): Promise<ApiModelProfile[]> {
 
 export async function listModelCatalog(): Promise<ApiModelCatalog> {
   return apiFetch<ApiModelCatalog>("/api/models/catalog");
+}
+
+export async function setModelVisibility(input: {
+  credentialProfileId: string;
+  modelId: string;
+  visible: boolean;
+}): Promise<void> {
+  await apiFetch("/api/models/catalog/visibility", {
+    method: "PATCH",
+    body: input,
+    csrf: true,
+  });
 }
 
 export async function refreshModelCatalog(): Promise<ApiModelCatalog> {

@@ -8,6 +8,7 @@ import {
   type ModelProviderId,
   modelCatalogCache,
   modelProfiles,
+  modelVisibility,
   type SecretRow,
   secrets,
 } from "../../db/schema.js";
@@ -257,6 +258,38 @@ export function recordModelCatalogFailure(
         lastAttemptAt: input.now,
         lastErrorCode: input.errorCode,
       },
+    })
+    .run();
+}
+
+export function getModelVisibility(
+  db: DbExecutor,
+  credentialProfileId: string,
+): Map<string, boolean> {
+  const rows = db
+    .select()
+    .from(modelVisibility)
+    .where(eq(modelVisibility.credentialProfileId, credentialProfileId))
+    .all();
+
+  return new Map(rows.map((row) => [row.modelId, row.visible === 1]));
+}
+
+export function setModelVisibilityRow(
+  db: DbExecutor,
+  input: { credentialProfileId: string; modelId: string; visible: boolean; now: number },
+): void {
+  db.insert(modelVisibility)
+    .values({
+      id: newId("mv"),
+      credentialProfileId: input.credentialProfileId,
+      modelId: input.modelId,
+      visible: input.visible ? 1 : 0,
+      updatedAt: input.now,
+    })
+    .onConflictDoUpdate({
+      target: [modelVisibility.credentialProfileId, modelVisibility.modelId],
+      set: { visible: input.visible ? 1 : 0, updatedAt: input.now },
     })
     .run();
 }

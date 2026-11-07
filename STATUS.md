@@ -172,7 +172,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 分支 `task/m5-1d-multi-provider-spec`；迁移 `0016_multi_provider`：`sessions/turns.credential_profile_id` 可空列（schemaVersion 16）。
 - 目录：`GET /api/models/catalog` 增加 `groups`（保留扁平字段指向最新组）；刷新遍历所有 DeepSeek / GLM 凭据，按组记录 `stale` / `lastRefreshError`，失败不覆盖旧缓存；GLM 目录走官方兼容端点（内置窗口表，未知窗口不可选）。
 - 绑定：`PATCH /api/sessions/:id` 与 `POST /api/sessions/:id/turns` 接受 `credentialProfileId`；Turn 快照凭据，Provider 解析按快照选择 DeepSeek / GLM 适配器；同一模型出现在多个 Key 时要求显式选择。
-- 验证：`pnpm check`（web 135、agent 38 通过 / 1 跳过、server 509 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
+- 验证：`pnpm check`（web 135、agent 39 通过 / 1 跳过、server 510 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
 - 未验证：真实 GLM 端点 / 目录；多 Key 选择 UI、能力矩阵与自定义兼容端点（d-2b）。
 
 ## M5-1d-2b 交付（2026-11-07）
@@ -180,9 +180,9 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 分支 `task/m5-1d-multi-provider-spec`；模型选择器按 `catalog.groups` 渲染「Provider · Key」分组，选择同时绑定 `credentialProfileId`；设置页同步分组，并可切换 DeepSeek / GLM 添加 Key。
 - 能力展示：模型行显示窗口与思考档位（未知窗口不可选）；GLM 暂按“不支持思考档位”展示，能力矩阵细化留待后续。
 - 选择与发送：Session / Turn 携带凭据；切换 Key 后圆环按该模型最近一次用量显示，不串用其他 Key。
-- 验证：`pnpm check`（web 135、agent 38 通过 / 1 跳过、server 509 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
+- 验证：`pnpm check`（web 135、agent 39 通过 / 1 跳过、server 510 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
 - GLM 实测（2026-11-07）：官方目录只返回 id / object / created / owned_by，不含窗口；已按官方文档补齐内置窗口（4.5/4.5-Air 128K；4.6/4.7/5/5.1 200K；5.2/5.3 1M），仍未收录的 5-turbo/5.3-flash* 保持未知并禁用。真实对话返回 429，上游内容为 `1113 余额不足或无可用资源包`，已映射 `PROVIDER_QUOTA_EXHAUSTED`（402）并显示充值提示，不再误报限流。
-- 设置弹窗：模型 / 凭据区改为限高滚动（≤64vh），未知窗口模型置灰不可选。
+- 设置弹窗按服务运维风格重构为「Key 列表 → Key 详情 / 添加 Key」两栏式；模型行眼睛图标控制是否出现在会话选择器（迁移 0017 `model_visibility` + PATCH 接口），输入框选择器过滤隐藏模型。
 - 未验证：GLM 真实工具调用（账户需充值 / 资源包）；自定义兼容端点（d-2c）。
 
 ## 已冻结

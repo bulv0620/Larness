@@ -212,6 +212,22 @@ export const modelCatalogCache = sqliteTable("model_catalog_cache", {
   lastErrorCode: text("last_error_code"),
 });
 
+export const modelVisibility = sqliteTable(
+  "model_visibility",
+  {
+    id: text("id").primaryKey(),
+    credentialProfileId: text("credential_profile_id")
+      .notNull()
+      .references(() => credentialProfiles.id, { onDelete: "cascade" }),
+    modelId: text("model_id").notNull(),
+    visible: integer("visible").notNull().default(1),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("model_visibility_credential_model").on(table.credentialProfileId, table.modelId),
+  ],
+);
+
 export const authSettings = sqliteTable(
   "auth_settings",
   {

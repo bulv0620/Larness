@@ -18,6 +18,7 @@ import { ArrowUp, Plus, Shield, ShieldAlert, ShieldCheck, Square } from "lucide-
 import { useEffect, useRef, useState } from "react";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useModelCatalog, useSessionModel } from "@/lib/queries";
+import type { ApiCatalogGroup } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
@@ -71,8 +72,14 @@ export function Composer() {
   const sessionId = useNavigationStore((state) => state.sessionId);
   const sessionDetail = useSessionModel(sessionId);
   const hydratedSession = useRef<string | null>(null);
-  const groups = catalog?.groups ?? (catalog === undefined ? [] : [catalog]);
-  const pairs = groups.flatMap((group) => group.models.map((item) => ({ group, model: item })));
+  const groups: ApiCatalogGroup[] = catalog?.groups ?? (catalog ? [catalog] : []);
+  const visibleGroups = groups.map((group) => ({
+    ...group,
+    models: group.models.filter((item) => item.visible !== false),
+  }));
+  const pairs = visibleGroups.flatMap((group) =>
+    group.models.map((item) => ({ group, model: item })),
+  );
   const selectedPair =
     pairs.find(
       (pair) =>
@@ -196,7 +203,7 @@ export function Composer() {
         </DropdownMenu>
 
         <ModelControl
-          groups={groups}
+          groups={visibleGroups}
           model={model}
           credentialProfileId={
             credentialProfileId ?? selectedPair?.group.credentialProfileId ?? null
