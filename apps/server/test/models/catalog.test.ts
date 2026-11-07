@@ -5,6 +5,7 @@ import { runMigrations } from "../../src/db/migrate.js";
 import {
   CatalogHttpError,
   type CatalogOptions,
+  GLM_BUILTIN_CATALOG,
   getModelCatalog,
   mapThinkingSetting,
   refreshModelCatalog,
@@ -421,5 +422,19 @@ describe("deepseek model catalog", () => {
         opened.sqlite.close();
       }
     });
+  });
+  it("keeps confirmed GLM windows and thinking modes in the builtin table", () => {
+    const byId = new Map(GLM_BUILTIN_CATALOG.map((model) => [model.id, model]));
+
+    expect(byId.get("glm-4.7")?.contextWindow).toBe(200_000);
+    expect(byId.get("glm-5.1")?.contextWindow).toBe(200_000);
+    expect(byId.get("glm-5.2")?.contextWindow).toBe(1_000_000);
+    expect(byId.get("glm-5.3")?.contextWindow).toBe(1_000_000);
+    expect(byId.get("glm-4.6")?.thinking).toMatchObject({ supported: true, mode: "toggle" });
+    expect(byId.get("glm-5.3")?.thinking).toMatchObject({
+      supported: true,
+      mode: "mandatory-levels",
+    });
+    expect(byId.get("glm-5.2")?.thinking).toMatchObject({ supported: true, mode: "levels" });
   });
 });
