@@ -42,15 +42,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     (item): item is MessageItem => item.kind === "message" && item.role === "user",
   );
   const turnActive = active && user?.turnOutcome === undefined;
-  const [expanded, setExpanded] = useState(turnActive);
-  const wasActive = useRef(turnActive);
-
-  useEffect(() => {
-    if (turnActive === wasActive.current) return;
-
-    setExpanded(turnActive);
-    wasActive.current = turnActive;
-  }, [turnActive]);
+  const [expanded, setExpanded] = useState(false);
   const tools = items.filter(
     (item): item is ToolItem => item.kind === "tool" && item.name !== "update_plan",
   );
@@ -78,7 +70,6 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
       item !== answer &&
       item !== latestCommentary &&
       ((item.kind === "message" && item.role === "assistant") ||
-        item.kind === "reasoning" ||
         item.kind === "plan" ||
         (item.kind === "tool" && item.name !== "update_plan")),
   );
@@ -89,14 +80,14 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const stopped = user?.turnOutcome === "cancelled";
   const duration = user?.durationMs;
   const seconds = duration === undefined ? "" : ` · ${Math.round(duration / 1000)}秒`;
-  const hasReasoning = items.some((item) => item.kind === "reasoning");
+  const reasoningPreview = [...items].reverse().find((item) => item.kind === "reasoning")?.text;
   const summary = active
     ? pending
       ? `本轮 ${tools.length} 项操作`
       : runningTool
         ? `正在执行 · ${runningTool.summary || runningTool.name}`
-        : hasReasoning
-          ? `正在思考${tools.length > 0 ? ` · 已执行 ${tools.length} 项操作` : ""}`
+        : reasoningPreview
+          ? `正在思考${tools.length > 0 ? ` · 已执行 ${tools.length} 项操作` : ""} · ${reasoningPreview}`
           : `已执行 ${tools.length} 项操作`
     : `${stopped ? "已停止" : failed ? "执行未完成" : "执行了"} ${tools.length} 项操作${seconds}`;
   const targets = new Map<string, NonNullable<ToolItem["resourceTarget"]>>();
@@ -143,7 +134,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     <section aria-label="对话轮次" className="min-w-0">
       {user ? <TimelineItemView item={user} /> : null}
       <div className="space-y-3">
-        {process.length > 0 || tools.length > 0 ? (
+        {process.length > 0 || tools.length > 0 || reasoningPreview !== undefined ? (
           <div className="text-[12px] text-ink-3">
             <button
               type="button"
@@ -167,7 +158,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
                   className={cn("mt-0.5 shrink-0", expanded && "rotate-90")}
                 />
               )}
-              <span className="min-w-0 break-words">{summary}</span>
+              <span className="min-w-0 truncate">{summary}</span>
             </button>
             {expanded ? (
               <div className="ml-1.5 mt-2 space-y-2 border-l border-accent/15 pl-4">

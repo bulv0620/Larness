@@ -45,6 +45,16 @@ export function applyTurnEvent(items: TimelineItem[], event: TurnEvent): Timelin
   }
 }
 
+const REASONING_PREVIEW_LIMIT = 240;
+
+/**
+ * The client keeps only a single-line tail for the collapsed summary. Full
+ * chain-of-thought is neither rendered nor retained in memory.
+ */
+export function reasoningPreview(text: string): string {
+  return text.replace(/\s+/g, " ").trim().slice(-REASONING_PREVIEW_LIMIT).trimStart();
+}
+
 export function applyReasoningDelta(
   items: TimelineItem[],
   input: { id: string; turnId?: string; text: string; createdAt: number },
@@ -57,7 +67,7 @@ export function applyReasoningDelta(
       {
         id: input.id,
         kind: "reasoning",
-        text: input.text,
+        text: reasoningPreview(input.text),
         streaming: true,
         createdAt: input.createdAt,
         ...(input.turnId === undefined ? {} : { turnId: input.turnId }),
@@ -67,7 +77,7 @@ export function applyReasoningDelta(
 
   return items.map((item) =>
     item.id === input.id && item.kind === "reasoning"
-      ? { ...item, text: `${item.text}${input.text}`, streaming: true }
+      ? { ...item, text: reasoningPreview(`${item.text}${input.text}`), streaming: true }
       : item,
   );
 }

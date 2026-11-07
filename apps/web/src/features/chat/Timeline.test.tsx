@@ -211,6 +211,7 @@ it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])
       activeTurnId: turnId,
     });
     const view = render(<Timeline />);
+    fireEvent.click(screen.getByRole("button", { name: /执行过程/ }));
     fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 修改样式" }));
     const plan = screen.getByRole("list", { name: "样式调整" });
     expect(plan.querySelector(".animate-spin")).toBeInTheDocument();
@@ -222,8 +223,6 @@ it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])
         activeTurnId: null,
       }));
     });
-    fireEvent.click(screen.getByRole("button", { name: /执行过程/ }));
-    fireEvent.click(screen.getByRole("button", { name: /^计划 · 1\/3/ }));
     const finishedPlan = screen.getByRole("list", { name: "样式调整" });
     expect(finishedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
     expect(within(finishedPlan).getByText("未完成", { exact: true })).toBeVisible();
@@ -245,7 +244,7 @@ it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])
   },
 );
 
-it("streams reasoning in the process area and collapses it after the turn", () => {
+it("shows a single-line reasoning preview and keeps it out of the expanded process", () => {
   const user = {
     id: "u",
     kind: "message",
@@ -269,8 +268,10 @@ it("streams reasoning in the process area and collapses it after the turn", () =
     activeTurnId: "t1",
   });
   render(<Timeline />);
-  expect(screen.getByText("先分析目录结构。")).toBeVisible();
-  expect(screen.getByText(/思考中/)).toBeVisible();
+
+  const summary = screen.getByRole("button", { name: /执行过程 · 正在思考/ });
+  expect(summary).toHaveTextContent("先分析目录结构。");
+  expect(screen.queryByText("先分析目录结构。")).toBeNull();
 
   act(() => {
     useTimelineStore.setState({
@@ -284,7 +285,9 @@ it("streams reasoning in the process area and collapses it after the turn", () =
     });
   });
 
+  const finished = screen.getByRole("button", { name: /执行过程 · 执行了 0 项操作/ });
+  expect(finished).not.toHaveTextContent("先分析目录结构。");
+  fireEvent.click(finished);
+  expect(screen.getByText("完成")).toBeVisible();
   expect(screen.queryByText("先分析目录结构。")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /执行过程/ }));
-  expect(screen.getByText("先分析目录结构。")).toBeVisible();
 });

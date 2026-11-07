@@ -296,6 +296,9 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.getByText("已批准部署", { exact: false })).toBeVisible();
     await expect(page.getByText("部署成功", { exact: true })).toBeVisible();
     await page.getByLabel("发送消息").click();
+    const process = page.getByRole("button", { name: /执行过程/ }).last();
+    await expect(process).toBeVisible();
+    await process.click();
     await expect(page.getByRole("button", { name: /计划 ·/ }).last()).toBeVisible();
     await expect(page.getByText("开发服务器已启动", { exact: false })).toBeVisible({
       timeout: 10_000,

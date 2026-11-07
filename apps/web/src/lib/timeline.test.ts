@@ -1,6 +1,6 @@
 import type { TimelineItem } from "@larness/shared";
 import { describe, expect, it } from "vitest";
-import { applyReasoningDelta, applyTurnEvent } from "./timeline";
+import { applyReasoningDelta, applyTurnEvent, reasoningPreview } from "./timeline";
 
 const message: TimelineItem = {
   id: "m1",
@@ -34,6 +34,13 @@ describe("applyReasoningDelta", () => {
       text: "先看目录。再读文件。",
       streaming: true,
     });
+  });
+
+  it("keeps only a single-line tail for the summary", () => {
+    expect(reasoningPreview("first line\n\n  second   line ")).toBe("first line second line");
+    const long = "x".repeat(400);
+    expect(reasoningPreview(long)).toHaveLength(240);
+    expect(reasoningPreview(long).endsWith("x")).toBe(true);
   });
 
   it("stops streaming when the turn ends", () => {
