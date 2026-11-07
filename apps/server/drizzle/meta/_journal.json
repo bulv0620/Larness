@@ -127,6 +127,13 @@
       "when": 1794056473780,
       "tag": "0018_model_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1794059359024,
+      "tag": "0019_credential_endpoint",
+      "breakpoints": true
     }
   ]
 }

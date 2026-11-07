@@ -1,8 +1,15 @@
+import { GLM_BASE_URL, GLM_ENDPOINTS } from "@larness/agent";
 import type { ErrorCode } from "@larness/shared";
+import { eq } from "drizzle-orm";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
-import type { CredentialProfileRow, ModelProfileRow, ModelProviderId } from "../../db/schema.js";
+import {
+  type CredentialProfileRow,
+  credentialProfiles,
+  type ModelProfileRow,
+  type ModelProviderId,
+} from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
 import {
@@ -50,6 +57,7 @@ export interface CredentialDto {
   label: string;
   secretRef: string;
   masked: string;
+  endpoint: string | null;
   createdAt: number;
 }
 
@@ -75,6 +83,7 @@ export interface CreateCredentialInput {
   provider: ModelProviderId;
   label: string;
   apiKey: string;
+  endpoint?: string | null;
   clientSessionId?: string;
 }
 
@@ -109,6 +118,7 @@ function credentialDto(row: CredentialProfileRow): CredentialDto {
     label: row.label,
     secretRef: row.secretRef,
     masked: MASKED_SECRET,
+    endpoint: row.endpoint,
     createdAt: row.createdAt,
   };
 }
@@ -154,6 +164,7 @@ export function createCredential(
   }
 
   const label = normalizeLabel(input.label);
+  const endpoint = normalizeCredentialEndpoint(input.provider, input.endpoint);
 
   if (input.apiKey.length === 0 || input.apiKey.length > 8_192) {
     throw new ModelError("VALIDATION_ERROR", "apiKey must be 1-8192 characters");
@@ -168,6 +179,7 @@ export function createCredential(
       encrypted,
       provider: input.provider,
       label,
+      endpoint,
       now,
     });
     appendAudit(tx, {
@@ -176,10 +188,74 @@ export function createCredential(
       clientSessionId: input.clientSessionId,
       resourceType: "credential",
       resourceId: created.credential.id,
-      details: { provider: input.provider, label, secretRef: created.secret.id },
+      details: { provider: input.provider, label, endpoint, secretRef: created.secret.id },
       now,
     });
     return created.credential;
+  });
+
+  return credentialDto(row);
+}
+
+function normalizeCredentialEndpoint(
+  provider: ModelProviderId,
+  endpoint: string | null | undefined,
+): string | null {
+  if (provider === "glm") {
+    if (endpoint === undefined || endpoint === null || endpoint === "") {
+      return GLM_BASE_URL;
+    }
+
+    if (
+      !Object.values(GLM_ENDPOINTS).includes(
+        endpoint as (typeof GLM_ENDPOINTS)[keyof typeof GLM_ENDPOINTS],
+      )
+    ) {
+      throw new ModelError("VALIDATION_ERROR", "unsupported GLM endpoint");
+    }
+
+    return endpoint;
+  }
+
+  if (endpoint !== undefined && endpoint !== null && endpoint !== "") {
+    throw new ModelError("VALIDATION_ERROR", "endpoint is only supported for GLM credentials");
+  }
+
+  return null;
+}
+
+export function updateCredentialEndpoint(
+  options: ModelServiceOptions,
+  input: { id: string; endpoint: string | null; clientSessionId?: string },
+): CredentialDto {
+  const now = options.now?.() ?? Date.now();
+  const row = immediateTransaction(options.db, (tx) => {
+    const credential = getCredentialRow(tx, input.id);
+
+    if (credential === null) {
+      throw new ModelError("NOT_FOUND", "credential not found");
+    }
+
+    if (credential.provider !== "glm") {
+      throw new ModelError("VALIDATION_ERROR", "endpoint is only supported for GLM credentials");
+    }
+
+    const endpoint = normalizeCredentialEndpoint(credential.provider, input.endpoint);
+    const updated = { ...credential, endpoint };
+    tx.update(credentialProfiles)
+      .set({ endpoint })
+      .where(eq(credentialProfiles.id, credential.id))
+      .run();
+    appendAudit(tx, {
+      action: "credential.endpoint.changed",
+      decision: "allow",
+      clientSessionId: input.clientSessionId,
+      resourceType: "credential",
+      resourceId: credential.id,
+      details: { endpoint },
+      now,
+    });
+    return updated;
   });
 
   return credentialDto(row);

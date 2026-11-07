@@ -62,7 +62,7 @@ updated: 2026-11-07
 - 三种模式：`levels`（关/低/中/高）、`toggle`（关/开）、`mandatory-levels`（低/中/高，无关闭）。
 - 设置页是全局管理：Key、模型显示、默认模型；默认模型存入 `model_defaults`，新会话继承，会话内仍由输入框选择器覆盖。
 - 请求映射：`thinking.type = enabled/disabled`；`levels` / `mandatory-levels` 附带 `reasoning_effort`（低→low、中→high、高→max）。`toggle` 只发 enabled/disabled，不发 effort。
-- GLM 固定端点为 `https://open.bigmodel.cn/api/paas/v4`（国内开放平台）；z.ai 区域 Key 需要 d-2c 的自定义端点支持。
+- GLM 端点按凭据选择，只允许官方四种：标准 / Coding Plan × 国内（`open.bigmodel.cn`）/ 国际（`api.z.ai`）。Coding Plan Key 调标准端点会返回 1113，需切到 Coding 端点；目录刷新与对话都使用该端点。任意第三方 URL 仍归 d-2c。
 - 适配器传输能力：GLM `reasoning: true`、`vision: false`（应用尚未开放图片输入，模型的多模态能力不在本切片范围）；每模型窗口 / 档位以目录表为准，`maxContextTokens` 128K 仅作保守缺省。
 - GLM 目录只返回 `id/object/created/owned_by`，不返回窗口或档位；能力以本表为准，表与代码由 `catalog.test.ts` 的逐模型断言锁定。
 

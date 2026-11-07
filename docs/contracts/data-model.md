@@ -257,6 +257,10 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 
 `sessions` / `turns` 增加可空 `credential_profile_id`，schemaVersion 15 → 16。Turn 快照所选 Key，Provider 解析按快照选择 DeepSeek / GLM；旧 Turn 无值，回退到最新 DeepSeek 凭据。
 
+## M5-1d 迁移 0019_credential_endpoint（2026-11-07）
+
+`credential_profiles` 增加可空 `endpoint`，schemaVersion 18 → 19。GLM 凭据在创建或 PATCH 时选择官方端点（标准 / Coding Plan，国内 / 国际）；目录刷新与对话都使用该端点。任意第三方 URL 仍归 d-2c，不允许写入此列。
+
 ## M5-1d 迁移 0018_model_defaults（2026-11-07）
 
 新增 `model_defaults`（单行 `id='default'`，`credential_profile_id` 外键级联），schemaVersion 17 → 18。保存全局默认模型与默认思考档位；新会话创建时写入 `sessions.model / thinking / credential_profile_id`，旧会话不变。

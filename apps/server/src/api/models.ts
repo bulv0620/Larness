@@ -17,11 +17,18 @@ import {
   listCredentialDtos,
   listModelDtos,
   ModelError,
+  updateCredentialEndpoint,
 } from "../modules/models/service.js";
 import type { SecretStore } from "../security/secretStore.js";
 
 const ProviderSchema = z.enum(["deepseek", "glm", "openai-compatible"]);
 const IdSchema = z.string().min(1).max(128);
+
+const UpdateCredentialSchema = z
+  .object({
+    endpoint: z.string().max(512).nullable(),
+  })
+  .strict();
 
 const DefaultSchema = z
   .object({
@@ -44,6 +51,7 @@ const CreateCredentialSchema = z
     provider: ProviderSchema,
     label: z.string().min(1).max(64),
     apiKey: z.string().min(1).max(8_192),
+    endpoint: z.string().max(512).optional(),
   })
   .strict();
 
@@ -179,9 +187,25 @@ export function registerModelRoutes(app: FastifyInstance, deps: ModelApiDeps): v
         provider: body.provider,
         label: body.label,
         apiKey: body.apiKey,
+        endpoint: body.endpoint,
         clientSessionId: request.clientSession?.id,
       });
       return reply.code(201).send(credential);
+    } catch (error) {
+      throwModel(error);
+    }
+  });
+
+  app.patch<{ Params: { id: string } }>("/api/credentials/:id", async (request) => {
+    const id = parse(IdSchema, request.params.id);
+    const body = parse(UpdateCredentialSchema, request.body);
+
+    try {
+      return updateCredentialEndpoint(options, {
+        id,
+        endpoint: body.endpoint,
+        clientSessionId: request.clientSession?.id,
+      });
     } catch (error) {
       throwModel(error);
     }

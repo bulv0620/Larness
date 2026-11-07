@@ -461,6 +461,7 @@ async function catalogPayload(
   options: CatalogOptions,
   provider: ModelProviderId,
   apiKey: string,
+  endpoint?: string | null,
 ): Promise<unknown> {
   if (provider === "deepseek") {
     const fetcher =
@@ -477,7 +478,8 @@ async function catalogPayload(
     );
 
     try {
-      const response = await fetch(`${GLM_BASE_URL}/models`, {
+      const base = endpoint ?? GLM_BASE_URL;
+      const response = await fetch(`${base}/models`, {
         headers: { authorization: `Bearer ${apiKey}`, accept: "application/json" },
         redirect: "error",
         signal: controller.signal,
@@ -498,7 +500,13 @@ async function catalogPayload(
 
 async function refreshCredential(
   options: CatalogOptions,
-  credential: { id: string; label: string; provider: ModelProviderId; secretRef: string },
+  credential: {
+    id: string;
+    label: string;
+    provider: ModelProviderId;
+    secretRef: string;
+    endpoint: string | null;
+  },
   clientSessionId: string | undefined,
 ): Promise<void> {
   const now = options.now?.() ?? Date.now();
@@ -521,7 +529,7 @@ async function refreshCredential(
   let payload: unknown;
 
   try {
-    payload = await catalogPayload(options, credential.provider, apiKey);
+    payload = await catalogPayload(options, credential.provider, apiKey, credential.endpoint);
   } catch (error) {
     const code =
       error instanceof CatalogHttpError
@@ -551,7 +559,10 @@ async function refreshCredential(
     saveModelCatalog(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
-      endpoint: credential.provider === "glm" ? `${GLM_BASE_URL}/models` : DEEPSEEK_CATALOG_URL,
+      endpoint:
+        credential.provider === "glm"
+          ? `${credential.endpoint ?? GLM_BASE_URL}/models`
+          : DEEPSEEK_CATALOG_URL,
       modelsJson: JSON.stringify(models),
       now,
     });
@@ -598,7 +609,7 @@ export async function refreshModelCatalog(
 
 function recordFailure(
   options: CatalogOptions,
-  credential: { id: string; provider: ModelProviderId },
+  credential: { id: string; provider: ModelProviderId; endpoint: string | null },
   errorCode: string,
   now: number,
 ): void {
@@ -606,7 +617,10 @@ function recordFailure(
     recordModelCatalogFailure(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
-      endpoint: credential.provider === "glm" ? `${GLM_BASE_URL}/models` : DEEPSEEK_CATALOG_URL,
+      endpoint:
+        credential.provider === "glm"
+          ? `${credential.endpoint ?? GLM_BASE_URL}/models`
+          : DEEPSEEK_CATALOG_URL,
       errorCode,
       now,
     });
@@ -709,6 +723,7 @@ export interface ResolvedCatalogProvider {
   provider: ModelProviderId;
   model: string;
   apiKey: string;
+  endpoint?: string;
   contextWindow: number;
   thinking: { enabled: boolean; effort?: ThinkingEffort };
 }
@@ -772,6 +787,9 @@ export function resolveCatalogProvider(
     provider: credential.provider,
     model: input.model,
     apiKey,
+    ...(credential.endpoint === null || credential.endpoint === undefined
+      ? {}
+      : { endpoint: credential.endpoint }),
     contextWindow,
     thinking: mapThinkingSetting(input.thinking),
   };

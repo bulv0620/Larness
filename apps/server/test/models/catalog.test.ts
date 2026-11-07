@@ -1,4 +1,5 @@
 import path from "node:path";
+import { GLM_ENDPOINTS } from "@larness/agent";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
@@ -9,6 +10,7 @@ import {
   getModelCatalog,
   mapThinkingSetting,
   refreshModelCatalog,
+  resolveCatalogProvider,
   resolveCatalogSelection,
   setCatalogDefault,
   setCatalogModelVisibility,
@@ -365,7 +367,12 @@ describe("deepseek model catalog", () => {
       const { opened, options } = await fixture(dir);
 
       try {
-        createCredential(options, { provider: "glm", label: "GLM Key", apiKey: "sk-glm" });
+        createCredential(options, {
+          provider: "glm",
+          label: "GLM Key",
+          apiKey: "sk-glm",
+          endpoint: GLM_ENDPOINTS.codingCn,
+        });
         const credential = opened.sqlite
           .prepare("SELECT id FROM credential_profiles WHERE provider = 'glm'")
           .get() as { id: string };
@@ -421,6 +428,13 @@ describe("deepseek model catalog", () => {
         expect(() =>
           resolveCatalogSelection(options.db, { model: "glm-5.3", thinking: "off" }),
         ).toThrowError(ModelError);
+        expect(
+          resolveCatalogProvider(options, {
+            model: "glm-4.6",
+            thinking: "on",
+            credentialProfileId: credential.id,
+          }),
+        ).toMatchObject({ provider: "glm", endpoint: GLM_ENDPOINTS.codingCn });
       } finally {
         opened.sqlite.close();
       }

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { GLM_ENDPOINTS } from "@larness/agent";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
@@ -12,6 +13,7 @@ import {
   listModelDtos,
   ModelError,
   resolveModel,
+  updateCredentialEndpoint,
 } from "../../src/modules/models/service.js";
 import { SecretStore } from "../../src/security/secretStore.js";
 import { withTempDir } from "../helpers.js";
@@ -199,6 +201,39 @@ describe("model service", () => {
         ).toThrowError(expect.objectContaining({ code: "NOT_FOUND" }));
       } finally {
         opened.close();
+      }
+    });
+  });
+  it("stores a GLM endpoint and only accepts official endpoints", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+
+      try {
+        const credential = createCredential(options, {
+          provider: "glm",
+          label: "GLM Key",
+          apiKey: "sk-glm",
+          endpoint: GLM_ENDPOINTS.codingCn,
+        });
+
+        expect(credential.endpoint).toBe(GLM_ENDPOINTS.codingCn);
+
+        const updated = updateCredentialEndpoint(options, {
+          id: credential.id,
+          endpoint: GLM_ENDPOINTS.codingIntl,
+        });
+        expect(updated.endpoint).toBe(GLM_ENDPOINTS.codingIntl);
+
+        expect(() =>
+          createCredential(options, {
+            provider: "glm",
+            label: "Evil",
+            apiKey: "sk-evil",
+            endpoint: "https://evil.example/v4",
+          }),
+        ).toThrowError(ModelError);
+      } finally {
+        opened.sqlite.close();
       }
     });
   });

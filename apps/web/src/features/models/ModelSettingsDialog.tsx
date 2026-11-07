@@ -32,9 +32,19 @@ import {
   refreshModelCatalog,
   setModelDefault,
   setModelVisibility,
+  updateCredentialEndpoint,
 } from "@/lib/workspaceApi";
 
 type View = { kind: "list" } | { kind: "key"; credentialId: string } | { kind: "add" };
+
+const GLM_ENDPOINT_OPTIONS = [
+  { value: "https://open.bigmodel.cn/api/paas/v4", label: "标准 · 国内" },
+  { value: "https://open.bigmodel.cn/api/coding/paas/v4", label: "Coding Plan · 国内" },
+  { value: "https://api.z.ai/api/paas/v4", label: "标准 · 国际" },
+  { value: "https://api.z.ai/api/coding/paas/v4", label: "Coding Plan · 国际" },
+] as const;
+
+const DEFAULT_GLM_ENDPOINT = GLM_ENDPOINT_OPTIONS[0].value;
 
 function providerLabel(provider: ApiCatalogGroup["provider"]): string {
   if (provider === "glm") return "GLM";
@@ -74,6 +84,7 @@ export function ModelSettingsDialog({
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
   const [catalog, setCatalog] = useState<ApiModelCatalog | null>(null);
   const [provider, setProvider] = useState<"deepseek" | "glm">("deepseek");
+  const [endpoint, setEndpoint] = useState<string>(DEFAULT_GLM_ENDPOINT);
   const [label, setLabel] = useState("DeepSeek Key");
   const [apiKey, setApiKey] = useState("");
   const [showUnavailable, setShowUnavailable] = useState(false);
@@ -95,6 +106,12 @@ export function ModelSettingsDialog({
     : 0;
   const credentialMask = (credentialId: string) =>
     credentials.find((credential) => credential.id === credentialId)?.masked ?? "";
+  const credentialEndpoint = (credentialId: string) =>
+    credentials.find((credential) => credential.id === credentialId)?.endpoint ?? null;
+  const activeCredential =
+    view.kind === "key"
+      ? credentials.find((credential) => credential.id === view.credentialId)
+      : undefined;
 
   const reload = async () => {
     setLoading(true);
@@ -193,6 +210,7 @@ export function ModelSettingsDialog({
         provider,
         label: label.trim() || (provider === "glm" ? "GLM Key" : "DeepSeek Key"),
         apiKey,
+        ...(provider === "glm" ? { endpoint } : {}),
       });
       setApiKey("");
       await reload();
@@ -200,6 +218,21 @@ export function ModelSettingsDialog({
       setView({ kind: "list" });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "保存 Key 失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeEndpoint = async (credentialId: string, next: string) => {
+    setBusy(true);
+    setError(null);
+
+    try {
+      await updateCredentialEndpoint(credentialId, next);
+      await reload();
+      await refresh();
+    } catch (endpointError) {
+      setError(endpointError instanceof Error ? endpointError.message : "更新端点失败");
     } finally {
       setBusy(false);
     }
@@ -283,6 +316,15 @@ export function ModelSettingsDialog({
                     </span>
                     <span className="mt-0.5 flex items-center gap-2 text-[10.5px] text-ink-3">
                       <span>{group.models.length} 个模型</span>
+                      {group.provider === "glm" ? (
+                        <span className="rounded bg-surface-2 px-1 py-[1px]">
+                          {(
+                            credentialEndpoint(group.credentialProfileId) ?? DEFAULT_GLM_ENDPOINT
+                          ).includes("/coding/")
+                            ? "Coding"
+                            : "标准"}
+                        </span>
+                      ) : null}
                       <span>·</span>
                       <span>{syncLabel(group)}</span>
                       {group.stale ? <span className="text-warning">· 待刷新</span> : null}
@@ -319,6 +361,21 @@ export function ModelSettingsDialog({
                   {activeGroup ? syncLabel(activeGroup) : ""}
                 </p>
               </div>
+              {activeGroup?.provider === "glm" ? (
+                <select
+                  aria-label="GLM 端点"
+                  value={activeCredential?.endpoint ?? DEFAULT_GLM_ENDPOINT}
+                  disabled={busy}
+                  onChange={(event) => void changeEndpoint(view.credentialId, event.target.value)}
+                  className="h-7 rounded-lg border border-line bg-surface-2 px-1.5 text-[10.5px] text-ink outline-none"
+                >
+                  {GLM_ENDPOINT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
               <Button size="sm" variant="secondary" disabled={busy} onClick={() => void refresh()}>
                 <RefreshCw size={12} className={busy ? "animate-spin" : undefined} />
                 刷新目录
@@ -439,6 +496,23 @@ export function ModelSettingsDialog({
                   </button>
                 ))}
               </div>
+              {provider === "glm" ? (
+                <label className="block text-[10.5px] font-semibold text-ink-3">
+                  端点
+                  <select
+                    aria-label="GLM 端点"
+                    value={endpoint}
+                    onChange={(event) => setEndpoint(event.target.value)}
+                    className="mt-1 h-8 w-full rounded-lg border border-line bg-surface-2 px-2 text-[11px] font-normal text-ink outline-none"
+                  >
+                    {GLM_ENDPOINT_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
               <label className="block text-[10.5px] font-semibold text-ink-3">
                 名称
                 <input

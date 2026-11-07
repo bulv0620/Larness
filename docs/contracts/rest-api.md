@@ -315,7 +315,8 @@
 | PATCH | `/api/models/catalog/visibility` | M5-1：`{ credentialProfileId, modelId, visible }`，控制模型是否出现在会话选择器 |
 | PUT | `/api/models/default` | M5-1：`{ model, credentialProfileId, thinking? }`，设置全局默认模型；新会话自动继承 |
 | GET | `/api/credentials` | 凭据元数据（掩码，不含明文） |
-| POST | `/api/credentials` | 新建凭据，密钥只写不读 |
+| POST | `/api/credentials` | 新建凭据，密钥只写不读；GLM 可带 `endpoint`（官方标准 / Coding） |
+| PATCH | `/api/credentials/:id` | `{ endpoint }`，仅 GLM；切换官方标准 / Coding 端点后刷新目录 |
 | DELETE | `/api/credentials/:id` | 删除未被模型引用的凭据 |
 | GET | `/api/projects/:id/files` | M2-1：目录懒加载，`path / limit / cursor`；分页快照失效返回 CONFLICT |
 | GET | `/api/sessions/:id/files` | M2-1：仅真实独立会话 workspace；参数同项目目录 |

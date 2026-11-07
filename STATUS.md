@@ -203,6 +203,13 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 文档：063 spec 转 `ready` 并补 GLM 能力表；REST 契约更新 `groups` / `thinking.mode` / `visible`；GLM 固定端点为 bigmodel.cn，z.ai 区域 Key 归 d-2c。
 - 未验证：真实 GLM 对话仍受账户余额限制；真实工具调用待充值后复测。
 
+## GLM Coding Plan 端点修复（2026-11-07）
+
+- 根因：用户 Key 是 Coding Plan 套餐。标准端点 `open.bigmodel.cn/api/paas/v4` 返回 `429 / 1113 余额不足`，Coding 端点 `open.bigmodel.cn/api/coding/paas/v4` 与 `api.z.ai/api/coding/paas/v4` 均 200。
+- 新增 `credential_profiles.endpoint`（迁移 0019）与 `PATCH /api/credentials/:id`；设置页 Key 详情可切换「标准 / Coding Plan × 国内 / 国际」，目录刷新与对话都由该端点驱动。
+- 真实冒烟（本机 Coding Key）：GLM-4.6 流式回复「正常」，reasoning 345 字符；工具调用 `echo({"value":"ok"})`，`finish=tool-calls`，0 错误。
+- 验证：`pnpm check`（web 135、agent 40/1、server 515/10）、`pnpm build`、auth E2E `m1`。
+
 ## 已冻结
 
 - 产品与安全边界：`CONSTITUTION.md`

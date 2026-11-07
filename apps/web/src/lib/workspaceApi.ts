@@ -145,6 +145,7 @@ export interface ApiCredential {
   label: string;
   secretRef: string;
   masked: string;
+  endpoint?: string | null;
   createdAt: number;
 }
 
@@ -249,10 +250,19 @@ export async function createCredential(input: {
   provider: "deepseek" | "glm" | "openai-compatible";
   label: string;
   apiKey: string;
+  endpoint?: string;
 }): Promise<ApiCredential> {
   return apiFetch<ApiCredential>("/api/credentials", {
     method: "POST",
     body: input,
+    csrf: true,
+  });
+}
+
+export async function updateCredentialEndpoint(id: string, endpoint: string | null): Promise<void> {
+  await apiFetch(`/api/credentials/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: { endpoint },
     csrf: true,
   });
 }

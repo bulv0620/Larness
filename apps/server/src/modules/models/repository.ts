@@ -116,6 +116,7 @@ export function createCredentialRows(
     encrypted: { ciphertext: string; nonce: string; tag: string };
     provider: ModelProviderId;
     label: string;
+    endpoint?: string | null;
     now: number;
   },
 ): { secret: SecretRow; credential: CredentialProfileRow } {
@@ -133,6 +134,7 @@ export function createCredentialRows(
     provider: input.provider,
     label: input.label,
     secretRef: secret.id,
+    endpoint: input.endpoint ?? null,
     createdAt: input.now,
   };
   db.insert(credentialProfiles).values(credential).run();

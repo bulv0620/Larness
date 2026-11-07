@@ -15,7 +15,16 @@ import type {
   ProviderThinking,
 } from "./types.js";
 
-export const GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4";
+export const GLM_ENDPOINTS = {
+  standardCn: "https://open.bigmodel.cn/api/paas/v4",
+  codingCn: "https://open.bigmodel.cn/api/coding/paas/v4",
+  standardIntl: "https://api.z.ai/api/paas/v4",
+  codingIntl: "https://api.z.ai/api/coding/paas/v4",
+} as const;
+
+export type GlmEndpoint = (typeof GLM_ENDPOINTS)[keyof typeof GLM_ENDPOINTS];
+
+export const GLM_BASE_URL: GlmEndpoint = GLM_ENDPOINTS.standardCn;
 export const DEFAULT_COMPATIBLE_TIMEOUT_MS = 120_000;
 
 const noRedirectFetch: typeof fetch = (input, init) => fetch(input, { ...init, redirect: "error" });
