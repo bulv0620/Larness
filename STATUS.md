@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / b / c / d / e `done`；M5-2-1 / 2-2 / 2-3 `review` |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / b / c / d / e `done`；M5-2-1 / 2-2 / 2-3 / 2-4 `review` |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,7 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-2-3 `review`（2026-11-07，分支 `task/m5-2-scheduler-spec`）：自动化任务面板、表单、运行历史、失败角标与 pinned 会话链接已交付；auth E2E `jobs` 通过。下一步 M5-2-4（整体验收）。
+- M5-2-4 `review`（2026-11-07，分支 `task/m5-2-scheduler-spec`）：整体验收记录 `specs/064-scheduler/acceptance.md`；核心自动化通过，真实 Agent / 休眠 / 视觉待人类验收。
+- M5-2-3 `review`（2026-11-07）：自动化任务面板、表单、运行历史、失败角标与 pinned 会话链接已交付；auth E2E `jobs` 通过。
 - M5-2-2 `review`（2026-11-07）：Agent 定时任务、专用会话、策略快照、超时 / 取消已交付。
 - M5-2-1 `review`（2026-11-07）：迁移 `0022_scheduler`、调度核心、脚本执行、REST / WS、审计与限额已交付。
 - M5-1d `done`（2026-11-07 人类验收）：跨 Provider 上下文中性、切换提示、圆环 hover、回归与验收记录（`specs/063-multi-provider/closure-d4.md`）；M5-1d-1 / 2a / 2b / 2c / 2d / 3 / 4 全部关闭。
@@ -256,7 +257,14 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - D1–D4 已确认：脚本内联源码 + 子进程 node；Agent 默认 `readonly`、`autonomous` 二次确认；每任务一个隐藏专用会话；错过触发默认 `skip`、可按任务 `run_once`。
 - [064 Scheduler](specs/064-scheduler/spec.md) 转 `ready`；`cron-parser@5.10.4` 与仅应用内通知随之采用。ADR-054 与 REST / WS / 数据模型契约同步。
-- 当前 M5-2-3 `review`：自动化任务面板、表单与运行历史已交付；下一步 M5-2-4（整体验收）。
+- 当前 M5-2-4 `review`：整体验收记录已写；等待人类对面板、真实 Agent 与视觉做最终验收。
+
+## M5-2-4 整体验收记录（2026-11-07）
+
+- [验收记录](specs/064-scheduler/acceptance.md)：A1–A12 矩阵；`pnpm check`（web 141、agent 40/1、server 553/10）、`pnpm build`、Demo 19/19、auth E2E `jobs` 通过。
+- 全量 auth E2E 15/18：2 个 terminals 用例单独重跑通过（既有批量抖动）；`conversation.spec.ts` 仍是 M5-1e 之前的计划选择器，单独重跑失败，属既有测试债务，未在本切片修复。
+- 未验证：真实 Agent Provider 定时任务、人工取消时延、系统休眠 / 唤醒、失败角标 E2E、100 任务上限、浅色 / 深色视觉。
+- M5-2 保持 `review`，等待人类最终验收。
 
 ## M5-2-3 交付（2026-11-07）
 

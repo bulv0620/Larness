@@ -247,11 +247,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-1d-2b | 多 Key / Provider 选择 UI | M5-1d-2a | `done`（2026-11-07 人类验收） |
 | M5-1d-2d | GLM 思考模式 | M5-1d-2b | `done`（2026-11-07 人类验收） |
 | M5-1d-2c | 自定义兼容端点 | M5-1d-2d | `done`（2026-11-07 人类验收） |
-| M5-2 | [Scheduler：Cron、JS / Agent Job、JobRun、限流](064-scheduler/spec.md) | G4；064 spec ready | `in_progress`（M5-2-1 / 2-2 / 2-3 review，下一步 M5-2-4） |
+| M5-2 | [Scheduler：Cron、JS / Agent Job、JobRun、限流](064-scheduler/spec.md) | G4；064 spec ready | `review`（M5-2-1～4 已交付，等待人类验收） |
 | M5-2-1 | 调度核心、数据模型、脚本任务与 REST | 064 ready | `review`（2026-11-07 交付） |
 | M5-2-2 | Agent 定时任务与策略快照 | M5-2-1 | `review`（2026-11-07 交付） |
 | M5-2-3 | 自动化任务 UI、通知与运行历史 | M5-2-2 | `review`（2026-11-07 交付） |
-| M5-2-4 | 调度整体验收（时区 / 恢复 / 安全） | M5-2-3 | `todo` |
+| M5-2-4 | 调度整体验收（时区 / 恢复 / 安全） | M5-2-3 | `review`（2026-11-07 验收记录） |
 | M5-3 | Launcher / Updater、签名、UpdateLock、回滚 | G4 | `todo` |
 | M5-4 | Windows / Linux PoC、打包与安装说明 | M5-1a ~ M5-1c、M5-2、M5-3 | `todo` |
 | M5-5 | 安全加固、发布验收清单、文档定稿 | M5-4 | `todo` |
