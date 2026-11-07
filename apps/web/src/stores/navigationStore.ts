@@ -10,6 +10,7 @@ interface DraftSession {
 interface NavigationState {
   projectId: string | null;
   sessionId: string;
+  pinnedSessionId: string | null;
   draftSession: DraftSession | null;
   sidebarWidth: number;
   resourceWidth: number;
@@ -23,6 +24,7 @@ interface NavigationState {
     sessions: { id: string; projectId: string | null }[],
   ) => void;
   selectSession: (sessionId: string, projectId: string | null) => void;
+  openPinnedSession: (sessionId: string, projectId: string | null) => void;
   startDraft: (projectId: string | null) => void;
   commitDraft: (sessionId: string, projectId: string | null) => void;
   setSidebarWidth: (width: number) => void;
@@ -39,6 +41,7 @@ export const useNavigationStore = create<NavigationState>()(
     (set, get) => ({
       projectId: USE_MOCKS ? "prj_larness" : null,
       sessionId: USE_MOCKS ? "ses_1" : "",
+      pinnedSessionId: null,
       draftSession: null,
       sidebarWidth: 268,
       resourceWidth: 340,
@@ -50,6 +53,9 @@ export const useNavigationStore = create<NavigationState>()(
 
       reconcileWorkspace: (projectIds, sessions) => {
         const state = get();
+        if (state.sessionId !== "" && state.sessionId === state.pinnedSessionId) {
+          return;
+        }
         const validProject = state.projectId === null || projectIds.includes(state.projectId);
         if (
           validProject &&
@@ -72,7 +78,22 @@ export const useNavigationStore = create<NavigationState>()(
       },
 
       selectSession: (sessionId, projectId) =>
-        set({ sessionId, projectId, draftSession: null, mobileSidebarOpen: false }),
+        set({
+          sessionId,
+          projectId,
+          pinnedSessionId: null,
+          draftSession: null,
+          mobileSidebarOpen: false,
+        }),
+
+      openPinnedSession: (sessionId, projectId) =>
+        set({
+          sessionId,
+          projectId,
+          pinnedSessionId: sessionId,
+          draftSession: null,
+          mobileSidebarOpen: false,
+        }),
 
       startDraft: (projectId) =>
         set((state) => {

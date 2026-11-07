@@ -2,14 +2,24 @@ import { beforeEach, expect, it } from "vitest";
 import { useNavigationStore } from "./navigationStore";
 
 beforeEach(() => {
-  useNavigationStore.setState({ projectId: null, sessionId: "", draftSession: null });
+  useNavigationStore.setState({
+    projectId: null,
+    sessionId: "",
+    pinnedSessionId: null,
+    draftSession: null,
+  });
 });
 it("retains a selected project draft across persistence and workspace reconciliation", async () => {
   useNavigationStore.getState().startDraft("project-a");
   const id = useNavigationStore.getState().sessionId;
   const persisted = localStorage.getItem("larness.nav.v1");
   expect(persisted).toContain('"draftSession"');
-  useNavigationStore.setState({ projectId: null, sessionId: "", draftSession: null });
+  useNavigationStore.setState({
+    projectId: null,
+    sessionId: "",
+    pinnedSessionId: null,
+    draftSession: null,
+  });
   localStorage.setItem("larness.nav.v1", persisted ?? "");
   await useNavigationStore.persist.rehydrate();
   useNavigationStore
@@ -20,6 +30,19 @@ it("retains a selected project draft across persistence and workspace reconcilia
     sessionId: id,
     draftSession: { id, projectId: "project-a" },
   });
+});
+it("keeps an explicitly pinned hidden session through workspace reconciliation", () => {
+  useNavigationStore.getState().openPinnedSession("ses_job", null);
+  useNavigationStore
+    .getState()
+    .reconcileWorkspace(["project-a"], [{ id: "other", projectId: "project-a" }]);
+  expect(useNavigationStore.getState()).toMatchObject({
+    projectId: null,
+    sessionId: "ses_job",
+    pinnedSessionId: "ses_job",
+  });
+  useNavigationStore.getState().selectSession("other", "project-a");
+  expect(useNavigationStore.getState().pinnedSessionId).toBeNull();
 });
 it("recovers older persisted draft identities without choosing another project's session", () => {
   useNavigationStore.setState({

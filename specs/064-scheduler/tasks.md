@@ -2,7 +2,7 @@
 
 > 状态：`todo | in_progress | blocked | review | done`。一个任务一个提交。
 > 开始任务前更新 `STATUS.md`；完成后勾选本表并更新 `ROADMAP.md`。
-> 门禁已过：[spec](spec.md) 于 2026-11-07 转 `ready`（D1–D4 确认）。M5-2-1 / M5-2-2 已交付（`review`），下一步 M5-2-3。
+> 门禁已过：[spec](spec.md) 于 2026-11-07 转 `ready`（D1–D4 确认）。M5-2-1 / M5-2-2 / M5-2-3 已交付（`review`），下一步 M5-2-4。
 
 ## 状态总表
 
@@ -10,7 +10,7 @@
 |---|---|---|---|
 | M5-2-1 | 调度核心、脚本任务与 REST | 064 spec ready | `review` |
 | M5-2-2 | Agent 定时任务与策略快照 | M5-2-1 | `review` |
-| M5-2-3 | 自动化任务 UI 与通知 | M5-2-2 | `todo` |
+| M5-2-3 | 自动化任务 UI 与通知 | M5-2-2 | `review` |
 | M5-2-4 | 调度整体验收 | M5-2-3 | `todo` |
 
 ## 任务卡
@@ -73,7 +73,7 @@
 
 ### M5-2-3 自动化任务 UI 与通知
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：M5-2-2
 - 目标：左侧「自动化任务」可用；任务管理、运行历史、失败提示与视觉验收。
 - 交付物：
@@ -90,7 +90,13 @@
   - auth E2E：创建 → 运行 → 历史 → 角标；Agent 任务链接会话。
 - 涉及路径：
   - `apps/web/src/features/jobs/*`、`apps/web/src/components/layout/ProjectSidebar.tsx`、`apps/web/src/features/workspace/*`、`e2e-auth/*`、`apps/web/src/mocks/*`
-- 备注：不引入第二套 UI 框架；沿用现有 Dialog / 菜单 / token。
+- 交付（2026-11-07）：
+  - [x] `features/jobs`：任务列表 / 详情 / 新建 / 编辑 / 运行历史 / 立即执行 / 取消 / 启停 / 删除确认 / 空态 / 错误态。
+  - [x] 表单：项目、Cron / 间隔、IANA 时区、超时、错过策略、脚本源码、Agent 提示词 / 策略 / 模型；`autonomous` 需风险确认。
+  - [x] 侧栏「自动化任务」入口与失败角标；`workspace.jobs.changed` 刷新任务查询；打开面板清除本地角标。
+  - [x] Agent 运行可打开专用会话（pinned session，不因普通会话列表刷新被重置）。
+  - [x] 测试：JobsDialog 5 项、导航 pinned 1 项、auth E2E 脚本任务创建 / 立即执行 / 刷新后历史 / 删除；Web 141 项通过。
+- 备注：不引入第二套 UI 框架；沿用现有 Dialog / 菜单 / token。浅色 / 深色截图与人工视觉验收待 M5-2-4。
 
 ### M5-2-4 调度整体验收
 

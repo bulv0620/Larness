@@ -8,7 +8,7 @@ import {
   DialogTitle,
   Kbd,
 } from "@larness/ui";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   Archive,
@@ -31,6 +31,8 @@ import { useEffect, useMemo, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
 import { useLogout } from "@/features/auth/useAuth";
 import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
+import { getJobsSummary, jobsSummaryKey } from "@/features/jobs/api";
+import { JobsDialog } from "@/features/jobs/JobsDialog";
 import { ModelSettingsDialog } from "@/features/models/ModelSettingsDialog";
 import { ProjectDialog } from "@/features/projects/ProjectDialog";
 import { RenameProjectDialog } from "@/features/projects/RenameProjectDialog";
@@ -82,6 +84,21 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [serviceOpsOpen, setServiceOpsOpen] = useState(false);
+  const [jobsOpen, setJobsOpen] = useState(false);
+  const [jobsSeenFailures, setJobsSeenFailures] = useState(0);
+  const jobsSummary = useQuery({
+    queryKey: jobsSummaryKey,
+    queryFn: getJobsSummary,
+    enabled: !USE_MOCKS,
+    refetchInterval: 15_000,
+  });
+  const jobsBadge = Math.max(0, (jobsSummary.data?.failedLast24h ?? 0) - jobsSeenFailures);
+  useEffect(() => {
+    if (jobsOpen && jobsSummary.data) {
+      setJobsSeenFailures(jobsSummary.data.failedLast24h);
+    }
+  }, [jobsOpen, jobsSummary.data]);
+
   const [context, setContext] = useState<ContextTarget | null>(null);
   const [dialog, setDialog] = useState<SidebarDialog>(null);
 
@@ -385,7 +402,12 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
       <div className="shrink-0 border-t border-line px-2 py-2">
         <BottomItem icon={Activity} label="服务运维" onClick={() => setServiceOpsOpen(true)} />
-        <BottomItem icon={Zap} label="自动化任务" />
+        <BottomItem
+          icon={Zap}
+          label="自动化任务"
+          badge={jobsBadge}
+          onClick={USE_MOCKS ? undefined : () => setJobsOpen(true)}
+        />
         <BottomItem
           icon={Settings}
           label="设置与模型"
@@ -504,6 +526,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
       <ProjectDialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen} />
       <ServiceOpsDialog open={serviceOpsOpen} onOpenChange={setServiceOpsOpen} />
+      <JobsDialog open={jobsOpen} onOpenChange={setJobsOpen} />
       {!USE_MOCKS ? (
         <ModelSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       ) : null}
@@ -566,10 +589,12 @@ function SessionSpinner() {
 function BottomItem({
   icon: Icon,
   label,
+  badge,
   onClick,
 }: {
   icon: typeof Zap;
   label: string;
+  badge?: number;
   onClick?: () => void;
 }) {
   return (
@@ -580,7 +605,15 @@ function BottomItem({
       className="flex h-7 w-full items-center gap-2 rounded-lg px-2 text-[11.5px] text-ink-2 transition-colors hover:bg-black/[.035] hover:text-ink disabled:cursor-default disabled:opacity-60 dark:hover:bg-white/[.05]"
     >
       <Icon size={13.5} strokeWidth={1.75} className="text-ink-3" />
-      <span>{label}</span>
+      <span className="flex-1 text-left">{label}</span>
+      {badge !== undefined && badge > 0 ? (
+        <span
+          title={`${badge} 个失败任务`}
+          className="rounded-full bg-danger px-1.5 text-[9px] font-semibold leading-4 text-white"
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
     </button>
   );
 }

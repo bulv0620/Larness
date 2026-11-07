@@ -1,4 +1,7 @@
-import { WorkspaceSessionNotificationSchema } from "@larness/shared";
+import {
+  WorkspaceJobsNotificationSchema,
+  WorkspaceSessionNotificationSchema,
+} from "@larness/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
@@ -37,8 +40,12 @@ export function useSessionMonitor(): void {
       current.addEventListener("message", (event) => {
         if (disposed || typeof event.data !== "string") return;
         try {
-          if (WorkspaceSessionNotificationSchema.safeParse(JSON.parse(event.data)).success) {
+          const data = JSON.parse(event.data);
+          if (WorkspaceSessionNotificationSchema.safeParse(data).success) {
             void refreshWorkspace();
+          }
+          if (WorkspaceJobsNotificationSchema.safeParse(data).success) {
+            void queryClient.invalidateQueries({ queryKey: ["jobs"] });
           }
         } catch {
           // Ignore malformed frames.
