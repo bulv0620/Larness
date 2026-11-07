@@ -7,7 +7,11 @@ import {
   type ProviderChunk,
   ProviderError,
 } from "@larness/agent";
-import type { AssistantDeltaEvent, ServerEvent } from "@larness/shared";
+import type {
+  AssistantDeltaEvent,
+  AssistantReasoningDeltaEvent,
+  ServerEvent,
+} from "@larness/shared";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
@@ -134,7 +138,8 @@ describe("TurnRunner", () => {
         const session = await createSession(sessionOptions, {});
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "stream" });
         const provider = createFakeProvider([textStep("hello world")]);
-        const streamed: Array<ServerEvent | AssistantDeltaEvent> = [];
+        const streamed: Array<ServerEvent | AssistantDeltaEvent | AssistantReasoningDeltaEvent> =
+          [];
         const runner = new TurnRunner({
           db: opened.db,
           registry: createFileToolRegistry(),
@@ -245,11 +250,14 @@ describe("TurnRunner", () => {
           textStep("done"),
         ]);
         const published: ServerEvent[] = [];
+        const streamed: Array<ServerEvent | AssistantDeltaEvent | AssistantReasoningDeltaEvent> =
+          [];
         const runner = new TurnRunner({
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
           publish: (event) => {
+            streamed.push(event);
             if ("sequence" in event) published.push(event);
           },
         });
@@ -257,6 +265,12 @@ describe("TurnRunner", () => {
         const result = await runner.run(turn.turnId);
         expect(result.status).toBe("COMPLETED");
         expect(provider.calls).toHaveLength(2);
+
+        const reasoningEvent = streamed.find(
+          (event) => "kind" in event && event.kind === "assistant.reasoning.delta",
+        );
+        expect(reasoningEvent).toMatchObject({ turnId: turn.turnId, text: reasoning });
+        expect(reasoningEvent !== undefined && "sequence" in reasoningEvent).toBe(false);
 
         const assistant = provider.calls[1]?.messages.find(
           (message) => message.role === "assistant" && message.toolCalls !== undefined,

@@ -37,10 +37,39 @@ export function applyTurnEvent(items: TimelineItem[], event: TurnEvent): Timelin
     case "error":
       return upsert(items, event.item);
     case "turn.done":
-      return items.map((item) => (item.kind === "message" ? { ...item, streaming: false } : item));
+      return items.map((item) =>
+        item.kind === "message" || item.kind === "reasoning" ? { ...item, streaming: false } : item,
+      );
     default:
       return items;
   }
+}
+
+export function applyReasoningDelta(
+  items: TimelineItem[],
+  input: { id: string; turnId?: string; text: string; createdAt: number },
+): TimelineItem[] {
+  const index = items.findIndex((item) => item.id === input.id);
+
+  if (index === -1) {
+    return [
+      ...items,
+      {
+        id: input.id,
+        kind: "reasoning",
+        text: input.text,
+        streaming: true,
+        createdAt: input.createdAt,
+        ...(input.turnId === undefined ? {} : { turnId: input.turnId }),
+      },
+    ];
+  }
+
+  return items.map((item) =>
+    item.id === input.id && item.kind === "reasoning"
+      ? { ...item, text: `${item.text}${input.text}`, streaming: true }
+      : item,
+  );
 }
 
 export function appendAssistantMessage(

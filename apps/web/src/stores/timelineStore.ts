@@ -1,6 +1,7 @@
 import type {
   ApprovalItem,
   AssistantDeltaEvent,
+  AssistantReasoningDeltaEvent,
   ErrorItem,
   ServerEvent,
   TimelineItem,
@@ -16,7 +17,7 @@ import {
   isTerminalTurnEvent,
 } from "@/lib/eventReducer";
 import { queryClient } from "@/lib/queries";
-import { appendAssistantMessage, applyTurnEvent } from "@/lib/timeline";
+import { appendAssistantMessage, applyReasoningDelta, applyTurnEvent } from "@/lib/timeline";
 import {
   cancelTurn,
   createSession,
@@ -116,6 +117,25 @@ function applyDeltaToState(event: AssistantDeltaEvent): void {
   });
 }
 
+function applyReasoningDeltaToState(event: AssistantReasoningDeltaEvent): void {
+  const state = useTimelineStore.getState();
+
+  if (event.sessionId !== state.sessionId) {
+    return;
+  }
+
+  useTimelineStore.setState({
+    items: applyReasoningDelta(state.items, {
+      id: `reasoning_${event.turnId}`,
+      turnId: event.turnId,
+      text: event.text,
+      createdAt: event.timestamp,
+    }),
+    activeTurnId: state.activeTurnId ?? event.turnId,
+    turnStartedAt: state.turnStartedAt ?? event.timestamp,
+  });
+}
+
 function applyEventToState(event: ServerEvent, live = false): void {
   const state = useTimelineStore.getState();
 
@@ -151,7 +171,9 @@ function applyEventToState(event: ServerEvent, live = false): void {
       : state.isStreaming;
 
   const terminal = isTerminalTurnEvent(event);
-  const nextItems = applyServerEvent(state.items, event);
+  const nextItems = applyServerEvent(state.items, event).map((item) =>
+    terminal && item.kind === "reasoning" ? { ...item, streaming: false } : item,
+  );
   const usage =
     event.type === "turn.completed" && typeof payload.usage === "object" && payload.usage !== null
       ? (payload.usage as Record<string, unknown>)
@@ -240,6 +262,11 @@ function connectSocket(sessionId: string): void {
 
     if (value.kind === "assistant.delta" && value.topic === "agent") {
       applyDeltaToState(value as unknown as AssistantDeltaEvent);
+      return;
+    }
+
+    if (value.kind === "assistant.reasoning.delta" && value.topic === "agent") {
+      applyReasoningDeltaToState(value as unknown as AssistantReasoningDeltaEvent);
       return;
     }
 

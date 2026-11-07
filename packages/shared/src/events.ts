@@ -36,6 +36,18 @@ export interface ServerEvent<T = unknown> {
   payload: T;
 }
 
+export interface AssistantReasoningDeltaEvent {
+  kind: "assistant.reasoning.delta";
+  protocolVersion: 1;
+  topic: "agent";
+  streamId: string;
+  sessionId: string;
+  turnId: string;
+  messageId: string;
+  text: string;
+  timestamp: number;
+}
+
 export interface AssistantDeltaEvent {
   kind: "assistant.delta";
   protocolVersion: 1;
@@ -128,12 +140,22 @@ export interface ErrorItem {
   createdAt: number;
 }
 
+export interface ReasoningItem {
+  turnId?: string;
+  id: string;
+  kind: "reasoning";
+  text: string;
+  streaming?: boolean;
+  createdAt: number;
+}
+
 export type TimelineItem =
   | MessageItem
   | PlanItem
   | ToolItem
   | ApprovalItem
   | ArtifactItem
+  | ReasoningItem
   | ErrorItem;
 
 export type TurnEvent =

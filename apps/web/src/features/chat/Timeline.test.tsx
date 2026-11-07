@@ -222,10 +222,13 @@ it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])
         activeTurnId: null,
       }));
     });
-    expect(plan.querySelector(".animate-spin")).not.toBeInTheDocument();
-    expect(within(plan).getByText("未完成", { exact: true })).toBeVisible();
-    expect(within(plan).getByText("已完成：", { exact: true })).toBeInTheDocument();
-    expect(within(plan).getByText("待做：", { exact: true })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /执行过程/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^计划 · 1\/3/ }));
+    const finishedPlan = screen.getByRole("list", { name: "样式调整" });
+    expect(finishedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
+    expect(within(finishedPlan).getByText("未完成", { exact: true })).toBeVisible();
+    expect(within(finishedPlan).getByText("已完成：", { exact: true })).toBeInTheDocument();
+    expect(within(finishedPlan).getByText("待做：", { exact: true })).toBeInTheDocument();
 
     view.unmount();
     useTimelineStore.setState({
@@ -234,9 +237,54 @@ it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])
       activeTurnId: "turn-next",
     });
     render(<Timeline />);
-    fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 样式调整" }));
+    fireEvent.click(screen.getByRole("button", { name: /执行过程/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^计划 · 1\/3/ }));
     const replayedPlan = screen.getByRole("list", { name: "样式调整" });
     expect(replayedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
     expect(within(replayedPlan).getByText("未完成", { exact: true })).toBeVisible();
   },
 );
+
+it("streams reasoning in the process area and collapses it after the turn", () => {
+  const user = {
+    id: "u",
+    kind: "message",
+    role: "user",
+    text: "think",
+    createdAt: 1,
+    turnId: "t1",
+  } as const;
+  const reasoning = {
+    id: "r",
+    kind: "reasoning",
+    text: "先分析目录结构。",
+    createdAt: 2,
+    turnId: "t1",
+    streaming: true,
+  } as const;
+
+  useTimelineStore.setState({
+    items: [user, reasoning],
+    isStreaming: true,
+    activeTurnId: "t1",
+  });
+  render(<Timeline />);
+  expect(screen.getByText("先分析目录结构。")).toBeVisible();
+  expect(screen.getByText(/思考中/)).toBeVisible();
+
+  act(() => {
+    useTimelineStore.setState({
+      items: [
+        { ...user, turnOutcome: "completed", durationMs: 2_000 },
+        { ...reasoning, streaming: false },
+        { id: "a", kind: "message", role: "assistant", text: "完成", createdAt: 3, turnId: "t1" },
+      ],
+      isStreaming: false,
+      activeTurnId: null,
+    });
+  });
+
+  expect(screen.queryByText("先分析目录结构。")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /执行过程/ }));
+  expect(screen.getByText("先分析目录结构。")).toBeVisible();
+});

@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import {
   type AssistantDeltaEvent,
+  type AssistantReasoningDeltaEvent,
   type ServerEvent,
   WORKSPACE_SESSIONS_CHANGED,
 } from "@larness/shared";
@@ -10,7 +11,7 @@ class AgentEventBus extends EventEmitter {}
 export const agentEventBus = new AgentEventBus();
 agentEventBus.setMaxListeners(100);
 
-export type AgentStreamEvent = ServerEvent | AssistantDeltaEvent;
+export type AgentStreamEvent = ServerEvent | AssistantDeltaEvent | AssistantReasoningDeltaEvent;
 
 export function publishWorkspaceSessionsChanged(): void {
   agentEventBus.emit(WORKSPACE_SESSIONS_CHANGED);

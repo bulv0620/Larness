@@ -37,12 +37,20 @@ function groupTurns(items: TimelineItem[]): TurnGroup[] {
 }
 
 function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
-  const [expanded, setExpanded] = useState(false);
   const items = group.items;
   const user = items.find(
     (item): item is MessageItem => item.kind === "message" && item.role === "user",
   );
   const turnActive = active && user?.turnOutcome === undefined;
+  const [expanded, setExpanded] = useState(turnActive);
+  const wasActive = useRef(turnActive);
+
+  useEffect(() => {
+    if (turnActive === wasActive.current) return;
+
+    setExpanded(turnActive);
+    wasActive.current = turnActive;
+  }, [turnActive]);
   const tools = items.filter(
     (item): item is ToolItem => item.kind === "tool" && item.name !== "update_plan",
   );
@@ -70,6 +78,8 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
       item !== answer &&
       item !== latestCommentary &&
       ((item.kind === "message" && item.role === "assistant") ||
+        item.kind === "reasoning" ||
+        item.kind === "plan" ||
         (item.kind === "tool" && item.name !== "update_plan")),
   );
   const approvals = items.filter((item) => item.kind === "approval");
@@ -79,12 +89,15 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const stopped = user?.turnOutcome === "cancelled";
   const duration = user?.durationMs;
   const seconds = duration === undefined ? "" : ` · ${Math.round(duration / 1000)}秒`;
+  const hasReasoning = items.some((item) => item.kind === "reasoning");
   const summary = active
     ? pending
       ? `本轮 ${tools.length} 项操作`
       : runningTool
         ? `正在执行 · ${runningTool.summary || runningTool.name}`
-        : `已执行 ${tools.length} 项操作`
+        : hasReasoning
+          ? `正在思考${tools.length > 0 ? ` · 已执行 ${tools.length} 项操作` : ""}`
+          : `已执行 ${tools.length} 项操作`
     : `${stopped ? "已停止" : failed ? "执行未完成" : "执行了"} ${tools.length} 项操作${seconds}`;
   const targets = new Map<string, NonNullable<ToolItem["resourceTarget"]>>();
   for (const tool of tools) {
@@ -160,7 +173,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
               <div className="ml-1.5 mt-2 space-y-2 border-l border-accent/15 pl-4">
                 {process.map((item) => (
                   <div key={item.id}>
-                    <TimelineItemView item={item} />
+                    <TimelineItemView item={item} turnActive={turnActive} />
                     {item.kind === "tool" && item.commandId ? (
                       <CommandCard commandId={item.commandId} />
                     ) : null}
@@ -170,11 +183,6 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
             ) : null}
           </div>
         ) : null}
-        {items
-          .filter((item) => item.kind === "plan")
-          .map((item) => (
-            <TimelineItemView key={item.id} item={item} turnActive={turnActive} />
-          ))}
         {latestCommentary ? <TimelineItemView item={latestCommentary} /> : null}
         {answer?.kind === "message" ? (
           <MessageBubble item={answer}>{results}</MessageBubble>

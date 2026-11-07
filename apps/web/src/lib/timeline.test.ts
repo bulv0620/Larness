@@ -1,6 +1,6 @@
 import type { TimelineItem } from "@larness/shared";
 import { describe, expect, it } from "vitest";
-import { applyTurnEvent } from "./timeline";
+import { applyReasoningDelta, applyTurnEvent } from "./timeline";
 
 const message: TimelineItem = {
   id: "m1",
@@ -10,6 +10,43 @@ const message: TimelineItem = {
   streaming: true,
   createdAt: 1,
 };
+
+describe("applyReasoningDelta", () => {
+  it("appends deltas into one ephemeral reasoning item", () => {
+    let items: TimelineItem[] = [];
+    items = applyReasoningDelta(items, {
+      id: "reasoning_t1",
+      turnId: "t1",
+      text: "先看目录。",
+      createdAt: 1,
+    });
+    items = applyReasoningDelta(items, {
+      id: "reasoning_t1",
+      turnId: "t1",
+      text: "再读文件。",
+      createdAt: 2,
+    });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "reasoning",
+      turnId: "t1",
+      text: "先看目录。再读文件。",
+      streaming: true,
+    });
+  });
+
+  it("stops streaming when the turn ends", () => {
+    let items: TimelineItem[] = applyReasoningDelta([], {
+      id: "reasoning_t1",
+      turnId: "t1",
+      text: "思考",
+      createdAt: 1,
+    });
+    items = applyTurnEvent(items, { type: "turn.done" });
+    expect(items[0]).toMatchObject({ kind: "reasoning", streaming: false });
+  });
+});
 
 describe("applyTurnEvent", () => {
   it("upserts assistant messages and appends deltas", () => {

@@ -89,6 +89,7 @@ interface ServerEvent<T = unknown> {
 | `turn.status` | `turnId, status, reason?` | 是 |
 | `plan.updated` | `turnId, plan:{id,kind:"plan",title,steps[],createdAt,turnId}` | 是（M2-14） |
 | `assistant.delta` | `turnId, messageId, text` | 否（仅广播，完成时落最终消息） |
+| `assistant.reasoning.delta` | `turnId, messageId, text`（M5-1e 思考过程） | 否（仅广播，不落库、不重放） |
 | `assistant.message` | `turnId, messageId, text` | 是 |
 | `tool.requested` | `toolCallId, name, argsSummary` | 是 |
 | `tool.approval.required` | `toolCallId, approvalId, summary, scope, expiresAt` | 是 |
@@ -103,6 +104,8 @@ interface ServerEvent<T = unknown> {
 | `turn.failed` | `turnId, errorCode, message` | 是 |
 | `turn.cancelled` | `turnId, reason` | 是 |
 | `turn.interrupted` | `turnId, reason` | 是 |
+
+`assistant.reasoning.delta` 使用与 `assistant.delta` 相同的临时信封，不含 `sequence`，不写 `agent_events`，刷新 / 重连后不重放；只发给订阅该会话的已认证客户端。推理正文不得进入日志、审计、其他会话或跨模型上下文。
 
 `assistant.delta` 可使用独立信封 `{ kind: "assistant.delta", topic: "agent", streamId, sessionId, turnId, messageId, text, timestamp }`，不占用持久化 `sequence`，刷新后不重放；最终 `assistant.message` 使用相同 `messageId` 覆盖完整文本。可按 50 ms / 16 KiB 聚合；`turn.*`、审批与工具状态不得仅存在内存。
 

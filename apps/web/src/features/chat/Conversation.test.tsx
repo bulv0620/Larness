@@ -130,6 +130,7 @@ it("shows no empty process for a plain answer and renders a real collapsible pla
       ],
     }),
   );
+  fireEvent.click(screen.getByRole("button", { name: /执行过程/ }));
   fireEvent.click(screen.getByText(/计划 · 1\/2/));
   expect(screen.getByText("检查")).toBeVisible();
   view.unmount();

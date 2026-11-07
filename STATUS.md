@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1 规格 `ready`；M5-1a `done`、M5-1b `review`（2026-11-07），M5-1c 待做 |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a `done`；M5-1b / M5-1e `review`（2026-11-07）；M5-1c 待做 |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,7 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1b `review`（2026-11-07，分支 `task/m5-1b-tool-continuation`）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库；M5-1c 待做。详见下方交付记录。
+- M5-1e `review`（2026-11-07，分支 `task/m5-1e-process-view`）：思考过程经临时 WS 增量展示，与计划、工具合并为「执行过程」区，运行展开、结束折叠；不落库。
+- M5-1b `review`（2026-11-07，分支 `task/m5-1b-tool-continuation`）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
 - M5-1a `done`（2026-11-07，分支 `task/m5-1a-model-catalog`，人类验收通过）：官方目录、模型与思考档位选择、Turn 快照与 Provider 参数、Composer 两级菜单与设置页已交付。
 - M5-1 规格补全（2026-11-07）：用户确认三项决策——旧模型档案全部忽略（保留数据不删除）、思考默认开启、推理数据先实测再定；[061 spec](specs/061-deepseek-integration/spec.md) 转 `ready`，[ADR-053](docs/adr/ADR-053-model-catalog-thinking.md) 记录决策，契约与 [ROADMAP](specs/ROADMAP.md) 已同步。
 - M4 / G4 `done`（2026-11-07）。用户确认 M4 与后续修改全部验收通过，并授权合并到 `main`、推送 GitHub。M4-4 与 M4-R0～R4 关闭。当前 Agent 通过普通项目会话执行 PM2 命令，服务运维提供人工控制与当前列表。最终范围与检查见 [M4 收尾](specs/050-deploy/closure.md)。
@@ -130,6 +131,15 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 实现：`ProviderChunk` 增加 `reasoning-delta`；`ModelMessage.assistant.reasoning` 经 AI SDK `reasoning` part 回传；TurnRunner 每步在内存累积并随 assistant 消息回传给同一 Turn 的后续请求；事件、Turn、日志与 UI 均不含推理正文。
 - 验证：`pnpm check` 通过（web 130、agent 35 通过 / 1 跳过、server 502 通过 / 10 跳过）；`pnpm build` 通过。
 - 未验证：仅真实验证 `deepseek-flash`；其他模型 / 端点的续跑要求未测。进程重启会中断 Turn，不恢复推理数据。
+
+## M5-1e 交付（2026-11-07）
+
+- 分支 `task/m5-1e-process-view`；用户确认：思考仅当前 Turn 可见、统一执行过程区、运行时展开 / 结束后折叠。
+- 服务端：新增临时事件 `assistant.reasoning.delta`（无 `sequence`、不写 `agent_events`、不重放），只发给订阅该会话的已认证客户端；TurnRunner 在收到 `reasoning-delta` 时广播，同时继续在同轮内存回传。
+- Web：时间线新增 `reasoning` 项；思考、计划、工具合并为「执行过程」区——运行时自动展开并流式显示，Turn 结束后收起为「执行了 N 项操作 · X秒」，点击回看；思考按纯文本展示，不进入 Markdown。
+- 安全：推理正文不写入 SQLite、日志、审计，不进入其他会话或跨模型上下文；刷新 / 重连后消失。
+- 验证：`pnpm check` 通过（web 133、agent 35 通过 / 1 跳过、server 502 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
+- 未验证：真实应用目视与截图待用户验收；mock/Demo 未注入 reasoning，仍不显示思考块。
 
 ## 已冻结
 

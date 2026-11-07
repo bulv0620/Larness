@@ -17,6 +17,7 @@ import { FileManagerError, GitError, OutputRedactor } from "@larness/resources";
 import {
   AcquireTerminalControlParamsSchema,
   type AssistantDeltaEvent,
+  type AssistantReasoningDeltaEvent,
   CommandParamsSchema,
   FileResultTargetSchema,
   InterruptTerminalParamsSchema,
@@ -106,7 +107,7 @@ export interface TurnRunnerOptions {
   db: Database;
   registry: ToolRegistry;
   resolveProvider: ProviderResolver;
-  publish?: (event: ServerEvent | AssistantDeltaEvent) => void;
+  publish?: (event: ServerEvent | AssistantDeltaEvent | AssistantReasoningDeltaEvent) => void;
   now?: () => number;
   budget?: Partial<TurnBudget>;
   approvalPollMs?: number;
@@ -1142,6 +1143,17 @@ export class TurnRunner {
 
           if (chunk.type === "reasoning-delta") {
             reasoning += chunk.text;
+            this.#publishDelta(turn, session, {
+              kind: "assistant.reasoning.delta",
+              protocolVersion: 1,
+              topic: "agent",
+              streamId: turn.sessionId,
+              sessionId: turn.sessionId,
+              turnId: turn.id,
+              messageId: assistantMessageId,
+              text: chunk.text,
+              timestamp: this.#now(),
+            });
             continue;
           }
 
@@ -1658,7 +1670,11 @@ export class TurnRunner {
     };
   }
 
-  #publishDelta(turn: TurnRow, session: SessionRow, event: AssistantDeltaEvent): void {
+  #publishDelta(
+    turn: TurnRow,
+    session: SessionRow,
+    event: AssistantDeltaEvent | AssistantReasoningDeltaEvent,
+  ): void {
     if (session.id !== turn.sessionId) {
       return;
     }

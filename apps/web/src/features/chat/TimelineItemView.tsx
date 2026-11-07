@@ -1,6 +1,13 @@
-import type { ArtifactItem, MessageItem, PlanItem, TimelineItem, ToolItem } from "@larness/shared";
+import type {
+  ArtifactItem,
+  MessageItem,
+  PlanItem,
+  ReasoningItem,
+  TimelineItem,
+  ToolItem,
+} from "@larness/shared";
 import { cn } from "@larness/ui";
-import { Check, ChevronRight, Circle, Copy, Loader2, X } from "lucide-react";
+import { Brain, Check, ChevronRight, Circle, Copy, Loader2, X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
 import { PreviewResultCard } from "@/features/services/PreviewResultCard";
@@ -23,6 +30,8 @@ export function TimelineItemView({
       return <PlanCard item={item} turnActive={turnActive} />;
     case "tool":
       return <ToolCard item={item} />;
+    case "reasoning":
+      return <ReasoningBlock item={item} />;
     case "approval":
       return null;
     case "artifact":
@@ -114,6 +123,18 @@ const planStepLabels = {
   pending: "待做：",
   unfinished: "未完成",
 };
+
+function ReasoningBlock({ item }: { item: ReasoningItem }) {
+  return (
+    <div className="border-l-2 border-line/80 pl-3 text-[12px] leading-5 text-ink-3">
+      <div className="mb-0.5 flex items-center gap-1 text-[10px] font-semibold text-ink-3">
+        <Brain size={11} aria-hidden="true" />
+        思考{item.streaming ? "中…" : ""}
+      </div>
+      <div className="whitespace-pre-wrap break-words">{item.text}</div>
+    </div>
+  );
+}
 
 function PlanCard({ item, turnActive }: { item: PlanItem; turnActive: boolean }) {
   const [expanded, setExpanded] = useState(false);
