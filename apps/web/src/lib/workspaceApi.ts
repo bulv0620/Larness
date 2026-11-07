@@ -116,6 +116,7 @@ export interface ApiCatalogModel {
 export interface ApiModelCatalog {
   provider: "deepseek";
   credentialProfileId: string;
+  credentialLabel: string;
   syncedAt: number | null;
   stale: boolean;
   lastRefreshError: string | null;

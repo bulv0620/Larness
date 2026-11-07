@@ -187,6 +187,7 @@ describe("models and credentials API", () => {
         });
         expect(refreshed.statusCode).toBe(200);
         expect(refreshed.json()).toMatchObject({
+          credentialLabel: "DeepSeek Key",
           stale: false,
           models: [
             { id: "deepseek-flash", contextWindow: 1_048_576, default: true },

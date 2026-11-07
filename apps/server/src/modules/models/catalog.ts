@@ -34,6 +34,7 @@ export interface CatalogModel {
 export interface CatalogDto {
   provider: "deepseek";
   credentialProfileId: string;
+  credentialLabel: string;
   syncedAt: number | null;
   stale: boolean;
   lastRefreshError: string | null;
@@ -247,13 +248,17 @@ function requireCredential(db: DbExecutor) {
 }
 
 function catalogDto(
-  credentialProfileId: string,
+  credential: { id: string; label: string },
   row: ReturnType<typeof getModelCatalogCache>,
 ): CatalogDto {
+  const credentialProfileId = credential.id;
+  const credentialLabel = credential.label;
+
   if (row === null) {
     return {
       provider: "deepseek",
       credentialProfileId,
+      credentialLabel,
       syncedAt: null,
       stale: true,
       lastRefreshError: null,
@@ -264,6 +269,7 @@ function catalogDto(
   return {
     provider: "deepseek",
     credentialProfileId,
+    credentialLabel,
     syncedAt: row.syncedAt,
     stale: row.syncedAt === null || row.lastErrorCode !== null,
     lastRefreshError: row.lastErrorCode,
@@ -273,7 +279,7 @@ function catalogDto(
 
 export function getModelCatalog(options: CatalogOptions): CatalogDto {
   const credential = requireCredential(options.db);
-  return catalogDto(credential.id, getModelCatalogCache(options.db, credential.id));
+  return catalogDto(credential, getModelCatalogCache(options.db, credential.id));
 }
 
 function cachedModelsFor(db: DbExecutor, credentialId: string): CatalogModel[] {
@@ -350,7 +356,7 @@ export async function refreshModelCatalog(
     });
   });
 
-  return catalogDto(credential.id, getModelCatalogCache(options.db, credential.id));
+  return catalogDto(credential, getModelCatalogCache(options.db, credential.id));
 }
 
 function recordFailure(

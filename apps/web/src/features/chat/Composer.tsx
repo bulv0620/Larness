@@ -18,7 +18,6 @@ import { ArrowUp, Plus, Shield, ShieldAlert, ShieldCheck, Square } from "lucide-
 import { useEffect, useRef, useState } from "react";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useModelCatalog, useSessionModel } from "@/lib/queries";
-import { refreshModelCatalog } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
@@ -51,7 +50,7 @@ const policies = [
 
 export function Composer() {
   const [confirmAutonomous, setConfirmAutonomous] = useState(false);
-  const { catalog, error: catalogError, refetch: refetchCatalog } = useModelCatalog();
+  const { catalog, error: catalogError } = useModelCatalog();
   const draft = useComposerStore((state) => state.draft);
   const modelId = useComposerStore((state) => state.modelId);
   const thinking = useComposerStore((state) => state.thinking);
@@ -110,11 +109,6 @@ export function Composer() {
     const separator = draft && !draft.endsWith(" ") ? " " : "";
     setDraft(`${draft}${separator}${token} `);
     requestAnimationFrame(() => textareaRef.current?.focus());
-  };
-
-  const refreshCatalog = async () => {
-    await refreshModelCatalog();
-    await refetchCatalog();
   };
 
   const selectModel = (nextModelId: string) => {
@@ -180,9 +174,9 @@ export function Composer() {
           model={model}
           thinking={thinking}
           catalogError={catalogError}
+          credentialLabel={catalog?.credentialLabel}
           onSelectModel={selectModel}
           onSelectThinking={setThinking}
-          onRefresh={refreshCatalog}
         />
 
         <DropdownMenu>

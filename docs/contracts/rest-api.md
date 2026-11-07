@@ -442,6 +442,7 @@ Turn 创建成功返回 `202`：
 {
   "provider": "deepseek",
   "credentialProfileId": "cred_…",
+  "credentialLabel": "DeepSeek Key",
   "syncedAt": 1790000000000,
   "stale": false,
   "lastRefreshError": null,

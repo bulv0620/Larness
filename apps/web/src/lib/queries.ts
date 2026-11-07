@@ -76,6 +76,7 @@ function mockCatalog(): ApiModelCatalog {
   return {
     provider: "deepseek",
     credentialProfileId: "cred_mock",
+    credentialLabel: "DeepSeek Key",
     syncedAt: null,
     stale: false,
     lastRefreshError: null,

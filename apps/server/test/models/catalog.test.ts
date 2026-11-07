@@ -81,7 +81,12 @@ describe("deepseek model catalog", () => {
         );
 
         expect(seenApiKey).toBe("sk-test");
-        expect(catalog).toMatchObject({ syncedAt: 5_000, stale: false, lastRefreshError: null });
+        expect(catalog).toMatchObject({
+          credentialLabel: "DeepSeek Key",
+          syncedAt: 5_000,
+          stale: false,
+          lastRefreshError: null,
+        });
         expect(catalog.models.map((model) => model.id)).toEqual([
           "deepseek-flash",
           "deepseek-chat",
