@@ -1,10 +1,10 @@
 # DeepSeek 官方接入任务
 
-本切片排入 M5-1，spec 已于 2026-11-07 转 `ready`。M5-1a 已交付（2026-11-07，`review`）；M5-1b / M5-1c 保持 `todo`，一次一个任务。
+本切片排入 M5-1，spec 已于 2026-11-07 转 `ready`。M5-1a 已验收（2026-11-07，`done`）；M5-1b / M5-1c 保持 `todo`，一次一个任务。
 
 ## M5-1a 目录、模型与档位选择
 
-覆盖 A1–A4、A8–A10。依赖：spec ready。状态 `review`（2026-11-07 交付）。
+覆盖 A1–A4、A8–A10。依赖：spec ready。状态 `done`（2026-11-07 人类验收，含两级菜单 UI）。
 
 - [x] 迁移 `0015_model_catalog`：`model_catalog_cache` 表 + `sessions.model` / `sessions.thinking` + `turns.thinking` / `turns.context_window`（只加表与可空列）。
 - [x] 目录模块：固定官方端点、Secret Store 取凭据、Zod 校验、按凭据缓存、`GET /api/models/catalog` + `POST /api/models/catalog/refresh`、鉴权 / CSRF / 错误码。
