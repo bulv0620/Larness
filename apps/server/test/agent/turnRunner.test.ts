@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
+import { listSessionEvents } from "../../src/modules/agent/events.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -218,6 +219,56 @@ describe("TurnRunner", () => {
           path: "a.txt",
           changeType: "modified",
         });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("keeps reasoning in memory for the tool loop and never persists it", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "think" });
+        const reasoning = "private-chain-of-thought-marker";
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              { type: "reasoning-delta", text: reasoning },
+              { type: "tool-call", toolCall: { id: "call_list", name: "list_files", args: {} } },
+              { type: "finish", finishReason: "tool-calls" },
+            ],
+          },
+          textStep("done"),
+        ]);
+        const published: ServerEvent[] = [];
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
+        });
+
+        const result = await runner.run(turn.turnId);
+        expect(result.status).toBe("COMPLETED");
+        expect(provider.calls).toHaveLength(2);
+
+        const assistant = provider.calls[1]?.messages.find(
+          (message) => message.role === "assistant" && message.toolCalls !== undefined,
+        );
+        expect(assistant).toMatchObject({ role: "assistant", reasoning });
+
+        const persisted = JSON.stringify([
+          published,
+          listSessionEvents(opened.db, session.id).items,
+          opened.sqlite.prepare("SELECT * FROM turns WHERE id = ?").get(turn.turnId),
+        ]);
+        expect(persisted).not.toContain(reasoning);
       } finally {
         opened.close();
       }

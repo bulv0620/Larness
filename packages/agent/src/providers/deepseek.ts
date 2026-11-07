@@ -202,17 +202,24 @@ export function toAiSdkMessages(messages: ModelMessage[]): AiModelMessage[] {
       case "user":
         return { role: "user", content: message.content };
       case "assistant": {
-        if (message.toolCalls === undefined || message.toolCalls.length === 0) {
+        if (
+          (message.toolCalls === undefined || message.toolCalls.length === 0) &&
+          (message.reasoning === undefined || message.reasoning.length === 0)
+        ) {
           return { role: "assistant", content: message.content };
         }
 
         const content: AssistantContent = [];
 
+        if (message.reasoning !== undefined && message.reasoning.length > 0) {
+          content.push({ type: "reasoning", text: message.reasoning });
+        }
+
         if (message.content.length > 0) {
           content.push({ type: "text", text: message.content });
         }
 
-        for (const call of message.toolCalls) {
+        for (const call of message.toolCalls ?? []) {
           content.push({
             type: "tool-call",
             toolCallId: call.id,
@@ -274,6 +281,13 @@ export async function* mapAiSdkStream(
       case "text-delta": {
         if (typeof part.text === "string" && part.text.length > 0) {
           yield { type: "text-delta", text: part.text };
+        }
+        break;
+      }
+      case "reasoning-delta":
+      case "reasoning": {
+        if (typeof part.text === "string" && part.text.length > 0) {
+          yield { type: "reasoning-delta", text: part.text };
         }
         break;
       }

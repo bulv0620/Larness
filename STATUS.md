@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1 规格 `ready`；M5-1a `done`（2026-11-07），M5-1b / M5-1c 待做 |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1 规格 `ready`；M5-1a `done`、M5-1b `review`（2026-11-07），M5-1c 待做 |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,7 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1a `done`（2026-11-07，分支 `task/m5-1a-model-catalog`，人类验收通过）：官方目录、模型与思考档位选择、Turn 快照与 Provider 参数、Composer 两级菜单与设置页已交付；M5-1b / M5-1c 待做。详见下方交付记录。
+- M5-1b `review`（2026-11-07，分支 `task/m5-1b-tool-continuation`）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库；M5-1c 待做。详见下方交付记录。
+- M5-1a `done`（2026-11-07，分支 `task/m5-1a-model-catalog`，人类验收通过）：官方目录、模型与思考档位选择、Turn 快照与 Provider 参数、Composer 两级菜单与设置页已交付。
 - M5-1 规格补全（2026-11-07）：用户确认三项决策——旧模型档案全部忽略（保留数据不删除）、思考默认开启、推理数据先实测再定；[061 spec](specs/061-deepseek-integration/spec.md) 转 `ready`，[ADR-053](docs/adr/ADR-053-model-catalog-thinking.md) 记录决策，契约与 [ROADMAP](specs/ROADMAP.md) 已同步。
 - M4 / G4 `done`（2026-11-07）。用户确认 M4 与后续修改全部验收通过，并授权合并到 `main`、推送 GitHub。M4-4 与 M4-R0～R4 关闭。当前 Agent 通过普通项目会话执行 PM2 命令，服务运维提供人工控制与当前列表。最终范围与检查见 [M4 收尾](specs/050-deploy/closure.md)。
 - M4-3b `done`（2026-11-06，历史实现）。旧接口与工具设计见 [原验收](specs/050-deploy/acceptance-m4-3b.md)，当前命令路径由 ADR-050 定义。
@@ -121,6 +122,14 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 未验证：真实官方端点同步与真实思考参数——本机无 `DEEPSEEK_API_KEY`，未使用用户已存凭据；思考模式工具续跑与推理数据回传属 M5-1b PoC；单次请求圆环属 M5-1c（当前圆环分母改为目录窗口，分子仍为整轮累计）。
 - 偏差：`/api/models` 保留为旧 Profile 查询（UI 不再使用）；项目默认模型档案不再影响新会话；设置页不提供全局默认模型，选择写入当前会话（spec 5.5 已同步）。
 - UI 调整（2026-11-07，同任务）：按用户要求精简——底部药丸（模型 + 档位）打开两级菜单：`模型`（按 Key 名称分组的模型列表）与 `思考等级`（关/低/中/高）；不使用滑杆、不显示推荐分组文案。视觉沿用现有菜单 token、字号与圆角。单测覆盖两级选择与模型切换，浅色 / 深色 mock 截图目视通过；2026-11-07 人类验收通过。
+
+## M5-1b 启动与交付（2026-11-07 +08:00）
+
+- 分支 `task/m5-1b-tool-continuation`；用户授权使用本机已配置 DeepSeek Key 做真实 PoC。
+- PoC（[证据](specs/061-deepseek-integration/poc-m5-1b.md)，真实 `deepseek-flash`）：同轮工具续跑在回传 / 省略 / 空串 `reasoning_content` 三种请求下均返回 200 `stop`；跨轮历史不带 reasoning 仍可用；流式适配器首步拿到 49B 推理与 `echo` 工具调用，续跑 `finish=stop`。未记录密钥、prompt 或推理正文。
+- 实现：`ProviderChunk` 增加 `reasoning-delta`；`ModelMessage.assistant.reasoning` 经 AI SDK `reasoning` part 回传；TurnRunner 每步在内存累积并随 assistant 消息回传给同一 Turn 的后续请求；事件、Turn、日志与 UI 均不含推理正文。
+- 验证：`pnpm check` 通过（web 130、agent 35 通过 / 1 跳过、server 502 通过 / 10 跳过）；`pnpm build` 通过。
+- 未验证：仅真实验证 `deepseek-flash`；其他模型 / 端点的续跑要求未测。进程重启会中断 Turn，不恢复推理数据。
 
 ## 已冻结
 

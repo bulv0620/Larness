@@ -93,7 +93,7 @@ describe("DeepSeek stream mapping", () => {
     ]);
   });
 
-  it("ignores reasoning parts and synthesizes a finish when the stream ends early", async () => {
+  it("passes reasoning through and synthesizes a finish when the stream ends early", async () => {
     const chunks = await collect(
       mapAiSdkStream(
         parts([
@@ -104,6 +104,7 @@ describe("DeepSeek stream mapping", () => {
     );
 
     expect(chunks).toEqual([
+      { type: "reasoning-delta", text: "thinking" },
       { type: "text-delta", text: "answer" },
       { type: "finish", finishReason: "other" },
     ]);
@@ -322,6 +323,32 @@ describe("DeepSeek request mapping", () => {
     expect(tools).toBeDefined();
     expect(tools?.read_file).toMatchObject({ description: "Read a file" });
     expect(toAiSdkTools([])).toBeUndefined();
+  });
+
+  it("round-trips assistant reasoning ahead of tool calls", () => {
+    const messages = toAiSdkMessages([
+      {
+        role: "assistant",
+        content: "",
+        toolCalls: [{ id: "call_1", name: "read_file", args: { path: "a.txt" } }],
+        reasoning: "private-thought",
+      },
+    ]);
+
+    expect(messages).toEqual([
+      {
+        role: "assistant",
+        content: [
+          { type: "reasoning", text: "private-thought" },
+          {
+            type: "tool-call",
+            toolCallId: "call_1",
+            toolName: "read_file",
+            input: { path: "a.txt" },
+          },
+        ],
+      },
+    ]);
   });
 
   it("maps thinking settings to DeepSeek provider options", () => {

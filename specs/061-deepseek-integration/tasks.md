@@ -16,13 +16,13 @@
 
 ## M5-1b 思考模式工具续跑
 
-覆盖 A5、A11。依赖：M5-1a 完成；PoC 门禁。
+覆盖 A5、A11。依赖：M5-1a 完成；PoC 门禁。状态 `review`（2026-11-07 交付）。
 
-- [ ] PoC：用授权凭据验证同轮连续工具调用、跨轮、进程重启后的官方续跑要求，记录脱敏证据。
-- [ ] 按 PoC 结论确认保留方案（默认 Turn 内存），未获结论前不落库。
-- [ ] Provider：`reasoning-delta` 累积、`ModelMessage.assistant.reasoning` 回传、不广播 / 不显示。
-- [ ] 测试：连续工具调用、跨轮、切模型脱敏、REST / WS / 日志不含推理正文。
-- [ ] 验收记录：PoC 证据、保留范围、未验证项。
+- [x] PoC：用授权凭据验证同轮连续工具调用、跨轮、进程重启后的官方续跑要求，记录脱敏证据。
+- [x] 按 PoC 结论确认保留方案（默认 Turn 内存），未获结论前不落库。
+- [x] Provider：`reasoning-delta` 累积、`ModelMessage.assistant.reasoning` 回传、不广播 / 不显示。
+- [x] 测试：连续工具调用、跨轮、切模型脱敏、REST / WS / 日志不含推理正文。
+- [x] 验收记录：PoC 证据见 [poc-m5-1b.md](poc-m5-1b.md)；保留范围 Turn 内存；仅验证 deepseek-flash，流式 PoC 通过。
 
 ## M5-1c 单次用量与圆环
 

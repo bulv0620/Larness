@@ -1109,6 +1109,7 @@ export class TurnRunner {
         steps += 1;
         const assistantMessageId = newId("msg");
         let text = "";
+        let reasoning = "";
         const toolRequests: ToolCallRequest[] = [];
         let finishReason: ProviderFinishReason = "other";
         let stepUsage: ProviderUsage | undefined;
@@ -1136,6 +1137,11 @@ export class TurnRunner {
               text: chunk.text,
               timestamp: this.#now(),
             });
+            continue;
+          }
+
+          if (chunk.type === "reasoning-delta") {
+            reasoning += chunk.text;
             continue;
           }
 
@@ -1192,7 +1198,12 @@ export class TurnRunner {
           });
         }
 
-        messages.push({ role: "assistant", content: text, toolCalls: toolRequests });
+        messages.push({
+          role: "assistant",
+          content: text,
+          toolCalls: toolRequests,
+          ...(reasoning.length === 0 ? {} : { reasoning }),
+        });
 
         for (const request of toolRequests) {
           const cancelState = checkBudget();

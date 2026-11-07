@@ -33,7 +33,7 @@ export interface ToolCallRequest {
 export type ModelMessage =
   | { role: "system"; content: string }
   | { role: "user"; content: string }
-  | { role: "assistant"; content: string; toolCalls?: ToolCallRequest[] }
+  | { role: "assistant"; content: string; toolCalls?: ToolCallRequest[]; reasoning?: string }
   | {
       role: "tool";
       toolCallId: string;
@@ -57,6 +57,7 @@ export interface ProviderThinking {
 
 export type ProviderChunk =
   | { type: "text-delta"; text: string }
+  | { type: "reasoning-delta"; text: string }
   | { type: "tool-call"; toolCall: ToolCallRequest }
   | { type: "finish"; finishReason: ProviderFinishReason; usage?: ProviderUsage }
   | { type: "error"; error: ProviderError };
