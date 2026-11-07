@@ -134,6 +134,13 @@
       "when": 1794059359024,
       "tag": "0019_credential_endpoint",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1794064628383,
+      "tag": "0020_compatible_context",
+      "breakpoints": true
     }
   ]
 }

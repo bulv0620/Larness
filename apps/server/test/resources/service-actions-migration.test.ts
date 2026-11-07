@@ -37,7 +37,7 @@ it("adds service action authorizations without changing service runtime records"
       journal.entries = complete;
       await writeFile(journalPath, JSON.stringify(journal));
       runMigrations(opened.db, migrations);
-      expect(appliedMigrationCount(opened.sqlite)).toBe(19);
+      expect(appliedMigrationCount(opened.sqlite)).toBe(20);
       expect(
         opened.sqlite
           .prepare(

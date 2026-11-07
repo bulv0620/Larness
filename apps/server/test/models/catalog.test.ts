@@ -495,4 +495,55 @@ describe("deepseek model catalog", () => {
       }
     });
   });
+  it("loads models from a compatible endpoint with the credential window", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+      const originalFetch = globalThis.fetch;
+
+      try {
+        const credential = createCredential(options, {
+          provider: "openai-compatible",
+          label: "Compatible",
+          apiKey: "sk-compatible",
+          endpoint: "https://api.example.com/v1",
+          contextWindow: 256_000,
+        });
+        globalThis.fetch = (async () =>
+          new Response(JSON.stringify({ object: "list", data: [{ id: "custom-model" }] }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          })) as typeof fetch;
+
+        const catalog = await refreshModelCatalog({
+          ...options,
+          endpointResolver: async () => ["93.184.216.34"],
+        });
+        const group = catalog.groups.find((item) => item.provider === "openai-compatible");
+        expect(group?.models[0]).toMatchObject({
+          id: "custom-model",
+          contextWindow: 256_000,
+          thinking: { supported: false },
+        });
+
+        expect(resolveCatalogSelection(options.db, { model: "custom-model" })).toMatchObject({
+          model: "custom-model",
+          contextWindow: 256_000,
+          credentialProfileId: credential.id,
+        });
+        expect(
+          resolveCatalogProvider(options, {
+            model: "custom-model",
+            thinking: "off",
+            credentialProfileId: credential.id,
+          }),
+        ).toMatchObject({
+          provider: "openai-compatible",
+          endpoint: "https://api.example.com/v1",
+        });
+      } finally {
+        globalThis.fetch = originalFetch;
+        opened.sqlite.close();
+      }
+    });
+  });
 });

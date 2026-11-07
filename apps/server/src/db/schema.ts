@@ -179,6 +179,7 @@ export const credentialProfiles = sqliteTable(
       .notNull()
       .references(() => secrets.id, { onDelete: "cascade" }),
     endpoint: text("endpoint"),
+    contextWindow: integer("context_window"),
     createdAt: integer("created_at").notNull(),
   },
   (table) => [index("idx_credential_profiles_provider").on(table.provider)],

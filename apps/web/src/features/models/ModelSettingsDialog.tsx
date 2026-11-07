@@ -33,6 +33,7 @@ import {
   setModelDefault,
   setModelVisibility,
   updateCredentialEndpoint,
+  updateCredentialSettings,
 } from "@/lib/workspaceApi";
 
 type View = { kind: "list" } | { kind: "key"; credentialId: string } | { kind: "add" };
@@ -83,8 +84,12 @@ export function ModelSettingsDialog({
   const [view, setView] = useState<View>({ kind: "list" });
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
   const [catalog, setCatalog] = useState<ApiModelCatalog | null>(null);
-  const [provider, setProvider] = useState<"deepseek" | "glm">("deepseek");
+  const [provider, setProvider] = useState<"deepseek" | "glm" | "openai-compatible">("deepseek");
   const [endpoint, setEndpoint] = useState<string>(DEFAULT_GLM_ENDPOINT);
+  const [compatEndpoint, setCompatEndpoint] = useState("");
+  const [compatWindowK, setCompatWindowK] = useState("128");
+  const [endpointDraft, setEndpointDraft] = useState("");
+  const [windowDraft, setWindowDraft] = useState("128");
   const [label, setLabel] = useState("DeepSeek Key");
   const [apiKey, setApiKey] = useState("");
   const [showUnavailable, setShowUnavailable] = useState(false);
@@ -142,6 +147,15 @@ export function ModelSettingsDialog({
 
     void reload();
   }, [open]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sync drafts when the key changes
+  useEffect(() => {
+    if (activeCredential?.provider !== "openai-compatible") return;
+    setEndpointDraft(activeCredential.endpoint ?? "");
+    setWindowDraft(
+      String(Math.max(1, Math.round((activeCredential.contextWindow ?? 128_000) / 1024))),
+    );
+  }, [activeCredential?.id, activeCredential?.endpoint, activeCredential?.contextWindow]);
 
   const refresh = async () => {
     setBusy(true);
@@ -211,6 +225,12 @@ export function ModelSettingsDialog({
         label: label.trim() || (provider === "glm" ? "GLM Key" : "DeepSeek Key"),
         apiKey,
         ...(provider === "glm" ? { endpoint } : {}),
+        ...(provider === "openai-compatible"
+          ? {
+              endpoint: compatEndpoint.trim(),
+              contextWindow: Math.max(1, Number(compatWindowK) || 128) * 1024,
+            }
+          : {}),
       });
       setApiKey("");
       await reload();
@@ -233,6 +253,24 @@ export function ModelSettingsDialog({
       await refresh();
     } catch (endpointError) {
       setError(endpointError instanceof Error ? endpointError.message : "更新端点失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveCompatible = async (credentialId: string) => {
+    setBusy(true);
+    setError(null);
+
+    try {
+      await updateCredentialSettings(credentialId, {
+        endpoint: endpointDraft.trim(),
+        contextWindow: Math.max(1, Number(windowDraft) || 128) * 1024,
+      });
+      await reload();
+      await refresh();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "保存兼容端点失败");
     } finally {
       setBusy(false);
     }
@@ -401,6 +439,37 @@ export function ModelSettingsDialog({
                 <Trash2 size={12} />
               </Button>
             </div>
+            {activeGroup?.provider === "openai-compatible" ? (
+              <div className="flex shrink-0 flex-wrap items-end gap-2 border-b border-line px-4 py-2">
+                <label className="block min-w-0 flex-1 text-[10px] font-semibold text-ink-3">
+                  端点 URL
+                  <input
+                    value={endpointDraft}
+                    onChange={(event) => setEndpointDraft(event.target.value)}
+                    aria-label="兼容端点 URL"
+                    className="mt-1 h-7 w-full rounded-lg border border-line bg-surface-2 px-2 font-mono text-[10.5px] font-normal text-ink outline-none"
+                  />
+                </label>
+                <label className="block w-24 text-[10px] font-semibold text-ink-3">
+                  窗口（K）
+                  <input
+                    value={windowDraft}
+                    onChange={(event) => setWindowDraft(event.target.value)}
+                    aria-label="兼容上下文窗口（K）"
+                    inputMode="numeric"
+                    className="mt-1 h-7 w-full rounded-lg border border-line bg-surface-2 px-2 font-mono text-[10.5px] font-normal text-ink outline-none"
+                  />
+                </label>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy || !endpointDraft.trim()}
+                  onClick={() => void saveCompatible(view.credentialId)}
+                >
+                  保存
+                </Button>
+              </div>
+            ) : null}
             <div className="min-h-0 flex-1 overflow-y-auto">
               {activeGroup === undefined ? (
                 <p className="px-4 py-3 text-[11px] text-ink-3">目录不可用，请刷新。</p>
@@ -477,14 +546,20 @@ export function ModelSettingsDialog({
             </div>
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
               <div className="flex gap-1">
-                {(["deepseek", "glm"] as const).map((option) => (
+                {(["deepseek", "glm", "openai-compatible"] as const).map((option) => (
                   <button
                     key={option}
                     type="button"
                     aria-pressed={provider === option}
                     onClick={() => {
                       setProvider(option);
-                      setLabel(option === "glm" ? "GLM Key" : "DeepSeek Key");
+                      setLabel(
+                        option === "glm"
+                          ? "GLM Key"
+                          : option === "openai-compatible"
+                            ? "兼容 Key"
+                            : "DeepSeek Key",
+                      );
                     }}
                     className={`h-7 rounded-lg px-2.5 text-[10.5px] transition-colors ${
                       provider === option
@@ -492,7 +567,11 @@ export function ModelSettingsDialog({
                         : "bg-surface-2 text-ink-3 hover:text-ink"
                     }`}
                   >
-                    {option === "glm" ? "GLM" : "DeepSeek"}
+                    {option === "glm"
+                      ? "GLM"
+                      : option === "openai-compatible"
+                        ? "兼容"
+                        : "DeepSeek"}
                   </button>
                 ))}
               </div>
@@ -512,6 +591,30 @@ export function ModelSettingsDialog({
                     ))}
                   </select>
                 </label>
+              ) : null}
+              {provider === "openai-compatible" ? (
+                <>
+                  <label className="block text-[10.5px] font-semibold text-ink-3">
+                    端点 URL
+                    <input
+                      value={compatEndpoint}
+                      onChange={(event) => setCompatEndpoint(event.target.value)}
+                      aria-label="兼容端点 URL"
+                      placeholder="https://api.example.com/v1"
+                      className="mt-1 h-8 w-full rounded-lg border border-line bg-surface-2 px-2 font-mono text-[11px] font-normal text-ink outline-none focus:border-accent/40"
+                    />
+                  </label>
+                  <label className="block text-[10.5px] font-semibold text-ink-3">
+                    上下文窗口（K）
+                    <input
+                      value={compatWindowK}
+                      onChange={(event) => setCompatWindowK(event.target.value)}
+                      aria-label="兼容上下文窗口（K）"
+                      inputMode="numeric"
+                      className="mt-1 h-8 w-full rounded-lg border border-line bg-surface-2 px-2 font-mono text-[11px] font-normal text-ink outline-none focus:border-accent/40"
+                    />
+                  </label>
+                </>
               ) : null}
               <label className="block text-[10.5px] font-semibold text-ink-3">
                 名称
@@ -537,7 +640,11 @@ export function ModelSettingsDialog({
               <Button
                 variant="primary"
                 size="sm"
-                disabled={busy || !apiKey.trim()}
+                disabled={
+                  busy ||
+                  !apiKey.trim() ||
+                  (provider === "openai-compatible" && !compatEndpoint.trim())
+                }
                 onClick={() => void addKey()}
               >
                 {busy ? <Loader2 size={12} className="animate-spin" /> : null}

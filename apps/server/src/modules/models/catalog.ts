@@ -6,6 +6,7 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { ModelProviderId } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
+import { assertSafeEndpoint, EndpointError, type HostResolver } from "./endpoint.js";
 import {
   findLatestCredentialForProvider,
   getCredentialRow,
@@ -79,6 +80,7 @@ export interface CatalogOptions {
   now?: () => number;
   fetcher?: DeepSeekCatalogFetcher;
   timeoutMs?: number;
+  endpointResolver?: HostResolver;
 }
 
 export type DeepSeekCatalogFetcher = (apiKey: string, signal: AbortSignal) => Promise<unknown>;
@@ -319,6 +321,7 @@ function builtinCatalog(provider: ModelProviderId): readonly CatalogModel[] {
 function mergeCatalog(
   provider: ModelProviderId,
   payload: z.infer<typeof upstreamSchema>,
+  fallbackWindow: number | null = null,
 ): CatalogModel[] {
   const builtins = builtinCatalog(provider);
   const models = payload.data.map((entry) => {
@@ -335,7 +338,8 @@ function mergeCatalog(
     return {
       id: entry.id,
       label: entry.name ?? builtin?.label ?? entry.id,
-      contextWindow: entry.context_window ?? entry.contextWindow ?? builtin?.contextWindow ?? null,
+      contextWindow:
+        entry.context_window ?? entry.contextWindow ?? builtin?.contextWindow ?? fallbackWindow,
       thinking,
       default: false,
     };
@@ -394,19 +398,32 @@ function parseModels(json: string): CatalogModel[] {
 
 function catalogCredentials(db: DbExecutor) {
   return listCredentialRows(db).filter(
-    (credential) => credential.provider === "deepseek" || credential.provider === "glm",
+    (credential) =>
+      credential.provider === "deepseek" ||
+      credential.provider === "glm" ||
+      (credential.provider === "openai-compatible" &&
+        credential.endpoint !== null &&
+        credential.endpoint.length > 0),
   );
 }
 
 function groupFor(
   db: DbExecutor,
-  credential: { id: string; label: string; provider: ModelProviderId },
+  credential: {
+    id: string;
+    label: string;
+    provider: ModelProviderId;
+    contextWindow: number | null;
+  },
 ): CatalogGroup {
   const row = getModelCatalogCache(db, credential.id);
 
   const visibility = getModelVisibility(db, credential.id);
   const models = (row === null ? [] : parseModels(row.modelsJson)).map((model) => ({
     ...model,
+    contextWindow:
+      model.contextWindow ??
+      (credential.provider === "openai-compatible" ? credential.contextWindow : null),
     visible: visibility.get(model.id) ?? true,
   }));
 
@@ -457,6 +474,18 @@ function cachedModelsFor(db: DbExecutor, credentialId: string): CatalogModel[] {
   return row === null ? [] : parseModels(row.modelsJson);
 }
 
+function modelsForCredential(
+  db: DbExecutor,
+  credential: { id: string; provider: ModelProviderId; contextWindow: number | null },
+): CatalogModel[] {
+  return cachedModelsFor(db, credential.id).map((model) => ({
+    ...model,
+    contextWindow:
+      model.contextWindow ??
+      (credential.provider === "openai-compatible" ? credential.contextWindow : null),
+  }));
+}
+
 async function catalogPayload(
   options: CatalogOptions,
   provider: ModelProviderId,
@@ -470,7 +499,17 @@ async function catalogPayload(
     return fetcher(apiKey, new AbortController().signal);
   }
 
-  if (provider === "glm") {
+  if (provider === "glm" || provider === "openai-compatible") {
+    const base = endpoint ?? (provider === "glm" ? GLM_BASE_URL : null);
+
+    if (base === null) {
+      throw new ModelError("VALIDATION_ERROR", "compatible endpoint is missing");
+    }
+
+    if (provider === "openai-compatible") {
+      await assertSafeEndpoint(base, options.endpointResolver);
+    }
+
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort(),
@@ -478,7 +517,6 @@ async function catalogPayload(
     );
 
     try {
-      const base = endpoint ?? GLM_BASE_URL;
       const response = await fetch(`${base}/models`, {
         headers: { authorization: `Bearer ${apiKey}`, accept: "application/json" },
         redirect: "error",
@@ -506,6 +544,7 @@ async function refreshCredential(
     provider: ModelProviderId;
     secretRef: string;
     endpoint: string | null;
+    contextWindow: number | null;
   },
   clientSessionId: string | undefined,
 ): Promise<void> {
@@ -536,7 +575,9 @@ async function refreshCredential(
         ? mapErrorCode(error.status)
         : error instanceof ModelError
           ? error.code
-          : "PROVIDER_UNAVAILABLE";
+          : error instanceof EndpointError
+            ? "VALIDATION_ERROR"
+            : "PROVIDER_UNAVAILABLE";
     recordFailure(options, credential, code, now);
     return;
   }
@@ -548,7 +589,11 @@ async function refreshCredential(
     return;
   }
 
-  const models = mergeCatalog(credential.provider, parsed.data);
+  const models = mergeCatalog(
+    credential.provider,
+    parsed.data,
+    credential.provider === "openai-compatible" ? (credential.contextWindow ?? 128_000) : null,
+  );
 
   if (models.length === 0) {
     recordFailure(options, credential, "MODEL_CATALOG_INVALID", now);
@@ -560,9 +605,9 @@ async function refreshCredential(
       credentialProfileId: credential.id,
       provider: credential.provider,
       endpoint:
-        credential.provider === "glm"
-          ? `${credential.endpoint ?? GLM_BASE_URL}/models`
-          : DEEPSEEK_CATALOG_URL,
+        credential.provider === "deepseek"
+          ? DEEPSEEK_CATALOG_URL
+          : `${credential.endpoint ?? GLM_BASE_URL}/models`,
       modelsJson: JSON.stringify(models),
       now,
     });
@@ -590,7 +635,11 @@ export async function refreshModelCatalog(
           if (credential === null) {
             throw new ModelError("NOT_FOUND", "credential not found");
           }
-          if (credential.provider !== "deepseek" && credential.provider !== "glm") {
+          if (
+            credential.provider !== "deepseek" &&
+            credential.provider !== "glm" &&
+            credential.provider !== "openai-compatible"
+          ) {
             throw new ModelError("MODEL_UNSUPPORTED", "catalog is not available for this provider");
           }
           return [credential];
@@ -618,9 +667,9 @@ function recordFailure(
       credentialProfileId: credential.id,
       provider: credential.provider,
       endpoint:
-        credential.provider === "glm"
-          ? `${credential.endpoint ?? GLM_BASE_URL}/models`
-          : DEEPSEEK_CATALOG_URL,
+        credential.provider === "deepseek"
+          ? DEEPSEEK_CATALOG_URL
+          : `${credential.endpoint ?? GLM_BASE_URL}/models`,
       errorCode,
       now,
     });
@@ -688,10 +737,10 @@ export function resolveCatalogSelection(
       throw new ModelError("MODEL_UNSUPPORTED", "credential is not available in the catalog");
     }
 
-    model = cachedModelsFor(db, credential.id).find((item) => item.id === input.model);
+    model = modelsForCredential(db, credential).find((item) => item.id === input.model);
   } else {
     const matches = credentials.flatMap((item) =>
-      cachedModelsFor(db, item.id)
+      modelsForCredential(db, item)
         .filter((candidate) => candidate.id === input.model)
         .map((candidate) => ({ credential: item, model: candidate })),
     );
@@ -810,7 +859,11 @@ export function setCatalogModelVisibility(
     throw new ModelError("NOT_FOUND", "credential not found");
   }
 
-  if (credential.provider !== "deepseek" && credential.provider !== "glm") {
+  if (
+    credential.provider !== "deepseek" &&
+    credential.provider !== "glm" &&
+    credential.provider !== "openai-compatible"
+  ) {
     throw new ModelError("MODEL_UNSUPPORTED", "catalog is not available for this provider");
   }
 
@@ -869,7 +922,13 @@ export function setCatalogDefault(
     clientSessionId?: string;
   },
 ): ModelDefaultSelection {
-  const groupModels = cachedModelsFor(options.db, input.credentialProfileId);
+  const credential = getCredentialRow(options.db, input.credentialProfileId);
+
+  if (credential === null) {
+    throw new ModelError("NOT_FOUND", "credential not found");
+  }
+
+  const groupModels = modelsForCredential(options.db, credential);
   const model = groupModels.find((item) => item.id === input.model);
 
   if (model === undefined || model.contextWindow === null) {

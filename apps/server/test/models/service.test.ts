@@ -237,4 +237,41 @@ describe("model service", () => {
       }
     });
   });
+  it("stores a compatible endpoint and context window", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+
+      try {
+        const credential = createCredential(options, {
+          provider: "openai-compatible",
+          label: "Compatible",
+          apiKey: "sk-compatible",
+          endpoint: "https://api.example.com/v1/",
+          contextWindow: 256_000,
+        });
+
+        expect(credential.endpoint).toBe("https://api.example.com/v1");
+        expect(credential.contextWindow).toBe(256_000);
+
+        expect(() =>
+          createCredential(options, {
+            provider: "openai-compatible",
+            label: "Missing",
+            apiKey: "sk-missing",
+          }),
+        ).toThrowError(ModelError);
+        expect(() =>
+          createCredential(options, {
+            provider: "openai-compatible",
+            label: "BadWindow",
+            apiKey: "sk-bad",
+            endpoint: "https://api.example.com/v1",
+            contextWindow: 10,
+          }),
+        ).toThrowError(ModelError);
+      } finally {
+        opened.sqlite.close();
+      }
+    });
+  });
 });

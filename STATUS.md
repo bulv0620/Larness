@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1d-2d `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：思考能力增加 toggle / levels / mandatory-levels；GLM 按 4.5/4.6/4.7/5/5.1 开关、5.2 档位、5.3 强制档位映射并发送 `thinking.type` / `reasoning_effort`。
+- M5-1d-2c `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：兼容 Provider 端点与上下文窗口、SSRF 校验、目录 / Turn / 设置页接线；GLM 长任务超时修复同步交付。
 - M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
@@ -217,6 +217,14 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 根因：Provider 默认 `timeout` 为 120 秒；AI SDK 超时被归类为 `PROVIDER_ABORTED`，Turn 再把它当成用户取消，显示「已停止当前执行」。
 - 修复：DeepSeek / 兼容 Provider 默认超时提升到 10 分钟；非用户取消的 `PROVIDER_ABORTED` 改为 `FAILED / PROVIDER_UNAVAILABLE`，提示「执行超时或连接中断，请重试」；用户主动停止仍为 CANCELLED。新增回归测试。
 - 验证：`pnpm check`（web 135、agent 40/1、server 517/10）、`pnpm build`。
+
+## M5-1d-2c 交付（2026-11-07）
+
+- 兼容 Provider：`credential_profiles.endpoint`（0019）+ `context_window`（0020，默认 128K）；设置页可添加 / 编辑端点、窗口，目录与对话都使用该端点。
+- 安全：创建 / 修改端点经 `assertSafeEndpoint`（HTTPS、公网、拒绝凭据与重定向），Turn 开始前再次校验；目录请求同样校验。
+- 目录：兼容 `/models` 解析后以凭据窗口补齐；未知窗口不再禁用；模型可选、可设默认、可控制显示。
+- 验证：`pnpm check`（web 135、agent 40/1、server 519/10）、`pnpm build`、auth E2E `m1`。
+- 未验证：真实第三方兼容端点（无凭据）；工具调用能力取决于上游，未做能力探测。
 
 ## 已冻结
 

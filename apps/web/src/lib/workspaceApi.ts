@@ -146,6 +146,7 @@ export interface ApiCredential {
   secretRef: string;
   masked: string;
   endpoint?: string | null;
+  contextWindow?: number | null;
   createdAt: number;
 }
 
@@ -251,6 +252,7 @@ export async function createCredential(input: {
   label: string;
   apiKey: string;
   endpoint?: string;
+  contextWindow?: number;
 }): Promise<ApiCredential> {
   return apiFetch<ApiCredential>("/api/credentials", {
     method: "POST",
@@ -260,9 +262,16 @@ export async function createCredential(input: {
 }
 
 export async function updateCredentialEndpoint(id: string, endpoint: string | null): Promise<void> {
+  await updateCredentialSettings(id, { endpoint });
+}
+
+export async function updateCredentialSettings(
+  id: string,
+  input: { endpoint?: string | null; contextWindow?: number | null },
+): Promise<void> {
   await apiFetch(`/api/credentials/${encodeURIComponent(id)}`, {
     method: "PATCH",
-    body: { endpoint },
+    body: input,
     csrf: true,
   });
 }

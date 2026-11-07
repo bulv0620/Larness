@@ -55,10 +55,10 @@
 
 依赖：M5-1d-2b。候选状态：`todo`。
 
-- [ ] `credential_profiles.endpoint` 可空列与迁移。
-- [ ] 创建 / 刷新接入 `assertSafeEndpoint`（HTTPS、公网、拒绝重定向）。
-- [ ] 兼容 Provider 目录与 Turn 解析使用凭据端点。
-- [ ] 设置页端点输入与错误提示；测试端点拒绝与合法目录。
+- [x] `credential_profiles.endpoint`（0019）与兼容 `context_window`（0020）；兼容 Provider 必须提供端点。
+- [x] 创建 / 修改端点经 `assertSafeEndpoint`（HTTPS、公网、拒绝重定向）；Turn 开始前再次校验。
+- [x] 兼容 Provider 目录、Turn 解析与适配器使用凭据端点；窗口按凭据显式值回退（默认 128K）。
+- [x] 设置页兼容 Provider 添加 / 编辑端点与窗口；目录刷新、模型选择和默认模型可用。
 
 ## M5-1d-3 上下文压缩
 

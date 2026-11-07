@@ -44,7 +44,7 @@ updated: 2026-11-07
 
 - `ProviderAdapter` 已有能力字段；新增 `catalog` 能力：`fetchModels(apiKey, endpoint?)` 返回模型元数据（id、显示名、窗口、思考档位、默认标记）。
 - Provider id 扩展：`"glm"` 与 `"openai-compatible"`；`ModelProviderId` / 凭据 API 的 Zod 枚举同步。
-- 每个 Provider 固定默认端点：DeepSeek `https://api.deepseek.com`、GLM `https://open.bigmodel.cn/api/paas/v4`；兼容 Provider 允许用户填 HTTPS 端点（D2 边界）。
+- 每个 Provider 固定默认端点：DeepSeek `https://api.deepseek.com`、GLM 官方标准 / Coding 端点；兼容 Provider 允许用户填任意公网 HTTPS 端点，并显式提供上下文窗口（默认 128K），创建 / 修改 / Turn 开始前均经 `assertSafeEndpoint` 校验。
 - 有官方目录的 Provider 用目录；目录不返回能力字段时用内置注册表补窗口 / 档位。官方目录只返回 id 时（如 GLM 的 `/models`），窗口来自官方文档维护的内置表。未收录的模型保持「未知」并禁用，不猜数值。
 
 **GLM 能力表（2026-11-07 按官方文档核对）**

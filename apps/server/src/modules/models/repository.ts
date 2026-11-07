@@ -117,6 +117,7 @@ export function createCredentialRows(
     provider: ModelProviderId;
     label: string;
     endpoint?: string | null;
+    contextWindow?: number | null;
     now: number;
   },
 ): { secret: SecretRow; credential: CredentialProfileRow } {
@@ -135,6 +136,7 @@ export function createCredentialRows(
     label: input.label,
     secretRef: secret.id,
     endpoint: input.endpoint ?? null,
+    contextWindow: input.contextWindow ?? null,
     createdAt: input.now,
   };
   db.insert(credentialProfiles).values(credential).run();

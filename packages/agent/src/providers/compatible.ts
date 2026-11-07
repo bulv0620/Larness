@@ -88,7 +88,10 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
           fetch: noRedirectFetch,
         });
         const tools = toAiSdkTools(input.tools);
-        const providerOptions = toCompatibleProviderOptions(options.name, input.thinking);
+        const providerOptions =
+          options.id === "glm"
+            ? toCompatibleProviderOptions(options.name, input.thinking)
+            : undefined;
         const result = streamText({
           model: provider(input.model),
           messages: toAiSdkMessages(input.messages),

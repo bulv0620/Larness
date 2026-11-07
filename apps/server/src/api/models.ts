@@ -10,6 +10,8 @@ import {
   setCatalogDefault,
   setCatalogModelVisibility,
 } from "../modules/models/catalog.js";
+import { assertSafeEndpoint, EndpointError } from "../modules/models/endpoint.js";
+import { getCredentialRow } from "../modules/models/repository.js";
 import {
   createCredential,
   createModelProfile,
@@ -17,7 +19,7 @@ import {
   listCredentialDtos,
   listModelDtos,
   ModelError,
-  updateCredentialEndpoint,
+  updateCredentialSettings,
 } from "../modules/models/service.js";
 import type { SecretStore } from "../security/secretStore.js";
 
@@ -26,7 +28,8 @@ const IdSchema = z.string().min(1).max(128);
 
 const UpdateCredentialSchema = z
   .object({
-    endpoint: z.string().max(512).nullable(),
+    endpoint: z.string().max(512).nullable().optional(),
+    contextWindow: z.number().int().nullable().optional(),
   })
   .strict();
 
@@ -52,6 +55,7 @@ const CreateCredentialSchema = z
     label: z.string().min(1).max(64),
     apiKey: z.string().min(1).max(8_192),
     endpoint: z.string().max(512).optional(),
+    contextWindow: z.number().int().optional(),
   })
   .strict();
 
@@ -183,11 +187,25 @@ export function registerModelRoutes(app: FastifyInstance, deps: ModelApiDeps): v
     const body = parse(CreateCredentialSchema, request.body);
 
     try {
+      let endpoint = body.endpoint;
+
+      if (body.provider === "openai-compatible") {
+        try {
+          endpoint = (await assertSafeEndpoint(body.endpoint ?? "")).toString().replace(/\/$/, "");
+        } catch (error) {
+          throw new HttpError(
+            "VALIDATION_ERROR",
+            error instanceof EndpointError ? error.message : "invalid endpoint",
+          );
+        }
+      }
+
       const credential = createCredential(options, {
         provider: body.provider,
         label: body.label,
         apiKey: body.apiKey,
-        endpoint: body.endpoint,
+        endpoint,
+        contextWindow: body.contextWindow,
         clientSessionId: request.clientSession?.id,
       });
       return reply.code(201).send(credential);
@@ -201,9 +219,33 @@ export function registerModelRoutes(app: FastifyInstance, deps: ModelApiDeps): v
     const body = parse(UpdateCredentialSchema, request.body);
 
     try {
-      return updateCredentialEndpoint(options, {
+      const credential = getCredentialRow(options.db, id);
+
+      if (credential === null) {
+        throw new HttpError("NOT_FOUND", "credential not found");
+      }
+
+      let endpoint = body.endpoint;
+
+      if (
+        credential.provider === "openai-compatible" &&
+        endpoint !== undefined &&
+        endpoint !== null
+      ) {
+        try {
+          endpoint = (await assertSafeEndpoint(endpoint)).toString().replace(/\/$/, "");
+        } catch (error) {
+          throw new HttpError(
+            "VALIDATION_ERROR",
+            error instanceof EndpointError ? error.message : "invalid endpoint",
+          );
+        }
+      }
+
+      return updateCredentialSettings(options, {
         id,
-        endpoint: body.endpoint,
+        endpoint,
+        contextWindow: body.contextWindow,
         clientSessionId: request.clientSession?.id,
       });
     } catch (error) {

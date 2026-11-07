@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  createCompatibleProvider,
   createDeepSeekProvider,
   createFileToolRegistry,
   createGlmProvider,
@@ -35,6 +36,7 @@ import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileOperations } from "../modules/files/service.js";
 import { GitManager } from "../modules/git/manager.js";
 import { type DeepSeekCatalogFetcher, resolveCatalogProvider } from "../modules/models/catalog.js";
+import { assertSafeEndpoint } from "../modules/models/endpoint.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { PreviewRegistry } from "../modules/previews/registry.js";
@@ -107,7 +109,7 @@ export function createDefaultProviderResolver(
   db: Database,
   secretStore: SecretStore,
 ): ProviderResolver {
-  return (session, turn) => {
+  return async (session, turn) => {
     if (turn.model !== null && turn.model.length > 0) {
       try {
         const resolved = resolveCatalogProvider(
@@ -119,12 +121,30 @@ export function createDefaultProviderResolver(
           },
         );
 
+        if (resolved.provider === "openai-compatible") {
+          if (resolved.endpoint === undefined) {
+            throw new ModelError("MODEL_UNSUPPORTED", "compatible endpoint is missing");
+          }
+
+          try {
+            await assertSafeEndpoint(resolved.endpoint);
+          } catch {
+            throw new ModelError("MODEL_UNSUPPORTED", "compatible endpoint is not allowed");
+          }
+        }
+
         const adapter =
           resolved.provider === "deepseek"
             ? createDeepSeekProvider()
             : resolved.provider === "glm"
               ? createGlmProvider()
-              : null;
+              : resolved.provider === "openai-compatible"
+                ? createCompatibleProvider({
+                    id: "openai-compatible",
+                    name: "compatible",
+                    baseURL: resolved.endpoint ?? "",
+                  })
+                : null;
 
         if (adapter === null) {
           throw new ModelError("MODEL_UNSUPPORTED", "provider adapter is not configured");

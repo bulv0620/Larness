@@ -58,6 +58,7 @@ export interface CredentialDto {
   secretRef: string;
   masked: string;
   endpoint: string | null;
+  contextWindow: number | null;
   createdAt: number;
 }
 
@@ -84,6 +85,7 @@ export interface CreateCredentialInput {
   label: string;
   apiKey: string;
   endpoint?: string | null;
+  contextWindow?: number | null;
   clientSessionId?: string;
 }
 
@@ -119,6 +121,7 @@ function credentialDto(row: CredentialProfileRow): CredentialDto {
     secretRef: row.secretRef,
     masked: MASKED_SECRET,
     endpoint: row.endpoint,
+    contextWindow: row.contextWindow,
     createdAt: row.createdAt,
   };
 }
@@ -165,6 +168,7 @@ export function createCredential(
 
   const label = normalizeLabel(input.label);
   const endpoint = normalizeCredentialEndpoint(input.provider, input.endpoint);
+  const contextWindow = normalizeCredentialContextWindow(input.provider, input.contextWindow);
 
   if (input.apiKey.length === 0 || input.apiKey.length > 8_192) {
     throw new ModelError("VALIDATION_ERROR", "apiKey must be 1-8192 characters");
@@ -180,6 +184,7 @@ export function createCredential(
       provider: input.provider,
       label,
       endpoint,
+      contextWindow,
       now,
     });
     appendAudit(tx, {
@@ -217,16 +222,49 @@ function normalizeCredentialEndpoint(
     return endpoint;
   }
 
+  if (provider === "openai-compatible") {
+    if (endpoint === undefined || endpoint === null || endpoint.trim() === "") {
+      throw new ModelError("VALIDATION_ERROR", "compatible endpoint is required");
+    }
+
+    return endpoint.trim().replace(/\/$/, "");
+  }
+
   if (endpoint !== undefined && endpoint !== null && endpoint !== "") {
-    throw new ModelError("VALIDATION_ERROR", "endpoint is only supported for GLM credentials");
+    throw new ModelError(
+      "VALIDATION_ERROR",
+      "endpoint is only supported for GLM or compatible credentials",
+    );
   }
 
   return null;
 }
 
-export function updateCredentialEndpoint(
+function normalizeCredentialContextWindow(
+  provider: ModelProviderId,
+  contextWindow: number | null | undefined,
+): number | null {
+  if (provider !== "openai-compatible") {
+    return null;
+  }
+
+  const value = contextWindow ?? 128_000;
+
+  if (!Number.isInteger(value) || value < 1_024 || value > 10_000_000) {
+    throw new ModelError("VALIDATION_ERROR", "contextWindow must be between 1024 and 10000000");
+  }
+
+  return value;
+}
+
+export function updateCredentialSettings(
   options: ModelServiceOptions,
-  input: { id: string; endpoint: string | null; clientSessionId?: string },
+  input: {
+    id: string;
+    endpoint?: string | null;
+    contextWindow?: number | null;
+    clientSessionId?: string;
+  },
 ): CredentialDto {
   const now = options.now?.() ?? Date.now();
   const row = immediateTransaction(options.db, (tx) => {
@@ -236,14 +274,24 @@ export function updateCredentialEndpoint(
       throw new ModelError("NOT_FOUND", "credential not found");
     }
 
-    if (credential.provider !== "glm") {
-      throw new ModelError("VALIDATION_ERROR", "endpoint is only supported for GLM credentials");
+    if (credential.provider !== "glm" && credential.provider !== "openai-compatible") {
+      throw new ModelError(
+        "VALIDATION_ERROR",
+        "endpoint is only supported for GLM or compatible credentials",
+      );
     }
 
-    const endpoint = normalizeCredentialEndpoint(credential.provider, input.endpoint);
-    const updated = { ...credential, endpoint };
+    const endpoint =
+      input.endpoint === undefined
+        ? credential.endpoint
+        : normalizeCredentialEndpoint(credential.provider, input.endpoint);
+    const contextWindow =
+      input.contextWindow === undefined
+        ? credential.contextWindow
+        : normalizeCredentialContextWindow(credential.provider, input.contextWindow);
+    const updated = { ...credential, endpoint, contextWindow };
     tx.update(credentialProfiles)
-      .set({ endpoint })
+      .set({ endpoint, contextWindow })
       .where(eq(credentialProfiles.id, credential.id))
       .run();
     appendAudit(tx, {
@@ -252,13 +300,20 @@ export function updateCredentialEndpoint(
       clientSessionId: input.clientSessionId,
       resourceType: "credential",
       resourceId: credential.id,
-      details: { endpoint },
+      details: { endpoint, contextWindow },
       now,
     });
     return updated;
   });
 
   return credentialDto(row);
+}
+
+export function updateCredentialEndpoint(
+  options: ModelServiceOptions,
+  input: { id: string; endpoint: string | null; clientSessionId?: string },
+): CredentialDto {
+  return updateCredentialSettings(options, input);
 }
 
 export function deleteCredential(
