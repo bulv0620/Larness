@@ -18,6 +18,8 @@ import type {
   ProviderChunk,
   ProviderFinishReason,
   ProviderStepInput,
+  ProviderThinking,
+  ProviderThinkingEffort,
   ProviderUsage,
   ToolSchema,
 } from "./types.js";
@@ -32,6 +34,37 @@ export const DEEPSEEK_CAPABILITIES: ProviderCapabilities = {
   reasoning: false,
   maxContextTokens: 128_000,
 };
+
+export type DeepSeekProviderOptionsInput = ProviderThinking;
+
+export interface DeepSeekThinkingProviderOptions {
+  [key: string]: Record<string, string | { type: "enabled" | "disabled" }>;
+  deepseek: {
+    thinking: { type: "enabled" | "disabled" };
+    reasoningEffort?: ProviderThinkingEffort;
+  };
+}
+
+/**
+ * Maps Larness thinking settings onto the installed DeepSeek SDK options.
+ * "default" keeps thinking enabled and omits the effort so the official default applies.
+ */
+export function toDeepSeekProviderOptions(
+  thinking: DeepSeekProviderOptionsInput | undefined,
+): DeepSeekThinkingProviderOptions | undefined {
+  if (thinking === undefined) {
+    return undefined;
+  }
+
+  return {
+    deepseek: {
+      thinking: { type: thinking.enabled ? "enabled" : "disabled" },
+      ...(thinking.enabled && thinking.effort !== undefined
+        ? { reasoningEffort: thinking.effort }
+        : {}),
+    },
+  };
+}
 
 interface RawStreamPart {
   type: string;
@@ -323,12 +356,14 @@ export function createDeepSeekProvider(options: DeepSeekProviderOptions = {}): P
           ...(input.endpoint === undefined ? {} : { baseURL: input.endpoint }),
         });
         const tools = toAiSdkTools(input.tools);
+        const providerOptions = toDeepSeekProviderOptions(input.thinking);
         const result = streamText({
           model: provider(input.model),
           messages: toAiSdkMessages(input.messages),
           abortSignal: input.signal,
           timeout: options.timeoutMs ?? input.timeoutMs ?? DEEPSEEK_DEFAULT_TIMEOUT_MS,
           ...(tools === undefined ? {} : { tools }),
+          ...(providerOptions === undefined ? {} : { providerOptions }),
           ...(input.temperature === undefined ? {} : { temperature: input.temperature }),
           ...(input.maxOutputTokens === undefined
             ? {}

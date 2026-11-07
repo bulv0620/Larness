@@ -27,7 +27,7 @@
 
 完全自主模式下，已授权的 Agent 动作由系统按计划和策略直接执行，服务端继续校验参数、鉴权、持锁和审计。M3 验收覆盖本机隔离预览，远程独立域名 HTTPS 留待上线实验。M4 通过私有 PM2 实例托管正式服务，退出管理面后进程继续运行。 [ADR-042](docs/adr/ADR-042-service-deploy-boundary.md) · [M4 收尾](specs/050-deploy/closure.md)
 
-官方 DeepSeek 模型目录、思考档位和上下文圆环修正列入 M5-1，依赖 M4 通过 G4。 [DeepSeek 规格草案](specs/061-deepseek-integration/spec.md)
+官方 DeepSeek 模型目录、思考档位和上下文圆环列入 M5-1，规格已于 2026-11-07 转 `ready`。 [DeepSeek 规格](specs/061-deepseek-integration/spec.md) · [ADR-053](docs/adr/ADR-053-model-catalog-thinking.md)
 
 ## 文档地图
 

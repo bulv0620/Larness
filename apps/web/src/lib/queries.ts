@@ -2,6 +2,9 @@ import type { GatewaySnapshot } from "@larness/shared";
 import { QueryClient, useQuery } from "@tanstack/react-query";
 import { USE_MOCKS } from "@/lib/env";
 import {
+  type ApiModelCatalog,
+  getSession,
+  listModelCatalog,
   listModels,
   listProjects,
   listSessions,
@@ -61,4 +64,72 @@ export function useSnapshot() {
     data,
     isPending: USE_MOCKS ? false : query.isPending,
   };
+}
+
+const THINKING_LEVELS = [
+  { id: "low", label: "低" },
+  { id: "high", label: "高" },
+  { id: "max", label: "最高" },
+];
+
+function mockCatalog(): ApiModelCatalog {
+  return {
+    provider: "deepseek",
+    credentialProfileId: "cred_mock",
+    syncedAt: null,
+    stale: false,
+    lastRefreshError: null,
+    models: snapshot.models.map((model, index) => ({
+      id: model.model,
+      label: model.label,
+      contextWindow: model.maxContextTokens ?? 128_000,
+      thinking: { supported: true, levels: THINKING_LEVELS },
+      default: index === 0,
+    })),
+  };
+}
+
+export interface ModelCatalogResult {
+  catalog: ApiModelCatalog | undefined;
+  isPending: boolean;
+  error: unknown;
+  refetch: () => Promise<unknown>;
+}
+
+export function useModelCatalog(): ModelCatalogResult {
+  const query = useQuery({
+    queryKey: ["model-catalog"],
+    queryFn: listModelCatalog,
+    enabled: !USE_MOCKS,
+    staleTime: 0,
+    retry: false,
+  });
+
+  if (USE_MOCKS) {
+    return {
+      catalog: mockCatalog(),
+      isPending: false,
+      error: null,
+      refetch: async () => undefined,
+    };
+  }
+
+  return {
+    catalog: query.data,
+    isPending: query.isPending,
+    error: query.error,
+    refetch: query.refetch,
+  };
+}
+
+export function useSessionModel(sessionId: string | null) {
+  const query = useQuery({
+    queryKey: ["session-model", sessionId],
+    queryFn: () => getSession(sessionId ?? ""),
+    enabled: !USE_MOCKS && sessionId !== null,
+    staleTime: 0,
+    retry: false,
+  });
+
+  return query.data ?? null;
 }

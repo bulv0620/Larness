@@ -20,7 +20,7 @@
 ```text
 D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 → G-Spec-M2 → M2-0 → G-PoC-M2 → M2-1 → … → M2-8 → G-Spec-M3 → M3-0 → G-PoC-M3 → M3-1 → … → M3-6 → … → M3-11 → M4-P → G-Spec-M4 → M4-0 → G-PoC-M4 → M4-1 → … → M4-4
-→ M5-1 → … → M5-5
+→ M5-1a → M5-1b → M5-1c → M5-2 → … → M5-5
 ```
 
 ## 2. S0 视觉 Demo
@@ -233,17 +233,19 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M4-R4 | 已删除 PM2 服务退出当前列表 | M4-R3 已实现；人类验收反馈 | `done`（见[验收](050-deploy/acceptance-deleted-service-list.md)） |
 | M4-4 | 正式发布/恢复/策略整体验收G4 | M4-R0～R4 | `done`（G4 通过，见[收尾](050-deploy/closure.md)） |
 
-## 8. M5 扩展与加固（草案）
+## 8. M5 扩展与加固
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M5-1 | GLM / 多 Provider、能力矩阵、上下文压缩 | G4 | `todo` |
+| M5-1a | [DeepSeek 官方目录、模型与档位选择](061-deepseek-integration/spec.md)（A1–A4、A8–A10） | G4；061 spec ready | `review`（2026-11-07 交付） |
+| M5-1b | 思考模式工具续跑与推理数据 PoC 门禁（A5、A11） | M5-1a | `todo` |
+| M5-1c | 单次请求用量与上下文圆环（A6、A7） | M5-1a | `todo` |
 | M5-2 | Scheduler：Cron、JS / Agent Job、JobRun、限流 | G4 | `todo` |
 | M5-3 | Launcher / Updater、签名、UpdateLock、回滚 | G4 | `todo` |
-| M5-4 | Windows / Linux PoC、打包与安装说明 | M5-1 ~ M5-3 | `todo` |
+| M5-4 | Windows / Linux PoC、打包与安装说明 | M5-1a ~ M5-1c、M5-2、M5-3 | `todo` |
 | M5-5 | 安全加固、发布验收清单、文档定稿 | M5-4 | `todo` |
 
-[061 DeepSeek 官方接入与上下文用量](061-deepseek-integration/spec.md) 排入 M5-1，依赖 M4 通过 G4。规格为 `draft`，任务拆分见 [061 任务草案](061-deepseek-integration/tasks.md)。
+[061 DeepSeek 官方接入、模型与思考档位](061-deepseek-integration/spec.md) 于 2026-11-07 按用户确认的三项决策（旧档案忽略、思考默认开启、推理数据先实测）由 `draft` 转 `ready`，[ADR-053](../docs/adr/ADR-053-model-catalog-thinking.md) accepted。M5-1a 已交付：目录同步与缓存、模型 / 档位选择与 Turn 快照、Provider 参数、Composer 浮层与设置页；真实官方端点、工具续跑与单次圆环分别待凭据验证与 M5-1b / M5-1c。GLM 与通用兼容端点、上下文压缩仍属 M5-1 其余范围，另行拆任务。
 
 ## 9. 门禁
 

@@ -5,13 +5,17 @@ import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { listRecentAudit } from "../../src/db/repositories/audit.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
+import { refreshModelCatalog } from "../../src/modules/models/catalog.js";
+import { createCredential } from "../../src/modules/models/service.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import {
   archiveSession,
   createSession,
   getSessionDetail,
+  updateSession,
 } from "../../src/modules/sessions/service.js";
 import { cancelTurn, createTurn } from "../../src/modules/sessions/turns.js";
+import { SecretStore } from "../../src/security/secretStore.js";
 import { withTempDir } from "../helpers.js";
 
 async function openWorkspace(dir: string): Promise<OpenedDatabase> {
@@ -305,6 +309,119 @@ describe("turn service", () => {
         createTurn(options, { sessionId: long.id, text: "x".repeat(80) });
         expect(getSessionDetail(options, long.id).title).toHaveLength(48);
         expect(getSessionDetail(options, long.id).title.endsWith("…")).toBe(true);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+  it("snapshots the catalog model, thinking and window for a turn", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const store = await SecretStore.open(dir);
+        createCredential(
+          { db: opened.db, secretStore: store },
+          { provider: "deepseek", label: "DeepSeek Key", apiKey: "sk-test" },
+        );
+        await refreshModelCatalog(
+          {
+            db: opened.db,
+            secretStore: store,
+            fetcher: async () => ({
+              data: [{ id: "deepseek-flash" }, { id: "deepseek-chat" }],
+            }),
+          },
+          { clientSessionId: "bs_test" },
+        );
+
+        const options = { db: opened.db, dataDir: dir, now: () => 5_000 };
+        const session = await createSession(options, {});
+        const created = createTurn(options, {
+          sessionId: session.id,
+          text: "use the catalog model",
+          model: "deepseek-flash",
+          thinking: "high",
+        });
+
+        const detail = getSessionDetail(options, session.id);
+        expect(detail.activeTurn).toMatchObject({
+          id: created.turnId,
+          provider: "deepseek",
+          model: "deepseek-flash",
+          thinking: "high",
+          contextWindow: 1_048_576,
+          modelProfileId: null,
+        });
+        expect(detail.model).toBe("deepseek-flash");
+        expect(detail.thinking).toBe("high");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("inherits the session selection and rejects unsupported levels", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const store = await SecretStore.open(dir);
+        createCredential(
+          { db: opened.db, secretStore: store },
+          { provider: "deepseek", label: "DeepSeek Key", apiKey: "sk-test" },
+        );
+        await refreshModelCatalog(
+          {
+            db: opened.db,
+            secretStore: store,
+            fetcher: async () => ({
+              data: [{ id: "deepseek-flash" }, { id: "deepseek-chat" }],
+            }),
+          },
+          { clientSessionId: "bs_test" },
+        );
+
+        const options = { db: opened.db, dataDir: dir, now: () => 6_000 };
+        const session = await createSession(options, {});
+        updateSession(options, { id: session.id, model: "deepseek-flash", thinking: "low" });
+
+        const inherited = createTurn(options, { sessionId: session.id, text: "inherited" });
+        expect(getSessionDetail(options, session.id).activeTurn).toMatchObject({
+          id: inherited.turnId,
+          model: "deepseek-flash",
+          thinking: "low",
+        });
+
+        const other = await createSession(options, {});
+        const errorCode = (run: () => unknown): string | undefined => {
+          try {
+            run();
+            return undefined;
+          } catch (error) {
+            return (error as { code?: string }).code;
+          }
+        };
+
+        expect(
+          errorCode(() =>
+            createTurn(options, {
+              sessionId: other.id,
+              text: "bad level",
+              model: "deepseek-chat",
+              thinking: "high",
+            }),
+          ),
+        ).toBe("MODEL_UNSUPPORTED");
+        expect(
+          errorCode(() =>
+            createTurn(options, {
+              sessionId: other.id,
+              text: "unknown model",
+              model: "unknown-model",
+            }),
+          ),
+        ).toBe("MODEL_UNSUPPORTED");
       } finally {
         opened.close();
       }

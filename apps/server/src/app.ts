@@ -30,6 +30,7 @@ import { CommandManager } from "./modules/commands/manager.js";
 import { knownCredentialGuard } from "./modules/files/credentials.js";
 import { FileWatchManager } from "./modules/files/watcher.js";
 import { GitManager } from "./modules/git/manager.js";
+import type { DeepSeekCatalogFetcher } from "./modules/models/catalog.js";
 import type { PreviewRegistry } from "./modules/previews/registry.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
 import type { DeploymentAuthorizationService } from "./modules/service-ops/authorization.js";
@@ -51,6 +52,7 @@ export interface AppServices {
   webAuthn: WebAuthnRuntime;
   csrfKey: Buffer;
   secretStore?: SecretStore;
+  catalogFetcher?: DeepSeekCatalogFetcher;
   turnControls?: TurnControls;
   commands?: CommandManager;
   terminals?: TerminalManager;
@@ -150,6 +152,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       registerModelRoutes(app, {
         db: options.services.db,
         secretStore: options.services.secretStore,
+        catalogFetcher: options.services.catalogFetcher,
       });
     }
     registerApprovalRoutes(app, { db: options.services.db });

@@ -134,10 +134,11 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | 表 | 关键列 | 说明 |
 |---|---|---|
 | `projects` | `id, name, root_path, real_path, settings_json, git_detected, created_at, updated_at` | `real_path` canonical 且唯一；`settings_json` 含默认模型 / 指令 / ignore；删除只删行 |
-| `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, approval_policy_id, created_at, updated_at, last_activity_at` | `status`: `active / archived`；归档不删 workspace；独立会话 workspace 在 dataDir 下 |
-| `turns` | `id, session_id, model_profile_id, provider, model, status, input_json, usage_json, error_json, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn；provider / model 在 Turn 运行时快照 |
+| `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, model?, thinking?, approval_policy_id, created_at, updated_at, last_activity_at` | `status`: `active / archived`；归档不删 workspace；独立会话 workspace 在 dataDir 下；`model` / `thinking` 为 M5-1 当前选择（可空，旧行无值） |
+| `turns` | `id, session_id, model_profile_id, provider, model, thinking?, context_window?, status, input_json, usage_json, error_json, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn；provider / model / thinking / 窗口在 Turn 运行时快照；`thinking` 取值 `off / default / low / high / max` |
 | `agent_events` | `id, session_id, turn_id, seq, type, payload_json, created_at`；`UNIQUE(session_id, seq)` | `seq` 在 Session 内递增，事务内分配 |
-| `model_profiles` | `id, label, provider, model, credential_profile_id, endpoint, capabilities_json, created_at` | 不含密钥 |
+| `model_profiles` | `id, label, provider, model, credential_profile_id, endpoint, capabilities_json, created_at` | 不含密钥；M5-1 起旧档案被忽略，行保留，不再进入选择器 |
+| `model_catalog_cache` | `credential_profile_id`（主键）, `provider, endpoint, models_json, synced_at, last_attempt_at, last_error_code` | M5-1 官方目录缓存，按凭据隔离；`models_json` 只含展示字段；`last_error_code` 只存稳定错误码 |
 | `credential_profiles` | `id, provider, label, secret_ref, created_at` | 密钥在 SecretStore |
 | `secrets` | `id, ciphertext, nonce, tag, created_at` | AES-256-GCM；主密钥在文件系统 |
 | `approvals` | `id, turn_id, tool_call_id, tool_name, risk, status, scope_json, params_hash, expires_at, decided_at, decided_by, created_at` | `status`: `pending / approved / denied / expired`；审批参数绑定与审计 |
@@ -276,3 +277,7 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 ### M4-R4 PM2 存在性
 
 `service_ops_services.config_json` 复用内部可选 `pm2Present` 保存最近一次确定的应用存在性。可靠快照确认缺失才记 false，未知或冲突不改变存在性，旧 `PM2_MISSING` 行兼容。确认重现恢复 true。存在性变化与状态/事件事务提交；无迁移、历史记录不删除。
+
+## M5-1 迁移 0015_model_catalog（2026-11-07）
+
+新增 `model_catalog_cache`，schemaVersion 14 → 15；`sessions` 增加可空 `model` / `thinking`，`turns` 增加可空 `thinking` / `context_window`。只加表与可空列，不删除、不回填 `model_profiles` / `credential_profiles`，旧 Session / Turn 读取不变；`agent_events` 复用既有表承载 `model.usage`（payload 只含展示字段，推理正文不落库）。迁移前自动备份，失败拒绝启动。详见 [061 spec](../../specs/061-deepseek-integration/spec.md) 与 [ADR-053](../adr/ADR-053-model-catalog-thinking.md)。

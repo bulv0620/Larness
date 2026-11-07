@@ -48,6 +48,13 @@ export interface ProviderUsage {
   totalTokens?: number;
 }
 
+export type ProviderThinkingEffort = "low" | "high" | "max";
+
+export interface ProviderThinking {
+  enabled: boolean;
+  effort?: ProviderThinkingEffort;
+}
+
 export type ProviderChunk =
   | { type: "text-delta"; text: string }
   | { type: "tool-call"; toolCall: ToolCallRequest }
@@ -64,6 +71,7 @@ export interface ProviderStepInput {
   temperature?: number;
   maxOutputTokens?: number;
   timeoutMs?: number;
+  thinking?: ProviderThinking;
 }
 
 export interface ProviderAdapter {

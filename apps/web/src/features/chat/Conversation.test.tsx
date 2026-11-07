@@ -8,12 +8,41 @@ import { PendingApproval } from "./PendingApproval";
 import { Timeline } from "./Timeline";
 
 vi.mock("@/lib/queries", () => ({
+  useSessionModel: () => null,
   useSnapshot: () => ({
     data: {
-      models: [{ id: "deepseek-default", label: "DeepSeek", maxContextTokens: 128000 }],
+      models: [{ id: "deepseek-flash", label: "DeepSeek Flash", maxContextTokens: 128000 }],
       projects: [],
       sessions: [],
     },
+  }),
+  useModelCatalog: () => ({
+    catalog: {
+      provider: "deepseek",
+      credentialProfileId: "cred_mock",
+      syncedAt: 1,
+      stale: false,
+      lastRefreshError: null,
+      models: [
+        {
+          id: "deepseek-flash",
+          label: "DeepSeek Flash",
+          contextWindow: 128000,
+          thinking: {
+            supported: true,
+            levels: [
+              { id: "low", label: "低" },
+              { id: "high", label: "高" },
+              { id: "max", label: "最高" },
+            ],
+          },
+          default: true,
+        },
+      ],
+    },
+    isPending: false,
+    error: null,
+    refetch: async () => undefined,
   }),
 }));
 const base: TimelineItem[] = [

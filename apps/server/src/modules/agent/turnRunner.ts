@@ -6,6 +6,7 @@ import {
   type ProviderAdapter,
   ProviderError,
   type ProviderFinishReason,
+  type ProviderThinking,
   type ProviderUsage,
   type ToolCallRequest,
   type ToolRegistry,
@@ -84,6 +85,8 @@ export interface ResolvedProvider {
   model: string;
   apiKey?: string;
   endpoint?: string;
+  contextWindow?: number;
+  thinking?: ProviderThinking;
 }
 
 export type ProviderResolver = (
@@ -1047,7 +1050,8 @@ export class TurnRunner {
         {
           db: this.#options.db,
           registry: this.#options.registry,
-          maxContextTokens: resolved.adapter.capabilities.maxContextTokens,
+          maxContextTokens:
+            resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens,
           policy,
           contextRatio: this.#budget.contextRatio,
           workspaceRoot: projectRoot,
@@ -1091,7 +1095,8 @@ export class TurnRunner {
             {
               db: this.#options.db,
               registry: this.#options.registry,
-              maxContextTokens: resolved.adapter.capabilities.maxContextTokens,
+              maxContextTokens:
+                resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens,
               policy,
               workspaceRoot: projectRoot,
               pm2Context: await this.#options.pm2Context(session.projectId),
@@ -1116,6 +1121,7 @@ export class TurnRunner {
           signal: controller.signal,
           ...(resolved.apiKey === undefined ? {} : { apiKey: resolved.apiKey }),
           ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
+          ...(resolved.thinking === undefined ? {} : { thinking: resolved.thinking }),
         })) {
           if (chunk.type === "text-delta") {
             text += chunk.text;

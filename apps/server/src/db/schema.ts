@@ -58,6 +58,8 @@ export const sessions = sqliteTable(
     title: text("title").notNull(),
     status: text("status").$type<SessionStatus>().notNull().default("active"),
     modelProfileId: text("model_profile_id"),
+    model: text("model"),
+    thinking: text("thinking"),
     approvalPolicyId: text("approval_policy_id").notNull().default("standard"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
@@ -79,6 +81,8 @@ export const turns = sqliteTable(
     modelProfileId: text("model_profile_id"),
     provider: text("provider"),
     model: text("model"),
+    thinking: text("thinking"),
+    contextWindow: integer("context_window"),
     status: text("status").$type<TurnStatus>().notNull(),
     inputJson: text("input_json").notNull(),
     usageJson: text("usage_json"),
@@ -193,6 +197,18 @@ export const modelProfiles = sqliteTable(
   },
   (table) => [index("idx_model_profiles_provider").on(table.provider)],
 );
+
+export const modelCatalogCache = sqliteTable("model_catalog_cache", {
+  credentialProfileId: text("credential_profile_id")
+    .primaryKey()
+    .references(() => credentialProfiles.id, { onDelete: "cascade" }),
+  provider: text("provider").$type<ModelProviderId>().notNull(),
+  endpoint: text("endpoint").notNull(),
+  modelsJson: text("models_json").notNull().default("[]"),
+  syncedAt: integer("synced_at"),
+  lastAttemptAt: integer("last_attempt_at"),
+  lastErrorCode: text("last_error_code"),
+});
 
 export const authSettings = sqliteTable(
   "auth_settings",

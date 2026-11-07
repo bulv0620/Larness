@@ -29,6 +29,7 @@ import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.j
 import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileOperations } from "../modules/files/service.js";
 import { GitManager } from "../modules/git/manager.js";
+import { type DeepSeekCatalogFetcher, resolveCatalogProvider } from "../modules/models/catalog.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { PreviewRegistry } from "../modules/previews/registry.js";
@@ -65,6 +66,7 @@ export interface StartServerOptions {
   version?: string;
   turnRunner?: boolean;
   providerResolver?: ProviderResolver;
+  catalogFetcher?: DeepSeekCatalogFetcher;
   pm2Global?: Pm2Global;
   pm2?: Pm2Adapter | null;
 }
@@ -98,6 +100,32 @@ export interface RunningServer {
 
 function createDefaultProviderResolver(db: Database, secretStore: SecretStore): ProviderResolver {
   return (session, turn) => {
+    if (turn.model !== null && turn.model.length > 0) {
+      try {
+        const resolved = resolveCatalogProvider(
+          { db, secretStore },
+          { model: turn.model, thinking: turn.thinking },
+        );
+
+        return {
+          adapter: createDeepSeekProvider(),
+          model: resolved.model,
+          apiKey: resolved.apiKey,
+          contextWindow: resolved.contextWindow,
+          thinking: resolved.thinking,
+        };
+      } catch (error) {
+        if (error instanceof ModelError) {
+          throw new ProviderError(
+            error.code === "MODEL_UNSUPPORTED" ? "PROVIDER_UNKNOWN" : "PROVIDER_AUTH_FAILED",
+            error.message,
+          );
+        }
+
+        throw error;
+      }
+    }
+
     let resolved: ReturnType<typeof resolveModel>;
 
     try {
@@ -355,6 +383,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         webAuthn: loaded.webAuthn,
         csrfKey,
         secretStore,
+        ...(options.catalogFetcher === undefined ? {} : { catalogFetcher: options.catalogFetcher }),
         commands,
         resourceEvents,
         terminals,

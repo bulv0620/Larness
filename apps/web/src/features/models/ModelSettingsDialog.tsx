@@ -1,21 +1,33 @@
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, KeyRound, Loader2, Trash2 } from "lucide-react";
+import { Check, KeyRound, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { USE_MOCKS } from "@/lib/env";
-import { useSnapshot } from "@/lib/queries";
 import {
+  type ApiCatalogModel,
   type ApiCredential,
-  type ApiProject,
+  type ApiModelCatalog,
   createCredential,
   deleteCredential,
-  getProject,
   getSession,
   listCredentials,
-  updateProject,
+  listModelCatalog,
+  refreshModelCatalog,
   updateSession,
 } from "@/lib/workspaceApi";
 import { useNavigationStore } from "@/stores/navigationStore";
+
+function formatWindow(contextWindow: number | null): string {
+  return contextWindow === null ? "上下文未知" : `${contextWindow.toLocaleString("en-US")} 上下文`;
+}
+
+function levelLabels(model: ApiCatalogModel): string {
+  if (!model.thinking.supported || model.thinking.levels.length === 0) {
+    return "不支持思考档位";
+  }
+
+  return `思考：${model.thinking.levels.map((level) => level.label).join(" / ")}`;
+}
 
 export function ModelSettingsDialog({
   open,
@@ -24,16 +36,15 @@ export function ModelSettingsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { data } = useSnapshot();
   const queryClient = useQueryClient();
   const sessionId = useNavigationStore((state) => state.sessionId);
-  const projectId = useNavigationStore((state) => state.projectId);
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
-  const [project, setProject] = useState<ApiProject | null>(null);
+  const [catalog, setCatalog] = useState<ApiModelCatalog | null>(null);
   const [sessionModelId, setSessionModelId] = useState<string | null>(null);
   const [label, setLabel] = useState("DeepSeek Key");
   const [apiKey, setApiKey] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,14 +62,14 @@ export function ModelSettingsDialog({
 
     void Promise.all([
       listCredentials(),
+      listModelCatalog().catch(() => null),
       sessionId ? getSession(sessionId) : Promise.resolve(null),
-      projectId ? getProject(projectId) : Promise.resolve(null),
     ])
-      .then(([nextCredentials, session, nextProject]) => {
+      .then(([nextCredentials, nextCatalog, session]) => {
         if (disposed) return;
         setCredentials(nextCredentials);
-        setSessionModelId(session?.modelProfileId ?? null);
-        setProject(nextProject);
+        setCatalog(nextCatalog);
+        setSessionModelId(session?.model ?? null);
       })
       .catch((loadError: unknown) => {
         if (!disposed) {
@@ -72,10 +83,13 @@ export function ModelSettingsDialog({
     return () => {
       disposed = true;
     };
-  }, [open, projectId, sessionId]);
+  }, [open, sessionId]);
 
   const selectedModelId =
-    sessionModelId ?? project?.settings.defaultModelProfileId ?? data.models[0]?.id ?? null;
+    sessionModelId ??
+    catalog?.models.find((model) => model.default)?.id ??
+    catalog?.models[0]?.id ??
+    null;
 
   const saveKey = async (): Promise<void> => {
     if (!apiKey.trim()) return;
@@ -105,7 +119,8 @@ export function ModelSettingsDialog({
     try {
       await deleteCredential(id);
       setCredentials(await listCredentials());
-      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+      setCatalog(await listModelCatalog().catch(() => null));
+      await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
     } catch (removeError) {
       setError(removeError instanceof Error ? removeError.message : "删除密钥失败");
     } finally {
@@ -113,28 +128,34 @@ export function ModelSettingsDialog({
     }
   };
 
+  const refresh = async (): Promise<void> => {
+    setRefreshing(true);
+    setError(null);
+
+    try {
+      setCatalog(await refreshModelCatalog());
+      await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
+      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    } catch (refreshError) {
+      setError(refreshError instanceof Error ? refreshError.message : "刷新目录失败");
+      setCatalog(await listModelCatalog().catch(() => null));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const selectModel = async (modelId: string): Promise<void> => {
+    if (!sessionId) {
+      setError("先在左侧选择一个会话，再设置模型。");
+      return;
+    }
+
     setBusy(true);
     setError(null);
 
     try {
-      if (sessionId) {
-        await updateSession(sessionId, { modelProfileId: modelId });
-        setSessionModelId(modelId);
-      } else if (projectId) {
-        await updateProject(projectId, {
-          settings: { defaultModelProfileId: modelId },
-        });
-        setProject((current) =>
-          current === null
-            ? current
-            : {
-                ...current,
-                settings: { ...current.settings, defaultModelProfileId: modelId },
-              },
-        );
-      }
-
+      await updateSession(sessionId, { model: modelId });
+      setSessionModelId(modelId);
       await queryClient.invalidateQueries({ queryKey: ["workspace"] });
     } catch (modelError) {
       setError(modelError instanceof Error ? modelError.message : "切换模型失败");
@@ -143,12 +164,17 @@ export function ModelSettingsDialog({
     }
   };
 
+  const syncedLabel =
+    catalog?.syncedAt == null
+      ? "尚未同步"
+      : `同步于 ${new Date(catalog.syncedAt).toLocaleString("zh-CN", { hour12: false })}`;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(620px,calc(100vw-40px))]">
         <DialogTitle>设置与模型</DialogTitle>
         <DialogDescription>
-          密钥只保存在本机加密存储中，接口与日志不会返回明文。模型切换只影响下一轮。
+          密钥只保存在本机加密存储中，接口与日志不会返回明文。模型与思考档位只影响下一轮。
         </DialogDescription>
 
         <section className="mt-4">
@@ -158,7 +184,7 @@ export function ModelSettingsDialog({
           <div className="mt-2 space-y-1.5">
             {credentials.length === 0 ? (
               <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[11px] text-ink-3">
-                还没有密钥。添加 DeepSeek Key 后，下一轮对话即可使用。
+                还没有密钥。添加 DeepSeek Key 后即可同步官方模型目录。
               </p>
             ) : (
               credentials.map((credential) => (
@@ -217,40 +243,72 @@ export function ModelSettingsDialog({
         </section>
 
         <section className="mt-5">
-          <div className="text-[11px] font-semibold text-ink-2">模型</div>
-          <div className="mt-2 space-y-1.5">
-            {data.models.map((model) => {
-              const selected = model.id === selectedModelId;
-              return (
-                <button
-                  key={model.id}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void selectModel(model.id)}
-                  className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${
-                    selected
-                      ? "border-accent/30 bg-accent-soft/70"
-                      : "border-line bg-surface hover:bg-surface-2/60"
-                  }`}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11.5px] font-medium text-ink">
-                      {model.label}
-                    </span>
-                    <span className="block truncate font-mono text-[10px] text-ink-3">
-                      {model.model} · {model.detail}
-                    </span>
-                  </span>
-                  {selected ? <Check size={13} className="text-accent" /> : null}
-                </button>
-              );
-            })}
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold text-ink-2">模型目录</div>
+            <button
+              type="button"
+              disabled={refreshing || credentials.length === 0}
+              onClick={() => void refresh()}
+              className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[10.5px] text-ink-3 hover:bg-surface-2 hover:text-ink disabled:opacity-50"
+            >
+              {refreshing ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RefreshCw size={12} />
+              )}
+              刷新
+            </button>
           </div>
-          {!sessionId ? (
-            <p className="mt-1.5 text-[10px] text-ink-3">
-              {projectId ? "将保存为当前项目的默认模型。" : "选择项目或会话后可设置默认模型。"}
-            </p>
-          ) : null}
+          <p className="mt-1 text-[10px] text-ink-3">
+            {syncedLabel}
+            {catalog?.stale ? " · 当前为上次成功同步的记录" : ""}
+            {catalog?.lastRefreshError ? ` · 最近失败：${catalog.lastRefreshError}` : ""}
+          </p>
+
+          <div className="mt-2 space-y-1.5">
+            {catalog?.models.length ? (
+              catalog.models.map((model) => {
+                const selected = model.id === selectedModelId;
+                return (
+                  <button
+                    key={model.id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void selectModel(model.id)}
+                    className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                      selected
+                        ? "border-accent/30 bg-accent-soft/70"
+                        : "border-line bg-surface hover:bg-surface-2/60"
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11.5px] font-medium text-ink">
+                        {model.label}
+                        {model.default ? (
+                          <span className="ml-1.5 rounded-full bg-surface px-1.5 py-[1px] text-[9px] text-ink-3">
+                            默认
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="block truncate text-[10px] text-ink-3">
+                        {formatWindow(model.contextWindow)} · {levelLabels(model)}
+                      </span>
+                    </span>
+                    {selected ? <Check size={13} className="text-accent" /> : null}
+                  </button>
+                );
+              })
+            ) : (
+              <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[11px] text-ink-3">
+                {credentials.length === 0
+                  ? "添加凭据后可同步官方目录。"
+                  : "目录为空，点击刷新从官方端点同步。"}
+              </p>
+            )}
+          </div>
+          <p className="mt-1.5 text-[10px] text-ink-3">
+            {sessionId ? "选择会保存到当前会话。" : "选择会话后可将模型保存到该会话。"}
+          </p>
         </section>
 
         {loading ? (

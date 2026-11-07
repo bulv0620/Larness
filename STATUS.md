@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1 规格 `ready`；M5-1a `review`（2026-11-07），M5-1b / M5-1c 待做 |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,6 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
+- M5-1a `review`（2026-11-07，分支 `task/m5-1a-model-catalog`）：官方目录、模型与思考档位选择、Turn 快照与 Provider 参数、Composer 浮层与设置页已交付；M5-1b / M5-1c 待做。详见下方交付记录。
+- M5-1 规格补全（2026-11-07）：用户确认三项决策——旧模型档案全部忽略（保留数据不删除）、思考默认开启、推理数据先实测再定；[061 spec](specs/061-deepseek-integration/spec.md) 转 `ready`，[ADR-053](docs/adr/ADR-053-model-catalog-thinking.md) 记录决策，契约与 [ROADMAP](specs/ROADMAP.md) 已同步。
 - M4 / G4 `done`（2026-11-07）。用户确认 M4 与后续修改全部验收通过，并授权合并到 `main`、推送 GitHub。M4-4 与 M4-R0～R4 关闭。当前 Agent 通过普通项目会话执行 PM2 命令，服务运维提供人工控制与当前列表。最终范围与检查见 [M4 收尾](specs/050-deploy/closure.md)。
 - M4-3b `done`（2026-11-06，历史实现）。旧接口与工具设计见 [原验收](specs/050-deploy/acceptance-m4-3b.md)，当前命令路径由 ADR-050 定义。
 
@@ -103,6 +105,22 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 已知边界保留：认证E2E批量抖动、Monaco CSP unsafe-eval、Git 3秒轮询、macOS单平台验证；不以验收通过宣称这些问题已修复。
 - 以下“变更记录”和逐任务启动/交付段落均为历史记录；其中当时的in_progress、待人类或不合并/push要求，已由本次最终验收和明确发布授权替代。
 
+## M5-1a 启动（2026-11-07 +08:00）
+
+- 用户确认“开始 M5-1a”。分支 `task/m5-1a-model-catalog`，2026-11-07（+08:00）开始。
+- 计划：先红测试；迁移 `0015_model_catalog`（目录缓存 + sessions/turns 可空列）、官方目录同步与 REST、Session/Turn 的 model/thinking 校验与快照、Provider `thinking` / `reasoningEffort` 参数、Composer 模型/档位浮层与设置页目录。旧 Profile 保留不删、不再展示。
+- 范围：A1–A4、A8–A10；推理数据落库与单次圆环属 M5-1b / M5-1c，本任务不实现。
+
+### M5-1a 交付（2026-11-07）
+
+- 迁移 `0015_model_catalog`：`model_catalog_cache` + `sessions.model/thinking` + `turns.thinking/context_window`，只加表与可空列，旧 Profile 行保留。
+- 目录：固定官方端点、Secret Store 取凭据、Zod 校验、按凭据缓存与 `stale` / `lastRefreshError`；`GET /api/models/catalog`、`POST /api/models/catalog/refresh`（认证 + CSRF）；新增 `MODEL_CREDENTIAL_MISSING` / `MODEL_CATALOG_INVALID` / `MODEL_UNSUPPORTED`。
+- 选择：Composer 模型 / 档位浮层（默认开启思考，默认档位省略 `reasoningEffort`，保留关闭），设置页凭据 + 目录 + 默认标记；会话保存选择，Turn 快照 provider/model/thinking/window；旧 `modelProfileId` 仅兼容解析。
+- Provider：`thinking` / `reasoningEffort`（enabled/disabled、low/high/max），非法值在调用上游前拒绝。
+- 验证：`pnpm check` 通过（server 501 通过 / 10 跳过、agent 34 通过 / 1 跳过、web 130 通过）；`pnpm build`；Demo 19/19；auth E2E `m1` + `conversation` 通过；prod E2E `m1`（首次右键菜单既有抖动，原样复跑通过）+ `conversation` 通过。
+- 未验证：真实官方端点同步与真实思考参数——本机无 `DEEPSEEK_API_KEY`，未使用用户已存凭据；思考模式工具续跑与推理数据回传属 M5-1b PoC；单次请求圆环属 M5-1c（当前圆环分母改为目录窗口，分子仍为整轮累计）。
+- 偏差：`/api/models` 保留为旧 Profile 查询（UI 不再使用）；项目默认模型档案不再影响新会话；设置页不提供全局默认模型，选择写入当前会话（spec 5.5 已同步）。
+
 ## 已冻结
 
 - 产品与安全边界：`CONSTITUTION.md`
@@ -130,6 +148,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 | 日期 | 变更 |
 |---|---|
+| 2026-11-07 | M5-1 规格补全：061 转 `ready`，ADR-053 记录模型目录 / 思考档位决策，契约与路线图同步 |
 | 2026-11-06 | 用户验收 M3-11 工作区前端交互优化，完成任务收尾 |
 | 2026-11-03 | M2-4b 验收通过（人类要求开始 M2-4c）；补跑 check / build / prod 6/6 / Demo 15/15，记录 workspace-write 沙箱 `/bin/ps` 限制 |
 | 2026-11-03 | 完成 M2-8 自动化汇总：check / build / Demo / init / unified / TUI 通过，prod 8/9；G2 候选待人类 |

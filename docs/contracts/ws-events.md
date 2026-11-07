@@ -99,11 +99,14 @@ interface ServerEvent<T = unknown> {
 | `file.changed` | `path, changeType, version` | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
 | `turn.completed` | `turnId, usage, durationMs, budgetExhausted?` | 是 |
+| `model.usage` | `turnId, model, inputTokens, outputTokens?, totalTokens?, contextWindow`（M5-1 单次请求） | 是 |
 | `turn.failed` | `turnId, errorCode, message` | 是 |
 | `turn.cancelled` | `turnId, reason` | 是 |
 | `turn.interrupted` | `turnId, reason` | 是 |
 
 `assistant.delta` 可使用独立信封 `{ kind: "assistant.delta", topic: "agent", streamId, sessionId, turnId, messageId, text, timestamp }`，不占用持久化 `sequence`，刷新后不重放；最终 `assistant.message` 使用相同 `messageId` 覆盖完整文本。可按 50 ms / 16 KiB 聚合；`turn.*`、审批与工具状态不得仅存在内存。
+
+`model.usage`（M5-1，061 / ADR-053）在每个模型请求完成且上游返回用量时写入一条，只含模型标识、单次输入 / 输出 / 总量与同次窗口，不含 prompt、推理正文或密钥。上下文圆环取当前时间线中「最近一条 model 等于所选模型」的 `model.usage` 计算单次占比；无匹配时显示「暂无统计」。整轮累计仍由 `turn.completed.usage` 提供，两者口径独立。
 
 ### 4.2 `terminal`（streamId = terminalId）
 

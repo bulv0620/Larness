@@ -154,25 +154,18 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByRole("button", { name: "批准执行" })).toHaveCount(0);
     await expect(page.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
       "aria-valuetext",
-      /128,000/,
+      /1,048,576/,
     );
 
     await page.getByRole("button", { name: "设置与模型" }).click();
     const settings = page.getByRole("dialog");
-    await settings.getByRole("button", { name: /DeepSeek Alt/ }).click();
+    await settings.getByRole("button", { name: /DeepSeek Chat/ }).click();
     await page.keyboard.press("Escape");
     await expect(settings).toBeHidden();
 
     await composer.fill("list again");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByText("项目文件已列出。")).toHaveCount(2, { timeout: 20_000 });
-
-    await page.getByRole("button", { name: "设置与模型" }).click();
-    await page.getByRole("dialog").getByLabel("API Key").fill("sk-e2e-secret-value");
-    await page.getByRole("dialog").getByRole("button", { name: "添加" }).click();
-    await expect(page.getByRole("dialog").getByText("sk-e2e-secret-value")).toHaveCount(0);
-    await expect(page.getByRole("dialog").getByText(/•+/)).toBeVisible({ timeout: 10_000 });
-    await page.keyboard.press("Escape");
 
     await composer.fill("cancel");
     await page.getByRole("button", { name: "发送消息" }).click();
@@ -184,6 +177,14 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(page.getByText("草稿")).toHaveCount(1);
     await sidebar.getByRole("button", { name: "Renamed chat", exact: true }).first().click();
     await expect(page.getByText("草稿")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "设置与模型" }).click();
+    await page.getByRole("dialog").getByLabel("凭据名称").fill("E2E secret");
+    await page.getByRole("dialog").getByLabel("API Key").fill("sk-e2e-secret-value");
+    await page.getByRole("dialog").getByRole("button", { name: "添加" }).click();
+    await expect(page.getByRole("dialog").getByText("sk-e2e-secret-value")).toHaveCount(0);
+    await expect(page.getByRole("dialog").getByText(/•+/)).toBeVisible({ timeout: 10_000 });
+    await page.keyboard.press("Escape");
 
     expect(pageErrors).toEqual([]);
   } finally {

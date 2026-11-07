@@ -27,6 +27,8 @@ export interface CreateSessionRowInput {
   workspacePath: string;
   title: string;
   modelProfileId: string | null;
+  model?: string | null;
+  thinking?: string | null;
   approvalPolicyId: string;
   now: number;
 }
@@ -39,6 +41,8 @@ export function createSessionRow(db: DbExecutor, input: CreateSessionRowInput): 
     title: input.title,
     status: "active",
     modelProfileId: input.modelProfileId,
+    model: input.model ?? null,
+    thinking: input.thinking ?? null,
     approvalPolicyId: input.approvalPolicyId,
     createdAt: input.now,
     updatedAt: input.now,
@@ -83,6 +87,8 @@ export function updateSessionRow(
   input: {
     title?: string;
     modelProfileId?: string | null;
+    model?: string | null;
+    thinking?: string | null;
     approvalPolicyId?: string;
     status?: SessionRow["status"];
     updatedAt: number;
@@ -92,6 +98,8 @@ export function updateSessionRow(
   const changes = {
     ...(input.title === undefined ? {} : { title: input.title }),
     ...(input.modelProfileId === undefined ? {} : { modelProfileId: input.modelProfileId }),
+    ...(input.model === undefined ? {} : { model: input.model }),
+    ...(input.thinking === undefined ? {} : { thinking: input.thinking }),
     ...(input.approvalPolicyId === undefined ? {} : { approvalPolicyId: input.approvalPolicyId }),
     ...(input.status === undefined ? {} : { status: input.status }),
     updatedAt: input.updatedAt,
@@ -112,6 +120,8 @@ export interface CreateTurnRowInput {
   modelProfileId: string | null;
   provider: string | null;
   model: string | null;
+  thinking?: string | null;
+  contextWindow?: number | null;
   status: TurnStatus;
   inputJson: string;
   idempotencyKey: string | null;
@@ -125,6 +135,8 @@ export function createTurnRow(db: DbExecutor, input: CreateTurnRowInput): TurnRo
     modelProfileId: input.modelProfileId,
     provider: input.provider,
     model: input.model,
+    thinking: input.thinking ?? null,
+    contextWindow: input.contextWindow ?? null,
     status: input.status,
     inputJson: input.inputJson,
     usageJson: null,

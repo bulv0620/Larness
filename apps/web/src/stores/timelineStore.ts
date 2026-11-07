@@ -440,12 +440,13 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
           draft.projectId === null ? {} : { projectId: draft.projectId },
         );
         await updateSession(real.id, {
-          modelProfileId: composer.modelId,
+          model: composer.modelId,
+          thinking: composer.thinking,
           approvalPolicyId: composer.policy,
         });
         await createTurn(
           real.id,
-          { input: trimmed, modelProfileId: composer.modelId },
+          { input: trimmed, model: composer.modelId, thinking: composer.thinking },
           crypto.randomUUID(),
         );
         await queryClient.invalidateQueries({ queryKey: ["workspace"] });
@@ -477,12 +478,13 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     try {
       await updateSession(sessionId, {
-        modelProfileId: composer.modelId,
+        model: composer.modelId,
+        thinking: composer.thinking,
         approvalPolicyId: composer.policy,
       });
       const created = await createTurn(
         sessionId,
-        { input: trimmed, modelProfileId: composer.modelId },
+        { input: trimmed, model: composer.modelId, thinking: composer.thinking },
         crypto.randomUUID(),
       );
       set({ activeTurnId: created.turnId });

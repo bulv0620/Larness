@@ -7,12 +7,43 @@ import { useTimelineStore } from "@/stores/timelineStore";
 import { Composer } from "./Composer";
 
 vi.mock("@/lib/queries", () => ({
-  useSnapshot: () => ({
-    data: { models: [{ id: "deepseek-default", label: "DeepSeek", maxContextTokens: 128000 }] },
+  useSessionModel: () => null,
+  useModelCatalog: () => ({
+    catalog: {
+      provider: "deepseek",
+      credentialProfileId: "cred_mock",
+      syncedAt: 1,
+      stale: false,
+      lastRefreshError: null,
+      models: [
+        {
+          id: "deepseek-flash",
+          label: "DeepSeek Flash",
+          contextWindow: 128000,
+          thinking: {
+            supported: true,
+            levels: [
+              { id: "low", label: "低" },
+              { id: "high", label: "高" },
+              { id: "max", label: "最高" },
+            ],
+          },
+          default: true,
+        },
+      ],
+    },
+    isPending: false,
+    error: null,
+    refetch: async () => undefined,
   }),
 }));
 beforeEach(() => {
-  useComposerStore.setState({ draft: "任务", policy: "standard", modelId: "deepseek-default" });
+  useComposerStore.setState({
+    draft: "任务",
+    policy: "standard",
+    modelId: "deepseek-flash",
+    thinking: "default",
+  });
   useNavigationStore.setState({ sessionId: "test" });
   useTimelineStore.setState({ items: [], isStreaming: false, contextTokens: 32000 });
 });
@@ -59,4 +90,15 @@ it("requires risk confirmation before switching to autonomous, with cancellation
   await user.click(await screen.findByRole("button", { name: "确认启用" }));
   expect(useComposerStore.getState().policy).toBe("autonomous");
   expect(screen.getByRole("button", { name: "审批策略：完全自主" })).toBeVisible();
+});
+
+it("switches model and thinking level from the composer picker", async () => {
+  const user = userEvent.setup();
+  render(<Composer />);
+  await user.click(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 默认" }));
+  const menu = screen.getByRole("menu");
+  expect(within(menu).getByRole("menuitemradio", { name: /DeepSeek Flash/ })).toBeChecked();
+  await user.click(within(menu).getByRole("menuitemradio", { name: "高" }));
+  expect(useComposerStore.getState().thinking).toBe("high");
+  expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 高" })).toBeVisible();
 });

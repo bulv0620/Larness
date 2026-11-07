@@ -134,3 +134,7 @@ accepted，用户明确要求。服务运维与项目服务窗视觉一致，认
 ## ADR-052 · 所属项目 PM2 日志读取（2026-11-07）
 
 accepted，用户明确批准。允许精确 PM2 登记且属于本项目的普通日志，保留 canonical 边界/身份/脱敏/限额；历史项目路径不授予权限。同次修复前端 CSRF/JSON，并展示私有实例查询命令。[ADR-052](ADR-052-project-pm2-log-reading.md)。
+
+## ADR-053 · DeepSeek 官方模型目录与思考档位（2026-11-07）
+
+accepted，用户直接指定方向。旧模型 Profile 全部忽略（保留数据不删除），改为官方目录驱动的模型选择；思考默认开启，档位随 Turn 固定；推理数据先实测、暂不落库；圆环改为单次请求口径；输入框按 Codex 风格提供模型 / 档位浮层。见 [ADR-053](ADR-053-model-catalog-thinking.md) 与 [061 spec](../../specs/061-deepseek-integration/spec.md)。

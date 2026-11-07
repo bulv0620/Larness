@@ -6,7 +6,10 @@ import { fileURLToPath } from "node:url";
 import { startServer } from "../apps/server/src/bootstrap/start.js";
 import { connectIpc } from "../apps/server/src/ipc/client.js";
 import type { ProviderResolver } from "../apps/server/src/modules/agent/turnRunner.js";
+import { refreshModelCatalog } from "../apps/server/src/modules/models/catalog.js";
+import { createCredential } from "../apps/server/src/modules/models/service.js";
 import { getProjectById } from "../apps/server/src/modules/projects/repository.js";
+import { SecretStore } from "../apps/server/src/security/secretStore.js";
 import { createFakeProvider, type ProviderChunk } from "../packages/agent/src/index.js";
 import { DEFAULT_APP_CONFIG } from "../packages/shared/src/index.js";
 
@@ -360,6 +363,20 @@ running = await startServer({
   logDestination: process.stderr,
   providerResolver: fakeProviderResolver,
 });
+
+const e2eSecretStore = await SecretStore.open(dataDir);
+createCredential(
+  { db: running.db, secretStore: e2eSecretStore },
+  { provider: "deepseek", label: "E2E Key", apiKey: "sk-e2e" },
+);
+await refreshModelCatalog(
+  {
+    db: running.db,
+    secretStore: e2eSecretStore,
+    fetcher: async () => ({ data: [{ id: "deepseek-flash" }, { id: "deepseek-chat" }] }),
+  },
+  { clientSessionId: "bs_e2e" },
+);
 
 running.sqlite
   .prepare(

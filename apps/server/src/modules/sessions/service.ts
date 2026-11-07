@@ -4,8 +4,9 @@ import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import type { SessionRow, SessionStatus } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
+import { resolveCatalogSelection } from "../models/catalog.js";
+import { ModelError } from "../models/service.js";
 import { getProjectById } from "../projects/repository.js";
-import { parseProjectSettings } from "../projects/service.js";
 import { ensureDefaultWorkspace, isDefaultWorkspace } from "../workspaces/default.js";
 import { SessionError } from "./errors.js";
 import {
@@ -29,6 +30,8 @@ export interface SessionDto {
   title: string;
   status: SessionStatus;
   modelProfileId: string | null;
+  model: string | null;
+  thinking: string | null;
   approvalPolicyId: string;
   createdAt: number;
   updatedAt: number;
@@ -55,6 +58,8 @@ export interface UpdateSessionInput {
   id: string;
   title?: string;
   modelProfileId?: string | null;
+  model?: string | null;
+  thinking?: string | null;
   approvalPolicyId?: ApprovalPolicy;
   clientSessionId?: string;
 }
@@ -74,6 +79,8 @@ export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
     title: row.title,
     status: row.status,
     modelProfileId: row.modelProfileId,
+    model: row.model,
+    thinking: row.thinking,
     approvalPolicyId: row.approvalPolicyId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -202,7 +209,7 @@ export async function createSession(
   const title = normalizeTitle(input.title);
   const now = options.now?.() ?? Date.now();
   let projectId: string | null = null;
-  let modelProfileId: string | null = null;
+  const modelProfileId: string | null = null;
   let workspacePath: string;
 
   if (input.projectId !== undefined && input.projectId !== DEFAULT_PROJECT_ID) {
@@ -214,7 +221,6 @@ export async function createSession(
 
     projectId = project.id;
     workspacePath = project.realPath;
-    modelProfileId = parseProjectSettings(project.settingsJson).defaultModelProfileId;
   } else {
     try {
       workspacePath = await ensureDefaultWorkspace(options.dataDir);
@@ -252,9 +258,37 @@ export function updateSession(
       throw new SessionError("NOT_FOUND", "session not found");
     }
 
+    let model = input.model;
+    let thinking = input.thinking;
+
+    if (model !== undefined || thinking !== undefined) {
+      const effectiveModel = model ?? current.model;
+
+      if (effectiveModel === null || effectiveModel === undefined) {
+        throw new SessionError("MODEL_UNSUPPORTED", "select a catalog model first");
+      }
+
+      try {
+        const selection = resolveCatalogSelection(tx, {
+          model: effectiveModel,
+          thinking: thinking ?? current.thinking,
+        });
+        model = selection.model;
+        thinking = selection.thinking;
+      } catch (error) {
+        if (error instanceof ModelError) {
+          throw new SessionError(error.code, error.message, error.details);
+        }
+
+        throw error;
+      }
+    }
+
     const updated = updateSessionRow(tx, input.id, {
       title,
       modelProfileId,
+      model,
+      thinking,
       approvalPolicyId,
       updatedAt: now,
     });
@@ -272,6 +306,19 @@ export function updateSession(
         resourceType: "session",
         resourceId: updated.id,
         details: { from: current.modelProfileId, to: modelProfileId },
+        now,
+      });
+    }
+
+    if (model !== undefined && model !== current.model) {
+      appendAudit(tx, {
+        action: "model.changed",
+        decision: "allow",
+        clientSessionId: input.clientSessionId,
+        sessionId: updated.id,
+        resourceType: "session",
+        resourceId: updated.id,
+        details: { from: current.model, to: model, thinking: thinking ?? null },
         now,
       });
     }

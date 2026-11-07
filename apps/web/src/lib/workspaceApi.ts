@@ -31,6 +31,8 @@ export interface ApiSession {
   title: string;
   status: "active" | "archived";
   modelProfileId: string | null;
+  model?: string | null;
+  thinking?: string | null;
   approvalPolicyId: "standard" | "strict" | "readonly" | "autonomous";
   createdAt: number;
   updatedAt: number;
@@ -44,6 +46,8 @@ export interface ApiTurn {
   modelProfileId: string | null;
   provider: string | null;
   model: string | null;
+  thinking?: string | null;
+  contextWindow?: number | null;
   input: { text: string };
   usage: unknown;
   error: unknown;
@@ -94,6 +98,28 @@ export interface ApiModelProfile {
     maxContextTokens: number;
   };
   createdAt: number;
+}
+
+export interface ApiCatalogThinkingLevel {
+  id: string;
+  label: string;
+}
+
+export interface ApiCatalogModel {
+  id: string;
+  label: string;
+  contextWindow: number | null;
+  thinking: { supported: boolean; levels: ApiCatalogThinkingLevel[] };
+  default: boolean;
+}
+
+export interface ApiModelCatalog {
+  provider: "deepseek";
+  credentialProfileId: string;
+  syncedAt: number | null;
+  stale: boolean;
+  lastRefreshError: string | null;
+  models: ApiCatalogModel[];
 }
 
 export interface ApiCredential {
@@ -161,6 +187,18 @@ export async function listModels(): Promise<ApiModelProfile[]> {
   return response.models;
 }
 
+export async function listModelCatalog(): Promise<ApiModelCatalog> {
+  return apiFetch<ApiModelCatalog>("/api/models/catalog");
+}
+
+export async function refreshModelCatalog(): Promise<ApiModelCatalog> {
+  return apiFetch<ApiModelCatalog>("/api/models/catalog/refresh", {
+    method: "POST",
+    body: {},
+    csrf: true,
+  });
+}
+
 export async function listCredentials(): Promise<ApiCredential[]> {
   const response = await apiFetch<{ credentials: ApiCredential[] }>("/api/credentials");
   return response.credentials;
@@ -210,6 +248,8 @@ export async function updateSession(
   input: {
     title?: string;
     modelProfileId?: string | null;
+    model?: string | null;
+    thinking?: string | null;
     approvalPolicyId?: "standard" | "strict" | "readonly" | "autonomous";
   },
 ): Promise<ApiSession> {
@@ -229,7 +269,7 @@ export async function archiveSession(id: string): Promise<void> {
 
 export async function createTurn(
   sessionId: string,
-  input: { input: string; modelProfileId?: string },
+  input: { input: string; model?: string; thinking?: string; modelProfileId?: string },
   idempotencyKey: string,
 ): Promise<CreateTurnResponse> {
   return apiFetch<CreateTurnResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/turns`, {

@@ -51,6 +51,9 @@ export const ERROR_CODES = {
   providerContextLimit: "PROVIDER_CONTEXT_LIMIT",
   providerContentFiltered: "PROVIDER_CONTENT_FILTERED",
   providerUnknown: "PROVIDER_UNKNOWN",
+  modelCredentialMissing: "MODEL_CREDENTIAL_MISSING",
+  modelCatalogInvalid: "MODEL_CATALOG_INVALID",
+  modelUnsupported: "MODEL_UNSUPPORTED",
   devWebUnavailable: "DEV_WEB_UNAVAILABLE",
   internal: "INTERNAL",
 } as const;
@@ -110,6 +113,9 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   PROVIDER_CONTEXT_LIMIT: 413,
   PROVIDER_CONTENT_FILTERED: 422,
   PROVIDER_UNKNOWN: 502,
+  MODEL_CREDENTIAL_MISSING: 409,
+  MODEL_CATALOG_INVALID: 502,
+  MODEL_UNSUPPORTED: 400,
   DEV_WEB_UNAVAILABLE: 503,
   INTERNAL: 500,
 };

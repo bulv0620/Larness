@@ -4,6 +4,11 @@ import { z } from "zod";
 import type { Database } from "../db/client.js";
 import { HttpError } from "../errors.js";
 import {
+  type DeepSeekCatalogFetcher,
+  getModelCatalog,
+  refreshModelCatalog,
+} from "../modules/models/catalog.js";
+import {
   createCredential,
   createModelProfile,
   deleteCredential,
@@ -37,6 +42,7 @@ const CreateModelSchema = z
 export interface ModelApiDeps {
   db: Database;
   secretStore: SecretStore;
+  catalogFetcher?: DeepSeekCatalogFetcher;
   now?: () => number;
 }
 
@@ -68,8 +74,30 @@ function throwModel(error: unknown): never {
 
 export function registerModelRoutes(app: FastifyInstance, deps: ModelApiDeps): void {
   const options = { db: deps.db, secretStore: deps.secretStore, now: deps.now };
+  const catalogOptions = {
+    ...options,
+    ...(deps.catalogFetcher === undefined ? {} : { fetcher: deps.catalogFetcher }),
+  };
 
   app.get("/api/models", async () => ({ models: listModelDtos(options) }));
+
+  app.get("/api/models/catalog", async () => {
+    try {
+      return getModelCatalog(catalogOptions);
+    } catch (error) {
+      throwModel(error);
+    }
+  });
+
+  app.post("/api/models/catalog/refresh", async (request) => {
+    try {
+      return await refreshModelCatalog(catalogOptions, {
+        clientSessionId: request.clientSession?.id,
+      });
+    } catch (error) {
+      throwModel(error);
+    }
+  });
 
   app.post("/api/models", async (request, reply) => {
     const body = parse(CreateModelSchema, request.body);

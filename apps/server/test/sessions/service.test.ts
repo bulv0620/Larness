@@ -79,7 +79,7 @@ describe("session service", () => {
     });
   });
 
-  it("uses the project default model for new sessions", async () => {
+  it("ignores legacy project default model profiles for new sessions", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
 
@@ -94,7 +94,9 @@ describe("session service", () => {
           { db: opened.db, dataDir: dir, now: () => 3_000 },
           { projectId: project.id },
         );
-        expect(session.modelProfileId).toBe("deepseek-default");
+        expect(session.modelProfileId).toBeNull();
+        expect(session.model).toBeNull();
+        expect(session.thinking).toBeNull();
       } finally {
         opened.close();
       }

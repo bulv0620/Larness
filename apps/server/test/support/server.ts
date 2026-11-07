@@ -1,6 +1,7 @@
 import { startServer } from "../../src/bootstrap/start.js";
 import { connectIpc } from "../../src/ipc/client.js";
 import type { ProviderResolver } from "../../src/modules/agent/turnRunner.js";
+import type { DeepSeekCatalogFetcher } from "../../src/modules/models/catalog.js";
 import { createLogSink, getFreePort, testConfig, writeConfig } from "../helpers.js";
 
 function cookieValue(header: string, name: string): string {
@@ -25,6 +26,7 @@ export async function startAuthorizedServer(
   options: {
     turnRunner?: boolean;
     providerResolver?: ProviderResolver;
+    catalogFetcher?: DeepSeekCatalogFetcher;
     preview?: { enabled: boolean; port?: number };
     env?: NodeJS.ProcessEnv;
   } = {},
@@ -41,6 +43,7 @@ export async function startAuthorizedServer(
     ...(options.providerResolver === undefined
       ? {}
       : { providerResolver: options.providerResolver }),
+    ...(options.catalogFetcher === undefined ? {} : { catalogFetcher: options.catalogFetcher }),
   });
   const client = await connectIpc({ dataDir: dir, client: "tui" });
 

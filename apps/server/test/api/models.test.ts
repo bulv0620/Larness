@@ -117,4 +117,94 @@ describe("models and credentials API", () => {
       }
     });
   });
+  it("serves the official catalog with auth, CSRF and cached models", async () => {
+    await withTempDir(async (dir) => {
+      let upstreamCalls = 0;
+      const started = await startAuthorizedServer(dir, {
+        catalogFetcher: async () => {
+          upstreamCalls += 1;
+          return {
+            object: "list",
+            data: [{ id: "deepseek-flash" }, { id: "deepseek-chat" }],
+          };
+        },
+      });
+
+      try {
+        const auth = {
+          cookie: started.cookie,
+          origin: started.origin,
+          "x-csrf-token": started.csrf,
+        };
+
+        const anonymous = await started.running.app.inject({
+          method: "GET",
+          url: "/api/models/catalog",
+        });
+        expect(anonymous.statusCode).toBe(401);
+
+        const noCredential = await started.running.app.inject({
+          method: "GET",
+          url: "/api/models/catalog",
+          headers: { cookie: started.cookie },
+        });
+        expect(noCredential.statusCode).toBe(409);
+        expect(noCredential.json()).toMatchObject({
+          error: { code: "MODEL_CREDENTIAL_MISSING" },
+        });
+
+        const credential = await started.running.app.inject({
+          method: "POST",
+          url: "/api/credentials",
+          headers: auth,
+          payload: { provider: "deepseek", label: "DeepSeek Key", apiKey: "sk-test" },
+        });
+        expect(credential.statusCode).toBe(201);
+
+        const empty = await started.running.app.inject({
+          method: "GET",
+          url: "/api/models/catalog",
+          headers: { cookie: started.cookie },
+        });
+        expect(empty.statusCode).toBe(200);
+        expect(empty.json()).toMatchObject({ syncedAt: null, stale: true, models: [] });
+
+        const missingCsrf = await started.running.app.inject({
+          method: "POST",
+          url: "/api/models/catalog/refresh",
+          headers: { cookie: started.cookie, origin: started.origin },
+          payload: {},
+        });
+        expect(missingCsrf.statusCode).toBe(403);
+        expect(missingCsrf.json()).toMatchObject({ error: { code: "CSRF_INVALID" } });
+        expect(upstreamCalls).toBe(0);
+
+        const refreshed = await started.running.app.inject({
+          method: "POST",
+          url: "/api/models/catalog/refresh",
+          headers: auth,
+          payload: {},
+        });
+        expect(refreshed.statusCode).toBe(200);
+        expect(refreshed.json()).toMatchObject({
+          stale: false,
+          models: [
+            { id: "deepseek-flash", contextWindow: 1_048_576, default: true },
+            { id: "deepseek-chat", contextWindow: 128_000, default: false },
+          ],
+        });
+        expect(upstreamCalls).toBe(1);
+
+        const cached = await started.running.app.inject({
+          method: "GET",
+          url: "/api/models/catalog",
+          headers: { cookie: started.cookie },
+        });
+        expect(cached.json()).toMatchObject({ stale: false });
+        expect(upstreamCalls).toBe(1);
+      } finally {
+        await stopAuthorizedServer(started);
+      }
+    });
+  });
 });

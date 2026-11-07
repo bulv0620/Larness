@@ -10,6 +10,7 @@ import {
   type ProviderStepInput,
   toAiSdkMessages,
   toAiSdkTools,
+  toDeepSeekProviderOptions,
 } from "../../src/providers/index.js";
 
 function apiError(statusCode: number, message: string, responseBody?: string): APICallError {
@@ -321,5 +322,21 @@ describe("DeepSeek request mapping", () => {
     expect(tools).toBeDefined();
     expect(tools?.read_file).toMatchObject({ description: "Read a file" });
     expect(toAiSdkTools([])).toBeUndefined();
+  });
+
+  it("maps thinking settings to DeepSeek provider options", () => {
+    expect(toDeepSeekProviderOptions(undefined)).toBeUndefined();
+    expect(toDeepSeekProviderOptions({ enabled: false })).toEqual({
+      deepseek: { thinking: { type: "disabled" } },
+    });
+    expect(toDeepSeekProviderOptions({ enabled: true })).toEqual({
+      deepseek: { thinking: { type: "enabled" } },
+    });
+    expect(toDeepSeekProviderOptions({ enabled: true, effort: "high" })).toEqual({
+      deepseek: { thinking: { type: "enabled" }, reasoningEffort: "high" },
+    });
+    expect(toDeepSeekProviderOptions({ enabled: true, effort: "max" })).toEqual({
+      deepseek: { thinking: { type: "enabled" }, reasoningEffort: "max" },
+    });
   });
 });

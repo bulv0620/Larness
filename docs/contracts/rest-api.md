@@ -68,6 +68,9 @@
 | `PROVIDER_CONTEXT_LIMIT` | 413 | 上下文超出模型上限 |
 | `PROVIDER_CONTENT_FILTERED` | 422 | 模型 Provider 内容过滤 |
 | `PROVIDER_UNKNOWN` | 502 | Provider 未分类错误 |
+| `MODEL_CREDENTIAL_MISSING` | 409 | 尚无可用模型凭据，无法同步官方目录 |
+| `MODEL_CATALOG_INVALID` | 502 | 官方目录响应不合规，未写入缓存 |
+| `MODEL_UNSUPPORTED` | 400 | 模型不在目录内，或档位不属于该模型 |
 | `INTERNAL` | 500 | 未预期错误（不返回堆栈） |
 
 ## 3. 公开接口（M0）
@@ -296,16 +299,18 @@
 | GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档；列表项包含 `hasActiveTurn` |
 | POST | `/api/sessions` | `{ projectId?, title? }`；无项目时创建独立工作目录；201 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
-| PATCH | `/api/sessions/:id` | `{ title?, modelProfileId?, approvalPolicyId? }`；模型 / 策略只影响下一 Turn |
+| PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, modelProfileId?, approvalPolicyId? }`；模型 / 档位 / 策略只影响下一 Turn |
 | DELETE | `/api/sessions/:id` | 归档会话（`status=archived`，不删 workspace / 源码）；活跃 Turn 返回 409 |
-| POST | `/api/sessions/:id/turns` | `{ input, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
+| POST | `/api/sessions/:id/turns` | `{ input, model?, thinking?, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
 | POST | `/api/turns/:id/cancel` | 活跃 Turn 置 `CANCELLING`；无活跃 Turn 返回 409 |
 | GET | `/api/sessions/:id/events?after=<seq>&limit=` | 增量事件，按 `seq` 升序；`limit` 1–500（默认 100） |
 | GET | `/api/approvals/:id` | 审批详情（参数摘要、范围、过期时间） |
 | POST | `/api/approvals/:id` | `{ decision: "approve" \| "reject" }`；校验参数哈希与范围 |
-| GET | `/api/models` | 可用模型 Profile（不含密钥） |
-| POST | `/api/models` | 新建 Profile（`secretRef` 或提交密钥到 SecretStore） |
+| GET | `/api/models` | **deprecated（061）**：旧模型 Profile 列表，UI 不再使用；数据保留 |
+| POST | `/api/models` | 新建 Profile（`secretRef` 或提交密钥到 SecretStore）；保留兼容 |
 | POST | `/api/models/:id/test` | 可选：连通性 / 工具调用冒烟 |
+| GET | `/api/models/catalog` | M5-1：当前凭据范围的官方模型目录缓存（不含密钥） |
+| POST | `/api/models/catalog/refresh` | M5-1：服务端刷新官方目录；失败保留旧缓存 |
 | GET | `/api/credentials` | 凭据元数据（掩码，不含明文） |
 | POST | `/api/credentials` | 新建凭据，密钥只写不读 |
 | DELETE | `/api/credentials/:id` | 删除未被模型引用的凭据 |
@@ -428,6 +433,46 @@ Turn 创建成功返回 `202`：
 ```
 
 `POST /api/credentials` 接受 `{ provider, label, apiKey }`；`DELETE /api/credentials/:id` 在被模型 Profile 引用时返回 `409 CONFLICT`。密钥使用本机 AES-256-GCM 加密存储，主密钥权限 0600。
+
+### 7.1 官方模型目录（M5-1，061 / ADR-053）
+
+`GET /api/models/catalog` 返回当前 DeepSeek 凭据范围的目录缓存；`POST /api/models/catalog/refresh` 由服务端访问固定官方端点刷新，失败时保留旧缓存并返回上游映射错误码。两者都要求已认证会话，刷新还校验 CSRF；未认证不调用上游。
+
+```json
+{
+  "provider": "deepseek",
+  "credentialProfileId": "cred_…",
+  "syncedAt": 1790000000000,
+  "stale": false,
+  "lastRefreshError": null,
+  "models": [
+    {
+      "id": "deepseek-flash",
+      "label": "DeepSeek Flash",
+      "contextWindow": 1048576,
+      "thinking": {
+        "supported": true,
+        "levels": [{ "id": "low", "label": "低" }, { "id": "high", "label": "高" }, { "id": "max", "label": "最高" }]
+      },
+      "default": true
+    }
+  ]
+}
+```
+
+- 从未成功同步时 `syncedAt: null`、`models: []`、`stale: true`；无凭据返回 `409 MODEL_CREDENTIAL_MISSING`。
+- 窗口或档位缺失时按未知展示，不猜值，也不把该模型当作可选。
+- 目录响应不合规返回 `502 MODEL_CATALOG_INVALID`，不写入缓存；缓存按 `credential_profile_id` 隔离。
+- 不返回密钥、上游原始错误正文或请求头。
+
+Session / Turn 的模型选择：
+
+- `model` 为目录中的模型 id；`thinking` 为 `off` / `default` / 官方档位 id。`PATCH /api/sessions/:id` 保存选择，`POST /api/sessions/:id/turns` 可覆盖本轮选择。
+- Turn 创建时快照 `provider`、`model`、`thinking`、`context_window` 与凭据引用；运行中改选只影响下一 Turn。
+- 模型不在目录内或档位不属于该模型时返回 `400 MODEL_UNSUPPORTED`，不创建 Turn，也不调用上游。
+- 旧客户端传 `modelProfileId` 仍按快照兼容解析；档案已忽略或凭据缺失时失败关闭。`GET /api/models` 保留兼容但不再被 UI 使用。
+
+每次模型请求的用量通过 `model.usage` 事件提供（见 [WS 事件](ws-events.md)）；`turn.completed.usage` 仍为整轮累计。
 
 ## 8. 资源接口（M2–M5 摘要）
 

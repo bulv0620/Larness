@@ -4,6 +4,8 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { TurnRow, TurnStatus } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { appendAgentEvent } from "../agent/events.js";
+import { resolveCatalogSelection } from "../models/catalog.js";
+import { ModelError } from "../models/service.js";
 import { SessionError } from "./errors.js";
 import {
   createTurnRow,
@@ -37,6 +39,8 @@ export interface TurnDto {
   modelProfileId: string | null;
   provider: string | null;
   model: string | null;
+  thinking: string | null;
+  contextWindow: number | null;
   input: { text: string };
   usage: unknown;
   error: unknown;
@@ -54,6 +58,8 @@ export interface CreateTurnInput {
   sessionId: string;
   text: string;
   modelProfileId?: string;
+  model?: string | null;
+  thinking?: string | null;
   idempotencyKey?: string;
   clientSessionId?: string;
 }
@@ -95,6 +101,8 @@ export function turnDto(row: TurnRow): TurnDto {
     modelProfileId: row.modelProfileId,
     provider: row.provider,
     model: row.model,
+    thinking: row.thinking,
+    contextWindow: row.contextWindow,
     input:
       typeof input === "object" &&
       input !== null &&
@@ -117,6 +125,8 @@ export function activeTurnForSession(db: Database, sessionId: string): TurnDto |
 function validateCreateTurn(input: CreateTurnInput): {
   text: string;
   modelProfileId: string | null;
+  model: string | null;
+  thinking: string | null;
   idempotencyKey: string | null;
 } {
   const text = input.text.trim();
@@ -138,6 +148,18 @@ function validateCreateTurn(input: CreateTurnInput): {
     throw new SessionError("VALIDATION_ERROR", "modelProfileId must be at most 128 characters");
   }
 
+  const model = input.model?.trim() || null;
+
+  if (model !== null && model.length > 128) {
+    throw new SessionError("VALIDATION_ERROR", "model must be at most 128 characters");
+  }
+
+  const thinking = input.thinking?.trim() || null;
+
+  if (thinking !== null && thinking.length > 32) {
+    throw new SessionError("VALIDATION_ERROR", "thinking must be at most 32 characters");
+  }
+
   const idempotencyKey = input.idempotencyKey?.trim() || null;
 
   if (idempotencyKey !== null && idempotencyKey.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
@@ -147,7 +169,7 @@ function validateCreateTurn(input: CreateTurnInput): {
     );
   }
 
-  return { text, modelProfileId, idempotencyKey };
+  return { text, modelProfileId, model, thinking, idempotencyKey };
 }
 
 export function createTurn(options: TurnServiceOptions, input: CreateTurnInput): CreateTurnResult {
@@ -189,6 +211,24 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       });
     }
 
+    const requestedModel = validated.model ?? session.model;
+    let selection: ReturnType<typeof resolveCatalogSelection> | null = null;
+
+    if (requestedModel !== null) {
+      try {
+        selection = resolveCatalogSelection(tx, {
+          model: requestedModel,
+          thinking: validated.thinking ?? session.thinking,
+        });
+      } catch (error) {
+        if (error instanceof ModelError) {
+          throw new SessionError(error.code, error.message, error.details);
+        }
+
+        throw error;
+      }
+    }
+
     if (session.title === DEFAULT_SESSION_TITLE) {
       updateSessionRow(tx, session.id, {
         title: deriveSessionTitle(validated.text),
@@ -197,12 +237,22 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       });
     }
 
+    if (selection !== null) {
+      updateSessionRow(tx, session.id, {
+        model: selection.model,
+        thinking: selection.thinking,
+        updatedAt: now,
+      });
+    }
+
     const row = createTurnRow(tx, {
       id: newTurnId(),
       sessionId: input.sessionId,
-      modelProfileId: validated.modelProfileId,
-      provider: null,
-      model: null,
+      modelProfileId: selection === null ? validated.modelProfileId : null,
+      provider: selection === null ? null : "deepseek",
+      model: selection === null ? null : selection.model,
+      thinking: selection === null ? null : selection.thinking,
+      contextWindow: selection === null ? null : selection.contextWindow,
       status: "QUEUED",
       inputJson: JSON.stringify({
         text: validated.text,

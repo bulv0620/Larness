@@ -6,6 +6,7 @@ import {
   credentialProfiles,
   type ModelProfileRow,
   type ModelProviderId,
+  modelCatalogCache,
   modelProfiles,
   type SecretRow,
   secrets,
@@ -158,4 +159,104 @@ export function deleteSecretRow(db: DbExecutor, id: string): void {
 
 export function listEncryptedSecrets(db: DbExecutor): SecretRow[] {
   return db.select().from(secrets).all();
+}
+
+export interface ModelCatalogCacheRow {
+  credentialProfileId: string;
+  provider: ModelProviderId;
+  endpoint: string;
+  modelsJson: string;
+  syncedAt: number | null;
+  lastAttemptAt: number | null;
+  lastErrorCode: string | null;
+}
+
+export function getModelCatalogCache(
+  db: DbExecutor,
+  credentialProfileId: string,
+): ModelCatalogCacheRow | null {
+  const row =
+    db
+      .select()
+      .from(modelCatalogCache)
+      .where(eq(modelCatalogCache.credentialProfileId, credentialProfileId))
+      .get() ?? null;
+
+  if (row === null) {
+    return null;
+  }
+
+  return {
+    credentialProfileId: row.credentialProfileId,
+    provider: row.provider,
+    endpoint: row.endpoint,
+    modelsJson: row.modelsJson,
+    syncedAt: row.syncedAt,
+    lastAttemptAt: row.lastAttemptAt,
+    lastErrorCode: row.lastErrorCode,
+  };
+}
+
+export function saveModelCatalog(
+  db: DbExecutor,
+  input: {
+    credentialProfileId: string;
+    provider: ModelProviderId;
+    endpoint: string;
+    modelsJson: string;
+    now: number;
+  },
+): void {
+  db.insert(modelCatalogCache)
+    .values({
+      credentialProfileId: input.credentialProfileId,
+      provider: input.provider,
+      endpoint: input.endpoint,
+      modelsJson: input.modelsJson,
+      syncedAt: input.now,
+      lastAttemptAt: input.now,
+      lastErrorCode: null,
+    })
+    .onConflictDoUpdate({
+      target: modelCatalogCache.credentialProfileId,
+      set: {
+        provider: input.provider,
+        endpoint: input.endpoint,
+        modelsJson: input.modelsJson,
+        syncedAt: input.now,
+        lastAttemptAt: input.now,
+        lastErrorCode: null,
+      },
+    })
+    .run();
+}
+
+export function recordModelCatalogFailure(
+  db: DbExecutor,
+  input: {
+    credentialProfileId: string;
+    provider: ModelProviderId;
+    endpoint: string;
+    errorCode: string;
+    now: number;
+  },
+): void {
+  db.insert(modelCatalogCache)
+    .values({
+      credentialProfileId: input.credentialProfileId,
+      provider: input.provider,
+      endpoint: input.endpoint,
+      modelsJson: "[]",
+      syncedAt: null,
+      lastAttemptAt: input.now,
+      lastErrorCode: input.errorCode,
+    })
+    .onConflictDoUpdate({
+      target: modelCatalogCache.credentialProfileId,
+      set: {
+        lastAttemptAt: input.now,
+        lastErrorCode: input.errorCode,
+      },
+    })
+    .run();
 }
