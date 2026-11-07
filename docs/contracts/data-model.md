@@ -134,11 +134,12 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | 表 | 关键列 | 说明 |
 |---|---|---|
 | `projects` | `id, name, root_path, real_path, settings_json, git_detected, created_at, updated_at` | `real_path` canonical 且唯一；`settings_json` 含默认模型 / 指令 / ignore；删除只删行 |
-| `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, model?, thinking?, approval_policy_id, created_at, updated_at, last_activity_at` | `status`: `active / archived`；归档不删 workspace；独立会话 workspace 在 dataDir 下；`model` / `thinking` 为 M5-1 当前选择（可空，旧行无值） |
-| `turns` | `id, session_id, model_profile_id, provider, model, thinking?, context_window?, status, input_json, usage_json, error_json, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn；provider / model / thinking / 窗口在 Turn 运行时快照；`thinking` 取值 `off / default / low / high / max` |
+| `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, credential_profile_id?, model?, thinking?, approval_policy_id, created_at, updated_at, last_activity_at` | `status`: `active / archived`；归档不删 workspace；独立会话 workspace 在 dataDir 下；`model` / `thinking` / `credential_profile_id` 为 M5-1 当前选择（可空，旧行无值） |
+| `turns` | `id, session_id, model_profile_id, credential_profile_id?, provider, model, thinking?, context_window?, status, input_json, usage_json, error_json, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn；provider / model / thinking / 窗口 / 凭据在 Turn 运行时快照；`thinking` 取值 `off / on / low / medium / high`（旧行可能是 `default`） |
 | `agent_events` | `id, session_id, turn_id, seq, type, payload_json, created_at`；`UNIQUE(session_id, seq)` | `seq` 在 Session 内递增，事务内分配 |
 | `model_profiles` | `id, label, provider, model, credential_profile_id, endpoint, capabilities_json, created_at` | 不含密钥；M5-1 起旧档案被忽略，行保留，不再进入选择器 |
 | `model_catalog_cache` | `credential_profile_id`（主键）, `provider, endpoint, models_json, synced_at, last_attempt_at, last_error_code` | M5-1 官方目录缓存，按凭据隔离；`models_json` 只含展示字段；`last_error_code` 只存稳定错误码 |
+| `model_visibility` | `id, credential_profile_id, model_id, visible, updated_at` | 唯一键 `(credential_profile_id, model_id)`；默认 `visible=1`；只控制会话选择器，不改变 Provider 能力 |
 | `credential_profiles` | `id, provider, label, secret_ref, created_at` | 密钥在 SecretStore |
 | `secrets` | `id, ciphertext, nonce, tag, created_at` | AES-256-GCM；主密钥在文件系统 |
 | `approvals` | `id, turn_id, tool_call_id, tool_name, risk, status, scope_json, params_hash, expires_at, decided_at, decided_by, created_at` | `status`: `pending / approved / denied / expired`；审批参数绑定与审计 |
@@ -250,6 +251,10 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 
 ## ADR-042：分阶段服务与部署记录（2026-11-05，draft）
 按 [ADR-048](../adr/ADR-048-service-domain-separation.md)，`services` 保持 M3 开发绑定和历史。M4 在同一业务数据库新增独立正式仓储及部署记录，部署目标引用正式 ID，来源项目和产物用于追溯及授权校验。运维日志和事件流独立，业务事件仍与 seq 事务提交。审批与策略记录分别绑定领域及作用域，只有人工分支关联 approvalId。表、列、约束、迁移与留存按对应任务冻结。见 [部署契约](deployment.md)。
+
+## M5-1d 迁移 0016_multi_provider（2026-11-07）
+
+`sessions` / `turns` 增加可空 `credential_profile_id`，schemaVersion 15 → 16。Turn 快照所选 Key，Provider 解析按快照选择 DeepSeek / GLM；旧 Turn 无值，回退到最新 DeepSeek 凭据。
 
 ## M5-1d 迁移 0017_model_visibility（2026-11-07）
 

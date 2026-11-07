@@ -11,7 +11,7 @@ updated: 2026-11-07
 
 # 多 Provider、能力矩阵与上下文压缩（M5-1d）
 
-> 状态：`draft`，待规格评审。M5-1a/b/c/e 已交付；本切片是 061 的其余范围（GLM、通用兼容端点、压缩、跨模型迁移）。
+> 状态：`ready`（D1–D4 已确认；M5-1a/b/c/e 已交付，M5-1d-1/2a/2b/2d 已实现）。本切片是 061 的其余范围（GLM、通用兼容端点、压缩、跨模型迁移）。
 
 ## 1. 目标
 
@@ -45,7 +45,25 @@ updated: 2026-11-07
 - `ProviderAdapter` 已有能力字段；新增 `catalog` 能力：`fetchModels(apiKey, endpoint?)` 返回模型元数据（id、显示名、窗口、思考档位、默认标记）。
 - Provider id 扩展：`"glm"` 与 `"openai-compatible"`；`ModelProviderId` / 凭据 API 的 Zod 枚举同步。
 - 每个 Provider 固定默认端点：DeepSeek `https://api.deepseek.com`、GLM `https://open.bigmodel.cn/api/paas/v4`；兼容 Provider 允许用户填 HTTPS 端点（D2 边界）。
-- 有官方目录的 Provider 用目录；目录不返回能力字段时用内置注册表补窗口 / 档位。官方目录只返回 id 时（如 GLM 的 `/models`），窗口来自官方文档维护的内置表：GLM-4.5/4.5-Air 128K；4.6/4.7/5/5.1/5-Turbo 200K；5.2/5.3/5.3-Flash/FlashX 1M。未收录的模型保持「未知」并禁用，不猜数值。
+- 有官方目录的 Provider 用目录；目录不返回能力字段时用内置注册表补窗口 / 档位。官方目录只返回 id 时（如 GLM 的 `/models`），窗口来自官方文档维护的内置表。未收录的模型保持「未知」并禁用，不猜数值。
+
+**GLM 能力表（2026-11-07 按官方文档核对）**
+
+| 模型 | 窗口 | `thinking.mode` | 选项 |
+|---|---|---|---|
+| glm-4.5 / 4.5-air | 128K | `toggle` | 关 / 开 |
+| glm-4.6 | 200K | `toggle` | 关 / 开 |
+| glm-4.7 | 200K | `toggle` | 关 / 开（开启时强制思考） |
+| glm-5 / 5.1 / 5-turbo | 200K | `toggle` | 关 / 开 |
+| glm-5.2 | 1M | `levels` | 关 / 低 / 中 / 高 |
+| glm-5.3 | 1M | `mandatory-levels` | 低 / 中 / 高（不能关） |
+| glm-5.3-flash / flashx / flashx-legal | 1M | `mandatory-levels` | 低 / 中 / 高（不能关） |
+
+- 三种模式：`levels`（关/低/中/高）、`toggle`（关/开）、`mandatory-levels`（低/中/高，无关闭）。
+- 请求映射：`thinking.type = enabled/disabled`；`levels` / `mandatory-levels` 附带 `reasoning_effort`（低→low、中→high、高→max）。`toggle` 只发 enabled/disabled，不发 effort。
+- GLM 固定端点为 `https://open.bigmodel.cn/api/paas/v4`（国内开放平台）；z.ai 区域 Key 需要 d-2c 的自定义端点支持。
+- 适配器传输能力：GLM `reasoning: true`、`vision: false`（应用尚未开放图片输入，模型的多模态能力不在本切片范围）；每模型窗口 / 档位以目录表为准，`maxContextTokens` 128K 仅作保守缺省。
+- GLM 目录只返回 `id/object/created/owned_by`，不返回窗口或档位；能力以本表为准，表与代码由 `catalog.test.ts` 的逐模型断言锁定。
 
 ### 4.2 目录与选择
 

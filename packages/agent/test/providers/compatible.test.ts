@@ -14,7 +14,7 @@ describe("compatible providers", () => {
       streaming: true,
       toolCalls: true,
       vision: false,
-      reasoning: false,
+      reasoning: true,
     });
     expect(GLM_BASE_URL).toBe("https://open.bigmodel.cn/api/paas/v4");
   });

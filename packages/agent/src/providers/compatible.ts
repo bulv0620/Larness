@@ -109,5 +109,6 @@ export function createGlmProvider(
     id: "glm",
     name: "glm",
     baseURL: GLM_BASE_URL,
+    capabilities: { ...options.capabilities, reasoning: true },
   });
 }

@@ -300,9 +300,9 @@
 | GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档；列表项包含 `hasActiveTurn` |
 | POST | `/api/sessions` | `{ projectId?, title? }`；无项目时创建独立工作目录；201 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
-| PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, modelProfileId?, approvalPolicyId? }`；模型 / 档位 / 策略只影响下一 Turn |
+| PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, credentialProfileId?, modelProfileId?, approvalPolicyId? }`；模型 / 档位 / 凭据 / 策略只影响下一 Turn |
 | DELETE | `/api/sessions/:id` | 归档会话（`status=archived`，不删 workspace / 源码）；活跃 Turn 返回 409 |
-| POST | `/api/sessions/:id/turns` | `{ input, model?, thinking?, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
+| POST | `/api/sessions/:id/turns` | `{ input, model?, thinking?, credentialProfileId?, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
 | POST | `/api/turns/:id/cancel` | 活跃 Turn 置 `CANCELLING`；无活跃 Turn 返回 409 |
 | GET | `/api/sessions/:id/events?after=<seq>&limit=` | 增量事件，按 `seq` 升序；`limit` 1–500（默认 100） |
 | GET | `/api/approvals/:id` | 审批详情（参数摘要、范围、过期时间） |
@@ -438,30 +438,44 @@ Turn 创建成功返回 `202`：
 
 ### 7.1 官方模型目录（M5-1，061 / ADR-053）
 
-`GET /api/models/catalog` 返回当前 DeepSeek 凭据范围的目录缓存；`POST /api/models/catalog/refresh` 由服务端访问固定官方端点刷新，失败时保留旧缓存并返回上游映射错误码。两者都要求已认证会话，刷新还校验 CSRF；未认证不调用上游。
+`GET /api/models/catalog` 返回所有可目录化凭据（DeepSeek / GLM）的分组缓存；`POST /api/models/catalog/refresh` 逐组刷新，失败只更新该组的 `stale` / `lastRefreshError`，不覆盖旧模型列表。两者都要求已认证会话，刷新还校验 CSRF；未认证不调用上游。
 
 ```json
 {
-  "provider": "deepseek",
+  "provider": "glm",
   "credentialProfileId": "cred_…",
-  "credentialLabel": "DeepSeek Key",
+  "credentialLabel": "GLM Key",
   "syncedAt": 1790000000000,
   "stale": false,
   "lastRefreshError": null,
-  "models": [
+  "groups": [
     {
-      "id": "deepseek-flash",
-      "label": "DeepSeek Flash",
-      "contextWindow": 1048576,
-      "thinking": {
-        "supported": true,
-        "levels": [{ "id": "low", "label": "低" }, { "id": "medium", "label": "中" }, { "id": "high", "label": "高" }]
-      },
-      "default": true
+      "provider": "glm",
+      "credentialProfileId": "cred_…",
+      "credentialLabel": "GLM Key",
+      "syncedAt": 1790000000000,
+      "stale": false,
+      "lastRefreshError": null,
+      "models": [
+        {
+          "id": "glm-5.3",
+          "label": "GLM-5.3",
+          "contextWindow": 1000000,
+          "thinking": {
+            "supported": true,
+            "mode": "mandatory-levels",
+            "levels": [{ "id": "low", "label": "低" }, { "id": "medium", "label": "中" }, { "id": "high", "label": "高" }]
+          },
+          "default": false,
+          "visible": true
+        }
+      ]
     }
   ]
 }
 ```
+
+`thinking.mode` 为 `levels`（关/低/中/高）、`toggle`（关/开）或 `mandatory-levels`（低/中/高，不能关）；未知窗口的模型 `contextWindow: null`，不可选。
 
 - 从未成功同步时 `syncedAt: null`、`models: []`、`stale: true`；无凭据返回 `409 MODEL_CREDENTIAL_MISSING`。
 - 窗口或档位缺失时按未知展示，不猜值，也不把该模型当作可选。

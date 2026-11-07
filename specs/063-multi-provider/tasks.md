@@ -45,6 +45,8 @@
 - [x] UI 按模型动态显示档位；切换模型自动修正非法档位。
 - [x] 测试：GLM toggle / mandatory 校验、Provider options、选择器档位、内置窗口表回归。
 - [x] 真实目录刷新验证：4.7/5/5.1/5-Turbo 200K、5.2/5.3/5.3-Flash/FlashX 1M，模式正确。
+- [x] 对齐审计：12 个 GLM 模型的窗口 / 模式逐项锁定测试；4.7 可关闭（开启时强制思考）；5.3 / Flash / FlashX 强制思考；5.2 支持 effort；GLM 适配器声明 reasoning。
+- [ ] z.ai 区域 Key 的端点支持归 d-2c；图片输入不在本切片。
 
 ## M5-1d-2c 自定义兼容端点
 

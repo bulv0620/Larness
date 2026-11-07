@@ -195,6 +195,14 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 真实目录刷新验证：4.5/4.5-Air 128K；4.6/4.7/5/5.1/5-Turbo 200K；5.2/5.3/5.3-Flash/FlashX 1M；思考模式分别为 toggle / levels / mandatory-levels。GLM 目录模型现已全部可选。
 - 未验证：GLM 真实对话（账户余额不足），只验证了请求组装与目录能力。
 
+## GLM 对齐审计（2026-11-07）
+
+- 逐项核对官方文档与代码：12 个模型的窗口、思考模式、默认值和请求参数已锁定在 `GLM_BUILTIN_CATALOG`，并由 `catalog.test.ts` 全表断言防漂移。
+- 4.7：开启时强制思考，但允许 `thinking.type=disabled`（4.7 页面示例），因此保持 `toggle`；5.3 / 5.3-Flash / 5.3-FlashX / FlashX-Legal 不允许关闭，使用 `mandatory-levels`（默认高 → `max`）；5.2 支持 `reasoning_effort`，使用 `levels`。
+- 适配器：GLM `reasoning: true`、`vision: false`（图片输入未开放）；`maxContextTokens` 128K 仅作保守缺省，实际窗口来自目录。
+- 文档：063 spec 转 `ready` 并补 GLM 能力表；REST 契约更新 `groups` / `thinking.mode` / `visible`；GLM 固定端点为 bigmodel.cn，z.ai 区域 Key 归 d-2c。
+- 未验证：真实 GLM 对话仍受账户余额限制；真实工具调用待充值后复测。
+
 ## 已冻结
 
 - 产品与安全边界：`CONSTITUTION.md`

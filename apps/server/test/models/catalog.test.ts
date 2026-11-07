@@ -261,6 +261,8 @@ describe("deepseek model catalog", () => {
         expect(mapThinkingSetting("low")).toEqual({ enabled: true, effort: "low" });
         expect(mapThinkingSetting("medium")).toEqual({ enabled: true, effort: "high" });
         expect(mapThinkingSetting("high")).toEqual({ enabled: true, effort: "max" });
+        expect(mapThinkingSetting("on")).toEqual({ enabled: true });
+        expect(mapThinkingSetting("default")).toEqual({ enabled: true, effort: "high" });
       } finally {
         opened.sqlite.close();
       }
@@ -423,26 +425,32 @@ describe("deepseek model catalog", () => {
       }
     });
   });
-  it("keeps confirmed GLM windows and thinking modes in the builtin table", () => {
+  it("keeps every GLM model aligned with the official capability table", () => {
+    const expected: [string, number, string][] = [
+      ["glm-4.5", 128_000, "toggle"],
+      ["glm-4.5-air", 128_000, "toggle"],
+      ["glm-4.6", 200_000, "toggle"],
+      ["glm-4.7", 200_000, "toggle"],
+      ["glm-5", 200_000, "toggle"],
+      ["glm-5-turbo", 200_000, "toggle"],
+      ["glm-5.1", 200_000, "toggle"],
+      ["glm-5.2", 1_000_000, "levels"],
+      ["glm-5.3", 1_000_000, "mandatory-levels"],
+      ["glm-5.3-flash", 1_000_000, "mandatory-levels"],
+      ["glm-5.3-flashx", 1_000_000, "mandatory-levels"],
+      ["glm-5.3-flashx-legal", 1_000_000, "mandatory-levels"],
+    ];
     const byId = new Map(GLM_BUILTIN_CATALOG.map((model) => [model.id, model]));
 
-    expect(byId.get("glm-4.7")?.contextWindow).toBe(200_000);
-    expect(byId.get("glm-5.1")?.contextWindow).toBe(200_000);
-    expect(byId.get("glm-5.2")?.contextWindow).toBe(1_000_000);
-    expect(byId.get("glm-5.3")?.contextWindow).toBe(1_000_000);
-    expect(byId.get("glm-4.6")?.thinking).toMatchObject({ supported: true, mode: "toggle" });
-    expect(byId.get("glm-5.3")?.thinking).toMatchObject({
-      supported: true,
-      mode: "mandatory-levels",
-    });
-    expect(byId.get("glm-5.3-flash")?.contextWindow).toBe(1_000_000);
-    expect(byId.get("glm-5.3-flashx")?.contextWindow).toBe(1_000_000);
-    expect(byId.get("glm-5.3-flashx-legal")?.thinking).toMatchObject({
-      supported: true,
-      mode: "mandatory-levels",
-    });
-    expect(byId.get("glm-5-turbo")?.contextWindow).toBe(200_000);
-    expect(byId.get("glm-5-turbo")?.thinking).toMatchObject({ supported: true, mode: "toggle" });
-    expect(byId.get("glm-5.2")?.thinking).toMatchObject({ supported: true, mode: "levels" });
+    expect(GLM_BUILTIN_CATALOG).toHaveLength(expected.length);
+
+    for (const [id, contextWindow, mode] of expected) {
+      const model = byId.get(id);
+      expect(model, id).toBeDefined();
+      expect(model?.contextWindow, id).toBe(contextWindow);
+      expect(model?.thinking.supported, id).toBe(true);
+      expect(model?.thinking.mode, id).toBe(mode);
+      expect(model?.thinking.levels.length, id).toBe(mode === "toggle" ? 0 : 3);
+    }
   });
 });
