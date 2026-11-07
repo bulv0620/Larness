@@ -140,6 +140,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `model_profiles` | `id, label, provider, model, credential_profile_id, endpoint, capabilities_json, created_at` | 不含密钥；M5-1 起旧档案被忽略，行保留，不再进入选择器 |
 | `model_catalog_cache` | `credential_profile_id`（主键）, `provider, endpoint, models_json, synced_at, last_attempt_at, last_error_code` | M5-1 官方目录缓存，按凭据隔离；`models_json` 只含展示字段；`last_error_code` 只存稳定错误码 |
 | `model_visibility` | `id, credential_profile_id, model_id, visible, updated_at` | 唯一键 `(credential_profile_id, model_id)`；默认 `visible=1`；只控制会话选择器，不改变 Provider 能力 |
+| `model_defaults` | `id, credential_profile_id, model, thinking, updated_at` | 单行 `id='default'`；全局默认模型，用于新会话；删除凭据级联删除；会话内仍可覆盖 |
 | `credential_profiles` | `id, provider, label, secret_ref, created_at` | 密钥在 SecretStore |
 | `secrets` | `id, ciphertext, nonce, tag, created_at` | AES-256-GCM；主密钥在文件系统 |
 | `approvals` | `id, turn_id, tool_call_id, tool_name, risk, status, scope_json, params_hash, expires_at, decided_at, decided_by, created_at` | `status`: `pending / approved / denied / expired`；审批参数绑定与审计 |
@@ -255,6 +256,10 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 ## M5-1d 迁移 0016_multi_provider（2026-11-07）
 
 `sessions` / `turns` 增加可空 `credential_profile_id`，schemaVersion 15 → 16。Turn 快照所选 Key，Provider 解析按快照选择 DeepSeek / GLM；旧 Turn 无值，回退到最新 DeepSeek 凭据。
+
+## M5-1d 迁移 0018_model_defaults（2026-11-07）
+
+新增 `model_defaults`（单行 `id='default'`，`credential_profile_id` 外键级联），schemaVersion 17 → 18。保存全局默认模型与默认思考档位；新会话创建时写入 `sessions.model / thinking / credential_profile_id`，旧会话不变。
 
 ## M5-1d 迁移 0017_model_visibility（2026-11-07）
 

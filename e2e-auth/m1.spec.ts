@@ -157,12 +157,14 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
       /单次输入：12,000 \/ 1,048,576/,
     );
 
-    await page.getByRole("button", { name: "设置与模型" }).click();
-    const settings = page.getByRole("dialog");
-    await settings.getByRole("button", { name: /E2E Key/ }).click();
-    await settings.getByRole("button", { name: /DeepSeek Chat .*上下文/ }).click();
-    await page.keyboard.press("Escape");
-    await expect(settings).toBeHidden();
+    await page.getByRole("button", { name: /模型与思考：/ }).click();
+    const picker = page.getByRole("dialog", { name: "模型与思考" });
+    await picker.getByRole("button", { name: /模型：/ }).click();
+    await picker.getByRole("button", { name: /DeepSeek Chat/ }).click();
+    await expect(picker).toBeHidden();
+    await expect(
+      page.getByRole("button", { name: "模型与思考：DeepSeek Chat · 不支持" }),
+    ).toBeVisible();
 
     await composer.fill("list again");
     await page.getByRole("button", { name: "发送消息" }).click();

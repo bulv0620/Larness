@@ -4,7 +4,7 @@ import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import type { SessionRow, SessionStatus } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
-import { resolveCatalogSelection } from "../models/catalog.js";
+import { getModelDefaultSelection, resolveCatalogSelection } from "../models/catalog.js";
 import { ModelError } from "../models/service.js";
 import { getProjectById } from "../projects/repository.js";
 import { ensureDefaultWorkspace, isDefaultWorkspace } from "../workspaces/default.js";
@@ -177,6 +177,9 @@ function insertSession(
     workspacePath: string;
     title: string;
     modelProfileId: string | null;
+    credentialProfileId?: string | null;
+    model?: string | null;
+    thinking?: string | null;
     now: number;
     clientSessionId?: string;
   },
@@ -188,6 +191,9 @@ function insertSession(
       workspacePath: input.workspacePath,
       title: input.title,
       modelProfileId: input.modelProfileId,
+      credentialProfileId: input.credentialProfileId ?? null,
+      model: input.model ?? null,
+      thinking: input.thinking ?? null,
       approvalPolicyId: "standard",
       now: input.now,
     });
@@ -232,12 +238,16 @@ export async function createSession(
     }
   }
 
+  const defaultSelection = getModelDefaultSelection(options.db);
   const row = insertSession(options, {
     id: newId("ses"),
     projectId,
     workspacePath,
     title,
     modelProfileId,
+    credentialProfileId: defaultSelection?.credentialProfileId ?? null,
+    model: defaultSelection?.model ?? null,
+    thinking: defaultSelection?.thinking ?? null,
     now,
     clientSessionId: input.clientSessionId,
   });

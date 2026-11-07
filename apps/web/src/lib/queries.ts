@@ -90,7 +90,7 @@ function mockCatalog(): ApiModelCatalog {
     models,
   };
 
-  return { ...group, groups: [group] };
+  return { ...group, groups: [group], defaultSelection: null };
 }
 
 export interface ModelCatalogResult {

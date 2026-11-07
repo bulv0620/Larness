@@ -120,6 +120,13 @@
       "when": 1794053746721,
       "tag": "0017_model_visibility",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1794056473780,
+      "tag": "0018_model_defaults",
+      "breakpoints": true
     }
   ]
 }

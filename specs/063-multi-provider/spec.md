@@ -60,6 +60,7 @@ updated: 2026-11-07
 | glm-5.3-flash / flashx / flashx-legal | 1M | `mandatory-levels` | 低 / 中 / 高（不能关） |
 
 - 三种模式：`levels`（关/低/中/高）、`toggle`（关/开）、`mandatory-levels`（低/中/高，无关闭）。
+- 设置页是全局管理：Key、模型显示、默认模型；默认模型存入 `model_defaults`，新会话继承，会话内仍由输入框选择器覆盖。
 - 请求映射：`thinking.type = enabled/disabled`；`levels` / `mandatory-levels` 附带 `reasoning_effort`（低→low、中→high、高→max）。`toggle` 只发 enabled/disabled，不发 effort。
 - GLM 固定端点为 `https://open.bigmodel.cn/api/paas/v4`（国内开放平台）；z.ai 区域 Key 需要 d-2c 的自定义端点支持。
 - 适配器传输能力：GLM `reasoning: true`、`vision: false`（应用尚未开放图片输入，模型的多模态能力不在本切片范围）；每模型窗口 / 档位以目录表为准，`maxContextTokens` 128K 仅作保守缺省。

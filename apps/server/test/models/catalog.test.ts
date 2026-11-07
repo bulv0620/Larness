@@ -10,6 +10,7 @@ import {
   mapThinkingSetting,
   refreshModelCatalog,
   resolveCatalogSelection,
+  setCatalogDefault,
   setCatalogModelVisibility,
 } from "../../src/modules/models/catalog.js";
 import { createCredential, listModelDtos, ModelError } from "../../src/modules/models/service.js";
@@ -452,5 +453,32 @@ describe("deepseek model catalog", () => {
       expect(model?.thinking.mode, id).toBe(mode);
       expect(model?.thinking.levels.length, id).toBe(mode === "toggle" ? 0 : 3);
     }
+  });
+  it("stores a global default model for new sessions", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+
+      try {
+        createCredential(options, { provider: "deepseek", label: "Key", apiKey: "sk-test" });
+        await refreshModelCatalog(
+          { ...options, fetcher: async () => catalogResponse(["deepseek-flash", "deepseek-chat"]) },
+          { clientSessionId: "bs_test" },
+        );
+        const group = getModelCatalog(options).groups[0];
+        expect(group).toBeDefined();
+
+        setCatalogDefault(options, {
+          model: "deepseek-chat",
+          credentialProfileId: group?.credentialProfileId ?? "",
+        });
+
+        expect(getModelCatalog(options).defaultSelection).toMatchObject({
+          model: "deepseek-chat",
+          thinking: "off",
+        });
+      } finally {
+        opened.sqlite.close();
+      }
+    });
   });
 });

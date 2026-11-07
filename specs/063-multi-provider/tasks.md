@@ -33,6 +33,7 @@
 - [x] 修正：设置弹窗限高滚动；未知窗口模型禁用；GLM 余额不足映射 `PROVIDER_QUOTA_EXHAUSTED`。
 - [x] 弹窗按服务运维风格重构：Key 列表 → Key 详情（模型列表）；添加 Key 独立视图。
 - [x] 迁移 `0017_model_visibility` 与 `PATCH /api/models/catalog/visibility`；模型行眼睛图标控制是否出现在会话选择器，输入框选择器过滤隐藏模型。
+- [x] 设置页去会话化：迁移 `0018_model_defaults` + `PUT /api/models/default`；只管理 Key、显示、全局默认；新会话继承默认，会话内用输入框选择器覆盖。
 
 ## M5-1d-2d GLM 思考模式
 

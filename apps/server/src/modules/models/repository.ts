@@ -7,6 +7,7 @@ import {
   type ModelProfileRow,
   type ModelProviderId,
   modelCatalogCache,
+  modelDefaults,
   modelProfiles,
   modelVisibility,
   type SecretRow,
@@ -292,4 +293,36 @@ export function setModelVisibilityRow(
       set: { visible: input.visible ? 1 : 0, updatedAt: input.now },
     })
     .run();
+}
+
+export function getModelDefaultRow(db: DbExecutor) {
+  return db.select().from(modelDefaults).where(eq(modelDefaults.id, "default")).get() ?? null;
+}
+
+export function setModelDefaultRow(
+  db: DbExecutor,
+  input: { credentialProfileId: string; model: string; thinking: string; now: number },
+): void {
+  db.insert(modelDefaults)
+    .values({
+      id: "default",
+      credentialProfileId: input.credentialProfileId,
+      model: input.model,
+      thinking: input.thinking,
+      updatedAt: input.now,
+    })
+    .onConflictDoUpdate({
+      target: modelDefaults.id,
+      set: {
+        credentialProfileId: input.credentialProfileId,
+        model: input.model,
+        thinking: input.thinking,
+        updatedAt: input.now,
+      },
+    })
+    .run();
+}
+
+export function clearModelDefaultRow(db: DbExecutor): void {
+  db.delete(modelDefaults).where(eq(modelDefaults.id, "default")).run();
 }

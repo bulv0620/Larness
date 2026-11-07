@@ -10,11 +10,13 @@ import {
   findLatestCredentialForProvider,
   getCredentialRow,
   getModelCatalogCache,
+  getModelDefaultRow,
   getModelVisibility,
   getSecretRow,
   listCredentialRows,
   recordModelCatalogFailure,
   saveModelCatalog,
+  setModelDefaultRow,
   setModelVisibilityRow,
 } from "./repository.js";
 import { ModelError } from "./service.js";
@@ -51,9 +53,17 @@ export interface CatalogGroup {
   models: CatalogModel[];
 }
 
+export interface ModelDefaultSelection {
+  model: string;
+  thinking: string;
+  credentialProfileId: string;
+}
+
 export interface CatalogDto extends CatalogGroup {
   /** Groups for every catalog-capable credential; flat fields mirror the latest group. */
   groups: CatalogGroup[];
+  /** Global default for new sessions, if configured and still available. */
+  defaultSelection: ModelDefaultSelection | null;
 }
 
 export interface CatalogSelection {
@@ -419,7 +429,27 @@ export function getModelCatalog(options: CatalogOptions): CatalogDto {
   }
 
   const groups = credentials.map((credential) => groupFor(options.db, credential));
-  return { ...groups[0]!, groups };
+  const row = getModelDefaultRow(options.db);
+  const defaultGroup =
+    row === null
+      ? undefined
+      : groups.find((group) => group.credentialProfileId === row.credentialProfileId);
+  const defaultModel = defaultGroup?.models.find(
+    (model) => model.id === row?.model && model.contextWindow !== null,
+  );
+
+  return {
+    ...groups[0]!,
+    groups,
+    defaultSelection:
+      row !== null && defaultModel !== undefined
+        ? {
+            model: row.model,
+            thinking: row.thinking,
+            credentialProfileId: row.credentialProfileId,
+          }
+        : null,
+  };
 }
 
 function cachedModelsFor(db: DbExecutor, credentialId: string): CatalogModel[] {
@@ -788,4 +818,66 @@ export function setCatalogModelVisibility(
       now,
     });
   });
+}
+
+export function getModelDefaultSelection(db: DbExecutor): ModelDefaultSelection | null {
+  const row = getModelDefaultRow(db);
+
+  if (row === null) return null;
+
+  try {
+    const selection = resolveCatalogSelection(db, {
+      model: row.model,
+      thinking: row.thinking,
+      credentialProfileId: row.credentialProfileId,
+    });
+
+    return {
+      model: selection.model,
+      thinking: selection.thinking,
+      credentialProfileId: selection.credentialProfileId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function setCatalogDefault(
+  options: CatalogOptions,
+  input: {
+    model: string;
+    credentialProfileId: string;
+    thinking?: string;
+    clientSessionId?: string;
+  },
+): ModelDefaultSelection {
+  const groupModels = cachedModelsFor(options.db, input.credentialProfileId);
+  const model = groupModels.find((item) => item.id === input.model);
+
+  if (model === undefined || model.contextWindow === null) {
+    throw new ModelError("MODEL_UNSUPPORTED", "model is not available in the catalog");
+  }
+
+  const thinking = normalizeThinking(model, input.thinking ?? defaultThinking(model));
+  const now = options.now?.() ?? Date.now();
+
+  immediateTransaction(options.db, (tx) => {
+    setModelDefaultRow(tx, {
+      credentialProfileId: input.credentialProfileId,
+      model: model.id,
+      thinking,
+      now,
+    });
+    appendAudit(tx, {
+      action: "model.default.changed",
+      decision: "allow",
+      clientSessionId: input.clientSessionId,
+      resourceType: "model",
+      resourceId: model.id,
+      details: { credentialProfileId: input.credentialProfileId, thinking },
+      now,
+    });
+  });
+
+  return { model: model.id, thinking, credentialProfileId: input.credentialProfileId };
 }

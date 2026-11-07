@@ -27,14 +27,12 @@ import {
   type ApiModelCatalog,
   createCredential,
   deleteCredential,
-  getSession,
   listCredentials,
   listModelCatalog,
   refreshModelCatalog,
+  setModelDefault,
   setModelVisibility,
-  updateSession,
 } from "@/lib/workspaceApi";
-import { useNavigationStore } from "@/stores/navigationStore";
 
 type View = { kind: "list" } | { kind: "key"; credentialId: string } | { kind: "add" };
 
@@ -72,12 +70,9 @@ export function ModelSettingsDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const queryClient = useQueryClient();
-  const sessionId = useNavigationStore((state) => state.sessionId);
   const [view, setView] = useState<View>({ kind: "list" });
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
   const [catalog, setCatalog] = useState<ApiModelCatalog | null>(null);
-  const [sessionModelId, setSessionModelId] = useState<string | null>(null);
-  const [sessionCredentialId, setSessionCredentialId] = useState<string | null>(null);
   const [provider, setProvider] = useState<"deepseek" | "glm">("deepseek");
   const [label, setLabel] = useState("DeepSeek Key");
   const [apiKey, setApiKey] = useState("");
@@ -87,6 +82,7 @@ export function ModelSettingsDialog({
   const [error, setError] = useState<string | null>(null);
 
   const groups = catalog?.groups ?? (catalog === null ? [] : [catalog]);
+  const defaultSelection = catalog?.defaultSelection ?? null;
   const activeGroup =
     view.kind === "key"
       ? groups.find((group) => group.credentialProfileId === view.credentialId)
@@ -105,15 +101,12 @@ export function ModelSettingsDialog({
     setError(null);
 
     try {
-      const [nextCredentials, nextCatalog, session] = await Promise.all([
+      const [nextCredentials, nextCatalog] = await Promise.all([
         listCredentials(),
         listModelCatalog().catch(() => null),
-        sessionId ? getSession(sessionId) : Promise.resolve(null),
       ]);
       setCredentials(nextCredentials);
       setCatalog(nextCatalog);
-      setSessionModelId(session?.model ?? null);
-      setSessionCredentialId(session?.credentialProfileId ?? null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "加载模型设置失败");
     } finally {
@@ -121,7 +114,7 @@ export function ModelSettingsDialog({
     }
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reload on open or session change
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reload on open
   useEffect(() => {
     if (!open) {
       setApiKey("");
@@ -131,7 +124,7 @@ export function ModelSettingsDialog({
     }
 
     void reload();
-  }, [open, sessionId]);
+  }, [open]);
 
   const refresh = async () => {
     setBusy(true);
@@ -148,14 +141,9 @@ export function ModelSettingsDialog({
     }
   };
 
-  const selectModel = async (group: ApiCatalogGroup, model: ApiCatalogModel) => {
-    if (!sessionId) {
-      setError("先在左侧选择一个会话，再设置模型。");
-      return;
-    }
-
+  const makeDefault = async (group: ApiCatalogGroup, model: ApiCatalogModel) => {
     if (model.contextWindow === null) {
-      setError("该模型未声明上下文窗口，暂时不能选择。");
+      setError("该模型未声明上下文窗口，暂时不能设为默认。");
       return;
     }
 
@@ -163,15 +151,14 @@ export function ModelSettingsDialog({
     setError(null);
 
     try {
-      await updateSession(sessionId, {
+      await setModelDefault({
         model: model.id,
         credentialProfileId: group.credentialProfileId,
       });
-      setSessionModelId(model.id);
-      setSessionCredentialId(group.credentialProfileId);
-      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+      setCatalog(await listModelCatalog());
+      await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
     } catch (modelError) {
-      setError(modelError instanceof Error ? modelError.message : "切换模型失败");
+      setError(modelError instanceof Error ? modelError.message : "设置默认模型失败");
     } finally {
       setBusy(false);
     }
@@ -306,7 +293,7 @@ export function ModelSettingsDialog({
               ))}
             </div>
             <footer className="shrink-0 border-t border-line px-4 py-2 text-[10.5px] text-ink-3">
-              选择模型会保存到当前会话；隐藏状态只影响会话选择器。
+              默认模型用于新会话；会话内可在输入框切换到其他可见模型。
             </footer>
           </>
         ) : null}
@@ -369,8 +356,8 @@ export function ModelSettingsDialog({
               ) : (
                 models.map((model) => {
                   const selected =
-                    model.id === sessionModelId &&
-                    activeGroup.credentialProfileId === sessionCredentialId;
+                    model.id === defaultSelection?.model &&
+                    activeGroup.credentialProfileId === defaultSelection.credentialProfileId;
                   const disabled = model.contextWindow === null;
                   return (
                     <div
@@ -380,14 +367,14 @@ export function ModelSettingsDialog({
                       <button
                         type="button"
                         disabled={disabled || busy}
-                        onClick={() => void selectModel(activeGroup, model)}
+                        onClick={() => void makeDefault(activeGroup, model)}
                         className="min-w-0 flex-1 text-left disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         <span className="flex items-center gap-2 text-[12px] font-medium text-ink">
                           {model.label}
                           {selected ? (
                             <span className="rounded-full bg-accent-soft px-1.5 py-[1px] text-[9px] text-accent">
-                              当前会话
+                              默认
                             </span>
                           ) : null}
                         </span>
@@ -413,7 +400,7 @@ export function ModelSettingsDialog({
               )}
             </div>
             <footer className="shrink-0 border-t border-line px-4 py-2 text-[10.5px] text-ink-3">
-              点模型名设为当前会话；眼睛图标控制是否出现在输入框选择器。
+              点模型名设为新会话默认；眼睛图标控制是否出现在输入框选择器。
             </footer>
           </>
         ) : null}

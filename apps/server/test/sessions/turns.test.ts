@@ -5,7 +5,7 @@ import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { listRecentAudit } from "../../src/db/repositories/audit.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
-import { refreshModelCatalog } from "../../src/modules/models/catalog.js";
+import { refreshModelCatalog, setCatalogDefault } from "../../src/modules/models/catalog.js";
 import { createCredential } from "../../src/modules/models/service.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { SessionError } from "../../src/modules/sessions/errors.js";
@@ -476,6 +476,41 @@ describe("turn service", () => {
             model: "deepseek-flash",
           }),
         ).toThrowError(SessionError);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+  it("applies the global default model to a new session", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const store = await SecretStore.open(dir);
+        const credential = createCredential(
+          { db: opened.db, secretStore: store },
+          { provider: "deepseek", label: "Key", apiKey: "sk-test" },
+        );
+        await refreshModelCatalog(
+          {
+            db: opened.db,
+            secretStore: store,
+            fetcher: async () => ({ data: [{ id: "deepseek-chat" }] }),
+          },
+          { clientSessionId: "bs_test" },
+        );
+        setCatalogDefault(
+          { db: opened.db, secretStore: store },
+          { model: "deepseek-chat", credentialProfileId: credential.id },
+        );
+
+        const session = await createSession({ db: opened.db, dataDir: dir, now: () => 7_000 }, {});
+
+        expect(session).toMatchObject({
+          model: "deepseek-chat",
+          thinking: "off",
+          credentialProfileId: credential.id,
+        });
       } finally {
         opened.close();
       }

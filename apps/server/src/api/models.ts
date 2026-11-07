@@ -7,6 +7,7 @@ import {
   type DeepSeekCatalogFetcher,
   getModelCatalog,
   refreshModelCatalog,
+  setCatalogDefault,
   setCatalogModelVisibility,
 } from "../modules/models/catalog.js";
 import {
@@ -21,6 +22,14 @@ import type { SecretStore } from "../security/secretStore.js";
 
 const ProviderSchema = z.enum(["deepseek", "glm", "openai-compatible"]);
 const IdSchema = z.string().min(1).max(128);
+
+const DefaultSchema = z
+  .object({
+    model: z.string().min(1).max(128),
+    credentialProfileId: z.string().min(1).max(128),
+    thinking: z.string().min(1).max(32).optional(),
+  })
+  .strict();
 
 const VisibilitySchema = z
   .object({
@@ -93,6 +102,20 @@ export function registerModelRoutes(app: FastifyInstance, deps: ModelApiDeps): v
   app.get("/api/models/catalog", async () => {
     try {
       return getModelCatalog(catalogOptions);
+    } catch (error) {
+      throwModel(error);
+    }
+  });
+
+  app.put("/api/models/default", async (request) => {
+    const body = DefaultSchema.parse(request.body);
+
+    try {
+      const selection = setCatalogDefault(catalogOptions, {
+        ...body,
+        clientSessionId: request.clientSession?.id,
+      });
+      return { ok: true, defaultSelection: selection };
     } catch (error) {
       throwModel(error);
     }

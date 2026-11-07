@@ -132,6 +132,11 @@ export interface ApiCatalogGroup {
 
 export interface ApiModelCatalog extends ApiCatalogGroup {
   groups: ApiCatalogGroup[];
+  defaultSelection?: {
+    model: string;
+    thinking: string;
+    credentialProfileId: string;
+  } | null;
 }
 
 export interface ApiCredential {
@@ -201,6 +206,18 @@ export async function listModels(): Promise<ApiModelProfile[]> {
 
 export async function listModelCatalog(): Promise<ApiModelCatalog> {
   return apiFetch<ApiModelCatalog>("/api/models/catalog");
+}
+
+export async function setModelDefault(input: {
+  model: string;
+  credentialProfileId: string;
+  thinking?: string;
+}): Promise<void> {
+  await apiFetch("/api/models/default", {
+    method: "PUT",
+    body: input,
+    csrf: true,
+  });
 }
 
 export async function setModelVisibility(input: {

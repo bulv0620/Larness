@@ -94,6 +94,7 @@ export function Composer() {
   const sessionId = useNavigationStore((state) => state.sessionId);
   const sessionDetail = useSessionModel(sessionId);
   const hydratedSession = useRef<string | null>(null);
+  const appliedDefaultSession = useRef<string | null>(null);
   const groups: ApiCatalogGroup[] = catalog?.groups ?? (catalog ? [catalog] : []);
   const visibleGroups = groups.map((group) => ({
     ...group,
@@ -130,6 +131,17 @@ export function Composer() {
       setThinking(sessionDetail.thinking === "default" ? "medium" : sessionDetail.thinking);
     }
   }, [sessionDetail, setModelId, setCredentialProfileId, setThinking]);
+
+  useEffect(() => {
+    if (sessionDetail === null || sessionDetail.model) return;
+    const fallback = catalog?.defaultSelection;
+    if (!fallback) return;
+    if (appliedDefaultSession.current === sessionDetail.id) return;
+    appliedDefaultSession.current = sessionDetail.id;
+    setModelId(fallback.model);
+    setCredentialProfileId(fallback.credentialProfileId);
+    setThinking(fallback.thinking);
+  }, [sessionDetail, catalog, setModelId, setCredentialProfileId, setThinking]);
 
   useEffect(() => {
     if (pairs.length === 0) return;

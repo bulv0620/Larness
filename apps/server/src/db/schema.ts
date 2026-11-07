@@ -228,6 +228,20 @@ export const modelVisibility = sqliteTable(
   ],
 );
 
+export const modelDefaults = sqliteTable(
+  "model_defaults",
+  {
+    id: text("id").primaryKey(),
+    credentialProfileId: text("credential_profile_id")
+      .notNull()
+      .references(() => credentialProfiles.id, { onDelete: "cascade" }),
+    model: text("model").notNull(),
+    thinking: text("thinking").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [check("model_defaults_single_row", sql`${table.id} = 'default'`)],
+);
+
 export const authSettings = sqliteTable(
   "auth_settings",
   {

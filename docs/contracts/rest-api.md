@@ -313,6 +313,7 @@
 | GET | `/api/models/catalog` | M5-1：当前凭据范围的官方模型目录缓存（不含密钥） |
 | POST | `/api/models/catalog/refresh` | M5-1：服务端刷新官方目录；失败保留旧缓存 |
 | PATCH | `/api/models/catalog/visibility` | M5-1：`{ credentialProfileId, modelId, visible }`，控制模型是否出现在会话选择器 |
+| PUT | `/api/models/default` | M5-1：`{ model, credentialProfileId, thinking? }`，设置全局默认模型；新会话自动继承 |
 | GET | `/api/credentials` | 凭据元数据（掩码，不含明文） |
 | POST | `/api/credentials` | 新建凭据，密钥只写不读 |
 | DELETE | `/api/credentials/:id` | 删除未被模型引用的凭据 |
@@ -480,6 +481,7 @@ Turn 创建成功返回 `202`：
 - 从未成功同步时 `syncedAt: null`、`models: []`、`stale: true`；无凭据返回 `409 MODEL_CREDENTIAL_MISSING`。
 - 窗口或档位缺失时按未知展示，不猜值，也不把该模型当作可选。
 - 每个模型带 `visible`（默认 `true`）；`PATCH /api/models/catalog/visibility` 保存用户筛选，仅影响会话选择器，不改变 Provider 能力或鉴权。
+- 响应顶层 `defaultSelection` 为全局默认模型（`model / thinking / credentialProfileId`，未设置或已失效为 `null`）；设置页只管理 Key、显示与默认，不读写会话。
 - 目录响应不合规返回 `502 MODEL_CATALOG_INVALID`，不写入缓存；缓存按 `credential_profile_id` 隔离。
 - 不返回密钥、上游原始错误正文或请求头。
 
