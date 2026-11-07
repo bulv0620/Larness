@@ -1,15 +1,16 @@
 import { cn } from "@larness/ui";
 import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { ApiCatalogModel } from "@/lib/workspaceApi";
+import type { ApiCatalogGroup, ApiCatalogModel } from "@/lib/workspaceApi";
 
 interface ModelControlProps {
-  models: ApiCatalogModel[];
+  groups: ApiCatalogGroup[];
   model: ApiCatalogModel | undefined;
+  credentialProfileId: string | null;
   thinking: string;
   catalogError: unknown;
   credentialLabel?: string;
-  onSelectModel: (modelId: string) => void;
+  onSelectModel: (modelId: string, credentialProfileId: string) => void;
   onSelectThinking: (thinking: string) => void;
 }
 
@@ -24,12 +25,18 @@ function levelLabel(thinking: string): string {
   return THINKING_LEVELS.find((level) => level.id === thinking)?.label ?? "中";
 }
 
+function providerLabel(provider: ApiCatalogGroup["provider"]): string {
+  if (provider === "glm") return "GLM";
+  if (provider === "openai-compatible") return "兼容";
+  return "DeepSeek";
+}
+
 export function ModelControl({
-  models,
+  groups,
   model,
+  credentialProfileId,
   thinking,
   catalogError,
-  credentialLabel,
   onSelectModel,
   onSelectThinking,
 }: ModelControlProps) {
@@ -39,7 +46,6 @@ export function ModelControl({
 
   const thinkingEnabled = model?.thinking.supported === true;
   const currentThinking = thinkingEnabled ? levelLabel(thinking) : "不支持";
-  const keyLabel = credentialLabel ?? "未配置凭据";
 
   useEffect(() => {
     if (!open) return;
@@ -64,9 +70,12 @@ export function ModelControl({
     setOpen((current) => !current);
   };
 
-  const selectModel = (modelId: string) => {
-    onSelectModel(modelId);
-    const next = models.find((item) => item.id === modelId);
+  const selectModel = (modelId: string, nextCredentialProfileId: string) => {
+    onSelectModel(modelId, nextCredentialProfileId);
+    const next = groups
+      .find((group) => group.credentialProfileId === nextCredentialProfileId)
+      ?.models.find((item) => item.id === modelId);
+
     if (next !== undefined && !next.thinking.supported) {
       onSelectThinking("off");
     }
@@ -158,35 +167,53 @@ export function ModelControl({
                 <span className="text-[10.5px] font-semibold text-ink-3">模型</span>
               </div>
               <div className="max-h-[300px] overflow-y-auto">
-                <div className="truncate px-2.5 pb-1 text-[10px] text-ink-3">{keyLabel}</div>
-                {models.length === 0 ? (
+                {groups.length === 0 ? (
                   <p className="mx-1 rounded-lg border border-dashed border-line px-2 py-1.5 text-[10.5px] leading-relaxed text-ink-3">
-                    {catalogError
-                      ? "读取模型目录失败。请在设置中检查凭据后刷新。"
-                      : "该 Key 还没有可用模型。请先在设置中刷新目录。"}
+                    未配置凭据。先在设置中添加 Key 并刷新目录。
                   </p>
-                ) : (
-                  models.map((item) => {
-                    const selected = item.id === model?.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        aria-pressed={selected}
-                        onClick={() => selectModel(item.id)}
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] transition-colors",
-                          selected
-                            ? "bg-black/[.04] text-ink dark:bg-white/[.06]"
-                            : "text-ink-2 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]",
-                        )}
-                      >
-                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                        {selected ? <Check size={13} className="shrink-0 text-accent" /> : null}
-                      </button>
-                    );
-                  })
-                )}
+                ) : null}
+                {groups.map((group) => (
+                  <div key={group.credentialProfileId}>
+                    <div className="truncate px-2.5 pb-1 pt-1 text-[10px] text-ink-3">
+                      {providerLabel(group.provider)} · {group.credentialLabel}
+                    </div>
+                    {group.models.length === 0 ? (
+                      <p className="mx-1 mb-1 rounded-lg border border-dashed border-line px-2 py-1.5 text-[10.5px] leading-relaxed text-ink-3">
+                        {group.lastRefreshError || catalogError
+                          ? "该 Key 的目录读取失败，请在设置中刷新。"
+                          : "该 Key 还没有可用模型，请在设置中刷新目录。"}
+                      </p>
+                    ) : (
+                      group.models.map((item) => {
+                        const selected =
+                          item.id === model?.id &&
+                          group.credentialProfileId === credentialProfileId;
+                        return (
+                          <button
+                            key={`${group.credentialProfileId}:${item.id}`}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => selectModel(item.id, group.credentialProfileId)}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] transition-colors",
+                              selected
+                                ? "bg-black/[.04] text-ink dark:bg-white/[.06]"
+                                : "text-ink-2 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]",
+                            )}
+                          >
+                            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                            <span className="shrink-0 text-[9.5px] text-ink-3">
+                              {item.contextWindow === null
+                                ? "窗口未知"
+                                : `${Math.round(item.contextWindow / 1024)}K`}
+                            </span>
+                            {selected ? <Check size={13} className="shrink-0 text-accent" /> : null}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                ))}
               </div>
             </>
           ) : null}

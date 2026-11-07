@@ -6,45 +6,66 @@ import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { Composer } from "./Composer";
 
-vi.mock("@/lib/queries", () => ({
-  useSessionModel: () => null,
-  useModelCatalog: () => ({
-    catalog: {
-      provider: "deepseek",
-      credentialProfileId: "cred_mock",
-      credentialLabel: "DeepSeek Key",
-      syncedAt: 1,
-      stale: false,
-      lastRefreshError: null,
-      models: [
-        {
-          id: "deepseek-flash",
-          label: "DeepSeek Flash",
-          contextWindow: 128000,
-          thinking: {
-            supported: true,
-            levels: [
-              { id: "low", label: "低" },
-              { id: "medium", label: "中" },
-              { id: "high", label: "高" },
-            ],
-          },
-          default: true,
+vi.mock("@/lib/queries", () => {
+  const deepseekGroup = {
+    provider: "deepseek",
+    credentialProfileId: "cred_mock",
+    credentialLabel: "DeepSeek Key",
+    syncedAt: 1,
+    stale: false,
+    lastRefreshError: null,
+    models: [
+      {
+        id: "deepseek-flash",
+        label: "DeepSeek Flash",
+        contextWindow: 128000,
+        thinking: {
+          supported: true,
+          levels: [
+            { id: "low", label: "低" },
+            { id: "medium", label: "中" },
+            { id: "high", label: "高" },
+          ],
         },
-        {
-          id: "deepseek-chat",
-          label: "DeepSeek Chat",
-          contextWindow: 128000,
-          thinking: { supported: false, levels: [] },
-          default: false,
-        },
-      ],
-    },
-    isPending: false,
-    error: null,
-    refetch: async () => undefined,
-  }),
-}));
+        default: true,
+      },
+      {
+        id: "deepseek-chat",
+        label: "DeepSeek Chat",
+        contextWindow: 128000,
+        thinking: { supported: false, levels: [] },
+        default: false,
+      },
+    ],
+  };
+  const glmGroup = {
+    provider: "glm",
+    credentialProfileId: "cred_glm",
+    credentialLabel: "GLM Key",
+    syncedAt: 1,
+    stale: false,
+    lastRefreshError: null,
+    models: [
+      {
+        id: "glm-4.6",
+        label: "GLM-4.6",
+        contextWindow: 200000,
+        thinking: { supported: false, levels: [] },
+        default: true,
+      },
+    ],
+  };
+
+  return {
+    useSessionModel: () => null,
+    useModelCatalog: () => ({
+      catalog: { ...deepseekGroup, groups: [deepseekGroup, glmGroup] },
+      isPending: false,
+      error: null,
+      refetch: async () => undefined,
+    }),
+  };
+});
 beforeEach(() => {
   useComposerStore.setState({
     draft: "任务",
@@ -132,9 +153,20 @@ it("switches model and thinking from the two-level menu", async () => {
   await user.click(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 高" }));
   const reopened = screen.getByRole("dialog", { name: "模型与思考" });
   await user.click(within(reopened).getByRole("button", { name: "模型：DeepSeek Flash" }));
-  expect(within(reopened).getByText("DeepSeek Key")).toBeVisible();
-  await user.click(within(reopened).getByRole("button", { name: "DeepSeek Chat" }));
+  expect(within(reopened).getByText("DeepSeek · DeepSeek Key")).toBeVisible();
+  expect(within(reopened).getByText("GLM · GLM Key")).toBeVisible();
+
+  await user.click(within(reopened).getByRole("button", { name: /GLM-4.6/ }));
+  expect(useComposerStore.getState().modelId).toBe("glm-4.6");
+  expect(useComposerStore.getState().credentialProfileId).toBe("cred_glm");
+  expect(useComposerStore.getState().thinking).toBe("off");
+
+  await user.click(screen.getByRole("button", { name: "模型与思考：GLM-4.6 · 不支持" }));
+  const again = screen.getByRole("dialog", { name: "模型与思考" });
+  await user.click(within(again).getByRole("button", { name: "模型：GLM-4.6" }));
+  await user.click(within(again).getByRole("button", { name: /DeepSeek Chat/ }));
   expect(useComposerStore.getState().modelId).toBe("deepseek-chat");
+  expect(useComposerStore.getState().credentialProfileId).toBe("cred_mock");
   expect(useComposerStore.getState().thinking).toBe("off");
   expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Chat · 不支持" })).toBeVisible();
   expect(screen.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(

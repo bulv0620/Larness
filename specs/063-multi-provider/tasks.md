@@ -24,12 +24,21 @@
 
 ## M5-1d-2b 多 Key / Provider 选择 UI
 
-依赖：M5-1d-2a。候选状态：`todo`。
+依赖：M5-1d-2a。状态 `review`（2026-11-07 交付）。
 
-- [ ] 选择器按 `groups` 渲染 Provider + Key 分组；选择带上 `credentialProfileId`。
-- [ ] 能力矩阵展示（窗口 / 工具 / 思考档位 / 未知）；未知能力不猜测。
-- [ ] 自定义兼容端点存储与目录（凭据或 Profile 端点字段、SSRF 校验接入创建 / 刷新）。
-- [ ] 测试：多组渲染、选择绑定、切换 Key 后圆环与用量不串。
+- [x] 选择器按 `groups` 渲染 Provider + Key 分组；选择带上 `credentialProfileId`。
+- [x] 能力展示：窗口、思考档位、未知窗口不可选；Provider 标签。
+- [x] 设置页增加 DeepSeek / GLM Provider 选择；分组模型列表保存到当前会话。
+- [x] 测试：多组渲染、选择绑定到 Key、切换 Key 后用量不串。
+
+## M5-1d-2c 自定义兼容端点
+
+依赖：M5-1d-2b。候选状态：`todo`。
+
+- [ ] `credential_profiles.endpoint` 可空列与迁移。
+- [ ] 创建 / 刷新接入 `assertSafeEndpoint`（HTTPS、公网、拒绝重定向）。
+- [ ] 兼容 Provider 目录与 Turn 解析使用凭据端点。
+- [ ] 设置页端点输入与错误提示；测试端点拒绝与合法目录。
 
 ## M5-1d-3 上下文压缩
 

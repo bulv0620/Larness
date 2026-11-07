@@ -73,21 +73,24 @@ const THINKING_LEVELS = [
 ];
 
 function mockCatalog(): ApiModelCatalog {
-  return {
-    provider: "deepseek",
+  const models = snapshot.models.map((model, index) => ({
+    id: model.model,
+    label: model.label,
+    contextWindow: model.maxContextTokens ?? 128_000,
+    thinking: { supported: true, levels: THINKING_LEVELS },
+    default: index === 0,
+  }));
+  const group = {
+    provider: "deepseek" as const,
     credentialProfileId: "cred_mock",
     credentialLabel: "DeepSeek Key",
     syncedAt: null,
     stale: false,
     lastRefreshError: null,
-    models: snapshot.models.map((model, index) => ({
-      id: model.model,
-      label: model.label,
-      contextWindow: model.maxContextTokens ?? 128_000,
-      thinking: { supported: true, levels: THINKING_LEVELS },
-      default: index === 0,
-    })),
+    models,
   };
+
+  return { ...group, groups: [group] };
 }
 
 export interface ModelCatalogResult {

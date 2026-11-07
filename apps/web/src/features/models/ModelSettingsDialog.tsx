@@ -41,6 +41,8 @@ export function ModelSettingsDialog({
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
   const [catalog, setCatalog] = useState<ApiModelCatalog | null>(null);
   const [sessionModelId, setSessionModelId] = useState<string | null>(null);
+  const [sessionCredentialProfileId, setSessionCredentialProfileId] = useState<string | null>(null);
+  const [provider, setProvider] = useState<"deepseek" | "glm">("deepseek");
   const [label, setLabel] = useState("DeepSeek Key");
   const [apiKey, setApiKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -70,6 +72,7 @@ export function ModelSettingsDialog({
         setCredentials(nextCredentials);
         setCatalog(nextCatalog);
         setSessionModelId(session?.model ?? null);
+        setSessionCredentialProfileId(session?.credentialProfileId ?? null);
       })
       .catch((loadError: unknown) => {
         if (!disposed) {
@@ -85,11 +88,14 @@ export function ModelSettingsDialog({
     };
   }, [open, sessionId]);
 
-  const selectedModelId =
-    sessionModelId ??
-    catalog?.models.find((model) => model.default)?.id ??
-    catalog?.models[0]?.id ??
-    null;
+  const groups = catalog?.groups ?? (catalog === null ? [] : [catalog]);
+  const selectedGroup =
+    groups.find(
+      (group) =>
+        sessionCredentialProfileId !== null &&
+        group.credentialProfileId === sessionCredentialProfileId,
+    ) ?? groups[0];
+  const selectedModelId = sessionModelId ?? selectedGroup?.models[0]?.id ?? null;
 
   const saveKey = async (): Promise<void> => {
     if (!apiKey.trim()) return;
@@ -98,13 +104,14 @@ export function ModelSettingsDialog({
 
     try {
       await createCredential({
-        provider: "deepseek",
-        label: label.trim() || "DeepSeek Key",
+        provider,
+        label: label.trim() || (provider === "glm" ? "GLM Key" : "DeepSeek Key"),
         apiKey,
       });
       setApiKey("");
       setCredentials(await listCredentials());
       await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+      await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "保存密钥失败");
     } finally {
@@ -144,7 +151,7 @@ export function ModelSettingsDialog({
     }
   };
 
-  const selectModel = async (modelId: string): Promise<void> => {
+  const selectModel = async (modelId: string, credentialProfileId: string): Promise<void> => {
     if (!sessionId) {
       setError("先在左侧选择一个会话，再设置模型。");
       return;
@@ -154,8 +161,9 @@ export function ModelSettingsDialog({
     setError(null);
 
     try {
-      await updateSession(sessionId, { model: modelId });
+      await updateSession(sessionId, { model: modelId, credentialProfileId });
       setSessionModelId(modelId);
+      setSessionCredentialProfileId(credentialProfileId);
       await queryClient.invalidateQueries({ queryKey: ["workspace"] });
     } catch (modelError) {
       setError(modelError instanceof Error ? modelError.message : "切换模型失败");
@@ -215,7 +223,27 @@ export function ModelSettingsDialog({
             )}
           </div>
 
-          <div className="mt-2 grid grid-cols-[110px_1fr_auto] gap-1.5">
+          <div className="mt-2 flex gap-1">
+            {(["deepseek", "glm"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={provider === option}
+                onClick={() => {
+                  setProvider(option);
+                  setLabel(option === "glm" ? "GLM Key" : "DeepSeek Key");
+                }}
+                className={`h-7 rounded-lg px-2.5 text-[10.5px] transition-colors ${
+                  provider === option
+                    ? "bg-accent-soft text-accent"
+                    : "bg-surface-2 text-ink-3 hover:text-ink"
+                }`}
+              >
+                {option === "glm" ? "GLM" : "DeepSeek"}
+              </button>
+            ))}
+          </div>
+          <div className="mt-1.5 grid grid-cols-[110px_1fr_auto] gap-1.5">
             <input
               value={label}
               onChange={(event) => setLabel(event.target.value)}
@@ -266,38 +294,53 @@ export function ModelSettingsDialog({
           </p>
 
           <div className="mt-2 space-y-1.5">
-            {catalog?.models.length ? (
-              catalog.models.map((model) => {
-                const selected = model.id === selectedModelId;
-                return (
-                  <button
-                    key={model.id}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void selectModel(model.id)}
-                    className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${
-                      selected
-                        ? "border-accent/30 bg-accent-soft/70"
-                        : "border-line bg-surface hover:bg-surface-2/60"
-                    }`}
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[11.5px] font-medium text-ink">
-                        {model.label}
-                        {model.default ? (
-                          <span className="ml-1.5 rounded-full bg-surface px-1.5 py-[1px] text-[9px] text-ink-3">
-                            默认
+            {groups.length > 0 ? (
+              groups.map((group) => (
+                <div key={group.credentialProfileId}>
+                  <div className="px-0.5 pb-1 text-[10px] text-ink-3">
+                    {group.provider === "glm"
+                      ? "GLM"
+                      : group.provider === "openai-compatible"
+                        ? "兼容"
+                        : "DeepSeek"}{" "}
+                    · {group.credentialLabel}
+                  </div>
+                  {group.models.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[10.5px] text-ink-3">
+                      该 Key 还没有可用模型，请刷新目录。
+                    </p>
+                  ) : (
+                    group.models.map((model) => {
+                      const selected =
+                        model.id === selectedModelId &&
+                        group.credentialProfileId === sessionCredentialProfileId;
+                      return (
+                        <button
+                          key={`${group.credentialProfileId}:${model.id}`}
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void selectModel(model.id, group.credentialProfileId)}
+                          className={`mb-1 flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                            selected
+                              ? "border-accent/30 bg-accent-soft/70"
+                              : "border-line bg-surface hover:bg-surface-2/60"
+                          }`}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[11.5px] font-medium text-ink">
+                              {model.label}
+                            </span>
+                            <span className="block truncate text-[10px] text-ink-3">
+                              {formatWindow(model.contextWindow)} · {levelLabels(model)}
+                            </span>
                           </span>
-                        ) : null}
-                      </span>
-                      <span className="block truncate text-[10px] text-ink-3">
-                        {formatWindow(model.contextWindow)} · {levelLabels(model)}
-                      </span>
-                    </span>
-                    {selected ? <Check size={13} className="text-accent" /> : null}
-                  </button>
-                );
-              })
+                          {selected ? <Check size={13} className="text-accent" /> : null}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              ))
             ) : (
               <p className="rounded-lg border border-dashed border-line px-2.5 py-2 text-[11px] text-ink-3">
                 {credentials.length === 0

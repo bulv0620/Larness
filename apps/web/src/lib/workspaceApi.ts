@@ -115,14 +115,18 @@ export interface ApiCatalogModel {
   default: boolean;
 }
 
-export interface ApiModelCatalog {
-  provider: "deepseek" | "glm";
+export interface ApiCatalogGroup {
+  provider: "deepseek" | "glm" | "openai-compatible";
   credentialProfileId: string;
   credentialLabel: string;
   syncedAt: number | null;
   stale: boolean;
   lastRefreshError: string | null;
   models: ApiCatalogModel[];
+}
+
+export interface ApiModelCatalog extends ApiCatalogGroup {
+  groups: ApiCatalogGroup[];
 }
 
 export interface ApiCredential {

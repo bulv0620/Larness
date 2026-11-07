@@ -57,7 +57,9 @@ export function Composer() {
   const policy = useComposerStore((state) => state.policy);
   const setDraft = useComposerStore((state) => state.setDraft);
   const setModelId = useComposerStore((state) => state.setModelId);
+  const credentialProfileId = useComposerStore((state) => state.credentialProfileId);
   const setThinking = useComposerStore((state) => state.setThinking);
+  const setCredentialProfileId = useComposerStore((state) => state.setCredentialProfileId);
   const setPolicy = useComposerStore((state) => state.setPolicy);
   const isStreaming = useTimelineStore((state) => state.isStreaming);
   const send = useTimelineStore((state) => state.send);
@@ -69,8 +71,15 @@ export function Composer() {
   const sessionId = useNavigationStore((state) => state.sessionId);
   const sessionDetail = useSessionModel(sessionId);
   const hydratedSession = useRef<string | null>(null);
-  const catalogModels = catalog?.models ?? [];
-  const model = catalogModels.find((item) => item.id === modelId) ?? catalogModels[0];
+  const groups = catalog?.groups ?? (catalog === undefined ? [] : [catalog]);
+  const pairs = groups.flatMap((group) => group.models.map((item) => ({ group, model: item })));
+  const selectedPair =
+    pairs.find(
+      (pair) =>
+        pair.model.id === modelId &&
+        (credentialProfileId === null || pair.group.credentialProfileId === credentialProfileId),
+    ) ?? pairs.find((pair) => pair.model.id === modelId);
+  const model = selectedPair?.model ?? pairs[0]?.model;
   const currentPolicy = policies.find((item) => item.id === policy) ?? policies[0];
   const PolicyIcon = currentPolicy.icon;
   const modelUsage = useTimelineStore((state) => state.modelUsage);
@@ -85,18 +94,30 @@ export function Composer() {
     if (sessionDetail === null || sessionDetail.id === hydratedSession.current) return;
     hydratedSession.current = sessionDetail.id;
     if (sessionDetail.model) setModelId(sessionDetail.model);
+    if (sessionDetail.credentialProfileId) {
+      setCredentialProfileId(sessionDetail.credentialProfileId);
+    }
     if (sessionDetail.thinking) {
       setThinking(sessionDetail.thinking === "default" ? "medium" : sessionDetail.thinking);
     }
-  }, [sessionDetail, setModelId, setThinking]);
+  }, [sessionDetail, setModelId, setCredentialProfileId, setThinking]);
 
   useEffect(() => {
-    if (catalogModels.length > 0 && !catalogModels.some((item) => item.id === modelId)) {
-      const first = catalogModels[0];
-      setModelId(first?.id ?? modelId);
-      setThinking(first?.thinking.supported ? "medium" : "off");
+    if (pairs.length === 0) return;
+    const found = pairs.some(
+      (pair) =>
+        pair.model.id === modelId &&
+        (credentialProfileId === null || pair.group.credentialProfileId === credentialProfileId),
+    );
+
+    if (!found) {
+      const first = pairs[0];
+      if (first === undefined) return;
+      setModelId(first.model.id);
+      setCredentialProfileId(first.group.credentialProfileId);
+      setThinking(first.model.thinking.supported ? "medium" : "off");
     }
-  }, [catalogModels, modelId, setModelId, setThinking]);
+  }, [pairs, modelId, credentialProfileId, setModelId, setCredentialProfileId, setThinking]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: draft is the resize trigger
   useEffect(() => {
@@ -112,11 +133,15 @@ export function Composer() {
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
-  const selectModel = (nextModelId: string) => {
+  const selectModel = (nextModelId: string, nextCredentialProfileId: string) => {
     setModelId(nextModelId);
-    const next = catalogModels.find((item) => item.id === nextModelId);
+    setCredentialProfileId(nextCredentialProfileId);
+    const next = pairs.find(
+      (pair) =>
+        pair.model.id === nextModelId && pair.group.credentialProfileId === nextCredentialProfileId,
+    );
 
-    if (next !== undefined && !next.thinking.supported) {
+    if (next !== undefined && !next.model.thinking.supported) {
       setThinking("off");
     }
   };
@@ -171,11 +196,13 @@ export function Composer() {
         </DropdownMenu>
 
         <ModelControl
-          models={catalogModels}
+          groups={groups}
           model={model}
+          credentialProfileId={
+            credentialProfileId ?? selectedPair?.group.credentialProfileId ?? null
+          }
           thinking={thinking}
           catalogError={catalogError}
-          credentialLabel={catalog?.credentialLabel}
           onSelectModel={selectModel}
           onSelectThinking={setThinking}
         />

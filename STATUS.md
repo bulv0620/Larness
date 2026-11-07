@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c / M5-1d-1 / M5-1d-2a `review` |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c / M5-1d-1 / d-2a / d-2b `review` |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1d-2a `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：目录 `groups`、按组刷新与失败隔离、DeepSeek / GLM 目录、Session/Turn 凭据绑定与 Provider 解析；多 Key UI 归 d-2b。
+- M5-1d-2b `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：选择器按 Provider + Key 分组并绑定 `credentialProfileId`；设置页可添加 DeepSeek / GLM Key；自定义兼容端点归 d-2c。
 - M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
@@ -174,6 +174,14 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 绑定：`PATCH /api/sessions/:id` 与 `POST /api/sessions/:id/turns` 接受 `credentialProfileId`；Turn 快照凭据，Provider 解析按快照选择 DeepSeek / GLM 适配器；同一模型出现在多个 Key 时要求显式选择。
 - 验证：`pnpm check`（web 135、agent 38 通过 / 1 跳过、server 509 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
 - 未验证：真实 GLM 端点 / 目录；多 Key 选择 UI、能力矩阵与自定义兼容端点（d-2b）。
+
+## M5-1d-2b 交付（2026-11-07）
+
+- 分支 `task/m5-1d-multi-provider-spec`；模型选择器按 `catalog.groups` 渲染「Provider · Key」分组，选择同时绑定 `credentialProfileId`；设置页同步分组，并可切换 DeepSeek / GLM 添加 Key。
+- 能力展示：模型行显示窗口与思考档位（未知窗口不可选）；GLM 暂按“不支持思考档位”展示，能力矩阵细化留待后续。
+- 选择与发送：Session / Turn 携带凭据；切换 Key 后圆环按该模型最近一次用量显示，不串用其他 Key。
+- 验证：`pnpm check`（web 135、agent 38 通过 / 1 跳过、server 509 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
+- 未验证：真实 GLM 目录 / 工具调用（需在设置页添加 GLM Key 后实测）；自定义兼容端点（d-2c）。
 
 ## 已冻结
 
