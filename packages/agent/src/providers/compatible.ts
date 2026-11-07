@@ -102,24 +102,7 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
             : { maxOutputTokens: input.maxOutputTokens }),
         });
 
-        for await (const chunk of mapAiSdkStream(result.fullStream)) {
-          if (
-            options.id === "glm" &&
-            chunk.type === "error" &&
-            chunk.error.code === "PROVIDER_QUOTA_EXHAUSTED"
-          ) {
-            yield {
-              type: "error",
-              error: new ProviderError(
-                "PROVIDER_QUOTA_EXHAUSTED",
-                "模型账户余额不足或资源包不可用；若使用 Coding Plan Key，请在设置 → GLM Key → 端点切换为 Coding Plan",
-              ),
-            };
-            continue;
-          }
-
-          yield chunk;
-        }
+        yield* mapAiSdkStream(result.fullStream);
       } catch (error) {
         yield { type: "error", error: classifyProviderError(error) };
       }

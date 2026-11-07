@@ -103,7 +103,10 @@ export interface RunningServer {
   resourceEvents: ResourceEventBus;
 }
 
-function createDefaultProviderResolver(db: Database, secretStore: SecretStore): ProviderResolver {
+export function createDefaultProviderResolver(
+  db: Database,
+  secretStore: SecretStore,
+): ProviderResolver {
   return (session, turn) => {
     if (turn.model !== null && turn.model.length > 0) {
       try {
@@ -131,6 +134,7 @@ function createDefaultProviderResolver(db: Database, secretStore: SecretStore): 
           adapter,
           model: resolved.model,
           apiKey: resolved.apiKey,
+          ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
           contextWindow: resolved.contextWindow,
           thinking: resolved.thinking,
         };
