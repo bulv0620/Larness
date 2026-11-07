@@ -1,7 +1,7 @@
 # STATUS
 
-> 最后更新：2026-11-06 (+08:00)
-> **M3 已通过 G3，后续工作区优化及 Agent 工具纠错（M3-7～M3-11）于 2026-11-06 全部通过验收。G-Spec-M4 / G-PoC-M4 已通过，M4-0 / M4-1 / M4-2 / M4-3 标 done，M4-3b 标 done，M4-4 为 review，G4 待人类最终验收。远程 HTTPS 留待上线实验验证。**
+> 最后更新：2026-11-07 (+08:00)
+> **2026-11-07 用户确认 M4 与 M4-R0～R4 全部验收通过，G4 关闭。远程 HTTPS 留待上线实验验证。**
 
 ## 里程碑
 
@@ -12,7 +12,7 @@
 | M1 | 项目、会话与最小 Agent | `done` | G1 通过（2026-11-01 人类验收）；M1-1 ~ M1-15 完成 |
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
-| M4 | 持久运行与版本发布 | `in_progress` | G-Spec-M4 / G-PoC-M4 通过；M4-0～M4-3b done，M4-4 review，G4 待人类 |
+| M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | `draft` | 依赖 M4 |
 
 ## 初始化修复（2026-11-02）
@@ -59,8 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M4-3b `done`（2026-11-06，分支 `task/m4-3b-service-ops-ui`）。交付独立 `sauth_` 日常动作授权（start/stop/restart/recover）、真实 PM2 动作、REST、左侧「服务运维」入口与弹窗（ADR-049）、独立运维 Agent 工具组/`service-ops` domain 上下文/`agent-turns` 入口与跨域反例。新增迁移（schemaVersion 14）；check 650 passed/9 skipped、build、真实 PM2 动作、浏览器独立入口 E2E 通过。真实模型、双客户端与启用预览的完整 D13–D16 矩阵归 M4-4。详见 [验收](specs/050-deploy/acceptance-m4-3b.md)。
-- M4-4 `review`（2026-11-06，分支 `task/m4-4-integration-g4`）。用户要求手动验收；[G4 手动清单](specs/050-deploy/g4-manual.md) 已提供。`pnpm test:pm2:m4` 真实认证 REST 完成 v1 首次部署、restart 日常动作、v2 替换、v3 健康失败回滚 v2、发布历史/日志/事件；M4-3 生命周期测试与 M4-0 退出证据保留。`pnpm check` 650 passed / 10 skipped、`pnpm build` 通过（真实 PM2 测试专用命令另跑 2/2）。**未跑**两客户端正式服务 UI、真实模型 Provider 运维 Turn、启用预览的完整跨域矩阵、主机重启/开机自启/跨平台；G4 需人类最终验收，不自行标记通过。详见 [M4-4 验收](specs/050-deploy/acceptance-m4-4.md)。
+- M4 / G4 `done`（2026-11-07）。用户确认 M4 与后续修改全部验收通过，并授权合并到 `main`、推送 GitHub。M4-4 与 M4-R0～R4 关闭。当前 Agent 通过普通项目会话执行 PM2 命令，服务运维提供人工控制与当前列表。最终范围与检查见 [M4 收尾](specs/050-deploy/closure.md)。
+- M4-3b `done`（2026-11-06，历史实现）。旧接口与工具设计见 [原验收](specs/050-deploy/acceptance-m4-3b.md)，当前命令路径由 ADR-050 定义。
 
 - M4-3 `done`（2026-11-06，分支 `task/m4-3-pm2-runtime`）。交付全局 PM2 检查/补装与私有 `PM2_HOME`、唯一 PM2Adapter、`service_ops_services`/`service_ops_deployments`（schemaVersion 13）、`ServiceOpsRuntime` 首次/替换/健康/回滚/对账、`/api/service-ops/` REST、`service-ops` WS/事件与日志，TUI 受管入口自动初始化。真实 PM2 测试（`pnpm test:pm2:m4`）通过：临时 prefix 复用 7.1.2、TUI 入口、v1→v2、v3 健康失败回滚 v2、停止后对账、日志/事件、合成秘密未进入应用环境/dump/日志。`VITEST_MAX_WORKERS=3 pnpm check`（web 124、agent 33/1 skip、server 488/8 skip；645 passed/9 skipped）与 `pnpm build` 通过。D9/D11 端到端、日常 start/stop/restart、运维 UI/Agent 工具归 M4-3b/M4-4；Q-029 正式 secretRef 注入仍未关闭。详见 [验收](specs/050-deploy/acceptance-m4-3.md)。
 - M4-3 边界：只支持 Node 入口、非零停机；真实 PM2 测试安装到临时 prefix 并清理，未改动全局/用户默认 PM2。

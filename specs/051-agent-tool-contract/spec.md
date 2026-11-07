@@ -24,7 +24,7 @@ created: 2026-11-06
 3. 每条影响操作范围或安全的承诺都要有执行层验收，覆盖合法输入和至少一个会扩大范围、越权或误报成功的反例。工具或 prompt 变更还要通过实际上下文组装验证模型收到的描述、schema 和作用域。禁止只核对源码常量或只用文本快照替代执行测试。
 4. 新增或修改此类能力的 spec 必须列出上述验证和受影响表面。测试纳入常规检查。无法自动化的表面需在验收中记录可复核的检查与结果。
 
-M4 按 [ADR-048](../../docs/adr/ADR-048-service-domain-separation.md) 分域。现有 `register_temporary_service`、`list_services`、`resolve_service_preview` 只处理临时开发服务。正式服务使用独立的运维工具组和上下文。通过实际模型请求校验各上下文的工具描述、schema、system prompt 与结果语义，通过执行层验证合法输入和伪造工具名、目标或作用域的反例。M4 实施验收见 [D14–D16](../050-deploy/spec.md#3-验收场景)。
+M4 当前按 [ADR-050](../../docs/adr/ADR-050-pm2-cli-deployment.md) 使用通用命令工具完成部署，系统上下文提供真实 PM2 环境与服务/项目关联。原 ADR-048 的资源、REST、事件和预览边界继续适用。专用正式服务模型工具与运维 Turn 入口已撤回，普通项目会话可以部署。实际上下文、命令策略与关系验证见 [命令上下文契约](../../docs/contracts/agent-command-context.md) 和 [M4 验收](../050-deploy/spec.md#验收场景)。
 
 ## 验收场景
 
@@ -40,3 +40,5 @@ M4 按 [ADR-048](../../docs/adr/ADR-048-service-domain-separation.md) 分域。�
 ## 失败与测试
 
 Git 解析不到有效上游时返回 GIT_CONFLICT，拒绝非快进。无工作区授权、无终端租约、服务归属无法验证仍按原规则拒绝。定向运行 Agent 上下文、策略、终端、Git、真实服务/预览和服务窗口测试，然后执行 pnpm check、pnpm build 和涉及登记表单的 E2E。记录复现、红测、通过项和未验证项。
+
+M4-R3 进一步统一既有服务生命周期契约：系统固定注入 development_preview/persistent_pm2 的 owner、ID、路径和退出行为；临时资源按真实项目查询，工具描述/schema/登记结果标明 temporary。无专用部署工具/新权限/新迁移，实际上下文与真实服务登记正反例纳入定向验收，见 [050 spec](../050-deploy/spec.md#m4-r3-系统服务生命周期契约)。

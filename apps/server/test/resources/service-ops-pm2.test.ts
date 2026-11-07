@@ -197,7 +197,7 @@ describe.skipIf(!enabled)("formal service PM2 lifecycle", () => {
 
         await adapter.stop(`larness-${target.id}`);
         expect(await runtime.reconcile()).toBeGreaterThanOrEqual(1);
-        expect(serviceOpsRow(opened.db, target.id)?.observedState).toBe("failed");
+        expect(serviceOpsRow(opened.db, target.id)?.observedState).toBe("stopped");
       } finally {
         await adapter.close().catch(() => undefined);
         for (const file of [

@@ -1,3 +1,5 @@
+> 历史方案记录。2026-11-07 当前 Agent 命令部署以 [ADR-050](../../docs/adr/ADR-050-pm2-cli-deployment.md) 和 [当前 spec](spec.md) 为准。
+
 # M4-1 技术冻结：Validate / Build / Artifact / Plan
 
 > 2026-11-06，M4-1 开工前评审记录。G-Spec-M4 / G-PoC-M4 已通过。本文件冻结 M4-1 的后端接口、数据、安全与失败边界；实际 PM2 Apply、健康探测、版本切换记录归 M4-3，运维 REST / WS / Agent 工具归 M4-3 / M4-3b。

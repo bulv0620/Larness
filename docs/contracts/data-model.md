@@ -264,3 +264,15 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 
 ## M3技术候选（待审批，未实现）
 [m3-preview](m3-preview.md)限定M3-1只新增temporary服务及必要action kind迁移：terminalExecutionId/generation由后端产生、与输入租约独立；原始身份仅内部、日志引用终端存储。票据/grant只保存短期内存hash，重启撤销，业务事件和seq事务持久化；不加入PM2字段或明文凭据，精确DDL在PoC后冻结。
+
+## ADR-050 PM2 CLI 观察投影（2026-11-07）
+
+复用 deployment_targets 的 project_id/name 唯一键和 service_ops_services 记录。通过已登记项目的 PM2 名称创建目标和观察投影，当前产物/版本可以为空，config_json 标记 source=pm2-cli。旧表、版本历史与迁移保留。新方案没有新增数据库列或迁移，服务 DTO 的项目名称由项目仓储读取。完整名称、实际状态、观察时间与事件按 [当前部署契约](deployment.md) 更新。
+
+### M4-R1 人工控制意图
+
+不新增表或列。复用 resource_operations，kind=service.control，scopeKey=project:<id>，path=完整 PM2 名称，paramsHash 绑定 targetId/action/name，expectedVersion/targetVersion 保存不含 PID 的配置身份哈希。幂等唯一键沿用 clientSessionId/kind/idempotencyKey。WRITING 在副作用前持久化；COMPLETED 与服务状态/事件/审计事务提交；FAILED 禁止同键重放。观察流程将租约过期的中断控制标为 FAILED，不补发命令。resultJson 仅含 targetId/action，不保存环境或命令输出。
+
+### M4-R4 PM2 存在性
+
+`service_ops_services.config_json` 复用内部可选 `pm2Present` 保存最近一次确定的应用存在性。可靠快照确认缺失才记 false，未知或冲突不改变存在性，旧 `PM2_MISSING` 行兼容。确认重现恢复 true。存在性变化与状态/事件事务提交；无迁移、历史记录不删除。

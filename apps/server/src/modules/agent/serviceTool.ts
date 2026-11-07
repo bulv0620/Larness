@@ -9,7 +9,7 @@ export function createServiceTools(): ToolDefinition[] {
     defineTool({
       name: "register_temporary_service",
       description:
-        "Register an already running HTTP service inside a project terminal. The backend verifies the actual listener's ownership at the supplied port. Wildcard listeners such as 0.0.0.0 and :: can be registered without rebinding or restarting. Supply the port and a loopback endpoint.host value (127.0.0.1 or ::1). The backend discovers the actual bind address. RUNNING confirms listener identity. Verify HTTP health separately. Re-registering the same live endpoint and name is idempotent. A restarted process needs a new registration.",
+        "Register an already running temporary HTTP service inside a managed project terminal, not PM2. This only registers listener/preview metadata; it does not start, daemonize, deploy, or convert a service. The backend verifies the actual listener's ownership at the supplied port. Wildcard listeners such as 0.0.0.0 and :: can be registered without rebinding or restarting. Supply the port and a loopback endpoint.host value (127.0.0.1 or ::1). The backend discovers the actual bind address. RUNNING confirms listener identity. Verify HTTP health separately. Re-registering the same live endpoint and name is idempotent. A restarted process needs a new registration.",
       riskLevel: "L2",
       requiresProject: true,
       requiresProjectLock: false,
@@ -24,7 +24,7 @@ export function createServiceTools(): ToolDefinition[] {
     defineTool({
       name: "resolve_service_preview",
       description:
-        "Resolve a structured preview target for an active temporary service in the current project. This is a read-only intent: it issues no ticket and starts nothing. The user opens the preview from the card, where the backend re-authorizes and issues a short-lived ticket for the isolated preview origin.",
+        "Resolve a structured preview target for an active temporary svc_ service in the current project, not a PM2 targetId or pm2Name. This is a read-only intent: it issues no ticket and starts nothing. The user opens the preview from the card, where the backend re-authorizes and issues a short-lived ticket for the isolated preview origin.",
       riskLevel: "L0",
       requiresProject: true,
       requiresProjectLock: false,
@@ -43,7 +43,7 @@ export function createServiceTools(): ToolDefinition[] {
     defineTool({
       name: "list_services",
       description:
-        "List temporary services registered for the current project with their verified status and endpoints. Read-only; ended services are not returned by default.",
+        "List only temporary terminal services registered for the current project with their observed status and endpoints. Persistent PM2 services are supplied separately in system context and are managed with run_command. Read-only; ended services are not returned by default.",
       riskLevel: "L0",
       requiresProject: true,
       requiresProjectLock: false,

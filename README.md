@@ -6,10 +6,10 @@
 - 以对话驱动 Agent 读写项目、运行命令、管理终端 / 服务 / Git；
 - 在本机预览、构建、部署并托管 Node.js 项目。
 
-> **S0、M0（macOS 范围）、M1、M2 与 M3 均已验收。G3 后的工作区优化于 2026-11-06 通过验收，下一步是 M4 技术规格评审。**
+> **S0、M0（macOS 范围）、M1、M2、M3 与 M4 均已验收。G4 与 M4 后续修改于 2026-11-07 通过验收。**
 > 启动开发环境：`pnpm install && pnpm dev` → Server <http://127.0.0.1:3210/api/health> + Web <http://localhost:3210>，并直接进入 TUI。
 > 对话区已按紧凑单列重构，支持真实任务计划、折叠执行过程、输入框上方审批与小型资源浮栏；见 [对话区验收](specs/036-conversation-experience/acceptance.md)。
-> 当前进度和各阶段验收见 [STATUS.md](STATUS.md)、[M2 收尾记录](specs/030-dev-resources/closure.md)与 [M3 收尾记录](specs/040-services-preview/closure.md)。
+> 当前进度和各阶段验收见 [STATUS.md](STATUS.md)、[M2 收尾记录](specs/030-dev-resources/closure.md)、[M3 收尾记录](specs/040-services-preview/closure.md)与 [M4 收尾记录](specs/050-deploy/closure.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
 
 ## M2 已验收能力
@@ -23,9 +23,9 @@
 | 阶段 | 完整用户场景 |
 |---|---|
 | M3 开发服务与隔离预览（已验收） | 终端启动 → 登记真实服务 → 预览/调试 → 命令退出即失效 |
-| M4 持久运行与版本发布（待评审） | 构建/产物/计划 → 按策略授权 → PM2首次运行或版本替换 → 健康/版本记录 → 日常管理/支持的恢复 |
+| M4 持久运行与版本发布（已验收） | 项目会话构建与运行 PM2 命令 → 核验实际状态 → 在服务运维查看日志、启动、停止或重启 |
 
-完全自主模式下，已授权的 Agent 动作由系统按计划和策略直接执行，服务端继续校验参数、鉴权、持锁和审计。M3 验收覆盖本机隔离预览，远程独立域名 HTTPS 留待上线实验。M4 产品边界已确认，技术规格待评审。 [ADR-042](docs/adr/ADR-042-service-deploy-boundary.md) · [M4 评审入口](specs/050-deploy/review.md)
+完全自主模式下，已授权的 Agent 动作由系统按计划和策略直接执行，服务端继续校验参数、鉴权、持锁和审计。M3 验收覆盖本机隔离预览，远程独立域名 HTTPS 留待上线实验。M4 通过私有 PM2 实例托管正式服务，退出管理面后进程继续运行。 [ADR-042](docs/adr/ADR-042-service-deploy-boundary.md) · [M4 收尾](specs/050-deploy/closure.md)
 
 官方 DeepSeek 模型目录、思考档位和上下文圆环修正列入 M5-1，依赖 M4 通过 G4。 [DeepSeek 规格草案](specs/061-deepseek-integration/spec.md)
 
@@ -126,7 +126,7 @@ Agent 的启动指令示例：
 
 ```text
 请先完整阅读 AGENTS.md、CONSTITUTION.md、STATUS.md。
-S0、M0（macOS 范围）、M1、M2 与 M3 已验收，下一步为 M4 规格评审。
+S0、M0（macOS 范围）、M1、M2、M3 与 M4 已验收，后续任务见 M5 路线图。
 请以 STATUS.md、specs/ROADMAP.md 和当前任务卡为准，一次只处理一个任务。
 ```
 
@@ -163,7 +163,7 @@ S0、M0（macOS 范围）、M1、M2 与 M3 已验收，下一步为 M4 规格评
     ├── 020-workspace-agent/    # M1 项目 / 会话 / 最小 Agent
     ├── 030-dev-resources/      # M2 文件 / 终端 / Git / 窗口层（G2 已验收）
     ├── 040-services-preview/   # M3 开发服务与隔离预览（G3 已验收）
-    ├── 050-deploy/             # M4 持久运行与版本发布（草案）
+    ├── 050-deploy/             # M4 持久运行与版本发布（已验收）
     ├── 060-extension/          # M5 多模型 / 自动化 / 更新（草案）
     └── 061-deepseek-integration/ # M5 DeepSeek 接入与上下文用量（草案）
 ```

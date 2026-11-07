@@ -16,6 +16,7 @@ export interface CommandRunOptions {
   cwd: string;
   timeoutMs: number;
   env?: NodeJS.ProcessEnv;
+  pm2Home?: string;
   secrets?: string[];
   signal?: AbortSignal;
   onSpawn?: (pid: number) => void;
@@ -158,7 +159,12 @@ export async function runCommand(options: CommandRunOptions): Promise<CommandRun
   };
   const child = spawn(options.executable, options.args, {
     cwd: options.cwd,
-    env: commandEnvironment(options.env),
+    env: {
+      ...commandEnvironment(options.env),
+      ...(options.pm2Home
+        ? { PM2_HOME: options.pm2Home, PM2_NO_INTERACTION: "true", PM2_DISABLE_MODULES: "true" }
+        : {}),
+    },
     shell: false,
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],

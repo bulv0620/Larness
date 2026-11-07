@@ -56,7 +56,6 @@ export interface CreateTurnInput {
   modelProfileId?: string;
   idempotencyKey?: string;
   clientSessionId?: string;
-  executionContext?: { domain: "service-ops"; targetId: string };
 }
 
 export interface CreateTurnResult {
@@ -211,7 +210,6 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
           clientSessionId: input.clientSessionId,
           policySnapshotId: newId("pol"),
           policy: session.approvalPolicyId,
-          ...(input.executionContext ?? {}),
         },
       }),
       idempotencyKey: validated.idempotencyKey,

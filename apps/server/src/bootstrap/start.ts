@@ -1,12 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  createDeepSeekProvider,
-  createFileToolRegistry,
-  ProviderError,
-  ToolRegistry,
-} from "@larness/agent";
+import { createDeepSeekProvider, createFileToolRegistry, ProviderError } from "@larness/agent";
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import type { DestinationStream, Logger } from "pino";
@@ -27,7 +22,6 @@ import { createGitTools } from "../modules/agent/gitTool.js";
 import { createPlanTool } from "../modules/agent/planTool.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
-import { createServiceOpsTools } from "../modules/agent/serviceOpsTool.js";
 import { createServiceTools } from "../modules/agent/serviceTool.js";
 import { createTerminalControlTools } from "../modules/agent/terminalControlTool.js";
 import { createTerminalTools } from "../modules/agent/terminalTool.js";
@@ -40,6 +34,7 @@ import { ModelError, resolveModel } from "../modules/models/service.js";
 import { PreviewRegistry } from "../modules/previews/registry.js";
 import { ResourceEventBus } from "../modules/resources/events.js";
 import { DeploymentAuthorizationService } from "../modules/service-ops/authorization.js";
+import { pm2CommandContext, pm2CommandEnvironment } from "../modules/service-ops/commandContext.js";
 import { DeploymentManager } from "../modules/service-ops/deployments.js";
 import {
   ensureGlobalPm2,
@@ -207,12 +202,14 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const secretStore = await SecretStore.open(dataDir, listEncryptedSecrets(opened.db));
     await reconcileFileOperations({ db: opened.db, dataDir });
     const resourceEvents = new ResourceEventBus();
+    let pm2Global: Pm2Global = { status: "missing" };
     const commands = new CommandManager({
       db: opened.db,
       dataDir,
       events: resourceEvents,
       secretStore,
       idleTtlMinutes: loaded.config.auth.idleTtlMinutes,
+      environment: () => pm2CommandEnvironment(pm2Global, dataDir),
     });
     commandManager = commands;
     await commands.recover();
@@ -245,18 +242,14 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     terminalManager = terminals;
     await terminals.recover();
     services.recover();
+    const deploymentSecrets = () =>
+      listEncryptedSecrets(opened.db)
+        .map((secret) => secretStore.decrypt(secret))
+        .filter((value) => value.length > 0);
     const deployments = new DeploymentManager({
       db: opened.db,
       dataDir,
-      secrets: () => {
-        try {
-          return listEncryptedSecrets(opened.db)
-            .map((secret) => secretStore.decrypt(secret))
-            .filter((value) => value.length > 0);
-        } catch {
-          return [];
-        }
-      },
+      secrets: deploymentSecrets,
     });
     deploymentManager = deployments;
     deployments.recover();
@@ -269,7 +262,6 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       db: opened.db,
     });
     serviceActionAuthorizations.recoverExpired();
-    let pm2Global: Pm2Global;
     if (options.pm2Global !== undefined) {
       pm2Global = options.pm2Global;
     } else if (env.LARNESS_PM2_AUTO_INSTALL === "1") {
@@ -297,6 +289,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       authorizations: deploymentAuthorizations,
       pm2,
       events: resourceEvents,
+      secrets: deploymentSecrets,
     });
     ensureDefaultModelProfiles(opened.db);
 
@@ -323,8 +316,6 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
     if (options.turnRunner !== false) {
       const registry = createFileToolRegistry();
-      const opsRegistry = new ToolRegistry();
-      for (const tool of createServiceOpsTools()) opsRegistry.register(tool);
       registry.register(createPlanTool({ db: opened.db, secretStore }));
       registry.register(createCommandTool({ db: opened.db, secretStore }));
       for (const tool of createTerminalTools({ db: opened.db, secretStore }))
@@ -341,9 +332,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         terminals,
         git,
         services,
-        opsRegistry,
-        serviceOps,
-        serviceActionAuthorizations,
+        pm2Context: (projectId) =>
+          pm2CommandContext(opened.db, dataDir, pm2Global, serviceOps, projectId),
         resolveProvider:
           options.providerResolver ?? createDefaultProviderResolver(opened.db, secretStore),
         publish: publishAgentEvent,

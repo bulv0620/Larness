@@ -67,3 +67,7 @@ type ResourceResultTarget =
 ```
 
 M2 文件修改工具结果 / 持久化 artifact 事件可附 file target；M3 的 `register_temporary_service` 成功（RUNNING）后附 preview target（含可选服务名），`resolve_service_preview` 也返回 preview target。前端渲染“查看文件 / 打开预览”卡片，点击重新鉴权和解析当前资源，沿 resource-views 去重。版本已变化显示当前状态，不为卡片保存历史文件正文；服务已结束明确不可预览，不自动重启它。兼容已有 artifact 字段，以新增结构化字段接入并同步 shared schema / 测试，不把 markdown 任意 URL 当执行指令。
+
+## M4-R3 服务类型契约
+
+开发预览为项目终端持有的 temporary（svc_），登记只建资源/预览身份，不启动或持久化进程；PM2 持久服务（tgt_ 与完整 pm2Name）通过命令部署和运维，不能直接登记成临时预览。模型每次请求固定注入两类生命周期及本项目真实登记资源摘要，不靠用户重复提示。工具 schema/描述和登记结果标明 temporary，后端实际监听归属与预览项目/身份校验保持。详见 [系统命令上下文](agent-command-context.md#系统固定的服务生命周期契约m4-r3)。

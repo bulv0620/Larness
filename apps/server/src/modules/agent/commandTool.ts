@@ -47,7 +47,7 @@ export function createCommandTool(options: {
     ...defineTool({
       name: "run_command",
       description:
-        "Run a finite noninteractive command with executable and argument array. No shell interpolation or env field. Project scripts execute as the Larness OS account; the project directory is not a sandbox. Use this for tests/build/lint, not persistent dev servers.",
+        "Run a finite noninteractive command with executable and argument array. No shell interpolation or env field. Project scripts execute as the Larness OS account; the project directory is not a sandbox. Use this for tests/build/lint and finite PM2 CLI commands for persistent formal services. The backend supplies the PM2_HOME and PM2 path shown in system context. Use the exact project-qualified PM2 name. Use bounded logs with --nostream. An exit code of zero does not prove application health. Interactive development servers belong in project terminals.",
       riskLevel: "L2",
       schema,
       summarize: () => "运行命令（以 Larness 系统账户执行，项目目录不是沙箱）",

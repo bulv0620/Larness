@@ -2,20 +2,22 @@ import {
   type DeploymentAuthorizationContext,
   type DeploymentPolicy,
   ERROR_HTTP_STATUS,
+  ServiceControlInputSchema,
   type ServiceOpsServiceDto,
 } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Database } from "../db/client.js";
 import { newId } from "../db/ids.js";
+import { appendAudit } from "../db/repositories/audit.js";
 import { HttpError } from "../errors.js";
+import { activeCommandClient } from "../modules/commands/repository.js";
 import type { DeploymentAuthorizationService } from "../modules/service-ops/authorization.js";
 import type { DeploymentManager } from "../modules/service-ops/deployments.js";
-import type { DeploymentError } from "../modules/service-ops/errors.js";
+import { DeploymentError } from "../modules/service-ops/errors.js";
 import type { ServiceActionAuthorizationService } from "../modules/service-ops/serviceActions.js";
 import type { ServiceOpsRuntime } from "../modules/service-ops/serviceOps.js";
 import { getSessionById } from "../modules/sessions/repository.js";
-import { createTurn } from "../modules/sessions/turns.js";
 
 const IdSchema = z.string().min(1).max(128);
 const KeySchema = z.string().min(1).max(256);
@@ -52,6 +54,7 @@ const ApplySchema = z
 
 export interface ServiceOpsApiDeps {
   db: Database;
+  idleTtlMinutes?: number;
   deployments: DeploymentManager;
   authorizations: DeploymentAuthorizationService;
   serviceOps: ServiceOpsRuntime;
@@ -78,9 +81,35 @@ function policy(value: string): DeploymentPolicy {
 }
 
 export function registerServiceOpsRoutes(app: FastifyInstance, deps: ServiceOpsApiDeps): void {
+  app.post<{ Params: { id: string } }>("/api/service-ops/services/:id/control", async (request) => {
+    if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
+    const clientSessionId = request.clientSession.id;
+    const id = parse(IdSchema, request.params.id);
+    const input = parse(ServiceControlInputSchema, request.body);
+    try {
+      return await deps.serviceOps.controlService(id, input, clientSessionId, () => {
+        if (!activeCommandClient(deps.db, clientSessionId, Date.now(), deps.idleTtlMinutes))
+          throw new DeploymentError("UNAUTHENTICATED", "Client session expired");
+      });
+    } catch (error) {
+      appendAudit(deps.db, {
+        action: `service.control.${input.action}`,
+        decision: "deny",
+        clientSessionId,
+        resourceType: "service_ops_service",
+        resourceId: id,
+      });
+      deploymentError(error);
+    }
+  });
   app.get("/api/service-ops/services", async (request) => {
     if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
-    return { items: deps.serviceOps.listServices() };
+    await deps.serviceOps.reconcile();
+    return {
+      items: deps.serviceOps.listServices(),
+      pm2Home: deps.serviceOps.pm2Home,
+      unassociated: deps.serviceOps.listUnassociatedServices(),
+    };
   });
 
   app.get<{ Params: { id: string } }>("/api/service-ops/services/:id", async (request) => {
@@ -114,7 +143,11 @@ export function registerServiceOpsRoutes(app: FastifyInstance, deps: ServiceOpsA
 
   app.get("/api/service-ops/status", async (request) => {
     if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
-    return { available: deps.serviceOps.available() };
+    await deps.serviceOps.reconcile();
+    return {
+      available: deps.serviceOps.available(),
+      unassociated: deps.serviceOps.listUnassociatedServices(),
+    };
   });
 
   app.post("/api/service-ops/plans", async (request) => {
@@ -273,38 +306,6 @@ export function registerServiceOpsRoutes(app: FastifyInstance, deps: ServiceOpsA
       } catch (error) {
         deploymentError(error);
       }
-    },
-  );
-
-  app.post<{ Params: { id: string } }>(
-    "/api/service-ops/services/:id/agent-turns",
-    async (request) => {
-      if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
-      const targetId = parse(IdSchema, request.params.id);
-      const body = parse(
-        z
-          .object({
-            sessionId: IdSchema,
-            input: z.string().min(1).max(100_000),
-          })
-          .strict(),
-        request.body,
-      );
-      deps.serviceOps.getService(targetId);
-      if (!getSessionById(deps.db, body.sessionId)) {
-        throw new HttpError("VALIDATION_ERROR", "Session was not found");
-      }
-      const turn = createTurn(
-        { db: deps.db },
-        {
-          sessionId: body.sessionId,
-          text: body.input,
-          clientSessionId: request.clientSession.id,
-          executionContext: { domain: "service-ops", targetId },
-        },
-      );
-      deps.turnControls?.enqueue(turn.turnId, turn.sessionId);
-      return { ...turn, domain: "service-ops", targetId };
     },
   );
 

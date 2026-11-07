@@ -27,4 +27,11 @@ it("does not offer preview for failed registrations or other tools", () => {
   expect(
     registeredServiceTarget("register_temporary_service", { serviceId, status: "RUNNING" }, null),
   ).toBeUndefined();
+  expect(
+    registeredServiceTarget(
+      "register_temporary_service",
+      { serviceId: "tgt_00000000-0000-0000-0000-000000000001", status: "RUNNING" },
+      "prj_1",
+    ),
+  ).toBeUndefined();
 });

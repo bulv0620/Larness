@@ -12,7 +12,7 @@
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `done` | G2 于2026-11-05通过人类整体验收；范围与边界见030/closure.md |
 | M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 全部 done；远程 HTTPS 延后并标未验证 |
-| M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `in_progress` | G4；G-Spec-M4 / G-PoC-M4 已通过 |
+| M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `done` | G4 于 2026-11-07 通过人类验收，见 [M4 收尾](050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `draft` | G5 |
 
 关键路径：
@@ -216,7 +216,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 ## 7. M4 持久运行与版本发布
 
-全部PM2交付/持久服务/构建发布在一个阶段闭环；autonomous从登记、构建、部署到启停/支持的恢复均无人工步骤，计划完整性/真实授权/审计仍必须。详[spec](050-deploy/spec.md)/[plan](050-deploy/plan.md)/[tasks](050-deploy/tasks.md)/[review](050-deploy/review.md)。
+当前按 ADR-050 通过普通会话命令完成 PM2 构建、部署和运维，系统提供环境与项目关联。autonomous 对已授权命令免人工步骤，命令授权、项目锁和审计继续执行。M4-1～M4-3b 保留为旧方案记录。详[spec](050-deploy/spec.md)/[plan](050-deploy/plan.md)/[tasks](050-deploy/tasks.md)/[review](050-deploy/review.md)。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
@@ -226,7 +226,12 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M4-2 | 策略授权与条件人工审批 | M4-1 | `done`（2026-11-06，见[验收](050-deploy/acceptance-m4-2.md)） |
 | M4-3 | PM2持久运行/Apply/健康/版本/对账 | M4-2 | `done`（2026-11-06，见[验收](050-deploy/acceptance-m4-3.md)） |
 | M4-3b | 服务运维页与独立运维 Agent 工具 | M4-3 | `done`（2026-11-06，见[验收](050-deploy/acceptance-m4-3b.md)） |
-| M4-4 | 正式发布/恢复/策略整体验收G4 | M4-3b | `review`（G4 待人类，见[验收](050-deploy/acceptance-m4-4.md)） |
+| M4-R0 | [PM2 命令部署与项目关联](050-deploy/spec.md) | M4-3b done；用户直接指令 | `done` |
+| M4-R1 | 服务运维 UI 一致性与人工启停 | M4-R0 已实现；用户直接指令 | `done`（见[验收](050-deploy/acceptance-ui-control.md)） |
+| M4-R2 | 人工控制 HTTP、项目日志与实例说明纠错 | M4-R1 人工验收反馈；用户直接指令 | `done`（见[验收](050-deploy/acceptance-service-fixes.md)） |
+| M4-R3 | 系统服务生命周期契约 | M4-R2 已实现；用户直接指令 | `done`（见[验收](050-deploy/acceptance-lifecycle-contract.md)） |
+| M4-R4 | 已删除 PM2 服务退出当前列表 | M4-R3 已实现；人类验收反馈 | `done`（见[验收](050-deploy/acceptance-deleted-service-list.md)） |
+| M4-4 | 正式发布/恢复/策略整体验收G4 | M4-R0～R4 | `done`（G4 通过，见[收尾](050-deploy/closure.md)） |
 
 ## 8. M5 扩展与加固（草案）
 
@@ -315,12 +320,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 - G-PoC-M4 审阅 [M4-0 的 P1–P5 真实证据](050-deploy/poc.md)，确认交付与退出边界后才能开始 M4-1。产品验收仍按 G4 执行。
 - **2026-11-06 用户确认 G-PoC-M4 通过**：接受 P1–P5 证据与已记录边界，M4-0 标 `done`，允许开始 M4-1。
 
-### G4 持久运行与版本发布
+### G4 持久运行与版本发布（已通过）
 
-- D1–D16 覆盖隔离 PM2 交付、运行、实际对账、首次部署、版本替换、健康、记录与支持的恢复。正式服务与会话开发服务分别验证资源协议、事件、Agent 工具装配和后端授权。
-- 计划/产物/目标/时效/锁fencing不可篡改，失败/取消/未知状态不伪报成功，不重复spawn或误操作无关应用；
-- 标准/严格按风险审批，只读拒绝写；autonomous全流程无人工审批/确认，记录策略授权、不伪造人工批准；
-- Q-003/Q-027明确且真实验证，其他平台按证据披露。
+- 当前验收按 [050 spec 的 C1–C13](050-deploy/spec.md#验收场景)，包含实际模型上下文、命令执行与 PM2 环境同源、服务项目关联、真实构建/运行/日志/退出和四策略。
+- 服务观察、事件持久化和预览资源继续分域，命令超时/取消/未知不能伪报运行健康，不能依据命令返回码重复启动。
+- 2026-11-07 用户确认 M4 与 M4-R0～R4 全部验收通过。原 D1–D16 记录保留为历史，自动化与平台范围见 [M4 收尾](050-deploy/closure.md)。
 
 ### G5 发布候选
 

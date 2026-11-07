@@ -1,4 +1,38 @@
-# 正式服务运维与版本发布契约草案（M4）
+# PM2 命令部署与服务观察契约
+
+> 当前契约于 2026-11-07 随用户指令和 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md) 更新。旧部署流水线的实现和数据作为兼容能力保留，当前 Agent 使用通用命令工具。
+
+## 当前执行方式
+
+普通项目会话使用文件工具和 `run_command` 构建并部署，复杂步骤复用 `update_plan`。后端提供全局安装的 PM2 入口、私有 PM2_HOME、发布根目录和实际服务关联。具体模型上下文见 [命令上下文契约](agent-command-context.md)。PM2 的操作命令有限返回，长期应用由守护进程托管。
+
+专用正式服务模型工具与 `POST /api/service-ops/services/:id/agent-turns` 已移除。运维弹窗的「在项目会话中处理」选择服务所属项目、保留已有输入草稿或填入状态检查请求，由用户在普通会话发送。正式服务操作使用命令工具的授权记录，不生成新的专用部署计划或 grant。
+
+按 [ADR-051](../adr/ADR-051-human-pm2-service-control.md)，人类可在运维详情直接启动、停止、重启 PM2 已有服务，停止/重启需确认。人工接口 `POST /api/service-ops/services/:id/control` 独立于当前聊天策略，校验认证/CSRF、精确身份、项目→服务锁、幂等与审计；不要求旧构建产物、不新增 Agent 工具、不重建已删除应用、不替换配置和环境。具体参数与错误见 [REST 契约](rest-api.md#m4-r1-人工服务控制)。
+
+## 项目关系
+
+新 PM2 服务使用 `namespace=larness` 和 `name=larness:<projectId>:<serviceKey>`。后端从本实例只读查询读取名称、namespace、状态、PID 和受控日志路径。核对登记项目后，复用 `deployment_targets` 的项目/名称唯一关系和 `service_ops_services` 作为观察投影，无新增迁移。CLI 投影的 current_artifact_id/current_version 为 null，config_json 标记 `source=pm2-cli`。
+
+旧 `larness-<targetId>` 名称继续通过目标记录关联项目。稳定资源 ID 继续为 targetId。项目改名更新展示名称，PID 与 PM2 数字 ID 变化不改变归属。其他 namespace 在未关联列表提示，不能自动建立项目归属。归属缺失、重复名称和旧新名称冲突在 unassociated 中返回，并在 Agent 系统信息与运维弹窗显示，避免自动归属。
+
+## 查询与事件
+
+既有 GET `/api/service-ops/services` 在返回前合并执行同一实例的对账，返回 `{items,unassociated}`。每项保留既有服务字段，增加 `pm2Name`、`projectName` 和 `source:pm2-cli|deployment`。日志、详情、历史、事件订阅和补拉继续核验独立正式服务身份。
+
+观察状态改变后，投影与 `service-ops.status` 事件在同一事务提交后发布。CLI 服务的 online 状态映射为 running，health 时间为空、原因标记 HEALTH_UNVERIFIED。后台观察不执行用户构建脚本。查询不可用时返回 unknown 和稳定原因；旧记录中的运行状态不能代替当前进程状态。
+
+日志读取限于实例 logs 或 PM2 logs 目录中的普通文件，返回最多 1 MiB 尾部并标注 truncated，使用已知秘密和字段规则脱敏。状态、命令审计和日志分别提供，不把原始 PM2 env/dump 返回客户端。
+
+## 兼容边界
+
+旧构建、产物、发布计划、审批、apply、同版本动作 REST 与历史表保留，以维持已有调用者和运行服务。模型和新界面以当前命令路径操作。既有四策略对旧 REST 的行为仍按原契约，新增命令按命令层策略处理。Q-029 正式秘密注入尚未交付。
+
+下面内容记录旧 M4 的具体实现，专用模型工具和部署必经流程由上面的当前契约替代。
+
+---
+
+# M4-1～M4-3b 历史部署契约
 
 > draft，2026-11-06。产品边界见 [ADR-042](../adr/ADR-042-service-deploy-boundary.md) 和 [ADR-048](../adr/ADR-048-service-domain-separation.md)。G-Spec-M4 / G-PoC-M4 已通过。M4-1 冻结 Validate/Build/Artifact/Plan 的内部接口、数据与安全边界，见 [M4-1 技术冻结](../../specs/050-deploy/m4-1-design.md)；PM2 Apply、健康与运行协议仍按 M4-3/M4-3b 冻结。开发服务另见 [M3 契约](services-preview.md)。
 
@@ -89,3 +123,17 @@ REST 使用独立的 `/api/service-ops/` 命名空间，承载正式服务、动
 
 ## 5. 必要验证
 真实 PM2、项目构建、HTTP 健康、进程和 DB 故障覆盖四种策略、计划篡改/过期/锁失效/重复请求、同版本重启边界和终端退出独立性。验证实际模型请求工具集及提示、执行器直调、跨域 ID、审批、预览、日志、事件订阅和重放。Mock 仅用于 LLM，平台和清理结果据实记录。
+
+## M4-R2 纠错（ADR-052）
+
+上述日志实例目录限制按用户批准增加所属登记项目：仅实际 PM2 唯一应用登记的精确路径，完整名称/namespace/项目一致、canonical 路径在本项目根内的普通日志。拒绝最终文件 symlink、其他项目/越界/未知身份；用 O_NOFOLLOW 与文件身份复核读取。PM2 缺失时原实例日志根内历史读取保持，历史项目路径不授予权限。尾部 1 MiB 和脱敏不变。
+
+GET 服务列表新增可选兼容字段 pm2Home，生产响应总是提供实际实例目录。界面展示带 PM2_HOME 的本机查询命令。人工控制 POST 使用对象 JSON 和 CSRF，保持现有鉴权，不切换到默认 ~/.pm2，不迁移运行服务。
+
+## M4-R3 服务类型由系统说明
+
+普通会话每次模型请求固定注入 development_preview/persistent_pm2 契约与分组观察。PM2 仍由通用命令管理，不使用临时登记/开发预览 API；临时登记不转换或守护进程。资源类型由后端真实 owner、ID、项目和监听/PM2 身份确认，不以名字、脚本或聊天判定。详见 [Agent 命令契约](agent-command-context.md#系统固定的服务生命周期契约m4-r3)。这项补充澄清已有 ADR-046/ADR-048/ADR-050 的边界，不改变授权或生命周期。
+
+## M4-R4 当前列表与删除
+
+完整 PM2 快照确认应用已不存在后，从服务运维当前列表与 Agent `services` 摘要排除。PM2 stopped 仍在列表。失联或身份冲突保留上次确认的存在性，不会误删或复活已删除项。同名称重新部署恢复同一 targetId。保留已有记录、产物、日志安全边界与历史，不增删数据库表列。

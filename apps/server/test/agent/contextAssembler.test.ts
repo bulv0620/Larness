@@ -64,6 +64,12 @@ describe("context assembler", () => {
             );
             expect(context.messages[0]?.content).toContain(`Turn approval policy: ${policy}`);
             expect(context.messages[0]?.content).toContain(`L2=${l2}`);
+            expect(context.messages[0]?.content).toContain("Service lifecycle contract");
+            expect(context.messages[0]?.content).toContain("development_preview");
+            expect(context.messages[0]?.content).toContain("persistent_pm2");
+            expect(context.messages[0]?.content).toContain(
+              "Registration does not start or daemonize a process",
+            );
             expect(context.messages[0]?.content).toContain(
               projectId ? "registered project workspace" : "workspace without a registered project",
             );
@@ -90,9 +96,18 @@ describe("context assembler", () => {
               });
               expect(start?.parameters.required).not.toContain("cwd");
               const register = byName.get("register_temporary_service");
+              expect(register?.description).toContain("not PM2");
+              expect(byName.get("start_project_terminal")?.description).not.toContain(
+                "persistent project terminal",
+              );
               expect(register?.description).toMatch(/wildcard.*0\.0\.0\.0.*without.*restart/i);
               expect(register?.parameters).toMatchObject({
                 properties: {
+                  kind: {
+                    const: "temporary",
+                    description: expect.stringContaining("not create a persistent PM2 service"),
+                  },
+                  terminalId: { description: expect.stringContaining("not a PM2 targetId") },
                   endpoint: {
                     description: expect.stringMatching(/actual bind address/i),
                     properties: { host: { enum: ["127.0.0.1", "::1"] } },

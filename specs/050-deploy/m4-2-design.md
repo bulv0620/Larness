@@ -1,3 +1,5 @@
+> 历史方案记录。2026-11-07 当前 Agent 命令部署以 [ADR-050](../../docs/adr/ADR-050-pm2-cli-deployment.md) 和 [当前 spec](spec.md) 为准。
+
 # M4-2 技术冻结：策略授权与条件人工审批
 
 > 2026-11-06，M4-2 开工记录。依赖 M4-1 的 `DeploymentPlanDto` / `verifyPlan` / `verifyArtifact`。G-Spec-M4 产品边界已确认；本文件冻结 M4-2 的授权记录、人工审批、作用域和失败边界。

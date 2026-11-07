@@ -74,6 +74,7 @@ export interface CommandManagerOptions {
   lockTtlMs?: number;
   heartbeatMs?: number;
   idleTtlMinutes?: number;
+  environment?: () => { env: NodeJS.ProcessEnv; pm2Home: string };
 }
 export class CommandManager {
   readonly #active = new Map<string, Runtime>();
@@ -461,6 +462,7 @@ export class CommandManager {
           });
           const result = await runCommand({
             ...params,
+            ...this.options.environment?.(),
             cwd: absolute,
             timeoutMs: remaining,
             signal: runtime.controller.signal,

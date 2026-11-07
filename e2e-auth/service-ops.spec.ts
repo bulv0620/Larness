@@ -32,10 +32,8 @@ test("opens the service operations dialog from the left navigation", async ({ pa
   const dialog = page.getByTestId("service-ops-dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("heading", { name: "服务运维", exact: true })).toBeVisible();
-  await expect(dialog.getByText("正式服务 · 独立于当前聊天")).toBeVisible();
-  await expect(
-    dialog.getByText("还没有正式服务。通过 Agent 生成计划并发布后会出现在这里。"),
-  ).toBeVisible();
+  await expect(dialog.getByText(/独立于当前聊/)).toHaveCount(0);
+  await expect(dialog.getByText("暂无正式服务", { exact: true })).toBeVisible();
   await expect(dialog.getByText("运行日志")).toHaveCount(0);
   await dialog.getByRole("button", { name: "关闭服务运维" }).click();
   await expect(dialog).toBeHidden();

@@ -1,5 +1,6 @@
 import type { ServiceOpsDeploymentDto, ServiceOpsServiceDto } from "@larness/shared";
 import { desc, eq } from "drizzle-orm";
+import { z } from "zod";
 import type { DbExecutor } from "../../db/client.js";
 import {
   type ServiceOpsDeploymentRow,
@@ -21,6 +22,23 @@ export function listServiceOpsRows(db: DbExecutor): ServiceOpsServiceRow[] {
     .from(serviceOpsServices)
     .orderBy(desc(serviceOpsServices.updatedAt), desc(serviceOpsServices.targetId))
     .all();
+}
+
+const ObservationConfigSchema = z.record(z.string(), z.unknown());
+export function serviceOpsConfig(row: ServiceOpsServiceRow): Record<string, unknown> {
+  try {
+    const parsed = ObservationConfigSchema.safeParse(JSON.parse(row.configJson));
+    return parsed.success ? parsed.data : {};
+  } catch {
+    return {};
+  }
+}
+
+export function listCurrentServiceOpsRows(db: DbExecutor): ServiceOpsServiceRow[] {
+  return listServiceOpsRows(db).filter((row) => {
+    const present = serviceOpsConfig(row).pm2Present;
+    return typeof present === "boolean" ? present : row.reasonCode !== "PM2_MISSING";
+  });
 }
 
 export function insertServiceOpsRow(db: DbExecutor, row: ServiceOpsServiceRow): void {
@@ -97,6 +115,9 @@ export function serviceOpsDto(row: ServiceOpsServiceRow): ServiceOpsServiceDto {
     targetId: row.targetId as ServiceOpsServiceDto["targetId"],
     projectId: row.projectId,
     name: row.name as ServiceOpsServiceDto["name"],
+    pm2Name: row.pm2Name,
+    projectName: null,
+    source: row.pm2Name.startsWith("larness:") ? "pm2-cli" : "deployment",
     version: row.currentVersion as ServiceOpsServiceDto["version"],
     artifactHash: null,
     desiredState: row.desiredState,

@@ -166,6 +166,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     ) {
       registerServiceOpsRoutes(app, {
         db: options.services.db,
+        idleTtlMinutes: options.services.config.auth.idleTtlMinutes,
         deployments,
         authorizations: options.services.deploymentAuthorizations,
         serviceOps: options.services.serviceOps,

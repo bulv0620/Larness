@@ -23,8 +23,12 @@ export type ServiceEndpoint = z.infer<typeof ServiceEndpointSchema>;
 
 export const ServiceRegisterInputSchema = z
   .object({
-    kind: ServiceKindSchema,
-    terminalId: TerminalIdSchema,
+    kind: ServiceKindSchema.describe(
+      "temporary development preview only; registration does not create a persistent PM2 service",
+    ),
+    terminalId: TerminalIdSchema.describe(
+      "Managed terminal owning the real listening process; not a PM2 targetId or pm2Name",
+    ),
     name: z.string().trim().min(1).max(80),
     endpoint: ServiceEndpointSchema.describe(
       "Use the terminal listener's port and a loopback host value. The backend discovers the actual bind address, including wildcard listeners.",

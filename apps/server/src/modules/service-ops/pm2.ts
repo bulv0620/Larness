@@ -323,13 +323,13 @@ export class Pm2Adapter {
     }
   }
 
-  async restart(name: string, timeoutMs = 10_000): Promise<boolean> {
+  async restart(name: string, timeoutMs = 10_000, updateEnv = true): Promise<boolean> {
     const app = await this.find(name);
     if (app === "unknown" || app === "missing") return false;
     try {
       await exec(
         process.execPath,
-        [this.#global.entry, "restart", name, "--update-env", "--no-color"],
+        [this.#global.entry, "restart", name, ...(updateEnv ? ["--update-env"] : []), "--no-color"],
         { cwd: this.#dataDir, env: this.#env, timeout: timeoutMs, maxBuffer: MAX_OUTPUT },
       );
       return true;

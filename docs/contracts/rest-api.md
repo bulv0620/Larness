@@ -443,7 +443,7 @@ Turn 创建成功返回 `202`：
 | GET | `/api/services/:id/logs?cursor=` | M3 引用终端日志 |
 | POST | `/api/previews/resolve` | M3 为已授权的开发服务签发短期票据，见 [M3 技术契约](m3-preview.md) |
 | GET | `/api/service-ops/status` | M4-3 正式运维可用性 |
-| GET | `/api/service-ops/services` | M4-3 正式服务列表（实际观察状态） |
+| GET | `/api/service-ops/services` | 当前 PM2 服务观察列表和未关联服务，返回前对账 |
 | GET | `/api/service-ops/services/:id` | M4-3 正式服务详情 |
 | GET | `/api/service-ops/services/:id/deployments` | M4-3 发布历史 |
 | GET | `/api/service-ops/services/:id/logs` | M4-3 受控 PM2 日志（≤1 MiB） |
@@ -452,7 +452,6 @@ Turn 创建成功返回 `202`：
 | POST | `/api/service-ops/approvals/:id` | M4-3 人工审批 standard/strict 授权 |
 | POST | `/api/service-ops/apply` | M4-3 消费授权并执行首次/替换发布 |
 | POST | `/api/service-ops/services/:id/actions` | M4-3b 申请日常 start/stop/restart/recover 授权 |
-| POST | `/api/service-ops/services/:id/agent-turns` | M4-3b 创建绑定该正式目标的运维 Agent Turn |
 | GET | `/api/service-ops/service-actions/:id` | M4-3b 日常动作授权状态 |
 | POST | `/api/service-ops/service-actions/:id/decision` | M4-3b 人工批/拒日常动作 |
 | POST | `/api/service-ops/service-actions/:id/execute` | M4-3b 消费授权并执行日常动作 |
@@ -529,3 +528,23 @@ M3 开发登记、查询、终端日志和隔离预览沿用 [开发契约](serv
 
 ## M3技术候选（待审批，未实现）
 服务登记由后端产生执行身份，人工沿resource-actions准备/决策/execute、Agent沿Turn策略调用共同核心；当前Git路由不代表已通用。预览解析候选改POST，不交凭据给模型/事件/URL；新字段/错误码与失败边界见[m3-preview](m3-preview.md)。
+
+## ADR-050 命令行部署接入（2026-11-07）
+
+Agent 经普通会话 Turn 调用通用命令工具。服务专用 agent-turns 路由已撤回，返回 404。GET 服务列表返回 `{items,unassociated}`，服务 DTO 增加 pm2Name/projectName/source，详情和日志使用原 targetId。旧发布/授权/apply 路由保留兼容；当前执行与关联约定见 [部署契约](deployment.md)。
+
+### M4-R1 人工服务控制
+
+`POST /api/service-ops/services/:id/control`，严格 body `{action: "start" | "stop" | "restart", expectedPm2Name: string(1..256), requestKey: string(1..256), confirmed: true}`，返回实际观察的 `ServiceOpsServiceDto`。认证 Cookie、同源与 CSRF 必需。此为人类显式操作，独立于当前聊天策略，无新 Agent 工具。
+
+服务须属于已登记项目、精确匹配 expectedPm2Name 与 namespace=larness。项目→服务锁含心跳/fencing，操作前复核活动客户端，拒绝并发写。仅恢复/停止/重启 PM2 中已有应用，保留配置与环境，不重建已删除服务。操作后验证实际状态和配置身份，启动仅表示进程 online，健康标为未核验。持久 intent 后执行，成功结果与事件/审计事务提交；相同客户端和 requestKey 幂等，不重复重启，同键异参/未确认结果返回 DEPLOY_CONFLICT。超时或失败返回 DEPLOY_UNAVAILABLE，刷新核验后人工决定，不自动重试。NOT_FOUND、RESOURCE_LOCKED、UNAUTHENTICATED 等沿用稳定码。
+
+### M4-R2 实例与日志纠错
+
+GET `/api/service-ops/services` 增加 `pm2Home: string`（schema 可选以兼容旧响应），供终端查询相同实例。人工 control 前端通过现有 apiFetch `{method:"POST",csrf:true,body:对象}` 传输，禁止预先序列化 body。
+
+GET `/:id/logs` 继续不接受客户端文件路径。按 ADR-052，精确 PM2 登记日志可位于所属登记项目，前提是唯一应用/完整名称/namespace/项目身份和 canonical 边界一致，普通文件、O_NOFOLLOW 与文件身份复核，原限额/脱敏不变。未知身份/其他项目/越界/symlink 拒绝；历史项目路径不能授予权限。
+
+### M4-R4 当前服务列表
+
+`GET /api/service-ops/services` 的 `items` 排除可靠 PM2 对账确认已不存在的应用。已停止但仍登记在 PM2 的应用保留。失联或身份冲突不推断删除，沿用上次确认存在性。原目标 ID 的详情/历史仍可查询，重新部署同名应用恢复原关联；响应 schema 不变。

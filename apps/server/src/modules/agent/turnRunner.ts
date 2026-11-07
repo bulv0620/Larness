@@ -17,7 +17,6 @@ import {
   AcquireTerminalControlParamsSchema,
   type AssistantDeltaEvent,
   CommandParamsSchema,
-  DeploymentTargetIdSchema,
   FileResultTargetSchema,
   InterruptTerminalParamsSchema,
   PlanParamsSchema,
@@ -114,9 +113,7 @@ export interface TurnRunnerOptions {
   terminals?: TerminalManager;
   git?: GitManager;
   services?: ServiceManager;
-  opsRegistry?: ToolRegistry;
-  serviceOps?: import("../service-ops/serviceOps.js").ServiceOpsRuntime;
-  serviceActionAuthorizations?: import("../service-ops/serviceActions.js").ServiceActionAuthorizationService;
+  pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
 }
 
 export type TurnRunResult = {
@@ -330,17 +327,11 @@ export class TurnRunner {
           clientSessionId: z.string().min(1),
           policySnapshotId: z.string().min(1),
           policy: z.enum(["standard", "strict", "readonly", "autonomous"]),
-          domain: z.literal("service-ops").optional(),
-          targetId: DeploymentTargetIdSchema.optional(),
         }),
       })
       .safeParse(turnInput);
     const snapshot = execution.success ? execution.data.executionContext : undefined;
     const policy = snapshot?.policy ?? approvalPolicy(session.approvalPolicyId);
-    const opsDomain = snapshot?.domain === "service-ops" && typeof snapshot.targetId === "string";
-    const activeRegistry = opsDomain
-      ? (this.#options.opsRegistry ?? this.#options.registry)
-      : this.#options.registry;
     let projectLock: ProjectWriteLock | null = null;
     let usage: ProviderUsage = {};
     let steps = 0;
@@ -426,7 +417,7 @@ export class TurnRunner {
     heartbeat.unref();
     const execute = (request: ToolCallRequest, approvalId?: string) =>
       executeTool(
-        { db: this.#options.db, registry: activeRegistry, now: this.#options.now },
+        { db: this.#options.db, registry: this.#options.registry, now: this.#options.now },
         {
           sessionId: session.id,
           turnId: turn.id,
@@ -509,7 +500,7 @@ export class TurnRunner {
                 text !== completeText ||
                 output.chunks.length >= 500;
               return {
-                ok: row.status === "COMPLETED",
+                ok: row.status === "COMPLETED" && row.exitCode === 0,
                 summary: `Command ${row.status}; exit code ${row.exitCode ?? "—"}`,
                 errorCode: row.reasonCode ?? undefined,
                 truncated,
@@ -904,6 +895,8 @@ export class TurnRunner {
                 summary: `临时服务 ${service.name} ${service.status}`,
                 data: {
                   serviceId: service.id,
+                  kind: service.kind,
+                  projectId: service.projectId,
                   name: service.name,
                   status: service.status,
                   terminalId: service.terminalId,
@@ -996,100 +989,6 @@ export class TurnRunner {
               };
             }
           },
-          listFormalServices: async (params) => {
-            if (!opsDomain || !this.#options.serviceOps)
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Operations domain unavailable",
-              };
-            const parsed = z
-              .object({ limit: z.int().min(1).max(200).default(50) })
-              .safeParse(params);
-            if (!parsed.success)
-              return { ok: false, errorCode: "VALIDATION_ERROR", summary: "Invalid list request" };
-            const items = this.#options.serviceOps
-              .listServices()
-              .filter((item) => item.targetId === snapshot?.targetId)
-              .slice(0, parsed.data.limit);
-            return { ok: true, summary: `正式服务 ${items.length} 项`, data: items };
-          },
-          readFormalServiceLogs: async (params) => {
-            if (!opsDomain || !this.#options.serviceOps)
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Operations domain unavailable",
-              };
-            const parsed = z.object({ targetId: DeploymentTargetIdSchema }).safeParse(params);
-            if (!parsed.success || parsed.data.targetId !== snapshot?.targetId)
-              return { ok: false, errorCode: "FORBIDDEN", summary: "Formal service outside scope" };
-            const logs = await this.#options.serviceOps.logs(parsed.data.targetId);
-            return { ok: true, summary: "正式服务日志", data: logs };
-          },
-          formalServiceAction: async (params) => {
-            if (
-              !opsDomain ||
-              !this.#options.serviceOps ||
-              !this.#options.serviceActionAuthorizations
-            )
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Operations domain unavailable",
-              };
-            const parsed = z
-              .object({
-                targetId: DeploymentTargetIdSchema,
-                action: z.enum(["start", "stop", "restart"]),
-              })
-              .safeParse(params);
-            if (!parsed.success || parsed.data.targetId !== snapshot?.targetId)
-              return { ok: false, errorCode: "FORBIDDEN", summary: "Formal service outside scope" };
-            const service = this.#options.serviceOps.getService(parsed.data.targetId);
-            const context = {
-              domain: "service-ops" as const,
-              projectId: service.projectId,
-              targetId: parsed.data.targetId,
-              action: parsed.data.action,
-              policy,
-              policySnapshotId: snapshot?.policySnapshotId ?? `pol_${turn.id}`,
-              actor: { type: "agent" as const, id: snapshot?.clientSessionId ?? session.id },
-              clientSessionId: snapshot?.clientSessionId ?? null,
-              sessionId: session.id,
-              turnId: turn.id,
-            };
-            const authorization = this.#options.serviceActionAuthorizations.authorize({
-              targetId: parsed.data.targetId,
-              action: parsed.data.action,
-              requestKey: `ops:${turn.id}:${request.id}`,
-              context,
-            });
-            const decided =
-              authorization.status === "PENDING"
-                ? this.#options.serviceActionAuthorizations.decide({
-                    authorizationId: authorization.id,
-                    decision: "approve",
-                    decidedBy: context.actor.id,
-                  })
-                : authorization;
-            if (decided.status !== "AUTHORIZED")
-              return { ok: false, errorCode: "FORBIDDEN", summary: "Service action denied" };
-            this.#options.serviceActionAuthorizations.consume({
-              authorizationId: decided.id,
-              consumeKey: `ops:${turn.id}:${request.id}:execute`,
-              context,
-            });
-            const updated = await this.#options.serviceOps.executeAction(
-              parsed.data.targetId,
-              parsed.data.action,
-            );
-            return {
-              ok: true,
-              summary: `正式服务 ${updated.name} ${parsed.data.action}：${updated.observedState}`,
-              data: updated,
-            };
-          },
           gitAction: async (params, assertAuthorized) => {
             if (!this.#options.git || !session.projectId)
               return {
@@ -1147,12 +1046,12 @@ export class TurnRunner {
       const context = assembleContext(
         {
           db: this.#options.db,
-          registry: activeRegistry,
+          registry: this.#options.registry,
           maxContextTokens: resolved.adapter.capabilities.maxContextTokens,
           policy,
           contextRatio: this.#budget.contextRatio,
           workspaceRoot: projectRoot,
-          ...(opsDomain ? { domain: "service-ops" as const, opsTargetId: snapshot?.targetId } : {}),
+          pm2Context: await this.#options.pm2Context?.(session.projectId),
         },
         session,
         turn,
@@ -1187,6 +1086,21 @@ export class TurnRunner {
           });
         }
 
+        if (steps > 0 && this.#options.pm2Context) {
+          const refreshed = assembleContext(
+            {
+              db: this.#options.db,
+              registry: this.#options.registry,
+              maxContextTokens: resolved.adapter.capabilities.maxContextTokens,
+              policy,
+              workspaceRoot: projectRoot,
+              pm2Context: await this.#options.pm2Context(session.projectId),
+            },
+            session,
+            turn,
+          );
+          messages[0] = refreshed.messages[0];
+        }
         steps += 1;
         const assistantMessageId = newId("msg");
         let text = "";

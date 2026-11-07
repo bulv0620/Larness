@@ -1,11 +1,13 @@
-import { chmod, lstat, mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { chmod, lstat, mkdir, open, realpath, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { canonicalDirectory, isInsideRoot } from "@larness/resources";
+import { canonicalDirectory, isInsideRoot, OutputRedactor } from "@larness/resources";
 import {
   type DeploymentAuthorizationDto,
   type DeploymentSpec,
-  DeploymentSpecSchema,
+  DeploymentTargetNameSchema,
+  type ServiceControlInput,
   type ServiceOpsDeploymentDto,
   type ServiceOpsEventPayload,
   type ServiceOpsObservedState,
@@ -17,10 +19,23 @@ import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import type { DeploymentArtifactRow, DeploymentTargetRow } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
-import { acquireResourceLock, releaseResourceLock, renewResourceLock } from "../locks/service.js";
+import {
+  acquireResourceLock,
+  findResourceLock,
+  releaseResourceLock,
+  renewResourceLock,
+} from "../locks/service.js";
+import { getProjectById } from "../projects/repository.js";
 import type { ResourceEventBus } from "../resources/events.js";
-import { appendResourceEvent } from "../resources/repository.js";
+import {
+  appendResourceEvent,
+  findOperation,
+  insertOperation,
+  pendingOperations,
+  updateOperation,
+} from "../resources/repository.js";
 import type { DeploymentAuthorizationService } from "./authorization.js";
+import { canonicalJson, sha256 } from "./canonical.js";
 import type { DeploymentManager } from "./deployments.js";
 import { DeploymentError } from "./errors.js";
 import type { Pm2Adapter } from "./pm2.js";
@@ -38,8 +53,10 @@ import {
   deploymentOpsDto,
   insertDeploymentOps,
   insertServiceOpsRow,
+  listCurrentServiceOpsRows,
   listDeploymentOps,
   listServiceOpsRows,
+  serviceOpsConfig,
   serviceOpsDto,
   serviceOpsRow,
   updateDeploymentOps,
@@ -48,13 +65,9 @@ import {
 import { artifactDirectory, deploymentArtifactRoot, deploymentLogRoot } from "./storage.js";
 
 const SERVICE_NAMESPACE = "larness";
+const CliLogSchema = z.object({ source: z.literal("pm2-cli"), logPath: z.string().min(1) });
 const LOCK_TTL_MS = 60_000;
 const LOCK_RENEW_MS = 20_000;
-
-const StoredConfigSchema = z.strictObject({
-  spec: DeploymentSpecSchema,
-  pm2Name: z.string().min(1).max(128),
-});
 
 export interface ServiceOpsRuntimeOptions {
   db: Database;
@@ -64,6 +77,7 @@ export interface ServiceOpsRuntimeOptions {
   pm2: Pm2Adapter | null;
   events: ResourceEventBus;
   now?: () => number;
+  secrets?: () => string[];
 }
 
 export interface ApplyDeploymentInput {
@@ -111,6 +125,9 @@ export class ServiceOpsRuntime {
   readonly #pm2: Pm2Adapter | null;
   readonly #events: ResourceEventBus;
   readonly #now: () => number;
+  readonly #secrets: () => string[];
+  #reconciling: Promise<number> | null = null;
+  #unassociated: { pm2Name: string; reason: string }[] = [];
 
   constructor(options: ServiceOpsRuntimeOptions) {
     this.#db = options.db;
@@ -120,14 +137,23 @@ export class ServiceOpsRuntime {
     this.#pm2 = options.pm2;
     this.#events = options.events;
     this.#now = options.now ?? Date.now;
+    this.#secrets = options.secrets ?? (() => []);
   }
 
   available(): boolean {
     return this.#pm2 !== null;
   }
 
+  get pm2Home(): string {
+    return path.join(this.#dataDir, "pm2");
+  }
+
+  listUnassociatedServices() {
+    return this.#unassociated.map((item) => ({ ...item }));
+  }
+
   listServices(): ServiceOpsServiceDto[] {
-    return listServiceOpsRows(this.#db).map((row) => this.#serviceDto(row));
+    return listCurrentServiceOpsRows(this.#db).map((row) => this.#serviceDto(row));
   }
 
   getService(targetId: string): ServiceOpsServiceDto {
@@ -143,23 +169,79 @@ export class ServiceOpsRuntime {
   async logs(targetId: string): Promise<ServiceOpsLogs> {
     const row = serviceOpsRow(this.#db, targetId);
     if (!row) throw new DeploymentError("NOT_FOUND", "Formal service was not found");
-    const file = this.#logPath(targetId);
-    try {
-      const info = await stat(file);
-      if (!info.isFile() || info.size > 1024 * 1024) {
-        throw new DeploymentError("DEPLOY_UNAVAILABLE", "Service log is unavailable");
+    const app = row.pm2Name.startsWith("larness:") ? await this.#pm2?.find(row.pm2Name) : null;
+    if (
+      app &&
+      typeof app !== "string" &&
+      (app.namespace !== SERVICE_NAMESPACE || app.name !== row.pm2Name)
+    ) {
+      throw new DeploymentError("DEPLOY_UNAVAILABLE", "Service log identity is unavailable");
+    }
+    let storedLog: string | undefined;
+    if (row.pm2Name.startsWith("larness:")) {
+      try {
+        const parsed = CliLogSchema.safeParse(JSON.parse(row.configJson));
+        if (parsed.success) storedLog = parsed.data.logPath;
+      } catch {
+        /* A malformed observation cannot grant access to another log. */
       }
+    }
+    const file = app && typeof app !== "string" ? app.log : (storedLog ?? this.#logPath(targetId));
+    let handle: Awaited<ReturnType<typeof open>> | undefined;
+    try {
+      const original = await lstat(file);
+      if (!original.isFile() || original.isSymbolicLink())
+        throw new DeploymentError("DEPLOY_UNAVAILABLE", "Service log is unavailable");
+      const candidate = await realpath(file);
+      const roots = await Promise.all([
+        realpath(path.join(this.#dataDir, "logs")).catch(() => ""),
+        realpath(path.join(this.#dataDir, "pm2", "logs")).catch(() => ""),
+      ]);
+      if (
+        app &&
+        typeof app !== "string" &&
+        row.namespace === SERVICE_NAMESPACE &&
+        row.pm2Name === `larness:${row.projectId}:${row.name}`
+      ) {
+        const project = getProjectById(this.#db, row.projectId);
+        if (project) {
+          const root = await realpath(project.realPath).catch(() => "");
+          if (root === project.realPath) roots.push(root);
+        }
+      }
+      if (!roots.some((root) => root && isInsideRoot(root, candidate)))
+        throw new DeploymentError("DEPLOY_UNAVAILABLE", "Service log is outside managed storage");
+      handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+      const info = await handle.stat();
+      if (
+        !info.isFile() ||
+        info.dev !== original.dev ||
+        info.ino !== original.ino ||
+        (await realpath(file)) !== candidate
+      )
+        throw new DeploymentError("DEPLOY_UNAVAILABLE", "Service log is unavailable");
+      const buffer = Buffer.alloc(Math.min(info.size, 1024 * 1024));
+      const { bytesRead } = await handle.read(
+        buffer,
+        0,
+        buffer.length,
+        Math.max(0, info.size - buffer.length),
+      );
       return {
-        text: await readFile(file, "utf8"),
+        text: new OutputRedactor(this.#secrets()).push(
+          buffer.subarray(0, bytesRead).toString("utf8"),
+          true,
+        ),
         cursor: info.size,
-        truncated: info.size >= 1024 * 1024,
+        truncated: info.size > buffer.length,
       };
     } catch (error) {
       if (error instanceof DeploymentError) throw error;
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT")
         return { text: "", cursor: 0, truncated: false };
-      }
       throw new DeploymentError("DEPLOY_UNAVAILABLE", "Service log is unavailable");
+    } finally {
+      await handle?.close();
     }
   }
 
@@ -320,6 +402,208 @@ export class ServiceOpsRuntime {
         { db: this.#db, now: this.#now },
         { id: lock.id, fencingToken: lock.fencingToken },
       );
+    }
+  }
+
+  async controlService(
+    targetId: string,
+    input: ServiceControlInput,
+    clientSessionId: string,
+    assertAuthorized: () => void,
+  ): Promise<ServiceOpsServiceDto> {
+    const row = serviceOpsRow(this.#db, targetId);
+    const project = row ? getProjectById(this.#db, row.projectId) : null;
+    if (!row || !project) throw new DeploymentError("NOT_FOUND", "Service project was not found");
+    if (
+      row.pm2Name !== input.expectedPm2Name ||
+      row.namespace !== SERVICE_NAMESPACE ||
+      (row.pm2Name.startsWith("larness:") && row.pm2Name !== `larness:${row.projectId}:${row.name}`)
+    )
+      throw new DeploymentError("DEPLOY_CONFLICT", "Service identity changed; refresh first");
+    assertAuthorized();
+    const paramsHash = sha256(
+      canonicalJson({ targetId, action: input.action, pm2Name: row.pm2Name }),
+    );
+    const previous = findOperation(this.#db, clientSessionId, input.requestKey, "service.control");
+    if (previous) {
+      if (previous.paramsHash !== paramsHash || previous.status !== "COMPLETED")
+        throw new DeploymentError(
+          "DEPLOY_CONFLICT",
+          "Operation already exists; inspect current state",
+        );
+      await this.reconcile();
+      assertAuthorized();
+      return this.getService(targetId);
+    }
+    const pm2 = this.#pm2;
+    if (!pm2) throw new DeploymentError("DEPLOY_UNAVAILABLE", "PM2 is unavailable");
+    const options = { db: this.#db, now: this.#now };
+    const operationId = newId("rop");
+    const projectLock = acquireResourceLock(options, {
+      resourceType: "project",
+      resourceId: project.id,
+      owner: clientSessionId,
+      executionId: operationId,
+      ttlMs: LOCK_TTL_MS,
+    });
+    if (!projectLock) throw new DeploymentError("RESOURCE_LOCKED", "Project is busy");
+    const serviceLock = acquireResourceLock(options, {
+      resourceType: "service",
+      resourceId: targetId,
+      owner: clientSessionId,
+      executionId: operationId,
+      ttlMs: LOCK_TTL_MS,
+    });
+    if (!serviceLock) {
+      releaseResourceLock(options, projectLock);
+      throw new DeploymentError("RESOURCE_LOCKED", "Service is busy");
+    }
+    const locks = [projectLock, serviceLock];
+    let lost = false;
+    let prepared = false;
+    const check = () => {
+      assertAuthorized();
+      for (const lock of locks)
+        if (!renewResourceLock(options, { ...lock, ttlMs: LOCK_TTL_MS })) lost = true;
+      if (lost) throw new DeploymentError("RESOURCE_LOCKED", "Service lock was lost");
+    };
+    const heartbeat = setInterval(() => {
+      try {
+        check();
+      } catch {
+        lost = true;
+      }
+    }, LOCK_RENEW_MS);
+    heartbeat.unref();
+    try {
+      const app = await pm2.find(row.pm2Name);
+      if (typeof app === "string" || app.namespace !== SERVICE_NAMESPACE)
+        throw new DeploymentError("DEPLOY_CONFLICT", "PM2 service identity is unavailable");
+      const fingerprint = (value: typeof app) =>
+        sha256(
+          canonicalJson({
+            name: value.name,
+            namespace: value.namespace ?? null,
+            entry: value.entry,
+            cwd: value.cwd,
+            interpreter: value.interpreter,
+            args: value.args ?? [],
+          }),
+        );
+      const identity = fingerprint(app);
+      check();
+      if (findOperation(this.#db, clientSessionId, input.requestKey, "service.control"))
+        throw new DeploymentError(
+          "DEPLOY_CONFLICT",
+          "Operation already exists; inspect current state",
+        );
+      const now = this.#now();
+      immediateTransaction(this.#db, (tx) => {
+        insertOperation(tx, {
+          id: operationId,
+          scopeKey: `project:${project.id}`,
+          rootRealPath: project.realPath,
+          kind: "service.control",
+          status: "WRITING",
+          paramsHash,
+          idempotencyKey: input.requestKey,
+          clientSessionId,
+          path: row.pm2Name,
+          expectedVersion: identity,
+          targetVersion: identity,
+          lockId: serviceLock.id,
+          fencingToken: serviceLock.fencingToken,
+          resultJson: JSON.stringify({ targetId, action: input.action }),
+          errorCode: null,
+          createdAt: now,
+          updatedAt: now,
+        });
+        appendAudit(tx, {
+          action: `service.control.${input.action}.requested`,
+          decision: "allow",
+          clientSessionId,
+          resourceType: "service_ops_service",
+          resourceId: targetId,
+          now,
+        });
+      });
+      prepared = true;
+      check();
+      if (input.action === "stop") await pm2.stop(row.pm2Name);
+      else if (input.action === "restart" || app.status !== "online")
+        await pm2.restart(row.pm2Name, 10_000, false);
+      let current = await pm2.find(row.pm2Name);
+      const matches = () =>
+        typeof current !== "string" &&
+        fingerprint(current) === identity &&
+        (input.action === "stop"
+          ? current.status === "stopped"
+          : current.status === "online" && !!current.pid);
+      for (let attempt = 0; attempt < 10 && !matches(); attempt++) {
+        await delay(200);
+        current = await pm2.find(row.pm2Name);
+      }
+      check();
+      if (!matches() || typeof current === "string")
+        throw new DeploymentError(
+          "DEPLOY_UNAVAILABLE",
+          "Service result is unconfirmed; refresh state and logs",
+        );
+      const desiredState = input.action === "stop" ? "stopped" : "running";
+      const pid = desiredState === "stopped" ? null : (current.pid ?? null);
+      const reasonCode = desiredState === "running" ? "HEALTH_UNVERIFIED" : null;
+      const endedAt = this.#now();
+      const event = immediateTransaction(this.#db, (tx) => {
+        updateServiceOpsRow(tx, targetId, {
+          desiredState,
+          observedState: desiredState,
+          pid,
+          reasonCode,
+          lastHealthAt: null,
+          updatedAt: endedAt,
+        });
+        updateOperation(tx, operationId, { status: "COMPLETED", updatedAt: endedAt });
+        appendAudit(tx, {
+          action: `service.control.${input.action}`,
+          decision: "allow",
+          clientSessionId,
+          resourceType: "service_ops_service",
+          resourceId: targetId,
+          now: endedAt,
+        });
+        return appendResourceEvent(
+          tx,
+          `ops:${targetId}`,
+          "service-ops.status",
+          {
+            desiredState,
+            observedState: desiredState,
+            pid,
+            reasonCode,
+            version: row.currentVersion,
+            artifactHash: null,
+            deploymentId: null,
+          },
+          endedAt,
+        );
+      });
+      this.#events.publish(event);
+      return this.getService(targetId);
+    } catch (error) {
+      if (prepared)
+        updateOperation(this.#db, operationId, {
+          status: "FAILED",
+          errorCode: error instanceof DeploymentError ? error.code : "DEPLOY_UNAVAILABLE",
+          updatedAt: this.#now(),
+        });
+      if (error instanceof DeploymentError) throw error;
+      throw new DeploymentError(
+        "DEPLOY_UNAVAILABLE",
+        "Service control failed; inspect current state",
+      );
+    } finally {
+      clearInterval(heartbeat);
+      for (const lock of locks.reverse()) releaseResourceLock(options, lock);
     }
   }
 
@@ -486,54 +770,200 @@ export class ServiceOpsRuntime {
     }
   }
 
-  async reconcile(): Promise<number> {
+  reconcile(): Promise<number> {
+    if (this.#reconciling) return this.#reconciling;
+    this.#reconciling = this.#reconcile().finally(() => {
+      this.#reconciling = null;
+    });
+    return this.#reconciling;
+  }
+
+  async #reconcile(): Promise<number> {
     let changed = 0;
-    for (const row of listServiceOpsRows(this.#db)) {
-      const config = this.#parseConfig(row.configJson);
-      let observed: ServiceOpsObservedState;
-      let pid: number | null = null;
-      let reason: string | null = null;
-      if (this.#pm2 === null) {
-        observed = "unknown";
-        reason = "PM2_UNAVAILABLE";
-      } else {
-        const app = await this.#pm2.find(row.pm2Name);
-        if (app === "unknown") {
-          observed = "unknown";
-          reason = "PM2_UNKNOWN";
-        } else if (app === "missing") {
-          observed = row.desiredState === "running" ? "failed" : "stopped";
-          reason = row.desiredState === "running" ? "PM2_MISSING" : null;
-        } else if (app.status !== "online") {
-          observed = row.desiredState === "running" ? "failed" : "stopped";
-          reason = app.status.toUpperCase();
-        } else {
-          pid = app.pid ?? null;
-          const healthy = config ? await this.#health(config.spec.health) : false;
-          observed = healthy ? "running" : "unhealthy";
-          reason = healthy ? null : "HEALTH_FAILED";
+    const apps = this.#pm2 ? await this.#pm2.list() : "unknown";
+    this.#unassociated = [];
+    if (apps !== "unknown") {
+      const knownNames = new Set(listServiceOpsRows(this.#db).map((row) => row.pm2Name));
+      for (const app of apps) {
+        if (app.namespace !== SERVICE_NAMESPACE) {
+          this.#unassociated.push({ pm2Name: app.name, reason: "NAMESPACE_UNMANAGED" });
+          continue;
+        }
+        if (!app.name.startsWith("larness:")) {
+          if (!knownNames.has(app.name))
+            this.#unassociated.push({ pm2Name: app.name, reason: "PROJECT_ASSOCIATION_MISSING" });
+          continue;
+        }
+        const parts = app.name.split(":");
+        const projectId = parts[1];
+        const name = DeploymentTargetNameSchema.safeParse(parts[2]);
+        const project = projectId ? getProjectById(this.#db, projectId) : null;
+        if (
+          parts.length !== 3 ||
+          !name.success ||
+          !project ||
+          apps.filter((item) => item.name === app.name).length !== 1
+        ) {
+          this.#unassociated.push({ pm2Name: app.name, reason: "PROJECT_ASSOCIATION_INVALID" });
+          continue;
+        }
+        const target = this.#deployments.ensureTarget({ projectId: project.id, name: name.data });
+        const existing = serviceOpsRow(this.#db, target.id);
+        if (existing && existing.pm2Name !== app.name) {
+          this.#unassociated.push({ pm2Name: app.name, reason: "PROJECT_ASSOCIATION_CONFLICT" });
+          continue;
+        }
+        if (!existing) {
+          const now = this.#now();
+          immediateTransaction(this.#db, (tx) =>
+            insertServiceOpsRow(tx, {
+              targetId: target.id,
+              projectId: project.id,
+              name: name.data,
+              namespace: SERVICE_NAMESPACE,
+              pm2Name: app.name,
+              desiredState: "running",
+              observedState: "unknown",
+              currentArtifactId: null,
+              currentVersion: null,
+              configJson: JSON.stringify({ source: "pm2-cli", logPath: app.log }),
+              pid: null,
+              lastHealthAt: null,
+              reasonCode: "AWAITING_OBSERVATION",
+              createdAt: now,
+              updatedAt: now,
+            }),
+          );
         }
       }
-      if (observed === row.observedState && pid === row.pid && reason === row.reasonCode) continue;
-      const now = this.#now();
+      this.#unassociated = [
+        ...new Map(this.#unassociated.map((item) => [item.pm2Name, item])).values(),
+      ];
+    }
+    for (const operation of pendingOperations(this.#db).filter(
+      (item) => item.kind === "service.control",
+    )) {
+      const lock = findResourceLock(
+        this.#db,
+        "service",
+        listServiceOpsRows(this.#db).find((item) => item.pm2Name === operation.path)?.targetId ??
+          "",
+      );
+      // The persisted lock ID and token identify this attempt; another lease cannot complete it.
+      if (
+        lock?.id === operation.lockId &&
+        lock.fencingToken === operation.fencingToken &&
+        lock.expiresAt > this.#now()
+      )
+        continue;
       immediateTransaction(this.#db, (tx) => {
-        updateServiceOpsRow(tx, row.targetId, {
-          observedState: observed,
-          pid,
-          reasonCode: reason,
-          lastHealthAt: observed === "running" ? now : row.lastHealthAt,
-          updatedAt: now,
+        updateOperation(tx, operation.id, {
+          status: "FAILED",
+          errorCode: "DEPLOY_CONFLICT",
+          updatedAt: this.#now(),
+        });
+        appendAudit(tx, {
+          action: "service.control.interrupted",
+          decision: "deny",
+          clientSessionId: operation.clientSessionId,
+          resourceType: "resource_operation",
+          resourceId: operation.id,
+          now: this.#now(),
         });
       });
-      this.#emit(row.targetId, {
-        observedState: observed,
-        desiredState: row.desiredState,
-        version: row.currentVersion as ServiceOpsEventPayload["version"],
-        artifactHash: null,
-        pid,
-        deploymentId: null,
-        reasonCode: reason,
+    }
+    for (const row of listServiceOpsRows(this.#db)) {
+      const cli = row.pm2Name.startsWith("larness:");
+      const matches = apps === "unknown" ? [] : apps.filter((item) => item.name === row.pm2Name);
+      const app = matches.length === 1 ? matches[0] : undefined;
+      const identityConflict = matches.length > 1 || (app && app.namespace !== SERVICE_NAMESPACE);
+      let observed: ServiceOpsObservedState;
+      let desired = row.desiredState;
+      let pid: number | null = null;
+      let reason: string | null = null;
+      if (apps === "unknown") {
+        observed = "unknown";
+        reason = this.#pm2 ? "PM2_UNKNOWN" : "PM2_UNAVAILABLE";
+      } else if (identityConflict) {
+        observed = "unknown";
+        reason = "PM2_IDENTITY_CONFLICT";
+      } else if (!app) {
+        observed = cli ? "stopped" : row.desiredState === "running" ? "failed" : "stopped";
+        if (cli) desired = "stopped";
+        reason = "PM2_MISSING";
+      } else if (cli) {
+        pid = app.pid && app.pid > 0 ? app.pid : null;
+        desired = app.status === "stopped" ? "stopped" : "running";
+        observed =
+          app.status === "online" && pid
+            ? "running"
+            : app.status === "stopped"
+              ? "stopped"
+              : "failed";
+        reason =
+          observed === "running"
+            ? "HEALTH_UNVERIFIED"
+            : observed === "stopped"
+              ? null
+              : app.status.toUpperCase();
+      } else if (app.status !== "online") {
+        observed = app.status === "stopped" ? "stopped" : "failed";
+        if (app.status === "stopped") desired = "stopped";
+        reason = app.status === "stopped" ? null : app.status.toUpperCase();
+      } else {
+        pid = app.pid ?? null;
+        observed = pid ? "running" : "unknown";
+        reason = row.lastHealthAt === null ? "HEALTH_UNVERIFIED" : null;
+      }
+      const now = this.#now();
+      const config = serviceOpsConfig(row);
+      const wasPresent =
+        typeof config.pm2Present === "boolean"
+          ? config.pm2Present
+          : row.reasonCode !== "PM2_MISSING";
+      const pm2Present = apps === "unknown" || identityConflict ? wasPresent : !!app;
+      const configJson = JSON.stringify({
+        ...config,
+        ...(cli && app && !identityConflict ? { source: "pm2-cli", logPath: app.log } : {}),
+        pm2Present,
       });
+      if (
+        observed === row.observedState &&
+        pid === row.pid &&
+        reason === row.reasonCode &&
+        desired === row.desiredState &&
+        pm2Present === wasPresent
+      ) {
+        updateServiceOpsRow(this.#db, row.targetId, { updatedAt: now, configJson });
+        continue;
+      }
+      const event = immediateTransaction(this.#db, (tx) => {
+        updateServiceOpsRow(tx, row.targetId, {
+          observedState: observed,
+          desiredState: desired,
+          pid,
+          reasonCode: reason,
+          lastHealthAt: row.lastHealthAt,
+          updatedAt: now,
+          configJson,
+        });
+        return appendResourceEvent(
+          tx,
+          `ops:${row.targetId}`,
+          "service-ops.status",
+          {
+            observedState: observed,
+            desiredState: desired,
+            version: row.currentVersion,
+            artifactHash: null,
+            pid,
+            deploymentId: null,
+            reasonCode: reason,
+          },
+          now,
+        );
+      });
+      this.#events.publish(event);
       changed += 1;
     }
     return changed;
@@ -576,19 +1006,15 @@ export class ServiceOpsRuntime {
     return { targetId: target.id, pm2Name: name };
   }
 
-  #parseConfig(json: string): z.infer<typeof StoredConfigSchema> | null {
-    try {
-      return StoredConfigSchema.parse(JSON.parse(json));
-    } catch {
-      return null;
-    }
-  }
-
   #serviceDto(row: ReturnType<typeof serviceOpsRow>): ServiceOpsServiceDto {
     if (!row) throw new DeploymentError("NOT_FOUND", "Formal service was not found");
     const dto = serviceOpsDto(row);
     const artifact = row.currentArtifactId ? artifactById(this.#db, row.currentArtifactId) : null;
-    return { ...dto, artifactHash: artifact?.artifactHash ?? null };
+    return {
+      ...dto,
+      projectName: getProjectById(this.#db, row.projectId)?.name ?? null,
+      artifactHash: artifact?.artifactHash ?? null,
+    };
   }
 
   async #writeConfig(
@@ -973,14 +1399,6 @@ export class ServiceOpsRuntime {
     this.#events.publish(event);
     void service;
     return deploymentOpsDto(this.#requireDeployment(deploymentId));
-  }
-
-  #emit(targetId: string, payload: ServiceOpsEventPayload): void {
-    const now = this.#now();
-    const row = immediateTransaction(this.#db, (tx) =>
-      appendResourceEvent(tx, `ops:${targetId}`, "service-ops.status", payload, now),
-    );
-    this.#events.publish(row);
   }
 
   #requireDeployment(id: string): import("../../db/schema.js").ServiceOpsDeploymentRow {

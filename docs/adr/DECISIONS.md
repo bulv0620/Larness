@@ -124,3 +124,13 @@
 - [ADR-049 服务运维改为弹窗](ADR-049-service-ops-dialog.md)：accepted（2026-11-06，用户直接要求）。左侧入口打开弹窗，不新增 `/service-ops` 路由；ADR-047 的“独立页面”展示条款由本 ADR 替代。
 
 - [ADR-048 会话开发服务与正式服务运维分域](ADR-048-service-domain-separation.md)：accepted（2026-11-06）。分离资源、数据、REST、事件、Agent 工具与执行上下文。鉴权、策略等基础设施可复用，正式部署保留来源追溯。补充 ADR-030/042/047。
+
+- [ADR-050 Agent 通过命令行部署 PM2 服务](ADR-050-pm2-cli-deployment.md)，accepted（2026-11-07，用户明确要求）。复用普通会话命令工具，注入真实 PM2 环境，通过稳定命名关联服务与项目。替代 ADR-042/046/048 的专用流水线和模型工具入口条款，原文保留。
+
+## ADR-051 · 服务运维人工启停（2026-11-07）
+
+accepted，用户明确要求。服务运维与项目服务窗视觉一致，认证人类按准确服务执行启停/重启，独立人工接口保留认证/CSRF、归属、锁/fencing、幂等和审计；Agent 保持通用命令。见 [ADR-051](ADR-051-human-pm2-service-control.md)。
+
+## ADR-052 · 所属项目 PM2 日志读取（2026-11-07）
+
+accepted，用户明确批准。允许精确 PM2 登记且属于本项目的普通日志，保留 canonical 边界/身份/脱敏/限额；历史项目路径不授予权限。同次修复前端 CSRF/JSON，并展示私有实例查询命令。[ADR-052](ADR-052-project-pm2-log-reading.md)。

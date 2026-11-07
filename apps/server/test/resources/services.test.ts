@@ -3,10 +3,11 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
-import { decideToolAccess } from "@larness/agent";
+import { createFileToolRegistry, decideToolAccess } from "@larness/agent";
 import { expect, it } from "vitest";
 import { newId } from "../../src/db/ids.js";
 import { resourceActions } from "../../src/db/schema.js";
+import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { listResourceEvents, ResourceEventBus } from "../../src/modules/resources/events.js";
@@ -17,7 +18,11 @@ import {
 } from "../../src/modules/resources/repository.js";
 import { listeningSockets, processSnapshot } from "../../src/modules/services/identity.js";
 import { ServiceManager } from "../../src/modules/services/manager.js";
-import { updateTurnRow } from "../../src/modules/sessions/repository.js";
+import {
+  getSessionById,
+  getTurnById,
+  updateTurnRow,
+} from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
 import { terminalRow } from "../../src/modules/terminals/repository.js";
@@ -184,6 +189,21 @@ it("registers a verified temporary service, replays events and unregisters when 
       const listed = services.list({ projectId: project.id, limit: 50 });
       expect(listed.items.map((item) => item.id)).toContain(registered.id);
       expect(listed.nextCursor).toBeNull();
+      const sessionRow = getSessionById(f.running.db, fixtureData.session.id);
+      const turnRow = getTurnById(f.running.db, context.turnId);
+      if (!sessionRow || !turnRow) throw new Error("missing context fixture");
+      const options = {
+        db: f.running.db,
+        registry: createFileToolRegistry(),
+        maxContextTokens: 128_000,
+        policy: "autonomous" as const,
+      };
+      const model = assembleContext(options, sessionRow, turnRow);
+      expect(model.messages[0]?.content).toContain(registered.id);
+      expect(model.messages[0]?.content).toContain(registered.terminalExecutionId);
+      expect(
+        assembleContext(options, { ...sessionRow, projectId: null }, turnRow).messages[0]?.content,
+      ).not.toContain(registered.id);
 
       const replay = await listResourceEvents(
         { db: f.running.db, dataDir: f.running.dataDir },

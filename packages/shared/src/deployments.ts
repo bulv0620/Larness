@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+export const ServiceControlInputSchema = z
+  .object({
+    action: z.enum(["start", "stop", "restart"]),
+    expectedPm2Name: z.string().min(1).max(256),
+    requestKey: z.string().min(1).max(256),
+    confirmed: z.literal(true),
+  })
+  .strict();
+export type ServiceControlInput = z.infer<typeof ServiceControlInputSchema>;
+
 const UUID = "[0-9a-f-]{36}";
 
 export const DeploymentTargetIdSchema = z.string().regex(new RegExp(`^tgt_${UUID}$`));
@@ -354,6 +364,9 @@ export const ServiceOpsServiceDtoSchema = z.object({
   targetId: DeploymentTargetIdSchema,
   projectId: z.string().min(1).max(128),
   name: DeploymentTargetNameSchema,
+  pm2Name: z.string().min(1).max(256),
+  projectName: z.string().nullable(),
+  source: z.enum(["pm2-cli", "deployment"]),
   version: DeploymentVersionSchema.nullable(),
   artifactHash: z
     .string()
@@ -367,6 +380,11 @@ export const ServiceOpsServiceDtoSchema = z.object({
   updatedAt: z.int(),
 });
 export type ServiceOpsServiceDto = z.infer<typeof ServiceOpsServiceDtoSchema>;
+export const ServiceOpsServiceListSchema = z.object({
+  pm2Home: z.string().min(1).max(4096).optional(),
+  items: z.array(ServiceOpsServiceDtoSchema),
+  unassociated: z.array(z.object({ pm2Name: z.string(), reason: z.string() })),
+});
 
 export const ServiceOpsDeploymentStatusSchema = z.enum([
   "APPLYING",
@@ -488,3 +506,29 @@ export const DEPLOYMENT_ARTIFACT_MAX_FILES = 20_000;
 export const DEPLOYMENT_ARTIFACT_MAX_PATH = 1024;
 export const DEPLOYMENT_ARTIFACT_MAX_DEPTH = 32;
 export const DEPLOYMENT_BUILD_LOG_MAX_BYTES = 1024 * 1024;
+
+export const Pm2CommandContextSchema = z.object({
+  available: z.boolean(),
+  nodeExecutable: z.string(),
+  entry: z.string().nullable(),
+  version: z.string().nullable(),
+  home: z.string(),
+  namespace: z.literal("larness"),
+  serviceNamePattern: z.literal("larness:<projectId>:<serviceKey>"),
+  project: z
+    .object({ id: z.string(), name: z.string(), root: z.string(), releaseRoot: z.string() })
+    .nullable(),
+  unassociatedServices: z.array(z.object({ pm2Name: z.string(), reason: z.string() })).optional(),
+  services: z.array(
+    z.object({
+      projectId: z.string(),
+      projectName: z.string(),
+      name: z.string(),
+      pm2Name: z.string(),
+      observedState: ServiceOpsObservedStateSchema,
+      pid: z.int().nullable(),
+      updatedAt: z.int(),
+    }),
+  ),
+});
+export type Pm2CommandContext = z.infer<typeof Pm2CommandContextSchema>;
