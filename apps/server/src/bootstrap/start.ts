@@ -35,6 +35,7 @@ import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.j
 import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileOperations } from "../modules/files/service.js";
 import { GitManager } from "../modules/git/manager.js";
+import { AgentJobExecutor } from "../modules/jobs/agentRunner.js";
 import { JobRuntime } from "../modules/jobs/runtime.js";
 import { JobService } from "../modules/jobs/service.js";
 import { type DeepSeekCatalogFetcher, resolveCatalogProvider } from "../modules/models/catalog.js";
@@ -422,14 +423,24 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       });
     }
 
+    const agentExecutor = new AgentJobExecutor({
+      db: opened.db,
+      dataDir,
+      ...(turnQueue === null
+        ? {}
+        : {
+            enqueue: (turnId: string, sessionId: string) => turnQueue?.enqueue(turnId, sessionId),
+          }),
+    });
     jobRuntime = new JobRuntime({
       db: opened.db,
       dataDir,
       logger: activeLogger,
       enabled: env.LARNESS_SCHEDULER_ENABLED !== "0",
       maxConcurrent: Number.parseInt(env.LARNESS_SCHEDULER_MAX_CONCURRENT ?? "2", 10) || 2,
+      agentRunner: (job, run, signal, timeoutMs) => agentExecutor.run(job, run, signal, timeoutMs),
     });
-    const jobs = new JobService({ db: opened.db, control: jobRuntime });
+    const jobs = new JobService({ db: opened.db, dataDir, control: jobRuntime });
 
     app = createApp({
       logger: activeLogger,

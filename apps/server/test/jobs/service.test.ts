@@ -10,7 +10,7 @@ function createService(dir: string) {
   const opened = openDatabase(path.join(dir, "larness.db"));
   runMigrations(opened.db);
   let now = 1_000_000;
-  const service = new JobService({ db: opened.db, now: () => now });
+  const service = new JobService({ db: opened.db, dataDir: dir, now: () => now });
   return {
     opened,
     service,
@@ -143,17 +143,55 @@ describe("job service", () => {
     });
   });
 
-  it("rejects agent jobs until the agent runner is available", async () => {
+  it("creates an Agent job with a hidden scheduled session", async () => {
     await withTempDir(async (dir) => {
       const { opened, service } = createService(dir);
       try {
-        expect(() =>
-          service.create({
-            ...base,
-            kind: "agent",
-            agent: { prompt: "check", approvalPolicy: "readonly" },
-          }),
-        ).toThrow(/Agent scheduled jobs are not available/);
+        const job = service.create({
+          ...base,
+          kind: "agent",
+          agent: { prompt: "check", approvalPolicy: "readonly" },
+        });
+
+        expect(job.kind).toBe("agent");
+        expect(job.agent).toMatchObject({ prompt: "check", approvalPolicy: "readonly" });
+        expect(job.agent?.sessionId).toMatch(/^ses_/);
+
+        const session = opened.sqlite
+          .prepare("SELECT origin, approval_policy_id, title FROM sessions WHERE id = ?")
+          .get(job.agent?.sessionId) as {
+          origin: string;
+          approval_policy_id: string;
+          title: string;
+        };
+        expect(session).toEqual({
+          origin: "scheduled",
+          approval_policy_id: "readonly",
+          title: "自动化 · 每日检查",
+        });
+
+        const updated = service.update(job.id, {
+          name: "改名任务",
+          agent: { prompt: "check again", approvalPolicy: "autonomous" },
+        });
+        expect(updated.agent).toMatchObject({
+          prompt: "check again",
+          approvalPolicy: "autonomous",
+        });
+
+        const after = opened.sqlite
+          .prepare("SELECT approval_policy_id, title FROM sessions WHERE id = ?")
+          .get(job.agent?.sessionId) as { approval_policy_id: string; title: string };
+        expect(after).toEqual({
+          approval_policy_id: "autonomous",
+          title: "自动化 · 改名任务",
+        });
+
+        service.archive(job.id);
+        const archived = opened.sqlite
+          .prepare("SELECT status FROM sessions WHERE id = ?")
+          .get(job.agent?.sessionId) as { status: string };
+        expect(archived.status).toBe("archived");
       } finally {
         opened.close();
       }

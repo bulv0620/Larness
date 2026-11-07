@@ -16,6 +16,7 @@ import { ensureDefaultWorkspace } from "../workspaces/default.js";
 import { jobById, runById, trimRunsForJob } from "./repository.js";
 import { nextRunAfter, scheduleFromRow } from "./schedule.js";
 import { runScript, type ScriptRunResult } from "./scriptRunner.js";
+import type { JobExecutionResult } from "./types.js";
 
 const DEFAULT_TICK_MS = 1_000;
 const DEFAULT_MAX_CONCURRENT = 2;
@@ -31,6 +32,12 @@ export interface JobRuntimeOptions {
   tickMs?: number;
   maxConcurrent?: number;
   scriptRunner?: (input: Parameters<typeof runScript>[0]) => Promise<ScriptRunResult>;
+  agentRunner?: (
+    job: ScheduledJobRow,
+    run: ScheduledJobRunRow,
+    signal: AbortSignal,
+    timeoutMs: number,
+  ) => Promise<JobExecutionResult>;
 }
 
 function failedResult(message: string): ScriptRunResult {
@@ -53,6 +60,7 @@ export class JobRuntime {
   readonly #tickMs: number;
   readonly #maxConcurrent: number;
   readonly #scriptRunner: NonNullable<JobRuntimeOptions["scriptRunner"]>;
+  readonly #agentRunner: JobRuntimeOptions["agentRunner"];
   readonly #queue: string[] = [];
   readonly #controllers = new Map<string, AbortController>();
   readonly #tasks = new Set<Promise<void>>();
@@ -69,6 +77,7 @@ export class JobRuntime {
     this.#tickMs = Math.max(options.tickMs ?? DEFAULT_TICK_MS, 250);
     this.#maxConcurrent = Math.max(1, Math.min(options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT, 4));
     this.#scriptRunner = options.scriptRunner ?? runScript;
+    this.#agentRunner = options.agentRunner;
   }
 
   start(): void {
@@ -432,12 +441,18 @@ export class JobRuntime {
     const controller = new AbortController();
     this.#controllers.set(runId, controller);
 
-    let result: ScriptRunResult;
+    let result: JobExecutionResult;
     try {
-      const cwd = await this.#cwdFor(job);
-      if (job.kind !== "script" || job.scriptSource === null) {
-        result = failedResult("Agent 定时任务尚未启用");
+      if (job.kind === "agent") {
+        if (this.#agentRunner === undefined) {
+          result = failedResult("Agent 定时任务尚未启用");
+        } else {
+          result = await this.#agentRunner(job, run, controller.signal, job.timeoutSeconds * 1000);
+        }
+      } else if (job.scriptSource === null) {
+        result = failedResult("脚本内容为空");
       } else {
+        const cwd = await this.#cwdFor(job);
         result = await this.#scriptRunner({
           dataDir: this.#dataDir,
           jobId: job.id,
@@ -472,7 +487,11 @@ export class JobRuntime {
     return project.realPath;
   }
 
-  #finalize(run: ScheduledJobRunRow, job: ScheduledJobRow | null, result: ScriptRunResult): void {
+  #finalize(
+    run: ScheduledJobRunRow,
+    job: ScheduledJobRow | null,
+    result: JobExecutionResult,
+  ): void {
     const endedAt = this.#now();
     const startedAt = run.startedAt ?? endedAt;
     this.#db
@@ -485,6 +504,8 @@ export class JobRuntime {
         output: result.output,
         errorCode: result.errorCode,
         errorMessage: result.errorMessage,
+        ...(result.sessionId === undefined ? {} : { sessionId: result.sessionId }),
+        ...(result.turnId === undefined ? {} : { turnId: result.turnId }),
       })
       .where(eq(scheduledJobRuns.id, run.id))
       .run();

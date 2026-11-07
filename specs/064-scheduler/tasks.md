@@ -2,14 +2,14 @@
 
 > 状态：`todo | in_progress | blocked | review | done`。一个任务一个提交。
 > 开始任务前更新 `STATUS.md`；完成后勾选本表并更新 `ROADMAP.md`。
-> 门禁已过：[spec](spec.md) 于 2026-11-07 转 `ready`（D1–D4 确认）。M5-2-1 已交付（`review`），下一步 M5-2-2。
+> 门禁已过：[spec](spec.md) 于 2026-11-07 转 `ready`（D1–D4 确认）。M5-2-1 / M5-2-2 已交付（`review`），下一步 M5-2-3。
 
 ## 状态总表
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M5-2-1 | 调度核心、脚本任务与 REST | 064 spec ready | `review` |
-| M5-2-2 | Agent 定时任务与策略快照 | M5-2-1 | `todo` |
+| M5-2-2 | Agent 定时任务与策略快照 | M5-2-1 | `review` |
 | M5-2-3 | 自动化任务 UI 与通知 | M5-2-2 | `todo` |
 | M5-2-4 | 调度整体验收 | M5-2-3 | `todo` |
 
@@ -46,7 +46,7 @@
 
 ### M5-2-2 Agent 定时任务与策略快照
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：M5-2-1
 - 目标：Agent 任务使用专用会话与真实 Turn，策略 / 模型 / 凭据随任务固定，支持取消与超时。
 - 交付物：
@@ -63,7 +63,13 @@
   - 单元：策略校验、DTO、错误码。
 - 涉及路径：
   - `apps/server/src/modules/jobs/agentRunner.ts`、`apps/server/src/modules/agent/queue.ts`、`apps/server/src/modules/sessions/*`、`apps/server/test/jobs/*`
-- 备注：不新增 Agent 工具；模型不能创建 / 修改任务。
+- 交付（2026-11-07）：
+  - [x] Agent 任务创建时建立 `origin=scheduled` 专用会话，标题「自动化 · <name>」，继承默认模型并写入任务策略。
+  - [x] `AgentJobExecutor`：幂等键 `job:<runId>` 创建 Turn、入队、轮询终态、超时 / 取消调用 `cancelTurn`、错误映射。
+  - [x] 任务详情返回 `sessionId`；会话删除后下次运行重建；任务归档同时归档会话。
+  - [x] 策略：只允许 `readonly` / `autonomous`；任务修改同步会话策略，下一次 Turn 生效。
+  - [x] 测试：Agent 成功 Turn、readonly 上下文、超时、取消、运行时注入与策略；`pnpm check`（server 553 / 10 skip）与 `pnpm build`。
+- 备注：不新增 Agent 工具；模型不能创建 / 修改任务。真实 Provider / 长时间 Agent 任务的取消确认仍待实测。
 
 ### M5-2-3 自动化任务 UI 与通知
 

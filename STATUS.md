@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / b / c / d / e `done`；M5-2-1 `review` |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / b / c / d / e `done`；M5-2-1 / 2-2 `review` |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,7 +59,8 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-2-1 `review`（2026-11-07，分支 `task/m5-2-scheduler-spec`）：迁移 `0022_scheduler`、调度核心、脚本执行、REST / WS、审计与限额已交付；`pnpm check` 与 `pnpm build` 通过。下一步 M5-2-2（Agent 定时任务）。
+- M5-2-2 `review`（2026-11-07，分支 `task/m5-2-scheduler-spec`）：Agent 定时任务、专用会话、策略快照、超时 / 取消已交付；`pnpm check` 与 `pnpm build` 通过。下一步 M5-2-3（自动化任务 UI）。
+- M5-2-1 `review`（2026-11-07）：迁移 `0022_scheduler`、调度核心、脚本执行、REST / WS、审计与限额已交付。
 - M5-1d `done`（2026-11-07 人类验收）：跨 Provider 上下文中性、切换提示、圆环 hover、回归与验收记录（`specs/063-multi-provider/closure-d4.md`）；M5-1d-1 / 2a / 2b / 2c / 2d / 3 / 4 全部关闭。
 - M5-1c `done`（2026-11-07 人类验收，随 M5-1d 关闭）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
@@ -254,7 +255,15 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - D1–D4 已确认：脚本内联源码 + 子进程 node；Agent 默认 `readonly`、`autonomous` 二次确认；每任务一个隐藏专用会话；错过触发默认 `skip`、可按任务 `run_once`。
 - [064 Scheduler](specs/064-scheduler/spec.md) 转 `ready`；`cron-parser@5.10.4` 与仅应用内通知随之采用。ADR-054 与 REST / WS / 数据模型契约同步。
-- 当前 M5-2-1 `review`：迁移 `0022_scheduler`、调度核心、脚本执行、REST 与通知已交付；Agent 执行归 M5-2-2。
+- 当前 M5-2-2 `review`：Agent 定时任务、专用会话与策略快照已交付；下一步 M5-2-3（自动化任务 UI）。
+
+## M5-2-2 交付（2026-11-07）
+
+- Agent 任务创建时建立 `sessions.origin='scheduled'` 专用会话，标题「自动化 · <name>」，继承默认模型并写入任务策略；普通会话列表不显示，任务详情可按 ID 打开。
+- `AgentJobExecutor` 用 `job:<runId>` 幂等键创建 Turn，经 TurnQueue 执行并轮询终态；超时 / 取消调用 `cancelTurn`，映射 succeeded / failed / timed_out / cancelled / interrupted。
+- 策略只允许 `readonly` / `autonomous`；修改任务同步会话策略，下一次 Turn 生效；任务归档同时归档会话。
+- 测试：Agent 成功 Turn、readonly 上下文、超时、取消、运行时注入；`pnpm check`（web 135、agent 40/1、server 553/10）与 `pnpm build` 通过。
+- 未验证：真实 Provider 长时间任务、真实人工取消确认；UI 归 M5-2-3。
 
 ## M5-2-1 交付（2026-11-07）
 
@@ -264,7 +273,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - REST：`/api/jobs` 列表 / 详情 / 创建 / 修改 / 归档 / 立即执行 / 运行历史 / 取消 / summary；认证 + CSRF + 项目边界 + 审计 + 限额；`workspace.jobs.changed` 通知。
 - 会话：普通列表默认过滤 `origin='user'`；任务专用会话按 ID 可读。
 - 验证：`pnpm check` 通过（web 135、agent 40 通过 / 1 跳过、server 549 通过 / 10 跳过）；`pnpm build` 通过；`test/jobs` 26 项通过。
-- 边界：Agent 任务创建当前返回 `VALIDATION_ERROR`（M5-2-2 启用）；Windows 脚本任务不支持（M5-4）；休眠 / 真实任务 UI 尚未验证。
+- 边界：Windows 脚本任务不支持（M5-4）；休眠 / 真实任务 UI 尚未验证；真实 Provider 长时间 Agent 任务待 M5-2-4。
 
 ## 已冻结
 

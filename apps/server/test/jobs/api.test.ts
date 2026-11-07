@@ -237,8 +237,11 @@ describe("jobs API", () => {
             agent: { prompt: "check", approvalPolicy: "readonly" },
           },
         });
-        expect(agent.statusCode).toBe(400);
-        expect(agent.json()).toMatchObject({ error: { code: "VALIDATION_ERROR" } });
+        expect(agent.statusCode).toBe(201);
+        expect(agent.json()).toMatchObject({
+          kind: "agent",
+          agent: { prompt: "check", approvalPolicy: "readonly" },
+        });
       } finally {
         await stopAuthorizedServer(started);
       }

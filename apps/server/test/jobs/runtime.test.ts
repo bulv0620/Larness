@@ -22,7 +22,7 @@ function fixture(dir: string) {
   const opened = openDatabase(path.join(dir, "larness.db"));
   runMigrations(opened.db);
   const now = 1_000_000;
-  const service = new JobService({ db: opened.db, now: () => now });
+  const service = new JobService({ db: opened.db, dataDir: dir, now: () => now });
   const job = service.create({
     name: "tick",
     projectId: null,
@@ -231,6 +231,66 @@ describe("job runtime", () => {
 
         const stored = opened.db.select().from(scheduledJobs).all()[0];
         expect(stored?.nextRunAt).toBeGreaterThan(now());
+      } finally {
+        await runtime.stop();
+        opened.close();
+      }
+    });
+  });
+
+  it("runs an Agent job through the injected agent runner", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+      const now = 1_000_000;
+      const service = new JobService({ db: opened.db, dataDir: dir, now: () => now });
+      const job = service.create({
+        name: "agent tick",
+        projectId: null,
+        kind: "agent",
+        schedule: { type: "interval", seconds: 60, timezone: "Asia/Shanghai" },
+        enabled: true,
+        timeoutSeconds: 60,
+        missedPolicy: "skip",
+        agent: { prompt: "check", approvalPolicy: "readonly" },
+      });
+      const runtime = new JobRuntime({
+        db: opened.db,
+        dataDir: dir,
+        now: () => now,
+        tickMs: 60_000,
+        agentRunner: async () => ({
+          status: "succeeded",
+          exitCode: 0,
+          output: "",
+          truncated: false,
+          errorCode: null,
+          errorMessage: null,
+          sessionId: job.agent?.sessionId ?? null,
+          turnId: null,
+        }),
+      });
+
+      try {
+        runtime.start();
+        opened.db
+          .update(scheduledJobs)
+          .set({ nextRunAt: 999_000 })
+          .where(eq(scheduledJobs.id, job.id))
+          .run();
+
+        await runtime.tick();
+        await waitFor(() => {
+          const run = opened.db.select().from(scheduledJobRuns).all()[0];
+          return run?.status === "succeeded";
+        });
+
+        const run = opened.db.select().from(scheduledJobRuns).all()[0];
+        expect(run).toMatchObject({
+          status: "succeeded",
+          sessionId: job.agent?.sessionId,
+          turnId: null,
+        });
       } finally {
         await runtime.stop();
         opened.close();

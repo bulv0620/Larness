@@ -13,7 +13,11 @@ import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import type { ScheduledJobRow, ScheduledJobRunRow } from "../../db/schema.js";
+import { immediateTransaction } from "../../db/transaction.js";
+import { getModelDefaultSelection } from "../models/catalog.js";
 import { getProjectById } from "../projects/repository.js";
+import { createSessionRow, updateSessionRow } from "../sessions/repository.js";
+import { defaultWorkspacePath } from "../workspaces/default.js";
 import { JobError } from "./errors.js";
 import {
   activeRunForJob,
@@ -45,18 +49,21 @@ export interface JobControl {
 
 export interface JobServiceOptions {
   db: Database;
+  dataDir: string;
   now?: () => number;
   control?: JobControl;
 }
 
 export class JobService {
   readonly #db: Database;
+  readonly #dataDir: string;
   readonly #now: () => number;
   readonly #control: JobControl | undefined;
   readonly #manualRuns = new Map<string, number>();
 
   constructor(options: JobServiceOptions) {
     this.#db = options.db;
+    this.#dataDir = options.dataDir;
     this.#now = options.now ?? Date.now;
     this.#control = options.control;
   }
@@ -94,16 +101,15 @@ export class JobService {
       throw new JobError("VALIDATION_ERROR", "Too many jobs", { limit: MAX_JOBS });
     }
 
-    if (input.kind === "agent") {
-      throw new JobError("VALIDATION_ERROR", "Agent scheduled jobs are not available yet");
-    }
-
     const projectId = this.#normalizeProjectId(input.projectId);
     assertValidSchedule(input.schedule);
-    if (projectId !== null && getProjectById(this.#db, projectId) === null) {
+    const project = projectId === null ? null : getProjectById(this.#db, projectId);
+    if (projectId !== null && project === null) {
       throw new JobError("VALIDATION_ERROR", "Project not found", { field: "projectId" });
     }
 
+    const agent = input.kind === "agent" ? input.agent : null;
+    const sessionId = agent === null ? null : newId("ses");
     const row: ScheduledJobRow = {
       id: newId("job"),
       name: input.name,
@@ -117,13 +123,13 @@ export class JobService {
       overlapPolicy: "skip",
       missedPolicy: input.missedPolicy,
       timeoutSeconds: input.timeoutSeconds,
-      scriptSource: input.script.source,
-      agentPrompt: null,
-      agentModel: null,
-      agentCredentialProfileId: null,
-      agentThinking: null,
-      agentApprovalPolicy: null,
-      sessionId: null,
+      scriptSource: input.kind === "script" ? input.script.source : null,
+      agentPrompt: agent?.prompt ?? null,
+      agentModel: agent?.model ?? null,
+      agentCredentialProfileId: agent?.credentialProfileId ?? null,
+      agentThinking: agent?.thinking ?? null,
+      agentApprovalPolicy: agent?.approvalPolicy ?? null,
+      sessionId,
       nextRunAt: input.enabled ? nextRunAfter(input.schedule, now) : null,
       lastRunAt: null,
       lastStatus: null,
@@ -132,7 +138,25 @@ export class JobService {
       archivedAt: null,
     };
 
-    insertJobRow(this.#db, row);
+    immediateTransaction(this.#db, (tx) => {
+      if (agent !== null && sessionId !== null) {
+        const selection = getModelDefaultSelection(tx);
+        createSessionRow(tx, {
+          id: sessionId,
+          projectId,
+          workspacePath: project?.realPath ?? defaultWorkspacePath(this.#dataDir),
+          title: `自动化 · ${input.name}`,
+          modelProfileId: null,
+          credentialProfileId: selection?.credentialProfileId ?? null,
+          model: selection?.model ?? null,
+          thinking: selection?.thinking ?? null,
+          approvalPolicyId: agent.approvalPolicy,
+          origin: "scheduled",
+          now,
+        });
+      }
+      insertJobRow(tx, row);
+    });
     appendAudit(this.#db, {
       action: "job.created",
       decision: "info",
@@ -151,12 +175,12 @@ export class JobService {
       throw new JobError("NOT_FOUND", "Job not found");
     }
 
-    if (current.kind === "agent") {
-      throw new JobError("VALIDATION_ERROR", "Agent scheduled jobs are not available yet");
+    if (current.kind === "script" && patch.agent !== undefined) {
+      throw new JobError("VALIDATION_ERROR", "Agent settings are not available for a script job");
     }
 
-    if (patch.agent !== undefined) {
-      throw new JobError("VALIDATION_ERROR", "Agent settings are not available for a script job");
+    if (current.kind === "agent" && patch.script !== undefined) {
+      throw new JobError("VALIDATION_ERROR", "Script settings are not available for an Agent job");
     }
 
     const now = this.#now();
@@ -185,11 +209,32 @@ export class JobService {
       missedPolicy: patch.missedPolicy ?? current.missedPolicy,
       timeoutSeconds: patch.timeoutSeconds ?? current.timeoutSeconds,
       scriptSource: patch.script?.source ?? current.scriptSource,
+      agentPrompt: patch.agent?.prompt ?? current.agentPrompt,
+      agentModel: patch.agent?.model === undefined ? current.agentModel : patch.agent.model,
+      agentCredentialProfileId:
+        patch.agent?.credentialProfileId === undefined
+          ? current.agentCredentialProfileId
+          : patch.agent.credentialProfileId,
+      agentThinking:
+        patch.agent?.thinking === undefined ? current.agentThinking : patch.agent.thinking,
+      agentApprovalPolicy: patch.agent?.approvalPolicy ?? current.agentApprovalPolicy,
       nextRunAt,
       updatedAt: now,
     };
 
-    updateJobRow(this.#db, id, next);
+    immediateTransaction(this.#db, (tx) => {
+      updateJobRow(tx, id, next);
+
+      if (current.kind === "agent" && current.sessionId !== null) {
+        updateSessionRow(tx, current.sessionId, {
+          title: `自动化 · ${next.name}`,
+          ...(next.agentApprovalPolicy === null
+            ? {}
+            : { approvalPolicyId: next.agentApprovalPolicy }),
+          updatedAt: now,
+        });
+      }
+    });
     appendAudit(this.#db, {
       action: "job.updated",
       decision: "info",
@@ -216,6 +261,10 @@ export class JobService {
       nextRunAt: null,
       updatedAt: now,
     });
+
+    if (current.kind === "agent" && current.sessionId !== null) {
+      updateSessionRow(this.#db, current.sessionId, { status: "archived", updatedAt: now });
+    }
 
     if (active !== null && active.status !== "skipped") {
       if (this.#control?.cancel(active.id)) {
