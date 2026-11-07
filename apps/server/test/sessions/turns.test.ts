@@ -8,6 +8,7 @@ import { listSessionEvents } from "../../src/modules/agent/events.js";
 import { refreshModelCatalog } from "../../src/modules/models/catalog.js";
 import { createCredential } from "../../src/modules/models/service.js";
 import { createProject } from "../../src/modules/projects/service.js";
+import { SessionError } from "../../src/modules/sessions/errors.js";
 import {
   archiveSession,
   createSession,
@@ -422,6 +423,59 @@ describe("turn service", () => {
             }),
           ),
         ).toBe("MODEL_UNSUPPORTED");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+  it("snapshots the selected credential and rejects ambiguous keys", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const store = await SecretStore.open(dir);
+        const first = createCredential(
+          { db: opened.db, secretStore: store },
+          { provider: "deepseek", label: "First", apiKey: "sk-first" },
+        );
+        createCredential(
+          { db: opened.db, secretStore: store },
+          { provider: "deepseek", label: "Second", apiKey: "sk-second" },
+        );
+        await refreshModelCatalog(
+          {
+            db: opened.db,
+            secretStore: store,
+            fetcher: async () => ({ data: [{ id: "deepseek-flash" }] }),
+          },
+          { clientSessionId: "bs_test" },
+        );
+
+        const options = { db: opened.db, dataDir: dir, now: () => 7_000 };
+        const session = await createSession(options, {});
+        const turn = createTurn(options, {
+          sessionId: session.id,
+          text: "use the first key",
+          model: "deepseek-flash",
+          credentialProfileId: first.id,
+        });
+
+        const detail = getSessionDetail(options, session.id);
+        expect(detail.activeTurn).toMatchObject({
+          id: turn.turnId,
+          model: "deepseek-flash",
+          credentialProfileId: first.id,
+        });
+        expect(detail.credentialProfileId).toBe(first.id);
+
+        const other = await createSession(options, {});
+        expect(() =>
+          createTurn(options, {
+            sessionId: other.id,
+            text: "ambiguous",
+            model: "deepseek-flash",
+          }),
+        ).toThrowError(SessionError);
       } finally {
         opened.close();
       }

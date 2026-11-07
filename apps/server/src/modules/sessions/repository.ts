@@ -27,6 +27,7 @@ export interface CreateSessionRowInput {
   workspacePath: string;
   title: string;
   modelProfileId: string | null;
+  credentialProfileId?: string | null;
   model?: string | null;
   thinking?: string | null;
   approvalPolicyId: string;
@@ -41,6 +42,7 @@ export function createSessionRow(db: DbExecutor, input: CreateSessionRowInput): 
     title: input.title,
     status: "active",
     modelProfileId: input.modelProfileId,
+    credentialProfileId: input.credentialProfileId ?? null,
     model: input.model ?? null,
     thinking: input.thinking ?? null,
     approvalPolicyId: input.approvalPolicyId,
@@ -87,6 +89,7 @@ export function updateSessionRow(
   input: {
     title?: string;
     modelProfileId?: string | null;
+    credentialProfileId?: string | null;
     model?: string | null;
     thinking?: string | null;
     approvalPolicyId?: string;
@@ -98,6 +101,9 @@ export function updateSessionRow(
   const changes = {
     ...(input.title === undefined ? {} : { title: input.title }),
     ...(input.modelProfileId === undefined ? {} : { modelProfileId: input.modelProfileId }),
+    ...(input.credentialProfileId === undefined
+      ? {}
+      : { credentialProfileId: input.credentialProfileId }),
     ...(input.model === undefined ? {} : { model: input.model }),
     ...(input.thinking === undefined ? {} : { thinking: input.thinking }),
     ...(input.approvalPolicyId === undefined ? {} : { approvalPolicyId: input.approvalPolicyId }),
@@ -118,6 +124,7 @@ export interface CreateTurnRowInput {
   id: string;
   sessionId: string;
   modelProfileId: string | null;
+  credentialProfileId?: string | null;
   provider: string | null;
   model: string | null;
   thinking?: string | null;
@@ -133,6 +140,7 @@ export function createTurnRow(db: DbExecutor, input: CreateTurnRowInput): TurnRo
     id: input.id,
     sessionId: input.sessionId,
     modelProfileId: input.modelProfileId,
+    credentialProfileId: input.credentialProfileId ?? null,
     provider: input.provider,
     model: input.model,
     thinking: input.thinking ?? null,

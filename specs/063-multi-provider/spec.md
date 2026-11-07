@@ -49,7 +49,7 @@ updated: 2026-11-07
 
 ### 4.2 目录与选择
 
-`GET /api/models/catalog` 改为分组：
+`GET /api/models/catalog` 增加 `groups`（同时保留指向最新组的扁平字段，兼容现有选择器）：
 
 ```json
 {
@@ -137,7 +137,8 @@ updated: 2026-11-07
 | ID | 范围 | 依赖 |
 |---|---|---|
 | M5-1d-1 | Provider 注册表、GLM / OpenAI-compatible 适配器、凭据与端点安全 | 本 spec ready；D1/D2 确认 |
-| M5-1d-2 | 目录分组、多 Key 绑定、能力矩阵与选择 UI | M5-1d-1 |
+| M5-1d-2a | 目录分组、凭据绑定、DeepSeek / GLM 目录（服务端） | M5-1d-1 |
+| M5-1d-2b | 多 Key / Provider 选择 UI、能力矩阵、自定义兼容端点 | M5-1d-2a |
 | M5-1d-3 | 上下文压缩（触发、摘要、降级、事件与 UI） | M5-1d-2；D3 确认 |
 | M5-1d-4 | 跨模型切换与整体验收（A8） | M5-1d-3；D4 确认 |
 

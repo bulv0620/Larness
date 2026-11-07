@@ -30,6 +30,7 @@ export interface SessionDto {
   title: string;
   status: SessionStatus;
   modelProfileId: string | null;
+  credentialProfileId: string | null;
   model: string | null;
   thinking: string | null;
   approvalPolicyId: string;
@@ -58,6 +59,7 @@ export interface UpdateSessionInput {
   id: string;
   title?: string;
   modelProfileId?: string | null;
+  credentialProfileId?: string | null;
   model?: string | null;
   thinking?: string | null;
   approvalPolicyId?: ApprovalPolicy;
@@ -79,6 +81,7 @@ export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
     title: row.title,
     status: row.status,
     modelProfileId: row.modelProfileId,
+    credentialProfileId: row.credentialProfileId,
     model: row.model,
     thinking: row.thinking,
     approvalPolicyId: row.approvalPolicyId,
@@ -260,8 +263,9 @@ export function updateSession(
 
     let model = input.model;
     let thinking = input.thinking;
+    let credentialProfileId = input.credentialProfileId;
 
-    if (model !== undefined || thinking !== undefined) {
+    if (model !== undefined || thinking !== undefined || credentialProfileId !== undefined) {
       const effectiveModel = model ?? current.model;
 
       if (effectiveModel === null || effectiveModel === undefined) {
@@ -272,9 +276,11 @@ export function updateSession(
         const selection = resolveCatalogSelection(tx, {
           model: effectiveModel,
           thinking: thinking ?? current.thinking,
+          credentialProfileId: credentialProfileId ?? current.credentialProfileId,
         });
         model = selection.model;
         thinking = selection.thinking;
+        credentialProfileId = selection.credentialProfileId;
       } catch (error) {
         if (error instanceof ModelError) {
           throw new SessionError(error.code, error.message, error.details);
@@ -287,6 +293,7 @@ export function updateSession(
     const updated = updateSessionRow(tx, input.id, {
       title,
       modelProfileId,
+      credentialProfileId,
       model,
       thinking,
       approvalPolicyId,

@@ -31,6 +31,7 @@ export interface ApiSession {
   title: string;
   status: "active" | "archived";
   modelProfileId: string | null;
+  credentialProfileId?: string | null;
   model?: string | null;
   thinking?: string | null;
   approvalPolicyId: "standard" | "strict" | "readonly" | "autonomous";
@@ -44,6 +45,7 @@ export interface ApiTurn {
   sessionId: string;
   status: string;
   modelProfileId: string | null;
+  credentialProfileId?: string | null;
   provider: string | null;
   model: string | null;
   thinking?: string | null;
@@ -114,7 +116,7 @@ export interface ApiCatalogModel {
 }
 
 export interface ApiModelCatalog {
-  provider: "deepseek";
+  provider: "deepseek" | "glm";
   credentialProfileId: string;
   credentialLabel: string;
   syncedAt: number | null;
@@ -251,6 +253,7 @@ export async function updateSession(
     modelProfileId?: string | null;
     model?: string | null;
     thinking?: string | null;
+    credentialProfileId?: string | null;
     approvalPolicyId?: "standard" | "strict" | "readonly" | "autonomous";
   },
 ): Promise<ApiSession> {
@@ -270,7 +273,13 @@ export async function archiveSession(id: string): Promise<void> {
 
 export async function createTurn(
   sessionId: string,
-  input: { input: string; model?: string; thinking?: string; modelProfileId?: string },
+  input: {
+    input: string;
+    model?: string;
+    thinking?: string;
+    credentialProfileId?: string;
+    modelProfileId?: string;
+  },
   idempotencyKey: string,
 ): Promise<CreateTurnResponse> {
   return apiFetch<CreateTurnResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/turns`, {

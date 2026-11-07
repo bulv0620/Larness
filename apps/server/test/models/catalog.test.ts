@@ -131,21 +131,18 @@ describe("deepseek model catalog", () => {
           { clientSessionId: "bs_test" },
         );
 
-        await expect(
-          refreshModelCatalog(
-            {
-              ...options,
-              fetcher: async () => {
-                throw new CatalogHttpError(429, "rate limited");
-              },
+        const failed = await refreshModelCatalog(
+          {
+            ...options,
+            fetcher: async () => {
+              throw new CatalogHttpError(429, "rate limited");
             },
-            { clientSessionId: "bs_test" },
-          ),
-        ).rejects.toMatchObject({ code: "PROVIDER_RATE_LIMITED" });
+          },
+          { clientSessionId: "bs_test" },
+        );
 
-        const after = getModelCatalog(options);
-        expect(after.models.map((model) => model.id)).toEqual(["deepseek-flash"]);
-        expect(after).toMatchObject({ stale: true, lastRefreshError: "PROVIDER_RATE_LIMITED" });
+        expect(failed).toMatchObject({ stale: true, lastRefreshError: "PROVIDER_RATE_LIMITED" });
+        expect(failed.models.map((model) => model.id)).toEqual(["deepseek-flash"]);
       } finally {
         opened.sqlite.close();
       }
@@ -168,23 +165,20 @@ describe("deepseek model catalog", () => {
           { clientSessionId: "bs_test" },
         );
 
-        await expect(
-          refreshModelCatalog(
-            { ...options, fetcher: async () => ({ nope: true }) },
-            { clientSessionId: "bs_test" },
-          ),
-        ).rejects.toMatchObject({ code: "MODEL_CATALOG_INVALID" });
+        const failed = await refreshModelCatalog(
+          { ...options, fetcher: async () => ({ nope: true }) },
+          { clientSessionId: "bs_test" },
+        );
 
-        expect(getModelCatalog(options).models.map((model) => model.id)).toEqual([
-          "deepseek-flash",
-        ]);
+        expect(failed).toMatchObject({ lastRefreshError: "MODEL_CATALOG_INVALID" });
+        expect(failed.models.map((model) => model.id)).toEqual(["deepseek-flash"]);
       } finally {
         opened.sqlite.close();
       }
     });
   });
 
-  it("scopes the cached catalog to the latest credential", async () => {
+  it("keeps caches per credential instead of leaking across keys", async () => {
     await withTempDir(async (dir) => {
       const { opened, options } = await fixture(dir);
 
@@ -207,6 +201,9 @@ describe("deepseek model catalog", () => {
 
         const catalog = getModelCatalog(options);
         expect(catalog).toMatchObject({ syncedAt: null, stale: true, models: [] });
+        expect(catalog.groups).toHaveLength(2);
+        const first = catalog.groups.find((group) => group.credentialLabel === "First");
+        expect(first?.models.map((model) => model.id)).toEqual(["deepseek-flash"]);
       } finally {
         opened.sqlite.close();
       }
@@ -228,10 +225,12 @@ describe("deepseek model catalog", () => {
           { clientSessionId: "bs_test" },
         );
 
+        const credentialProfileId = getModelCatalog(options).credentialProfileId;
         expect(resolveCatalogSelection(options.db, { model: "deepseek-flash" })).toEqual({
           model: "deepseek-flash",
           thinking: "medium",
           contextWindow: 1_048_576,
+          credentialProfileId,
         });
         expect(
           resolveCatalogSelection(options.db, { model: "deepseek-flash", thinking: "medium" }),
@@ -288,6 +287,37 @@ describe("deepseek model catalog", () => {
         expect(getModelCatalog(options).models.map((model) => model.id)).toEqual([
           "deepseek-flash",
         ]);
+      } finally {
+        opened.sqlite.close();
+      }
+    });
+  });
+  it("binds a selection to an explicit credential when keys share a model", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+
+      try {
+        const first = createCredential(options, {
+          provider: "deepseek",
+          label: "First",
+          apiKey: "sk-first",
+        });
+        createCredential(options, { provider: "deepseek", label: "Second", apiKey: "sk-second" });
+        await refreshModelCatalog(
+          { ...options, fetcher: async () => catalogResponse(["deepseek-flash"]) },
+          { clientSessionId: "bs_test" },
+        );
+
+        expect(() => resolveCatalogSelection(options.db, { model: "deepseek-flash" })).toThrowError(
+          ModelError,
+        );
+
+        expect(
+          resolveCatalogSelection(options.db, {
+            model: "deepseek-flash",
+            credentialProfileId: first.id,
+          }),
+        ).toMatchObject({ model: "deepseek-flash", credentialProfileId: first.id });
       } finally {
         opened.sqlite.close();
       }

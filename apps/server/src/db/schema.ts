@@ -58,6 +58,7 @@ export const sessions = sqliteTable(
     title: text("title").notNull(),
     status: text("status").$type<SessionStatus>().notNull().default("active"),
     modelProfileId: text("model_profile_id"),
+    credentialProfileId: text("credential_profile_id"),
     model: text("model"),
     thinking: text("thinking"),
     approvalPolicyId: text("approval_policy_id").notNull().default("standard"),
@@ -79,6 +80,7 @@ export const turns = sqliteTable(
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
     modelProfileId: text("model_profile_id"),
+    credentialProfileId: text("credential_profile_id"),
     provider: text("provider"),
     model: text("model"),
     thinking: text("thinking"),

@@ -37,6 +37,7 @@ export interface TurnDto {
   sessionId: string;
   status: TurnStatus;
   modelProfileId: string | null;
+  credentialProfileId: string | null;
   provider: string | null;
   model: string | null;
   thinking: string | null;
@@ -60,6 +61,7 @@ export interface CreateTurnInput {
   modelProfileId?: string;
   model?: string | null;
   thinking?: string | null;
+  credentialProfileId?: string | null;
   idempotencyKey?: string;
   clientSessionId?: string;
 }
@@ -99,6 +101,7 @@ export function turnDto(row: TurnRow): TurnDto {
     sessionId: row.sessionId,
     status: row.status,
     modelProfileId: row.modelProfileId,
+    credentialProfileId: row.credentialProfileId,
     provider: row.provider,
     model: row.model,
     thinking: row.thinking,
@@ -127,6 +130,7 @@ function validateCreateTurn(input: CreateTurnInput): {
   modelProfileId: string | null;
   model: string | null;
   thinking: string | null;
+  credentialProfileId: string | null;
   idempotencyKey: string | null;
 } {
   const text = input.text.trim();
@@ -154,6 +158,15 @@ function validateCreateTurn(input: CreateTurnInput): {
     throw new SessionError("VALIDATION_ERROR", "model must be at most 128 characters");
   }
 
+  const credentialProfileId = input.credentialProfileId?.trim() || null;
+
+  if (credentialProfileId !== null && credentialProfileId.length > 128) {
+    throw new SessionError(
+      "VALIDATION_ERROR",
+      "credentialProfileId must be at most 128 characters",
+    );
+  }
+
   const thinking = input.thinking?.trim() || null;
 
   if (thinking !== null && thinking.length > 32) {
@@ -169,7 +182,7 @@ function validateCreateTurn(input: CreateTurnInput): {
     );
   }
 
-  return { text, modelProfileId, model, thinking, idempotencyKey };
+  return { text, modelProfileId, model, thinking, credentialProfileId, idempotencyKey };
 }
 
 export function createTurn(options: TurnServiceOptions, input: CreateTurnInput): CreateTurnResult {
@@ -219,6 +232,7 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
         selection = resolveCatalogSelection(tx, {
           model: requestedModel,
           thinking: validated.thinking ?? session.thinking,
+          credentialProfileId: validated.credentialProfileId ?? session.credentialProfileId,
         });
       } catch (error) {
         if (error instanceof ModelError) {
@@ -241,6 +255,7 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       updateSessionRow(tx, session.id, {
         model: selection.model,
         thinking: selection.thinking,
+        credentialProfileId: selection.credentialProfileId,
         updatedAt: now,
       });
     }
@@ -249,6 +264,7 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       id: newTurnId(),
       sessionId: input.sessionId,
       modelProfileId: selection === null ? validated.modelProfileId : null,
+      credentialProfileId: selection === null ? null : selection.credentialProfileId,
       provider: selection === null ? null : "deepseek",
       model: selection === null ? null : selection.model,
       thinking: selection === null ? null : selection.thinking,

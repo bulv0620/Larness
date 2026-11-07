@@ -36,7 +36,7 @@ describe("startServer", () => {
         const response = await running.app.inject({ method: "GET", url: "/api/health" });
         expect(response.statusCode).toBe(200);
         expect(running.webAuthn.origin).toBe(`http://localhost:${port}`);
-        expect(running.schemaVersion).toBe(15);
+        expect(running.schemaVersion).toBe(16);
         expect(existsSync(running.dbPath)).toBe(true);
         expect(existsSync(running.ipc.address.path)).toBe(true);
 

@@ -1,13 +1,17 @@
+import { GLM_BASE_URL } from "@larness/agent";
 import type { ErrorCode } from "@larness/shared";
 import { z } from "zod";
 import type { Database, DbExecutor } from "../../db/client.js";
 import { appendAudit } from "../../db/repositories/audit.js";
+import type { ModelProviderId } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
 import {
   findLatestCredentialForProvider,
+  getCredentialRow,
   getModelCatalogCache,
   getSecretRow,
+  listCredentialRows,
   recordModelCatalogFailure,
   saveModelCatalog,
 } from "./repository.js";
@@ -31,8 +35,8 @@ export interface CatalogModel {
   default: boolean;
 }
 
-export interface CatalogDto {
-  provider: "deepseek";
+export interface CatalogGroup {
+  provider: ModelProviderId;
   credentialProfileId: string;
   credentialLabel: string;
   syncedAt: number | null;
@@ -41,10 +45,16 @@ export interface CatalogDto {
   models: CatalogModel[];
 }
 
+export interface CatalogDto extends CatalogGroup {
+  /** Groups for every catalog-capable credential; flat fields mirror the latest group. */
+  groups: CatalogGroup[];
+}
+
 export interface CatalogSelection {
   model: string;
   thinking: string;
   contextWindow: number | null;
+  credentialProfileId: string;
 }
 
 export interface CatalogOptions {
@@ -84,6 +94,30 @@ export const DEEPSEEK_BUILTIN_CATALOG: readonly CatalogModel[] = [
   {
     id: "deepseek-chat",
     label: "DeepSeek Chat",
+    contextWindow: 128_000,
+    thinking: { supported: false, levels: [] },
+    default: false,
+  },
+];
+
+export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
+  {
+    id: "glm-4.6",
+    label: "GLM-4.6",
+    contextWindow: 200_000,
+    thinking: { supported: false, levels: [] },
+    default: true,
+  },
+  {
+    id: "glm-4.5",
+    label: "GLM-4.5",
+    contextWindow: 128_000,
+    thinking: { supported: false, levels: [] },
+    default: false,
+  },
+  {
+    id: "glm-4.5-air",
+    label: "GLM-4.5 Air",
     contextWindow: 128_000,
     thinking: { supported: false, levels: [] },
     default: false,
@@ -178,9 +212,17 @@ export function createDeepSeekCatalogFetcher(
   };
 }
 
-function mergeCatalog(payload: z.infer<typeof upstreamSchema>): CatalogModel[] {
+function builtinCatalog(provider: ModelProviderId): readonly CatalogModel[] {
+  return provider === "glm" ? GLM_BUILTIN_CATALOG : DEEPSEEK_BUILTIN_CATALOG;
+}
+
+function mergeCatalog(
+  provider: ModelProviderId,
+  payload: z.infer<typeof upstreamSchema>,
+): CatalogModel[] {
+  const builtins = builtinCatalog(provider);
   const models = payload.data.map((entry) => {
-    const builtin = DEEPSEEK_BUILTIN_CATALOG.find((item) => item.id === entry.id);
+    const builtin = builtins.find((item) => item.id === entry.id);
     const supported = entry.thinking?.supported ?? builtin?.thinking.supported ?? false;
     const levels = supported ? THINKING_LEVELS.map((level) => ({ ...level })) : [];
 
@@ -233,53 +275,38 @@ function parseModels(json: string): CatalogModel[] {
   }
 }
 
-function latestCredential(db: DbExecutor) {
-  return findLatestCredentialForProvider(db, "deepseek");
+function catalogCredentials(db: DbExecutor) {
+  return listCredentialRows(db).filter(
+    (credential) => credential.provider === "deepseek" || credential.provider === "glm",
+  );
 }
 
-function requireCredential(db: DbExecutor) {
-  const credential = latestCredential(db);
-
-  if (credential === null) {
-    throw new ModelError("MODEL_CREDENTIAL_MISSING", "configure a DeepSeek credential first");
-  }
-
-  return credential;
-}
-
-function catalogDto(
-  credential: { id: string; label: string },
-  row: ReturnType<typeof getModelCatalogCache>,
-): CatalogDto {
-  const credentialProfileId = credential.id;
-  const credentialLabel = credential.label;
-
-  if (row === null) {
-    return {
-      provider: "deepseek",
-      credentialProfileId,
-      credentialLabel,
-      syncedAt: null,
-      stale: true,
-      lastRefreshError: null,
-      models: [],
-    };
-  }
+function groupFor(
+  db: DbExecutor,
+  credential: { id: string; label: string; provider: ModelProviderId },
+): CatalogGroup {
+  const row = getModelCatalogCache(db, credential.id);
 
   return {
-    provider: "deepseek",
-    credentialProfileId,
-    credentialLabel,
-    syncedAt: row.syncedAt,
-    stale: row.syncedAt === null || row.lastErrorCode !== null,
-    lastRefreshError: row.lastErrorCode,
-    models: parseModels(row.modelsJson),
+    provider: credential.provider,
+    credentialProfileId: credential.id,
+    credentialLabel: credential.label,
+    syncedAt: row?.syncedAt ?? null,
+    stale: row === null || row.syncedAt === null || row.lastErrorCode !== null,
+    lastRefreshError: row?.lastErrorCode ?? null,
+    models: row === null ? [] : parseModels(row.modelsJson),
   };
 }
 
 export function getModelCatalog(options: CatalogOptions): CatalogDto {
-  const credential = requireCredential(options.db);
-  return catalogDto(credential, getModelCatalogCache(options.db, credential.id));
+  const credentials = catalogCredentials(options.db);
+
+  if (credentials.length === 0) {
+    throw new ModelError("MODEL_CREDENTIAL_MISSING", "configure a catalog credential first");
+  }
+
+  const groups = credentials.map((credential) => groupFor(options.db, credential));
+  return { ...groups[0]!, groups };
 }
 
 function cachedModelsFor(db: DbExecutor, credentialId: string): CatalogModel[] {
@@ -287,15 +314,56 @@ function cachedModelsFor(db: DbExecutor, credentialId: string): CatalogModel[] {
   return row === null ? [] : parseModels(row.modelsJson);
 }
 
-export async function refreshModelCatalog(
+async function catalogPayload(
   options: CatalogOptions,
-  input: { clientSessionId?: string } = {},
-): Promise<CatalogDto> {
-  const credential = requireCredential(options.db);
+  provider: ModelProviderId,
+  apiKey: string,
+): Promise<unknown> {
+  if (provider === "deepseek") {
+    const fetcher =
+      options.fetcher ??
+      createDeepSeekCatalogFetcher(options.timeoutMs ?? DEFAULT_CATALOG_TIMEOUT_MS);
+    return fetcher(apiKey, new AbortController().signal);
+  }
+
+  if (provider === "glm") {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(),
+      options.timeoutMs ?? DEFAULT_CATALOG_TIMEOUT_MS,
+    );
+
+    try {
+      const response = await fetch(`${GLM_BASE_URL}/models`, {
+        headers: { authorization: `Bearer ${apiKey}`, accept: "application/json" },
+        redirect: "error",
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new CatalogHttpError(response.status);
+      }
+
+      return (await response.json()) as unknown;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw new ModelError("MODEL_UNSUPPORTED", "catalog is not available for this provider");
+}
+
+async function refreshCredential(
+  options: CatalogOptions,
+  credential: { id: string; label: string; provider: ModelProviderId; secretRef: string },
+  clientSessionId: string | undefined,
+): Promise<void> {
+  const now = options.now?.() ?? Date.now();
   const secret = getSecretRow(options.db, credential.secretRef);
 
   if (secret === null) {
-    throw new ModelError("PROVIDER_AUTH_FAILED", "credential secret is missing");
+    recordFailure(options, credential, "PROVIDER_AUTH_FAILED", now);
+    return;
   }
 
   let apiKey: string;
@@ -303,73 +371,99 @@ export async function refreshModelCatalog(
   try {
     apiKey = options.secretStore.decrypt(secret);
   } catch {
-    throw new ModelError("PROVIDER_AUTH_FAILED", "credential cannot be decrypted");
+    recordFailure(options, credential, "PROVIDER_AUTH_FAILED", now);
+    return;
   }
-
-  const now = options.now?.() ?? Date.now();
-  const fetcher =
-    options.fetcher ??
-    createDeepSeekCatalogFetcher(options.timeoutMs ?? DEFAULT_CATALOG_TIMEOUT_MS);
-  const controller = new AbortController();
 
   let payload: unknown;
 
   try {
-    payload = await fetcher(apiKey, controller.signal);
+    payload = await catalogPayload(options, credential.provider, apiKey);
   } catch (error) {
     const code =
-      error instanceof CatalogHttpError ? mapErrorCode(error.status) : "PROVIDER_UNAVAILABLE";
-    recordFailure(options, credential.id, code, now);
-    throw new ModelError(code, "official model catalog is unavailable");
+      error instanceof CatalogHttpError
+        ? mapErrorCode(error.status)
+        : error instanceof ModelError
+          ? error.code
+          : "PROVIDER_UNAVAILABLE";
+    recordFailure(options, credential, code, now);
+    return;
   }
 
   const parsed = upstreamSchema.safeParse(payload);
 
   if (!parsed.success) {
-    recordFailure(options, credential.id, "MODEL_CATALOG_INVALID", now);
-    throw new ModelError("MODEL_CATALOG_INVALID", "official model catalog payload is invalid");
+    recordFailure(options, credential, "MODEL_CATALOG_INVALID", now);
+    return;
   }
 
-  const models = mergeCatalog(parsed.data);
+  const models = mergeCatalog(credential.provider, parsed.data);
 
   if (models.length === 0) {
-    recordFailure(options, credential.id, "MODEL_CATALOG_INVALID", now);
-    throw new ModelError("MODEL_CATALOG_INVALID", "official model catalog is empty");
+    recordFailure(options, credential, "MODEL_CATALOG_INVALID", now);
+    return;
   }
 
   immediateTransaction(options.db, (tx) => {
     saveModelCatalog(tx, {
       credentialProfileId: credential.id,
-      provider: "deepseek",
-      endpoint: DEEPSEEK_CATALOG_URL,
+      provider: credential.provider,
+      endpoint: credential.provider === "glm" ? `${GLM_BASE_URL}/models` : DEEPSEEK_CATALOG_URL,
       modelsJson: JSON.stringify(models),
       now,
     });
     appendAudit(tx, {
       action: "model.catalog.refreshed",
       decision: "allow",
-      clientSessionId: input.clientSessionId,
+      clientSessionId,
       resourceType: "model_catalog",
       resourceId: credential.id,
-      details: { provider: "deepseek", modelCount: models.length },
+      details: { provider: credential.provider, modelCount: models.length },
       now,
     });
   });
+}
 
-  return catalogDto(credential, getModelCatalogCache(options.db, credential.id));
+export async function refreshModelCatalog(
+  options: CatalogOptions,
+  input: { clientSessionId?: string; credentialProfileId?: string } = {},
+): Promise<CatalogDto> {
+  const credentials =
+    input.credentialProfileId === undefined
+      ? catalogCredentials(options.db)
+      : (() => {
+          const credential = getCredentialRow(options.db, input.credentialProfileId as string);
+          if (credential === null) {
+            throw new ModelError("NOT_FOUND", "credential not found");
+          }
+          if (credential.provider !== "deepseek" && credential.provider !== "glm") {
+            throw new ModelError("MODEL_UNSUPPORTED", "catalog is not available for this provider");
+          }
+          return [credential];
+        })();
+
+  if (credentials.length === 0) {
+    throw new ModelError("MODEL_CREDENTIAL_MISSING", "configure a catalog credential first");
+  }
+
+  for (const credential of credentials) {
+    await refreshCredential(options, credential, input.clientSessionId);
+  }
+
+  return getModelCatalog(options);
 }
 
 function recordFailure(
   options: CatalogOptions,
-  credentialProfileId: string,
+  credential: { id: string; provider: ModelProviderId },
   errorCode: string,
   now: number,
 ): void {
   immediateTransaction(options.db, (tx) => {
     recordModelCatalogFailure(tx, {
-      credentialProfileId,
-      provider: "deepseek",
-      endpoint: DEEPSEEK_CATALOG_URL,
+      credentialProfileId: credential.id,
+      provider: credential.provider,
+      endpoint: credential.provider === "glm" ? `${GLM_BASE_URL}/models` : DEEPSEEK_CATALOG_URL,
       errorCode,
       now,
     });
@@ -403,13 +497,44 @@ function normalizeThinking(model: CatalogModel, thinking: string | null | undefi
 
 export function resolveCatalogSelection(
   db: DbExecutor,
-  input: { model: string; thinking?: string | null },
+  input: { model: string; thinking?: string | null; credentialProfileId?: string | null },
 ): CatalogSelection {
-  const credential = requireCredential(db);
-  const models = cachedModelsFor(db, credential.id);
-  const model = models.find((item) => item.id === input.model);
+  const credentials = catalogCredentials(db);
 
-  if (model === undefined || model.contextWindow === null) {
+  if (credentials.length === 0) {
+    throw new ModelError("MODEL_CREDENTIAL_MISSING", "configure a catalog credential first");
+  }
+
+  let credential: (typeof credentials)[number] | undefined = credentials[0];
+  let model: CatalogModel | undefined;
+
+  if (input.credentialProfileId !== undefined && input.credentialProfileId !== null) {
+    credential = credentials.find((item) => item.id === input.credentialProfileId);
+
+    if (credential === undefined) {
+      throw new ModelError("MODEL_UNSUPPORTED", "credential is not available in the catalog");
+    }
+
+    model = cachedModelsFor(db, credential.id).find((item) => item.id === input.model);
+  } else {
+    const matches = credentials.flatMap((item) =>
+      cachedModelsFor(db, item.id)
+        .filter((candidate) => candidate.id === input.model)
+        .map((candidate) => ({ credential: item, model: candidate })),
+    );
+
+    if (matches.length > 1) {
+      throw new ModelError(
+        "MODEL_UNSUPPORTED",
+        "model exists in multiple credentials; select a key",
+      );
+    }
+
+    credential = matches[0]?.credential ?? credential;
+    model = matches[0]?.model;
+  }
+
+  if (credential === undefined || model === undefined || model.contextWindow === null) {
     throw new ModelError("MODEL_UNSUPPORTED", "model is not available in the official catalog");
   }
 
@@ -417,10 +542,12 @@ export function resolveCatalogSelection(
     model: model.id,
     thinking: normalizeThinking(model, input.thinking),
     contextWindow: model.contextWindow,
+    credentialProfileId: credential.id,
   };
 }
 
 export interface ResolvedCatalogProvider {
+  provider: ModelProviderId;
   model: string;
   apiKey: string;
   contextWindow: number;
@@ -445,9 +572,17 @@ export function mapThinkingSetting(thinking: string | null | undefined): {
 
 export function resolveCatalogProvider(
   options: CatalogOptions,
-  input: { model: string; thinking: string | null },
+  input: { model: string; thinking: string | null; credentialProfileId?: string | null },
 ): ResolvedCatalogProvider {
-  const credential = requireCredential(options.db);
+  const credential =
+    input.credentialProfileId !== undefined && input.credentialProfileId !== null
+      ? getCredentialRow(options.db, input.credentialProfileId)
+      : findLatestCredentialForProvider(options.db, "deepseek");
+
+  if (credential === null) {
+    throw new ModelError("MODEL_CREDENTIAL_MISSING", "configure a catalog credential first");
+  }
+
   const secret = getSecretRow(options.db, credential.secretRef);
 
   if (secret === null) {
@@ -463,7 +598,7 @@ export function resolveCatalogProvider(
   }
 
   const cached = cachedModelsFor(options.db, credential.id).find((item) => item.id === input.model);
-  const builtin = DEEPSEEK_BUILTIN_CATALOG.find((item) => item.id === input.model);
+  const builtin = builtinCatalog(credential.provider).find((item) => item.id === input.model);
   const contextWindow = cached?.contextWindow ?? builtin?.contextWindow ?? null;
 
   if (contextWindow === null) {
@@ -471,6 +606,7 @@ export function resolveCatalogProvider(
   }
 
   return {
+    provider: credential.provider,
     model: input.model,
     apiKey,
     contextWindow,

@@ -30,6 +30,7 @@ const UpdateSessionSchema = z
     modelProfileId: z.string().min(1).max(128).nullable().optional(),
     model: z.string().min(1).max(128).nullable().optional(),
     thinking: z.string().min(1).max(32).nullable().optional(),
+    credentialProfileId: z.string().min(1).max(128).nullable().optional(),
     approvalPolicyId: z.enum(["standard", "strict", "readonly", "autonomous"]).optional(),
   })
   .strict();
@@ -40,6 +41,7 @@ const CreateTurnSchema = z
     modelProfileId: z.string().min(1).max(128).optional(),
     model: z.string().min(1).max(128).optional(),
     thinking: z.string().min(1).max(32).optional(),
+    credentialProfileId: z.string().min(1).max(128).optional(),
   })
   .strict();
 
@@ -158,6 +160,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
         modelProfileId: body.modelProfileId,
         model: body.model,
         thinking: body.thinking,
+        credentialProfileId: body.credentialProfileId,
         approvalPolicyId: body.approvalPolicyId,
         clientSessionId: request.clientSession?.id,
       });
@@ -189,6 +192,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
         modelProfileId: body.modelProfileId,
         model: body.model,
         thinking: body.thinking,
+        credentialProfileId: body.credentialProfileId,
         idempotencyKey,
         clientSessionId: request.clientSession?.id,
       });

@@ -1,7 +1,12 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDeepSeekProvider, createFileToolRegistry, ProviderError } from "@larness/agent";
+import {
+  createDeepSeekProvider,
+  createFileToolRegistry,
+  createGlmProvider,
+  ProviderError,
+} from "@larness/agent";
 import type { AppConfig, WebAuthnRuntime } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import type { DestinationStream, Logger } from "pino";
@@ -104,11 +109,26 @@ function createDefaultProviderResolver(db: Database, secretStore: SecretStore): 
       try {
         const resolved = resolveCatalogProvider(
           { db, secretStore },
-          { model: turn.model, thinking: turn.thinking },
+          {
+            model: turn.model,
+            thinking: turn.thinking,
+            credentialProfileId: turn.credentialProfileId,
+          },
         );
 
+        const adapter =
+          resolved.provider === "deepseek"
+            ? createDeepSeekProvider()
+            : resolved.provider === "glm"
+              ? createGlmProvider()
+              : null;
+
+        if (adapter === null) {
+          throw new ModelError("MODEL_UNSUPPORTED", "provider adapter is not configured");
+        }
+
         return {
-          adapter: createDeepSeekProvider(),
+          adapter,
           model: resolved.model,
           apiKey: resolved.apiKey,
           contextWindow: resolved.contextWindow,

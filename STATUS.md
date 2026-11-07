@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c / M5-1d-1 `review`；M5-1d `ready` |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c / M5-1d-1 / M5-1d-2a `review` |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1d-1 `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：D1–D4 确认，063 转 `ready`；新增 `@ai-sdk/openai-compatible@2.0.91`、GLM / 兼容适配器与端点安全；目录接线归 d-2。
+- M5-1d-2a `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：目录 `groups`、按组刷新与失败隔离、DeepSeek / GLM 目录、Session/Turn 凭据绑定与 Provider 解析；多 Key UI 归 d-2b。
 - M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
@@ -166,6 +166,14 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 枚举：`ModelProviderId`、凭据 API、Web 类型扩展 `glm`。
 - 验证：`pnpm check`（web 135、agent 38 通过 / 1 跳过、server 507 通过 / 10 跳过）；`pnpm build`。
 - 未验证：真实 GLM 端点 / 目录与工具调用（待 Key）；端点安全尚未接入凭据 / Profile 创建与目录刷新（d-2）。
+
+## M5-1d-2a 交付（2026-11-07）
+
+- 分支 `task/m5-1d-multi-provider-spec`；迁移 `0016_multi_provider`：`sessions/turns.credential_profile_id` 可空列（schemaVersion 16）。
+- 目录：`GET /api/models/catalog` 增加 `groups`（保留扁平字段指向最新组）；刷新遍历所有 DeepSeek / GLM 凭据，按组记录 `stale` / `lastRefreshError`，失败不覆盖旧缓存；GLM 目录走官方兼容端点（内置窗口表，未知窗口不可选）。
+- 绑定：`PATCH /api/sessions/:id` 与 `POST /api/sessions/:id/turns` 接受 `credentialProfileId`；Turn 快照凭据，Provider 解析按快照选择 DeepSeek / GLM 适配器；同一模型出现在多个 Key 时要求显式选择。
+- 验证：`pnpm check`（web 135、agent 38 通过 / 1 跳过、server 509 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
+- 未验证：真实 GLM 端点 / 目录；多 Key 选择 UI、能力矩阵与自定义兼容端点（d-2b）。
 
 ## 已冻结
 

@@ -12,15 +12,24 @@
 - [x] 端点安全：环回 / 私网 / 元数据 / 非 HTTPS / 重定向拒绝。
 - [x] 测试：mock 契约与端点拒绝；真实 GLM 冒烟待 Key。Provider 注册表按工厂实现（DeepSeek / GLM / 兼容），目录 fetcher 与 Turn 接线归 d-2。
 
-## M5-1d-2 目录分组、多 Key 与能力矩阵
+## M5-1d-2a 目录分组与凭据绑定（服务端）
 
-依赖：M5-1d-1。候选状态：`todo`。
+依赖：M5-1d-1。状态 `review`（2026-11-07 交付）。
 
-- [ ] 迁移 `0016_multi_provider`：`sessions/turns.credential_profile_id` 可空列。
-- [ ] 目录 DTO 改为分组；刷新按组；失败隔离。
-- [ ] Turn / Session 绑定凭据；多 Key 未指定时失败关闭（唯一 Key 兼容）。
-- [ ] 选择 UI 多组渲染 + 能力标注；未知能力不猜测。
-- [ ] 测试：分组缓存、绑定、跨 Provider 拒绝、UI 组件。
+- [x] 迁移 `0016_multi_provider`：`sessions/turns.credential_profile_id` 可空列。
+- [x] 目录 DTO 增加 `groups`（保留扁平字段指向最新组）；刷新按组、失败隔离；DeepSeek / GLM 目录。
+- [x] Turn / Session 绑定凭据；同一模型存在于多个 Key 时要求显式选择。
+- [x] Provider 解析使用 Turn 快照凭据；GLM 走 `createGlmProvider`。
+- [x] 测试：分组缓存、绑定、歧义拒绝、迁移计数。
+
+## M5-1d-2b 多 Key / Provider 选择 UI
+
+依赖：M5-1d-2a。候选状态：`todo`。
+
+- [ ] 选择器按 `groups` 渲染 Provider + Key 分组；选择带上 `credentialProfileId`。
+- [ ] 能力矩阵展示（窗口 / 工具 / 思考档位 / 未知）；未知能力不猜测。
+- [ ] 自定义兼容端点存储与目录（凭据或 Profile 端点字段、SSRF 校验接入创建 / 刷新）。
+- [ ] 测试：多组渲染、选择绑定、切换 Key 后圆环与用量不串。
 
 ## M5-1d-3 上下文压缩
 

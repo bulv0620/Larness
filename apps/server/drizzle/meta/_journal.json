@@ -106,6 +106,13 @@
       "when": 1794030885687,
       "tag": "0015_model_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1794049062447,
+      "tag": "0016_multi_provider",
+      "breakpoints": true
     }
   ]
 }
