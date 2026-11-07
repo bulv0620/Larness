@@ -26,7 +26,7 @@ export type TurnStatus =
   | "INTERRUPTED";
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ResourceLockType = "project" | "service" | "file" | "git" | "global-maintenance";
-export type ModelProviderId = "deepseek" | "openai-compatible";
+export type ModelProviderId = "deepseek" | "glm" | "openai-compatible";
 
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),

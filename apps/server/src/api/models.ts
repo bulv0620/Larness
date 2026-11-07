@@ -18,7 +18,7 @@ import {
 } from "../modules/models/service.js";
 import type { SecretStore } from "../security/secretStore.js";
 
-const ProviderSchema = z.enum(["deepseek", "openai-compatible"]);
+const ProviderSchema = z.enum(["deepseek", "glm", "openai-compatible"]);
 const IdSchema = z.string().min(1).max(128);
 
 const CreateCredentialSchema = z

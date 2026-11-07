@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.78",
+    "@ai-sdk/openai-compatible": "^2.0.91",
     "@larness/resources": "workspace:*",
     "ai": "^6.0.320",
     "zod": "^4.6.7"

@@ -145,7 +145,11 @@ export function createCredential(
   options: ModelServiceOptions,
   input: CreateCredentialInput,
 ): CredentialDto {
-  if (input.provider !== "deepseek" && input.provider !== "openai-compatible") {
+  if (
+    input.provider !== "deepseek" &&
+    input.provider !== "glm" &&
+    input.provider !== "openai-compatible"
+  ) {
     throw new ModelError("VALIDATION_ERROR", "unsupported credential provider");
   }
 
@@ -229,7 +233,11 @@ export function createModelProfile(
   options: ModelServiceOptions,
   input: CreateModelProfileInput,
 ): ModelProfileDto {
-  if (input.provider !== "deepseek" && input.provider !== "openai-compatible") {
+  if (
+    input.provider !== "deepseek" &&
+    input.provider !== "glm" &&
+    input.provider !== "openai-compatible"
+  ) {
     throw new ModelError("VALIDATION_ERROR", "unsupported model provider");
   }
 

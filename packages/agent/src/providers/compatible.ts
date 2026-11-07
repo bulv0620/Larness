@@ -1,0 +1,94 @@
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { streamText } from "ai";
+import {
+  classifyProviderError,
+  mapAiSdkStream,
+  toAiSdkMessages,
+  toAiSdkTools,
+} from "./deepseek.js";
+import { ProviderError } from "./errors.js";
+import type {
+  ProviderAdapter,
+  ProviderCapabilities,
+  ProviderChunk,
+  ProviderStepInput,
+} from "./types.js";
+
+export const GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4";
+export const DEFAULT_COMPATIBLE_TIMEOUT_MS = 120_000;
+
+const noRedirectFetch: typeof fetch = (input, init) => fetch(input, { ...init, redirect: "error" });
+
+const COMPATIBLE_CAPABILITIES: ProviderCapabilities = {
+  streaming: true,
+  toolCalls: true,
+  vision: false,
+  reasoning: false,
+  maxContextTokens: 128_000,
+};
+
+export interface CompatibleProviderOptions {
+  id: "glm" | "openai-compatible";
+  name: string;
+  baseURL: string;
+  capabilities?: Partial<ProviderCapabilities>;
+  timeoutMs?: number;
+}
+
+/**
+ * Provider for GLM and generic OpenAI-compatible endpoints. The endpoint must
+ * be validated by the server before it reaches this factory.
+ */
+export function createCompatibleProvider(options: CompatibleProviderOptions): ProviderAdapter {
+  const capabilities = { ...COMPATIBLE_CAPABILITIES, ...options.capabilities };
+
+  return {
+    id: options.id,
+    capabilities,
+    async *streamStep(input: ProviderStepInput): AsyncGenerator<ProviderChunk> {
+      if (input.apiKey === undefined || input.apiKey.trim().length === 0) {
+        yield {
+          type: "error",
+          error: new ProviderError("PROVIDER_AUTH_FAILED", `${options.name} API key is missing`),
+        };
+        return;
+      }
+
+      try {
+        const provider = createOpenAICompatible({
+          name: options.name,
+          baseURL: input.endpoint ?? options.baseURL,
+          apiKey: input.apiKey,
+          fetch: noRedirectFetch,
+        });
+        const tools = toAiSdkTools(input.tools);
+        const result = streamText({
+          model: provider(input.model),
+          messages: toAiSdkMessages(input.messages),
+          abortSignal: input.signal,
+          timeout: options.timeoutMs ?? input.timeoutMs ?? DEFAULT_COMPATIBLE_TIMEOUT_MS,
+          ...(tools === undefined ? {} : { tools }),
+          ...(input.temperature === undefined ? {} : { temperature: input.temperature }),
+          ...(input.maxOutputTokens === undefined
+            ? {}
+            : { maxOutputTokens: input.maxOutputTokens }),
+        });
+
+        yield* mapAiSdkStream(result.fullStream);
+      } catch (error) {
+        yield { type: "error", error: classifyProviderError(error) };
+      }
+    },
+  };
+}
+
+export function createGlmProvider(
+  options: Omit<CompatibleProviderOptions, "id" | "name" | "baseURL"> = {},
+): ProviderAdapter {
+  return createCompatibleProvider({
+    ...options,
+    id: "glm",
+    name: "glm",
+    baseURL: GLM_BASE_URL,
+  });
+}

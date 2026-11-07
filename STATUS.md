@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c `review`；M5-1d 规格 `draft` |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c / M5-1d-1 `review`；M5-1d `ready` |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1d 规格草案（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：[063 多 Provider / 能力矩阵 / 上下文压缩](specs/063-multi-provider/spec.md) 已起草，待 D1–D4 确认后转 `ready`；仅文档。
+- M5-1d-1 `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：D1–D4 确认，063 转 `ready`；新增 `@ai-sdk/openai-compatible@2.0.91`、GLM / 兼容适配器与端点安全；目录接线归 d-2。
 - M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
@@ -156,6 +156,16 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 范围：GLM / OpenAI-compatible Provider、多 Key 分组与凭据绑定、能力矩阵、上下文压缩（70% 触发 + 结构化摘要 + 降级）、跨模型切换。
 - 待确认：D1 是否新增 `@ai-sdk/openai-compatible`；D2 兼容端点是否允许任意公网 HTTPS；D3 压缩阈值 / 摘要模型；D4 是否允许跨 Provider 迁移。
 - 未写代码、未迁移数据库；D1–D4 确认后转 `ready` 并开始 M5-1d-1。
+
+## M5-1d-1 交付（2026-11-07）
+
+- 分支 `task/m5-1d-multi-provider-spec`；D1–D4 确认后 063 转 `ready`。
+- 依赖：`@ai-sdk/openai-compatible@2.0.91`（兼容 ai 6 / Node 20；先前 v3 要求 Node 22 已回退）。
+- Provider：`createCompatibleProvider`（GLM / 通用兼容）复用现有 `streamText` 与消息 / 工具映射；GLM 固定 `https://open.bigmodel.cn/api/paas/v4`；缺 Key 失败关闭；禁止 HTTP 重定向。
+- 端点安全：`assertSafeEndpoint` 校验 HTTPS、凭据、环回 / 私网 / 链路本地 / 元数据 / 内部域名，并对 DNS 解析结果逐一检查；测试覆盖 IPv4 / IPv6 / 混合解析。
+- 枚举：`ModelProviderId`、凭据 API、Web 类型扩展 `glm`。
+- 验证：`pnpm check`（web 135、agent 38 通过 / 1 跳过、server 507 通过 / 10 跳过）；`pnpm build`。
+- 未验证：真实 GLM 端点 / 目录与工具调用（待 Key）；端点安全尚未接入凭据 / Profile 创建与目录刷新（d-2）。
 
 ## 已冻结
 

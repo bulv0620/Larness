@@ -2,7 +2,7 @@
 id: 063-multi-provider
 title: 多 Provider、能力矩阵与上下文压缩
 milestone: M5
-status: draft
+status: ready
 depends_on: [061-deepseek-integration, 050-deploy]
 owners: [human]
 created: 2026-11-07
@@ -29,14 +29,14 @@ updated: 2026-11-07
 - 永久保存完整推理数据（沿用 M5-1b/e：仅 Turn 内存 + 单行预览）。
 - 用一个通用黑盒替代工具授权、审批、锁与审计。
 
-## 3. 决策（待确认）
+## 3. 决策（已确认 2026-11-07）
 
 | ID | 决策 | 推荐 |
 |---|---|---|
-| D1 | GLM / 兼容 Provider 的实现方式 | 新增纯 JS 依赖 `@ai-sdk/openai-compatible`，复用现有 `streamText` 适配层；GLM 走其 OpenAI-compatible 端点 |
-| D2 | 自定义 endpoint 的安全边界 | GLM 固定官方端点；通用兼容端点由用户填写 HTTPS URL，服务端发起，拒绝环回 / 内网 / 云元数据 / 非 HTTPS；凭据按 Provider 隔离 |
-| D3 | 压缩触发与摘要模型 | 预估 tokens ≥ 窗口 70% 时触发；摘要用当前 Turn 的模型（无工具、短超时）；失败则降级为截断并标记 `degraded` |
-| D4 | 跨模型迁移范围 | 只迁移摘要 + 最近 N 条消息 + 工具结果；不迁移推理数据、厂商私有字段或原始 system prompt |
+| D1 | GLM / 兼容 Provider 的实现方式 | 已确认：新增 `@ai-sdk/openai-compatible@2.0.91`（纯 JS，兼容 ai 6 / Node 20），复用 `streamText`；GLM 走官方兼容端点 |
+| D2 | 自定义 endpoint 的安全边界 | 已确认：任意公网 HTTPS；GLM 固定官方端点；服务端发起，拒绝环回 / 内网 / 元数据 / 非 HTTPS / 重定向 |
+| D3 | 压缩触发与摘要模型 | 已确认：≥ 窗口 70% 触发；当前 Turn 模型生成摘要（无工具、20s 超时）；失败降级截断 + `degraded` |
+| D4 | 跨模型迁移范围 | 已确认：允许跨 Provider；只迁移摘要 + 最近 N 条消息 + 工具结果，不迁移推理数据或厂商私有字段 |
 
 ## 4. 接口与数据
 
@@ -143,7 +143,5 @@ updated: 2026-11-07
 
 ## 10. 开放问题
 
-- D1 是否允许新增 `@ai-sdk/openai-compatible` 依赖（纯 JS，无原生）。
-- D2 兼容端点是否允许任意公网 HTTPS，还是仅允许内置白名单。
-- D3 压缩阈值 / 摘要模型 / 摘要结构确认。
-- D4 跨模型迁移是否限制同一 Provider 内，还是跨 Provider 也可。
+- 无阻塞项；D1–D4 已于 2026-11-07 确认。
+- 真实 GLM 端点与官方目录行为尚待凭据验证（M5-1d-1 仅验证 mock 契约与端点安全）。

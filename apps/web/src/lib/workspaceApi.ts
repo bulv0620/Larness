@@ -85,7 +85,7 @@ export interface WorkspaceData {
 export interface ApiModelProfile {
   id: string;
   label: string;
-  provider: "deepseek" | "openai-compatible";
+  provider: "deepseek" | "glm" | "openai-compatible";
   model: string;
   credentialProfileId: string | null;
   credentialLabel: string | null;
@@ -125,7 +125,7 @@ export interface ApiModelCatalog {
 
 export interface ApiCredential {
   id: string;
-  provider: "deepseek" | "openai-compatible";
+  provider: "deepseek" | "glm" | "openai-compatible";
   label: string;
   secretRef: string;
   masked: string;
@@ -206,7 +206,7 @@ export async function listCredentials(): Promise<ApiCredential[]> {
 }
 
 export async function createCredential(input: {
-  provider: "deepseek" | "openai-compatible";
+  provider: "deepseek" | "glm" | "openai-compatible";
   label: string;
   apiKey: string;
 }): Promise<ApiCredential> {

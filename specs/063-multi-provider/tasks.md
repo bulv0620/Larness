@@ -1,16 +1,16 @@
 # M5-1d 任务
 
-规格 `draft`，待 D1–D4 确认后转 `ready`。按 M5-1d-1 → d-2 → d-3 → d-4 顺序，一次一个任务。
+规格已于 2026-11-07 转 `ready`（D1–D4 确认）。按 M5-1d-1 → d-2 → d-3 → d-4 顺序，一次一个任务。
 
 ## M5-1d-1 Provider 注册表与 GLM / 兼容适配器
 
-依赖：spec ready；D1 / D2 确认。候选状态：`todo`。
+依赖：spec ready；D1 / D2 确认。状态 `review`（2026-11-07 交付）。
 
-- [ ] Provider 注册表：DeepSeek / GLM / openai-compatible，统一 `ProviderAdapter` 与 catalog fetcher。
-- [ ] 新增 `@ai-sdk/openai-compatible`（若批准），GLM 固定端点，兼容端点 HTTPS 校验。
-- [ ] `ModelProviderId` / 凭据 API / 目录 schema 扩展；错误映射与超时。
-- [ ] 端点安全：环回 / 私网 / 元数据 / 非 HTTPS / 重定向拒绝。
-- [ ] 测试：mock 上游流式与工具调用、真实 GLM 冒烟（有 Key 时）、端点拒绝。
+- [x] Provider 注册表：DeepSeek / GLM / openai-compatible，统一 `ProviderAdapter` 与 catalog fetcher。
+- [x] 新增 `@ai-sdk/openai-compatible`（若批准），GLM 固定端点，兼容端点 HTTPS 校验。
+- [x] `ModelProviderId` / 凭据 API / 目录 schema 扩展；错误映射与超时。
+- [x] 端点安全：环回 / 私网 / 元数据 / 非 HTTPS / 重定向拒绝。
+- [x] 测试：mock 契约与端点拒绝；真实 GLM 冒烟待 Key。Provider 注册表按工厂实现（DeepSeek / GLM / 兼容），目录 fetcher 与 Turn 接线归 d-2。
 
 ## M5-1d-2 目录分组、多 Key 与能力矩阵
 
