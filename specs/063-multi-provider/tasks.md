@@ -64,10 +64,10 @@
 
 依赖：M5-1d-2；D3 确认。候选状态：`todo`。
 
-- [ ] 估算 tokens 与 70% 触发；可压缩历史判定。
-- [ ] 摘要请求（无工具、超时）、结构化摘要、`session_context_summaries` 与 `context.compressed` 事件。
-- [ ] 后续上下文拼装；失败降级截断 + `degraded`；UI 状态。
-- [ ] 测试：阈值、摘要内容、降级、重放、删除与脱敏。
+- [x] 估算 tokens 与 70% 触发；保留最近 12 条，可压缩历史判定。
+- [x] 摘要请求（同模型、无工具、20s 超时）、结构化摘要、`session_context_summaries` 与 `context.compressed` 事件。
+- [x] 后续上下文拼装「system + 摘要 + 最近消息 + 当前 Turn」；失败降级截断 + `degraded`；UI 提示。
+- [x] 测试：阈值、摘要内容、降级、无历史跳过；摘要随会话级联删除。
 
 ## M5-1d-4 跨模型切换与整体验收
 

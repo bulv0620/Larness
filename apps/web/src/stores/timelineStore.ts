@@ -71,6 +71,7 @@ interface TimelineState {
   activeTurnId: string | null;
   turnStartedAt: number | null;
   contextTokens: number;
+  contextNotice: { degraded: boolean; createdAt: number } | null;
   modelUsage: Record<string, ModelUsageEntry>;
   lastSeq: number;
   load: (sessionId: string) => Promise<void>;
@@ -79,6 +80,25 @@ interface TimelineState {
   send: (text: string) => Promise<void>;
   stop: () => void;
   resolveApproval: (approvalId: string, decision: "approve" | "reject") => Promise<void>;
+}
+
+function contextNoticeFromEvents(
+  events: ServerEvent[],
+): { degraded: boolean; createdAt: number } | null {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+
+    if (event?.type !== "context.compressed") continue;
+
+    const payload =
+      typeof event.payload === "object" && event.payload !== null
+        ? (event.payload as Record<string, unknown>)
+        : {};
+
+    return { degraded: payload.degraded === true, createdAt: event.timestamp };
+  }
+
+  return null;
 }
 
 function contextTokensFromEvents(events: ServerEvent[]): number {
@@ -200,6 +220,10 @@ function applyEventToState(event: ServerEvent, live = false): void {
     activeTurnId: terminal ? null : activeTurnId,
     isStreaming: nextStreaming,
     contextTokens,
+    contextNotice:
+      event.type === "context.compressed"
+        ? { degraded: payload.degraded === true, createdAt: event.timestamp }
+        : state.contextNotice,
     modelUsage,
     turnStartedAt:
       terminal || nextStreaming
@@ -308,6 +332,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   activeTurnId: null,
   turnStartedAt: null,
   contextTokens: 0,
+  contextNotice: null,
   modelUsage: {},
   lastSeq: 0,
 
@@ -324,6 +349,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       activeTurnId: null,
       turnStartedAt: null,
       contextTokens: 0,
+      contextNotice: null,
       modelUsage: {},
       lastSeq: 0,
     });
@@ -366,6 +392,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         activeTurnId: detail.activeTurn?.id ?? null,
         turnStartedAt: detail.activeTurn?.createdAt ?? null,
         contextTokens: contextTokensFromEvents(events),
+        contextNotice: contextNoticeFromEvents(events),
         modelUsage: modelUsageFromEvents(events),
       });
       const client = queryClient.getQueryData<{ clientSessionId?: string }>(["session"]);

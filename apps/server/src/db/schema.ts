@@ -230,6 +230,23 @@ export const modelVisibility = sqliteTable(
   ],
 );
 
+export const sessionContextSummaries = sqliteTable(
+  "session_context_summaries",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    coveredUpToSeq: integer("covered_up_to_seq").notNull(),
+    summary: text("summary").notNull(),
+    tokensBefore: integer("tokens_before").notNull(),
+    tokensAfter: integer("tokens_after").notNull(),
+    degraded: integer("degraded").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("idx_context_summaries_session").on(table.sessionId, table.createdAt)],
+);
+
 export const modelDefaults = sqliteTable(
   "model_defaults",
   {

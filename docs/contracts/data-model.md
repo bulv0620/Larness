@@ -139,6 +139,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `agent_events` | `id, session_id, turn_id, seq, type, payload_json, created_at`；`UNIQUE(session_id, seq)` | `seq` 在 Session 内递增，事务内分配 |
 | `model_profiles` | `id, label, provider, model, credential_profile_id, endpoint, capabilities_json, created_at` | 不含密钥；M5-1 起旧档案被忽略，行保留，不再进入选择器 |
 | `model_catalog_cache` | `credential_profile_id`（主键）, `provider, endpoint, models_json, synced_at, last_attempt_at, last_error_code` | M5-1 官方目录缓存，按凭据隔离；`models_json` 只含展示字段；`last_error_code` 只存稳定错误码 |
+| `session_context_summaries` | `id, session_id, covered_up_to_seq, summary, tokens_before, tokens_after, degraded, created_at` | 每个会话可有多条；只使用最近一条非降级且非空摘要；随会话级联删除；摘要正文不写事件 / 日志 |
 | `model_visibility` | `id, credential_profile_id, model_id, visible, updated_at` | 唯一键 `(credential_profile_id, model_id)`；默认 `visible=1`；只控制会话选择器，不改变 Provider 能力 |
 | `model_defaults` | `id, credential_profile_id, model, thinking, updated_at` | 单行 `id='default'`；全局默认模型，用于新会话；删除凭据级联删除；会话内仍可覆盖 |
 | `credential_profiles` | `id, provider, label, secret_ref, created_at` | 密钥在 SecretStore |
@@ -256,6 +257,10 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 ## M5-1d 迁移 0016_multi_provider（2026-11-07）
 
 `sessions` / `turns` 增加可空 `credential_profile_id`，schemaVersion 15 → 16。Turn 快照所选 Key，Provider 解析按快照选择 DeepSeek / GLM；旧 Turn 无值，回退到最新 DeepSeek 凭据。
+
+## M5-1d 迁移 0021_context_summaries（2026-11-07）
+
+新增 `session_context_summaries`，schemaVersion 20 → 21。压缩触发时保存 `covered_up_to_seq`、摘要、压缩前后估算 tokens 与 `degraded`；后续上下文使用「system + 最近摘要 + seq 之后的最近消息 + 当前 Turn」。失败保存 `degraded=1` 空摘要，上下文回退截断。
 
 ## M5-1d 迁移 0020_compatible_context（2026-11-07）
 

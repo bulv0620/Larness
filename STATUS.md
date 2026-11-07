@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1d-2c `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：兼容 Provider 端点与上下文窗口、SSRF 校验、目录 / Turn / 设置页接线；GLM 长任务超时修复同步交付。
+- M5-1d-3 `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：70% 触发、当前模型摘要、`session_context_summaries`、`context.compressed`、降级截断与 UI 提示；跨模型整体验收归 d-4。
 - M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
@@ -225,6 +225,15 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 目录：兼容 `/models` 解析后以凭据窗口补齐；未知窗口不再禁用；模型可选、可设默认、可控制显示。
 - 验证：`pnpm check`（web 135、agent 40/1、server 519/10）、`pnpm build`、auth E2E `m1`。
 - 未验证：真实第三方兼容端点（无凭据）；工具调用能力取决于上游，未做能力探测。
+
+## M5-1d-3 交付（2026-11-07）
+
+- 触发：上下文估算 ≥ 窗口 70% 且存在可压缩历史（保留最近 12 条）；同一 Turn 只压缩一次。
+- 摘要：当前 Turn 模型、无工具、20 秒超时；输出结构化段落（目标 / 已完成 / 待办 / 失败验证 / 资源 ID / 待审批）；保存 `session_context_summaries`，事件 `context.compressed` 先持久化再广播。
+- 拼装：`system + 最近非降级摘要 + covered_up_to_seq 之后的最近消息 + 当前 Turn`；失败保存 `degraded=1` 空摘要并沿用截断，UI 显示「上下文已压缩（降级）」。
+- 安全：摘要经 `OutputRedactor` 处理后存储；不写事件、日志或审计正文；会话删除级联清理。
+- 验证：`pnpm check`（web 135、agent 40/1、server 522/10）、`pnpm build`、auth E2E `m1`。
+- 未验证：真实长会话触发的端到端 UI / 摘要质量（单元测试覆盖触发、成功、降级、无历史）。
 
 ## 已冻结
 

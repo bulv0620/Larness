@@ -50,6 +50,7 @@ import type { TerminalManager } from "../terminals/manager.js";
 import { isDefaultWorkspace } from "../workspaces/default.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
 import { assembleContext } from "./contextAssembler.js";
+import { compressContext, shouldCompress } from "./contextCompressor.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
@@ -1047,21 +1048,19 @@ export class TurnRunner {
           model: resolved.model,
         });
       });
-      const context = assembleContext(
-        {
-          db: this.#options.db,
-          registry: this.#options.registry,
-          maxContextTokens:
-            resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens,
-          policy,
-          contextRatio: this.#budget.contextRatio,
-          workspaceRoot: projectRoot,
-          pm2Context: await this.#options.pm2Context?.(session.projectId),
-        },
-        session,
-        turn,
-      );
-      const messages: ModelMessage[] = context.messages;
+      const contextWindow =
+        resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens;
+      const contextOptions = {
+        db: this.#options.db,
+        registry: this.#options.registry,
+        maxContextTokens: contextWindow,
+        policy,
+        contextRatio: this.#budget.contextRatio,
+        workspaceRoot: projectRoot,
+        pm2Context: await this.#options.pm2Context?.(session.projectId),
+      };
+      let context = assembleContext(contextOptions, session, turn);
+      let messages: ModelMessage[] = context.messages;
       const tools: ToolSchema[] = context.tools;
 
       this.#transition(turn, session, "PREPARING", startedAt);
@@ -1071,6 +1070,38 @@ export class TurnRunner {
       }
 
       this.#transition(turn, session, "RUNNING");
+
+      if (shouldCompress(context.estimatedTokens, contextWindow)) {
+        try {
+          const compression = await compressContext({
+            db: this.#options.db,
+            session,
+            turn,
+            adapter: resolved.adapter,
+            model: resolved.model,
+            ...(resolved.apiKey === undefined ? {} : { apiKey: resolved.apiKey }),
+            ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
+            contextWindow,
+            tokensBefore: context.estimatedTokens,
+            now: () => this.#now(),
+          });
+
+          if (compression !== null) {
+            this.#emit(turn, session, "context.compressed", {
+              turnId: turn.id,
+              summaryId: compression.summaryId,
+              coveredUpToSeq: compression.coveredUpToSeq,
+              tokensBefore: compression.tokensBefore,
+              tokensAfter: compression.tokensAfter,
+              degraded: compression.degraded,
+            });
+            context = assembleContext(contextOptions, session, turn);
+            messages = context.messages;
+          }
+        } catch {
+          // Compression is best-effort; keep the truncated context on failure.
+        }
+      }
 
       while (steps < this.#budget.maxSteps) {
         const budgetState = checkBudget();

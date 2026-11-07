@@ -205,6 +205,7 @@ export function Timeline() {
   const items = useTimelineStore((state) => state.items);
   const loading = useTimelineStore((state) => state.loading);
   const isStreaming = useTimelineStore((state) => state.isStreaming);
+  const contextNotice = useTimelineStore((state) => state.contextNotice);
   const activeTurnId = useTimelineStore((state) => state.activeTurnId);
   const sessionId = useNavigationStore((state) => state.sessionId);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -253,6 +254,11 @@ export function Timeline() {
         className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 [scrollbar-gutter:stable]"
       >
         <div ref={contentRef} className="mx-auto w-full max-w-[760px] space-y-8 pb-5">
+          {contextNotice ? (
+            <p role="status" className="text-[11px] text-ink-3">
+              上下文已压缩{contextNotice.degraded ? "（降级：超出部分已截断）" : ""}
+            </p>
+          ) : null}
           {loading ? (
             <div role="status" className="py-8 text-[12px] text-ink-3">
               正在加载对话…
