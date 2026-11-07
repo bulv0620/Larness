@@ -49,6 +49,28 @@ const policies = [
   { id: "readonly", label: "只读", detail: "禁止修改与执行", icon: Shield, tone: "text-success" },
 ] as const;
 
+function defaultThinkingFor(model: {
+  thinking: { supported: boolean; mode?: string; levels: { id: string; label: string }[] };
+}): string {
+  if (!model.thinking.supported) return "off";
+  if (model.thinking.mode === "toggle") return "on";
+  if (model.thinking.mode === "mandatory-levels") return "high";
+  return "medium";
+}
+
+function thinkingAllowed(
+  model: {
+    thinking: { supported: boolean; mode?: string; levels: { id: string; label: string }[] };
+  },
+  thinking: string,
+): boolean {
+  if (!model.thinking.supported) return thinking === "off";
+  const mode = model.thinking.mode ?? "levels";
+  if (mode === "toggle") return thinking === "off" || thinking === "on";
+  if (mode === "mandatory-levels") return ["low", "medium", "high"].includes(thinking);
+  return ["off", "low", "medium", "high"].includes(thinking);
+}
+
 export function Composer() {
   const [confirmAutonomous, setConfirmAutonomous] = useState(false);
   const { catalog, error: catalogError } = useModelCatalog();
@@ -122,9 +144,28 @@ export function Composer() {
       if (first === undefined) return;
       setModelId(first.model.id);
       setCredentialProfileId(first.group.credentialProfileId);
-      setThinking(first.model.thinking.supported ? "medium" : "off");
+      setThinking(defaultThinkingFor(first.model));
+      return;
     }
-  }, [pairs, modelId, credentialProfileId, setModelId, setCredentialProfileId, setThinking]);
+
+    const current = pairs.find(
+      (pair) =>
+        pair.model.id === modelId &&
+        (credentialProfileId === null || pair.group.credentialProfileId === credentialProfileId),
+    );
+
+    if (current !== undefined && !thinkingAllowed(current.model, thinking)) {
+      setThinking(defaultThinkingFor(current.model));
+    }
+  }, [
+    pairs,
+    modelId,
+    thinking,
+    credentialProfileId,
+    setModelId,
+    setCredentialProfileId,
+    setThinking,
+  ]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: draft is the resize trigger
   useEffect(() => {
@@ -148,8 +189,8 @@ export function Composer() {
         pair.model.id === nextModelId && pair.group.credentialProfileId === nextCredentialProfileId,
     );
 
-    if (next !== undefined && !next.model.thinking.supported) {
-      setThinking("off");
+    if (next !== undefined && !thinkingAllowed(next.model, thinking)) {
+      setThinking(defaultThinkingFor(next.model));
     }
   };
 

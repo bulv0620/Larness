@@ -34,6 +34,17 @@
 - [x] 弹窗按服务运维风格重构：Key 列表 → Key 详情（模型列表）；添加 Key 独立视图。
 - [x] 迁移 `0017_model_visibility` 与 `PATCH /api/models/catalog/visibility`；模型行眼睛图标控制是否出现在会话选择器，输入框选择器过滤隐藏模型。
 
+## M5-1d-2d GLM 思考模式
+
+依赖：M5-1d-2b。状态 `review`（2026-11-07 交付）。
+
+- [x] 能力模型增加 `thinking.mode`：`toggle` / `levels` / `mandatory-levels`。
+- [x] GLM 映射：4.5/4.5-Air/4.6/4.7/5/5.1 开关；5.2 档位；5.3 强制档位（低/中/高 → low/high/max）。
+- [x] 服务端按 mode 校验与默认值；Turn 快照保持 `on` / `low` / `medium` / `high`。
+- [x] 兼容适配器发送 `thinking.type` 与 `reasoning_effort`（openai-compatible providerOptions）。
+- [x] UI 按模型动态显示档位；切换模型自动修正非法档位。
+- [x] 测试：GLM toggle / mandatory 校验、Provider options、选择器档位。
+
 ## M5-1d-2c 自定义兼容端点
 
 依赖：M5-1d-2b。候选状态：`todo`。

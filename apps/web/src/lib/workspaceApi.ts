@@ -111,7 +111,11 @@ export interface ApiCatalogModel {
   id: string;
   label: string;
   contextWindow: number | null;
-  thinking: { supported: boolean; levels: ApiCatalogThinkingLevel[] };
+  thinking: {
+    supported: boolean;
+    mode?: "toggle" | "levels" | "mandatory-levels";
+    levels: ApiCatalogThinkingLevel[];
+  };
   default: boolean;
   visible?: boolean;
 }

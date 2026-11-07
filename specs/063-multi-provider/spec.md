@@ -140,7 +140,8 @@ updated: 2026-11-07
 | M5-1d-1 | Provider 注册表、GLM / OpenAI-compatible 适配器、凭据与端点安全 | 本 spec ready；D1/D2 确认 |
 | M5-1d-2a | 目录分组、凭据绑定、DeepSeek / GLM 目录（服务端） | M5-1d-1 |
 | M5-1d-2b | 多 Key / Provider 选择 UI、能力展示与模型显示筛选 | M5-1d-2a |
-| M5-1d-2c | 自定义兼容端点存储与 SSRF 接入 | M5-1d-2b |
+| M5-1d-2d | GLM 思考模式（toggle / 档位 / 强制） | M5-1d-2b |
+| M5-1d-2c | 自定义兼容端点存储与 SSRF 接入 | M5-1d-2d |
 | M5-1d-3 | 上下文压缩（触发、摘要、降级、事件与 UI） | M5-1d-2；D3 确认 |
 | M5-1d-4 | 跨模型切换与整体验收（A8） | M5-1d-3；D4 确认 |
 

@@ -50,7 +50,7 @@ vi.mock("@/lib/queries", () => {
         id: "glm-4.6",
         label: "GLM-4.6",
         contextWindow: 200000,
-        thinking: { supported: false, levels: [] },
+        thinking: { supported: true, mode: "toggle", levels: [] },
         default: true,
       },
     ],
@@ -160,9 +160,17 @@ it("switches model and thinking from the two-level menu", async () => {
   await user.click(within(reopened).getByRole("button", { name: /GLM-4.6/ }));
   expect(useComposerStore.getState().modelId).toBe("glm-4.6");
   expect(useComposerStore.getState().credentialProfileId).toBe("cred_glm");
-  expect(useComposerStore.getState().thinking).toBe("off");
+  expect(useComposerStore.getState().thinking).toBe("on");
 
-  await user.click(screen.getByRole("button", { name: "模型与思考：GLM-4.6 · 不支持" }));
+  await user.click(screen.getByRole("button", { name: "模型与思考：GLM-4.6 · 开启" }));
+  const glmPopover = screen.getByRole("dialog", { name: "模型与思考" });
+  await user.click(within(glmPopover).getByRole("button", { name: "思考等级：开启" }));
+  expect(within(glmPopover).getByRole("button", { name: "关闭" })).toBeVisible();
+  await user.click(within(glmPopover).getByRole("button", { name: "关闭" }));
+  expect(useComposerStore.getState().thinking).toBe("off");
+  expect(screen.getByRole("button", { name: "模型与思考：GLM-4.6 · 关闭" })).toBeVisible();
+
+  await user.click(screen.getByRole("button", { name: "模型与思考：GLM-4.6 · 关闭" }));
   const again = screen.getByRole("dialog", { name: "模型与思考" });
   await user.click(within(again).getByRole("button", { name: "模型：GLM-4.6" }));
   await user.click(within(again).getByRole("button", { name: /DeepSeek Chat/ }));

@@ -356,4 +356,70 @@ describe("deepseek model catalog", () => {
       }
     });
   });
+  it("validates toggle and mandatory thinking modes for GLM", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+
+      try {
+        createCredential(options, { provider: "glm", label: "GLM Key", apiKey: "sk-glm" });
+        const credential = opened.sqlite
+          .prepare("SELECT id FROM credential_profiles WHERE provider = 'glm'")
+          .get() as { id: string };
+
+        opened.sqlite
+          .prepare(
+            "INSERT INTO model_catalog_cache (credential_profile_id, provider, endpoint, models_json, synced_at, last_attempt_at, last_error_code) VALUES (?, 'glm', ?, ?, 5000, 5000, NULL)",
+          )
+          .run(
+            credential.id,
+            "https://open.bigmodel.cn/api/paas/v4/models",
+            JSON.stringify([
+              {
+                id: "glm-4.6",
+                label: "GLM-4.6",
+                contextWindow: 200_000,
+                thinking: { supported: true, mode: "toggle", levels: [] },
+                default: true,
+              },
+              {
+                id: "glm-5.3",
+                label: "GLM-5.3",
+                contextWindow: 1_000_000,
+                thinking: {
+                  supported: true,
+                  mode: "mandatory-levels",
+                  levels: [
+                    { id: "low", label: "低" },
+                    { id: "medium", label: "中" },
+                    { id: "high", label: "高" },
+                  ],
+                },
+                default: false,
+              },
+            ]),
+          );
+
+        expect(resolveCatalogSelection(options.db, { model: "glm-4.6" })).toMatchObject({
+          thinking: "on",
+        });
+        expect(
+          resolveCatalogSelection(options.db, { model: "glm-4.6", thinking: "medium" }),
+        ).toMatchObject({ thinking: "on" });
+        expect(
+          resolveCatalogSelection(options.db, { model: "glm-4.6", thinking: "off" }),
+        ).toMatchObject({ thinking: "off" });
+        expect(resolveCatalogSelection(options.db, { model: "glm-5.3" })).toMatchObject({
+          thinking: "high",
+        });
+        expect(
+          resolveCatalogSelection(options.db, { model: "glm-5.3", thinking: "low" }),
+        ).toMatchObject({ thinking: "low" });
+        expect(() =>
+          resolveCatalogSelection(options.db, { model: "glm-5.3", thinking: "off" }),
+        ).toThrowError(ModelError);
+      } finally {
+        opened.sqlite.close();
+      }
+    });
+  });
 });

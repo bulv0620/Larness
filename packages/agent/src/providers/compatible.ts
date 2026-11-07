@@ -12,6 +12,7 @@ import type {
   ProviderCapabilities,
   ProviderChunk,
   ProviderStepInput,
+  ProviderThinking,
 } from "./types.js";
 
 export const GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4";
@@ -33,6 +34,22 @@ export interface CompatibleProviderOptions {
   baseURL: string;
   capabilities?: Partial<ProviderCapabilities>;
   timeoutMs?: number;
+}
+
+export function toCompatibleProviderOptions(
+  name: string,
+  thinking: ProviderThinking | undefined,
+): Record<string, Record<string, string | { type: string }>> | undefined {
+  if (thinking === undefined) return undefined;
+
+  return {
+    [name]: {
+      thinking: { type: thinking.enabled ? "enabled" : "disabled" },
+      ...(thinking.enabled && thinking.effort !== undefined
+        ? { reasoning_effort: thinking.effort }
+        : {}),
+    },
+  };
 }
 
 /**
@@ -62,12 +79,14 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
           fetch: noRedirectFetch,
         });
         const tools = toAiSdkTools(input.tools);
+        const providerOptions = toCompatibleProviderOptions(options.name, input.thinking);
         const result = streamText({
           model: provider(input.model),
           messages: toAiSdkMessages(input.messages),
           abortSignal: input.signal,
           timeout: options.timeoutMs ?? input.timeoutMs ?? DEFAULT_COMPATIBLE_TIMEOUT_MS,
           ...(tools === undefined ? {} : { tools }),
+          ...(providerOptions === undefined ? {} : { providerOptions }),
           ...(input.temperature === undefined ? {} : { temperature: input.temperature }),
           ...(input.maxOutputTokens === undefined
             ? {}

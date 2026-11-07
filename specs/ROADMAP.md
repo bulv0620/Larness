@@ -245,7 +245,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-1d-1 | Provider 注册表、GLM / 兼容适配器与端点安全 | M5-1d ready | `review`（2026-11-07 交付） |
 | M5-1d-2a | 目录分组与凭据绑定（服务端） | M5-1d-1 | `review`（2026-11-07 交付） |
 | M5-1d-2b | 多 Key / Provider 选择 UI | M5-1d-2a | `review`（2026-11-07 交付） |
-| M5-1d-2c | 自定义兼容端点 | M5-1d-2b | `todo` |
+| M5-1d-2d | GLM 思考模式 | M5-1d-2b | `review`（2026-11-07 交付） |
+| M5-1d-2c | 自定义兼容端点 | M5-1d-2d | `todo` |
 | M5-2 | Scheduler：Cron、JS / Agent Job、JobRun、限流 | G4 | `todo` |
 | M5-3 | Launcher / Updater、签名、UpdateLock、回滚 | G4 | `todo` |
 | M5-4 | Windows / Linux PoC、打包与安装说明 | M5-1a ~ M5-1c、M5-2、M5-3 | `todo` |

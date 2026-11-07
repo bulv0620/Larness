@@ -3,6 +3,7 @@ import {
   createCompatibleProvider,
   createGlmProvider,
   GLM_BASE_URL,
+  toCompatibleProviderOptions,
 } from "../../src/providers/index.js";
 
 describe("compatible providers", () => {
@@ -47,5 +48,17 @@ describe("compatible providers", () => {
     });
     expect(provider.id).toBe("openai-compatible");
     expect(provider.capabilities.toolCalls).toBe(true);
+  });
+  it("maps thinking settings to provider options", () => {
+    expect(toCompatibleProviderOptions("glm", undefined)).toBeUndefined();
+    expect(toCompatibleProviderOptions("glm", { enabled: false })).toEqual({
+      glm: { thinking: { type: "disabled" } },
+    });
+    expect(toCompatibleProviderOptions("glm", { enabled: true })).toEqual({
+      glm: { thinking: { type: "enabled" } },
+    });
+    expect(toCompatibleProviderOptions("glm", { enabled: true, effort: "max" })).toEqual({
+      glm: { thinking: { type: "enabled" }, reasoning_effort: "max" },
+    });
   });
 });

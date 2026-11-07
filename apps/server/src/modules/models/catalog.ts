@@ -29,11 +29,13 @@ export interface CatalogThinkingLevel {
   label: string;
 }
 
+export type CatalogThinkingMode = "toggle" | "levels" | "mandatory-levels";
+
 export interface CatalogModel {
   id: string;
   label: string;
   contextWindow: number | null;
-  thinking: { supported: boolean; levels: CatalogThinkingLevel[] };
+  thinking: { supported: boolean; mode?: CatalogThinkingMode; levels: CatalogThinkingLevel[] };
   default: boolean;
   /** Whether the model appears in the conversation picker; defaults to true. */
   visible?: boolean;
@@ -91,6 +93,7 @@ export const DEEPSEEK_BUILTIN_CATALOG: readonly CatalogModel[] = [
     contextWindow: 1_048_576,
     thinking: {
       supported: true,
+      mode: "levels",
       levels: THINKING_LEVELS.map((level) => ({ ...level })),
     },
     default: true,
@@ -228,13 +231,19 @@ function mergeCatalog(
   const models = payload.data.map((entry) => {
     const builtin = builtins.find((item) => item.id === entry.id);
     const supported = entry.thinking?.supported ?? builtin?.thinking.supported ?? false;
-    const levels = supported ? THINKING_LEVELS.map((level) => ({ ...level })) : [];
+    const mode = builtin?.thinking.mode ?? "levels";
+    const levels = supported
+      ? mode === "toggle"
+        ? []
+        : THINKING_LEVELS.map((level) => ({ ...level }))
+      : [];
+    const thinking = { supported, mode, levels };
 
     return {
       id: entry.id,
       label: entry.name ?? builtin?.label ?? entry.id,
       contextWindow: entry.context_window ?? entry.contextWindow ?? builtin?.contextWindow ?? null,
-      thinking: { supported, levels },
+      thinking,
       default: false,
     };
   });
@@ -257,7 +266,11 @@ function parseModels(json: string): CatalogModel[] {
           id: z.string(),
           label: z.string(),
           contextWindow: z.number().int().positive().nullable(),
-          thinking: z.object({ supported: z.boolean(), levels: z.array(levelSchema) }),
+          thinking: z.object({
+            supported: z.boolean(),
+            mode: z.enum(["toggle", "levels", "mandatory-levels"]).optional(),
+            levels: z.array(levelSchema),
+          }),
           default: z.boolean(),
         })
         .safeParse(entry);
@@ -269,7 +282,14 @@ function parseModels(json: string): CatalogModel[] {
         {
           ...result.data,
           thinking: result.data.thinking.supported
-            ? { supported: true, levels: THINKING_LEVELS.map((level) => ({ ...level })) }
+            ? {
+                supported: true,
+                mode: result.data.thinking.mode ?? "levels",
+                levels:
+                  (result.data.thinking.mode ?? "levels") === "toggle"
+                    ? []
+                    : THINKING_LEVELS.map((level) => ({ ...level })),
+              }
             : { supported: false, levels: [] },
         },
       ];
@@ -480,29 +500,45 @@ function recordFailure(
   });
 }
 
+export function defaultThinking(model: CatalogModel): string {
+  if (!model.thinking.supported) return "off";
+  if (model.thinking.mode === "toggle") return "on";
+  if (model.thinking.mode === "mandatory-levels") return "high";
+  return "medium";
+}
+
 function normalizeThinking(model: CatalogModel, thinking: string | null | undefined): string {
-  if (thinking === undefined || thinking === null || thinking.length === 0) {
-    return "medium";
-  }
-
-  if (thinking === "off") {
-    return thinking;
-  }
-
-  // Legacy sessions stored "default"; the ladder now has explicit low / medium / high.
-  if (thinking === "default") {
-    return "medium";
-  }
-
   if (!model.thinking.supported) {
+    if (thinking === undefined || thinking === null || thinking === "" || thinking === "off") {
+      return "off";
+    }
     throw new ModelError("MODEL_UNSUPPORTED", "thinking level is not supported by this model");
   }
 
-  if (!THINKING_LEVELS.some((level) => level.id === thinking)) {
+  const mode = model.thinking.mode ?? "levels";
+
+  if (thinking === undefined || thinking === null || thinking.length === 0) {
+    return defaultThinking(model);
+  }
+
+  if (mode === "toggle") {
+    if (thinking === "off") return "off";
+    if (thinking === "on") return "on";
+    // Legacy level/default values collapse to "on" for toggle-only models.
+    if (["low", "medium", "high", "default"].includes(thinking)) return "on";
     throw new ModelError("MODEL_UNSUPPORTED", "thinking level is not supported by this model");
   }
 
-  return thinking;
+  if (mode === "mandatory-levels") {
+    if (["low", "medium", "high"].includes(thinking)) return thinking;
+    if (thinking === "default" || thinking === "on") return "high";
+    throw new ModelError("MODEL_UNSUPPORTED", "this model requires a thinking level");
+  }
+
+  if (thinking === "off") return "off";
+  if (thinking === "default" || thinking === "on") return "medium";
+  if (["low", "medium", "high"].includes(thinking)) return thinking;
+  throw new ModelError("MODEL_UNSUPPORTED", "thinking level is not supported by this model");
 }
 
 export function resolveCatalogSelection(
@@ -574,6 +610,10 @@ export function mapThinkingSetting(thinking: string | null | undefined): {
 
   if (thinking === "low" || thinking === "medium" || thinking === "high") {
     return { enabled: true, effort: PROVIDER_EFFORT[thinking] };
+  }
+
+  if (thinking === "on") {
+    return { enabled: true };
   }
 
   // "default" is a legacy stored value; treat it as the middle tier.

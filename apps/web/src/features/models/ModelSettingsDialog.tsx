@@ -51,9 +51,11 @@ function windowLabel(model: ApiCatalogModel): string {
 }
 
 function thinkingLabel(model: ApiCatalogModel): string {
-  return model.thinking.supported
-    ? `思考 ${model.thinking.levels.map((level) => level.label).join(" / ")}`
-    : "不支持思考档位";
+  if (!model.thinking.supported) return "不支持思考档位";
+  const mode = model.thinking.mode ?? "levels";
+  if (mode === "toggle") return "思考 开 / 关";
+  if (mode === "mandatory-levels") return "思考 低 / 中 / 高（强制）";
+  return "思考 低 / 中 / 高";
 }
 
 function syncLabel(group: ApiCatalogGroup): string {

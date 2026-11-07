@@ -22,7 +22,8 @@ const THINKING_LEVELS = [
 ];
 
 function levelLabel(thinking: string): string {
-  return THINKING_LEVELS.find((level) => level.id === thinking)?.label ?? "中";
+  if (thinking === "on") return "开启";
+  return THINKING_LEVELS.find((level) => level.id === thinking)?.label ?? "关闭";
 }
 
 function providerLabel(provider: ApiCatalogGroup["provider"]): string {

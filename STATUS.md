@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c / M5-1d-1 / d-2a / d-2b `review` |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / M5-1b / M5-1e `done`；M5-1c / M5-1d-1 / d-2a / d-2b / d-2d `review` |
 
 ## 初始化修复（2026-11-02）
 
@@ -59,7 +59,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 ## 当前工作
 
-- M5-1d-2b `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：选择器按 Provider + Key 分组并绑定 `credentialProfileId`；设置页可添加 DeepSeek / GLM Key；自定义兼容端点归 d-2c。
+- M5-1d-2d `review`（2026-11-07，分支 `task/m5-1d-multi-provider-spec`）：思考能力增加 toggle / levels / mandatory-levels；GLM 按 4.5/4.6/4.7/5/5.1 开关、5.2 档位、5.3 强制档位映射并发送 `thinking.type` / `reasoning_effort`。
 - M5-1c `review`（2026-11-07，分支 `task/m5-1c-request-usage`）：每次模型请求写 `model.usage`，圆环按所选模型的单次输入 / 同次窗口计算；无统计显示「暂无统计」。
 - M5-1e `done`（2026-11-07，分支 `task/m5-1e-process-view`，人类验收）：思考过程默认折叠、单行预览，展开只显示计划与工具；不落库。
 - M5-1b `done`（2026-11-07，分支 `task/m5-1b-tool-continuation`，人类验收）：真实 Key PoC 通过；思考模式工具续跑在 Turn 内存回传推理数据，不落库。
@@ -184,6 +184,15 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - GLM 实测（2026-11-07）：官方目录只返回 id / object / created / owned_by，不含窗口；已按官方文档补齐内置窗口（4.5/4.5-Air 128K；4.6/4.7/5/5.1 200K；5.2/5.3 1M），仍未收录的 5-turbo/5.3-flash* 保持未知并禁用。真实对话返回 429，上游内容为 `1113 余额不足或无可用资源包`，已映射 `PROVIDER_QUOTA_EXHAUSTED`（402）并显示充值提示，不再误报限流。
 - 设置弹窗按服务运维风格重构为「Key 列表 → Key 详情 / 添加 Key」两栏式；模型行眼睛图标控制是否出现在会话选择器（迁移 0017 `model_visibility` + PATCH 接口），输入框选择器过滤隐藏模型。
 - 未验证：GLM 真实工具调用（账户需充值 / 资源包）；自定义兼容端点（d-2c）。
+
+## M5-1d-2d 交付（2026-11-07）
+
+- 思维模式：`CatalogModel.thinking.mode` 支持 `toggle`（关/开）、`levels`（关/低/中/高）、`mandatory-levels`（低/中/高，不能关）。
+- GLM 映射：4.5 / 4.5-Air / 4.6 / 4.7 / 5 / 5.1 为开关；5.2 为档位；5.3 为强制档位（低/中/高 → `low` / `high` / `max`）。
+- 服务端默认值：开关默认开、强制档位默认高、普通档位默认中；切换模型时 UI 自动修正非法档位。
+- 请求：兼容适配器通过 providerOptions 发送 `thinking: { type }`，档位模型附加 `reasoning_effort`；DeepSeek 路径不变。
+- 验证：`pnpm check`（web 135、agent 40 通过 / 1 跳过、server 511 通过 / 10 跳过）；`pnpm build`；auth E2E `m1`；Demo 19/19。
+- 未验证：GLM 真实对话（账户余额不足），只验证了请求组装与目录能力。
 
 ## 已冻结
 
