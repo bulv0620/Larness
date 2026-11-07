@@ -30,6 +30,13 @@ vi.mock("@/lib/queries", () => ({
           },
           default: true,
         },
+        {
+          id: "deepseek-chat",
+          label: "DeepSeek Chat",
+          contextWindow: 128000,
+          thinking: { supported: false, levels: [] },
+          default: false,
+        },
       ],
     },
     isPending: false,
@@ -92,13 +99,26 @@ it("requires risk confirmation before switching to autonomous, with cancellation
   expect(screen.getByRole("button", { name: "审批策略：完全自主" })).toBeVisible();
 });
 
-it("switches model and thinking level from the composer picker", async () => {
+it("switches thinking from the slider and model from the model list", async () => {
   const user = userEvent.setup();
   render(<Composer />);
   await user.click(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 默认" }));
-  const menu = screen.getByRole("menu");
-  expect(within(menu).getByRole("menuitemradio", { name: /DeepSeek Flash/ })).toBeChecked();
-  await user.click(within(menu).getByRole("menuitemradio", { name: "高" }));
-  expect(useComposerStore.getState().thinking).toBe("high");
-  expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 高" })).toBeVisible();
+  const popover = await screen.findByRole("dialog", { name: "模型与思考" });
+  expect(within(popover).getByText("默认")).toBeVisible();
+
+  const slider = within(popover).getByRole("slider", { name: "思考强度" });
+  expect(slider).toHaveAttribute("aria-valuenow", "1");
+  expect(slider).toHaveAttribute("aria-valuetext", "默认");
+  slider.focus();
+  await user.keyboard("{End}");
+  expect(useComposerStore.getState().thinking).toBe("max");
+  expect(within(popover).getByRole("slider")).toHaveAttribute("aria-valuetext", "最高");
+  expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 最高" })).toBeVisible();
+
+  await user.click(within(popover).getByRole("button", { name: "切换模型：DeepSeek Flash" }));
+  expect(within(popover).getByText("选择模型")).toBeVisible();
+  await user.click(within(popover).getByRole("button", { name: /DeepSeek Chat/ }));
+  expect(useComposerStore.getState().modelId).toBe("deepseek-chat");
+  expect(useComposerStore.getState().thinking).toBe("default");
+  expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Chat · 默认" })).toBeVisible();
 });

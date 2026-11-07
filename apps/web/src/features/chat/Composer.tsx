@@ -14,22 +14,15 @@ import {
   DropdownMenuTrigger,
   IconButton,
 } from "@larness/ui";
-import {
-  ArrowUp,
-  ChevronDown,
-  Plus,
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-  Sparkles,
-  Square,
-} from "lucide-react";
+import { ArrowUp, Plus, Shield, ShieldAlert, ShieldCheck, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useModelCatalog, useSessionModel } from "@/lib/queries";
+import { refreshModelCatalog } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
+import { ModelControl } from "./ModelControl";
 
 const policies = [
   {
@@ -56,11 +49,9 @@ const policies = [
   { id: "readonly", label: "只读", detail: "禁止修改与执行", icon: Shield, tone: "text-success" },
 ] as const;
 
-const thinkingFallback = { id: "default", label: "默认" };
-
 export function Composer() {
   const [confirmAutonomous, setConfirmAutonomous] = useState(false);
-  const { catalog, error: catalogError } = useModelCatalog();
+  const { catalog, error: catalogError, refetch: refetchCatalog } = useModelCatalog();
   const draft = useComposerStore((state) => state.draft);
   const modelId = useComposerStore((state) => state.modelId);
   const thinking = useComposerStore((state) => state.thinking);
@@ -81,12 +72,6 @@ export function Composer() {
   const hydratedSession = useRef<string | null>(null);
   const catalogModels = catalog?.models ?? [];
   const model = catalogModels.find((item) => item.id === modelId) ?? catalogModels[0];
-  const thinkingLabel =
-    thinking === "off"
-      ? "关闭"
-      : thinking === "default"
-        ? "默认"
-        : (model?.thinking.levels.find((level) => level.id === thinking)?.label ?? "默认");
   const currentPolicy = policies.find((item) => item.id === policy) ?? policies[0];
   const PolicyIcon = currentPolicy.icon;
   const contextTokens = useTimelineStore((state) => state.contextTokens);
@@ -122,6 +107,11 @@ export function Composer() {
     const separator = draft && !draft.endsWith(" ") ? " " : "";
     setDraft(`${draft}${separator}${token} `);
     requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
+  const refreshCatalog = async () => {
+    await refreshModelCatalog();
+    await refetchCatalog();
   };
 
   const selectModel = (nextModelId: string) => {
@@ -182,66 +172,15 @@ export function Composer() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={`模型与思考：${model?.label ?? "未配置凭据"} · ${thinkingLabel}`}
-              className="flex h-7 min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
-            >
-              <Sparkles size={12} className="shrink-0 text-accent" />
-              <span className="max-w-[96px] truncate sm:max-w-[128px]">
-                {model?.label ?? "选择模型"}
-              </span>
-              {model ? (
-                <span className="rounded-full bg-accent-soft px-1.5 py-[1px] text-[9px] font-medium text-accent">
-                  {thinkingLabel}
-                </span>
-              ) : null}
-              <ChevronDown size={11} className="text-ink-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[260px]">
-            <DropdownMenuLabel>模型 · 下一轮生效</DropdownMenuLabel>
-            {catalogModels.length === 0 ? (
-              <div className="px-2 pb-2 text-[11px] leading-relaxed text-ink-3">
-                {catalogError
-                  ? "读取模型目录失败。请打开设置同步目录。"
-                  : "未配置凭据。先在设置中添加 DeepSeek Key 并刷新目录。"}
-              </div>
-            ) : (
-              <DropdownMenuRadioGroup value={model?.id} onValueChange={selectModel}>
-                {catalogModels.map((item) => (
-                  <DropdownMenuRadioItem key={item.id} value={item.id} className="items-start py-2">
-                    <span className="flex flex-col">
-                      <span className="text-[11.5px] font-medium text-ink">{item.label}</span>
-                      <span className="text-[10px] text-ink-3">
-                        {item.contextWindow === null
-                          ? "上下文未知"
-                          : `${item.contextWindow.toLocaleString("en-US")} 上下文`}
-                        {item.default ? " · 默认" : ""}
-                      </span>
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            )}
-            {model?.thinking.supported ? (
-              <>
-                <DropdownMenuLabel>思考 · 本轮每次请求生效</DropdownMenuLabel>
-                <DropdownMenuRadioGroup value={thinking} onValueChange={setThinking}>
-                  {[{ id: "off", label: "关闭" }, thinkingFallback, ...model.thinking.levels].map(
-                    (level) => (
-                      <DropdownMenuRadioItem key={level.id} value={level.id}>
-                        {level.label}
-                      </DropdownMenuRadioItem>
-                    ),
-                  )}
-                </DropdownMenuRadioGroup>
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ModelControl
+          models={catalogModels}
+          model={model}
+          thinking={thinking}
+          catalogError={catalogError}
+          onSelectModel={selectModel}
+          onSelectThinking={setThinking}
+          onRefresh={refreshCatalog}
+        />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
