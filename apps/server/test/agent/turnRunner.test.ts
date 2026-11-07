@@ -645,6 +645,47 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("treats a provider abort as a timeout failure instead of a user cancel", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "timeout" });
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              {
+                type: "error",
+                error: new ProviderError("PROVIDER_ABORTED", "provider request aborted"),
+              },
+            ],
+          },
+        ]);
+        const published: ServerEvent[] = [];
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
+        });
+
+        const result = await runner.run(turn.turnId);
+        expect(result).toMatchObject({
+          status: "FAILED",
+          errorCode: "PROVIDER_UNAVAILABLE",
+        });
+        expect(published.map((event) => event.type)).toContain("turn.failed");
+        expect(published.map((event) => event.type)).not.toContain("turn.cancelled");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("stops at the step budget and reports budget exhaustion", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

@@ -1198,7 +1198,17 @@ export class TurnRunner {
 
         if (providerError !== null) {
           if (providerError.code === "PROVIDER_ABORTED") {
-            return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+            const current = getTurnById(this.#options.db, turn.id);
+
+            if (current?.status === "CANCELLING") {
+              return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+            }
+
+            return finalize("FAILED", {
+              eventType: "turn.failed",
+              errorCode: "PROVIDER_UNAVAILABLE",
+              message: "执行超时或连接中断，请重试",
+            });
           }
 
           return finalize("FAILED", {

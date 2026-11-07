@@ -211,6 +211,13 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 配额错误不再附加端点提示文案（按用户要求移除）。
 - 验证：`pnpm check`（web 135、agent 40/1、server 516/10）、`pnpm build`、auth E2E `m1`。
 
+## 长任务被 120 秒超时截断修复（2026-11-07）
+
+- 现象：GLM 生成 SVG / 长推理时在约 120–126 秒出现「已停止当前执行」。
+- 根因：Provider 默认 `timeout` 为 120 秒；AI SDK 超时被归类为 `PROVIDER_ABORTED`，Turn 再把它当成用户取消，显示「已停止当前执行」。
+- 修复：DeepSeek / 兼容 Provider 默认超时提升到 10 分钟；非用户取消的 `PROVIDER_ABORTED` 改为 `FAILED / PROVIDER_UNAVAILABLE`，提示「执行超时或连接中断，请重试」；用户主动停止仍为 CANCELLED。新增回归测试。
+- 验证：`pnpm check`（web 135、agent 40/1、server 517/10）、`pnpm build`。
+
 ## 已冻结
 
 - 产品与安全边界：`CONSTITUTION.md`

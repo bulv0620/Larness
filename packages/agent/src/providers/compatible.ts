@@ -25,7 +25,7 @@ export const GLM_ENDPOINTS = {
 export type GlmEndpoint = (typeof GLM_ENDPOINTS)[keyof typeof GLM_ENDPOINTS];
 
 export const GLM_BASE_URL: GlmEndpoint = GLM_ENDPOINTS.standardCn;
-export const DEFAULT_COMPATIBLE_TIMEOUT_MS = 120_000;
+export const DEFAULT_COMPATIBLE_TIMEOUT_MS = 600_000;
 
 const noRedirectFetch: typeof fetch = (input, init) => fetch(input, { ...init, redirect: "error" });
 

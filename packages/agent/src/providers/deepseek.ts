@@ -25,7 +25,7 @@ import type {
 } from "./types.js";
 
 export const DEEPSEEK_DEFAULT_MODEL = "deepseek-chat";
-export const DEEPSEEK_DEFAULT_TIMEOUT_MS = 120_000;
+export const DEEPSEEK_DEFAULT_TIMEOUT_MS = 600_000;
 
 export const DEEPSEEK_CAPABILITIES: ProviderCapabilities = {
   streaming: true,
