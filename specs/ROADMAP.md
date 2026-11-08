@@ -20,7 +20,7 @@
 ```text
 D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 → G-Spec-M2 → M2-0 → G-PoC-M2 → M2-1 → … → M2-8 → G-Spec-M3 → M3-0 → G-PoC-M3 → M3-1 → … → M3-6 → … → M3-11 → M4-P → G-Spec-M4 → M4-0 → G-PoC-M4 → M4-1 → … → M4-4
-→ M5-1a → M5-1b → M5-1c → M5-1e → M5-1d → M5-2-1 → M5-2-2 → M5-2-3 → M5-2-4 → … → M5-5
+→ M5-1a → M5-1b → M5-1c → M5-1e → M5-1d → M5-2-1 → M5-2-2 → M5-2-3 → M5-2-4 → M5-3-1 → M5-3-2 → M5-3-3 → M5-3-4 → M5-3-5 → … → M5-5
 ```
 
 ## 2. S0 视觉 Demo
@@ -252,7 +252,12 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-2-2 | Agent 定时任务与策略快照 | M5-2-1 | `done` |
 | M5-2-3 | 自动化任务 UI、通知与运行历史 | M5-2-2 | `done` |
 | M5-2-4 | 调度整体验收（时区 / 恢复 / 安全） | M5-2-3 | `done`（2026-11-08 当前范围） |
-| M5-3 | Launcher / Updater、签名、UpdateLock、回滚 | G4 | `todo` |
+| M5-3 | [Launcher / Updater、签名、UpdateLock、回滚](065-launcher-updater/spec.md) | G4；065 spec ready | `todo`（065 spec draft，待 D1–D6） |
+| M5-3-1 | 发布清单、签名与版本检查 | 065 ready | `todo` |
+| M5-3-2 | Launcher、安装布局与更新锁 | M5-3-1 | `todo` |
+| M5-3-3 | 下载、归档校验与安全解压 | M5-3-1 | `todo` |
+| M5-3-4 | 安全点、切换、健康与回滚 | M5-3-2、M5-3-3 | `todo` |
+| M5-3-5 | TUI 更新页与整体验收 | M5-3-4 | `todo` |
 | M5-4 | Windows / Linux PoC、打包与安装说明 | M5-1a ~ M5-1c、M5-2、M5-3 | `todo` |
 | M5-5 | 安全加固、发布验收清单、文档定稿 | M5-4 | `todo` |
 

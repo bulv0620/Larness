@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a / b / c / d / e `done`；M5-2 `done`；下一步 M5-3 spec |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a / b / c / d / e `done`；M5-2 `done`；M5-3 spec `draft` |
 
 ## 初始化修复（2026-11-02）
 
@@ -257,7 +257,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - D1–D4 已确认：脚本内联源码 + 子进程 node；Agent 默认 `readonly`、`autonomous` 二次确认；每任务一个隐藏专用会话；错过触发默认 `skip`、可按任务 `run_once`。
 - [064 Scheduler](specs/064-scheduler/spec.md) 转 `ready`；`cron-parser@5.10.4` 与仅应用内通知随之采用。ADR-054 与 REST / WS / 数据模型契约同步。
-- 当前进入 M5-3：先补 Launcher / Updater 规格，待 D1–D5 确认后再实现。
+- M5-3 Launcher / Updater `draft`（2026-11-08）：新增 [065 规格](specs/065-launcher-updater/spec.md)、plan、tasks，仅文档；待 D1–D6 确认后转 `ready`，再按 M5-3-1 → 3-5 实现。
 
 ## M5-2 验收（2026-11-08）
 
