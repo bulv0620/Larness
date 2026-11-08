@@ -8,7 +8,7 @@ const packOutput = JSON.parse(
   execFileSync("npm", ["pack", "--json"], { cwd: root, encoding: "utf8" }),
 )[0];
 const tarball = path.join(root, packOutput.filename);
-const paths = packOutput.files.map((file) => file.path);
+const paths = packOutput.files.map((file) => file.path.replaceAll("\\", "/"));
 
 const required = [
   "app.js",
@@ -54,9 +54,17 @@ if (process.argv.includes("--install")) {
       stdio: "inherit",
       env: { ...process.env, npm_config_update_notifier: "false" },
     });
-    const installed = execFileSync(path.join(prefix, "bin", "larness"), ["--version"], {
-      encoding: "utf8",
-    }).trim();
+    const bin =
+      process.platform === "win32"
+        ? path.join(prefix, "larness.cmd")
+        : path.join(prefix, "bin", "larness");
+    const installed = (
+      process.platform === "win32"
+        ? execFileSync("cmd.exe", ["/d", "/s", "/c", `"${bin}" --version`], {
+            encoding: "utf8",
+          })
+        : execFileSync(bin, ["--version"], { encoding: "utf8" })
+    ).trim();
     if (installed !== version) {
       throw new Error(`installed version ${installed} does not match ${version}`);
     }
