@@ -1,27 +1,50 @@
-# 开放问题
+# 遗留问题与开放决策
 
-> 这里记录尚未冻结的边界问题。**默认方案不等于已批准**；涉及实现前必须由人类确认，或由 spec 明确引用为“暂定默认”。  
-> 不阻塞 D0 / M0 的问题标注了截止里程碑。
+这里集中跟踪已发现的实现缺口、验证缺口、工程债务和待决事项。阶段验收记录保留当时的证据。当前发布范围见 [支持矩阵](known-limitations.md)，M5 / G5 已按 macOS 当前范围条件通过。
+
+## 发布后任务与待验证项
+
+| ID / 领域 | 遗留项 | 证据 |
+|---|---|---|
+| M5-F1 | 实现 Windows 终端和命令，验证 Windows 11 x64 原生安装、TUI、文件/Git 和 PM2。当前终端、命令拒绝 win32。 | [平台任务卡](../specs/066-cross-platform/tasks.md) |
+| M5-F2 | 在 Ubuntu 22.04 / 24.04 x64 验证安装、node-pty 编译回退、终端、PM2、路径与锁。 | [平台验收](../specs/066-cross-platform/acceptance.md) |
+| M5-F3 | F1、F2 完成后按实机结果更新支持矩阵与验收。 | [平台任务卡](../specs/066-cross-platform/tasks.md) |
+| 远程预览 | 验证独立域、通配 DNS、HTTPS 反代与浏览器行为；预览连接身份存在竞态边界。多客户端布局、外部打开和模型自主选择预览仍缺专门端到端覆盖。 | [M3 收尾](../specs/040-services-preview/closure.md) |
+| 正式服务 | 核实主机重启后恢复与 PM2 运行时升级行为；正式服务秘密注入及落盘边界见 Q-029。 | [M4 收尾](../specs/050-deploy/closure.md) |
+| 模型 | 实测真实第三方兼容端点与接近窗口阈值的长会话压缩质量及 UI。真实 GLM Coding 文本、推理和工具调用已有证据。 | [多模型验收](../specs/063-multi-provider/closure-d4.md) |
+| 调度 | 补真实 Provider 定时任务、取消到终态的时延、实际重启和休眠唤醒、失败角标、任务数满额和视觉记录。 | [调度验收](../specs/064-scheduler/acceptance.md) |
+| npm | 真实 registry 出现新版本时验证 TUI 提示；全局安装的交互 TUI 缺独立验收。Node 20 存在传递依赖 engine 警告，npm 11 脚本策略可能影响原生模块安装。 | [分发验收](../specs/065-launcher-updater/acceptance.md)、[安装指南](guides/install.md) |
+| 全量回归 | auth E2E 有批量时序抖动，终端用例可单独通过；对话用例仍有旧计划选择器失败记录。预览验收也记录过 PTY 测试时序抖动。 | [调度验收](../specs/064-scheduler/acceptance.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
+| 前端与资源 | Monaco 生产 CSP 使用 `unsafe-eval`；Git 状态每 3 秒轮询，暂无 WS 失效接线。外部写入、进程脱组及磁盘满/数据库损坏仍是边界。 | [M2 收尾](../specs/030-dev-resources/closure.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
+| 发布与安全 | 本地发布无 CI / npm provenance；风险与检查证据保存在安全复核中。 | [安全复核](security/review.md) |
+
+## 规范与实现差异
+
+| 事项 | 当前证据 | 待确认 |
+|---|---|---|
+| 更新规范 | [宪法第十二条](../CONSTITUTION.md#第十二条--更新安全) 要求独立 Launcher / Updater、签名、UpdateLock 和回滚；[M5-3](../specs/065-launcher-updater/spec.md) 与现有代码采用 npm 手动更新、TUI 只读提示和升级前数据库备份。 | 是否走 ADR 与人类审批流程同步上位规范。 |
+| 历史设计清单 | [G5 验收](../specs/067-release-hardening/acceptance.md) 将 `larness.md` 第 31 / 42.3 章的清单标为复核中。 | 按宪法、ADR 和当前规格逐项标注历史要求的处置。 |
 
 ## 待决
 
-| ID | 问题 | 默认方案 | 影响 | 截止 |
+默认方案须由人类确认或由 spec 明确引用为暂定默认。
+
+| ID | 问题 | 默认方案或当前证据 | 影响 | 跟踪 |
 |---|---|---|---|---|
-| Q-005 | Windows 支持的时间与范围？ | macOS 主开发；Linux CI；Windows 在 M5 前完成 PTY / 路径 / PM2 / 更新 / Passkey PoC | 任务排期、发布说明 | M5 开始前 |
-| Q-006 | 是否收集遥测 / 崩溃报告？ | 默认完全关闭；仅本地日志 | 隐私、实现 | M5 |
-| Q-008 | 会话有效期具体值？ | 绝对 12h、空闲 30min；过期后用 Passkey 重新认证 | 认证体验、安全 | M0 |
-| Q-010 | 备份保留策略？ | 7 份日备份 + 4 份周备份；含秘密时加密；项目源码不备份 | M4/M5 | M5 |
-| Q-011 | 删除 Session 时是否删除 artifacts？ | 默认保留 7 天再清理；删除前预览；不触碰项目源码 | 数据保留 | M2 |
-| Q-012 | 是否提供中文以外的 UI 语言？ | V1 仅 zh-CN，字符串集中管理，预留 i18n | UI 实现 | M5 |
-| Q-013 | 公网访问是否内置 TLS / 隧道？ | 不内置；文档要求用户使用 HTTPS 反代或受保护隧道 | 部署、文档 | M4 |
-| Q-014 | 单文件发布是否作为硬指标？ | 不；`node app.js` 为稳定入口，允许伴随原生资源目录 | 构建、发布 | M5 |
-| Q-015 | 通过 `127.0.0.1` / 局域网 IP 访问时 Passkey 不可用，如何引导？ | 只支持 canonical origin：`http://localhost:<port>`（开发）或 HTTPS 域名（生产）；IP 访问提示改用 localhost / 域名，`allow_once` 仍可用 | M0 UI、初始化向导、文档 | M0-6 |
-| Q-016 | 所有 Passkey 丢失 / TUI 不可用时如何恢复？ | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码仍为 P1 | 恢复流程、支持成本 | M4 |
-| Q-017 | 是否允许可同步 Passkey（iCloud / Google）？ | 允许；存储 `backupEligible` / `backupState` 并在设备列表展示，不承诺物理设备绑定 | 安全文案、撤销粒度 | M0-6 |
-| Q-018 | 是否保留 `允许本次` 临时访问？ | 保留；仅短期会话，不注册 Passkey，不产生长期凭据 | 兼容不支持 WebAuthn 的浏览器 | M0-5 |
+| Q-006 | 是否收集遥测 / 崩溃报告？ | 默认完全关闭；仅本地日志 | 隐私、实现 | 未排期 |
+| Q-010 | 备份保留策略？ | 当前升级前数据库备份保留 5 份；周期性备份与含秘密备份的额外加密策略仍待决定 | M4/M5 | 未排期 |
+| Q-011 | 删除 Session 时是否删除 artifacts？ | 默认保留 7 天再清理；删除前预览；不触碰项目源码 | 数据保留 | 未排期 |
+| Q-012 | 是否提供中文以外的 UI 语言？ | V1 仅 zh-CN，字符串集中管理，预留 i18n | UI 实现 | 未排期 |
+| Q-013 | 公网访问是否内置 TLS / 隧道？ | 不内置；文档要求用户使用 HTTPS 反代或受保护隧道 | 部署、文档 | 未排期 |
+| Q-016 | 所有 Passkey 丢失 / TUI 不可用时如何恢复？ | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码仍为 P1 | 恢复流程、支持成本 | 未排期 |
 | Q-029 | 正式服务如何接收 `secretRef`，避免 PM2 将明文写入元数据、dump 或日志？ | M4-3 已验证守护/应用不继承 `LARNESS_*` 合成秘密，dump/pm2.log/服务日志无标记；正式 secretRef 注入与所有落盘路径仍需在产品注入前专项验证 | PM2 正式服务注入与脱敏 | M4-3b 产品秘密注入前 |
 
 ## 已解决
+
+- Q-008：`packages/shared/src/config.ts` 的默认会话期限为绝对 12 小时、空闲 30 分钟，服务端执行校验。
+- Q-014：发布采用 npm 包，`package.json` 的 `bin` 指向 `app.js`，随包分发 Server / Web 构建产物及迁移文件。
+- Q-015 / Q-017 / Q-018：按 [M0 认证验收](../specs/010-foundation/acceptance.md) 和 [ADR-021](adr/ADR-021-passkey-v1.md) 执行 IP 来源引导、同步 Passkey 与临时授权。
+- Q-005：平台范围已明确，剩余实现及验证进入 M5-F1 / F2 / F3。
 
 Q-004（2026-11-08）：用户确认 MIT 许可证；根包 `license: MIT` 并附 `LICENSE`，用于公共 npm 发布。
 
@@ -67,14 +90,3 @@ Q-022（2026-11-03）：人类在阅读 M2-0 PoC 后明确开始 M2-1，G-PoC-M2
 1. 在表中追加 `Q-0xx`，写清问题、默认、影响、截止。
 2. 需要立即决策的，在 `STATUS.md` 的“待人类确认”中同步。
 3. 决策完成后：写 ADR（若改变冻结行为）或更新 spec / 契约，并从本表移除或标记 `resolved`。
-
-## M2验收后保留的工程边界（2026-11-05）
-M2/G2及全部纠错已获人类统一通过，见[收尾记录](../specs/030-dev-resources/closure.md)。认证E2E批量抖动、Monaco生产CSP unsafe-eval、Git 3秒轮询仍有记录，未以验收通过伪报修复；后续按独立任务处理。M3的Q-002/Q-026及隔离预览仍待相应门禁；Q-027归M4，不能从G2通过推断已解决。
-
-## ADR-042已确认边界（2026-11-05）
-M3仅开发登记/隔离预览，Q-002/Q-026仍属M3；Q-003/Q-027移到M4 PM2门禁，不再阻塞M3。完全自主在所有已授权Agent业务动作（含首次部署/替换/启停/支持的恢复）均无人工步骤，其他模式依风险决定；计划/安全校验保留，不再将“部署是否允许免人工”列为开放问题。技术schema/grant与Turn结束关系/恢复等仍待M4评审。
-
-## M3规格评审已通过（2026-11-05）
-人类“按推荐批准”，远程验证延后至上线实验；评审材料见[040/review](../specs/040-services-preview/review.md)，决策见[ADR-043](adr/ADR-043-development-preview-authorization.md)。Q-002/Q-026 已移入“已解决”，仅授权先做 M3-0；G-PoC-M3 确认后 M3-1。
-
-2026-11-06 G-Spec-M4 已通过，M4-0 先验证全局 PM2 初始化、专用守护、退出独立性和重开后的实际状态。见 [M4 评审包](../specs/050-deploy/review.md)。

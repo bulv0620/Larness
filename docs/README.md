@@ -1,6 +1,6 @@
 # 文档索引
 
-`docs/` 存放跨里程碑的稳定知识。具体功能需求与任务在 `specs/`，不可协商条款在根目录 `CONSTITUTION.md`。
+`docs/` 存放跨里程碑的稳定知识。具体功能需求与任务从 [规格与工程入口](../specs/README.md) 查找，最高约束见 [工程宪法](../CONSTITUTION.md)。
 
 | 目录 / 文件 | 内容 | 何时阅读 |
 |---|---|---|
@@ -16,7 +16,7 @@
 | [adr/DECISIONS.md](adr/DECISIONS.md) | 已冻结 ADR 与新增 ADR 流程 | 需要偏离现有决策 |
 | [process/workflow.md](process/workflow.md) | spec 生命周期、任务状态、评审门、提交规范 | 开始与结束每个任务 |
 | [process/testing.md](process/testing.md) | 测试分层、必备用例、平台验证 | 设计测试计划 |
-| [open-questions.md](open-questions.md) | 未冻结边界与默认方案 | 遇到 spec 未覆盖的决策 |
+| [open-questions.md](open-questions.md) | 待决事项、实现缺口和待验证项 | 遇到 spec 未覆盖的决策 |
 | [glossary.md](glossary.md) | 中英术语与易混概念 | 任何时候 |
 
 ## 文档维护规则

@@ -1,7 +1,7 @@
 # M5-5 任务：安全复核、发布清单与文档
 
 > 状态：`todo | in_progress | blocked | review | done`。一个任务一个提交。
-> 门禁：spec `ready`；M5-4 三端实机结果缺失时 G5 保持未通过。
+> 门禁：spec `ready`；G5 已按人类确认的 macOS 当前范围条件通过。
 
 ## 状态总表
 
@@ -50,6 +50,15 @@
 - 依赖：M5-5-2、M5-5-3
 - 目标：G5 条款与实际方案一致，证据可查。
 - 交付物：`specs/067-release-hardening/acceptance.md`；ROADMAP G5、STATUS、060 索引。
-- 验收：A5、A6；三端未齐时 G5 不通过。
+- 验收：A5、A6；保留三端各自的实机结果和未验证状态。
 - 测试：文档链接 / 命令核对；macOS 基线复跑。
 - 涉及路径：`specs/067-release-hardening/acceptance.md`、`specs/ROADMAP.md`、STATUS.md。
+
+### DOCS-1 产品门户、规格导航与对齐复核
+
+- 状态：`done`（2026-11-08）
+- 依赖：M5-5-4；用户直接要求。
+- 验收：根 README 只介绍产品使用；独立规格入口可导航全部切片；核对当前实现并集中列出遗留事项。
+- 测试：入口范围、目录覆盖、相对链接及 Node 24.22.2 下的 `pnpm check`（743 通过、11 跳过）、`pnpm build`、`node scripts/verify-npm-pack.mjs` 均通过。
+- 实现对照：`package.json` / `app.js` 核对安装和启动；Server 路由及共享 schema 核对预览、PM2 与调度入口；`updates/npm.ts`、`db/preUpgradeBackup.ts`、命令与终端 manager 核对升级和平台限制。
+- 差异与验证缺口集中在 [遗留问题](../../docs/open-questions.md)，其中更新规范与当前实现的差异保留待决。

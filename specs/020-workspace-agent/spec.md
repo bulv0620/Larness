@@ -2,7 +2,7 @@
 id: 020-workspace-agent
 title: M1 项目、会话与最小 Agent
 milestone: M1
-status: ready
+status: done
 depends_on: [010-foundation]
 owners: [human]
 created: 2026-10-31

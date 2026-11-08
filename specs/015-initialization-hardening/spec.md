@@ -1,7 +1,7 @@
 ---
 id: 015-initialization-hardening
 title: 初始化修复与体验收敛
-status: ready
+status: done
 created: 2026-11-02
 ---
 

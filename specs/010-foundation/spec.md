@@ -2,7 +2,7 @@
 id: 010-foundation
 title: M0 工程底座与可信启动
 milestone: M0
-status: ready
+status: done
 depends_on: [000-visual-demo]
 owners: [human]
 created: 2026-10-31

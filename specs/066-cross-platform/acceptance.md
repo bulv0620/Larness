@@ -41,4 +41,4 @@ node scripts/verify-npm-pack.mjs --install
 
 ## 结论
 
-M5-4 的 macOS 开发与本地冒烟完成；Windows/Ubuntu 等待实机，M5-4 保持 `blocked`。M5-5 的文档/安全收尾可在 Mac 上并行进行，但 G5 仍需三端结果。
+M5-4 按 macOS 当前范围完成，G5 条件通过。Windows 和 Ubuntu 的实现及实机验证见 [发布后跟踪](../../docs/open-questions.md#发布后任务与待验证项)。

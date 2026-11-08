@@ -196,7 +196,7 @@ ACTIVE → REVOKED
 
 ## 资源关闭、临时绑定与服务动作（ADR-030）
 
-主动关闭终端 Tab 是已认证 terminate 操作，必须鉴权 / CSRF / 幂等 / 审计并等待实际退出；不能用本地移除 Tab 代替。窗口关闭、最小化、组件卸载 / 网络断开不 terminate。临时服务仅验证、登记与展示其 Terminal 源执行，源退出或身份不明立即撤销预览资格，不允许日志 URL / 客户端 PID 自动授权。持久 PM2 操作对人工与 Agent 采用同一权限、审批、服务锁和审计；新增部署 / 产物变更仍经 M4。详细产品规则见 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md)，具体身份/endpoint核验与票据仍待M3 PoC；PM2交付/退出和部署归M4 PoC。审批用词按ADR-042解释为策略授权，autonomous不加入人工等待。
+主动关闭终端 Tab 是已认证 terminate 操作，必须鉴权 / CSRF / 幂等 / 审计并等待实际退出；不能用本地移除 Tab 代替。窗口关闭、最小化、组件卸载 / 网络断开不 terminate。临时服务仅验证、登记与展示其 Terminal 源执行，源退出或身份不明立即撤销预览资格，不允许日志 URL / 客户端 PID 自动授权。持久 PM2 操作对人工与 Agent 采用同一权限、审批、服务锁和审计；新增部署 / 产物变更仍经 M4。详细产品规则见 [ADR-030](../adr/ADR-030-resource-lifecycle-and-services.md)，预览身份与票据见 ADR-043/044，正式 PM2 服务的退出行为见 ADR-046/050。审批用词按ADR-042解释为策略授权，autonomous不加入人工等待。
 
 ## 项目终端交接修正（ADR-031 / M2-9）
 
@@ -226,8 +226,8 @@ M3只开发登记/隔离预览；M4完整持久/正式发布。autonomous首次�
 
 按 [ADR-048](../adr/ADR-048-service-domain-separation.md)，运维资源授权与开发会话授权分别校验，动作快照和审批绑定所属领域。后端解析的运维上下文须绑定真实项目、目标范围及会话/Turn，工具装配与执行器分别校验该上下文。开发 Turn 直调运维 handler、伪造领域或持开发 ID 访问运维 API、日志、订阅与补拉均拒绝，反向同理。自主策略只改变合法操作是否需要人工批准。
 
-## M3技术候选（待审批，未实现）
-[ADR-043](../adr/ADR-043-development-preview-authorization.md)和[m3-preview](../contracts/m3-preview.md)提出独立来源、一次性bootstrap换限时grant、会话/源失效断流、监听身份核验和连接预算。不得只换端口或信任随机host；PID加ps出生文本不是强句柄，connect竞态/跨站Cookie必须实测，不宣称绝对进程绑定/OS沙箱。解析拟改POST带CSRF，凭据不交模型/事件/上游，不放宽管理认证/CORS。G-Spec仅允许M3-0，G-PoC后才能M3-1。
+## 开发预览授权与隔离（ADR-043）
+[ADR-043](../adr/ADR-043-development-preview-authorization.md)和[m3-preview](../contracts/m3-preview.md)定义独立来源、一次性bootstrap换限时grant、会话/源失效断流、监听身份核验和连接预算。不得只换端口或信任随机host；PID加ps出生文本不是强句柄，connect竞态/跨站Cookie必须实测，不宣称绝对进程绑定/OS沙箱。预览解析使用 POST 并校验 CSRF，凭据不交模型/事件/上游，不放宽管理认证/CORS。G3 已验收本机隔离预览；远程独立域 HTTPS 见 [遗留问题](../open-questions.md)。
 
 ## PM2 命令执行（ADR-050，2026-11-07）
 

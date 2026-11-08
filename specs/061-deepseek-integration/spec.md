@@ -2,7 +2,7 @@
 id: 061-deepseek-integration
 title: DeepSeek 官方接入、模型与思考档位
 milestone: M5
-status: ready
+status: done
 depends_on: [020-workspace-agent, 050-deploy]
 owners: [human]
 created: 2026-11-06

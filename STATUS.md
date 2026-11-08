@@ -1,7 +1,12 @@
 # STATUS
 
-> 最后更新：2026-11-07 (+08:00)
-> **2026-11-07 用户确认 M4 与 M4-R0～R4 全部验收通过，G4 关闭。远程 HTTPS 留待上线实验验证。**
+> 最后更新：2026-11-08 (+08:00)
+> 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。下方的阶段交付与变更记录保留当时状态。
+
+## 文档整理
+
+- DOCS-1 `done`（2026-11-08，`task/docs-1-spec-navigation`）。拆分产品门户与工程入口，核对产品说明、规格状态和当前实现。差异与未验证项见 [遗留问题](docs/open-questions.md)。
+- 校验：入口范围、切片索引、改动中的相对链接和 `git diff --check` 通过；Node 24.22.2 下 `pnpm check`（743 通过、11 跳过）、`pnpm build`、npm 包内容验证通过。初次检查使用 Node 20，与本机原生模块 ABI 不匹配，切换 Node 24 后通过。浏览器 E2E、真实 Provider、平台实机未重跑。
 
 ## 里程碑
 
@@ -57,7 +62,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - 验收：check（server 276 / agent 32 / web 26）、build、真实 PTY、初始化 smoke 通过，见 specs/016-tui-experience/acceptance.md。
 - 运行依赖只按 ADR-027 显式声明现有版本的两个纯 JS 宽度工具；无原生库/协议/DB 变化。
 
-## 当前工作
+## 历史交付摘要
 
 - M5-2 `done`（2026-11-08 用户确认当前范围先过）：调度器、脚本 / Agent 任务、自动化面板与验收记录已关闭；Agent 创建 / 修改定时任务明确不在范围。
 - M5-2-3 `done`（2026-11-08 当前范围）：自动化任务面板、表单、运行历史、失败角标与 pinned 会话链接已交付；auth E2E `jobs` 通过。
@@ -259,7 +264,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - [064 Scheduler](specs/064-scheduler/spec.md) 转 `ready`；`cron-parser@5.10.4` 与仅应用内通知随之采用。ADR-054 与 REST / WS / 数据模型契约同步。
 - M5 验收（2026-11-08）：用户确认全部验收通过，M5-1a–e / M5-2 / M5-3 / M5-4 / M5-5 关闭，G5 条件通过。Windows / Ubuntu 支持承诺保留；实机验证与 Windows 终端/命令/PM2 实现列为发布后跟踪（M5-F1/F2/F3），未验证项不标通过。
 - M5-5 `done`：[安全复核](docs/security/review.md)、[发布清单](docs/process/release.md)、[已知限制](docs/known-limitations.md)、安装文档与 [G5 记录](specs/067-release-hardening/acceptance.md)。
-- M5-4 `blocked`（2026-11-08）：CI 已按用户要求删除；`platform-smoke.mjs` / `verify-npm-pack.mjs` 保留，macOS Apple Silicon 通过；Windows 11 / Ubuntu 待用户实机验证后关闭。M5-4-1 完成，M5-4-2/3/4 等待实机。
+- M5-4 `done`（2026-11-08）：macOS 当前范围通过，发布后任务见 [遗留问题](docs/open-questions.md#发布后任务与待验证项)。
 - M5-3 `done`（2026-11-08）：`larness@0.1.0` 已发布到公共 npm；包发布、TUI 更新提示、升级前备份、Node 20/22/24 与安装冒烟通过。
 - M5-3-3 `done`（2026-11-08）：迁移前自动备份、5 份保留、备份失败中止、schema 降级拒绝已交付。
 - M5-3-1 `done`（2026-11-08）：公共 npm `larness@0.1.0`、MIT、`bin`、files、根运行时依赖、发布模式与 `npm pack` / 临时全局安装冒烟已交付。
@@ -313,19 +318,6 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 - **可信设备凭据：Passkey / WebAuthn（ADR-021）；不签发长期设备 Token**
 - **全局资源与 Tab 归属：`docs/contracts/resource-views.md`（2026-11-01）**
 - **产品名与内部命名空间：Larness / `@larness` / `LARNESS_*`（ADR-022）**
-
-## 待人类确认（不阻塞 D0）
-
-| 问题 | 默认方案 | 截止 |
-|---|---|---|
-| 通过 `127.0.0.1` / 局域网 IP 访问时 Passkey 不可用 | 已按默认实现：仅支持 localhost / HTTPS，IP 来源返回 ORIGIN_INVALID；Web 提示待 M0-8 | 已实现（M0-6） |
-| 所有 Passkey 丢失且 TUI 不可用时如何恢复 | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码为 P1 | M4 |
-| 是否允许可同步 Passkey | 已按默认实现：允许，存储并展示 backupEligible / backupState | 已实现（M0-6） |
-| 预览独立来源方案 | 开发用 `*.preview.localhost`，生产要求独立域 | M3 开始前 |
-| PM2 全局安装 | Q-003 方向已由用户确定，实际版本、初始化失败和隔离行为待 M4-0 实测 | G-PoC-M4 |
-| 仓库许可证 | 未定，暂不添加 LICENSE | 公开发布前 |
-
-完整列表见 [docs/open-questions.md](docs/open-questions.md)。
 
 ## 变更记录
 

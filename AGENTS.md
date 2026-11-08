@@ -10,7 +10,7 @@
 
 1. `CONSTITUTION.md` — 不可协商条款；
 2. `STATUS.md` — 当前阶段、进行中任务、阻塞项；
-3. `specs/ROADMAP.md` — 任务依赖与门禁；
+3. [规格与工程入口](specs/README.md) → [路线图](specs/ROADMAP.md) — 切片导航、任务依赖与门禁；
 4. 当前任务的 `spec.md` → `plan.md` → `tasks.md`；
 5. 相关契约：`docs/contracts/*`、`docs/architecture/security.md`；
 6. 需要背景时再读 `larness.md` 对应章节（不要从头读到尾）。
@@ -20,7 +20,7 @@
 - **S0、M0（macOS 范围）、M1、M2、M3 均已验收**。G2 与 G3 于 2026-11-05 通过，G3 后的 M3-7～M3-11 于 2026-11-06 通过验收。
 - 验收范围见 `specs/030-dev-resources/closure.md` 和 `specs/040-services-preview/closure.md`。
 - **阶段边界（ADR-042）**：M3只做开发服务/隔离预览，PM2持久运行/发布全部M4；完全自主覆盖所有已授权Agent业务动作（含部署），无人工审批/确认停等，按 ADR-050 复用任务步骤计划、命令鉴权、项目锁和审计。
-- **M4 与 G4 已于 2026-11-07 通过人类验收**，含 M4-R0～R4。普通项目会话按 ADR-050 使用 PM2 命令，运维界面按 ADR-051/052 提供人工控制与登记日志读取。后续任务按路线图进入 M5，DeepSeek 官方接入与上下文用量见 M5-1 草案。
+- **M4 与 G4 已于 2026-11-07 通过人类验收**，含 M4-R0～R4。普通项目会话按 ADR-050 使用 PM2 命令，运维界面按 ADR-051/052 提供人工控制与登记日志读取。**M5 已按 macOS 当前范围验收，G5 于 2026-11-08 条件通过**。发布后跟踪见 [遗留问题](docs/open-questions.md)。
 - 本轮M2纠错及收尾按用户要求只做必要校验、界面自行验收；验证范围和未运行检查需如实记录，不冒充全量通过。后续里程碑依任务验收与当时用户指令确定检查范围。
 - TUI 是受管前台入口（ADR-023）：`pnpm dev` / `node app.js` 启动 Server + Web 并进入 TUI；关闭即停止管理面与临时开发资源，不提供 headless 产品入口。按 ADR-046，M4 的正式 PM2 服务独立运行。
 
@@ -40,7 +40,7 @@
 
 - `status: draft` 的 spec 只用于规划，不能实现。
 - 实现前 spec 必须至少包含：目标 / 非目标、验收场景（Given-When-Then）、接口与数据变更、安全与权限、失败与边界、测试计划。
-- 如果实现中发现 spec 缺失关键决策：停止编码，在 `specs/<slice>/spec.md` 的“开放问题”中记录，向人类提问，不要自行发明产品行为。
+- 如果实现中发现 spec 缺失关键决策：停止编码，在 [遗留问题](docs/open-questions.md) 中记录，并在当前 spec 链接对应条目，向人类提问，不要自行发明产品行为。
 - 契约变更（REST 路径、WS 事件、数据库列、配置键）必须同步更新 `docs/contracts/*` 与受影响的测试。
 - Agent 能力、作用域、参数默认值、审批、生命周期或成功条件变更时，按 [Agent 工具执行契约](specs/051-agent-tool-contract/spec.md#持续约束) 同步工具描述、模型 schema、system prompt、受影响界面提示与验收。常规检查必须覆盖实际组装的模型上下文和执行层正反例。
 

@@ -1,6 +1,6 @@
 # 安装、升级与卸载
 
-> 状态：macOS Apple Silicon 已验证；Windows 11 / Ubuntu 待实机。支持矩阵与限制见 [known-limitations](../known-limitations.md)；发布流程见 [release](../process/release.md)。不支持 macOS Intel。
+> 状态：macOS Apple Silicon 已验证；Windows 11 / Ubuntu 待实机。支持矩阵与限制见 [known-limitations](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)；发布流程见 [release](https://github.com/bulv0620/Larness/blob/main/docs/process/release.md)。不支持 macOS Intel。
 
 ## 安装
 
@@ -10,7 +10,7 @@
 - 发布包固定 `better-sqlite3@12.6.2`，覆盖 Node 20/22/24 与 macOS / Linux / Windows 预编译；不升级到 12.11+（缺少 Node 20 预编译）或 13（engines 要求 Node 22+）
 - macOS 需要 Xcode Command Line Tools 仅在原生依赖没有可用预编译时使用
 - Ubuntu 的 `node-pty` 没有预编译，可能需要 `build-essential`、`python`、`make`
-- Windows 当前只支持安装/启动/原生模块验证；终端、命令、PM2 尚未实现，见 [known-limitations](../known-limitations.md)
+- Windows 安装、启动与原生模块仍待实机验证；终端、命令当前不可用，见 [known-limitations](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)
 - npm 全局目录可由当前用户写入；否则按 npm 文档配置用户级 prefix，不建议 `sudo`
 
 ```bash
@@ -65,9 +65,9 @@ npm uninstall -g larness
 
 ## 相关文档
 
-- [支持矩阵与已知限制](../known-limitations.md)
-- [本地发布 / 升级 / 回滚清单](../process/release.md)
-- [安全复核](../security/review.md)
+- [支持矩阵与已知限制](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)
+- [本地发布 / 升级 / 回滚清单](https://github.com/bulv0620/Larness/blob/main/docs/process/release.md)
+- [安全复核](https://github.com/bulv0620/Larness/blob/main/docs/security/review.md)
 
 ## 更新检查
 

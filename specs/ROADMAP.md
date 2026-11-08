@@ -1,6 +1,7 @@
 # 路线图与任务总表
 
-> 状态：2026-10-31 初始化。任务状态：`todo | in_progress | blocked | review | done`。  
+> 导航见 [规格与工程入口](README.md)。任务状态：`todo | in_progress | blocked | review | done`。
+>
 > 规则：只执行依赖全部 `done` 的最小任务；一次一个任务；里程碑门禁未过不进入下一阶段（人类明确并行除外）。
 
 ## 1. 里程碑
@@ -8,7 +9,7 @@
 | 阶段 | 名称 | spec | 状态 | 门禁 |
 |---|---|---|---|---|
 | S0 | 视觉 Demo（纯前端 + Mock） | [000](000-visual-demo/spec.md) | `done` | G-S0 通过（2026-11-01） |
-| M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；Linux / Windows / CI 后续 |
+| M0 | 工程底座与可信启动 | [010](010-foundation/spec.md) | `done` | G0 通过（macOS 范围，2026-11-01）；其他平台见发布后跟踪 |
 | M1 | 项目、会话与最小 Agent | [020](020-workspace-agent/spec.md) | `done` | G1 通过（2026-11-01，人类验收） |
 | M2 | 开发资源与窗口层 | [030](030-dev-resources/spec.md) | `done` | G2 于2026-11-05通过人类整体验收；范围与边界见030/closure.md |
 | M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 全部 done；远程 HTTPS 延后并标未验证 |
@@ -265,7 +266,15 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-5-3 | 支持矩阵、已知限制与安装文档定稿 | M5-5-1 | `done` |
 | M5-5-4 | G5 验收记录与索引同步 | M5-5-2、M5-5-3 | `done` |
 
+### 文档整理
+
+| ID | 任务 | 依赖 | 状态 |
+|---|---|---|---|
+| DOCS-1 | [产品门户、规格导航与对齐复核](067-release-hardening/tasks.md#docs-1-产品门户规格导航与对齐复核) | M5-5-4；用户直接要求 | `done`（仅文档） |
+
 ### 发布后跟踪（不计入 M5 / G5 完成条件）
+
+验收证据与其他遗留项见 [遗留问题](../docs/open-questions.md)。
 
 | ID | 任务 | 说明 | 状态 |
 |---|---|---|---|
@@ -273,7 +282,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-F2 | Ubuntu 22.04 / 24.04 实机验证与修复 | node-pty 编译回退、路径/锁/PM2 | `todo` |
 | M5-F3 | 三端结果补齐后的支持矩阵与验收更新 | 未验证项不标通过 | `todo` |
 
-[061 DeepSeek 官方接入、模型与思考档位](061-deepseek-integration/spec.md) 于 2026-11-07 按用户确认的三项决策（旧档案忽略、思考默认开启、推理数据先实测）由 `draft` 转 `ready`，[ADR-053](../docs/adr/ADR-053-model-catalog-thinking.md) accepted。M5-1a 已交付：目录同步与缓存、模型 / 档位选择与 Turn 快照、Provider 参数、Composer 浮层与设置页；真实官方端点、工具续跑与单次圆环分别待凭据验证与 M5-1b / M5-1c。GLM、通用兼容端点、上下文压缩与跨模型迁移见 [063 规格](063-multi-provider/spec.md)（`done`，2026-11-07 人类验收）。下一步 Scheduler 见 [064 规格](064-scheduler/spec.md)（`done`，2026-11-08 当前范围验收）。
+[061 DeepSeek 官方接入、模型与思考档位](061-deepseek-integration/spec.md) 于 2026-11-07 按用户确认的三项决策（旧档案忽略、思考默认开启、推理数据先实测）由 `draft` 转 `ready`，[ADR-053](../docs/adr/ADR-053-model-catalog-thinking.md) accepted。M5-1a 已交付：目录同步与缓存、模型 / 档位选择与 Turn 快照、Provider 参数、Composer 浮层与设置页；后续工具续跑与单次圆环分别由 M5-1b / M5-1c 交付。GLM、通用兼容端点、上下文压缩与跨模型迁移见 [063 规格](063-multi-provider/spec.md)（`done`，2026-11-07 人类验收）。Scheduler 见 [064 规格](064-scheduler/spec.md)（`done`，2026-11-08 当前范围验收）。
 
 ## 9. 门禁
 
@@ -329,7 +338,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 **状态：G2 已于2026-11-05通过人类整体验收；M2-0～28及M2-24b均done。已知边界保留，见[最终收尾](030-dev-resources/closure.md)。**
 
-### G-Spec-M3 已通过 / G-PoC-M3（待确认）
+### G-Spec-M3 / G-PoC-M3（已通过）
 
 - G-Spec-M3（2026-11-05）：人类按 040 评审包推荐批准 ADR-043、来源/票据/执行身份/loopback 范围及残余风险与 PoC 证据标准；仅允许 M3-0。
 - 远程独立注册域 HTTPS 实测延后至后续上线实验（人类决定）；G-PoC 按已确认范围评审，远程项明确标未验证，不得宣称已支持。
@@ -342,7 +351,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 - 独立来源/Cookie/CSP/票据/SSRF/未知状态失败关闭；当前项目卡片/详情无服务Tab/项目切换，窗口隐藏无启停；
 - 自主合法登记/预览无人工停等，未鉴权/非法目标仍拒绝，关键事件/审计真实；
 - 不含PM2；Q-003/Q-027在M4解决，不以正式部署未交付阻塞G3。
-- **2026-11-05 人类验收通过**：M3-6 标 done，M3 关闭；远程 HTTPS 仍为未验证项，留待上线实验。
+- **2026-11-05 人类验收通过**：M3-6 标 done，M3 关闭；远程 HTTPS 验证见 [遗留问题](../docs/open-questions.md)。
 
 ### G-Spec-M4 / G-PoC-M4（已通过）
 
