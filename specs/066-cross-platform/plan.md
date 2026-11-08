@@ -4,7 +4,7 @@
 
 ## 1. 技术方案
 
-1. **CI 极简三平台**：GitHub Actions 只保留 `macos-latest`、`ubuntu-latest`、`windows-latest`，统一 Node 22；每个平台执行 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`npm pack`、临时全局安装与 `larness --version`。Node 20/24 与完整 E2E 由本地/实机覆盖。
+1. **CI 极简三平台**：GitHub Actions 只保留 `macos-latest`、`ubuntu-latest`、`windows-latest`，统一 Node 22；每个平台执行 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`node scripts/platform-smoke.mjs`、`npm pack`、临时全局安装与 `larness --version`。Node 20/24 与完整 E2E 由本地/实机覆盖。
 2. **安装冒烟脚本**：复用 `scripts/verify-npm-pack.mjs --install`，输出 `os/arch/node/npm/version/native/better-sqlite3/node-pty`；CI artifact 保存日志。
 3. **平台审计**：按 `process.platform` 列出 PTY、命令树、PM2、路径、文件锁、TUI 分支；对 Windows / Linux 条件测试启用或补 skip/记录。
 4. **修复优先级**：安装失败 > 启动失败 > 终端/命令 > PM2 > 文件/Git > 体验；每个修复附平台测试或明确未验证。

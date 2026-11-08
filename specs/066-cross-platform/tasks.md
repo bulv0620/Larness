@@ -22,13 +22,14 @@
 - 目标：自动化验证三平台的 check / build / 安装冒烟。
 - 交付物：
   - CI matrix（macOS Apple Silicon、Ubuntu latest、Windows latest；Node 22）。
-  - `pnpm check`、`pnpm build`、`npm pack`、临时全局安装 + `larness --version`。
+  - `pnpm check`、`pnpm build`、`node scripts/platform-smoke.mjs`、`npm pack`、临时全局安装 + `larness --version`。
 - 验收：A8、A10；失败单元不标通过。
 - 测试：CI 运行；本地 macOS Apple Silicon 基线。
 - 交付（2026-11-08）：
   - [x] CI `verify`：macOS latest（Apple Silicon）、Ubuntu latest、Windows latest，统一 Node 22。
-  - [x] 每单元 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`npm pack`、临时全局安装、`larness --version`；`fail-fast: false`。
+  - [x] 每单元 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`platform-smoke`、`npm pack`、临时全局安装、`larness --version`；`fail-fast: false`。
   - [x] `verify-npm-pack.mjs` 跨平台：Windows `larness.cmd` 路径、路径分隔符归一。
+  - [x] `platform-smoke.mjs`：Node 版本、better-sqlite3、node-pty、文件系统；macOS Apple Silicon 通过。
   - [x] 本地 macOS Apple Silicon Node 24 验证通过；CI 远端结果待推送后确认。
 - 涉及路径：`.github/workflows/ci.yml`、`scripts/verify-npm-pack.mjs`。
 

@@ -31,7 +31,8 @@
     "test:poc:m4": "LARNESS_POC_PM2=1 pnpm --filter @larness/server exec vitest run test/resources/m4-poc.test.ts",
     "test:poc:m5-1b": "pnpm --filter @larness/server exec tsx scripts/poc-m5-1b.ts",
     "test:pm2:m4": "LARNESS_POC_PM2=1 pnpm --filter @larness/server exec vitest run test/resources/service-ops-pm2.test.ts test/resources/m4-4-integration.test.ts",
-    "verify:pack": "node scripts/verify-npm-pack.mjs"
+    "verify:pack": "node scripts/verify-npm-pack.mjs",
+    "test:platform": "node scripts/platform-smoke.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.4",
