@@ -53,6 +53,13 @@ function runTui() {
     return;
   }
 
+  if (!existsSync(path.join(root, commands.tui.source))) {
+    console.error("[larness] install is incomplete: apps/server/dist/tui.js is missing.");
+    console.error("Reinstall with `npm install -g larness`.");
+    process.exitCode = 1;
+    return;
+  }
+
   const sourcePath = path.join(root, commands.tui.source);
   const result = spawnSync(
     "pnpm",
@@ -81,6 +88,13 @@ function runReadOnly(name) {
       console.error(`[larness] ${name} failed: ${error instanceof Error ? error.message : error}`);
       process.exitCode = 1;
     });
+    return;
+  }
+
+  if (!existsSync(path.join(root, command.source))) {
+    console.error(`[larness] install is incomplete: apps/server/dist/${name}.js is missing.`);
+    console.error("Reinstall with `npm install -g larness`.");
+    process.exitCode = 1;
     return;
   }
 

@@ -8,7 +8,7 @@
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| M5-3-1 | npm 包、发布模式与安装冒烟 | 065 spec ready | `todo` |
+| M5-3-1 | npm 包、发布模式与安装冒烟 | 065 spec ready | `review` |
 | M5-3-2 | TUI 新版本提示 | M5-3-1 | `todo` |
 | M5-3-3 | 升级前数据库备份与降级保护 | M5-3-1 | `todo` |
 | M5-3-4 | 发布文档与整体验收 | M5-3-2、M5-3-3 | `todo` |
@@ -17,7 +17,7 @@
 
 ### M5-3-1 npm 包、发布模式与安装冒烟
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：065 spec ready
 - 目标：公共 npm 包可全局安装并运行 `larness`，不依赖 pnpm / 源码。
 - 交付物：
@@ -27,7 +27,14 @@
   - `docs/guides/install.md` 骨架。
 - 验收：A1、A8；macOS arm64 临时全局安装可启动；tarball 无源码 / 测试 / 数据 / 秘密。
 - 测试：pack 内容、依赖覆盖、发布模式、临时安装。
-- 涉及路径：`package.json`、`app.js`、`scripts/verify-npm-pack.mjs`、`docs/guides/install.md`。
+- 交付（2026-11-08）：
+  - [x] 根包 `larness@0.1.0`：`private:false`、MIT、`bin`、`files`、`engines`、根运行时依赖。
+  - [x] 发布模式 `app.js` 只用 dist；缺失时提示重新安装；新增 `scripts/verify-npm-pack.mjs`。
+  - [x] `npm pack`：160 文件 / 4.2MB；含 `apps/server/dist`、`drizzle`、`apps/server/package.json`、`apps/web/dist`、MIT、安装指南；不含源码 / 测试 / 数据。
+  - [x] 临时 prefix `npm install -g <tgz>` 成功，`larness --version` 输出 `0.1.0`；macOS arm64 上游预编译安装成功。
+  - [x] `pnpm check`（web 141、agent 40/1、server 553/10）与 `pnpm build` 通过。
+- 涉及路径：`package.json`、`app.js`、`apps/server/src/version.ts`、`scripts/verify-npm-pack.mjs`、`docs/guides/install.md`。
+- 备注：安装时出现 `cookie@2` / `content-disposition@3` 的 Node 20 engine warning（传递依赖声明 Node >=22，但安装与当前测试可用）；Node 版本支持需在 M5-4 再确认。
 
 ### M5-3-2 TUI 新版本提示
 

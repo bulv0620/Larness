@@ -12,6 +12,16 @@
 > 当前进度和各阶段验收见 [STATUS.md](STATUS.md)、[M2 收尾记录](specs/030-dev-resources/closure.md)、[M3 收尾记录](specs/040-services-preview/closure.md)与 [M4 收尾记录](specs/050-deploy/closure.md)。
 > V1 定位为“可信开发机模式”：不声称对恶意项目脚本或任意 Shell 提供 OS 级沙箱。
 
+## 安装
+
+```bash
+npm install -g larness
+larness
+```
+
+要求 Node.js 20.19+；当前先验证 macOS arm64。升级不会自动发生：TUI 只提示新版本，用户执行 `npm install -g larness@latest`。详见 [安装与升级](docs/guides/install.md)。
+
+
 ## M2 已验收能力
 
 文件编辑与版本冲突、受管命令、可交接的真实终端、固定默认项目、项目窗口与最小化动画、紧凑对话和真实任务计划均已交付。输入框支持风险确认后的完全自主工具策略；Git 区支持暂存、取消暂存、确认放弃、提交和分支/推拉操作。
@@ -190,3 +200,7 @@ pnpm workspace · Node.js ≥ 20.19 · TypeScript strict · React + Vite · Tail
 [larness.md](larness.md) 是 2026-10-30 冻结的产品需求、技术架构与边界约束文档（v3.0）。本仓库的 spec 与 ADR 由它派生；若两者冲突，以 [CONSTITUTION.md](CONSTITUTION.md) 与已冻结 ADR 为准，并回写差异。2026-11-01 仅将产品名统一为 Larness（ADR-022），架构语义未修改。
 
 E2E 默认端口被占用时，可设置 `LARNESS_E2E_PORT`（auth/prod）与 `LARNESS_E2E_WEB_PORT`（auth/demo）使用独立端口；测试仍使用临时数据目录。
+
+## 许可证
+
+MIT；见 [LICENSE](LICENSE)。

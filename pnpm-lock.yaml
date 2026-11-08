@@ -12,6 +12,73 @@ patchedDependencies:
 importers:
 
   .:
+    dependencies:
+      '@ai-sdk/deepseek':
+        specifier: ^2.0.78
+        version: 2.0.78(zod@4.6.7)
+      '@ai-sdk/openai-compatible':
+        specifier: ^2.0.91
+        version: 2.0.91(zod@4.6.7)
+      '@fastify/cookie':
+        specifier: ^11.1.5
+        version: 11.1.5
+      '@fastify/static':
+        specifier: ^10.1.8
+        version: 10.1.8
+      '@fastify/websocket':
+        specifier: ^11.3.6
+        version: 11.3.6
+      '@inquirer/prompts':
+        specifier: ^8.7.5
+        version: 8.7.5(@types/node@22.20.5)
+      '@simplewebauthn/server':
+        specifier: ^14.0.3
+        version: 14.0.3
+      ai:
+        specifier: ^6.0.320
+        version: 6.0.320(zod@4.6.7)
+      better-sqlite3:
+        specifier: ^11.10.0
+        version: 11.10.0
+      cron-parser:
+        specifier: 5.10.4
+        version: 5.10.4
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
+      drizzle-orm:
+        specifier: ^0.45.4
+        version: 0.45.4(@opentelemetry/api@1.10.0)(@types/better-sqlite3@9.6.0)(better-sqlite3@11.10.0)
+      env-paths:
+        specifier: ^4.0.0
+        version: 4.0.0
+      fast-string-width:
+        specifier: 3.0.2
+        version: 3.0.2
+      fast-wrap-ansi:
+        specifier: 0.2.2
+        version: 0.2.2
+      fastify:
+        specifier: ^5.12.7
+        version: 5.12.7
+      node-pty:
+        specifier: ^1.1.0
+        version: 1.1.0(patch_hash=dd2085b3e25f0904dc7789d250bcddffa178eab796c73811a09ca661be768f0f)
+      picocolors:
+        specifier: ^1.1.1
+        version: 1.1.1
+      pino:
+        specifier: ^10.4.0
+        version: 10.4.0
+      pino-roll:
+        specifier: ^4.0.0
+        version: 4.0.0
+      ws:
+        specifier: ^8.22.1
+        version: 8.22.1
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.6.4

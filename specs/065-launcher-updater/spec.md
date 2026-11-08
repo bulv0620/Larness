@@ -166,7 +166,7 @@ And 不实际发布；真实发布由人类执行
 | R-15 | MUST | `npm pack` / `npm publish --dry-run` 冒烟通过；真实 `npm publish` 由人类执行。 |
 | R-16 | SHOULD | TUI 显示当前版本、通道、最近检查时间、可用版本；失败不打扰。 |
 | R-17 | SHOULD | README 记录安装、升级、降级、卸载、Node 版本与原生依赖说明。 |
-| R-18 | SHOULD | 包元数据包含 description、repository、homepage、keywords、license；许可证未定前不得实际 publish。 |
+| R-18 | SHOULD | 包元数据包含 description、repository、homepage、keywords、license；许可证为 MIT（2026-11-08 用户确认）。 |
 
 ## 7. 接口与契约
 
@@ -290,11 +290,16 @@ And 不实际发布；真实发布由人类执行
 | D5 | 升级前自动备份数据库；备份失败拒绝迁移 |
 | D6 | M5-3 先接受 macOS 上游预编译；Linux/Windows 预编译与 CI 归 M5-4 |
 
+已确认：
+
+- 许可证 MIT（2026-11-08 用户确认），根包 `license: MIT` 并附 `LICENSE`。
+- npm 账号已具备；包名 `larness` 当前未被占用，发布前仍需确认所有权。
+- `publishConfig.registry` 固定 `https://registry.npmjs.org`，避免本机镜像配置误发布。
+
 开放：
 
-- 仓库许可证未定（Q-004）；公共 npm 实际发布前必须确认 `license`，否则只做 `npm pack` / `publish --dry-run`。
-- npm 账号 / 2FA / 包名所有权由人类确认；`npm view larness` 目前 404（未被占用），但不等于已保留。
 - beta 通道是否随首发开放；默认可读取 `beta` dist-tag，不影响 stable 用户。
+- npm 账号 2FA / 发布 token 与真实 publish 由人类执行。
 
 ## 14. 完成定义
 
