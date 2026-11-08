@@ -1,6 +1,6 @@
 # M5-4 跨平台验收记录（2026-11-08）
 
-> 状态：`blocked`。macOS Apple Silicon 已完成；Windows 11 / Ubuntu 由用户实机验证；仓库 CI 已按用户要求删除。
+> 状态：`done`（2026-11-08 人类确认当前范围）。macOS Apple Silicon 已完成；Windows 11 / Ubuntu 支持承诺保留，实机与 Windows 终端/命令实现作为发布后跟踪；仓库 CI 已删除。
 
 ## 已完成（macOS Apple Silicon）
 

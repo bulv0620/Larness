@@ -2,7 +2,7 @@
 id: 066-cross-platform
 title: 跨平台安装与运行 PoC
 milestone: M5
-status: blocked
+status: done
 depends_on: [060-extension, 065-launcher-updater]
 owners: [human]
 created: 2026-11-08
@@ -11,7 +11,7 @@ updated: 2026-11-08
 
 # 跨平台安装与运行 PoC（M5-4）
 
-> 状态：`blocked`（2026-11-08）。macOS Apple Silicon 开发与本地冒烟完成；CI 已按用户要求删除；Windows 11 / Ubuntu 由用户实机验证后再关闭。
+> 状态：`done`（2026-11-08 人类确认当前范围通过）。macOS Apple Silicon 已开发验证；CI 已删除。Windows 11 / Ubuntu 的支持承诺保留，实机与 Windows 终端/命令实现作为发布后跟踪项，未验证项不标通过。
 > 背景：`larness@0.1.0` 已发布，仅验证 macOS arm64 + Node 20/22/24。M5-4 验证 macOS Apple Silicon、Ubuntu、Windows 11，并把安装 / 预编译 / 平台限制公开。
 
 ## 1. 背景与问题

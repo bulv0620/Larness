@@ -2,7 +2,7 @@
 id: 067-release-hardening
 title: 安全复核、发布清单与文档定稿
 milestone: M5
-status: ready
+status: done
 depends_on: [060-extension, 066-cross-platform]
 owners: [human]
 created: 2026-11-08
