@@ -1,5 +1,7 @@
 # M5-3 任务：Launcher、签名更新与回滚
 
+> **旧方案，待重写（2026-11-08）**：用户要求改为 npm 全局安装 + TUI 仅提示版本，不自动更新；本文件任务不得执行。
+
 > 状态：`todo | in_progress | blocked | review | done`。一个任务一个提交。
 > 开始任务前更新 `STATUS.md`；完成后勾选本表并更新 `ROADMAP.md`。
 > 门禁：[spec](spec.md) 转 `ready`（D1–D6 确认）后才可开始 M5-3-1。

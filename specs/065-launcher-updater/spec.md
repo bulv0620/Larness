@@ -11,7 +11,8 @@ updated: 2026-11-08
 
 # Launcher、签名更新与回滚（M5-3）
 
-> 状态：`draft`。D1–D6 确认、契约补齐后转 `ready`；转 `ready` 前不得实现。
+> **方向变更（2026-11-08，待重写）**：用户要求改为 **npm 全局安装 + TUI 仅提示新版本，不自动更新**；本文件的签名发布包、Launcher / current 指针、UpdateLock、自动回滚方案不再作为实现依据。
+> 状态：`draft`。M5-3 / M5-4 的新边界待人类确认后重写；确认前不得实现。
 > 源设计：[larness.md](../../larness.md) §22；[060 M5](../060-extension/spec.md) M5-3；ADR-007 / ADR-012 / ADR-023。
 
 ## 1. 背景与问题

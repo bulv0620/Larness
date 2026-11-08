@@ -252,7 +252,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-2-2 | Agent 定时任务与策略快照 | M5-2-1 | `done` |
 | M5-2-3 | 自动化任务 UI、通知与运行历史 | M5-2-2 | `done` |
 | M5-2-4 | 调度整体验收（时区 / 恢复 / 安全） | M5-2-3 | `done`（2026-11-08 当前范围） |
-| M5-3 | [Launcher / Updater、签名、UpdateLock、回滚](065-launcher-updater/spec.md) | G4；065 spec ready | `todo`（065 spec draft，待 D1–D6） |
+| M5-3 | [npm 分发、TUI 版本提示与更新指引（重设计中）](065-launcher-updater/spec.md) | G4；方向重设计 | `todo`（065 spec 旧方案，暂不实现） |
 | M5-3-1 | 发布清单、签名与版本检查 | 065 ready | `todo` |
 | M5-3-2 | Launcher、安装布局与更新锁 | M5-3-1 | `todo` |
 | M5-3-3 | 下载、归档校验与安全解压 | M5-3-1 | `todo` |
