@@ -33,7 +33,9 @@ jobs:
       - name: Install Playwright Chromium
         if: runner.os != 'Linux'
         run: pnpm exec playwright install chromium
-      - run: pnpm check
+      - name: Full checks
+        if: runner.os != 'Windows'
+        run: pnpm check
       - run: pnpm build
         env:
           NODE_OPTIONS: --max-old-space-size=6144

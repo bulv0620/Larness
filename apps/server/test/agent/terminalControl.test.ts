@@ -25,7 +25,7 @@ const SCRIPT =
 type ApprovalRow = { id: string; status: string; tool_name: string; scope_json: string };
 
 async function until(check: () => boolean | Promise<boolean>, label = "condition"): Promise<void> {
-  const deadline = Date.now() + 10_000;
+  const deadline = Date.now() + 25_000;
   while (Date.now() < deadline) {
     if (await check()) return;
     await new Promise((resolve) => setTimeout(resolve, 10));

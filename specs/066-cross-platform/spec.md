@@ -152,7 +152,7 @@ And 不包含平台无关的测试 / 数据 / 秘密
 | R-2 | MUST | 安装方式只走公共 npm 全局安装；不新增 MSI / zip 安装器。 |
 | R-3 | MUST | `better-sqlite3` 固定 `12.6.2`，覆盖 Node 20/22/24 与三平台预编译；不得升级到缺 Node 20 预编译的版本。 |
 | R-4 | MUST | Linux 无 `node-pty` 预编译时，安装文档要求 build-essential / python / make；Windows / macOS 使用包内预编译。 |
-| R-5 | MUST | CI 只保留三个平台的验证：macOS Apple Silicon、Ubuntu latest、Windows latest，统一 Node 22；执行 check / build / pack 安装冒烟。Node 20/24 由本地或实机覆盖，不在 CI 展开。 |
+| R-5 | MUST | CI 只保留三个平台的验证：macOS Apple Silicon、Ubuntu latest、Windows latest，统一 Node 22；macOS / Ubuntu 执行 check / build / pack，Windows 暂执行 build / 原生 smoke / pack（终端与命令在 Windows 仍被代码拒绝，完整 check 待 M5-4-3）。Node 20/24 由本地或实机覆盖，不在 CI 展开。 |
 | R-6 | MUST | Windows 原生支持以 PowerShell/cmd 验证；WSL 结果单列，不冒充 Windows。 |
 | R-7 | MUST | 终端、命令、PM2、文件/Git 至少各有一个平台冒烟；失败或未验证功能明确标注。 |
 | R-8 | MUST | 路径处理使用 `node:path`；Windows 盘符 / 反斜杠 / 大小写不敏感边界有测试或记录。 |

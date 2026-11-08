@@ -50,11 +50,11 @@
 
 - 状态：`todo`
 - 依赖：M5-4-1
-- 目标：Windows 11 x64 原生安装与核心功能。
+- 目标：Windows 11 x64 原生安装与核心功能；当前 `TerminalManager` / `CommandManager` 对 win32 返回 `RESOURCE_UNAVAILABLE`，需先实现终端/命令/PM2 再恢复 Windows 全量 check。
 - 交付物：
   - PowerShell 安装、TUI、Server/Web、终端 ConPTY、命令、文件/Git、PM2。
   - 路径 / 盘符 / 大小写 / 进程终止 / 文件锁差异修复或限制。
-- 验收：A3、A4、A5、A6、A7；WSL 单列。
+- 验收：A3、A4、A5、A6、A7；WSL 单列。Windows CI 当前只跑 build / platform-smoke / pack；全量 check 在终端/命令支持前不通过。
 - 测试：Windows CI + 实机；平台条件测试。
 - 涉及路径：同 M5-4-2 + Windows 路径 / IPC / 进程树。
 
