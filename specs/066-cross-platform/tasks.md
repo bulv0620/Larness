@@ -30,6 +30,7 @@
   - [x] 每单元 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`platform-smoke`、`npm pack`、临时全局安装、`larness --version`；`fail-fast: false`。
   - [x] `verify-npm-pack.mjs` 跨平台：Windows `larness.cmd` 路径、路径分隔符归一。
   - [x] `platform-smoke.mjs`：Node 版本、better-sqlite3、node-pty、文件系统；macOS Apple Silicon 通过。
+  - [x] CI 修复：三平台安装 Playwright Chromium；`.gitattributes` 强制 LF / checkout 关闭 CRLF；server Vitest 超时 20s 以容纳 PTY CI 延迟。
   - [x] 本地 macOS Apple Silicon Node 24 验证通过；CI 远端结果待推送后确认。
 - 涉及路径：`.github/workflows/ci.yml`、`scripts/verify-npm-pack.mjs`。
 
