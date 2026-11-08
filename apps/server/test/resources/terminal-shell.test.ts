@@ -27,5 +27,5 @@ it("builds a fixed bootstrap with literal argv and no user content in script tex
   expect(launch.executable).toBe("/bin/sh");
   expect(launch.args.slice(3)).toEqual([shell, program.executable, ...program.args]);
   expect(launch.args[2]).not.toContain("touch nope");
-  expect(launch.args[2]).toContain('(exec -- "$@")');
+  expect(launch.args[2]).toContain('(exec "$@")');
 });
