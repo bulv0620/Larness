@@ -13,7 +13,7 @@
 | M2 | 开发资源与窗口层 | `done` | G2 于 2026-11-05 通过人类统一验收（macOS范围） |
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
-| M5 | 多模型、自动化与更新 | `draft` | M5-1a–e / M5-2 / M5-3 `done`；M5-4-1 `review` |
+| M5 | 多模型、自动化与更新 | `draft` | M5-1a–e / M5-2 / M5-3 `done`；M5-4 `blocked`（Windows/Ubuntu 实机） |
 
 ## 初始化修复（2026-11-02）
 
@@ -257,7 +257,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - D1–D4 已确认：脚本内联源码 + 子进程 node；Agent 默认 `readonly`、`autonomous` 二次确认；每任务一个隐藏专用会话；错过触发默认 `skip`、可按任务 `run_once`。
 - [064 Scheduler](specs/064-scheduler/spec.md) 转 `ready`；`cron-parser@5.10.4` 与仅应用内通知随之采用。ADR-054 与 REST / WS / 数据模型契约同步。
-- M5-4-1 `review`（2026-11-08）：CI 极简三平台验证（macOS Apple Silicon、Ubuntu latest、Windows latest，Node 22）已交付；macOS / Ubuntu 跑 check / build / pack，Windows 暂跑 build / platform-smoke / pack。Windows 终端/命令当前仍被 `RESOURCE_UNAVAILABLE` 拒绝，完整 check 待 M5-4-3。
+- M5-4 `blocked`（2026-11-08）：CI 已按用户要求删除；`platform-smoke.mjs` / `verify-npm-pack.mjs` 保留，macOS Apple Silicon 通过；Windows 11 / Ubuntu 待用户实机验证后关闭。M5-4-1 完成，M5-4-2/3/4 等待实机。
 - M5-3 `done`（2026-11-08）：`larness@0.1.0` 已发布到公共 npm；包发布、TUI 更新提示、升级前备份、Node 20/22/24 与安装冒烟通过。
 - M5-3-3 `done`（2026-11-08）：迁移前自动备份、5 份保留、备份失败中止、schema 降级拒绝已交付。
 - M5-3-1 `done`（2026-11-08）：公共 npm `larness@0.1.0`、MIT、`bin`、files、根运行时依赖、发布模式与 `npm pack` / 临时全局安装冒烟已交付。

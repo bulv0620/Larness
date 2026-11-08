@@ -257,12 +257,12 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-3-2 | TUI 新版本提示 | M5-3-1 | `done` |
 | M5-3-3 | 升级前数据库备份与降级保护 | M5-3-1 | `done` |
 | M5-3-4 | 发布文档与整体验收 | M5-3-2、M5-3-3 | `done` |
-| M5-4 | [跨平台安装与运行 PoC](066-cross-platform/spec.md) | M5-1a ~ M5-1c、M5-2、M5-3 | `in_progress`（M5-4-1 review） |
-| M5-4-1 | 三平台 CI 验证与安装冒烟 | 066 ready | `review`（2026-11-08 交付，待 CI） |
-| M5-4-2 | Linux 验证 / 修复 | M5-4-1 | `todo` |
-| M5-4-3 | Windows 原生验证 / 修复 | M5-4-1 | `todo` |
-| M5-4-4 | 平台文档与整体验收 | M5-4-2、M5-4-3 | `todo` |
-| M5-5 | 安全加固、发布验收清单、文档定稿 | M5-4 | `todo` |
+| M5-4 | [跨平台安装与运行 PoC](066-cross-platform/spec.md) | M5-1a ~ M5-1c、M5-2、M5-3 | `blocked`（macOS 完成；Windows/Ubuntu 待实机，CI 已删除） |
+| M5-4-1 | 本地冒烟与三端验收表 | 066 ready | `done`（CI 已删除；本地 macOS 通过） |
+| M5-4-2 | Linux 验证 / 修复 | M5-4-1 | `blocked`（等待实机） |
+| M5-4-3 | Windows 原生验证 / 修复 | M5-4-1 | `blocked`（等待实机） |
+| M5-4-4 | 平台文档与整体验收 | M5-4-2、M5-4-3 | `blocked`（等待实机） |
+| M5-5 | 安全加固、发布验收清单、文档定稿 | M5-4 | `blocked`（待 M5-4 实机） |
 
 [061 DeepSeek 官方接入、模型与思考档位](061-deepseek-integration/spec.md) 于 2026-11-07 按用户确认的三项决策（旧档案忽略、思考默认开启、推理数据先实测）由 `draft` 转 `ready`，[ADR-053](../docs/adr/ADR-053-model-catalog-thinking.md) accepted。M5-1a 已交付：目录同步与缓存、模型 / 档位选择与 Turn 快照、Provider 参数、Composer 浮层与设置页；真实官方端点、工具续跑与单次圆环分别待凭据验证与 M5-1b / M5-1c。GLM、通用兼容端点、上下文压缩与跨模型迁移见 [063 规格](063-multi-provider/spec.md)（`done`，2026-11-07 人类验收）。下一步 Scheduler 见 [064 规格](064-scheduler/spec.md)（`done`，2026-11-08 当前范围验收）。
 

@@ -1,6 +1,6 @@
 # 安装、升级与卸载
 
-> 状态：M5-4 进行中；macOS Apple Silicon 已验证，Windows 11 / Ubuntu 待 CI / 实机确认。不支持 macOS Intel。
+> 状态：M5-4 进行中；macOS Apple Silicon 已验证，Windows 11 / Ubuntu 待实机确认。不支持 macOS Intel。
 
 ## 安装
 
