@@ -4,7 +4,7 @@
 
 ## 1. 技术方案
 
-1. **CI 矩阵先行**：GitHub Actions 增加 macOS Apple Silicon、Ubuntu 22.04/24.04、Windows x64；Node 20/22/24。每个单元执行 `pnpm install --frozen-lockfile`、`pnpm build`、`npm pack`、临时全局安装、`larness --version`；`pnpm check` 与完整 E2E 只在主平台跑。
+1. **CI 极简三平台**：GitHub Actions 只保留 `macos-latest`、`ubuntu-latest`、`windows-latest`，统一 Node 22；每个平台执行 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`npm pack`、临时全局安装与 `larness --version`。Node 20/24 与完整 E2E 由本地/实机覆盖。
 2. **安装冒烟脚本**：复用 `scripts/verify-npm-pack.mjs --install`，输出 `os/arch/node/npm/version/native/better-sqlite3/node-pty`；CI artifact 保存日志。
 3. **平台审计**：按 `process.platform` 列出 PTY、命令树、PM2、路径、文件锁、TUI 分支；对 Windows / Linux 条件测试启用或补 skip/记录。
 4. **修复优先级**：安装失败 > 启动失败 > 终端/命令 > PM2 > 文件/Git > 体验；每个修复附平台测试或明确未验证。
@@ -41,7 +41,7 @@ specs/ROADMAP.md / STATUS.md
 
 ### M5-4-1 CI 矩阵与安装冒烟
 
-- 扩展 `.github/workflows/ci.yml`：macOS Apple Silicon（macos-latest）、Ubuntu 22.04/24.04、Windows x64；Node 20/22/24。
+- 扩展 `.github/workflows/ci.yml`：macOS Apple Silicon（macos-latest）、Ubuntu latest、Windows latest；统一 Node 22。
 - 每单元 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`npm pack`、临时全局安装、`larness --version`；E2E 仅主平台。
 - 添加平台日志 / artifact；失败不阻塞其他矩阵单元（`fail-fast: false`）。
 - 本地用 macOS Apple Silicon先跑；Windows/Linux 由 CI。

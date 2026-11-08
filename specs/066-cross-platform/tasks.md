@@ -15,22 +15,21 @@
 
 ## 任务卡
 
-### M5-4-1 CI 平台 / Node 矩阵与安装冒烟
+### M5-4-1 三平台 CI 验证与安装冒烟
 
 - 状态：`review`
 - 依赖：066 spec ready
-- 目标：自动化验证三平台 × Node 20/22/24 的安装 / 启动。
+- 目标：自动化验证三平台的 check / build / 安装冒烟。
 - 交付物：
-  - CI matrix（macOS Apple Silicon、Ubuntu 22/24、Windows x64；Node 20/22/24）。
-  - `npm pack` + 临时全局安装 + `larness --version`；日志 artifact。
-  - 主平台保留完整 E2E；其他平台核心冒烟。
+  - CI matrix（macOS Apple Silicon、Ubuntu latest、Windows latest；Node 22）。
+  - `pnpm check`、`pnpm build`、`npm pack`、临时全局安装 + `larness --version`。
 - 验收：A8、A10；失败单元不标通过。
-- 测试：CI 运行；本地 macOS arm64 基线。
+- 测试：CI 运行；本地 macOS Apple Silicon 基线。
 - 交付（2026-11-08）：
-  - [x] CI `install-smoke`：macOS latest（Apple Silicon）、Ubuntu 22.04/24.04、Windows latest × Node 20/22/24。
-  - [x] 每单元 `pnpm install --frozen-lockfile`、`pnpm build`、`npm pack`、临时全局安装、`larness --version`；`fail-fast: false`。
+  - [x] CI `verify`：macOS latest（Apple Silicon）、Ubuntu latest、Windows latest，统一 Node 22。
+  - [x] 每单元 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`、`npm pack`、临时全局安装、`larness --version`；`fail-fast: false`。
   - [x] `verify-npm-pack.mjs` 跨平台：Windows `larness.cmd` 路径、路径分隔符归一。
-  - [x] 本地 macOS arm64 Node 24 验证通过；CI 远端结果待推送后确认。
+  - [x] 本地 macOS Apple Silicon Node 24 验证通过；CI 远端结果待推送后确认。
 - 涉及路径：`.github/workflows/ci.yml`、`scripts/verify-npm-pack.mjs`。
 
 ### M5-4-2 Linux 验证 / 修复

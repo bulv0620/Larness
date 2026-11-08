@@ -32,7 +32,7 @@ M5-4 不新增产品能力，只把“在哪些平台、以什么方式可用”
 - **G-2 npm 安装**：每平台用公共 npm `larness` 全局安装，`larness` 能启动 TUI/Server/Web；不引入 MSI / zip 安装器。
 - **G-3 原生依赖**：记录 `better-sqlite3` / `node-pty` 的预编译与编译回退；Linux 无 `node-pty` 预编译时给出可操作要求。
 - **G-4 核心链路**：至少验证项目、会话、Agent 文本、终端、命令、文件、Git、PM2 服务启停与日志。
-- **G-5 CI 矩阵**：GitHub Actions 覆盖 macOS / Ubuntu / Windows 与 Node 20/22/24 的安装冒烟；完整 E2E 按平台取舍。
+- **G-5 CI 极简验证**：GitHub Actions 覆盖 macOS Apple Silicon / Ubuntu / Windows 三个平台，统一 Node 22，执行 check / build / pack 安装冒烟；Node 20/24 由本地或实机覆盖。
 - **G-6 限制公开**：未验证组合、需要编译工具、Windows/Linux 特有限制写入安装文档与验收记录。
 
 ## 3. 非目标
@@ -49,7 +49,7 @@ M5-4 不新增产品能力，只把“在哪些平台、以什么方式可用”
 - 作为 macOS Apple Silicon 用户，我希望在 Node 20/22/24 下都能 npm 安装并启动。
 - 作为 Linux 用户，我希望知道是否需要 build-essential / Python，以及哪些功能已验证。
 - 作为 Windows 用户，我希望用 PowerShell 安装 `larness` 后能打开 TUI、终端和项目会话。
-- 作为维护者，我希望 CI 在三个 OS 与 Node 20/22/24 上跑安装冒烟，避免发布后才发现原生依赖问题。
+- 作为维护者，我希望 CI 在三个 OS 上跑安装冒烟，避免发布后才发现原生依赖问题。
 
 ## 5. 验收场景
 
@@ -122,7 +122,7 @@ Then 路径边界与冲突检测正确，不越界
 ```gherkin
 Given 推送 / PR
 When CI 运行
-Then macOS Apple Silicon、Ubuntu、Windows 分别在 Node 20/22/24 执行安装与启动冒烟
+Then macOS Apple Silicon、Ubuntu、Windows 分别在 Node 22 执行 check / build / pack 安装冒烟
 And 失败平台不被标记为通过；限制记录在验收表
 ```
 
@@ -152,7 +152,7 @@ And 不包含平台无关的测试 / 数据 / 秘密
 | R-2 | MUST | 安装方式只走公共 npm 全局安装；不新增 MSI / zip 安装器。 |
 | R-3 | MUST | `better-sqlite3` 固定 `12.6.2`，覆盖 Node 20/22/24 与三平台预编译；不得升级到缺 Node 20 预编译的版本。 |
 | R-4 | MUST | Linux 无 `node-pty` 预编译时，安装文档要求 build-essential / python / make；Windows / macOS 使用包内预编译。 |
-| R-5 | MUST | CI 矩阵覆盖 macOS Apple Silicon、Ubuntu 22.04/24.04、Windows x64 × Node 20/22/24 的安装 / 版本 / 启动冒烟；完整 E2E 可按平台裁剪并记录。 |
+| R-5 | MUST | CI 只保留三个平台的验证：macOS Apple Silicon、Ubuntu latest、Windows latest，统一 Node 22；执行 check / build / pack 安装冒烟。Node 20/24 由本地或实机覆盖，不在 CI 展开。 |
 | R-6 | MUST | Windows 原生支持以 PowerShell/cmd 验证；WSL 结果单列，不冒充 Windows。 |
 | R-7 | MUST | 终端、命令、PM2、文件/Git 至少各有一个平台冒烟；失败或未验证功能明确标注。 |
 | R-8 | MUST | 路径处理使用 `node:path`；Windows 盘符 / 反斜杠 / 大小写不敏感边界有测试或记录。 |
@@ -167,7 +167,7 @@ And 不包含平台无关的测试 / 数据 / 秘密
 
 - 无新产品 REST / WS / IPC 接口；只有平台适配与安装文档。
 - `engines.node` 保持 `>=20.19`；已验证 Node 20/22/24。
-- CI 新增 OS / Node 矩阵；本地脚本可复用 `scripts/verify-npm-pack.mjs --install`。
+- CI 只保留三平台 Node 22；本地脚本可复用 `scripts/verify-npm-pack.mjs --install`。
 - 安装文档按平台拆分命令；不新增 `larness` 子命令，除非跨平台 smoke 需要只读诊断。
 
 ## 8. 数据与迁移
@@ -220,7 +220,7 @@ And 不包含平台无关的测试 / 数据 / 秘密
 | D2 | Linux 先验证 Ubuntu 22.04 / 24.04 x64 glibc；musl / ARM 不承诺 |
 | D3 | Linux 接受 build-essential / python 编译回退；暂不自建 node-pty Linux 预编译包 |
 | D4 | 平台顺序 macOS Apple Silicon → Linux → Windows；Node 20/22/24 |
-| D5 | GitHub Actions 矩阵 + 手动实机冒烟；安装只走 npm，不做 MSI/zip |
+| D5 | GitHub Actions 极简三平台验证 + 手动实机冒烟；安装只走 npm，不做 MSI/zip |
 
 已确认后：spec 转 `ready`，CI 矩阵与安装文档先行。
 
