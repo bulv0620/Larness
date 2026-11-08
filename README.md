@@ -58,6 +58,10 @@ larness
 | [docs/contracts/data-model.md](docs/contracts/data-model.md) | SQLite 表结构、迁移与保留策略 |
 | [docs/process/workflow.md](docs/process/workflow.md) | Spec 生命周期、评审门、提交约定 |
 | [docs/process/testing.md](docs/process/testing.md) | 测试分层与安全用例要求 |
+| [docs/known-limitations.md](docs/known-limitations.md) | 支持矩阵、已知限制与平台缺口 |
+| [docs/security/review.md](docs/security/review.md) | 安全复核、残余风险与发布前检查 |
+| [docs/process/release.md](docs/process/release.md) | 本地发布、升级、降级与回滚清单 |
+| [docs/guides/install.md](docs/guides/install.md) | 安装、升级、降级与卸载 |
 | [docs/open-questions.md](docs/open-questions.md) | 尚未冻结的边界问题与默认方案 |
 | [docs/glossary.md](docs/glossary.md) | 术语表 |
 
