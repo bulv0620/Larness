@@ -34,7 +34,7 @@ updated: 2026-11-07
 | ID | 任务 | 关键交付 |
 |---|---|---|
 | M5-1 | [多 Provider 与压缩](063-multi-provider/spec.md) | GLM / OpenAI-compatible、能力矩阵、上下文压缩、切模型体验（已交付） |
-| M5-2 | [Scheduler](064-scheduler/spec.md) | 任务表、cron、JS / Agent 执行、JobRun、并发 / 超时 / 通知（已交付，review） |
+| M5-2 | [Scheduler](064-scheduler/spec.md) | 任务表、cron、JS / Agent 执行、JobRun、并发 / 超时 / 通知（done） |
 | M5-3 | Launcher / Updater | 版本目录、签名、下载、切换、健康检查、回滚、UpdateLock |
 | M5-4 | 跨平台 PoC | Windows / Linux 终端、路径、PM2、安装、更新 |
 | M5-5 | 加固与发布 | 安全评审、发布清单、文档、已知限制 |

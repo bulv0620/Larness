@@ -2,7 +2,7 @@
 id: 064-scheduler
 title: 定时任务与调度器
 milestone: M5
-status: active
+status: done
 depends_on: [050-deploy, 063-multi-provider]
 owners: [human]
 created: 2026-11-07
@@ -11,7 +11,7 @@ updated: 2026-11-07
 
 # 定时任务与调度器（M5-2）
 
-> 状态：`active`。D1–D4 已于 2026-11-07 确认；M5-2-1 / 2-2 / 2-3 已交付，整体验收见 [acceptance](acceptance.md)，等待人类最终确认。
+> 状态：`done`（2026-11-08 用户确认当前范围先过）。D1–D4 已于 2026-11-07 确认；M5-2-1～4 全部交付。Agent 创建 / 修改定时任务仍不在范围（NG-7），未验证项保留在 [acceptance](acceptance.md)。
 > 源设计：[larness.md](../../larness.md) §4.9、§21；左侧栏已有「自动化任务」入口但无后端。
 
 ## 1. 背景与问题

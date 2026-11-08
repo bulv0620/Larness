@@ -247,16 +247,16 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-1d-2b | 多 Key / Provider 选择 UI | M5-1d-2a | `done`（2026-11-07 人类验收） |
 | M5-1d-2d | GLM 思考模式 | M5-1d-2b | `done`（2026-11-07 人类验收） |
 | M5-1d-2c | 自定义兼容端点 | M5-1d-2d | `done`（2026-11-07 人类验收） |
-| M5-2 | [Scheduler：Cron、JS / Agent Job、JobRun、限流](064-scheduler/spec.md) | G4；064 spec ready | `review`（M5-2-1～4 已交付，等待人类验收） |
-| M5-2-1 | 调度核心、数据模型、脚本任务与 REST | 064 ready | `review`（2026-11-07 交付） |
-| M5-2-2 | Agent 定时任务与策略快照 | M5-2-1 | `review`（2026-11-07 交付） |
-| M5-2-3 | 自动化任务 UI、通知与运行历史 | M5-2-2 | `review`（2026-11-07 交付） |
-| M5-2-4 | 调度整体验收（时区 / 恢复 / 安全） | M5-2-3 | `review`（2026-11-07 验收记录） |
+| M5-2 | [Scheduler：Cron、JS / Agent Job、JobRun、限流](064-scheduler/spec.md) | G4；064 spec ready | `done`（2026-11-08 当前范围） |
+| M5-2-1 | 调度核心、数据模型、脚本任务与 REST | 064 ready | `done` |
+| M5-2-2 | Agent 定时任务与策略快照 | M5-2-1 | `done` |
+| M5-2-3 | 自动化任务 UI、通知与运行历史 | M5-2-2 | `done` |
+| M5-2-4 | 调度整体验收（时区 / 恢复 / 安全） | M5-2-3 | `done`（2026-11-08 当前范围） |
 | M5-3 | Launcher / Updater、签名、UpdateLock、回滚 | G4 | `todo` |
 | M5-4 | Windows / Linux PoC、打包与安装说明 | M5-1a ~ M5-1c、M5-2、M5-3 | `todo` |
 | M5-5 | 安全加固、发布验收清单、文档定稿 | M5-4 | `todo` |
 
-[061 DeepSeek 官方接入、模型与思考档位](061-deepseek-integration/spec.md) 于 2026-11-07 按用户确认的三项决策（旧档案忽略、思考默认开启、推理数据先实测）由 `draft` 转 `ready`，[ADR-053](../docs/adr/ADR-053-model-catalog-thinking.md) accepted。M5-1a 已交付：目录同步与缓存、模型 / 档位选择与 Turn 快照、Provider 参数、Composer 浮层与设置页；真实官方端点、工具续跑与单次圆环分别待凭据验证与 M5-1b / M5-1c。GLM、通用兼容端点、上下文压缩与跨模型迁移见 [063 规格](063-multi-provider/spec.md)（`done`，2026-11-07 人类验收）。下一步 Scheduler 见 [064 规格](064-scheduler/spec.md)（`ready`，D1–D4 已确认，M5-2-1 `review`）。
+[061 DeepSeek 官方接入、模型与思考档位](061-deepseek-integration/spec.md) 于 2026-11-07 按用户确认的三项决策（旧档案忽略、思考默认开启、推理数据先实测）由 `draft` 转 `ready`，[ADR-053](../docs/adr/ADR-053-model-catalog-thinking.md) accepted。M5-1a 已交付：目录同步与缓存、模型 / 档位选择与 Turn 快照、Provider 参数、Composer 浮层与设置页；真实官方端点、工具续跑与单次圆环分别待凭据验证与 M5-1b / M5-1c。GLM、通用兼容端点、上下文压缩与跨模型迁移见 [063 规格](063-multi-provider/spec.md)（`done`，2026-11-07 人类验收）。下一步 Scheduler 见 [064 规格](064-scheduler/spec.md)（`done`，2026-11-08 当前范围验收）。
 
 ## 9. 门禁
 
