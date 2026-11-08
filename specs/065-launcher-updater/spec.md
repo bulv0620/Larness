@@ -1,347 +1,308 @@
 ---
 id: 065-launcher-updater
-title: Launcher、签名更新与回滚
+title: npm 分发与版本更新提示
 milestone: M5
-status: draft
+status: ready
 depends_on: [050-deploy, 064-scheduler]
 owners: [human]
 created: 2026-11-08
 updated: 2026-11-08
 ---
 
-# Launcher、签名更新与回滚（M5-3）
+# npm 分发与版本更新提示（M5-3）
 
-> **方向变更（2026-11-08，待重写）**：用户要求改为 **npm 全局安装 + TUI 仅提示新版本，不自动更新**；本文件的签名发布包、Launcher / current 指针、UpdateLock、自动回滚方案不再作为实现依据。
-> 状态：`draft`。M5-3 / M5-4 的新边界待人类确认后重写；确认前不得实现。
-> 源设计：[larness.md](../../larness.md) §22；[060 M5](../060-extension/spec.md) M5-3；ADR-007 / ADR-012 / ADR-023。
+> 状态：`ready`（2026-11-08 用户确认）。发布走公共 npm 的 `larness` 包；TUI 只提示新版本，不自动更新；升级前自动备份数据库。签名包 / Launcher / UpdateLock / 自动回滚方案已废弃。
+> 相关：[ROADMAP](../ROADMAP.md)、[STATUS](../../STATUS.md)、ADR-007（自动检查、手动安装）、ADR-023（受管入口）。
 
 ## 1. 背景与问题
 
-当前 Larness 以 `node app.js` 启动当前工作区代码：没有版本目录、下载与签名校验、Launcher 指针、更新锁、健康检查或回滚。程序升级只能人工替换源码，失败后没有可信的旧版本可回退；数据库迁移后也无法判断旧代码是否仍兼容。
+Larness 目前以仓库内 `node app.js` 启动，没有可发布的 npm 包，也没有版本更新提示。用户希望类似 Claude Code 的体验：
 
-M5-3 补齐受签名保护的、人工确认的更新链路：检查新版本、下载并验证发布包、停止管理面并等待安全点、原子切换版本、健康检查失败回滚、崩溃或断电后不留下半更新状态；正式 PM2 服务与更新互不影响。
+- `npm install -g larness` 全局安装；
+- 终端输入 `larness` 启动；
+- 程序不自动更新；TUI 只提示有新版本，用户自行执行 `npm install -g larness@latest`；
+- 升级后的首次启动在迁移数据库前自动备份。
+
+本切片把“发布、安装、提示、升级备份”固定下来，不实现自动下载或启动器。
 
 ## 2. 目标
 
-- **G-1 可验证发布**：发布清单与安装包必须通过预置公钥的 Ed25519 签名和 SHA-256 校验；任一失败不进入可安装状态。
-- **G-2 稳定入口**：独立的 Launcher 读取 `current` 指针并启动版本目录中的程序；版本目录不可变，切换是原子的。
-- **G-3 安全切换**：更新锁、单实例锁、维护模式与安全点协作；有活跃 Turn / JobRun / 部署时等待，不强制中断。
-- **G-4 可恢复**：新版本健康检查失败时切回旧版本；数据库迁移后失败时按备份恢复或明确进入人工恢复，不假装回滚成功。
-- **G-5 可解释**：TUI 显示检查 / 下载 / 校验 / 等待 / 切换 / 健康 / 回滚的当前状态与失败原因；状态文件跨重启保留。
-- **G-6 人工安装**：仅本机 TUI 可确认安装；自动检查可以后台进行，但不自动安装。
+- **G-1 npm 安装**：公共 npm `larness` 可全局安装，`larness` 命令启动 TUI；包内不依赖 pnpm、源码目录或仓库脚本。
+- **G-2 版本提示**：TUI 启动时与每日一次读取 npm registry 的版本；发现新版本只提示命令，不下载、不安装、不重启。
+- **G-3 可预测升级**：用户执行 npm 更新后，新版本首次启动在迁移前自动备份数据库；备份失败不迁移。
+- **G-4 安全边界**：更新检查只读公共 registry；Web / Agent 无更新或安装入口；不引入自动更新。
+- **G-5 可发布**：包元数据、文件白名单、运行时依赖、engines 和 `npm pack` 冒烟可重复验证。
 
 ## 3. 非目标
 
-- **NG-1 自动安装**：不静默安装、不强制重启、不自动重试坏版本。
-- **NG-2 跨平台安装器**：Windows / Linux 的目录、文件锁、服务与升级行为归 M5-4；macOS 先验证。
-- **NG-3 代码签名 / 公证**：不替代 Apple Developer ID / notarization；仅验证 Larness 发布包签名。
-- **NG-4 增量 / 热更新**：只支持完整发布包；不支持差分、热替换、运行中替换 JS。
-- **NG-5 更新服务器实现**：只消费 HTTPS 清单与包；不实现托管、CDN、账号或计费。
-- **NG-6 Web 安装**：本切片不提供 Web 端安装按钮；Web 只可读取版本状态（如后续需要另开任务）。
-- **NG-7 更新 Agent / 项目依赖**：不更新项目 `node_modules`、PM2 服务或用户代码。
+- **NG-1 自动更新**：不下载、不安装、不自动重启；只提示。
+- **NG-2 签名发布包 / Launcher / current 指针 / UpdateLock / 自动回滚**：M5-3 不做；npm 自身负责版本安装，用户可用 `npm install -g larness@<version>` 降级。
+- **NG-3 Web / Agent 安装入口**：Agent 工具不能检查、安装或停止更新；Web 不提供安装按钮。
+- **NG-4 私有 registry**：本切片只面向公共 npm；私有 registry / 企业分发留后续。
+- **NG-5 跨平台预编译**：M5-3 只验证 macOS arm64（上游预编译）；Linux/Windows 预编译、CI 矩阵与安装说明归 M5-4。
+- **NG-6 发布自动化账号**：不代替人类登录 npm 或执行真实发布；只准备可发布包与 `npm publish --dry-run` 验证。
 
 ## 4. 用户故事
 
-- 作为操作者，我希望 TUI 告诉我是否有新版本，并由我确认后安装，以便升级可控。
-- 作为操作者，我希望坏包、错签名或下载中断都不会替换当前版本。
-- 作为操作者，我希望 Agent 正在运行时更新先等待，而不是把我的任务杀掉。
-- 作为操作者，我希望新版本启动失败时自动回到旧版本，并看到失败原因。
-- 作为操作者，我希望正式 PM2 服务在更新期间保持运行。
+- 作为新用户，我执行 `npm install -g larness` 后输入 `larness` 就能启动，不需要 pnpm 或源码。
+- 作为操作者，我希望 TUI 告诉我新版本号和更新命令，但不要替我改动安装。
+- 作为操作者，我希望升级后首次启动自动备份数据库，迁移失败时还能恢复。
+- 作为维护者，我希望发布包干净、可重复构建，不包含测试、日志、数据或秘密。
 
 ## 5. 验收场景
 
-### A1 检查与展示
+### A1 全局安装与启动
 
 ```gherkin
-Given 已配置 HTTPS 清单地址且当前版本为 0.1.0
-When TUI 执行检查更新
-Then 下载 manifest.json 与 manifest.json.sig，验证 channel / semver / 签名
-And 新版本 0.2.0 显示为“可安装”，包含版本、发布时间、包大小
-And 不自动下载或安装
+Given macOS arm64、Node 20/22 且可访问公共 npm
+When 用户执行 npm install -g <larness tarball 或 larness>
+Then larness 命令在 PATH 中可用
+And larness --version 输出版本
+And larness 启动 TUI 与受管 Server，Web 可访问
+And 不要求用户安装 pnpm 或进入源码目录
 ```
 
-### A2 签名 / 哈希失败
+### A2 新版本提示
 
 ```gherkin
-Given manifest 签名不匹配，或安装包 SHA-256 / 大小与清单不一致
-When 用户尝试安装
-Then 安装被拒绝，当前版本不变，临时文件清理
-And 状态记录稳定错误码，不显示原始签名或下载内容
+Given 当前安装版本 0.1.0，公共 npm latest 为 0.2.0
+When TUI 启动
+Then 显示“有新版本 0.2.0”，并给出 npm install -g larness@latest
+And 不下载、不安装、不重启
+And 同一版本只提示一次；下次检查在 24 小时后
 ```
 
-### A3 活跃任务安全点
+### A3 已是最新 / 网络失败
 
 ```gherkin
-Given 有 RUNNING 的 Turn、queued/running JobRun 或进行中的部署
-When 用户确认安装
-Then Server 进入维护模式并报告活跃项，更新等待安全点
-And 不取消任务、不强行停止；用户可取消更新
-And 活跃项全部结束后才允许停止 Server
+Given 当前版本等于 latest，或 registry 不可达
+When TUI 检查版本
+Then 不显示更新提示，也不阻塞启动
+And 网络失败只写调试日志，不显示错误弹窗
 ```
 
-### A4 成功切换
+### A4 开发构建跳过
 
 ```gherkin
-Given 新版本已下载并验证，安全点已满足
-When 更新执行停止 Server、备份数据库、切换 current 指针并启动新版本
-Then `/api/health` 返回新版本且 30 秒内就绪
-And 旧版本目录保留，current.json 指向新版本，更新锁释放
-And 正式 PM2 服务 PID 不变
+Given 通过源码 / pnpm 启动，版本为 0.0.0 或 LARNESS_DEV=1
+When 启动
+Then 不检查公共 registry，避免开发时误报
+And npm 安装的正式版本仍按 A2 检查
 ```
 
-### A5 健康失败回滚
+### A5 升级前数据库备份
 
 ```gherkin
-Given 新版本启动后健康检查超时或返回错误版本
-When 回滚执行
-Then current 指针切回旧版本，旧版本重新启动并通过健康检查
-And 更新记录为 failed，失败原因可见
-And 新版本目录保留供诊断，不删除数据库
+Given 已初始化数据库 schemaVersion 22，程序升级到需要 schemaVersion 23 的版本
+When 新版本首次启动
+Then 在 runMigrations 前生成 pre-upgrade 备份，模式 0600
+And 备份成功后才执行迁移
+And 备份失败时拒绝迁移并停止启动，提示备份路径 / 磁盘 / 权限
 ```
 
-### A6 数据库迁移后失败
+### A6 备份保留
 
 ```gherkin
-Given 新版本已执行数据库迁移，schemaVersion 从 22 变为 23
-When 新版本健康检查失败
-Then 按更新前备份恢复数据库，再启动旧版本
-And 恢复失败时停止自动重试，标记“需要人工恢复”，并给出备份路径与恢复指引
+Given 已有 5 份 pre-upgrade 备份
+When 再次升级并备份成功
+Then 删除最旧备份，保留最近 5 份
+And 失败更新的备份不自动删除
 ```
 
-### A7 并发与中断
+### A7 降级保护
 
 ```gherkin
-Given 另一个更新进程持有 update.lock，或 Launcher 正在切换
-When 第二个更新请求到达
-Then 返回 UPDATE_LOCKED，不下载、不切换
-And 进程崩溃 / 断电后，下次启动依据状态文件与锁的 pid / 时间判定可恢复或人工处理
+Given 数据库 schemaVersion 23，启动的程序只支持到 22
+When 启动
+Then 拒绝以旧代码打开新 schema，提示安装更新版本或恢复备份
+And 不自动回退数据库
 ```
 
-### A8 版本与降级保护
+### A8 包内容
 
 ```gherkin
-Given 当前版本 schemaVersion=22，清单声明 minSchemaVersion=23
-When 检查 / 安装
-Then 拒绝该版本并说明需要先升级到中间版本
-And 清单版本低于当前版本、通道不匹配或 minAppVersion 不满足时拒绝
+Given 执行 npm pack
+When 检查 tarball 内容
+Then 包含 app.js、apps/server/dist、apps/web/dist、package.json、README
+And 不包含源码、测试、test-results、数据目录、日志、.env、密钥或 node_modules
+And 运行时依赖在根 package.json 中声明
 ```
 
-### A9 Launcher 指针损坏
+### A9 更新边界
 
 ```gherkin
-Given current.json 缺失、路径越界或 entry 不存在
-When 启动 Launcher
-Then 使用 previousVersion / last-known-good 启动并记录错误；没有可用版本时失败关闭
-And 不猜测任意目录、不执行更新目录以外的代码
+Given Web 已认证或 Agent 处于 autonomous
+When 尝试触发更新 / 安装
+Then 没有可用接口或工具；只读版本状态也不得触发停止或 npm 命令
 ```
 
-### A10 权限与磁盘
+### A10 发布 dry-run
 
 ```gherkin
-Given 安装根不可写、磁盘空间不足，或下载超过声明大小
-When 下载 / 解压 / 切换
-Then 在产生副作用前拒绝，清理 staging，当前版本不变
-And 错误信息包含可操作原因，不含秘密或任意路径注入
-```
-
-### A11 状态与审计
-
-```gherkin
-Given 一次更新从检查到完成或失败
-When 操作者查看 TUI / 状态文件 / 审计
-Then 能看到阶段、时间、from/to 版本、结果和稳定错误码
-And 审计不含私钥、签名原文、包内文件内容或完整下载 URL 查询串
-```
-
-### A12 人工安装边界
-
-```gherkin
-Given 浏览器已认证，或后台自动检查发现新版本
-When 没有 TUI 确认
-Then 不得安装；Web 最多显示版本状态，不能触发停止 / 切换
+Given 维护者已登录 npm
+When 执行 npm publish --dry-run
+Then 包名、版本、文件、bin、engines 与许可证字段通过校验
+And 不实际发布；真实发布由人类执行
 ```
 
 ## 6. 功能需求
 
 | ID | 级别 | 需求 |
 |---|---|---|
-| R-1 | MUST | 发布清单 `manifest.json` 与 detached `manifest.json.sig` 通过 HTTPS 获取；禁止 HTTP、凭据 URL、任意重定向。 |
-| R-2 | MUST | 签名使用 Ed25519，读取原始 manifest 字节验证；public key 内置于 Launcher / Updater，支持 `keyId` 与最多 2 个有效公钥。 |
-| R-3 | MUST | SHA-256 仅用于完整性，不替代签名；包大小必须匹配，超限拒绝。 |
-| R-4 | MUST | 清单包含 `schemaVersion / channel / version / releasedAt / minAppVersion / minSchemaVersion / maxSchemaVersion / archive{url,sha256,size} / entry / keyId`；严格 Zod 校验。 |
-| R-5 | MUST | semver 比较；降级、跨 channel、低于 `minAppVersion` 或 schema 不兼容时拒绝。 |
-| R-6 | MUST | 安装根与数据目录分离；版本目录 `versions/<version>/` 不可变，`current.json` 指针原子更新（临时文件 + fsync + rename）。 |
-| R-7 | MUST | Launcher 是稳定入口；只解析 `current.json` 指向的 `versions/` 内路径，缺失时回退 `previousVersion` 或失败关闭。 |
-| R-8 | MUST | `update.lock` 单写者；含 pid / host / startedAt / phase / 随机 owner；同进程重入拒绝，陈旧锁需确认 pid 不存活且超时。 |
-| R-9 | MUST | 安装前检查安装根可写、磁盘空间 ≥ 包大小 × 3、entry 存在。 |
-| R-10 | MUST | 下载到 `staging/`，支持超时 / 大小上限 / 取消；失败或取消清理 staging 文件。 |
-| R-11 | MUST | 解压拒绝绝对路径、`..`、符号链接 / 硬链接、设备文件、重复 entry、超出解压上限；失败不产生版本目录。 |
-| R-12 | MUST | 安装前 Server 进入维护模式，拒绝新 Turn / Job / 部署；等待已有活跃项结束，不自动取消。 |
-| R-13 | MUST | 活跃项检查至少覆盖 Turn（QUEUED/PREPARING/RUNNING/WAITING_APPROVAL/CANCELLING）、JobRun（queued/running）、部署 / 构建非终态。 |
-| R-14 | MUST | 切换前备份数据库与 config；备份位于数据目录备份区，失败则不切换。 |
-| R-15 | MUST | 停止 Server 使用既有优雅关闭；等待实例锁释放后再启动新版本。 |
-| R-16 | MUST | 健康检查使用 `/api/health`（增加 `version`）与 `/api/bootstrap`，超时 30 秒；版本不匹配视为失败。 |
-| R-17 | MUST | 健康失败回滚 `current` 与数据库；数据库已迁移且回滚失败时进入人工恢复状态，不再自动重试。 |
-| R-18 | MUST | `update-state.json` 记录 phase / from / to / times / errorCode；跨重启保留，成功后归档最近 N 条。 |
-| R-19 | MUST | 稳定错误码：`UPDATE_UNAVAILABLE`、`UPDATE_MANIFEST_INVALID`、`UPDATE_SIGNATURE_INVALID`、`UPDATE_HASH_MISMATCH`、`UPDATE_LOCKED`、`UPDATE_BUSY`、`UPDATE_UNSAFE_PACKAGE`、`UPDATE_HEALTH_FAILED`、`UPDATE_ROLLBACK_FAILED`、`UPDATE_DISK_FULL`。 |
-| R-20 | MUST | 只有本机 TUI 可触发安装 / 取消；Web / Agent 工具不能触发停止或切换。 |
-| R-21 | MUST | 检查后可显示新版本；`autoInstall` 配置保持 false 且不生效；自动检查默认每日一次。 |
-| R-22 | MUST | 正式 PM2 服务不因管理面更新而停止；更新不得修改 PM2 配置、dump 或服务环境。 |
-| R-23 | SHOULD | TUI 更新页展示当前版本、通道、最近检查、可用版本、阶段进度、失败原因与备份路径。 |
-| R-24 | SHOULD | 发布工具校验清单、签名、包哈希并生成 fixture；发布流程文档化。 |
-| R-25 | SHOULD | 状态与审计记录 from/to、耗时、结果；不含包内容、签名原文、私钥、完整查询串。 |
+| R-1 | MUST | 根包 `larness` 可发布到公共 npm：`private:false`、正式 semver、`bin.larness=./app.js`、`engines.node>=20.19`。 |
+| R-2 | MUST | `files` 只包含 `app.js`、`apps/server/dist`、`apps/web/dist`、`package.json`、`README.md` 及必要静态资源；排除源码、测试、数据、日志、秘密、`node_modules`。 |
+| R-3 | MUST | 根 `package.json` 声明 server 运行时外部依赖（workspace 包由构建打包）；`npm install` 后不依赖 pnpm 或仓库脚本。 |
+| R-4 | MUST | `app.js` 在发布包中只加载 dist 入口；dist 缺失时失败并提示重新安装，不回退源码 / pnpm。 |
+| R-5 | MUST | TUI 启动时检查公共 npm `https://registry.npmjs.org/larness` 的 dist-tag；`stable`→`latest`，`beta`→`beta`。 |
+| R-6 | MUST | 检查为非阻塞：失败静默 / 调试日志；不禁止用户关闭（无关闭开关）。 |
+| R-7 | MUST | 每 24 小时最多检查一次；同一新版本只提示一次；状态写入数据目录 `updates/state.json`（0600，无秘密）。 |
+| R-8 | MUST | 只提示当前版本、最新版本与 `npm install -g larness@latest`；不执行 npm、不下载、不重启。 |
+| R-9 | MUST | 源码 / `0.0.0` / `LARNESS_DEV=1` 跳过检查；正式 npm 版本按 semver 比较。 |
+| R-10 | MUST | 升级前（`appliedMigrationCount < expectedMigrationCount` 且已有 schema）用 `VACUUM INTO` 备份到 `<dataDir>/backups/pre-upgrade-<from>-<to>-<timestamp>.db`，0600。 |
+| R-11 | MUST | 备份失败则拒绝迁移并停止启动；错误使用稳定码/可操作信息，不记录数据库内容。 |
+| R-12 | MUST | 保留最近 5 份 pre-upgrade 备份；成功更新后清理，失败备份保留。 |
+| R-13 | MUST | 数据库 schema 高于程序支持范围时拒绝启动并提示恢复/升级，不自动降级。 |
+| R-14 | MUST | 不新增 Web / Agent 更新入口；Agent 工具与 system prompt 不暴露更新能力。 |
+| R-15 | MUST | `npm pack` / `npm publish --dry-run` 冒烟通过；真实 `npm publish` 由人类执行。 |
+| R-16 | SHOULD | TUI 显示当前版本、通道、最近检查时间、可用版本；失败不打扰。 |
+| R-17 | SHOULD | README 记录安装、升级、降级、卸载、Node 版本与原生依赖说明。 |
+| R-18 | SHOULD | 包元数据包含 description、repository、homepage、keywords、license；许可证未定前不得实际 publish。 |
 
-## 7. 接口与配置
+## 7. 接口与契约
 
-### 7.1 发布清单
+### 7.1 包元数据
 
 ```json
 {
-  "schemaVersion": 1,
-  "channel": "stable",
-  "version": "0.2.0",
-  "releasedAt": 1794067200000,
-  "minAppVersion": "0.1.0",
-  "minSchemaVersion": 22,
-  "maxSchemaVersion": 23,
-  "archive": {
-    "url": "https://updates.example.com/larness-0.2.0.tar.gz",
-    "sha256": "64-hex",
-    "size": 12345678
-  },
-  "entry": "app.js",
-  "keyId": "release-2026"
+  "name": "larness",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "bin": { "larness": "./app.js" },
+  "engines": { "node": ">=20.19" },
+  "files": [
+    "app.js",
+    "apps/server/dist",
+    "apps/web/dist",
+    "README.md",
+    "package.json"
+  ],
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "fastify": "^5.12.7",
+    "node-pty": "^1.1.0",
+    "...": "server dist 的全部外部运行时依赖"
+  }
 }
 ```
 
-- `manifest.json.sig` 为 Ed25519 detached 签名（对 manifest 原始字节）。
-- 清单与签名响应 `Cache-Control: no-store`；允许的时钟偏差 ±10 分钟，仅用于展示，不作为安全判断。
-- 发布说明如提供，只作为纯文本截断显示，不渲染 HTML。
+- 版本由根 `package.json` 唯一来源；`app.js --version` 读取同一字段。
+- `packageManager` / `devDependencies` 可保留，但不要求用户安装 pnpm。
+- 不发布 workspace 包；`@larness/*` 由 server 构建打包进 `dist`。
+- 原生依赖：`better-sqlite3` 使用上游 `prebuild-install`，`node-pty` 使用包内 macOS/Windows 预编译；macOS 先验证 arm64（x64 由 M5-4 覆盖）。
 
-### 7.2 安装目录
+### 7.2 更新检查
 
-```text
-<installRoot>/
-  launcher.js                 # 稳定入口，不随版本切换
-  current.json                # { schemaVersion, version, path, previousVersion, activatedAt }
-  update.lock                 # 单写者
-  versions/<version>/         # 不可变程序目录，entry=app.js
-  staging/                    # 下载 / 解压临时目录
-  backups/                    # 更新前数据库与 config 备份
-  state/update-state.json     # 当前 / 最近更新状态
-  logs/update.log             # 脱敏更新日志
-```
+| 项 | 约定 |
+|---|---|
+| 端点 | `https://registry.npmjs.org/larness`（读取 `dist-tags[latest|beta]`）；不跟随任意重定向 |
+| 比较 | semver；预发布版本只与 beta 通道比较 |
+| 频率 | 启动一次 + 24h；同一版本只提示一次 |
+| 超时 | 5 秒；失败不影响启动 |
+| 状态 | `<dataDir>/updates/state.json`：`lastCheckedAt`、`lastNotifiedVersion`、`channel` |
+| 开发跳过 | 版本 `0.0.0` 或 `LARNESS_DEV=1` |
+| 提示 | “有新版本 x.y.z · 运行 npm install -g larness@latest” |
 
-- `installRoot` 默认为 `LARNESS_APP_DIR`；未设置时由发布包决定，不与 `LARNESS_DATA_DIR` 混用。
-- `current.json` 使用原子 rename；路径必须解析在 `versions/` 内。
-- 版本目录切换后不再写入；回滚只改指针，不修改旧目录。
+- 不新增 REST / IPC / WS 接口；TUI 直接 fetch。
+- Web 不展示更新提示（避免误以为可远程安装）；README 说明更新命令。
 
-### 7.3 Launcher
+### 7.3 数据库备份
 
-```bash
-node launcher.js             # 读取 current.json，启动对应版本 TUI / Server
-node launcher.js --version   # 打印当前版本
-node launcher.js --check     # 仅检查更新（不安装）
-```
-
-- Launcher 不执行网络更新；只负责选择版本与启动。
-- 启动失败时记录状态；若新版本连续失败，回退 `previousVersion` 并提示人工处理。
-- 开发仓仍使用 `app.js`；发布布局由 M5-4 打包。
+- 触发：启动时 `appliedMigrationCount > 0` 且 `< expectedMigrationCount`。
+- 位置：`<dataDir>/backups/pre-upgrade-<from>-<to>-<timestamp>.db`，0600。
+- 实现：现有 `backupDatabase`（`VACUUM INTO`），迁移前同步执行。
+- 失败：关闭数据库、释放实例锁、退出并提示备份路径；不运行迁移。
+- 保留：最近 5 份 pre-upgrade 备份；不含普通 `larness-*.db` 备份。
+- 降级：`appliedMigrationCount > expectedMigrationCount` 时拒绝启动，提示安装更新版本或恢复备份。
 
 ### 7.4 配置
 
-| 键 | 默认 | 说明 |
-|---|---|---|
-| `updates.manifestUrl` | `null` | HTTPS manifest 完整 URL；null 表示禁用检查 |
-| `updates.channel` | `stable` | 已有键；`stable` / `beta` |
-| `updates.autoCheck` | `true` | 每日后台检查；不自动安装 |
-| `updates.autoInstall` | `false` | 固定 false，M5-3 不启用自动安装 |
-
-- 新增配置键为可选，旧 config 读取时补 null；不改变 config version 1。
-- 公钥不进入 config；由构建时注入 Launcher / Updater，避免用户替换。
-
-### 7.5 健康检查
-
-`GET /api/health` 增加 `version`：
-
-```json
-{ "status": "ok", "uptimeMs": 1234, "version": "0.2.0" }
-```
-
-- 旧客户端忽略新字段；更新器必须校验 `version` 与目标一致。
-- 不新增公开更新 REST 接口；Web 版本展示可复用 `/api/bootstrap` 或后续任务。
+- 复用 `updates.channel`（stable/beta）、`updates.autoCheck`（默认 true）。
+- `updates.autoInstall` 保持 false 且不生效。
+- 不新增关闭检查的配置项；检查失败/离线不影响启动。
+- 不新增 `manifestUrl`；公共 npm 固定 registry。
 
 ## 8. 数据与迁移
 
-- 本切片不新增数据库表；`update-state.json` 是更新进行中的权威状态，Server 下次启动读取并写审计。
-- 更新前使用现有 `backupDatabase` 备份到 `backups/`；同时备份 `config.json`（若存在）。
-- 版本目录与数据目录分离；升级失败不得删除数据目录、项目源码或 PM2 服务。
-- 数据库迁移由新版本正常执行；迁移后回滚只能恢复备份，不能假设旧代码兼容新 schema。
-- 备份保留最近 5 次或 90 天；清理在更新成功后执行，失败备份保留。
+- M5-3 不新增数据库表；更新检查状态是数据目录小 JSON 文件。
+- 升级前备份是启动流程的一部分；备份包含加密秘密，依赖数据目录 0700 与备份 0600，不上传、不写入日志。
+- 备份失败拒迁移；迁移成功后保留备份供人工恢复。
+- 不修改 `app_meta` schema 版本语义；版本仍以迁移计数表示。
 
 ## 9. 安全、权限与审计
 
-- **发布信任**：私钥离线保存；仓库只含公钥；`keyId` 轮换需新旧双签或保留旧公钥至少一个发布周期。签名验证失败时失败关闭。
-- **下载**：只允许 HTTPS、无凭据、无 IP 字面量、无 localhost；拒绝重定向；限制大小与时间；环境代理仅在不改变 TLS 校验时使用。
-- **解压**：所有 entry 先校验后写入；拒绝符号链接 / 硬链接 / 设备 / 绝对 / `..` / 超限；只写入 `versions/<version>/` 新目录。
-- **权限**：安装根与版本目录不 world-writable；`update.lock` / 状态文件 0600；更新器以 Larness 账户运行，不请求 sudo。
-- **安全点**：活跃 Turn / Job / 部署存在时等待；维护模式拒绝新工作；不自动取消或强制终止。
-- **审计**：记录 `update.checked` / `update.downloaded` / `update.verified` / `update.started` / `update.succeeded` / `update.failed` / `update.rolled_back`；不含签名原文、包内容、私钥、完整查询串。
-- **Web / Agent**：不新增更新工具或 Web 安装入口；Agent 不能触发更新、停止或回滚。
-- **PM2**：更新只停止管理面，不触碰 PM2 守护、dump、服务环境或正式服务进程。
+- 更新检查只读、仅 HTTPS、无凭据；不发送安装 ID、项目路径或数据。
+- 不执行 npm 命令；提示文本固定，不拼接 registry 返回的任意 HTML / 链接。
+- 包文件白名单防泄漏；`npm pack` 冒烟检查无 `.env`、DB、日志、测试、密钥。
+- 原生依赖使用上游预编译；不新增签名更新链。
+- 备份 0600；日志只记录路径、版本、迁移数量，不记录内容。
+- Web / Agent 无更新接口；不新增更新工具。
+- 真实 `npm publish` 由人类在已登录、2FA 环境执行；CI 发布留 M5-4。
 
 ## 10. 失败、边界与恢复
 
 | 场景 | 行为 | 用户可见信息 |
 |---|---|---|
-| manifest 404 / 网络失败 | 检查失败，保留上次结果 | “检查更新失败”，可重试 |
-| 签名 / 哈希 / 大小失败 | 拒绝安装，清理 staging | 稳定错误码，不显示签名原文 |
-| 版本过低 / channel 不符 / schema 不兼容 | 拒绝安装 | 说明原因 |
-| 活跃任务未结束 | 等待安全点，可取消更新 | 活跃 Turn / Job / 部署数量 |
-| 安装根不可写 / 磁盘不足 | 下载或切换前拒绝 | “安装目录不可写 / 空间不足” |
-| 解压 entry 异常 | 删除新版本目录，保持 current | “发布包不安全” |
-| 切换后健康超时 | 回滚 current，重启旧版本 | “新版本启动失败，已回滚” |
-| 健康失败且数据库已迁移 | 恢复备份；失败则人工恢复 | 备份路径与恢复步骤 |
-| 回滚后旧版本仍失败 | 停止自动重试，`UPDATE_ROLLBACK_FAILED` | 人工恢复提示 |
-| 更新进程崩溃 / 断电 | 下次 Launcher 读状态与锁；未完成则回退 / 人工 | “上次更新未完成” |
-| 并发更新 | `UPDATE_LOCKED` | 不下载、不切换 |
-| 旧版本目录被删 | Launcher 失败关闭或使用 previous | 不猜测其他目录 |
-| PM2 服务运行中 | 保持运行；管理面停止 | 正式服务不受影响 |
+| registry 不可达 / 超时 | 静默失败，启动继续 | 无弹窗；调试日志 |
+| 当前版本更高 / 同版本 | 不提示 | 无 |
+| 开发版本 0.0.0 | 跳过检查 | 无 |
+| npm 更新后未重启 | 旧进程继续运行；重启后使用新版本 | README / TUI 提示 |
+| 备份失败 | 拒绝迁移并退出 | 备份路径 / 磁盘 / 权限 |
+| 备份后迁移失败 | 程序启动失败；保留备份 | 恢复指引 |
+| schema 高于程序 | 拒绝启动 | 安装新版本或恢复备份 |
+| 包缺失 dist | 启动失败 | 重新安装 / 报告损坏 |
+| 原生依赖安装失败 | npm install 失败 | 提示 Xcode CLT / 编译工具 |
+| 用户 `--ignore-scripts` | 原生模块不可用 | README 明确不支持 |
 
 ## 11. 可观测性
 
-- `update-state.json` 字段：`phase`（idle/checking/downloading/verifying/waiting-safe-point/switching/restarting/health-checking/succeeded/failed/rolled-back/manual-recovery）、`fromVersion`、`toVersion`、`startedAt`、`updatedAt`、`errorCode`、`errorMessage`、`backupPath`、`activeCounts`。
-- `logs/update.log` 结构化 JSON 行；只含版本、阶段、耗时、结果、稳定错误码。
-- TUI 更新页显示当前阶段和最近结果；启动时若发现未完成状态，先提示再进入主界面。
-- 审计在 Server 启动后补齐；更新器自身不写业务数据库。
+- 更新检查：debug 日志含 `currentVersion`、`latestVersion`、`channel`、`durationMs`；不含 registry 原始响应正文。
+- 备份：日志含 `from`、`to`、路径、大小、耗时；不含数据库内容。
+- TUI：当前版本、最近检查、可用版本、更新命令。
+- `npm pack` 检查输出文件清单和总大小。
 
 ## 12. 测试计划
 
-- **单元**：manifest Zod / semver / channel / schema 范围；Ed25519 正反例；SHA-256 / size；路径与 entry 校验；当前指针解析与回退；锁的获取 / 陈旧 / 重入；状态机转换。
-- **集成**：本地 fixture HTTPS 服务器（自签测试证书）下载；中断 / 超时 / 超限；tar 恶意 entry 拒绝；磁盘不足；原子切换；健康检查失败回滚；数据库备份恢复；并发更新；Launcher 指针损坏。
-- **TUI / E2E**：检查 → 显示 → 安装确认 → 安全点 → 成功；签名失败；取消；回滚提示；启动时未完成状态。
-- **回归**：`pnpm check`、`pnpm build`、Demo、auth E2E；PM2 服务 PID 在更新期间不变（有 PM2 环境时）。
-- **手动**：真实 macOS 安装根；断网 / 断电恢复；正式服务运行中更新；备份恢复演练。
+- **单元**：semver / dist-tag 选择；24h 节流 / 同版本只提示；开发跳过；registry 失败静默；状态文件读写；备份文件名 / 保留 5 份；降级检测。
+- **集成**：临时 npm registry fixture（或 mock fetch）返回 latest/beta；`startServer` 在迁移前备份；备份失败中止；迁移成功后启动。
+- **打包**：`npm pack` 内容白名单；临时 prefix `npm install -g <tarball>`；`larness --version`；`larness doctor`；macOS arm64。
+- **回归**：`pnpm check`、`pnpm build`、Demo、auth E2E。
+- **手动**：真实公共 npm `npm publish --dry-run`；升级 / 降级 / 备份恢复；`npm pack` 安装后启动。
 
-## 13. 开放问题与待确认决策
+## 13. 决策与开放问题
 
-| ID | 问题 | 推荐 | 需要决策 |
-|---|---|---|---|
-| D1 | 发布清单来源 | 用户可配置的 HTTPS manifest URL；null 禁用；不做固定官方域名 | 人类 |
-| D2 | 签名格式 | Ed25519 detached 签名（原始 manifest 字节）；内置最多 2 个公钥 / keyId；私钥离线 | 人类 |
-| D3 | 安装权限 | 仅本机 TUI 可确认；Web / Agent 不可安装 | 人类 |
-| D4 | 包格式与依赖 | `.tar.gz` + `tar`（纯 JS）+ `semver@7`；先校验 entry 再解压 | 人类 |
-| D5 | 数据库迁移后失败 | 更新前备份；健康失败且 schema 已变化时恢复备份，恢复失败进入人工恢复 | 人类 |
-| D6 | 自动下载 | 每日自动检查；下载只在用户确认后开始 | 人类 |
+| ID | 决策（2026-11-08 用户确认） |
+|---|---|
+| D1 | 公共 npm 的 `larness`；不启用私有 registry |
+| D2 | 不做签名更新包 / Launcher / 自动回滚；npm 负责版本安装 |
+| D3 | TUI 只提示；用户自行 `npm install -g larness@latest` |
+| D4 | 不提供关闭检查；检查失败静默，不阻塞 |
+| D5 | 升级前自动备份数据库；备份失败拒绝迁移 |
+| D6 | M5-3 先接受 macOS 上游预编译；Linux/Windows 预编译与 CI 归 M5-4 |
 
-确认后：本 spec 转 `ready`，补 `docs/contracts/runtime-entry.md` / `rest-api.md`（health.version）/ `data-model.md`（文件布局与备份）并新增 ADR 记录发布信任与切换边界。
+开放：
+
+- 仓库许可证未定（Q-004）；公共 npm 实际发布前必须确认 `license`，否则只做 `npm pack` / `publish --dry-run`。
+- npm 账号 / 2FA / 包名所有权由人类确认；`npm view larness` 目前 404（未被占用），但不等于已保留。
+- beta 通道是否随首发开放；默认可读取 `beta` dist-tag，不影响 stable 用户。
 
 ## 14. 完成定义
 
-- [ ] A1–A12 通过；
-- [ ] 签名、哈希、解压、锁、健康、回滚、数据库备份测试通过；
-- [ ] TUI 更新页与状态恢复可用；
-- [ ] `pnpm check`、`pnpm build`、auth / Demo E2E 通过；
-- [ ] 契约、ADR、STATUS、ROADMAP、tasks 更新；
-- [ ] 未验证项（Windows / Linux、真实发布服务器、Apple 公证）如实记录；
-- [ ] 人类验收通过。
+- [ ] A1–A10 通过；
+- [ ] `npm pack` / `npm install -g` / `larness` 启动通过（macOS arm64）；
+- [ ] TUI 新版本提示、节流、离线跳过通过；
+- [ ] 升级前备份、失败拒绝迁移、保留 5 份、降级拒绝通过；
+- [ ] 包内容不含源码 / 测试 / 数据 / 秘密；
+- [ ] `pnpm check`、`pnpm build`、Demo、auth E2E 通过；
+- [ ] 文档、STATUS、ROADMAP、tasks 更新；
+- [ ] 人类验收；实际 npm publish 由人类执行。
