@@ -10,7 +10,7 @@
 |---|---|---|---|
 | M5-3-1 | npm 包、发布模式与安装冒烟 | 065 spec ready | `review` |
 | M5-3-2 | TUI 新版本提示 | M5-3-1 | `todo` |
-| M5-3-3 | 升级前数据库备份与降级保护 | M5-3-1 | `todo` |
+| M5-3-3 | 升级前数据库备份与降级保护 | M5-3-1 | `review` |
 | M5-3-4 | 发布文档与整体验收 | M5-3-2、M5-3-3 | `todo` |
 
 ## 任务卡
@@ -38,7 +38,7 @@
 
 ### M5-3-2 TUI 新版本提示
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：M5-3-1
 - 目标：TUI 只提示 npm 新版本，不自动更新。
 - 交付物：
@@ -51,7 +51,7 @@
 
 ### M5-3-3 升级前数据库备份与降级保护
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：M5-3-1
 - 目标：升级首次启动在迁移前自动备份；失败不迁移。
 - 交付物：
@@ -60,6 +60,12 @@
   - 备份 0600；不记录内容。
 - 验收：A5、A6、A7；备份失败中止；降级拒绝。
 - 测试：有 schema 升级、新库、备份失败、保留、降级、迁移前后。
+- 交付（2026-11-08）：
+  - [x] `db/preUpgradeBackup.ts`：迁移前 `VACUUM INTO`，`pre-upgrade-<from>-<to>-<timestamp>.db`，0600，保留 5 份。
+  - [x] 启动时 `applied > 0 && expected > applied` 才备份；备份失败中止启动；`applied > expected` 拒绝降级。
+  - [x] 日志记录 from/to/路径，不记录数据库内容；备份目录 0700。
+  - [x] 测试：备份 / 保留 / 权限、schema 降级拒绝、真实 startServer 从 21 迁移到 22 前生成备份。
+  - [x] `pnpm check`（server 556/10、web 141、agent 40/1）与 `pnpm build` 通过。
 - 涉及路径：`apps/server/src/db/preUpgradeBackup.ts`、`apps/server/src/bootstrap/start.ts`、`apps/server/test/updates/*`。
 
 ### M5-3-4 发布文档与整体验收

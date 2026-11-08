@@ -15,7 +15,13 @@ import { createApp } from "../app.js";
 import { loadOrCreateCsrfKey } from "../auth/csrf.js";
 import { type CleanupScheduler, startCleanupScheduler } from "../db/cleanup.js";
 import { type Database, type OpenedDatabase, openDatabase } from "../db/client.js";
-import { appliedMigrationCount, findServerRoot, runMigrations } from "../db/migrate.js";
+import {
+  appliedMigrationCount,
+  expectedMigrationCount,
+  findServerRoot,
+  runMigrations,
+} from "../db/migrate.js";
+import { assertSchemaCompatible, backupBeforeMigrations } from "../db/preUpgradeBackup.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { ensureInstanceId } from "../db/repositories/meta.js";
 import { type DevWebTarget, DevWebTargetSchema } from "../dev-web/control.js";
@@ -233,6 +239,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   let terminalManager: TerminalManager | null = null;
   let deploymentManager: DeploymentManager | null = null;
   let requestShutdown: ((reason: string) => void) | null = null;
+  let preUpgradeBackupPath: string | null = null;
 
   try {
     lock = await acquireInstanceLock(dataDir, { version });
@@ -240,6 +247,15 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const dbPath = path.join(dataDir, "larness.db");
     const opened = openDatabase(dbPath);
     database = opened;
+    const applied = appliedMigrationCount(opened.sqlite);
+    const expected = expectedMigrationCount();
+    assertSchemaCompatible(applied, expected);
+    if (applied > 0 && expected > applied) {
+      preUpgradeBackupPath = backupBeforeMigrations(opened.sqlite, dataDir, {
+        from: applied,
+        to: expected,
+      });
+    }
     runMigrations(opened.db);
     recoverInitialization(opened.db, dataDir);
     const loaded: LoadedConfig = await loadConfig({ dataDir, env });
@@ -257,6 +273,12 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       destination: options.logDestination,
     });
     logger = activeLogger;
+    if (preUpgradeBackupPath !== null) {
+      activeLogger.info(
+        { backup: preUpgradeBackupPath, from: applied, to: expected },
+        "created pre-upgrade database backup",
+      );
+    }
     if (retentionError !== undefined)
       activeLogger.warn({ err: retentionError }, "log retention failed");
     const retention = startLogRetention(
