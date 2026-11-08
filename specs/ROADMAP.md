@@ -259,7 +259,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-3-4 | 发布文档与整体验收 | M5-3-2、M5-3-3 | `done` |
 | M5-4 | [跨平台安装与运行 PoC](066-cross-platform/spec.md) | M5-1a ~ M5-1c、M5-2、M5-3 | `in_progress`（M5-4-1 review） |
 | M5-4-1 | CI 平台 / Node 矩阵与安装冒烟 | 066 ready | `review`（2026-11-08 交付，待 CI） |
-| M5-4-2 | macOS x64 与 Linux 验证 / 修复 | M5-4-1 | `todo` |
+| M5-4-2 | Linux 验证 / 修复 | M5-4-1 | `todo` |
 | M5-4-3 | Windows 原生验证 / 修复 | M5-4-1 | `todo` |
 | M5-4-4 | 平台文档与整体验收 | M5-4-2、M5-4-3 | `todo` |
 | M5-5 | 安全加固、发布验收清单、文档定稿 | M5-4 | `todo` |

@@ -19,7 +19,7 @@ npm install -g larness
 larness
 ```
 
-要求 Node.js 20.19+ / 22 / 24；macOS arm64 已验证 20.19.3、22.23.4、24.22.2。升级不会自动发生：TUI 只提示新版本，用户执行 `npm install -g larness@latest`。详见 [安装与升级](docs/guides/install.md)。
+要求 Node.js 20.19+ / 22 / 24；macOS Apple Silicon 已验证 20.19.3、22.23.4、24.22.2；不支持 macOS Intel。升级不会自动发生：TUI 只提示新版本，用户执行 `npm install -g larness@latest`。详见 [安装与升级](docs/guides/install.md)。
 
 
 ## M2 已验收能力

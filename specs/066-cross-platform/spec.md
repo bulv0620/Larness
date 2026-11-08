@@ -12,13 +12,13 @@ updated: 2026-11-08
 # 跨平台安装与运行 PoC（M5-4）
 
 > 状态：`ready`（2026-11-08 用户确认）。Windows 11 x64 原生、Linux 接受编译工具回退、三平台 × Node 20/22/24。
-> 背景：`larness@0.1.0` 已发布，仅验证 macOS arm64 + Node 20/22/24。M5-4 验证 macOS x64、Linux、Windows，并把安装 / 预编译 / 平台限制公开。
+> 背景：`larness@0.1.0` 已发布，仅验证 macOS arm64 + Node 20/22/24。M5-4 验证 macOS Apple Silicon、Ubuntu、Windows 11，并把安装 / 预编译 / 平台限制公开。
 
 ## 1. 背景与问题
 
 Larness 依赖本机 PTY、SQLite、PM2、文件锁和进程树；这些能力在 macOS / Linux / Windows 上差异明显。当前：
 
-- 只验证 macOS arm64；
+- 只验证 macOS Apple Silicon；
 - CI 有 Ubuntu / macOS，但只跑 Node 22，且没有 Windows；
 - `node-pty@1.1.0` 提供 macOS / Windows 预编译，**没有 Linux 预编译**，Linux 安装可能回退到编译；
 - `better-sqlite3@12.6.2` 提供 Node 20/22/24 的 macOS / Linux（含 musl）/ Windows 预编译；
@@ -28,7 +28,7 @@ M5-4 不新增产品能力，只把“在哪些平台、以什么方式可用”
 
 ## 2. 目标
 
-- **G-1 支持矩阵**：明确 macOS arm64/x64、Linux x64（glibc）、Windows x64 与 Node 20/22/24 的已验证组合。
+- **G-1 支持矩阵**：明确 macOS Apple Silicon、Linux x64（glibc）、Windows x64 与 Node 20/22/24 的已验证组合。
 - **G-2 npm 安装**：每平台用公共 npm `larness` 全局安装，`larness` 能启动 TUI/Server/Web；不引入 MSI / zip 安装器。
 - **G-3 原生依赖**：记录 `better-sqlite3` / `node-pty` 的预编译与编译回退；Linux 无 `node-pty` 预编译时给出可操作要求。
 - **G-4 核心链路**：至少验证项目、会话、Agent 文本、终端、命令、文件、Git、PM2 服务启停与日志。
@@ -46,17 +46,17 @@ M5-4 不新增产品能力，只把“在哪些平台、以什么方式可用”
 
 ## 4. 用户故事
 
-- 作为 macOS Intel 用户，我希望 npm 安装后能启动，而不是只支持 Apple Silicon。
+- 作为 macOS Apple Silicon 用户，我希望在 Node 20/22/24 下都能 npm 安装并启动。
 - 作为 Linux 用户，我希望知道是否需要 build-essential / Python，以及哪些功能已验证。
 - 作为 Windows 用户，我希望用 PowerShell 安装 `larness` 后能打开 TUI、终端和项目会话。
 - 作为维护者，我希望 CI 在三个 OS 与 Node 20/22/24 上跑安装冒烟，避免发布后才发现原生依赖问题。
 
 ## 5. 验收场景
 
-### A1 macOS x64 安装
+### A1 macOS Apple Silicon 安装
 
 ```gherkin
-Given macOS x64、Node 20/22/24
+Given macOS Apple Silicon、Node 20/22/24
 When npm install -g larness 并运行 larness --version
 Then 安装成功，版本与 npm 一致
 And TUI/Server 可启动，SQLite 与 PTY 可用
@@ -122,7 +122,7 @@ Then 路径边界与冲突检测正确，不越界
 ```gherkin
 Given 推送 / PR
 When CI 运行
-Then macOS arm64/x64、Ubuntu、Windows 分别在 Node 20/22/24 执行安装与启动冒烟
+Then macOS Apple Silicon、Ubuntu、Windows 分别在 Node 20/22/24 执行安装与启动冒烟
 And 失败平台不被标记为通过；限制记录在验收表
 ```
 
@@ -148,11 +148,11 @@ And 不包含平台无关的测试 / 数据 / 秘密
 
 | ID | 级别 | 需求 |
 |---|---|---|
-| R-1 | MUST | 支持矩阵显式写为：macOS arm64、macOS x64、Ubuntu 22.04/24.04 x64 glibc、Windows 11 x64；Node 20/22/24。 |
+| R-1 | MUST | 支持矩阵显式写为：macOS Apple Silicon、Ubuntu 22.04/24.04 x64 glibc、Windows 11 x64；Node 20/22/24。 |
 | R-2 | MUST | 安装方式只走公共 npm 全局安装；不新增 MSI / zip 安装器。 |
 | R-3 | MUST | `better-sqlite3` 固定 `12.6.2`，覆盖 Node 20/22/24 与三平台预编译；不得升级到缺 Node 20 预编译的版本。 |
 | R-4 | MUST | Linux 无 `node-pty` 预编译时，安装文档要求 build-essential / python / make；Windows / macOS 使用包内预编译。 |
-| R-5 | MUST | CI 矩阵覆盖 macOS arm64/x64、Ubuntu 22.04/24.04、Windows x64 × Node 20/22/24 的安装 / 版本 / 启动冒烟；完整 E2E 可按平台裁剪并记录。 |
+| R-5 | MUST | CI 矩阵覆盖 macOS Apple Silicon、Ubuntu 22.04/24.04、Windows x64 × Node 20/22/24 的安装 / 版本 / 启动冒烟；完整 E2E 可按平台裁剪并记录。 |
 | R-6 | MUST | Windows 原生支持以 PowerShell/cmd 验证；WSL 结果单列，不冒充 Windows。 |
 | R-7 | MUST | 终端、命令、PM2、文件/Git 至少各有一个平台冒烟；失败或未验证功能明确标注。 |
 | R-8 | MUST | 路径处理使用 `node:path`；Windows 盘符 / 反斜杠 / 大小写不敏感边界有测试或记录。 |
@@ -209,8 +209,8 @@ And 不包含平台无关的测试 / 数据 / 秘密
 - **单元 / 集成**：现有 `pnpm check` 在三平台 × Node 矩阵通过；平台条件测试启用。
 - **安装**：`npm pack` → 临时全局 prefix → `larness --version` / 启动冒烟；三平台。
 - **平台冒烟**：PTY、命令取消、PM2 start/stop/log、文件保存 / 冲突、Git 状态、路径边界。
-- **CI**：macOS arm64/x64、Ubuntu 22.04/24.04、Windows x64；Node 20/22/24；E2E 子集。
-- **手动**：Windows 11、Ubuntu、macOS Intel 实机；记录限制。
+- **CI**：macOS Apple Silicon、Ubuntu 22.04/24.04、Windows x64；Node 20/22/24；E2E 子集。
+- **手动**：Windows 11、Ubuntu、macOS Apple Silicon 实机；记录限制。
 
 ## 13. 开放问题与待确认决策
 
@@ -219,7 +219,7 @@ And 不包含平台无关的测试 / 数据 / 秘密
 | D1 | Windows 11 x64 原生（PowerShell/cmd）；WSL 单列，不计 Windows 原生 |
 | D2 | Linux 先验证 Ubuntu 22.04 / 24.04 x64 glibc；musl / ARM 不承诺 |
 | D3 | Linux 接受 build-essential / python 编译回退；暂不自建 node-pty Linux 预编译包 |
-| D4 | 平台顺序 macOS x64 → Linux → Windows；Node 20/22/24 |
+| D4 | 平台顺序 macOS Apple Silicon → Linux → Windows；Node 20/22/24 |
 | D5 | GitHub Actions 矩阵 + 手动实机冒烟；安装只走 npm，不做 MSI/zip |
 
 已确认后：spec 转 `ready`，CI 矩阵与安装文档先行。

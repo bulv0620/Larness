@@ -36,7 +36,7 @@ updated: 2026-11-07
 | M5-1 | [多 Provider 与压缩](063-multi-provider/spec.md) | GLM / OpenAI-compatible、能力矩阵、上下文压缩、切模型体验（已交付） |
 | M5-2 | [Scheduler](064-scheduler/spec.md) | 任务表、cron、JS / Agent 执行、JobRun、并发 / 超时 / 通知（done） |
 | M5-3 | [npm 分发与版本提示](065-launcher-updater/spec.md) | 公共 npm `larness`、TUI 更新提示、升级前数据库备份；不自动更新 |
-| M5-4 | [跨平台 PoC](066-cross-platform/spec.md) | Windows / Linux / macOS x64 终端、路径、PM2、npm 安装（spec draft） |
+| M5-4 | [跨平台 PoC](066-cross-platform/spec.md) | Windows / Ubuntu / macOS Apple Silicon 终端、路径、PM2、npm 安装（spec draft） |
 | M5-5 | 加固与发布 | 安全评审、发布清单、文档、已知限制 |
 
 ## 4. 预验收场景（需补全）

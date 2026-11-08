@@ -9,7 +9,7 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M5-4-1 | CI 平台 / Node 矩阵与安装冒烟 | 066 spec ready | `review` |
-| M5-4-2 | macOS x64 与 Linux 验证 / 修复 | M5-4-1 | `todo` |
+| M5-4-2 | Linux 验证 / 修复 | M5-4-1 | `todo` |
 | M5-4-3 | Windows 原生验证 / 修复 | M5-4-1 | `todo` |
 | M5-4-4 | 平台文档与整体验收 | M5-4-2、M5-4-3 | `todo` |
 
@@ -21,25 +21,24 @@
 - 依赖：066 spec ready
 - 目标：自动化验证三平台 × Node 20/22/24 的安装 / 启动。
 - 交付物：
-  - CI matrix（macOS arm64/x64、Ubuntu 22/24、Windows x64；Node 20/22/24）。
+  - CI matrix（macOS Apple Silicon、Ubuntu 22/24、Windows x64；Node 20/22/24）。
   - `npm pack` + 临时全局安装 + `larness --version`；日志 artifact。
   - 主平台保留完整 E2E；其他平台核心冒烟。
 - 验收：A8、A10；失败单元不标通过。
 - 测试：CI 运行；本地 macOS arm64 基线。
 - 交付（2026-11-08）：
-  - [x] CI `install-smoke`：macOS 13 x64、macOS latest arm64、Ubuntu 22.04/24.04、Windows latest × Node 20/22/24。
+  - [x] CI `install-smoke`：macOS latest（Apple Silicon）、Ubuntu 22.04/24.04、Windows latest × Node 20/22/24。
   - [x] 每单元 `pnpm install --frozen-lockfile`、`pnpm build`、`npm pack`、临时全局安装、`larness --version`；`fail-fast: false`。
   - [x] `verify-npm-pack.mjs` 跨平台：Windows `larness.cmd` 路径、路径分隔符归一。
   - [x] 本地 macOS arm64 Node 24 验证通过；CI 远端结果待推送后确认。
 - 涉及路径：`.github/workflows/ci.yml`、`scripts/verify-npm-pack.mjs`。
 
-### M5-4-2 macOS x64 与 Linux 验证 / 修复
+### M5-4-2 Linux 验证 / 修复
 
 - 状态：`todo`
 - 依赖：M5-4-1
-- 目标：验证 macOS Intel 与 Ubuntu x64，修复平台差异。
+- 目标：验证 Ubuntu x64，修复平台差异。
 - 交付物：
-  - macOS x64 安装 / 启动 / PTY / PM2 / Git / 文件结果。
   - Ubuntu 预编译 / 编译回退、终端、命令、PM2、路径结果。
   - Linux 编译工具要求；必要的平台修复与测试。
 - 验收：A1、A2、A4、A5、A6、A7。

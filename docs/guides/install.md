@@ -1,13 +1,13 @@
 # 安装、升级与卸载
 
-> 状态：M5-3 进行中；先验证 macOS arm64。Linux / Windows 与完整预编译矩阵见 M5-4。
+> 状态：M5-4 进行中；macOS Apple Silicon 已验证，Windows 11 / Ubuntu 待 CI / 实机确认。不支持 macOS Intel。
 
 ## 安装
 
 要求：
 
-- Node.js **20.19+ / 22 / 24**；macOS arm64 已在 20.19.3、22.23.4、24.22.2 验证
-- 发布包固定 `better-sqlite3@12.6.2`，该版本提供 Node 20 / 22 / 24 的 macOS arm64 预编译；不升级到 12.11+（缺少 Node 20 预编译）或 13（engines 要求 Node 22+）
+- Node.js **20.19+ / 22 / 24**；macOS Apple Silicon 已在 20.19.3、22.23.4、24.22.2 验证
+- 发布包固定 `better-sqlite3@12.6.2`，该版本提供 Node 20 / 22 / 24 的 macOS Apple Silicon 预编译；不升级到 12.11+（缺少 Node 20 预编译）或 13（engines 要求 Node 22+）
 - macOS 需要 Xcode Command Line Tools 仅在原生依赖没有可用预编译时使用
 - npm 全局目录可由当前用户写入；否则按 npm 文档配置用户级 prefix，不建议 `sudo`
 
@@ -53,7 +53,7 @@ npm uninstall -g larness
 ## 原生依赖
 
 - `better-sqlite3` 与 `node-pty` 是原生模块。
-- macOS arm64 使用上游预编译；如果安装时下载失败，会回退到 `node-gyp`，需要 Xcode Command Line Tools。
+- macOS Apple Silicon 使用上游预编译；如果安装时下载失败，会回退到 `node-gyp`，需要 Xcode Command Line Tools。
 - `npm install -g --ignore-scripts` 会跳过原生模块安装，不受支持。
 - npm 11 会提示 `install-scripts` 未审查；脚本仍会执行。若被策略阻止，使用：
   `npm install -g larness --allow-scripts=better-sqlite3@12.6.2,node-pty@1.1.0`
