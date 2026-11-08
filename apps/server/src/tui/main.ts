@@ -3,7 +3,9 @@ import { confirm } from "@inquirer/prompts";
 import { DevWebUnavailable } from "../dev-web/control.js";
 import type { IpcClient } from "../ipc/client.js";
 import { connectIpc, IpcClientError } from "../ipc/client.js";
+import { checkForUpdate, updateChannel, updateNoticeText } from "../modules/updates/npm.js";
 import { resolveDataDir } from "../platform/paths.js";
+import { SERVER_VERSION } from "../version.js";
 import { InitCancelled, runInitWizard } from "./init-flow.js";
 import { runManagedSessions, type SessionAction } from "./lifecycle.js";
 import { InitResultSchema, InitStatusSchema } from "./schemas.js";
@@ -69,7 +71,20 @@ async function runSession(
       return runtime ? "restart" : "done";
     }
   }
-  await runScreenDashboard({ terminal, client, webUrl: runtime?.webUrl, localLogs: runtime?.logs });
+  await runScreenDashboard({
+    terminal,
+    client,
+    webUrl: runtime?.webUrl,
+    localLogs: runtime?.logs,
+    updateCheck: async () => {
+      const notice = await checkForUpdate({
+        version: SERVER_VERSION,
+        dataDir: runtime?.dataDir ?? resolveDataDir(),
+        channel: updateChannel(runtime?.config.config.updates.channel),
+      });
+      return notice === null ? null : updateNoticeText(notice);
+    },
+  });
   return "done";
 }
 

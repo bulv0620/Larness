@@ -57,6 +57,25 @@ describe("screen dashboard", () => {
     }
   });
 
+  it("shows an npm update notice without blocking the overview", async () => {
+    const f = fixture();
+    const run = runScreenDashboard({
+      terminal: f.terminal,
+      client: { request: async () => status },
+      updateCheck: async () => "有新版本 0.2.0（当前 0.1.0）· 运行 npm install -g larness@latest",
+    });
+    try {
+      await vi.waitFor(() => expect(f.latest()).toContain("有新版本 0.2.0"));
+      f.stdin.write("q");
+      await vi.waitFor(() => expect(f.latest()).toContain("退出确认"));
+      f.stdin.write("\x1b[B");
+      f.stdin.write("\r");
+      await run;
+    } finally {
+      f.terminal.close();
+    }
+  });
+
   it("ignores a read response that arrives after the dashboard has exited", async () => {
     const f = fixture();
     let resolve: (value: unknown) => void = () => undefined;

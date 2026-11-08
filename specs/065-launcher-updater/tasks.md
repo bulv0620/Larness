@@ -9,9 +9,9 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | M5-3-1 | npm 包、发布模式与安装冒烟 | 065 spec ready | `review` |
-| M5-3-2 | TUI 新版本提示 | M5-3-1 | `todo` |
+| M5-3-2 | TUI 新版本提示 | M5-3-1 | `review` |
 | M5-3-3 | 升级前数据库备份与降级保护 | M5-3-1 | `review` |
-| M5-3-4 | 发布文档与整体验收 | M5-3-2、M5-3-3 | `todo` |
+| M5-3-4 | 发布文档与整体验收 | M5-3-2、M5-3-3 | `review` |
 
 ## 任务卡
 
@@ -47,7 +47,12 @@
   - 状态文件 0600，无秘密。
 - 验收：A2、A3、A4；离线不阻塞；只提示命令。
 - 测试：mock registry、节流、版本比较、失败静默、状态文件。
-- 涉及路径：`apps/server/src/modules/updates/*`、`apps/server/src/tui/*`、`apps/server/test/updates/*`。
+- 交付（2026-11-08）：
+  - [x] `updates/npm.ts`：公共 registry dist-tags、semver、24h 节流、同版本只提示一次、开发跳过、失败静默。
+  - [x] `<dataDir>/updates/state.json` 0600；TUI 控制面板异步显示“有新版本 … · 运行 npm install -g …”，不阻塞、不执行 npm。
+  - [x] 稳定 / beta 通道映射 `latest` / `beta`；无关闭开关。
+  - [x] 测试：新版本 / 同版本 / beta / 节流 / 网络失败 / 开发跳过 / TUI 提示；`pnpm check` 与 `pnpm build`。
+- 涉及路径：`apps/server/src/modules/updates/npm.ts`、`apps/server/src/tui/screen-dashboard.ts` / `main.ts`、`apps/server/test/updates/npm.test.ts`。
 
 ### M5-3-3 升级前数据库备份与降级保护
 
@@ -70,7 +75,7 @@
 
 ### M5-3-4 发布文档与整体验收
 
-- 状态：`todo`
+- 状态：`review`
 - 依赖：M5-3-2、M5-3-3
 - 目标：安装 / 升级 / 降级 / 备份文档与整体验收。
 - 交付物：
@@ -79,4 +84,5 @@
   - 验收记录、STATUS / ROADMAP / tasks / 契约更新。
 - 验收：A1–A10；`pnpm check`、`pnpm build`、Demo、auth E2E。
 - 测试：pack / install / TUI / 备份演练；真实 publish 由人类执行。
+- 交付（2026-11-08）：[验收记录](acceptance.md)；安装 / 升级 / 降级 / 卸载指南 `docs/guides/install.md`；`npm pack` 160 文件、临时全局安装、`npm publish --dry-run` 通过。
 - 涉及路径：`docs/guides/install.md`、`specs/065-launcher-updater/acceptance.md`。

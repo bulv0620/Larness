@@ -13,6 +13,7 @@ export async function runScreenDashboard(deps: {
   client: Pick<IpcClient, "request">;
   webUrl?: string;
   localLogs?: () => string[];
+  updateCheck?: () => Promise<string | null>;
 }): Promise<void> {
   const { terminal, client } = deps;
   const menu = ["配对", "设备", "日志", "审计", "退出并停止服务"];
@@ -20,6 +21,7 @@ export async function runScreenDashboard(deps: {
   let page: "overview" | "exit" | "child" = "overview";
   let status: ScreenStatus | null = null;
   let error = "";
+  let updateNotice = "";
   let connectionError: unknown;
   let generation = 0;
   let loading = false;
@@ -50,6 +52,7 @@ export async function runScreenDashboard(deps: {
           ? `待配对 ${status.sessions.pendingPairings} · 在线会话 ${status.sessions.online}`
           : "",
         ...(status?.warnings.map((warning) => `! ${warning}`) ?? []),
+        ...(updateNotice ? ["", updateNotice] : []),
         "",
         ...menu.map((label, i) => `${selected === i ? "›" : " "} ${label}`),
         "",
@@ -85,6 +88,14 @@ export async function runScreenDashboard(deps: {
       });
   };
   refresh();
+  void deps
+    .updateCheck?.()
+    .then((notice) => {
+      updateNotice = notice ?? "";
+      render();
+      terminal.notify();
+    })
+    .catch(() => undefined);
   try {
     for (;;) {
       const key = await terminal.nextKey();
