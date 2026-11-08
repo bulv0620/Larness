@@ -49,6 +49,23 @@ async function until(check: () => boolean, label = "condition"): Promise<void> {
   throw new Error(`Timed out waiting for ${label}`);
 }
 
+async function waitForTerminalOutput(
+  f: Fixture,
+  terminalId: string,
+  expected: string,
+  label = expected,
+): Promise<string> {
+  const deadline = Date.now() + 30_000;
+  let text = "";
+  while (Date.now() < deadline) {
+    const output = await f.started.running.terminals.output(terminalId, 0, 100);
+    text = output.chunks.map((chunk) => chunk.data).join("");
+    if (text.includes(expected)) return text;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Timed out waiting for ${label}; got ${JSON.stringify(text.slice(0, 200))}`);
+}
+
 function toolStep(id: string, name: string, args: unknown): { chunks: ProviderChunk[] } {
   return {
     chunks: [
@@ -212,8 +229,7 @@ it("starts two approved real project dev terminals, reports them to the model an
 
       const frontend = rows.find((row) => row.role === "frontend");
       expect(frontend).toBeDefined();
-      const output = await f.started.running.terminals.output(frontend?.id ?? "", 0, 100);
-      expect(output.chunks.map((chunk) => chunk.data).join("")).toContain("FRONT_READY");
+      await waitForTerminalOutput(f, frontend?.id ?? "", "FRONT_READY");
 
       const approvals = f.approvals(turn.turnId);
       expect(approvals).toHaveLength(2);
@@ -283,6 +299,7 @@ it("reuses an active role, rejects changed arguments, reads bounded output, stop
       const backend = f.terminals().find((row) => row.role === "backend");
       expect(frontend?.status).toBe("RUNNING");
       expect(backend?.status).toBe("RUNNING");
+      await waitForTerminalOutput(f, frontend?.id ?? "", "FRONT_READY");
 
       const retry = f.newTurn("retry frontend");
       const retryRunner = f.runnerFor([
