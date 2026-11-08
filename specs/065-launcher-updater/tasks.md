@@ -32,7 +32,7 @@
   - [x] 发布模式 `app.js` 只用 dist；缺失时提示重新安装；新增 `scripts/verify-npm-pack.mjs`。
   - [x] `npm pack`：160 文件 / 4.2MB；含 `apps/server/dist`、`drizzle`、`apps/server/package.json`、`apps/web/dist`、MIT、安装指南；不含源码 / 测试 / 数据。
   - [x] 临时 prefix `npm install -g <tgz>` 成功，`larness --version` 输出 `0.1.0`；macOS arm64 上游预编译安装成功。
-  - [x] `pnpm check`（web 141、agent 40/1、server 553/10）与 `pnpm build` 通过。
+  - [x] `pnpm check` 在 Node 20.19.3 / 22.23.4 / 24.22.2 通过（web 141、agent 40/1、server 562/10）；`pnpm build` 通过。
 - 涉及路径：`package.json`、`app.js`、`apps/server/src/version.ts`、`scripts/verify-npm-pack.mjs`、`docs/guides/install.md`。
 - 备注：安装时出现 `cookie@2` / `content-disposition@3` 的 Node 20 engine warning（传递依赖声明 Node >=22，但安装与当前测试可用）；Node 版本支持需在 M5-4 再确认。
 

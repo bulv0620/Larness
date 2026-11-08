@@ -19,7 +19,7 @@
 
 ## 自动化检查
 
-- `pnpm check`：通过（web 141、agent 40 通过 / 1 跳过、server 561 通过 / 10 跳过）。
+- `pnpm check`：通过（web 141、agent 40 通过 / 1 跳过、server 562 通过 / 10 跳过），Node 20.19.3 / 22.23.4 / 24.22.2 各自通过。
 - `pnpm build`：通过。
 - `scripts/verify-npm-pack.mjs`：通过（160 文件）。
 - `scripts/verify-npm-pack.mjs --install`：通过（临时 prefix，macOS arm64，`larness 0.1.0`）。
@@ -30,7 +30,9 @@
 - **真实 npm publish**：未执行；需要人类登录 npm、确认 2FA 与包名所有权。
 - **真实 npm 新版本提示**：公共 registry 尚无 larness 发布，无法端到端验证“已发布新版本 → TUI 提示”；已用 mock registry 覆盖。
 - **真实全局 prefix TUI**：临时 prefix 验证了 `--version`，未运行完整交互 TUI；`doctor` 在未初始化数据目录按预期返回非零（数据库未初始化）。
-- **Node engine warning**：Node 20.19.3 安装时 `cookie@2` / `content-disposition@3` 声明 `node >=22`，npm 仅警告；安装与当前测试可运行。Node 20/22 的正式支持范围需 M5-4 再确认。
+- **Node 20 engine warning**：Node 20.19.3 安装时 `cookie@2` / `content-disposition@3` 声明 `node >=22`，npm 仅警告；Node 20 测试与运行已验证。后续可再评估固定 Fastify 传递版本。
+- **Node 22/24**：`pnpm check` 与 `npm pack` 临时安装均通过；`better-sqlite3` 从 11.10.0 固定到 12.6.2（12.11+ 不再提供 Node 20 预编译，13 要求 Node 22+）。
+- **npm 11 install-scripts**：会提示 `allowScripts` 未审查；脚本仍执行。npm 11 全局安装可能使 `node-pty/spawn-helper` 丢失执行位，已加入终端初始化时的权限修复。
 - **平台**：仅 macOS arm64；macOS x64、Linux、Windows 与完整预编译矩阵归 M5-4。
 - **许可证**：MIT 已确认。
 

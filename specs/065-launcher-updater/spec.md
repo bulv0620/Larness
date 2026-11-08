@@ -149,7 +149,7 @@ And 不实际发布；真实发布由人类执行
 
 | ID | 级别 | 需求 |
 |---|---|---|
-| R-1 | MUST | 根包 `larness` 可发布到公共 npm：`private:false`、正式 semver、`bin.larness=./app.js`、`engines.node>=20.19`。 |
+| R-1 | MUST | 根包 `larness` 可发布到公共 npm：`private:false`、正式 semver、`bin.larness=app.js`、`engines.node>=20.19`；macOS arm64 支持 Node 20.19 / 22 / 24。 |
 | R-2 | MUST | `files` 只包含 `app.js`、`apps/server/dist`、`apps/web/dist`、`package.json`、`README.md` 及必要静态资源；排除源码、测试、数据、日志、秘密、`node_modules`。 |
 | R-3 | MUST | 根 `package.json` 声明 server 运行时外部依赖（workspace 包由构建打包）；`npm install` 后不依赖 pnpm 或仓库脚本。 |
 | R-4 | MUST | `app.js` 在发布包中只加载 dist 入口；dist 缺失时失败并提示重新安装，不回退源码 / pnpm。 |

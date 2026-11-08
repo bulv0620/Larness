@@ -257,7 +257,7 @@ I0-1 → I0-2 → I0-3 → I0-4 → I0-5 → I0-6 已按顺序完成，逐任务
 
 - D1–D4 已确认：脚本内联源码 + 子进程 node；Agent 默认 `readonly`、`autonomous` 二次确认；每任务一个隐藏专用会话；错过触发默认 `skip`、可按任务 `run_once`。
 - [064 Scheduler](specs/064-scheduler/spec.md) 转 `ready`；`cron-parser@5.10.4` 与仅应用内通知随之采用。ADR-054 与 REST / WS / 数据模型契约同步。
-- M5-3 `review`（2026-11-08）：M5-3-1 / 3-2 / 3-3 / 3-4 全部交付；[验收记录](specs/065-launcher-updater/acceptance.md) 已写；真实 `npm publish`、真实 registry 提示、macOS x64 / Linux / Windows 待人类或 M5-4。
+- M5-3 `review`（2026-11-08）：M5-3-1 / 3-2 / 3-3 / 3-4 全部交付；[验收记录](specs/065-launcher-updater/acceptance.md) 已写；Node 20.19.3 / 22.23.4 / 24.22.2（macOS arm64）已通过 `pnpm check` 与包安装；真实 `npm publish`、真实 registry 提示、macOS x64 / Linux / Windows 待人类或 M5-4。
 - M5-3-3 `review`（2026-11-08）：迁移前自动备份、5 份保留、备份失败中止、schema 降级拒绝已交付。
 - M5-3-1 `review`（2026-11-08）：公共 npm `larness@0.1.0`、MIT、`bin`、files、根运行时依赖、发布模式与 `npm pack` / 临时全局安装冒烟已交付。
 

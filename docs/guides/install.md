@@ -6,7 +6,8 @@
 
 要求：
 
-- Node.js **20.19+**（当前开发基线；macOS arm64 已验证）
+- Node.js **20.19+ / 22 / 24**；macOS arm64 已在 20.19.3、22.23.4、24.22.2 验证
+- 发布包固定 `better-sqlite3@12.6.2`，该版本提供 Node 20 / 22 / 24 的 macOS arm64 预编译；不升级到 12.11+（缺少 Node 20 预编译）或 13（engines 要求 Node 22+）
 - macOS 需要 Xcode Command Line Tools 仅在原生依赖没有可用预编译时使用
 - npm 全局目录可由当前用户写入；否则按 npm 文档配置用户级 prefix，不建议 `sudo`
 
@@ -54,6 +55,10 @@ npm uninstall -g larness
 - `better-sqlite3` 与 `node-pty` 是原生模块。
 - macOS arm64 使用上游预编译；如果安装时下载失败，会回退到 `node-gyp`，需要 Xcode Command Line Tools。
 - `npm install -g --ignore-scripts` 会跳过原生模块安装，不受支持。
+- npm 11 会提示 `install-scripts` 未审查；脚本仍会执行。若被策略阻止，使用：
+  `npm install -g larness --allow-scripts=better-sqlite3@12.6.2,node-pty@1.1.0`
+- npm 11 全局安装可能把 `node-pty` 的 `spawn-helper` 解压成不可执行；Larness 在创建终端前会修复该文件权限（仅 macOS），不需要用户手动 chmod。
+- Node 20 安装时 `cookie@2` / `content-disposition@3` 会显示 engine warning（这两个传递依赖声明 Node ≥22）；Node 20 的测试与运行已验证，后续可再评估固定 Fastify 传递版本。
 - Linux / Windows 的预编译与安装说明在 M5-4 完成。
 
 ## 更新检查

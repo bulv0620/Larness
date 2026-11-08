@@ -23,6 +23,7 @@ import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import type { TerminalLeaseRow, TerminalRow } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
+import { ensurePtySpawnHelper } from "../../platform/pty.js";
 import type { SecretStore } from "../../security/secretStore.js";
 import { activeCommandClient } from "../commands/repository.js";
 import { assertFileScopeMetadata, authorizeFileTarget, resolveFileScope } from "../files/scope.js";
@@ -123,6 +124,7 @@ export class TerminalManager {
   #closed = false;
   #lastCleanup = Date.now();
   constructor(readonly options: TerminalManagerOptions) {
+    ensurePtySpawnHelper();
     this.#timer = setInterval(() => {
       try {
         this.expireLeases();
