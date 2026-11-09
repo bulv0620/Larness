@@ -5,6 +5,8 @@
 
 ## 依赖维护
 
+- DEPS-3 `done`（2026-11-09，`task/deps-3-sqlite`）。升级固定的 better-sqlite3 版本与安装说明，保持应用迁移、数据格式和恢复流程。 Node 22.23.4 / 24.22.2 冻结锁、check（各 750 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。SQLite 12 临时库经 13 读写及 VACUUM INTO 备份后，12 可读回并通过完整性检查。pnpm 跳过其隐式 node-gyp，使用上游包内 Node-API 二进制。Windows / Ubuntu 未实测。
+
 - DEPS-2 `done`（2026-11-09，`task/deps-2-ai-sdk`）。按已批准 ADR-056 升级 AI SDK 与 Provider 包，维持 Agent 执行契约。 Node 22.23.4 / 24.22.2 冻结锁安装、check（各 750 通过、11 跳过）、构建、平台冒烟与 npm 临时安装通过。实际 SDK 的本地 SSE 测试先复现系统消息拒绝，再验证系统消息、工具 schema、续跑结果与用量。真实 Provider 无可用凭据，未运行。
 
 - DEPS-1 `done`（2026-11-09，`task/deps-1-compatible-upgrades`）。当前 semver 范围内升级 16 个直接依赖，另将 tsdown 声明对齐已锁定的 0.21.10。Node 22.23.4 / 24.22.2 冻结锁安装、check（各 748 通过、11 跳过）和平台冒烟通过；Node 24 构建、npm 临时安装、Mock E2E（19 通过）通过。auth / prod E2E 各 15 通过、3 失败：旧计划选择器在升级前锁文件复现，两个终端用例单独复跑通过。跨主版本及跨 0.x 次版本候选见 [ADR-056](docs/adr/ADR-056-dependency-major-upgrades.md)。

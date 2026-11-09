@@ -106,3 +106,11 @@
 - 验收：给定现有消息和工具 schema，Provider 请求及流式工具续跑须保留参数、用量、推理、错误和取消语义。现有 Agent 执行契约正反例及本地 SSE 用例通过。
 - 验证：Node 22 / 24 冻结锁、check、build、平台冒烟和 npm 安装；真实 Provider 用例按可用凭据记录。
 - 结果：Node 22.23.4 / 24.22.2 冻结锁安装、check（各 750 通过、11 跳过）、构建、平台冒烟与 npm 临时安装通过。实际 SDK 的本地 SSE 测试先复现系统消息拒绝，再验证系统消息、工具 schema、续跑结果与用量。真实 Provider 无可用凭据，未运行。
+
+### DEPS-3 SQLite 原生模块升级
+
+- 状态：`done`（2026-11-09）
+- 依赖：DEPS-2；ADR-056 accepted。
+- 范围：升级固定的 better-sqlite3 版本与安装说明，保持应用迁移、数据格式和恢复流程。
+- 验收：Node 22 / 24 冻结锁、check、build、平台冒烟与 npm 临时安装通过。旧库可读写并备份，回退可读取更新后数据。
+- 结果：Node 22.23.4 / 24.22.2 冻结锁、check（各 750 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。SQLite 12 临时库经 13 读写及 VACUUM INTO 备份后，12 可读回并通过完整性检查。pnpm 跳过其隐式 node-gyp，使用上游包内 Node-API 二进制。Windows / Ubuntu 未实测。

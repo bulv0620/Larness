@@ -17,7 +17,7 @@
 - macOS Apple Silicon 实测 Node.js 22.23.4 和 24.22.2。后续 Node.js 主版本的原生模块兼容性待验证。
 - Windows 的 `TerminalManager` / `CommandManager` 当前对 `win32` 返回 `RESOURCE_UNAVAILABLE`；在实现前不能声称支持 Windows 终端/命令/PM2。
 - Linux 的 `node-pty@1.1.0` 没有预编译，可能需要 `build-essential`、`python`、`make` 编译。
-- `better-sqlite3` 固定 `12.6.2`，为 Node.js 22 和 24 提供三平台预编译。
+- `better-sqlite3` 固定 `13.0.3`。npm 包自带 Node-API 预编译文件，Windows / Ubuntu 仍待实机。
 
 ## 2. 更新与发布
 
@@ -50,7 +50,7 @@
 ## 5. 使用说明
 
 - npm 11 可能提示 `install-scripts` 未审查；若策略阻止，使用
-  `npm install -g larness --allow-scripts=better-sqlite3@12.6.2,node-pty@1.1.0`。
+  `npm install -g larness --allow-scripts=node-pty@1.1.0`。
 - 旧会话无 `model.usage` 时圆环显示“暂无统计”；推理正文刷新后不重放。
 
 工程遗留项与待验证场景见 [遗留问题](open-questions.md)。

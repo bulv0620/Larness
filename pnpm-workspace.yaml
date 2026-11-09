@@ -4,8 +4,11 @@ packages:
 
 onlyBuiltDependencies:
   - esbuild
-  - better-sqlite3
   - node-pty
+
+# better-sqlite3 13 ships Node-API binaries in the npm package.
+ignoredBuiltDependencies:
+  - better-sqlite3
 
 patchedDependencies:
   node-pty@1.1.0: patches/node-pty@1.1.0.patch

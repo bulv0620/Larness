@@ -27,7 +27,7 @@
     "@larness/shared": "workspace:*",
     "@simplewebauthn/server": "^14.1.0",
     "ai": "^7.0.166",
-    "better-sqlite3": "12.6.2",
+    "better-sqlite3": "13.0.3",
     "cron-parser": "5.10.4",
     "diff": "^9.0.0",
     "drizzle-orm": "^0.45.4",
