@@ -17,7 +17,7 @@
     "tui:dev": "tsx src/tui/main.ts --managed --dev"
   },
   "dependencies": {
-    "@ai-sdk/deepseek": "^2.0.80",
+    "@ai-sdk/deepseek": "^3.0.81",
     "@fastify/cookie": "^11.1.5",
     "@fastify/static": "^10.1.10",
     "@fastify/websocket": "^11.3.7",
@@ -26,7 +26,7 @@
     "@larness/resources": "workspace:*",
     "@larness/shared": "workspace:*",
     "@simplewebauthn/server": "^14.1.0",
-    "ai": "^6.0.326",
+    "ai": "^7.0.166",
     "better-sqlite3": "12.6.2",
     "cron-parser": "5.10.4",
     "diff": "^9.0.0",

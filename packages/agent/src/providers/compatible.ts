@@ -94,6 +94,8 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
             : undefined;
         const result = streamText({
           model: provider(input.model),
+          // The runtime assembles system messages from trusted instruction sources.
+          allowSystemInMessages: true,
           messages: toAiSdkMessages(input.messages),
           abortSignal: input.signal,
           timeout: options.timeoutMs ?? input.timeoutMs ?? DEFAULT_COMPATIBLE_TIMEOUT_MS,

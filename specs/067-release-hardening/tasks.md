@@ -96,4 +96,13 @@
 - 验证：候选版本对照、冻结锁安装、check、build、平台冒烟、包内容检查。
 - 结果：按 npm registry 解析当前版本范围，更新 16 个直接依赖与相关锁项；tsdown 声明下限与已锁定版本对齐。Node 22.23.4 / 24.22.2 冻结锁安装、check（各 748 通过、11 跳过）和平台冒烟通过。Node 24 构建、npm 临时安装及 Mock E2E（19 通过）通过。
 - 偏差：Node 24 首轮 check 遇到 Chromium 未下载完成及两项终端时序超时，下载完成后以 `VITEST_MAX_WORKERS=3` 复跑通过。auth / prod E2E 各 15 通过、3 失败；升级前锁文件复现对话旧计划选择器失败，两个终端用例批量运行时配对超时，单独复跑均通过。未复跑真实 Provider 和其他 OS 实机。
-- 后续：[ADR-056](../../docs/adr/ADR-056-dependency-major-upgrades.md) 待批准后按批次升级。
+- 后续：[ADR-056](../../docs/adr/ADR-056-dependency-major-upgrades.md) 已获批准，按批次升级。
+
+### DEPS-2 AI SDK 7 与 Provider
+
+- 状态：`done`（2026-11-09）
+- 依赖：DEPS-1；ADR-056 accepted。
+- 范围：同步升级 AI SDK、DeepSeek 与 OpenAI 兼容包。REST、事件、数据、工具授权及上下文语义保持原约定。
+- 验收：给定现有消息和工具 schema，Provider 请求及流式工具续跑须保留参数、用量、推理、错误和取消语义。现有 Agent 执行契约正反例及本地 SSE 用例通过。
+- 验证：Node 22 / 24 冻结锁、check、build、平台冒烟和 npm 安装；真实 Provider 用例按可用凭据记录。
+- 结果：Node 22.23.4 / 24.22.2 冻结锁安装、check（各 750 通过、11 跳过）、构建、平台冒烟与 npm 临时安装通过。实际 SDK 的本地 SSE 测试先复现系统消息拒绝，再验证系统消息、工具 schema、续跑结果与用量。真实 Provider 无可用凭据，未运行。

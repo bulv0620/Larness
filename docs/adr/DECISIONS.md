@@ -149,4 +149,4 @@ accepted，2026-11-09 人类明确确认。对齐 M5-3 的 npm 分发、手动�
 
 ## ADR-056 · 依赖主版本与工具链分批升级（2026-11-09）
 
-proposed，待人类批准。为 AI SDK、SQLite 原生模块、Web 与构建工具链列出独立升级和验收批次。见 [ADR-056](ADR-056-dependency-major-upgrades.md)。
+accepted，2026-11-09 人类明确批准。为 AI SDK、SQLite 原生模块、Web 与构建工具链列出独立升级和验收批次。见 [ADR-056](ADR-056-dependency-major-upgrades.md)。

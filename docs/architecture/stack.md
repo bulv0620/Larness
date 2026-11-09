@@ -51,7 +51,7 @@
 
 | 领域 | 选择 | 说明 |
 |---|---|---|
-| 模型调用 | Vercel AI SDK（`ai`） | 仅使用流式与工具调用能力；Larness 自管 Turn / 上下文 / 权限 |
+| 模型调用 | Vercel AI SDK 7（`ai`） | 仅使用流式与工具调用能力；Larness 自管 Turn / 上下文 / 权限 |
 | Provider | `@ai-sdk/deepseek`、`@ai-sdk/openai-compatible`（GLM） | 逐模型契约测试；能力声明不假设一致 |
 | 工具 | Larness 自研 ToolRegistry | 不用 SDK 自带 agent 循环作为状态机 |
 | 测试 | FakeProvider | 确定性脚本化流与工具调用，禁止真实 API 依赖单测 |

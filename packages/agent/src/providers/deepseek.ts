@@ -383,6 +383,8 @@ export function createDeepSeekProvider(options: DeepSeekProviderOptions = {}): P
         const providerOptions = toDeepSeekProviderOptions(input.thinking);
         const result = streamText({
           model: provider(input.model),
+          // The runtime assembles system messages from trusted instruction sources.
+          allowSystemInMessages: true,
           messages: toAiSdkMessages(input.messages),
           abortSignal: input.signal,
           timeout: options.timeoutMs ?? input.timeoutMs ?? DEEPSEEK_DEFAULT_TIMEOUT_MS,
