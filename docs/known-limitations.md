@@ -1,22 +1,23 @@
 # 支持范围与已知限制
 
-> 状态：2026-11-08。仅列出已验证或明确未实现的内容；未验证不等于支持。
+> 状态：2026-11-09。仅列出已验证或明确未实现的内容；未验证不等于支持。
 > 安装/升级见 [install](guides/install.md)，发布见 [release](process/release.md)，安全见 [review](security/review.md)。
 
 ## 1. 支持矩阵
 
 | 平台 | Node | 安装 | TUI / Server | 终端 | 命令 | PM2 | 状态 |
 |---|---|---|---|---|---|---|---|
-| macOS Apple Silicon | 20.19 / 22 / 24 | npm 全局 | 已验证 | 已验证 | 已验证 | 已验证 | 支持 |
+| macOS Apple Silicon | 22 / 24+ | npm 全局 | 已验证 | 已验证 | 已验证 | 已验证 | 支持 |
 | macOS Intel | — | — | — | — | — | — | **不支持** |
-| Ubuntu 22.04 / 24.04 x64 | 20.19 / 22 / 24 | 预期 npm | 待实机 | 待实机 | 待实机 | 待实机 | 待验证 |
-| Windows 11 x64 | 20.19 / 22 / 24 | npm 全局（预期） | 待实机 | **承诺支持，当前未实现** | **承诺支持，当前未实现** | 待实机 | 承诺支持 / 待实现 |
+| Ubuntu 22.04 / 24.04 x64 | 22 / 24+ | 预期 npm | 待实机 | 待实机 | 待实机 | 待实机 | 待验证 |
+| Windows 11 x64 | 22 / 24+ | npm 全局（预期） | 待实机 | **承诺支持，当前未实现** | **承诺支持，当前未实现** | 待实机 | 承诺支持 / 待实现 |
 | WSL | 跟随发行版 | 视作 Linux | 单列 | 单列 | 单列 | 单列 | 不计 Windows 原生 |
 | Linux musl / ARM、Windows ARM | — | — | — | — | — | — | 不承诺 |
 
+- macOS Apple Silicon 实测 Node.js 22.23.4 和 24.22.2。后续 Node.js 主版本的原生模块兼容性待验证。
 - Windows 的 `TerminalManager` / `CommandManager` 当前对 `win32` 返回 `RESOURCE_UNAVAILABLE`；在实现前不能声称支持 Windows 终端/命令/PM2。
 - Linux 的 `node-pty@1.1.0` 没有预编译，可能需要 `build-essential`、`python`、`make` 编译。
-- `better-sqlite3` 固定 `12.6.2`，覆盖 Node 20/22/24 与三平台预编译；不要升级到缺少 Node 20 预编译的版本。
+- `better-sqlite3` 固定 `12.6.2`，为 Node.js 22 和 24 提供三平台预编译。
 
 ## 2. 更新与发布
 
@@ -48,7 +49,6 @@
 
 ## 5. 使用说明
 
-- Node 20 安装时 `cookie@2` / `content-disposition@3` 会显示 engine warning（Fastify 传递依赖），Node 20 运行测试通过。
 - npm 11 可能提示 `install-scripts` 未审查；若策略阻止，使用
   `npm install -g larness --allow-scripts=better-sqlite3@12.6.2,node-pty@1.1.0`。
 - 旧会话无 `model.usage` 时圆环显示“暂无统计”；推理正文刷新后不重放。

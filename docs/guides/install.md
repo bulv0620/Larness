@@ -6,8 +6,8 @@
 
 要求：
 
-- Node.js **20.19+ / 22 / 24**；macOS Apple Silicon 已在 20.19.3、22.23.4、24.22.2 验证
-- 发布包固定 `better-sqlite3@12.6.2`，覆盖 Node 20/22/24 与 macOS / Linux / Windows 预编译；不升级到 12.11+（缺少 Node 20 预编译）或 13（engines 要求 Node 22+）
+- Node.js **22 / 24+**，请使用对应主版本的最新补丁版；macOS Apple Silicon 已验证 22.23.4 和 24.22.2
+- 发布包固定 `better-sqlite3@12.6.2`，为 Node.js 22 和 24 提供 macOS / Linux / Windows 预编译。其他 Node.js 版本请核对原生模块的预编译覆盖
 - macOS 需要 Xcode Command Line Tools 仅在原生依赖没有可用预编译时使用
 - Ubuntu 的 `node-pty` 没有预编译，可能需要 `build-essential`、`python`、`make`
 - Windows 安装、启动与原生模块仍待实机验证；终端、命令当前不可用，见 [known-limitations](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)
@@ -60,7 +60,6 @@ npm uninstall -g larness
 - npm 11 会提示 `install-scripts` 未审查；脚本仍会执行。若被策略阻止，使用：
   `npm install -g larness --allow-scripts=better-sqlite3@12.6.2,node-pty@1.1.0`
 - npm 11 全局安装可能把 `node-pty` 的 `spawn-helper` 解压成不可执行；Larness 在创建终端前会修复该文件权限（仅 macOS），不需要用户手动 chmod。
-- Node 20 安装时 `cookie@2` / `content-disposition@3` 会显示 engine warning（这两个传递依赖声明 Node ≥22）；Node 20 的测试与运行已验证，后续可再评估固定 Fastify 传递版本。
 - Linux 安装可能需要编译 `node-pty`；Windows 原生终端/命令尚未实现。
 
 ## 相关文档

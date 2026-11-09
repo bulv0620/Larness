@@ -51,7 +51,7 @@ specs/060-extension/spec.md
 
 ### M5-5-3 支持矩阵与文档
 
-- `docs/known-limitations.md`：支持矩阵、macOS Intel 不支持、Windows 终端/命令未实现、Linux 编译工具、Node 20/22/24、PM2、自动更新等。
+- `docs/known-limitations.md`：支持矩阵、macOS Intel 不支持、Windows 终端/命令未实现、Linux 编译工具、Node.js 22 / 24+ 与实测版本、PM2、自动更新等。
 - 更新 `docs/guides/install.md` 与 README；不复制过期契约细节，链接 ADR/契约。
 
 ### M5-5-4 G5 验收记录

@@ -271,6 +271,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | DOCS-1 | [产品门户、规格导航与对齐复核](067-release-hardening/tasks.md#docs-1-产品门户规格导航与对齐复核) | M5-5-4；用户直接要求 | `done`（仅文档） |
+| DOCS-2 | [Node.js 支持说明与依赖盘点](067-release-hardening/tasks.md#docs-2-nodejs-支持说明与依赖盘点) | DOCS-1；用户直接要求 | `done`（仅文档） |
 
 ### 发布后跟踪（不计入 M5 / G5 完成条件）
 

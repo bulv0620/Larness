@@ -1,9 +1,11 @@
 # STATUS
 
-> 最后更新：2026-11-08 (+08:00)
+> 最后更新：2026-11-09 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。下方的阶段交付与变更记录保留当时状态。
 
 ## 文档整理
+
+- DOCS-2 `done`（2026-11-09，`task/docs-2-node-support`）。现行文档统一为 Node.js 22 / 24+，保留实测版本与历史验收记录。npm 查询有 24 个直接依赖存在新版；依赖版本、锁文件、`engines.node` 和 doctor 检查未变。Node 24.22.2 下 `pnpm check`（743 通过、11 跳过）、`pnpm build`、`pnpm verify:pack` 通过。未复跑浏览器 E2E、安装冒烟或跨平台实机。
 
 - DOCS-1 `done`（2026-11-08，`task/docs-1-spec-navigation`）。拆分产品门户与工程入口，核对产品说明、规格状态和当前实现。差异与未验证项见 [遗留问题](docs/open-questions.md)。
 - 校验：入口范围、切片索引、改动中的相对链接和 `git diff --check` 通过；Node 24.22.2 下 `pnpm check`（743 通过、11 跳过）、`pnpm build`、npm 包内容验证通过。初次检查使用 Node 20，与本机原生模块 ABI 不匹配，切换 Node 24 后通过。浏览器 E2E、真实 Provider、平台实机未重跑。

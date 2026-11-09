@@ -9,7 +9,7 @@
 - [ ] 更新版本号（`package.json`，semver；已发布版本不可重复）。
 - [ ] 更新 README / 安装文档 / 已知限制中受影响的版本或平台说明。
 - [ ] 确认 `publishConfig.registry=https://registry.npmjs.org`、`license: MIT`、`files` 白名单。
-- [ ] 确认 Node 版本在支持矩阵内（20.19+ / 22 / 24）。
+- [ ] 确认 Node 版本在支持矩阵内（22 / 24+）。
 
 ## 2. 构建与检查
 

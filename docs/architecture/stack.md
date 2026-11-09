@@ -15,7 +15,7 @@
 
 | 领域 | 选择 | 说明 |
 |---|---|---|
-| 运行时 | Node.js ≥ 20.19（推荐 22 LTS） | 本机当前 20.19.3；CI 使用 22 |
+| 运行时 | Node.js 22 / 24+ | 实测版本见[支持矩阵](../known-limitations.md) |
 | 包管理 | pnpm 10 + workspace | `pnpm-workspace.yaml`；禁止 npm / yarn lockfile |
 | 语言 | TypeScript 5.x，`strict` | ESM；`moduleResolution: bundler` |
 | 构建（Server） | tsdown | 输出 `dist/`；原生模块 external；M0 先保证可运行，单文件打包 M5 验证 |
@@ -33,7 +33,7 @@
 |---|---|---|
 | HTTP | Fastify 5 | 插件：`@fastify/cookie`、`@fastify/static`、`@fastify/websocket`、`@fastify/rate-limit` |
 | 校验 | Zod | 请求 / 响应 / 配置 / IPC / 工具参数统一 |
-| 数据库 | SQLite + `better-sqlite3` + Drizzle ORM | WAL、foreign_keys、busy_timeout；SQL 迁移文件；Node 20 使用 `better-sqlite3@^11`（12+ 预编译未覆盖、13 要求 Node 22） |
+| 数据库 | SQLite + `better-sqlite3` + Drizzle ORM | WAL、foreign_keys、busy_timeout；SQL 迁移文件；当前固定 `better-sqlite3@12.6.2` |
 | 迁移 | drizzle-kit 生成 + 启动时 migrator | 迁移文件进版本库；启动前备份 |
 | 初始化信任 | 本机 OS 权限 + IPC Token | ADR-025 取消未使用的管理员密码及 Argon2id 依赖；历史哈希保留 |
 | Passkey / WebAuthn | `@simplewebauthn/server`（^14） | 注册 / 认证 ceremony 与验证；attestation `none`、UV required、resident key required |

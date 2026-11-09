@@ -13,7 +13,7 @@
 | 正式服务 | 核实主机重启后恢复与 PM2 运行时升级行为；正式服务秘密注入及落盘边界见 Q-029。 | [M4 收尾](../specs/050-deploy/closure.md) |
 | 模型 | 实测真实第三方兼容端点与接近窗口阈值的长会话压缩质量及 UI。真实 GLM Coding 文本、推理和工具调用已有证据。 | [多模型验收](../specs/063-multi-provider/closure-d4.md) |
 | 调度 | 补真实 Provider 定时任务、取消到终态的时延、实际重启和休眠唤醒、失败角标、任务数满额和视觉记录。 | [调度验收](../specs/064-scheduler/acceptance.md) |
-| npm | 真实 registry 出现新版本时验证 TUI 提示；全局安装的交互 TUI 缺独立验收。Node 20 存在传递依赖 engine 警告，npm 11 脚本策略可能影响原生模块安装。 | [分发验收](../specs/065-launcher-updater/acceptance.md)、[安装指南](guides/install.md) |
+| npm | 真实 registry 出现新版本时验证 TUI 提示；全局安装的交互 TUI 缺独立验收。npm 11 脚本策略可能影响原生模块安装。 | [分发验收](../specs/065-launcher-updater/acceptance.md)、[安装指南](guides/install.md) |
 | 全量回归 | auth E2E 有批量时序抖动，终端用例可单独通过；对话用例仍有旧计划选择器失败记录。预览验收也记录过 PTY 测试时序抖动。 | [调度验收](../specs/064-scheduler/acceptance.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
 | 前端与资源 | Monaco 生产 CSP 使用 `unsafe-eval`；Git 状态每 3 秒轮询，暂无 WS 失效接线。外部写入、进程脱组及磁盘满/数据库损坏仍是边界。 | [M2 收尾](../specs/030-dev-resources/closure.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
 | 发布与安全 | 本地发布无 CI / npm provenance；风险与检查证据保存在安全复核中。 | [安全复核](security/review.md) |

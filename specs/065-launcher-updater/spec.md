@@ -14,6 +14,8 @@ updated: 2026-11-08
 > 状态：`done`（2026-11-08 首次公共 npm 发布成功）。发布走公共 npm 的 `larness` 包；TUI 只提示新版本，不自动更新；升级前自动备份数据库。签名包 / Launcher / UpdateLock / 自动回滚方案已废弃。
 > 相关：[ROADMAP](../ROADMAP.md)、[STATUS](../../STATUS.md)、ADR-007（自动检查、手动安装）、ADR-023（受管入口）。
 
+> 本切片保留首次发布时的 Node.js 要求与验证记录。现行支持范围见[支持矩阵](../../docs/known-limitations.md)。
+
 ## 1. 背景与问题
 
 Larness 目前以仓库内 `node app.js` 启动，没有可发布的 npm 包，也没有版本更新提示。用户希望类似 Claude Code 的体验：

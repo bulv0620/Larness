@@ -62,3 +62,11 @@
 - 测试：入口范围、目录覆盖、相对链接及 Node 24.22.2 下的 `pnpm check`（743 通过、11 跳过）、`pnpm build`、`node scripts/verify-npm-pack.mjs` 均通过。
 - 实现对照：`package.json` / `app.js` 核对安装和启动；Server 路由及共享 schema 核对预览、PM2 与调度入口；`updates/npm.ts`、`db/preUpgradeBackup.ts`、命令与终端 manager 核对升级和平台限制。
 - 差异与验证缺口集中在 [遗留问题](../../docs/open-questions.md)，其中更新规范与当前实现的差异保留待决。
+
+### DOCS-2 Node.js 支持说明与依赖盘点
+
+- 状态：`done`（2026-11-09）
+- 依赖：DOCS-1；用户直接要求。
+- 验收：现行文档统一为 Node.js 22 / 24+，实测版本单列；历史记录保留。查询 workspace 直接依赖的 npm 最新版。
+- 范围：依赖只盘点；运行时检查、安装元数据、平台状态和安全边界不变。
+- 验证：`pnpm outdated -r` 查到 24 个直接依赖有新版。文档版本口径核对和 `git diff --check` 通过；Node 24.22.2 下 `pnpm check`（743 通过、11 跳过）、`pnpm build`、`pnpm verify:pack` 通过。
