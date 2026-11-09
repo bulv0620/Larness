@@ -2,12 +2,13 @@ import { constants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
+import { satisfies } from "semver";
 import { type LoadedConfig, loadConfig } from "./bootstrap/config.js";
 import { inspectInstanceLock } from "./bootstrap/lock.js";
 import { inspectDatabase } from "./db/inspect.js";
 import { expectedMigrationCount } from "./db/migrate.js";
 import { DATA_SUBDIRS, resolveDataDir } from "./platform/paths.js";
-import { SERVER_VERSION } from "./version.js";
+import { SERVER_VERSION, SUPPORTED_NODE_RANGE } from "./version.js";
 
 export type DoctorCheckStatus = "ok" | "warn" | "fail" | "skip";
 
@@ -27,11 +28,6 @@ export interface DoctorReport {
 export interface RunDoctorOptions {
   dataDir?: string;
   env?: NodeJS.ProcessEnv;
-}
-
-function isSupportedNode(version: string): boolean {
-  const [major = 0, minor = 0] = version.split(".").map(Number);
-  return major > 20 || (major === 20 && minor >= 19);
 }
 
 function checkPort(host: string, port: number): Promise<{ ok: boolean; detail: string }> {
@@ -58,8 +54,8 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
 
   add(
     "node",
-    "Node.js >= 20.19",
-    isSupportedNode(process.versions.node) ? "ok" : "fail",
+    `Node.js ${SUPPORTED_NODE_RANGE}`,
+    satisfies(process.versions.node, SUPPORTED_NODE_RANGE) ? "ok" : "fail",
     process.versions.node,
   );
 

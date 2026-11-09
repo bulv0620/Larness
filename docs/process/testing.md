@@ -10,7 +10,7 @@
 | 集成 | Vitest + Fastify `inject` + 临时 SQLite | API、迁移、中间件、仓库、IPC 处理器 | 每次提交 |
 | 契约 | Vitest + Zod schema | 请求 / 响应 / 事件包络与文档一致 | 每次提交 |
 | 组件 | Vitest + Testing Library + happy-dom | 交互、键盘、可访问性、状态 | 每次提交 |
-| E2E | Playwright（Chromium） | 配对、会话、终端、窗口、预览 | CI / 里程碑 |
+| E2E | Playwright（Chromium） | 配对、会话、终端、窗口、预览 | 本地按任务与里程碑运行 |
 | 视觉 | Playwright 截图 | 布局、主题、窗口、资源栏 | D0-9 / 里程碑 |
 | 手动 | 清单 | 真实 PTY、PM2、代理、跨平台、安装包 | 里程碑门禁 |
 
@@ -52,7 +52,7 @@
 
 ### M2–M5
 
-在对应 spec 的“测试计划”中补充：PTY 多客户端 / 租约、Git 写锁、服务状态机、代理 SSRF、部署审批篡改、更新回滚、跨平台冒烟。要求与 `larness.md` 第 24、42 章一致。
+在对应 spec 的“测试计划”中补充：PTY 多客户端 / 租约、Git 写锁、服务状态机、代理 SSRF、PM2 授权与真实对账、npm 更新提示、迁移前备份和跨平台冒烟。验收范围见 [路线图](../../specs/ROADMAP.md#9-门禁) 和对应切片。
 
 ## 3. 测试数据与环境
 
@@ -60,18 +60,18 @@
 - 时间通过注入时钟控制（令牌过期、锁过期、cron）。
 - 模型使用 `FakeProvider`；禁止单测请求真实 API。
 - 秘密使用固定假值（如 `sk-test-…`），并断言不会出现在输出中。
-- 文件系统测试覆盖符号链接、大小写、Unicode 归一化、Windows 分隔符（CI 条件跳过）。
+- 文件系统测试覆盖符号链接、大小写、Unicode 归一化、Windows 分隔符（按实际平台记录适用与跳过项）。
 
 ## 4. 命令
 
 ```bash
 pnpm check                 # biome ci + tsc --noEmit + vitest run
-pnpm test                  # vitest watch（本地）
+pnpm test                  # workspace 单次测试
 pnpm test:e2e              # Playwright
 pnpm --filter @larness/server test
 ```
 
-M0-1 / D0-1 负责落地脚本；在此之前命令不存在。
+脚本由根 `package.json` 提供。真实认证和生产构建的浏览器检查分别使用 `pnpm test:e2e:auth` 和 `pnpm test:e2e:prod`。
 
 ## 5. 覆盖要求
 
@@ -92,8 +92,8 @@ M0-1 / D0-1 负责落地脚本；在此之前命令不存在。
 | 平台 | 时机 | 范围 |
 |---|---|---|
 | macOS arm64 | 每个里程碑 | 全量 |
-| Linux x64 | CI | 单元 / 集成 / 构建 |
-| Windows x64 | M5 前 PoC | PTY、路径、PM2、更新、安装 |
+| Ubuntu x64 | 发布后跟踪，待实机 | 安装、构建、PTY、路径、锁、PM2 |
+| Windows x64 | 发布后跟踪，待实现与实机 | 安装、TUI、终端、命令、路径、PM2 |
 
 结果记录在 `STATUS.md` 或里程碑验收记录中；未实测的平台不得宣称支持。
 

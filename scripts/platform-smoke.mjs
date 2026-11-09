@@ -3,6 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { satisfies } from "semver";
 
 const require = createRequire(import.meta.url);
 const checks = [];
@@ -87,10 +88,9 @@ async function checkFiles() {
   }
 }
 
-const major = Number(process.versions.node.split(".")[0]);
-const supportedNode = major === 20 || major === 22 || major === 24;
-if (!supportedNode) {
-  fail("node", `unsupported Node ${process.versions.node}; expected 20, 22 or 24`);
+const nodeRange = require("../package.json").engines.node;
+if (!satisfies(process.versions.node, nodeRange)) {
+  fail("node", `unsupported Node ${process.versions.node}; expected ${nodeRange}`);
 }
 
 await checkSqlite();

@@ -1,6 +1,6 @@
 # REST API 契约
 
-> 状态：M0 已冻结（Passkey / WebAuthn）；M1 为设计基线，实现时可补充字段但不得破坏既有语义。
+> 现行 REST 契约覆盖 M0–M5。按阶段追加的条款与兼容入口在对应章节注明。
 > Base URL：默认监听 `127.0.0.1:3210`；dev/打包浏览器 canonical origin 均为 `http://localhost:3210`（Passkey 需要）或配置的 HTTPS 域名。Vite 是 dev 的内部受管前端，不改变 API 来源；见 [入口契约](runtime-entry.md)。所有业务接口前缀 `/api`。
 
 ## 1. 通用约定
@@ -287,7 +287,7 @@
 
 `GET /ws`（Upgrade）。握手校验见 [ws-events.md](ws-events.md)。
 
-## 7. 工作区（M1 设计基线）
+## 7. 工作区与模型
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -298,7 +298,7 @@
 | PATCH | `/api/projects/:id` | `{ name?, settings? }`；settings 局部合并 |
 | DELETE | `/api/projects/:id` | `{ ok: true }`；仅删数据库行，不删目录 |
 | GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档；列表项包含 `hasActiveTurn` |
-| POST | `/api/sessions` | `{ projectId?, title? }`；无项目时创建独立工作目录；201 |
+| POST | `/api/sessions` | `{ projectId?, title? }`；省略项目或选择内建默认项目时使用共享默认工作区；201 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
 | PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, credentialProfileId?, modelProfileId?, approvalPolicyId? }`；模型 / 档位 / 凭据 / 策略只影响下一 Turn |
 | DELETE | `/api/sessions/:id` | 归档会话（`status=archived`，不删 workspace / 源码）；活跃 Turn 返回 409 |
@@ -524,10 +524,8 @@ Session / Turn 的模型选择：
 | GET | `/api/resource-events?streamId=ops:<targetId>` | M4-3 正式服务事件重放 |
 | WS `service-ops` | `{topic:"service-ops",resourceId:targetId,after}` | M4-3 实时正式服务状态/部署事件 |
 | GET / POST | `/api/jobs` | M5 |
-| GET | `/api/updates/check` | M5 |
-| POST | `/api/updates/install` | M5 |
 
-未列出的接口默认不存在；新增必须同步本文件、Zod schema 与测试。
+定时任务详见后文 M5-2。更新检查由 TUI 查询 npm registry，安装由用户运行 npm 命令。新增 REST 接口须同步本文件、Zod schema 与测试。
 
 M4-1（2026-11-06）交付部署目标、构建、产物与计划的内部 manager/repository。M4-2 交付运维授权/审批 service 与独立表。M4-3（2026-11-06）交付上表 `/api/service-ops/` 路由与 `service-ops` 事件/WS；全部沿用现有 Cookie/Origin/CSRF 守卫，人工策略从 body `sessionId` 的 Session `approvalPolicyId` 读取，缺省 standard，客户端不能自报 autonomous；`dauth_`/`dapv_` 不能与开发工具 `apv_` 互认。未交付的服务动作（同版本 start/stop/restart）属 M4-3b，不能通过 apply/restart 绕过计划。
 
@@ -547,13 +545,13 @@ M4-1（2026-11-06）交付部署目标、构建、产物与计划的内部 manag
 - 错误码是契约的一部分，不得复用为不同语义。
 - 新增响应字段默认允许；客户端必须忽略未知字段。
 
-## M2 详细草案入口（2026-11-02，未冻结）
+## M2 资源实施契约入口
 
-文件 / 命令 / PTY / Git 的接口、资源事件与回放、数据迁移、锁与错误码拟细化于 [m2-resources.md](m2-resources.md)，配套 [030 spec](../../specs/030-dev-resources/spec.md)。本文件中原 M2 摘要只作范围索引；细化提案须经 G-Spec-M2 / ADR-029 确认后才生效，实施时同步 Zod schema 与测试，不改变 M0 / M1 已实现契约。
+文件 / 命令 / PTY / Git 的接口、资源事件与回放、数据迁移、锁与错误码见 [m2-resources.md](m2-resources.md) 的实施章节，配套 [030 spec](../../specs/030-dev-resources/spec.md)。
 
 ## ADR-030 服务与资源生命周期补充（2026-11-02）
 
-[资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与拟议接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。产品规则已接受，M2/M3 技术 schema / 迁移 / 代码尚未实施，既有认证和事件权威性不变。
+[资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。M2/M3 已交付，当前证据见 [M2 收尾](../../specs/030-dev-resources/closure.md) 与 [M3 收尾](../../specs/040-services-preview/closure.md)。
 
 M2-1（2026-11-03）：文件与目录接口已落地；精确 scope、幂等、错误、锁与恢复语义见 [m2-resources §11](m2-resources.md#11-m2-1-实施契约2026-11-03)。本文件早期 M2 草案描述不代表后续 PTY / Git 接口已实现。
 
@@ -592,7 +590,7 @@ discard动作创建时和执行锁前/锁后读取目标内容哈希，发现后
 ## ADR-042：M3/M4与自主部署（2026-11-05，草案阶段划分）
 M3 开发登记、查询、终端日志和隔离预览沿用 [开发契约](services-preview.md)。M4 正式运维和部署按 [ADR-048](../adr/ADR-048-service-domain-separation.md) 使用独立命名空间、ID、动作和授权，详细后缀和 schema 由对应任务冻结。autonomous 对已授权的运维 Agent 动作免人工停等，后端继续验证计划、产物、目标、策略快照与授权。标准/严格按风险询问，只读拒绝写入。见 [部署契约](deployment.md)。
 
-## M3技术候选（待审批，未实现）
+## M3 早期技术候选（历史）
 服务登记由后端产生执行身份，人工沿resource-actions准备/决策/execute、Agent沿Turn策略调用共同核心；当前Git路由不代表已通用。预览解析候选改POST，不交凭据给模型/事件/URL；新字段/错误码与失败边界见[m3-preview](m3-preview.md)。
 
 ## ADR-050 命令行部署接入（2026-11-07）

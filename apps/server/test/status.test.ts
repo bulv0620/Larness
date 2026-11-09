@@ -48,6 +48,26 @@ describe("collectStatus", () => {
 });
 
 describe("runDoctor", () => {
+  it.each([
+    ["20.19.3", "fail"],
+    ["22.23.4", "ok"],
+    ["23.11.1", "fail"],
+    ["24.22.2", "ok"],
+    ["26.0.0", "ok"],
+  ])("reports support for Node.js %s as %s", async (version, status) => {
+    await withTempDir(async (dir) => {
+      const port = await getFreePort();
+      const originalVersion = process.versions.node;
+      Object.defineProperty(process.versions, "node", { value: version });
+      try {
+        const report = await runDoctor({ dataDir: dir, env: { LARNESS_PORT: String(port) } });
+        expect(report.checks.find((check) => check.id === "node")?.status).toBe(status);
+      } finally {
+        Object.defineProperty(process.versions, "node", { value: originalVersion });
+      }
+    });
+  });
+
   it("returns the required checks for a healthy data directory", async () => {
     await withTempDir(async (dir) => {
       const root = path.join(dir, "data");

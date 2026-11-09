@@ -175,13 +175,13 @@ PTY 输出不逐字节入库：使用限长环形缓冲 + 可选落盘日志；�
 - 订阅校验按资源进行：跨项目会话、未授权终端、未登记服务一律拒绝。
 - 预览 iframe 不建立管理端 WebSocket；预览页面不共享管理 Cookie。
 
-## M2 详细草案入口（2026-11-02，未冻结）
+## M2 资源实施契约入口
 
-文件 / 命令 / PTY / Git 的接口、资源事件与回放、数据迁移、锁与错误码拟细化于 [m2-resources.md](m2-resources.md)，配套 [030 spec](../../specs/030-dev-resources/spec.md)。本文件中原 M2 摘要只作范围索引；细化提案须经 G-Spec-M2 / ADR-029 确认后才生效，实施时同步 Zod schema 与测试，不改变 M0 / M1 已实现契约。
+文件 / 命令 / PTY / Git 的接口、资源事件与回放、数据迁移、锁与错误码见 [m2-resources.md](m2-resources.md) 的实施章节，配套 [030 spec](../../specs/030-dev-resources/spec.md)。
 
 ## ADR-030 服务与资源生命周期补充（2026-11-02）
 
-[资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与拟议接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。产品规则已接受，M2/M3 技术 schema / 迁移 / 代码尚未实施，既有认证和事件权威性不变。
+[资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。M2/M3 已交付，当前证据见 [M2 收尾](../../specs/030-dev-resources/closure.md) 与 [M3 收尾](../../specs/040-services-preview/closure.md)。
 
 
 ## M2-1b 已实施补充（2026-11-03）
@@ -218,7 +218,7 @@ Agent工具 `update_plan({title,steps:[{id,title,status,detail?}]})` 为L0元数
 ## ADR-042：服务/部署阶段与自主事件（2026-11-05，draft）
 M3 的 `service.*` 及其 streamId 保持开发服务语义。M4 的正式运维和部署使用独立事件类型与流标识，后端按实际领域核验订阅和补拉。共用事件持久化与 seq 事务。自主授权记录真实策略决策、planHash、policySnapshotId 和结果，只有策略要求人工时才发审批事件或记录 approvalId。见 [部署契约](deployment.md) 与 [ADR-048](../adr/ADR-048-service-domain-separation.md)。
 
-## M3事件候选（待审批，未实现）
+## M3 早期事件候选（历史）
 registered/status/unregistered拟含kind/status/terminalId/terminalExecutionId/endpointGeneration/reasonCode?，不含票据、Cookie、原始进程身份；详[m3-preview](m3-preview.md)。temporary不发送PM2 desiredState；日志引用已有终端游标、允许缺口，不伪造独立命令完整历史。失效先撤路由，状态与seq提交后广播；DB失败不伪造成功。
 
 ## M5-2 任务变更通知（2026-11-07）

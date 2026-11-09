@@ -1,16 +1,16 @@
 import { readFileSync } from "node:fs";
 
-function readPackageVersion(): string {
+function readPackageMetadata(): { version?: unknown; engines?: { node?: unknown } } {
   try {
-    const raw = JSON.parse(
-      readFileSync(new URL("../../../package.json", import.meta.url), "utf8"),
-    ) as {
-      version?: unknown;
-    };
-    return typeof raw.version === "string" ? raw.version : "0.0.0";
+    return (
+      JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8")) ?? {}
+    );
   } catch {
-    return "0.0.0";
+    return {};
   }
 }
 
-export const SERVER_VERSION = readPackageVersion();
+const metadata = readPackageMetadata();
+export const SERVER_VERSION = typeof metadata.version === "string" ? metadata.version : "0.0.0";
+export const SUPPORTED_NODE_RANGE =
+  typeof metadata.engines?.node === "string" ? metadata.engines.node : "22.x || >=24";

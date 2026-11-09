@@ -142,3 +142,7 @@ accepted，用户直接指定方向。旧模型 Profile 全部忽略（保留数
 ## ADR-054 · 定时任务的执行、权限与恢复边界（2026-11-07）
 
 accepted，用户确认 D1–D4。单进程 SQLite 调度；5 字段 Cron + `cron-parser`，任务显式时区，错过默认 skip / 可选 run_once；同任务不重叠、全局并发 2；脚本以 `node` 子进程在项目根目录执行，非沙箱、环境白名单、输出有界脱敏；Agent 任务只允许 `readonly` / `autonomous`，专用隐藏会话；仅应用内通知；重启不自动重跑。见 [ADR-054](ADR-054-scheduler-execution.md) 与 [064 spec](../../specs/064-scheduler/spec.md)。
+
+## ADR-055 · npm 手动更新与数据库恢复（2026-11-09）
+
+proposed，待人类批准。对齐 M5-3 的 npm 分发、手动更新和迁移前备份，明确更新信任边界与人工恢复要求。见 [ADR-055](ADR-055-npm-update-security.md)。

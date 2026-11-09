@@ -71,9 +71,9 @@ todo → in_progress → review → done
 | G-Spec | spec `draft → ready` | 人类 | 第 2 节清单 |
 | G-Task | 任务 `in_progress → review` | Agent 自检 + 人类抽查 | 验收场景、测试、无越权改动 |
 | G-S0 | 视觉 Demo 完成 | 人类 | 文档 7.1 六条 + `D0-9` 清单 |
-| G0 | M0 完成 | 人类 | 根文档 42.1 全部通过 |
+| G0 | M0 完成 | 人类 | [路线图 G0](../../specs/ROADMAP.md#g0-可信启动与认证) |
 | G1–G4 | 各里程碑 | 人类 | 对应 `ROADMAP.md` 门禁 |
-| G5 | 发布候选 | 人类 | 根文档 42.3 + 发布清单 |
+| G5 | 发布候选 | 人类 | [路线图 G5](../../specs/ROADMAP.md#9-门禁)和[发布清单](release.md) |
 
 安全 / 认证 / 代理 / 更新相关任务必须经过人类评审，不能仅凭自动化测试放行。
 
@@ -87,7 +87,7 @@ main
 - 分支名：`task/<task-id>-<slug>`；修复：`fix/<task-id>-<slug>`。
 - 提交：`<type>(<scope>): <summary> (<TASK-ID>)`。
 - 一个 PR / 合并只包含一个任务；允许附带该任务的测试、文档、迁移。
-- 合并前必须通过 CI；不 force push；不提交构建产物与数据。
+- 合并前在本地通过任务验收和 `pnpm check`；禁止 force push 或提交构建产物与数据。
 
 ## 7. 变更已冻结内容
 

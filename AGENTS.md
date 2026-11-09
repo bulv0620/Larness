@@ -81,7 +81,7 @@ pnpm test:e2e:prod    # 需先 pnpm build
 pnpm --filter @larness/web dev
 ```
 
-根脚本已落地；M0-1 再补齐 server、CI 与跨包构建。
+根脚本、Server 与跨包构建已落地。当前在本地运行检查与发布验证。
 
 ## 8. 提交与分支
 

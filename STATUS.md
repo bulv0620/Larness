@@ -5,6 +5,8 @@
 
 ## 文档整理
 
+- DOCS-3 `done`（2026-11-09，`task/docs-3-document-alignment`）。现行契约、阶段、测试、技术栈与历史门禁索引已同步；npm、doctor、平台冒烟统一使用 `22.x || >=24`。Node 24.22.2 下 `pnpm check`（748 通过、11 跳过）、`pnpm build`、`pnpm test:platform`、`pnpm verify:pack` 通过；236 份 Markdown 相对链接与锚点校验通过。未复跑浏览器 E2E、安装或跨平台实机。更新规范冲突已登记为 [ADR-055 提案](docs/adr/ADR-055-npm-update-security.md)，待批准后更新宪法和 ADR-007。
+
 - DOCS-2 `done`（2026-11-09，`task/docs-2-node-support`）。现行文档统一为 Node.js 22 / 24+，保留实测版本与历史验收记录。npm 查询有 24 个直接依赖存在新版；依赖版本、锁文件、`engines.node` 和 doctor 检查未变。Node 24.22.2 下 `pnpm check`（743 通过、11 跳过）、`pnpm build`、`pnpm verify:pack` 通过。未复跑浏览器 E2E、安装冒烟或跨平台实机。
 
 - DOCS-1 `done`（2026-11-08，`task/docs-1-spec-navigation`）。拆分产品门户与工程入口，核对产品说明、规格状态和当前实现。差异与未验证项见 [遗留问题](docs/open-questions.md)。

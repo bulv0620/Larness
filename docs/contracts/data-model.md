@@ -1,6 +1,6 @@
 # 数据模型与迁移
 
-> 状态：M0 表已冻结；M1–M5 为目标结构，字段可在对应 spec 中细化。
+> 当前迁移版本为 22。表格为索引，完整字段以对应的迁移和下文实施条款为准。
 > 实现：SQLite + Drizzle ORM；迁移由 drizzle-kit 生成，启动时执行。
 
 ## 1. 约定
@@ -156,7 +156,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 - Turn 状态变化必须写事件；重启时把无法证明存活的活跃 Turn（QUEUED / PREPARING / RUNNING / WAITING_APPROVAL / CANCELLING）标记 `INTERRUPTED`。
 - `resource_locks` 每个资源只保留一行；释放写 `expires_at = 0`，回收时递增 `fencing_token`，旧 token 的续租 / 释放 / 写入必须失败。
 
-## 4. M2–M5 表（目标）
+## 4. M2–M5 表索引
 
 | 表 | 里程碑 | 关键列 |
 |---|---|---|
@@ -174,9 +174,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `service_ops_services` | M4-3 已实施 | 正式服务运行：`target_id, project_id, name, namespace, pm2_name, desired_state, observed_state, current_artifact_id, current_version, config_json, pid, last_health_at, reason_code, created_at, updated_at`；`pm2_name UNIQUE` |
 | `service_ops_deployments` | M4-3 已实施 | 发布记录：`id, target_id, project_id, plan_id, authorization_id, artifact_id, previous_artifact_id, previous_version, version, status, plan_hash, artifact_hash, actor_type, actor_id, policy, policy_snapshot_id, reason_code, health_json, result_json, started_at, ended_at, created_at`；`plan_id`/`authorization_id` UNIQUE |
 | `service_action_authorizations` | M4-3b 已实施 | 日常动作授权：`id, target_id, project_id, action, actor_type, actor_id, client_session_id, session_id, turn_id, policy, policy_snapshot_id, status, artifact_hash, version, scope_json, scope_hash, request_key, expires_at, decided_at, decided_by, consumed_at, consume_key, reason_code, created_at`；`UNIQUE(request_key)`；action start/stop/restart/recover |
-| `scheduled_jobs` | M5 | `id, name, schedule, scope, policy, enabled, created_at` |
-| `job_runs` | M5 | `id, job_id, status, started_at, ended_at, log_ref` |
-| `update_runs` | M5 | `id, from_version, to_version, status, started_at, ended_at` |
+| `scheduled_jobs` / `scheduled_job_runs` | M5-2 已实施 | 任务与运行历史，字段见迁移 0022 |
 
 完整字段在对应 milestone spec 中冻结；不得在实现时静默增加跨里程碑的大表。
 
@@ -221,13 +219,13 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 
 `secrets` 的 ciphertext / nonce / tag 与 `<dataDir>/secrets/master.key` 必须配套。启动校验所有记录；有记录时缺失密钥不自动生成，无法解密则拒绝启动。恢复应保留原数据库与密钥，备份数据库本身不能替代密钥备份；密钥不得明文外传。
 
-## M2 详细草案入口（2026-11-02，未冻结）
+## M2 资源实施契约入口
 
-文件 / 命令 / PTY / Git 的接口、资源事件与回放、数据迁移、锁与错误码拟细化于 [m2-resources.md](m2-resources.md)，配套 [030 spec](../../specs/030-dev-resources/spec.md)。本文件中原 M2 摘要只作范围索引；细化提案须经 G-Spec-M2 / ADR-029 确认后才生效，实施时同步 Zod schema 与测试，不改变 M0 / M1 已实现契约。
+文件 / 命令 / PTY / Git 的接口、资源事件与回放、数据迁移、锁与错误码见 [m2-resources.md](m2-resources.md) 的实施章节，配套 [030 spec](../../specs/030-dev-resources/spec.md)。
 
 ## ADR-030 服务与资源生命周期补充（2026-11-02）
 
-[资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与拟议接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。产品规则已接受，M2/M3 技术 schema / 迁移 / 代码尚未实施，既有认证和事件权威性不变。
+[资源视图契约](resource-views.md) 已按人类确认修订：关闭 / 最小化窗口只隐藏，主动关闭终端 Tab 经 terminate 结束资源；服务无资源 Tab。临时服务仅登记 Terminal 源执行并在退出时自动退登，持久服务由 PM2 管理，详情、预览 / 结果卡片与接口 / 事件 / 数据见 [services-preview.md](services-preview.md)。M2/M3 已交付，当前证据见 [M2 收尾](../../specs/030-dev-resources/closure.md) 与 [M3 收尾](../../specs/040-services-preview/closure.md)。
 
 M2-1（2026-11-03）：0005_resources 已落地四张资源表和 resource_locks.root_real_path，现 schemaVersion=5。字段与恢复 / fencing 语义见 [m2-resources §11](m2-resources.md#11-m2-1-实施契约2026-11-03)；旧 M2 目标摘要以该详细契约为准。
 
@@ -290,7 +288,7 @@ prj_default 由固定系统描述提供，不插入可修改 / 删除的 project
 
 新增 `service_action_authorizations`，schemaVersion 13 → 14。日常 start/stop/restart/recover 使用独立 `sauth_` 授权，绑定 target/当前 artifactHash/version；不改变发布计划与 M4-2 授权表。授权状态 PENDING/AUTHORIZED/DENIED/EXPIRED/REVOKED/CONSUMED；审批决策记录在同一条授权的 `decided_by`，不创建人工 plan approval。详见 [部署契约 §3.3](deployment.md#33-m4-3b-日常动作与运维页2026-11-06)。
 
-## M3技术候选（待审批，未实现）
+## M3 早期技术候选（历史）
 [m3-preview](m3-preview.md)限定M3-1只新增temporary服务及必要action kind迁移：terminalExecutionId/generation由后端产生、与输入租约独立；原始身份仅内部、日志引用终端存储。票据/grant只保存短期内存hash，重启撤销，业务事件和seq事务持久化；不加入PM2字段或明文凭据，精确DDL在PoC后冻结。
 
 ## ADR-050 PM2 CLI 观察投影（2026-11-07）

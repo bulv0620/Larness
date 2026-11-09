@@ -22,8 +22,7 @@
 
 | 事项 | 当前证据 | 待确认 |
 |---|---|---|
-| 更新规范 | [宪法第十二条](../CONSTITUTION.md#第十二条--更新安全) 要求独立 Launcher / Updater、签名、UpdateLock 和回滚；[M5-3](../specs/065-launcher-updater/spec.md) 与现有代码采用 npm 手动更新、TUI 只读提示和升级前数据库备份。 | 是否走 ADR 与人类审批流程同步上位规范。 |
-| 历史设计清单 | [G5 验收](../specs/067-release-hardening/acceptance.md) 将 `larness.md` 第 31 / 42.3 章的清单标为复核中。 | 按宪法、ADR 和当前规格逐项标注历史要求的处置。 |
+| 更新规范 | [宪法第十二条](../CONSTITUTION.md#第十二条--更新安全) 要求独立 Launcher / Updater、签名、UpdateLock 和回滚；[M5-3](../specs/065-launcher-updater/spec.md) 与现有代码采用 npm 手动更新、TUI 只读提示和升级前数据库备份。 | [ADR-055 提案](adr/ADR-055-npm-update-security.md)已登记，等待人类批准。 |
 
 ## 待决
 

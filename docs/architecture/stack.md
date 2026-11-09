@@ -7,7 +7,7 @@
 
 1. **单体优先**：一个 Server 进程、一个 SQLite、一个 Web 前端；不引入消息队列、Redis、微服务。
 2. **类型贯通**：DTO / 事件 / 错误码集中定义，前后端共享；所有外部输入用 Zod 校验。
-3. **原生依赖最小化**：`better-sqlite3`、`node-pty`、`@node-rs/argon2` 是仅有的原生依赖；每个平台发布前必须 PoC。
+3. **原生依赖最小化**：主要运行时原生模块为 `better-sqlite3` 和 `node-pty`；每个平台发布前必须 PoC。
 4. **不重复造轮子，也不叠加同类库**：一个领域只保留一个主库（见“禁止”）。
 5. **版本策略**：使用 caret 范围并锁定 lockfile；主版本升级、替换原生依赖、改变构建产物结构必须走 ADR + 回归测试。
 
@@ -18,20 +18,20 @@
 | 运行时 | Node.js 22 / 24+ | 实测版本见[支持矩阵](../known-limitations.md) |
 | 包管理 | pnpm 10 + workspace | `pnpm-workspace.yaml`；禁止 npm / yarn lockfile |
 | 语言 | TypeScript 5.x，`strict` | ESM；`moduleResolution: bundler` |
-| 构建（Server） | tsdown | 输出 `dist/`；原生模块 external；M0 先保证可运行，单文件打包 M5 验证 |
+| 构建（Server） | tsdown | 输出 `dist/`；原生模块 external；产物随 npm 包分发 |
 | 构建（Web） | Vite | 产物 `apps/web/dist`，生产由 Server 静态托管 |
 | 开发运行 | tsx watch | Server 热重启；Web 用 Vite HMR |
-| Lint / Format | Biome | 一个工具完成 lint + format；CI 用 `biome ci` |
+| Lint / Format | Biome | 一个工具完成 lint + format；本地 `pnpm check` 调用 `biome ci` |
 | 单元 / 集成测试 | Vitest | Server 用 Fastify `inject`；Web 用 Testing Library + happy-dom |
 | E2E / 视觉 | Playwright | 桌面 Chromium；关键流程与截图基线 |
-| CI | GitHub Actions | Ubuntu 必跑；macOS 构建 + 测试；Windows 后续 |
+| 回归与发布 | 本地验证 | [发布清单](../process/release.md)；平台状态见[支持矩阵](../known-limitations.md) |
 | 提交规范 | Conventional Commits | 见 `AGENTS.md` |
 
 ## 3. Server
 
 | 领域 | 选择 | 说明 |
 |---|---|---|
-| HTTP | Fastify 5 | 插件：`@fastify/cookie`、`@fastify/static`、`@fastify/websocket`、`@fastify/rate-limit` |
+| HTTP | Fastify 5 | 插件：`@fastify/cookie`、`@fastify/static`、`@fastify/websocket` |
 | 校验 | Zod | 请求 / 响应 / 配置 / IPC / 工具参数统一 |
 | 数据库 | SQLite + `better-sqlite3` + Drizzle ORM | WAL、foreign_keys、busy_timeout；SQL 迁移文件；当前固定 `better-sqlite3@12.6.2` |
 | 迁移 | drizzle-kit 生成 + 启动时 migrator | 迁移文件进版本库；启动前备份 |
@@ -107,7 +107,7 @@ pnpm test:e2e
 pnpm --filter @larness/web dev
 ```
 
-命令由 D0-1 / M0-1 落地；在此之前不存在。
+当前命令由根 `package.json` 提供。
 
 ## 8. 禁止 / 避免
 

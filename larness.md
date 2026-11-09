@@ -1,3 +1,5 @@
+> 本文保留早期设计和原始验收清单。现行工程规则从 [宪法](CONSTITUTION.md)、[ADR 索引](docs/adr/DECISIONS.md) 和 [规格入口](specs/README.md) 查阅；当前门禁见 [路线图](specs/ROADMAP.md)。第 31、42.3 章与现行发布范围的对照见 [G5 验收](specs/067-release-hardening/acceptance.md#历史发布清单对照)。
+
 > 当前 M4 修订（2026-11-07）见 [ADR-050](docs/adr/ADR-050-pm2-cli-deployment.md) 和 [050 spec](specs/050-deploy/spec.md)。Agent 使用普通命令工具操作全局安装的 PM2，后端提供私有实例环境与项目关系。本历史设计中 §18.4、§38.2～38.3 的专用发布流水线和禁止 Agent 依赖 PM2 命令格式条款已由该 ADR 替代。
 
 > **2026-11-05 当前设计修订：** [ADR-042](docs/adr/ADR-042-service-deploy-boundary.md)已获用户确认：M3只负责开发服务登记与隔离预览；PM2持久运行/首次正式发布/版本替换/管理恢复整体归M4。autonomous对全部已授权Agent业务动作完全免人工审批/确认，保留计划、鉴权/范围、锁、审计与真实失败处理。下方“生产必须人工批准”等旧正文仅作历史设计，不作为当前自主模式规则；本次只更新文档，M3/M4技术规格仍draft。

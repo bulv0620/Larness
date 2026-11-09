@@ -272,6 +272,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 |---|---|---|---|
 | DOCS-1 | [产品门户、规格导航与对齐复核](067-release-hardening/tasks.md#docs-1-产品门户规格导航与对齐复核) | M5-5-4；用户直接要求 | `done`（仅文档） |
 | DOCS-2 | [Node.js 支持说明与依赖盘点](067-release-hardening/tasks.md#docs-2-nodejs-支持说明与依赖盘点) | DOCS-1；用户直接要求 | `done`（仅文档） |
+| DOCS-3 | [现行文档与 Node.js 检查对齐](067-release-hardening/tasks.md#docs-3-现行文档与-nodejs-检查对齐) | DOCS-2；用户直接要求 | `done` |
 
 ### 发布后跟踪（不计入 M5 / G5 完成条件）
 
@@ -304,7 +305,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 - `允许本次` 过期不可重用；`始终允许` 必须完成 Passkey 注册，未完成不创建设备 / 会话；
 - Passkey 登录、撤销、challenge 重放 / 过期、错误 Origin、IP 来源均有测试；
 - 不签发长期设备 Token / refresh token；
-- TUI 关闭、页面刷新、断网不影响后台 Agent / 服务；
+- 页面刷新或断网只影响浏览器订阅；退出受管 TUI 停止管理面、Agent 和临时开发资源，独立 PM2 正式服务继续运行；
 - TLS / Cookie / CSRF / Origin / WS 鉴权安全用例通过。
 
 ### G1 工作区与 Agent
@@ -372,7 +373,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 - 升级前自动备份数据库；降级用 `npm install -g larness@<version>`；不再要求签名发布包或自动回滚；
 - macOS Apple Silicon 已验证；Windows 11 / Ubuntu 结果由人类实机提供，未验证不得标通过；
 - [安全复核](../docs/security/review.md)、[发布清单](../docs/process/release.md)、[已知限制](../docs/known-limitations.md) 完成；
-- `larness.md` 31 / 42.3 清单复核；
+- 历史清单与现行门禁对照见 [G5 验收](067-release-hardening/acceptance.md#历史发布清单对照)；
 - **G5 条件通过（2026-11-08）**：人类确认当前 macOS 范围；Windows / Ubuntu 支持承诺保留，实机与 Windows 终端/命令实现为发布后跟踪，未验证项不标通过。
 
 ## 10. 任务卡维护

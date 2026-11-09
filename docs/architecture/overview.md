@@ -1,6 +1,6 @@
 # 系统架构总览
 
-> 当前实现总览，2026-11-07。跨里程碑决策以宪法和 ADR 为准。M4 当前按 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md) 使用普通会话命令部署 PM2，G4 待用户验收。M5 调度和完整更新流程属于后续工作。
+> 当前实现总览，2026-11-09。G4 已通过，G5 已按 macOS 范围条件通过。PM2 部署按 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)，M5 已交付多模型、调度和 npm 分发。更新规范差异见 [遗留问题](../open-questions.md#规范与实现差异)。
 
 ## 1. 定位
 
@@ -32,7 +32,7 @@ Local Browser ────┘                                  │
                           │
         ┌─────────────────┼──────────────────┬─────────────────┐
         ▼                 ▼                  ▼                 ▼
-   AgentRuntime     ResourceManager       Scheduler*     PreviewRegistry
+   AgentRuntime     ResourceManager       Scheduler     PreviewRegistry
         │          File / PTY / Git /          │              │
    DeepSeek / GLM   Command / Service          │         HTTP/WS proxy
                           │                  │              │
@@ -40,21 +40,20 @@ Local Browser ────┘                                  │
                           │
 Local Terminal ── protected local IPC (UDS / named pipe) ── Control TUI
 TUI Supervisor ── manages ── Server + Web
-* Scheduler / full Updater are M5 roadmap items
 ```
 
 ## 3. 进程与职责边界
 
 | 进程 | 职责 | 明确不负责 |
 |---|---|---|
-| Launcher（`app.js`） | 稳定入口；选择版本、启动 Server、监控退出、受控重启 | 业务逻辑、数据库访问 |
+| 入口（`app.js`） | 启动受管 TUI，分派 `status`、`doctor` 和版本查询 | 业务逻辑、数据库访问 |
 | Server | Fastify、WS、SQLite、Agent Runtime、资源管理、代理、调度 | 覆盖正在运行的自身二进制 |
 | TUI Client | 初始化、设备审批 / 撤销、状态、日志、doctor、关闭 | 绕过 Server 直接操作业务数据 |
 | Web Client | 视图、窗口、输入、事件订阅 | 直接操控进程 / 文件 / 端口 |
 | User Services | 开发进程（M3登记）、PM2持久进程（M4） | 管理端鉴权；正式服务在TUI退出后继续运行（ADR-046） |
-| Updater | 下载、验签、切换版本、健康检查、回滚 | 在 Server 内自更新 |
+| npm CLI | 用户手动安装、升级或降级发布包 | 管理运行中的任务或恢复数据库 |
 
-Launcher / Updater 的完整实现属于 M5；M0-9 后 `node app.js` 以 TUI 为受管前台入口，启动 Server + Web，关闭 TUI 时停止管理面与临时开发资源，已运行正式服务按 ADR-046 保留；`status` / `doctor` 仍为只读子命令。
+`node app.js` 以 TUI 为受管前台入口，启动 Server + Web，关闭 TUI 时停止管理面与临时开发资源，已运行正式服务按 ADR-046 保留；`status` / `doctor` 仍为只读子命令。
 
 ## 4. 服务端模块
 
@@ -75,27 +74,21 @@ Launcher / Updater 的完整实现属于 M5；M0-9 后 `node app.js` 以 TUI 为
 | PreviewRegistry / Proxy | 登记 loopback 目标、票据、HTTP / WS 转发 | 任意内网 URL 代理 |
 | Scheduler（M5） | 任务持久化、触发、限流、失败记录 | 继承人工临时审批 |
 | EventLog / EventBus | 先持久化后广播、增量重放 | 把 WS 当唯一状态 |
-| UpdateManager（M5） | 检查版本、验签、协调安全点 | Server 自我覆盖 |
+| npm 更新检查 | TUI 查询 registry 并提示新版本；Server 迁移前备份数据库 | 安装、重启和程序版本切换 |
 
 ## 5. 关键数据流
 
 ### 5.1 启动与初始化
 
 ```text
-node app.js
-  → 解析数据目录 / 配置
-  → 打开 SQLite，执行迁移
-  → 初始化日志、审计、事件总线
-  → 若未初始化：只挂载 /api/health、/api/bootstrap、配对最小面
-  → 启动 Fastify（默认 127.0.0.1:3210）
-  → 启动本地 IPC（UDS / named pipe）
-  → 启动配对、设备、会话清理任务
-  → ready
-
-node app.js tui
-  → 连接本地 IPC
-  → 首次：配置监听地址、公网 URL 与更新通道；凭据和设备按本机配对流程处理
-  → 日常：查看状态、审批配对、撤销设备、查看日志、关闭服务
+node app.js / node app.js tui
+  → 启动受管 TUI，读取数据目录与配置
+  → 启动 Server；开发模式另启动受管 Vite
+  → 如需迁移已有数据库，先备份；打开业务库并执行迁移
+  → 启动 Fastify（默认 127.0.0.1:3210）和本机 IPC
+  → TUI 连接 IPC；未初始化时走本机向导
+  → 首次沿用有效网络配置，可在高级设置修改监听地址和公网 URL
+  → 日常查看状态、审批配对、撤销设备、查看日志、关闭服务
 ```
 
 未初始化时禁止通过 Web 创建管理员；初始化只能来自本机受 OS 权限保护的通道。
@@ -119,7 +112,7 @@ node app.js tui
 后续登录：
 
 ```text
-未认证浏览器 → GET /api/webauthn/authentication/options
+未认证浏览器 → POST /api/webauthn/authentication/options
   → 浏览器 WebAuthn get（Face ID / 指纹 / PIN）
   → POST /api/webauthn/authentication/verify
   → 服务端验证签名 / challenge / origin → 签发短期会话
@@ -187,25 +180,26 @@ M4 普通项目会话 → 文件工具读取项目脚本 → 通用命令构建�
 ```text
 <install>/                      # 发布物，可整体替换
 ├── app.js                      # 稳定入口
-├── current.json                # 当前版本指针（M5）
-├── releases/                   # 版本化 server / web 资源（M5）
-├── runtime/                    # 平台原生资源（node-pty 等）
-└── updater/
+├── apps/server/dist/           # Server、TUI、status、doctor
+├── apps/server/drizzle/        # SQLite 迁移
+├── apps/web/dist/              # Web 静态资源
+└── node_modules/               # npm 安装的依赖
 
 <dataDir>/                      # 独立于安装目录，0700
 ├── config.json
 ├── larness.db
 ├── secrets/                    # 加密凭据
-├── sessions/<id>/workspace/    # 独立会话工作目录
+├── sessions/                   # 保留旧独立工作区
+│   └── global-terminal/workspace/  # 新会话的共享默认工作区
 ├── artifacts/<session-id>/
 ├── logs/
 ├── backups/
 └── tmp/
 ```
 
-默认数据目录使用 OS 标准用户数据目录（macOS `~/Library/Application Support/Larness`，Linux `$XDG_DATA_HOME/larness`，Windows `%LOCALAPPDATA%\Larness`），可用 `LARNESS_DATA_DIR` 覆盖。项目源码目录永远不放在数据目录内（独立会话除外）。
+默认数据目录使用 OS 标准用户数据目录（macOS `~/Library/Application Support/larness`，Linux `$XDG_DATA_HOME/larness`，Windows `%LOCALAPPDATA%\larness\Data`），可用 `LARNESS_DATA_DIR` 覆盖。关联的项目目录保留在原位置。共享默认工作区和历史独立工作区由 Larness 管理。
 
-## 7. 仓库源码布局（目标）
+## 7. 仓库源码布局
 
 ```text
 apps/
@@ -238,7 +232,7 @@ app.js          # 稳定入口（M0-9 创建）
 ## 9. 平台策略
 
 - 主开发与验收平台：macOS（当前开发机）。
-- CI：Linux 必跑；macOS 跑构建与测试；Windows 在 M5 前完成 PoC 并公开真实支持范围。
+- 验证在本地执行。macOS Apple Silicon 已验证，Windows / Ubuntu 待实机，见 [支持矩阵](../known-limitations.md)。
 - 不假设 PTY、进程统计、PM2、开机自启在三平台一致；每项平台能力都要有单独验收记录。
 
 ## 10. 非目标
@@ -253,7 +247,7 @@ app.js          # 稳定入口（M0-9 创建）
 
 TurnQueue 默认最多同时执行两个不同会话，同一会话保持单个活跃 Turn。TurnRunner 组装系统约束、会话历史、项目指令、工具 schema、终端与 PM2 信息，调用 Provider，再把工具调用交给 ToolExecutor 和各资源 Manager。工具结果回填模型，直到返回答复、失败、取消或达到预算。默认预算为 30 步、50 次工具调用、10 分钟，上下文按估算 token 和窗口比例裁剪较旧消息。
 
-模型请求和流式协议经 ProviderAdapter 适配，当前默认 resolver 接入 DeepSeek，测试使用 FakeProvider。更多 Provider、上下文压缩、调度与更新按 M5 推进。
+模型请求和流式协议经 ProviderAdapter 适配，生产 resolver 接入 DeepSeek、GLM 和 OpenAI 兼容端点，测试使用 FakeProvider。上下文构建支持摘要压缩，模型和凭据在 Turn 创建时固定。
 
 关键状态和事件在 SQLite 中持久化后通过 WebSocket 通知。浏览器负责服务端查询与窗口、导航、草稿等视图状态。命令按主机账户执行，文件工具的项目路径检查和命令策略不会构成 OS 沙箱。秘密由 SecretStore 管理并在受控执行层按需使用。
 

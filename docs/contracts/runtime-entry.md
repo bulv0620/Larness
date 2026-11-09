@@ -1,6 +1,6 @@
 # 运行入口与开发前端转发契约
 
-> 状态：accepted（2026-11-02 人类指令开始实现）；配套 [ADR-028](../adr/ADR-028-unified-dev-entry.md) / [017 spec](../../specs/017-unified-entry/spec.md)。U0-1/U0-2 已实现模块和默认产品接线；同目录真实模式切换整体验收属于 U0-3。
+> 状态：accepted（2026-11-02 人类指令开始实现）；配套 [ADR-028](../adr/ADR-028-unified-dev-entry.md) / [017 spec](../../specs/017-unified-entry/spec.md)。U0-1～U0-3 已完成，同目录模式切换见 [验收记录](../../specs/017-unified-entry/acceptance.md)。
 
 ## 1. 地址和配置
 
@@ -10,7 +10,7 @@
 
 旧 loopback HTTP 来源端口不一致时保持启动拒绝，提供一次性修改指引；推荐保留原 publicUrl/RP ID，将 server.port 对齐其端口。不会自动删除/重建数据或改写文件。HTTPS 反代来源（含本机 TLS fixture）不要求端口与本机监听端口相同；该旧 HTTP 直连配置检查不适用于它。
 
-## 2. 内部控制消息（拟议）
+## 2. 内部控制消息
 
 下表仅为 supervisor 与其 Node 子进程之间的私有 process IPC，不加入本机业务 IPC methods 或浏览器 API。所有消息使用 strict Zod schema。
 
@@ -62,5 +62,5 @@
 
 Vite 退出/控制通道中断使 dev 运行环境失败；supervisor 停止本次 Server 与剩余子进程，不影响其他数据目录实例。HTTP 连接短暂失败先按上节返回，若进程已退出则走整体清理。公开端口冲突不自动跳号，内部端口由 OS 分配不持久化。正常退出、重复信号、初始化重启、启动失败均释放转发连接、监听、锁、IPC 和 TUI 原始模式；Vite wrapper 被 SIGKILL 后，仍存活的 supervisor 清理已验证同代临时缓存；supervisor 自身被 SIGKILL 的限制沿用 ADR-023。
 
-## 后续正式服务运行边界（ADR-042，2026-11-05）
+## 正式服务运行边界（ADR-042，2026-11-05）
 M4-3 已在 TUI 受管 Server 启动时检查全局 PM2，缺失时安装 `pm2@7.1.2`；使用每实例私有 `PM2_HOME=<dataDir>/pm2` 和命名空间 `larness`。TUI 正常退出或管理进程异常退出时只停止管理面/临时开发资源，**不停止 PM2 守护和正式服务**；重开由 `reconcile` 核对实际实例、服务、版本、配置与健康。初始化失败只限制正式服务管理，不阻塞开发。`LARNESS_PM2_AUTO_INSTALL` / `LARNESS_PM2_PREFIX` 仅用于受管入口与测试注入，不进入 Web 配置；`startServer` 的 `pm2`/`pm2Global` 选项供测试注入。详见 [部署契约](deployment.md#32-m4-3-冻结2026-11-06) 与 [M4-3 技术冻结](../../specs/050-deploy/m4-3-design.md)。
