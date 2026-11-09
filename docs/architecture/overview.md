@@ -1,6 +1,6 @@
 # 系统架构总览
 
-> 当前实现总览，2026-11-09。G4 已通过，G5 已按 macOS 范围条件通过。PM2 部署按 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)，M5 已交付多模型、调度和 npm 分发。更新规范差异见 [遗留问题](../open-questions.md#规范与实现差异)。
+> 当前实现总览，2026-11-09。G4 已通过，G5 已按 macOS 范围条件通过。PM2 部署按 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)，M5 已交付多模型、调度和 npm 分发。更新安全规范见 [ADR-055](../adr/ADR-055-npm-update-security.md)。
 
 ## 1. 定位
 

@@ -72,6 +72,8 @@ larness doctor            # 未初始化数据目录会按预期返回非零
 
 ## 6. 升级与备份
 
+按 [ADR-055](../adr/ADR-055-npm-update-security.md)，等待 Agent Turn、部署与数据库写入完成，通过 TUI 正常停止管理面，再手动安装。正式 PM2 服务继续运行。
+
 ```bash
 npm install -g larness@latest
 # 重启 larness；首次启动会在数据库迁移前自动备份到 <dataDir>/backups/
@@ -82,6 +84,8 @@ npm install -g larness@latest
 - 更新检查只提示，不自动安装；TUI 退出不影响正式 PM2 服务。
 
 ## 7. 降级 / 回滚
+
+安装旧版本前同样等待在途作业完成并正常退出 TUI。程序版本切换与数据库恢复分开执行。
 
 ```bash
 npm install -g larness@<old-version>

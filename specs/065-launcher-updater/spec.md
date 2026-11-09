@@ -12,7 +12,7 @@ updated: 2026-11-08
 # npm 分发与版本更新提示（M5-3）
 
 > 状态：`done`（2026-11-08 首次公共 npm 发布成功）。发布走公共 npm 的 `larness` 包；TUI 只提示新版本，不自动更新；升级前自动备份数据库。签名包 / Launcher / UpdateLock / 自动回滚方案已废弃。
-> 相关：[ROADMAP](../ROADMAP.md)、[STATUS](../../STATUS.md)、ADR-007（自动检查、手动安装）、ADR-023（受管入口）。
+> 相关：[ROADMAP](../ROADMAP.md)、[STATUS](../../STATUS.md)、[ADR-055](../../docs/adr/ADR-055-npm-update-security.md)（npm 手动更新与数据库恢复）、ADR-023（受管入口）。
 
 > 本切片保留首次发布时的 Node.js 要求与验证记录。现行支持范围见[支持矩阵](../../docs/known-limitations.md)。
 

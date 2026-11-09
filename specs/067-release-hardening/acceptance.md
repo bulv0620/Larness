@@ -50,5 +50,5 @@ M5-5 的文档、复核与发布清单完成；M5-5 `done`。G5 条件通过（2
 | §31 可信启动、配对、Agent、PTY、布局与并发 | 见 [G0–G2 验收](../ROADMAP.md#9-门禁)，平台和证据按各阶段记录。 |
 | §31 / §42.3 Vite/HMR、开发服务、隔离与拒绝非法代理 | [G3 收尾](../040-services-preview/closure.md)记录本机通过及远程独立域 HTTPS 待验证。 |
 | §31 / §42.3 生产部署计划、审批、健康与重启恢复 | 按 [ADR-050](../../docs/adr/ADR-050-pm2-cli-deployment.md) 使用普通会话命令，沿用授权、项目锁与审计。PM2 退出独立性与对账见 [G4 收尾](../050-deploy/closure.md)，主机重启恢复仍待验证。 |
-| §31 / §42.3 签名、更新回滚、备份与恢复 | 交付为 [npm 手动升级、降级和迁移前备份](../../docs/process/release.md)。上位更新规范差异见 [ADR-055 提案](../../docs/adr/ADR-055-npm-update-security.md)。 |
+| §31 / §42.3 签名、更新回滚、备份与恢复 | 交付为 [npm 手动升级、降级和迁移前备份](../../docs/process/release.md)。现行更新规范见 [ADR-055](../../docs/adr/ADR-055-npm-update-security.md)。 |
 | §31 / §42.3 三端安装与支持范围 | G5 仅按 macOS 范围条件通过；Windows 和 Ubuntu 进入 [发布后跟踪](../../docs/open-questions.md)。 |

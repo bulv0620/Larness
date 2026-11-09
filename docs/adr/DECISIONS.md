@@ -13,7 +13,7 @@
 | ADR-004 | 临时 PTY 不跨 Larness 重启恢复 | 重启后标记中断；PM2 服务独立持久化 |
 | ADR-005 | 统一构建 → 策略授权 → PM2 部署 → 健康检查 → 记录 | 依ADR-042补充：人工审批为条件分支，autonomous免人工；授权/审计不可绕过 |
 | ADR-006 | 设备准入只经本机 TUI 或预置离线恢复码 | Web 设备不能批准新设备；TUI 不可用则拒绝 |
-| ADR-007 | 自动检查更新，手动安装，等待任务安全点 | 外部 Updater 执行，不强杀执行中的任务 |
+| ADR-007 | 自动检查更新，手动安装，等待任务安全点 | 原决策；更新器、锁与回滚要求由 [ADR-055](ADR-055-npm-update-security.md) 替代 |
 | ADR-008 | DeepSeek / GLM 优先，每 Turn 固定模型 | 多 Key Profile；切模型只影响下一轮 |
 | ADR-009 | 所有代码与服务运行在 Larness 本机 | 不设计 SSH / Docker / 远程节点 |
 | ADR-010 | 三栏 Chat-first + 顶部入口 + 全局悬浮多 Tab | 右栏四分区可同时展开；无底部 Dock |
@@ -145,4 +145,4 @@ accepted，用户确认 D1–D4。单进程 SQLite 调度；5 字段 Cron + `cro
 
 ## ADR-055 · npm 手动更新与数据库恢复（2026-11-09）
 
-proposed，待人类批准。对齐 M5-3 的 npm 分发、手动更新和迁移前备份，明确更新信任边界与人工恢复要求。见 [ADR-055](ADR-055-npm-update-security.md)。
+accepted，2026-11-09 人类明确确认。对齐 M5-3 的 npm 分发、手动更新和迁移前备份，明确更新信任边界与人工恢复要求。见 [ADR-055](ADR-055-npm-update-security.md)。

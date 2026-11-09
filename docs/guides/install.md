@@ -28,7 +28,7 @@ larness doctor      # 本机诊断
 
 ## 升级
 
-Larness **不会自动更新**。TUI 启动时和每日检查公共 npm，发现新版本只提示：
+Larness **不会自动更新**。TUI 启动时和每日检查公共 npm 并提示新版本。等待 Agent Turn、部署和数据库写入完成后，正常退出 TUI，再安装新版本。
 
 ```bash
 npm install -g larness@latest
@@ -37,6 +37,8 @@ npm install -g larness@latest
 升级后重启 `larness`。新版本首次启动会在数据库迁移前自动备份到数据目录的 `backups/`；备份失败会拒绝迁移并退出。
 
 ## 降级
+
+先等待在途作业完成并正常退出 TUI，再安装旧版本。
 
 ```bash
 npm install -g larness@<version>

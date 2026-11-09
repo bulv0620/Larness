@@ -18,12 +18,6 @@
 | 前端与资源 | Monaco 生产 CSP 使用 `unsafe-eval`；Git 状态每 3 秒轮询，暂无 WS 失效接线。外部写入、进程脱组及磁盘满/数据库损坏仍是边界。 | [M2 收尾](../specs/030-dev-resources/closure.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
 | 发布与安全 | 本地发布无 CI / npm provenance；风险与检查证据保存在安全复核中。 | [安全复核](security/review.md) |
 
-## 规范与实现差异
-
-| 事项 | 当前证据 | 待确认 |
-|---|---|---|
-| 更新规范 | [宪法第十二条](../CONSTITUTION.md#第十二条--更新安全) 要求独立 Launcher / Updater、签名、UpdateLock 和回滚；[M5-3](../specs/065-launcher-updater/spec.md) 与现有代码采用 npm 手动更新、TUI 只读提示和升级前数据库备份。 | [ADR-055 提案](adr/ADR-055-npm-update-security.md)已登记，等待人类批准。 |
-
 ## 待决
 
 默认方案须由人类确认或由 spec 明确引用为暂定默认。
@@ -39,6 +33,8 @@
 | Q-029 | 正式服务如何接收 `secretRef`，避免 PM2 将明文写入元数据、dump 或日志？ | M4-3 已验证守护/应用不继承 `LARNESS_*` 合成秘密，dump/pm2.log/服务日志无标记；正式 secretRef 注入与所有落盘路径仍需在产品注入前专项验证 | PM2 正式服务注入与脱敏 | M4-3b 产品秘密注入前 |
 
 ## 已解决
+
+- 更新规范已按 [ADR-055](adr/ADR-055-npm-update-security.md) 对齐 npm 手动升级、迁移前备份与人工恢复。
 
 - Q-008：`packages/shared/src/config.ts` 的默认会话期限为绝对 12 小时、空闲 30 分钟，服务端执行校验。
 - Q-014：发布采用 npm 包，`package.json` 的 `bin` 指向 `app.js`，随包分发 Server / Web 构建产物及迁移文件。
