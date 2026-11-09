@@ -19,7 +19,7 @@
 | 包管理 | pnpm 10 + workspace | `pnpm-workspace.yaml`；禁止 npm / yarn lockfile |
 | 语言 | TypeScript 5.x，`strict` | ESM；`moduleResolution: bundler` |
 | 构建（Server） | tsdown | 输出 `dist/`；原生模块 external；产物随 npm 包分发 |
-| 构建（Web） | Vite | 产物 `apps/web/dist`，生产由 Server 静态托管 |
+| 构建（Web） | Vite 8 | 产物 `apps/web/dist`，生产由 Server 静态托管 |
 | 开发运行 | tsx watch | Server 热重启；Web 用 Vite HMR |
 | Lint / Format | Biome | 一个工具完成 lint + format；本地 `pnpm check` 调用 `biome ci` |
 | 单元 / 集成测试 | Vitest | Server 用 Fastify `inject`；Web 用 Testing Library + happy-dom |
@@ -61,7 +61,7 @@
 | 领域 | 选择 | 说明 |
 |---|---|---|
 | 框架 | React 19 + TypeScript | 函数组件 |
-| 构建 | Vite 7 | `VITE_USE_MOCKS` 控制 Phase 0 Mock |
+| 构建 | Vite 8 | `VITE_USE_MOCKS` 控制 Phase 0 Mock |
 | 样式 | Tailwind CSS 4 + CSS 变量 token | 语义色板；无 CSS-in-JS |
 | 组件原语 | Radix UI + 自制 shadcn 风格组件 | 放在 `packages/ui` |
 | 图标 | lucide-react | 本地 SVG；不用图标字体 / 外部 CDN |

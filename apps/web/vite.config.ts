@@ -27,6 +27,10 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // Preserve the Vite 7 browser baseline during the build-tool upgrade.
+    target: ["chrome107", "edge107", "firefox104", "safari16"],
+  },
   preview: {
     port: 4173,
     strictPort: true,

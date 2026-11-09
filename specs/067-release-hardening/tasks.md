@@ -114,3 +114,11 @@
 - 范围：升级固定的 better-sqlite3 版本与安装说明，保持应用迁移、数据格式和恢复流程。
 - 验收：Node 22 / 24 冻结锁、check、build、平台冒烟与 npm 临时安装通过。旧库可读写并备份，回退可读取更新后数据。
 - 结果：Node 22.23.4 / 24.22.2 冻结锁、check（各 750 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。SQLite 12 临时库经 13 读写及 VACUUM INTO 备份后，12 可读回并通过完整性检查。pnpm 跳过其隐式 node-gyp，使用上游包内 Node-API 二进制。Windows / Ubuntu 未实测。
+
+### DEPS-4 Vite 8 与 React 插件
+
+- 状态：`done`（2026-11-09）
+- 依赖：DEPS-3；ADR-056 accepted。
+- 范围：升级 Vite 和 React 插件，保持既有浏览器构建目标、受管前端代理和页面行为。
+- 验收：Node 22 / 24 冻结锁、check、build、平台与安装冒烟通过；实际 Chromium 的 HMR、Nonce CSP、开发预览和生产入口验证通过。
+- 结果：Node 22.23.4 / 24.22.2 冻结锁、check（各 750 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。保留 Vite 7 的浏览器构建目标。Node 24 真实 Chromium 受管 HMR/CSP、Mock E2E 19 项、开发预览和生产 Passkey 定向测试通过。

@@ -282,6 +282,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | DEPS-1 | [兼容范围内的依赖升级](067-release-hardening/tasks.md#deps-1-兼容范围内的依赖升级) | DOCS-4；用户要求全面升级 | `done` |
 | DEPS-2 | [AI SDK 7 与 Provider](067-release-hardening/tasks.md#deps-2-ai-sdk-7-与-provider) | DEPS-1；ADR-056 accepted | `done` |
 | DEPS-3 | [SQLite 原生模块升级](067-release-hardening/tasks.md#deps-3-sqlite-原生模块升级) | DEPS-2；ADR-056 accepted | `done` |
+| DEPS-4 | [Vite 8 与 React 插件](067-release-hardening/tasks.md#deps-4-vite-8-与-react-插件) | DEPS-3；ADR-056 accepted | `done` |
 
 ### 发布后跟踪（不计入 M5 / G5 完成条件）
 
