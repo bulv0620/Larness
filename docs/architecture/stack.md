@@ -17,7 +17,7 @@
 |---|---|---|
 | 运行时 | Node.js 22.22+（22.x）/ 24+ | 实测版本见[支持矩阵](../known-limitations.md) |
 | 源码工具链 | Node.js 22.22+（22.x）或 24.11+（24.x） | macOS Apple Silicon 回归使用两条维护分支的补丁版 |
-| 包管理 | pnpm 10 + workspace | `pnpm-workspace.yaml`；禁止 npm / yarn lockfile |
+| 包管理 | pnpm 10.34.9 + workspace | `pnpm-workspace.yaml`；禁止 npm / yarn lockfile |
 | 语言 | TypeScript 7.x，`strict` | ESM；`moduleResolution: bundler` |
 | 构建（Server） | tsdown 0.23 | 输出 `dist/`；原生模块 external；产物随 npm 包分发 |
 | 构建（Web） | Vite 8 | 产物 `apps/web/dist`，生产由 Server 静态托管 |

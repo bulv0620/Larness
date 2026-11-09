@@ -138,3 +138,11 @@
 - 范围：依次验证 TypeScript 7、Vitest 5、tsdown 0.23 后组合升级，保持严格类型、测试语义及四个 Server 产物布局。
 - 验收：Node 22 / 24 冻结锁、check、build、平台与安装冒烟通过；原有测试和构建边界保持。
 - 结果：TypeScript 7.0.2 移除旧 baseUrl，保留显式 paths；Vitest 5.1.0 定向与全量回归通过；tsdown 0.23.7 保持四入口和原生模块外置。Node 22.23.4 / 24.22.2 冻结锁、check（各 752 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。Node 24 并行首轮文件监听超时，单独复跑通过；生产 Chromium Passkey 通过。
+
+### DEPS-7 pnpm 包管理器升级
+
+- 状态：`done`（2026-11-09）
+- 依赖：DEPS-6；ADR-056 accepted。
+- 范围：比较 pnpm 10 与 12 候选，迁移版本声明、冻结锁和原生构建脚本策略。
+- 验收：Node 22 / 24 冻结安装、check、build、平台和 npm 安装通过，保留 node-pty 补丁与现有脚本授权。
+- 结果：固定 pnpm 10.34.9。pnpm 12.18.0 默认最短发布年龄策略拒绝 5 个未满 24 小时的锁项，保留策略并延后 12。Node 22.23.4 / 24.22.2 冻结锁、check（各 752 通过、11 跳过）、构建、平台冒烟与 npm 临时安装通过。Node 22 并行首轮文件监听超时，单独复跑通过。Node 24 真实浏览器统一入口 HTTP / HTTPS 模式切换通过。最终 outdated 仅余为 Node 22 保留的 @types/node。

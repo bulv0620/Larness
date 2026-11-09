@@ -2,7 +2,7 @@
   "name": "larness",
   "private": false,
   "type": "module",
-  "packageManager": "pnpm@10.12.4",
+  "packageManager": "pnpm@10.34.9",
   "engines": {
     "node": "^22.22.0 || >=24"
   },
