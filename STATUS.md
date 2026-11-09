@@ -5,6 +5,8 @@
 
 ## 依赖维护
 
+- DEPS-6 `done`（2026-11-09，`task/deps-6-toolchain`）。依次验证 TypeScript 7、Vitest 5、tsdown 0.23 后组合升级，保持严格类型、测试语义及四个 Server 产物布局。 TypeScript 7.0.2 移除旧 baseUrl，保留显式 paths；Vitest 5.1.0 定向与全量回归通过；tsdown 0.23.7 保持四入口和原生模块外置。Node 22.23.4 / 24.22.2 冻结锁、check（各 752 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。Node 24 并行首轮文件监听超时，单独复跑通过；生产 Chromium Passkey 通过。
+
 - DEPS-5 `done`（2026-11-09，`task/deps-5-react-router`）。升级 React Router，并按 ADR-056 统一 Node 22 最低版本为 22.22.0。保持配对、鉴权跳转及 SPA 回退。 Node 22.23.4 / 24.22.2 冻结锁、check（各 752 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过；新增 Node 最低版本正反例。Chromium 开发 Passkey 与生产 Passkey / SPA 会话回归通过。
 
 - DEPS-4 `done`（2026-11-09，`task/deps-4-vite`）。升级 Vite 和 React 插件，保持既有浏览器构建目标、受管前端代理和页面行为。 Node 22.23.4 / 24.22.2 冻结锁、check（各 750 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。保留 Vite 7 的浏览器构建目标。Node 24 真实 Chromium 受管 HMR/CSP、Mock E2E 19 项、开发预览和生产 Passkey 定向测试通过。

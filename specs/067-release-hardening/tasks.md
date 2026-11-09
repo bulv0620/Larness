@@ -130,3 +130,11 @@
 - 范围：升级 React Router，并按 ADR-056 统一 Node 22 最低版本为 22.22.0。保持配对、鉴权跳转及 SPA 回退。
 - 验收：Node 22 / 24 冻结锁、check、build、平台与安装冒烟通过；Node 22.21 拒绝，22.22 与 24 接受；真实浏览器 Passkey 和生产 SPA 通过。
 - 结果：Node 22.23.4 / 24.22.2 冻结锁、check（各 752 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过；新增 Node 最低版本正反例。Chromium 开发 Passkey 与生产 Passkey / SPA 会话回归通过。
+
+### DEPS-6 TypeScript 7 与测试构建工具
+
+- 状态：`done`（2026-11-09）
+- 依赖：DEPS-5；ADR-056 accepted。
+- 范围：依次验证 TypeScript 7、Vitest 5、tsdown 0.23 后组合升级，保持严格类型、测试语义及四个 Server 产物布局。
+- 验收：Node 22 / 24 冻结锁、check、build、平台与安装冒烟通过；原有测试和构建边界保持。
+- 结果：TypeScript 7.0.2 移除旧 baseUrl，保留显式 paths；Vitest 5.1.0 定向与全量回归通过；tsdown 0.23.7 保持四入口和原生模块外置。Node 22.23.4 / 24.22.2 冻结锁、check（各 752 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。Node 24 并行首轮文件监听超时，单独复跑通过；生产 Chromium Passkey 通过。

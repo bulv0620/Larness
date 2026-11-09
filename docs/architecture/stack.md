@@ -16,13 +16,14 @@
 | 领域 | 选择 | 说明 |
 |---|---|---|
 | 运行时 | Node.js 22.22+（22.x）/ 24+ | 实测版本见[支持矩阵](../known-limitations.md) |
+| 源码工具链 | Node.js 22.22+（22.x）或 24.11+（24.x） | macOS Apple Silicon 回归使用两条维护分支的补丁版 |
 | 包管理 | pnpm 10 + workspace | `pnpm-workspace.yaml`；禁止 npm / yarn lockfile |
-| 语言 | TypeScript 5.x，`strict` | ESM；`moduleResolution: bundler` |
-| 构建（Server） | tsdown | 输出 `dist/`；原生模块 external；产物随 npm 包分发 |
+| 语言 | TypeScript 7.x，`strict` | ESM；`moduleResolution: bundler` |
+| 构建（Server） | tsdown 0.23 | 输出 `dist/`；原生模块 external；产物随 npm 包分发 |
 | 构建（Web） | Vite 8 | 产物 `apps/web/dist`，生产由 Server 静态托管 |
 | 开发运行 | tsx watch | Server 热重启；Web 用 Vite HMR |
 | Lint / Format | Biome | 一个工具完成 lint + format；本地 `pnpm check` 调用 `biome ci` |
-| 单元 / 集成测试 | Vitest | Server 用 Fastify `inject`；Web 用 Testing Library + happy-dom |
+| 单元 / 集成测试 | Vitest 5 | Server 用 Fastify `inject`；Web 用 Testing Library + happy-dom |
 | E2E / 视觉 | Playwright | 桌面 Chromium；关键流程与截图基线 |
 | 回归与发布 | 本地验证 | [发布清单](../process/release.md)；平台状态见[支持矩阵](../known-limitations.md) |
 | 提交规范 | Conventional Commits | 见 `AGENTS.md` |

@@ -14,8 +14,8 @@
   "devDependencies": {
     "@types/node": "^22.20.5",
     "diff": "^9.0.0",
-    "typescript": "^5.9.3",
-    "vitest": "^4.1.12"
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^3.0.81",

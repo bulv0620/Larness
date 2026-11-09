@@ -27,6 +27,8 @@ larness
 
 ## 从源码运行
 
+源码工具链请使用 Node.js 22.22+（22.x）或 24.11+（24.x）。
+
 ```bash
 pnpm install
 pnpm dev
