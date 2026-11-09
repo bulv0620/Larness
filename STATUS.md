@@ -3,6 +3,10 @@
 > 最后更新：2026-11-09 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。下方的阶段交付与变更记录保留当时状态。
 
+## 依赖维护
+
+- DEPS-1 `done`（2026-11-09，`task/deps-1-compatible-upgrades`）。当前 semver 范围内升级 16 个直接依赖，另将 tsdown 声明对齐已锁定的 0.21.10。Node 22.23.4 / 24.22.2 冻结锁安装、check（各 748 通过、11 跳过）和平台冒烟通过；Node 24 构建、npm 临时安装、Mock E2E（19 通过）通过。auth / prod E2E 各 15 通过、3 失败：旧计划选择器在升级前锁文件复现，两个终端用例单独复跑通过。跨主版本及跨 0.x 次版本候选见 [ADR-056 提案](docs/adr/ADR-056-dependency-major-upgrades.md)，待批准。
+
 ## 文档整理
 
 - DOCS-4 `done`（2026-11-09，`task/docs-4-npm-update-security`）。用户明确批准 ADR-055；宪法 1.2 第十二条、ADR-007 索引及升级/恢复指引已同步，更新规范差异关闭。Node 24.22.2 下 `pnpm check`（748 通过、11 跳过）及文档链接检查通过。本任务仅文档。

@@ -146,3 +146,7 @@ accepted，用户确认 D1–D4。单进程 SQLite 调度；5 字段 Cron + `cro
 ## ADR-055 · npm 手动更新与数据库恢复（2026-11-09）
 
 accepted，2026-11-09 人类明确确认。对齐 M5-3 的 npm 分发、手动更新和迁移前备份，明确更新信任边界与人工恢复要求。见 [ADR-055](ADR-055-npm-update-security.md)。
+
+## ADR-056 · 依赖主版本与工具链分批升级（2026-11-09）
+
+proposed，待人类批准。为 AI SDK、SQLite 原生模块、Web 与构建工具链列出独立升级和验收批次。见 [ADR-056](ADR-056-dependency-major-upgrades.md)。

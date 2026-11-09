@@ -275,6 +275,12 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | DOCS-3 | [现行文档与 Node.js 检查对齐](067-release-hardening/tasks.md#docs-3-现行文档与-nodejs-检查对齐) | DOCS-2；用户直接要求 | `done` |
 | DOCS-4 | [落实 ADR-055 更新安全规范](067-release-hardening/tasks.md#docs-4-落实-adr-055-更新安全规范) | DOCS-3；用户确认 ADR-055 | `done`（仅文档） |
 
+### 依赖维护
+
+| ID | 任务 | 依赖 | 状态 |
+|---|---|---|---|
+| DEPS-1 | [兼容范围内的依赖升级](067-release-hardening/tasks.md#deps-1-兼容范围内的依赖升级) | DOCS-4；用户要求全面升级 | `done` |
+
 ### 发布后跟踪（不计入 M5 / G5 完成条件）
 
 验收证据与其他遗留项见 [遗留问题](../docs/open-questions.md)。

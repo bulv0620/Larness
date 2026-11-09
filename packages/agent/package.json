@@ -18,10 +18,10 @@
     "vitest": "^4.1.12"
   },
   "dependencies": {
-    "@ai-sdk/deepseek": "^2.0.78",
-    "@ai-sdk/openai-compatible": "^2.0.91",
+    "@ai-sdk/deepseek": "^2.0.80",
+    "@ai-sdk/openai-compatible": "^2.0.92",
     "@larness/resources": "workspace:*",
-    "ai": "^6.0.320",
+    "ai": "^6.0.326",
     "zod": "^4.6.7"
   }
 }
