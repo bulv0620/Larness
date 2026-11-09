@@ -15,7 +15,7 @@
 
 | 领域 | 选择 | 说明 |
 |---|---|---|
-| 运行时 | Node.js 22 / 24+ | 实测版本见[支持矩阵](../known-limitations.md) |
+| 运行时 | Node.js 22.22+（22.x）/ 24+ | 实测版本见[支持矩阵](../known-limitations.md) |
 | 包管理 | pnpm 10 + workspace | `pnpm-workspace.yaml`；禁止 npm / yarn lockfile |
 | 语言 | TypeScript 5.x，`strict` | ESM；`moduleResolution: bundler` |
 | 构建（Server） | tsdown | 输出 `dist/`；原生模块 external；产物随 npm 包分发 |
@@ -65,7 +65,7 @@
 | 样式 | Tailwind CSS 4 + CSS 变量 token | 语义色板；无 CSS-in-JS |
 | 组件原语 | Radix UI + 自制 shadcn 风格组件 | 放在 `packages/ui` |
 | 图标 | lucide-react | 本地 SVG；不用图标字体 / 外部 CDN |
-| 路由 | React Router 7 | `/`、`/pair`；M0 后加 `/settings` |
+| 路由 | React Router 8 | `/`、`/pair`；M0 后加 `/settings` |
 | 服务端状态 | TanStack Query 5 | 缓存、失效、重试 |
 | 客户端状态 | Zustand 5 | 窗口、布局、导航、草稿、实时游标 |
 | 窗口 | react-rnd | 拖动 / 缩放 / 层级；最大化与隐藏由 WindowManager 控制 |

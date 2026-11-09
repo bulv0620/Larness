@@ -112,7 +112,7 @@ And 文档明确等待实机，不以文档代替验收
 | R-2 | MUST | 每项给出结论与证据路径；无法验证的项标 `未验证`，不得写“通过”。 |
 | R-3 | MUST | 发布清单包含版本、构建、测试、包内容、临时安装、dry-run、真实 publish、tag、安装验证、回滚/降级。 |
 | R-4 | MUST | 发布清单明确“无 CI”；所有命令可本地执行，Windows / Ubuntu 由人类实机执行。 |
-| R-5 | MUST | 文档集中列出支持矩阵（macOS Apple Silicon、Ubuntu、Windows 11）与 Node.js 22 / 24+，并列明实测版本。 |
+| R-5 | MUST | 文档集中列出支持矩阵（macOS Apple Silicon、Ubuntu、Windows 11）与 Node.js 22.22+（22.x）/ 24+，并列明实测版本。 |
 | R-6 | MUST | 明确不支持：macOS Intel、Windows 终端/命令/PM2（当前）、WSL 冒充 Windows、自动更新、签名发布包。 |
 | R-7 | MUST | 安装文档覆盖 npm 全局安装、`larness` 启动、TUI 更新提示、手动升级、降级、卸载、数据备份/恢复。 |
 | R-8 | MUST | 更新 G5 条款，使其与 M5-3 npm 方案一致；未验证平台保留为发布后跟踪。 |

@@ -6,7 +6,7 @@
 
 要求：
 
-- Node.js **22 / 24+**，请使用对应主版本的最新补丁版；macOS Apple Silicon 已验证 22.23.4 和 24.22.2
+- Node.js **22.22+（22.x）/ 24+**，请使用对应主版本的最新补丁版；macOS Apple Silicon 已验证 22.23.4 和 24.22.2
 - 发布包固定 `better-sqlite3@13.0.3`。其 npm 包内含 Node-API 预编译文件，macOS Apple Silicon 已在 Node 22 和 24 实测
 - macOS 需要 Xcode Command Line Tools 仅在原生依赖没有可用预编译时使用
 - Ubuntu 的 `node-pty` 没有预编译，可能需要 `build-essential`、`python`、`make`

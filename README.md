@@ -9,7 +9,7 @@ npm install -g larness
 larness
 ```
 
-使用 Node.js 22 / 24+。macOS Apple Silicon 已验证 Node.js 22 和 24。其他平台的状态见 [支持范围](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)。升级和卸载步骤见 [安装指南](docs/guides/install.md)。
+使用 Node.js 22.22+（22.x）/ 24+。macOS Apple Silicon 已验证 Node.js 22 和 24。其他平台的状态见 [支持范围](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)。升级和卸载步骤见 [安装指南](docs/guides/install.md)。
 
 ## 开始使用
 

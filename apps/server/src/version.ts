@@ -13,4 +13,4 @@ function readPackageMetadata(): { version?: unknown; engines?: { node?: unknown 
 const metadata = readPackageMetadata();
 export const SERVER_VERSION = typeof metadata.version === "string" ? metadata.version : "0.0.0";
 export const SUPPORTED_NODE_RANGE =
-  typeof metadata.engines?.node === "string" ? metadata.engines.node : "22.x || >=24";
+  typeof metadata.engines?.node === "string" ? metadata.engines.node : "^22.22.0 || >=24";

@@ -5,6 +5,8 @@
 
 ## 依赖维护
 
+- DEPS-5 `done`（2026-11-09，`task/deps-5-react-router`）。升级 React Router，并按 ADR-056 统一 Node 22 最低版本为 22.22.0。保持配对、鉴权跳转及 SPA 回退。 Node 22.23.4 / 24.22.2 冻结锁、check（各 752 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过；新增 Node 最低版本正反例。Chromium 开发 Passkey 与生产 Passkey / SPA 会话回归通过。
+
 - DEPS-4 `done`（2026-11-09，`task/deps-4-vite`）。升级 Vite 和 React 插件，保持既有浏览器构建目标、受管前端代理和页面行为。 Node 22.23.4 / 24.22.2 冻结锁、check（各 750 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。保留 Vite 7 的浏览器构建目标。Node 24 真实 Chromium 受管 HMR/CSP、Mock E2E 19 项、开发预览和生产 Passkey 定向测试通过。
 
 - DEPS-3 `done`（2026-11-09，`task/deps-3-sqlite`）。升级固定的 better-sqlite3 版本与安装说明，保持应用迁移、数据格式和恢复流程。 Node 22.23.4 / 24.22.2 冻结锁、check（各 750 通过、11 跳过）、构建、平台冒烟和 npm 临时安装通过。SQLite 12 临时库经 13 读写及 VACUUM INTO 备份后，12 可读回并通过完整性检查。pnpm 跳过其隐式 node-gyp，使用上游包内 Node-API 二进制。Windows / Ubuntu 未实测。

@@ -50,6 +50,8 @@ describe("collectStatus", () => {
 describe("runDoctor", () => {
   it.each([
     ["20.19.3", "fail"],
+    ["22.21.1", "fail"],
+    ["22.22.0", "ok"],
     ["22.23.4", "ok"],
     ["23.11.1", "fail"],
     ["24.22.2", "ok"],
