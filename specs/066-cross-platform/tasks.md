@@ -45,15 +45,30 @@
 
 ### 发布后跟踪 M5-F1：Windows 原生验证 / 修复（不计入 M5 完成）
 
-- 状态：`todo`（发布后跟踪）
+- 状态：`done`（2026-11-10，分支 `task/m5-f1-windows-support`；Windows 11 实机）
 - 依赖：M5-4-1
-- 目标：Windows 11 x64 原生安装与核心功能；当前 `TerminalManager` / `CommandManager` 对 win32 返回 `RESOURCE_UNAVAILABLE`，需先实现终端/命令/PM2 再恢复 Windows 全量 check。
+- 目标：Windows 10/11 x64 原生安装与核心功能；移除 `TerminalManager` / `CommandManager` 的 win32 拒绝，补齐 ConPTY、进程树、服务身份、PM2 与路径差异后恢复 Windows 全量 check。
 - 交付物：
   - PowerShell 安装、TUI、Server/Web、终端 ConPTY、命令、文件/Git、PM2。
   - 路径 / 盘符 / 大小写 / 进程终止 / 文件锁差异修复或限制。
-- 验收：A3、A4、A5、A6、A7；WSL 单列。Windows 实机当前需先补终端/命令实现，再跑全量 check；在此之前只记录 build / platform-smoke / pack。
-- 测试：Windows 实机；平台条件测试。
-- 涉及路径：Linux 平台路径 + Windows 路径 / IPC / 进程树。
+- 验收：A3、A4、A5、A6、A7；WSL 单列。
+- 测试：Windows 11 x64 实机；平台条件测试。
+- 交付（2026-11-10，Windows 11 build 26200，Node 24.9.0）：
+  - [x] `pnpm check`：server 549 通过 / 31 跳过，agent 42 通过，web 141 通过。
+  - [x] `pnpm build`、`platform-smoke`、`verify-npm-pack --install`。
+  - [x] TUI（源码与 dist）、ConPTY 终端、命令 `.cmd` shim、进程树停止、服务/预览。
+  - [x] 真实 PM2 7.1.2 安装、启动、替换、健康失败回滚、对账。
+  - [x] Mock E2E 19/19；Auth E2E 18/18；生产构建 E2E 18/18。
+  - [x] Windows 10 同构实现（ConPTY/CIM/taskkill/Get-NetTCPConnection），剩余实机复测见 M5-F1-W10。
+- 涉及路径：Windows 平台层、terminals / commands / services / PM2 / 路径与测试。
+
+### 发布后跟踪 M5-F1-W10：Windows 10 x64 实机复测（不计入 M5 完成）
+
+- 状态：`todo`
+- 依赖：M5-F1
+- 目标：在 Windows 10 x64 1809+ 复跑同一安装与核心链路，确认 ConPTY/进程树/PM2 行为一致。
+- 交付物：`pnpm check`、build、platform-smoke、pack 安装、TUI、终端、命令、PM2 实机记录。
+- 测试：Windows 10 实机；失败项回写支持矩阵，不标通过。
 
 ### 发布后跟踪 M5-F3：平台文档与整体验收（不计入 M5 完成）
 

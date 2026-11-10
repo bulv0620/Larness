@@ -6,7 +6,8 @@
 
 | ID / 领域 | 遗留项 | 证据 |
 |---|---|---|
-| M5-F1 | 实现 Windows 终端和命令，验证 Windows 11 x64 原生安装、TUI、文件/Git 和 PM2。当前终端、命令拒绝 win32。 | [平台任务卡](../specs/066-cross-platform/tasks.md) |
+| M5-F1 | Windows 11 x64 原生安装、TUI、ConPTY、命令、文件/Git、服务/预览与 PM2 已实机通过。 | [平台任务卡](../specs/066-cross-platform/tasks.md) |
+| M5-F1-W10 | Windows 10 x64 1809+ 与 Windows 11 使用同一实现；尚未单独实机复测。 | [验收记录](../specs/066-cross-platform/acceptance.md) |
 | M5-F2 | 在 Ubuntu 22.04 / 24.04 x64 验证安装、node-pty 编译回退、终端、PM2、路径与锁。 | [平台验收](../specs/066-cross-platform/acceptance.md) |
 | M5-F3 | F1、F2 完成后按实机结果更新支持矩阵与验收。 | [平台任务卡](../specs/066-cross-platform/tasks.md) |
 | 远程预览 | 验证独立域、通配 DNS、HTTPS 反代与浏览器行为；预览连接身份存在竞态边界。多客户端布局、外部打开和模型自主选择预览仍缺专门端到端覆盖。 | [M3 收尾](../specs/040-services-preview/closure.md) |
@@ -40,7 +41,7 @@
 - Q-008：`packages/shared/src/config.ts` 的默认会话期限为绝对 12 小时、空闲 30 分钟，服务端执行校验。
 - Q-014：发布采用 npm 包，`package.json` 的 `bin` 指向 `app.js`，随包分发 Server / Web 构建产物及迁移文件。
 - Q-015 / Q-017 / Q-018：按 [M0 认证验收](../specs/010-foundation/acceptance.md) 和 [ADR-021](adr/ADR-021-passkey-v1.md) 执行 IP 来源引导、同步 Passkey 与临时授权。
-- Q-005：平台范围已明确，剩余实现及验证进入 M5-F1 / F2 / F3。
+- Q-005：平台范围已明确；Windows 11 实现与实机验证已完成，Windows 10 实机复测见 M5-F1-W10，Ubuntu 见 M5-F2。
 
 Q-004（2026-11-08）：用户确认 MIT 许可证；根包 `license: MIT` 并附 `LICENSE`，用于公共 npm 发布。
 

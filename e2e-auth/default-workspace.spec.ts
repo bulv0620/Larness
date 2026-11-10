@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { execFileSync } from "./support";
 
 test("M2-10 default workspace shares files, sessions and terminal views across project switching and refresh", async ({
   page,
@@ -67,7 +67,11 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await expect(terminal).toHaveAttribute("data-input-state", "active");
     await terminal
       .locator(".xterm-helper-textarea")
-      .pressSequentially("printf 'seed\\n' > default-note.txt");
+      .pressSequentially(
+        process.platform === "win32"
+          ? "echo seed> default-note.txt"
+          : "printf 'seed\\n' > default-note.txt",
+      );
     await terminal.locator(".xterm-helper-textarea").press("Enter");
     await expect(
       page.getByRole("button", { name: "打开文件 default-note.txt", exact: true }),

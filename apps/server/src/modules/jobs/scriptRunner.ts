@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { OutputRedactor } from "@larness/resources";
+import { commandEnvironment, OutputRedactor, terminateProcessTree } from "@larness/resources";
 import type { ScheduledJobRunErrorCode, ScheduledJobRunStatus } from "@larness/shared";
 
 const MAX_OUTPUT_CHARS = 64 * 1024;
@@ -28,24 +28,21 @@ export interface ScriptRunResult {
 }
 
 function scriptEnvironment(input: ScriptRunInput): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
+  return {
+    ...commandEnvironment(),
     TZ: input.timezone,
     LARNESS_JOB_ID: input.jobId,
     LARNESS_JOB_RUN_ID: input.runId,
   };
-
-  for (const key of ["PATH", "HOME", "TMPDIR", "LANG", "LC_ALL"] as const) {
-    const value = process.env[key];
-    if (value !== undefined) {
-      env[key] = value;
-    }
-  }
-
-  return env;
 }
 
 function killTree(pid: number | undefined, detached: boolean, signal: NodeJS.Signals): void {
   if (pid === undefined) {
+    return;
+  }
+
+  if (process.platform === "win32") {
+    void terminateProcessTree(pid).catch(() => undefined);
     return;
   }
 

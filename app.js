@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -38,6 +39,25 @@ Environment:
   LARNESS_LOG_LEVEL, LARNESS_WEB_DIST`);
 }
 
+function runSource(sourcePath, args) {
+  // Avoid a pnpm shell shim (and Windows .cmd quoting) by loading tsx through
+  // Node's own --import flag, exactly like the managed TUI does.
+  const require = createRequire(path.join(root, "apps", "server", "package.json"));
+  const loader = pathToFileURL(require.resolve("tsx/esm")).href;
+  const result = spawnSync(process.execPath, ["--import", loader, sourcePath, ...args], {
+    cwd: root,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) {
+    console.error(`[larness] cannot run source entry: ${result.error.message}`);
+    console.error("Build first with `pnpm build`, or ensure tsx is installed.");
+    process.exitCode = 1;
+    return;
+  }
+  process.exitCode = result.status ?? 1;
+}
+
 function runTui() {
   const distPath = path.join(root, commands.tui.dist);
   const useDist = existsSync(distPath);
@@ -60,23 +80,7 @@ function runTui() {
     return;
   }
 
-  const sourcePath = path.join(root, commands.tui.source);
-  const result = spawnSync(
-    "pnpm",
-    ["--filter", "@larness/server", "exec", "tsx", sourcePath, "--managed", "--dev"],
-    { cwd: root, stdio: "inherit", env: process.env },
-  );
-
-  if (result.error) {
-    console.error(`[larness] cannot run tui: ${result.error.message}`);
-    console.error(
-      "Build first with `pnpm build`, or ensure pnpm/tsx are available for development.",
-    );
-    process.exitCode = 1;
-    return;
-  }
-
-  process.exitCode = result.status ?? 1;
+  runSource(path.join(root, commands.tui.source), ["--managed", "--dev"]);
 }
 
 function runReadOnly(name) {
@@ -98,20 +102,7 @@ function runReadOnly(name) {
     return;
   }
 
-  const sourcePath = path.join(root, command.source);
-  const result = spawnSync("pnpm", ["--filter", "@larness/server", "exec", "tsx", sourcePath], {
-    cwd: root,
-    stdio: "inherit",
-    env: process.env,
-  });
-
-  if (result.error) {
-    console.error(`[larness] cannot run ${name}: ${result.error.message}`);
-    process.exitCode = 1;
-    return;
-  }
-
-  process.exitCode = result.status ?? 1;
+  runSource(path.join(root, command.source), []);
 }
 
 const [first, ...rest] = process.argv.slice(2);

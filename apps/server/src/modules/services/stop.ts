@@ -1,15 +1,7 @@
+import { processAlive, terminateProcessTree } from "@larness/resources";
 import { type ExecutionIdentity, processSnapshot, ServiceIdentityError } from "./identity.js";
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-function alive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function tree(processes: Awaited<ReturnType<typeof processSnapshot>>, root: number): number[] {
   const byParent = new Map<number, number[]>();
@@ -35,6 +27,15 @@ export async function stopExecution(identity: ExecutionIdentity): Promise<void> 
       "The listening process is the terminal shell itself",
     );
   }
+  if (process.platform === "win32") {
+    // Windows has no POSIX signals. Stop the listener's own subtree so the
+    // terminal shell and unrelated processes in the same console survive.
+    const stopped = await terminateProcessTree(identity.pid);
+    if (!stopped) {
+      throw new ServiceIdentityError("STOP_UNCONFIRMED", "Service process did not stop");
+    }
+    return;
+  }
   const pids = tree(before, identity.pid);
   for (const pid of pids) {
     try {
@@ -44,9 +45,9 @@ export async function stopExecution(identity: ExecutionIdentity): Promise<void> 
     }
   }
   const deadline = Date.now() + 2500;
-  while (Date.now() < deadline && pids.some((pid) => alive(pid))) await delay(50);
+  while (Date.now() < deadline && pids.some((pid) => processAlive(pid))) await delay(50);
   for (const pid of pids) {
-    if (!alive(pid)) continue;
+    if (!processAlive(pid)) continue;
     try {
       process.kill(pid, "SIGKILL");
     } catch {
@@ -54,7 +55,7 @@ export async function stopExecution(identity: ExecutionIdentity): Promise<void> 
     }
   }
   await delay(100);
-  if (pids.some((pid) => alive(pid))) {
+  if (pids.some((pid) => processAlive(pid))) {
     throw new ServiceIdentityError("STOP_UNCONFIRMED", "Service process did not stop");
   }
 }

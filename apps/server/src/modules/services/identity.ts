@@ -1,5 +1,10 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import {
+  commandEnvironment,
+  processSnapshot as platformProcessSnapshot,
+  windowsTcpListeners,
+} from "@larness/resources";
 
 const exec = promisify(execFile);
 
@@ -46,7 +51,8 @@ async function run(command: string, args: string[]): Promise<string> {
   const { stdout } = await exec(command, args, {
     timeout: 3000,
     maxBuffer: 4 * 1024 * 1024,
-    env: { ...process.env, LC_ALL: "C" },
+    windowsHide: true,
+    env: { ...commandEnvironment(), LC_ALL: "C" },
   });
   return stdout;
 }
@@ -61,20 +67,14 @@ function exitedWithoutMatches(error: unknown): boolean {
 }
 
 export async function processSnapshot(): Promise<ProcessInfo[]> {
-  const stdout = await run("ps", ["-axo", "pid=,ppid=,pgid=,sess=,stat=,lstart="]);
-  const processes: ProcessInfo[] = [];
-  for (const line of stdout.split("\n")) {
-    const fields = line.trim().split(/\s+/);
-    if (fields.length < 10 || fields[4]?.startsWith("Z")) continue;
-    processes.push({
-      pid: Number(fields[0]),
-      ppid: Number(fields[1]),
-      pgid: Number(fields[2]),
-      session: Number(fields[3]),
-      birth: fields.slice(5).join(" "),
-    });
-  }
-  return processes;
+  const entries = await platformProcessSnapshot();
+  return entries.map((entry) => ({
+    pid: entry.pid,
+    ppid: entry.ppid,
+    pgid: entry.pgid,
+    session: entry.session,
+    birth: entry.birth,
+  }));
 }
 
 function parseAddress(
@@ -99,6 +99,20 @@ function parseAddress(
 }
 
 export async function listeningSockets(port: number): Promise<ListenerInfo[]> {
+  if (process.platform === "win32") {
+    const listeners = await windowsTcpListeners(port);
+    const sockets: ListenerInfo[] = [];
+    for (const listener of listeners) {
+      const host = listener.address;
+      const address =
+        host.includes(":") && !host.startsWith("[")
+          ? `[${host}]:${listener.port}`
+          : `${host}:${listener.port}`;
+      const parsed = parseAddress(address);
+      if (parsed) sockets.push({ pid: listener.pid, command: "", ...parsed });
+    }
+    return sockets;
+  }
   let stdout: string;
   try {
     stdout = await run("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fpcn"]);

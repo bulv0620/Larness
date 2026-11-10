@@ -22,6 +22,13 @@ async function main(): Promise<void> {
   };
   process.once("SIGINT", () => stop("SIGINT"));
   process.once("SIGTERM", () => stop("SIGTERM"));
+  // Windows has no graceful SIGTERM. The managed TUI asks this process to stop
+  // over its IPC channel so locks, IPC endpoints and SQLite close cleanly.
+  process.on("message", (message: unknown) => {
+    if (typeof message === "object" && message !== null && "type" in message) {
+      if ((message as { type?: unknown }).type === "larness.shutdown") stop("TUI shutdown");
+    }
+  });
   if (managedDev) process.once("disconnect", () => stop("parent disconnected"));
   const target = managedDev ? await receiveDevWebTarget(25_000, abort.signal) : undefined;
   abort.signal.throwIfAborted();

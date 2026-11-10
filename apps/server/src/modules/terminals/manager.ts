@@ -55,6 +55,7 @@ import {
   updateTerminal,
 } from "./repository.js";
 import { resolveManualShell, terminalLaunch } from "./shell.js";
+import { ensureWindowsTerminalBootstrap, waitForWindowsBootstrap } from "./windowsBootstrap.js";
 
 interface Connection {
   clientId: string;
@@ -153,6 +154,12 @@ export class TerminalManager {
   }
   #now() {
     return this.options.now?.() ?? Date.now();
+  }
+  #write(id: string, data: string) {
+    // ConPTY treats CR as Enter; a lone LF is not committed by the console.
+    // Normalize line endings so model/tool input works like terminal input.
+    const value = process.platform === "win32" ? data.replace(/\r?\n/g, "\r") : data;
+    this.#active.get(id)?.pty.native.write(value);
   }
   #row(id: string) {
     return terminalRow(this.options.db, id) ?? fail("NOT_FOUND", "Terminal not found");
@@ -477,7 +484,7 @@ export class TerminalManager {
     if (accepted) {
       rate.bytes += Buffer.byteLength(data);
       try {
-        this.#active.get(id)?.pty.native.write(data);
+        this.#write(id, data);
       } catch {
         fail("RESOURCE_UNAVAILABLE", "Terminal input failed");
       }
@@ -501,7 +508,7 @@ export class TerminalManager {
       });
     });
     try {
-      this.#active.get(id)?.pty.native.write("\u0003");
+      this.#write(id, "\u0003");
     } catch {
       fail("RESOURCE_UNAVAILABLE", "Terminal interrupt failed");
     }
@@ -709,8 +716,7 @@ export class TerminalManager {
     input: unknown,
     dev?: { context: DevContext; params: ReturnType<typeof TerminalDevSchema.parse> },
   ) {
-    if (this.#closed || process.platform === "win32")
-      fail("RESOURCE_UNAVAILABLE", "Terminal execution unavailable");
+    if (this.#closed) fail("RESOURCE_UNAVAILABLE", "Terminal execution unavailable");
     this.#client(client);
     if (!key || key.length > 128) fail("VALIDATION_ERROR", "Idempotency-Key required");
     const parsed = TerminalCreateSchema.safeParse(input);
@@ -881,13 +887,32 @@ export class TerminalManager {
         throw new Error("Terminal creation cancelled");
       updateOperation(this.options.db, operationId, { status: "WRITING", updatedAt: this.#now() });
       spawnAttempted = true;
-      const launch = terminalLaunch(shell, dev ? { executable, args } : undefined);
+      const bootstrap =
+        process.platform === "win32" && dev
+          ? await ensureWindowsTerminalBootstrap(this.options.dataDir)
+          : undefined;
+      const readyFile = bootstrap
+        ? path.join(this.options.dataDir, "tmp", `${id}.terminal.ready`)
+        : undefined;
+      const launch = terminalLaunch(
+        shell,
+        dev ? { executable, args } : undefined,
+        absolute,
+        bootstrap,
+        readyFile,
+      );
       const native = (this.options.spawnPty ?? spawn)(launch.executable, launch.args, {
         cwd: absolute,
         cols: 80,
         rows: 24,
         name: "xterm-256color",
-        env: { ...commandEnvironment(), HISTFILE: "/dev/null" },
+        env: {
+          ...commandEnvironment(),
+          ...(process.platform === "win32" ? {} : { HISTFILE: "/dev/null" }),
+        },
+        // Use the bundled ConPTY host so node-pty does not fork its console
+        // list agent (which fails when the server itself has no console).
+        ...(process.platform === "win32" ? { useConptyDll: true } : {}),
       });
       const pty = new ManagedPty(native, secrets, (data) => {
         try {
@@ -980,6 +1005,9 @@ export class TerminalManager {
         });
       void active.done.catch(() => {});
       await pty.ready;
+      // Do not report RUNNING until the approved program exists; otherwise
+      // input sent immediately after creation can be dropped by ConPTY.
+      if (readyFile) await waitForWindowsBootstrap(readyFile);
       if (active.reason) {
         await pty.stop();
         await active.done;
@@ -1223,7 +1251,7 @@ export class TerminalManager {
     if (accepted) {
       connection.bytes += Buffer.byteLength(data);
       try {
-        this.#active.get(id)?.pty.native.write(data);
+        this.#write(id, data);
       } catch {
         fail("RESOURCE_UNAVAILABLE", "Terminal input failed");
       }

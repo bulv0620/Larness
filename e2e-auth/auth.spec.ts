@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
+import { execFileSync } from "./support";
 
 test.setTimeout(60_000);
 

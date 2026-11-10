@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { promisify } from "node:util";
 import { isInsideRoot } from "../files/pathGuard.js";
+import { commandEnvironment } from "../platform/environment.js";
 
 const exec = promisify(execFile);
 
@@ -67,20 +68,20 @@ export interface GitBranchEntry {
 const MAX_OUTPUT = 2 * 1024 * 1024;
 
 function gitEnvironment(): NodeJS.ProcessEnv {
-  return {
-    PATH: process.env.PATH,
-    HOME: process.env.HOME,
-    USER: process.env.USER,
-    TMPDIR: process.env.TMPDIR,
-    LANG: process.env.LANG,
+  const env: NodeJS.ProcessEnv = {
+    ...commandEnvironment(),
+    ...(process.env.USER !== undefined ? { USER: process.env.USER } : {}),
     LC_ALL: "C",
     GIT_TERMINAL_PROMPT: "0",
     GIT_PAGER: "cat",
     GIT_OPTIONAL_LOCKS: "0",
-    GIT_ASKPASS: "/bin/false",
-    SSH_ASKPASS: "/bin/false",
     GIT_MERGE_AUTOEDIT: "no",
   };
+  if (process.platform !== "win32") {
+    env.GIT_ASKPASS = "/bin/false";
+    env.SSH_ASKPASS = "/bin/false";
+  }
+  return env;
 }
 
 function classify(stderr: string, readOnly: boolean): GitError {

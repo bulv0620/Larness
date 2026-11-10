@@ -8,7 +8,7 @@ import { listeningSockets } from "../../src/modules/services/identity.js";
 import { updateTurnRow } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
-import { withTempDir } from "../helpers.js";
+import { getFreePort, withTempDir } from "../helpers.js";
 import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -46,7 +46,7 @@ it("streams committed service status events to an authorized subscription", asyn
         { sessionId: session.id, text: "service ws", clientSessionId: client },
       );
       updateTurnRow(f.running.db, turn.turnId, { status: "RUNNING" });
-      const port = 38000 + Math.floor(Math.random() * 1000);
+      const port = await getFreePort();
       const serverPath = path.join(root, "server.mjs");
       await writeFile(
         serverPath,

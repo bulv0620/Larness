@@ -1,17 +1,17 @@
 # 安装、升级与卸载
 
-> 状态：macOS Apple Silicon 已验证；Windows 11 / Ubuntu 待实机。支持矩阵与限制见 [known-limitations](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)；发布流程见 [release](https://github.com/bulv0620/Larness/blob/main/docs/process/release.md)。不支持 macOS Intel。
+> 状态：macOS Apple Silicon、Windows 11 x64 已验证；Windows 10 x64 与 Ubuntu 待实机复测。支持矩阵与限制见 [known-limitations](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)；发布流程见 [release](https://github.com/bulv0620/Larness/blob/main/docs/process/release.md)。不支持 macOS Intel。
 
 ## 安装
 
 要求：
 
-- Node.js **22.22+（22.x）/ 24+**，请使用对应主版本的最新补丁版；macOS Apple Silicon 已验证 22.23.4 和 24.22.2
-- 发布包固定 `better-sqlite3@13.0.3`。其 npm 包内含 Node-API 预编译文件，macOS Apple Silicon 已在 Node 22 和 24 实测
+- Node.js **22.22+（22.x）/ 24+**，请使用对应主版本的最新补丁版；macOS Apple Silicon 已验证 22.23.4 和 24.22.2，Windows 11 已验证 24.9.0
+- 发布包固定 `better-sqlite3@13.0.3`。其 npm 包内含 Node-API 预编译文件，macOS Apple Silicon 与 Windows 11 已实测
 - macOS 需要 Xcode Command Line Tools 仅在原生依赖没有可用预编译时使用
 - Ubuntu 的 `node-pty` 没有预编译，可能需要 `build-essential`、`python`、`make`
-- Windows 安装、启动与原生模块仍待实机验证；终端、命令当前不可用，见 [known-limitations](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)
-- npm 全局目录可由当前用户写入；否则按 npm 文档配置用户级 prefix，不建议 `sudo`
+- Windows 10 1809+ / Windows 11 x64 使用包内预编译；PowerShell 5.1 与 ConPTY 是系统自带，无需 WSL 或 Visual Studio Build Tools
+- npm 全局目录可由当前用户写入；否则按 npm 文档配置用户级 prefix，不建议管理员权限
 
 ```bash
 npm install -g larness
@@ -19,6 +19,15 @@ larness
 ```
 
 `larness` 启动 TUI、Server 与 Web，和 `node app.js` 的受管入口一致。首次运行按初始化向导配置，随后在 TUI 配对浏览器。
+
+Windows 原生（PowerShell / cmd）直接运行同一命令。不要用 WSL 结果替代 Windows 原生验证：
+
+```powershell
+npm install -g larness
+larness
+```
+
+Windows Terminal 或系统自带的 conhost 均可；建议使用 Windows Terminal 获得更好的 Unicode 与缩放体验。
 
 ```bash
 larness --version   # 当前版本
@@ -62,7 +71,9 @@ npm uninstall -g larness
 - npm 11 会提示 `install-scripts` 未审查；脚本仍会执行。若被策略阻止，使用：
   `npm install -g larness --allow-scripts=node-pty@1.1.0`
 - npm 11 全局安装可能把 `node-pty` 的 `spawn-helper` 解压成不可执行；Larness 在创建终端前会修复该文件权限（仅 macOS），不需要用户手动 chmod。
-- Linux 安装可能需要编译 `node-pty`；Windows 原生终端/命令尚未实现。
+- Linux 安装可能需要编译 `node-pty`；Windows 11 x64 使用包内预编译并已实测。
+- Windows 数据目录位于 `%LOCALAPPDATA%\larness`，依赖当前用户 ACL 保护；不要共享同一 Windows 账户。
+- Windows 停止终端/命令使用 `taskkill /T /F` 清理进程树；这不是沙箱，源进程仍以当前用户权限运行。
 
 ## 相关文档
 

@@ -82,11 +82,18 @@ it("forwards only frontend reads, removes credentials and assigns a fresh CSP no
       await mkdir(path.join(root, "src"));
       await writeFile(path.join(root, ".env"), "private");
       const outside = path.join(path.dirname(root), `outside-${randomUUID()}`);
-      await symlink(path.dirname(root), path.join(root, "src/outside"));
-      for (const url of ["/.env", "/src/outside/missing", "/%252e%252e/secret", `/@fs${outside}`])
-        expect((await app.inject({ url, headers: { host: "localhost:3210" } })).statusCode).toBe(
-          404,
-        );
+      await symlink(
+        path.dirname(root),
+        path.join(root, "src/outside"),
+        process.platform === "win32" ? "junction" : undefined,
+      );
+      const fsUrl =
+        process.platform === "win32" ? `/@fs/${outside.replaceAll("\\", "/")}` : `/@fs${outside}`;
+      for (const url of ["/.env", "/src/outside/missing", "/%252e%252e/secret", fsUrl])
+        expect(
+          (await app.inject({ url, headers: { host: "localhost:3210" } })).statusCode,
+          url,
+        ).toBe(404);
     } finally {
       await app.close();
       upstream.closeAllConnections();

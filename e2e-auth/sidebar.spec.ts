@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
+import { execFileSync } from "./support";
 
 test("项目会话独立显示后台任务，并按需展开历史", async ({ page }) => {
   await page.goto("/pair");

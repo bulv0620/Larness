@@ -1,5 +1,6 @@
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { processAlive } from "@larness/resources";
 import { expect, it } from "vitest";
 import { acquireResourceLock, releaseResourceLock } from "../../src/modules/locks/service.js";
 import { createProject } from "../../src/modules/projects/service.js";
@@ -238,19 +239,22 @@ it("binds input and resize to one of two authenticated connections, fences repla
       const gen = first.json().lease.generation;
       expect((await lease(secondHeaders, b.connectionId)).statusCode).toBe(409);
       expect((await lease(headers, b.connectionId)).statusCode).toBe(403);
-      expect(await a.input(gen, 1, "printf X >> marker\r")).toMatchObject({
-        kind: "terminal.input.ack",
-        accepted: true,
-      });
-      expect(await a.input(gen, 1, "printf X >> marker\r")).toMatchObject({ accepted: false });
-      await until(async () => {
+      const appendMarker = (value: string) =>
+        process.platform === "win32" ? `>>marker echo ${value}\r` : `printf '${value}' >> marker\r`;
+      const markerIs = async (value: string) => {
         try {
-          return (await readFile(path.join(root, "marker"), "utf8")) === "X";
+          return (await readFile(path.join(root, "marker"), "utf8")).replace(/\s+/g, "") === value;
         } catch {
           return false;
         }
+      };
+      expect(await a.input(gen, 1, appendMarker("X"))).toMatchObject({
+        kind: "terminal.input.ack",
+        accepted: true,
       });
-      expect(await b.input(gen, 1, "printf BAD >> marker\r")).toMatchObject({
+      expect(await a.input(gen, 1, appendMarker("X"))).toMatchObject({ accepted: false });
+      await until(() => markerIs("X"));
+      expect(await b.input(gen, 1, appendMarker("BAD"))).toMatchObject({
         code: "TERMINAL_LEASE_REQUIRED",
       });
       expect(await a.input(gen, 3, "echo gap\r")).toMatchObject({ code: "VALIDATION_ERROR" });
@@ -261,10 +265,19 @@ it("binds input and resize to one of two authenticated connections, fences repla
         payload: { connectionId: a.connectionId, leaseGeneration: gen, cols: 103, rows: 37 },
       });
       expect(resized.statusCode).toBe(200);
-      await a.input(gen, 2, "stty size > dimensions\r");
+      await a.input(
+        gen,
+        2,
+        process.platform === "win32"
+          ? `"${process.execPath}" -e "require('fs').writeFileSync('dimensions',process.stdout.columns+' '+process.stdout.rows)"\r`
+          : "stty size > dimensions\r",
+      );
       await until(async () => {
         try {
-          return /37\s+103/.test(await readFile(path.join(root, "dimensions"), "utf8"));
+          const dimensions = await readFile(path.join(root, "dimensions"), "utf8");
+          return process.platform === "win32"
+            ? /103\s+37/.test(dimensions)
+            : /37\s+103/.test(dimensions);
         } catch {
           return false;
         }
@@ -275,8 +288,8 @@ it("binds input and resize to one of two authenticated connections, fences repla
       expect(await a.input(gen, 3, "echo OLD\r")).toMatchObject({
         code: "TERMINAL_LEASE_REQUIRED",
       });
-      await b.input(next, 1, "printf Y >> marker\r");
-      await until(async () => (await readFile(path.join(root, "marker"), "utf8")) === "XY");
+      await b.input(next, 1, appendMarker("Y"));
+      await until(() => markerIs("XY"));
       b.socket.close();
       await until(async () => !(await f.running.terminals.read(created.id)).lease);
       const handed = (await lease(headers, a.connectionId)).json().lease.generation;
@@ -317,82 +330,85 @@ it("binds input and resize to one of two authenticated connections, fences repla
   });
 });
 
-it("cleans a real foreground job process group and its TERM/HUP-resistant child before reporting termination", async () => {
-  await withTempDir(async (dir) => {
-    const f = await startAuthorizedServer(path.join(dir, "data"));
-    const root = path.join(dir, "project");
-    await mkdir(root);
-    const p = await createProject({ db: f.running.db }, { rootPath: root });
-    const headers = {
-      cookie: f.cookie,
-      origin: f.origin,
-      "x-csrf-token": f.csrf,
-      "idempotency-key": "foreground-job",
-    };
-    const created = (
-      await f.running.app.inject({
-        method: "POST",
-        url: "/api/terminals",
-        headers,
-        payload: { scope: { projectId: p.id }, riskAcknowledged: true },
-      })
-    ).json();
-    const connection = await socketFor(f, f.cookie, created.id);
-    try {
-      const control = (
+it.skipIf(process.platform === "win32")(
+  "cleans a real foreground job process group and its TERM/HUP-resistant child before reporting termination",
+  async () => {
+    await withTempDir(async (dir) => {
+      const f = await startAuthorizedServer(path.join(dir, "data"));
+      const root = path.join(dir, "project");
+      await mkdir(root);
+      const p = await createProject({ db: f.running.db }, { rootPath: root });
+      const headers = {
+        cookie: f.cookie,
+        origin: f.origin,
+        "x-csrf-token": f.csrf,
+        "idempotency-key": "foreground-job",
+      };
+      const created = (
         await f.running.app.inject({
           method: "POST",
-          url: `/api/terminals/${created.id}/lease`,
+          url: "/api/terminals",
           headers,
-          payload: { action: "acquire", connectionId: connection.connectionId },
+          payload: { scope: { projectId: p.id }, riskAcknowledged: true },
         })
-      ).json().lease;
-      const child =
-        "process.on('SIGTERM',()=>{});process.on('SIGHUP',()=>{});require('node:fs').writeFileSync('child-ready','yes');setInterval(()=>{},1000)";
-      const code = `const {spawn}=require('node:child_process');const fs=require('node:fs');process.on('SIGTERM',()=>{});process.on('SIGHUP',()=>{});const c=spawn(process.execPath,['-e',${JSON.stringify(child)}],{stdio:'ignore'});const t=setInterval(()=>{if(fs.existsSync('child-ready')){clearInterval(t);fs.writeFileSync('job-pids',JSON.stringify({parent:process.pid,child:c.pid}));}},10);setInterval(()=>{},1000)`;
-      const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
-      await connection.input(
-        control.generation,
-        1,
-        `${quote(process.execPath)} -e ${quote(code)}\r`,
-      );
-      let pids: { parent: number; child: number } | undefined;
-      await until(async () => {
-        try {
-          pids = JSON.parse(await readFile(path.join(root, "job-pids"), "utf8"));
-          return true;
-        } catch {
-          return false;
+      ).json();
+      const connection = await socketFor(f, f.cookie, created.id);
+      try {
+        const control = (
+          await f.running.app.inject({
+            method: "POST",
+            url: `/api/terminals/${created.id}/lease`,
+            headers,
+            payload: { action: "acquire", connectionId: connection.connectionId },
+          })
+        ).json().lease;
+        const child =
+          "process.on('SIGTERM',()=>{});process.on('SIGHUP',()=>{});require('node:fs').writeFileSync('child-ready','yes');setInterval(()=>{},1000)";
+        const code = `const {spawn}=require('node:child_process');const fs=require('node:fs');process.on('SIGTERM',()=>{});process.on('SIGHUP',()=>{});const c=spawn(process.execPath,['-e',${JSON.stringify(child)}],{stdio:'ignore'});const t=setInterval(()=>{if(fs.existsSync('child-ready')){clearInterval(t);fs.writeFileSync('job-pids',JSON.stringify({parent:process.pid,child:c.pid}));}},10);setInterval(()=>{},1000)`;
+        const quote = (value: string) => `'${value.replaceAll("'", `'\\''`)}'`;
+        await connection.input(
+          control.generation,
+          1,
+          `${quote(process.execPath)} -e ${quote(code)}\r`,
+        );
+        let pids: { parent: number; child: number } | undefined;
+        await until(async () => {
+          try {
+            pids = JSON.parse(await readFile(path.join(root, "job-pids"), "utf8"));
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const rootPid = (
+          JSON.parse(
+            (
+              f.running.sqlite
+                .prepare("SELECT process_identity_json FROM terminals WHERE id=?")
+                .get(created.id) as { process_identity_json: string }
+            ).process_identity_json,
+          ) as { pid: number }
+        ).pid;
+        const result = await f.running.app.inject({
+          method: "POST",
+          url: `/api/terminals/${created.id}/terminate`,
+          headers,
+          payload: { confirmed: true },
+        });
+        expect(result.json()).toMatchObject({ status: "TERMINATED" });
+        const { alive } = await import("../../scripts/m2-poc/system.js");
+        for (const pid of [rootPid, pids?.parent, pids?.child]) {
+          if (!pid) throw new Error("Missing fixture PID");
+          expect(await alive(pid)).toBe(false);
         }
-      });
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      const rootPid = (
-        JSON.parse(
-          (
-            f.running.sqlite
-              .prepare("SELECT process_identity_json FROM terminals WHERE id=?")
-              .get(created.id) as { process_identity_json: string }
-          ).process_identity_json,
-        ) as { pid: number }
-      ).pid;
-      const result = await f.running.app.inject({
-        method: "POST",
-        url: `/api/terminals/${created.id}/terminate`,
-        headers,
-        payload: { confirmed: true },
-      });
-      expect(result.json()).toMatchObject({ status: "TERMINATED" });
-      const { alive } = await import("../../scripts/m2-poc/system.js");
-      for (const pid of [rootPid, pids?.parent, pids?.child]) {
-        if (!pid) throw new Error("Missing fixture PID");
-        expect(await alive(pid)).toBe(false);
+      } finally {
+        connection.socket.terminate();
+        await stopAuthorizedServer(f);
       }
-    } finally {
-      connection.socket.terminate();
-      await stopAuthorizedServer(f);
-    }
-  });
-});
+    });
+  },
+);
 
 it("keeps dev roles unique and alive across Turn completion while allowing protected file edits", async () => {
   await withTempDir(async (dir) => {
@@ -506,7 +522,7 @@ it("rolls bounded terminal output by cursor under individual/global quotas and e
       let bytes = 0;
       for (const name of await readdir(a.directory)) {
         const info = await stat(path.join(a.directory, name));
-        expect(info.mode & 0o777).toBe(0o600);
+        if (process.platform !== "win32") expect(info.mode & 0o777).toBe(0o600);
         bytes += info.size;
       }
       expect(bytes).toBeLessThanOrEqual(6144);
@@ -586,8 +602,7 @@ it("marks old terminal execution interrupted without signalling an unrelated sto
           ),
         ).toBeNull();
         if (!unrelated.pid) throw new Error("Missing fixture PID");
-        const { alive } = await import("../../scripts/m2-poc/system.js");
-        expect(await alive(unrelated.pid)).toBe(true);
+        expect(processAlive(unrelated.pid)).toBe(true);
       } finally {
         await restarted.shutdown("test");
       }
@@ -933,8 +948,7 @@ it("stops real PTYs on output failure or terminal result commit failure and pres
         reasonCode: "RESULT_RECORD_FAILED",
       });
       expect(finished).toHaveLength(0);
-      const { alive } = await import("../../scripts/m2-poc/system.js");
-      expect(await alive(identity.pid)).toBe(false);
+      expect(processAlive(identity.pid)).toBe(false);
       expect(
         f.running.sqlite
           .prepare(
@@ -992,8 +1006,7 @@ it("server shutdown closes an active PTY and input connection before closing SQL
     try {
       await f.running.shutdown("terminal-shutdown-test");
       await until(() => connection.socket.readyState === 3);
-      const { alive } = await import("../../scripts/m2-poc/system.js");
-      expect(await alive(pid)).toBe(false);
+      expect(processAlive(pid)).toBe(false);
       const { openDatabase } = await import("../../src/db/client.js");
       const reopened = openDatabase(dbPath);
       try {
@@ -1182,8 +1195,7 @@ it("quarantines a native spawn exception after a real PTY was created instead of
           .get(),
       ).toEqual({ status: "RECONCILIATION_REQUIRED" });
       if (!spawned.pty) throw new Error("Missing actual fixture PTY");
-      const { alive } = await import("../../scripts/m2-poc/system.js");
-      expect(await alive(spawned.pty.pid)).toBe(true);
+      expect(processAlive(spawned.pty.pid)).toBe(true);
       expect(
         (
           await f.running.app.inject({
@@ -1198,7 +1210,7 @@ it("quarantines a native spawn exception after a real PTY was created instead of
       const child = spawned.pty;
       if (child) {
         const exited = new Promise<void>((resolve) => child.onExit(() => resolve()));
-        child.kill("SIGKILL");
+        child.kill();
         await exited;
       }
       await stopAuthorizedServer(f);

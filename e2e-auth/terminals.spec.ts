@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { execFileSync } from "./support";
 
 async function pair(page: Page) {
   await page.goto("/pair");
@@ -114,7 +114,12 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
     await other.keyboard.press("Escape");
     await terminal
       .locator(".xterm-helper-textarea")
-      .pressSequentially("printf 'REAL_PTY_%s\\n' shared", { delay: 10 });
+      .pressSequentially(
+        process.platform === "win32" ? "echo REAL_PTY_shared" : "printf 'REAL_PTY_%s\\n' shared",
+        {
+          delay: 10,
+        },
+      );
     await terminal.locator(".xterm-helper-textarea").press("Enter");
     await expect(terminal.getByRole("log")).toContainText("REAL_PTY_shared");
     await expect(other.getByTestId("live-terminal").getByRole("log")).toContainText(
@@ -135,7 +140,9 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
     });
     await terminal
       .locator(".xterm-helper-textarea")
-      .pressSequentially("printf 'WHILE_%s\\n' hidden");
+      .pressSequentially(
+        process.platform === "win32" ? "echo WHILE_hidden" : "printf 'WHILE_%s\\n' hidden",
+      );
     await terminal.locator(".xterm-helper-textarea").press("Enter");
     await expect(terminal.getByRole("log")).toContainText("WHILE_hidden");
 
@@ -270,7 +277,9 @@ test("M2 terminal lease failures, expiry and logout preserve the PTY and permit 
     await expect(terminal).toHaveAttribute("data-input-state", "active");
     await terminal
       .locator(".xterm-helper-textarea")
-      .pressSequentially("printf 'HANDOFF_%s\\n' alive");
+      .pressSequentially(
+        process.platform === "win32" ? "echo HANDOFF_alive" : "printf 'HANDOFF_%s\\n' alive",
+      );
     await terminal.locator(".xterm-helper-textarea").press("Enter");
     await expect(terminal.getByRole("log")).toContainText("HANDOFF_alive");
     await page.getByRole("button", { name: "关闭窗口", exact: true }).click();

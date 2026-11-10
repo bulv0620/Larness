@@ -58,7 +58,12 @@ export class TerminalSession {
   constructor(options: { input?: ReadStream; output?: WriteStream; term?: string } = {}) {
     this.input = options.input ?? process.stdin;
     this.output = options.output ?? process.stdout;
-    this.term = options.term ?? process.env.TERM;
+    // Native Windows shells do not set TERM. The console itself is a capable
+    // ANSI terminal (Windows 10 1511+ conhost and Windows Terminal).
+    this.term =
+      options.term ??
+      process.env.TERM ??
+      (process.platform === "win32" ? "xterm-256color" : undefined);
   }
   get columns(): number {
     return this.output.columns || 80;

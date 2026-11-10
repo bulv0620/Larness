@@ -63,11 +63,13 @@ it("reads only the registered service's own project log, rejecting links, foreig
       await expect(runtime.logs(service.targetId)).rejects.toMatchObject({
         code: "DEPLOY_UNAVAILABLE",
       });
-      app.log = path.join(root, "linked.log");
-      await symlink(log, app.log);
-      await expect(runtime.logs(service.targetId)).rejects.toMatchObject({
-        code: "DEPLOY_UNAVAILABLE",
-      });
+      if (process.platform !== "win32") {
+        app.log = path.join(root, "linked.log");
+        await symlink(log, app.log);
+        await expect(runtime.logs(service.targetId)).rejects.toMatchObject({
+          code: "DEPLOY_UNAVAILABLE",
+        });
+      }
       app.log = log;
       app.namespace = "foreign";
       await expect(runtime.logs(service.targetId)).rejects.toMatchObject({

@@ -211,7 +211,6 @@ it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])
       activeTurnId: turnId,
     });
     const view = render(<Timeline />);
-    fireEvent.click(screen.getByRole("button", { name: /执行过程/ }));
     fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 修改样式" }));
     const plan = screen.getByRole("list", { name: "样式调整" });
     expect(plan.querySelector(".animate-spin")).toBeInTheDocument();
@@ -236,7 +235,6 @@ it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])
       activeTurnId: "turn-next",
     });
     render(<Timeline />);
-    fireEvent.click(screen.getByRole("button", { name: /执行过程/ }));
     fireEvent.click(screen.getByRole("button", { name: /^计划 · 1\/3/ }));
     const replayedPlan = screen.getByRole("list", { name: "样式调整" });
     expect(replayedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();

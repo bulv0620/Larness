@@ -197,19 +197,22 @@ describe("service operations runtime without PM2", () => {
 });
 
 describe("PM2 initialization failure", () => {
-  it("reports an unwritable global prefix without installing", async () => {
-    await withTempDir(async (dir) => {
-      const prefix = path.join(dir, "readonly");
-      await mkdir(prefix, { recursive: true });
-      await chmod(prefix, 0o500);
-      try {
-        const result = await ensureGlobalPm2({ prefix });
-        expect(result).toEqual({ status: "unavailable", reason: "permissions" });
-      } finally {
-        await chmod(prefix, 0o700);
-      }
-    });
-  });
+  it.skipIf(process.platform === "win32")(
+    "reports an unwritable global prefix without installing",
+    async () => {
+      await withTempDir(async (dir) => {
+        const prefix = path.join(dir, "readonly");
+        await mkdir(prefix, { recursive: true });
+        await chmod(prefix, 0o500);
+        try {
+          const result = await ensureGlobalPm2({ prefix });
+          expect(result).toEqual({ status: "unavailable", reason: "permissions" });
+        } finally {
+          await chmod(prefix, 0o700);
+        }
+      });
+    },
+  );
 });
 
 describe("service operations REST", () => {

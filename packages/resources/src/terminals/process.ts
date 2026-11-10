@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { OutputRedactor } from "../commands/redactor.js";
-import { commandEnvironment } from "../commands/runner.js";
+import { commandEnvironment } from "../platform/environment.js";
+import { processAlive, processTreePids, terminateProcessTree } from "../platform/process.js";
 
 const exec = promisify(execFile);
 interface Member {
@@ -35,6 +36,7 @@ export interface NativePty {
   pid: number;
   write(data: string): void;
   resize(cols: number, rows: number): void;
+  kill?(signal?: string): void;
   onData(callback: (data: string) => void): { dispose(): void };
   onExit(callback: (event: { exitCode: number; signal?: number }) => void): { dispose(): void };
 }
@@ -61,19 +63,26 @@ export class ManagedPty {
     this.done = new Promise((resolve) => {
       this.#resolve = resolve;
     });
-    this.ready = this.#capture();
-    this.#timer = setInterval(() => {
-      if (!this.#poll) {
-        this.#poll = this.#capture()
-          .catch(() => {
-            this.#controlAvailable = false;
-            void this.stop();
-          })
-          .finally(() => {
-            this.#poll = undefined;
-          });
-      }
-    }, 250);
+    if (process.platform === "win32") {
+      // ConPTY exposes no process groups. Descendants are enumerated only when
+      // stopping, so there is nothing to poll while the terminal is alive.
+      this.ready = Promise.resolve();
+      this.#timer = setInterval(() => undefined, 60_000);
+    } else {
+      this.ready = this.#capture();
+      this.#timer = setInterval(() => {
+        if (!this.#poll) {
+          this.#poll = this.#capture()
+            .catch(() => {
+              this.#controlAvailable = false;
+              void this.stop();
+            })
+            .finally(() => {
+              this.#poll = undefined;
+            });
+        }
+      }, 250);
+    }
     this.#timer.unref();
     native.onData((data) => {
       try {
@@ -175,11 +184,27 @@ export class ManagedPty {
   get controlAvailable() {
     return this.#controlAvailable && !this.#exited && !this.#stop;
   }
+  async #stopWindows(): Promise<boolean> {
+    const known = await processTreePids(this.native.pid).catch(() => [this.native.pid]);
+    // Closing the ConPTY handle first releases conhost; taskkill then walks the
+    // live tree so shell wrappers and their children cannot survive the stop.
+    try {
+      this.native.kill?.();
+    } catch {
+      // The process may already be gone.
+    }
+    const stopped = await terminateProcessTree(this.native.pid);
+    return stopped && !processAlive(this.native.pid) && known.every((pid) => !processAlive(pid));
+  }
   stop(): Promise<boolean> {
     this.#stop ??= (async () => {
       let stopped = false;
       try {
         await this.ready;
+        if (process.platform === "win32") {
+          stopped = await this.#stopWindows();
+          return stopped;
+        }
         if (!(await this.#gone())) {
           if (!(await this.#signal("SIGTERM"))) return false;
           await delay(300);

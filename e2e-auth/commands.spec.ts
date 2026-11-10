@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
+import { execFileSync } from "./support";
 
 test("M2 command approval runs real bytes, streams redacted output, survives refresh and cancels explicitly", async ({
   page,

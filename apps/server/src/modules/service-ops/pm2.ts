@@ -3,6 +3,13 @@ import { constants } from "node:fs";
 import { access, chmod, lstat, mkdir, readFile, realpath, rm } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import {
+  commandEnvironment,
+  processAlive,
+  processCommandLine,
+  terminateProcessTree,
+  windowsLaunch,
+} from "@larness/resources";
 import { z } from "zod";
 
 const exec = promisify(execFile);
@@ -23,11 +30,7 @@ export interface Pm2GlobalOptions {
 }
 
 function childEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
-  for (const key of ["PATH", "HOME", "TMPDIR", "TMP", "LANG", "LC_ALL"]) {
-    if (process.env[key] !== undefined) env[key] = process.env[key];
-  }
-  return env;
+  return { ...commandEnvironment(), LC_ALL: "C" };
 }
 
 function absent(error: unknown): boolean {
@@ -50,22 +53,32 @@ async function runNpm(
 ) {
   const npm = options.npm ?? "npm";
   const extra = options.prefix ? ["--prefix", options.prefix] : [];
-  return exec(npm, [...args, ...extra], {
+  const argv = [...args, ...extra];
+  const launch =
+    process.platform === "win32"
+      ? windowsLaunch(npm, argv, process.cwd())
+      : { executable: npm, args: argv };
+  return exec(launch.executable, launch.args, {
     env: childEnv(),
     timeout,
     maxBuffer: MAX_OUTPUT,
+    windowsHide: true,
   });
 }
 
 async function globalRoot(options: Pm2GlobalOptions): Promise<string | "unavailable"> {
   if (!options.npm && !process.env.PATH) return "unavailable";
+  if (options.prefix) {
+    // npm's global root is deterministic for a prefix and avoids parsing npm
+    // output (npm also masks UUID-like path segments in its own output).
+    return process.platform === "win32"
+      ? path.join(options.prefix, "node_modules")
+      : path.join(options.prefix, "lib", "node_modules");
+  }
   try {
     const { stdout } = await runNpm(options, ["root", "--global"]);
     const root = stdout.trim();
     if (!path.isAbsolute(root)) return "unavailable";
-    if (options.prefix && root !== path.join(options.prefix, "lib", "node_modules")) {
-      return "unavailable";
-    }
     return root;
   } catch {
     return "unavailable";
@@ -209,22 +222,13 @@ export class Pm2Adapter {
       await mkdir(this.#home, { recursive: true, mode: 0o700 });
       const created = await lstat(this.#home);
       if ((created.mode & 0o077) !== 0) await chmod(this.#home, 0o700);
-      const [dir, socket, pidFile] = await Promise.all([
-        lstat(this.#home),
-        lstat(path.join(this.#home, "rpc.sock")),
-        lstat(path.join(this.#home, "pm2.pid")),
-      ]);
-      const uid = process.getuid?.();
-      if (
-        !dir.isDirectory() ||
-        (dir.mode & 0o077) !== 0 ||
-        dir.uid !== uid ||
-        !socket.isSocket() ||
-        socket.uid !== uid ||
-        !pidFile.isFile() ||
-        pidFile.uid !== uid
-      ) {
-        return undefined;
+      const pidFile = await lstat(path.join(this.#home, "pm2.pid"));
+      if (!pidFile.isFile()) return undefined;
+      if (process.platform !== "win32") {
+        const socket = await lstat(path.join(this.#home, "rpc.sock"));
+        const uid = process.getuid?.();
+        if ((created.mode & 0o077) !== 0 || created.uid !== uid) return undefined;
+        if (!socket.isSocket() || socket.uid !== uid || pidFile.uid !== uid) return undefined;
       }
       const pid = Number(await readFile(path.join(this.#home, "pm2.pid"), "utf8"));
       if (!Number.isSafeInteger(pid) || pid < 2) return undefined;
@@ -235,14 +239,21 @@ export class Pm2Adapter {
   }
 
   async #isDaemon(pid: number): Promise<boolean> {
-    try {
-      const { stdout } = await exec("/bin/ps", ["-ww", "-p", String(pid), "-o", "command="], {
-        timeout: 1_000,
-      });
-      return stdout.trim() === `PM2 v${this.#global.version}: God Daemon (${this.#home})`;
-    } catch {
-      return false;
+    if (!processAlive(pid)) return false;
+    const command = await processCommandLine(pid);
+    if (!command) return false;
+    const expected = `PM2 v${this.#global.version}: God Daemon (${this.#home})`;
+    if (command === expected) return true;
+    // Windows cannot always rewrite the process title; the daemon still runs
+    // our exact PM2 entry below our private PM2_HOME.
+    if (process.platform === "win32") {
+      // Windows PM2 starts its daemon as `node .../pm2/lib/Daemon.js`; the
+      // package root in the command line binds it to this installation.
+      const normalized = command.replaceAll("\\", "/").toLowerCase();
+      const root = path.join(this.#global.root, "pm2").replaceAll("\\", "/").toLowerCase();
+      return normalized.includes(`${root}/`) && normalized.includes("daemon.js");
     }
+    return false;
   }
 
   async #rpc(method: string, args: object): Promise<unknown> {
@@ -349,6 +360,10 @@ export class Pm2Adapter {
   async close(): Promise<void> {
     const pid = await this.daemonPid();
     if (!pid) return;
+    if (process.platform === "win32") {
+      await terminateProcessTree(pid);
+      return;
+    }
     process.kill(pid, "SIGTERM");
     for (let attempt = 0; attempt < 60; attempt += 1) {
       if (!(await this.#isDaemon(pid))) {

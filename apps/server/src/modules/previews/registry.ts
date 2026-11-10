@@ -320,6 +320,12 @@ export class PreviewRegistry {
       res.end("preview connection limit");
       return;
     }
+    // Reserve the slot before the asynchronous verification so parallel
+    // requests cannot all pass the limit check while verification is pending.
+    this.#active++;
+    res.on("close", () => {
+      this.#active--;
+    });
     try {
       await this.#verify(grant.serviceId);
       const target = this.#services.dialTarget(grant.serviceId);
@@ -418,10 +424,6 @@ export class PreviewRegistry {
   }
 
   #proxy(req: IncomingMessage, res: ServerResponse, url: URL, host: string, port: number): void {
-    this.#active++;
-    res.on("close", () => {
-      this.#active--;
-    });
     const declared = Number(req.headers["content-length"]);
     if (Number.isFinite(declared) && declared > this.#maxBodyBytes) {
       res.writeHead(413, { "cache-control": "no-store" });

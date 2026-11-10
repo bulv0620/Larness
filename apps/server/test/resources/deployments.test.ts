@@ -180,7 +180,8 @@ describe("deployment build and artifact", () => {
         );
         expect(await readFile(path.join(payload, "main.js"), "utf8")).toContain("v1");
         expect(await readFile(path.join(payload, "assets.txt"), "utf8")).toBe("asset-v1");
-        expect((await stat(path.join(payload, "main.js"))).mode & 0o777).toBe(0o400);
+        if (process.platform !== "win32")
+          expect((await stat(path.join(payload, "main.js"))).mode & 0o777).toBe(0o400);
         expect(await f.manager.verifyArtifact(artifact.id)).toEqual({ valid: true });
         const log = await f.manager.readBuildLog(build.id);
         expect(log).toContain("built v1");
@@ -234,29 +235,32 @@ describe("deployment build and artifact", () => {
     });
   });
 
-  it("rejects an output directory containing a symlink outside the project", async () => {
-    await withTempDir(async (dir) => {
-      const f = await fixture(dir);
-      try {
-        await writeFile(path.join(dir, "outside.txt"), "outside");
-        await writeFile(
-          path.join(f.root, "build.mjs"),
-          [
-            'import { mkdir, symlink } from "node:fs/promises";',
-            'await mkdir("dist", { recursive: true });',
-            `await symlink(${JSON.stringify(path.join(dir, "outside.txt"))}, "dist/leak.txt");`,
-            "",
-          ].join("\n"),
-        );
-        const build = await f.manager.build(buildInput(f.projectId, spec()));
-        expect(build.status).toBe("FAILED");
-        expect(build.reasonCode).toBe("OUTPUT_INVALID");
-        expect(f.manager.artifactForBuild(build.id)).toBeNull();
-      } finally {
-        f.close();
-      }
-    });
-  });
+  it.skipIf(process.platform === "win32")(
+    "rejects an output directory containing a symlink outside the project",
+    async () => {
+      await withTempDir(async (dir) => {
+        const f = await fixture(dir);
+        try {
+          await writeFile(path.join(dir, "outside.txt"), "outside");
+          await writeFile(
+            path.join(f.root, "build.mjs"),
+            [
+              'import { mkdir, symlink } from "node:fs/promises";',
+              'await mkdir("dist", { recursive: true });',
+              `await symlink(${JSON.stringify(path.join(dir, "outside.txt"))}, "dist/leak.txt");`,
+              "",
+            ].join("\n"),
+          );
+          const build = await f.manager.build(buildInput(f.projectId, spec()));
+          expect(build.status).toBe("FAILED");
+          expect(build.reasonCode).toBe("OUTPUT_INVALID");
+          expect(f.manager.artifactForBuild(build.id)).toBeNull();
+        } finally {
+          f.close();
+        }
+      });
+    },
+  );
 
   it("enforces artifact size limits and removes the staging output", async () => {
     await withTempDir(async (dir) => {

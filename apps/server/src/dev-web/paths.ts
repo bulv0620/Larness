@@ -77,7 +77,11 @@ export function permittedPath(rawUrl: string, webRoot: string, roots: string[]):
       decoded.startsWith("/__vite")
     )
       return false;
-    const file = decoded.startsWith("/@fs/") ? decoded.slice(4) : path.join(webRoot, decoded);
+    // Vite serializes /@fs/<absolute>; on Windows the drive path follows the
+    // prefix directly (C:/...), while POSIX keeps its leading slash.
+    const file = decoded.startsWith("/@fs/")
+      ? path.normalize(decoded.slice(process.platform === "win32" ? 5 : 4))
+      : path.join(webRoot, decoded);
     if (existsSync(file))
       return roots.some((root) => contains(realpathSync(root), realpathSync(file)));
     // A missing path below a symlink must still be checked through its nearest ancestor.

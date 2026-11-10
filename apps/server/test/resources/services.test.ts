@@ -261,7 +261,9 @@ it("registers a verified temporary service, replays events and unregisters when 
       expect(endedReplay.items.at(-1)).toMatchObject({ type: "service.unregistered" });
 
       await delay(200);
-      await write(`"${process.execPath}" "${serverPath}" ${port}\n`);
+      await write(
+        `"${process.execPath}" "${serverPath}" ${port}${process.platform === "win32" ? "\r" : "\n"}`,
+      );
       await waitFor(async () => (await listeningSockets(port)).length > 0, "restarted listener");
       const restarted = await services.register(
         {
@@ -308,11 +310,12 @@ it("rejects listeners outside the terminal tree and missing endpoints, but accep
           args: ["-e", "setInterval(() => {}, 1000)"],
         },
       );
+      const outsideOperation = operation();
       await expect(
         services.register(
           {
             projectId: project.id,
-            operationId: operation(),
+            operationId: outsideOperation,
             terminalId: terminal.id,
             kind: "temporary",
             name: "outside",
@@ -321,6 +324,11 @@ it("rejects listeners outside the terminal tree and missing endpoints, but accep
           client,
         ),
       ).rejects.toMatchObject({ code: "PREVIEW_TARGET_INVALID" });
+      // The fixture owns this operation, so close it before creating another
+      // terminal under the same project root.
+      f.running.sqlite
+        .prepare("UPDATE resource_operations SET status = 'FAILED' WHERE id = ?")
+        .run(outsideOperation);
 
       const wildcardPort = await freePort();
       const wildcardPath = path.join(root, "wildcard.mjs");

@@ -4,9 +4,18 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const root = process.cwd();
-const packOutput = JSON.parse(
-  execFileSync("npm", ["pack", "--json"], { cwd: root, encoding: "utf8" }),
-)[0];
+const cmdQuote = (value) =>
+  /[\s"]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value;
+const runCmd = (command, args, options) =>
+  execFileSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", [command, ...args].map(cmdQuote).join(" ")], {
+    ...options,
+    windowsVerbatimArguments: true,
+  });
+const npm = (args, options = {}) =>
+  process.platform === "win32"
+    ? runCmd("npm", args, options)
+    : execFileSync("npm", args, options);
+const packOutput = JSON.parse(npm(["pack", "--json"], { cwd: root, encoding: "utf8" }))[0];
 const tarball = path.join(root, packOutput.filename);
 const paths = packOutput.files.map((file) => file.path.replaceAll("\\", "/"));
 
@@ -49,7 +58,7 @@ const version = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")
 if (process.argv.includes("--install")) {
   const prefix = mkdtempSync(path.join(tmpdir(), "larness-npm-pack-"));
   try {
-    execFileSync("npm", ["install", "-g", "--prefix", prefix, tarball], {
+    npm(["install", "-g", "--prefix", prefix, tarball], {
       cwd: root,
       stdio: "inherit",
       env: { ...process.env, npm_config_update_notifier: "false" },
@@ -60,9 +69,7 @@ if (process.argv.includes("--install")) {
         : path.join(prefix, "bin", "larness");
     const installed = (
       process.platform === "win32"
-        ? execFileSync("cmd.exe", ["/d", "/s", "/c", `"${bin}" --version`], {
-            encoding: "utf8",
-          })
+        ? runCmd(bin, ["--version"], { encoding: "utf8" })
         : execFileSync(bin, ["--version"], { encoding: "utf8" })
     ).trim();
     if (installed !== version) {
@@ -70,7 +77,7 @@ if (process.argv.includes("--install")) {
     }
     console.log(`installed ${packOutput.filename} (${paths.length} files) → larness ${installed}`);
   } finally {
-    rmSync(prefix, { recursive: true, force: true });
+    rmSync(prefix, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     rmSync(tarball, { force: true });
   }
 } else {

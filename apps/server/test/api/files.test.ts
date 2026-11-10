@@ -85,7 +85,11 @@ describe("M2-1 files API", () => {
         await writeFile(path.join(root, "binary"), Buffer.from([0, 1]));
         await writeFile(path.join(root, "invalid"), Buffer.from([0xff]));
         await writeFile(path.join(root, "large"), "a".repeat(512 * 1024 + 1));
-        await symlink(path.join(dir, "data"), path.join(root, "outside"));
+        await symlink(
+          path.join(dir, "data"),
+          path.join(root, "outside"),
+          process.platform === "win32" ? "junction" : undefined,
+        );
         const headers = {
           cookie: started.cookie,
           origin: started.origin,

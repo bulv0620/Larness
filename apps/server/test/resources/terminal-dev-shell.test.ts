@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile } from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
+import { processAlive } from "@larness/resources";
 import { expect, it } from "vitest";
 import { createProject } from "../../src/modules/projects/service.js";
 import { updateTurnRow } from "../../src/modules/sessions/repository.js";
@@ -11,7 +12,7 @@ import { withTempDir } from "../helpers.js";
 import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
 async function until(check: () => Promise<boolean>) {
-  const deadline = Date.now() + 5000;
+  const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
     if (await check()) return;
     await new Promise((resolve) => setTimeout(resolve, 15));
@@ -24,6 +25,14 @@ async function contents(file: string) {
   } catch {
     return "";
   }
+}
+function shellWrite(file: string, value: string): string {
+  return process.platform === "win32"
+    ? `>${file} echo ${value}\r`
+    : `printf '${value}' > ${file}\r`;
+}
+async function written(file: string, value: string): Promise<boolean> {
+  return (await contents(file)).trim() === value;
 }
 async function fixture(dir: string) {
   const f = await startAuthorizedServer(path.join(dir, "data"));
@@ -113,8 +122,8 @@ it("Ctrl+C stops the agent's foreground service but preserves the PTY for later 
         status: "RUNNING",
         exitCode: null,
       });
-      await input("printf 'resumed' > resumed.txt\r");
-      await until(async () => (await contents(path.join(f.root, "resumed.txt"))) === "resumed");
+      await input(shellWrite("resumed.txt", "resumed"));
+      await until(async () => written(path.join(f.root, "resumed.txt"), "resumed"));
       const events = f.f.running.sqlite
         .prepare("SELECT type FROM resource_events WHERE stream_id = ?")
         .all(row.id);
@@ -148,8 +157,8 @@ it.each([0, 9])(
         await until(async () => !!(await contents(path.join(f.root, "args.json"))));
         expect(JSON.parse(await readFile(path.join(f.root, "args.json"), "utf8"))).toEqual(args);
         const input = await f.input(row.id);
-        await input("printf 'usable' > usable.txt\r");
-        await until(async () => (await contents(path.join(f.root, "usable.txt"))) === "usable");
+        await input(shellWrite("usable.txt", "usable"));
+        await until(async () => written(path.join(f.root, "usable.txt"), "usable"));
         await expect(readFile(path.join(f.root, "injected"))).rejects.toMatchObject({
           code: "ENOENT",
         });
@@ -175,11 +184,11 @@ it.each(["missing-program", "eval"])(
         ]);
         expect((await f.manager.read(row.id)).status).toBe("RUNNING");
         const input = await f.input(row.id);
-        await input("printf 'recover' > recovery.txt\r");
+        await input(shellWrite("recovery.txt", "recover"));
         await expect(readFile(path.join(f.root, "unexpected"))).rejects.toMatchObject({
           code: "ENOENT",
         });
-        await until(async () => (await contents(path.join(f.root, "recovery.txt"))) === "recover");
+        await until(async () => written(path.join(f.root, "recovery.txt"), "recover"));
       } finally {
         await stopAuthorizedServer(f.f);
       }
@@ -201,9 +210,8 @@ it("explicit stop still cleans the bootstrap Shell and its foreground process tr
       const parent = Number(await readFile(path.join(f.root, "parent-pid"), "utf8"));
       const childPid = Number(await readFile(path.join(f.root, "child-pid"), "utf8"));
       expect((await f.manager.terminate(row.id, f.client)).status).toBe("TERMINATED");
-      const { alive } = await import("../../scripts/m2-poc/system.js");
-      expect(await alive(parent)).toBe(false);
-      expect(await alive(childPid)).toBe(false);
+      expect(processAlive(parent)).toBe(false);
+      expect(processAlive(childPid)).toBe(false);
     } finally {
       await stopAuthorizedServer(f.f);
     }

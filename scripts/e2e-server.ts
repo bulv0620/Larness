@@ -96,7 +96,9 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
         step(0),
         { ...toolStep({ id: "inspect", name: "list_files", args: { path: "." } }), delayMs: 1500 },
         step(1),
-        { ...step(2), delayMs: 1500 },
+        // Keep the active plan visible long enough for slower hosts to observe
+        // the running state before the final text arrives.
+        { ...step(2), delayMs: 8_000 },
         textStep(
           Array.from(
             { length: 60 },

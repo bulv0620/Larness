@@ -41,7 +41,9 @@ export function registerStaticRoutes(app: FastifyInstance, options: StaticRoutes
       throw new HttpError("NOT_FOUND", "Not found");
     }
 
-    return reply.sendFile(path.join("assets", asset), {
+    // @fastify/static resolves POSIX-style relative names; path.join would emit
+    // backslashes on Windows and be rejected as an invalid path.
+    return reply.sendFile(path.posix.join("assets", asset), {
       maxAge: "1y",
       immutable: true,
     });

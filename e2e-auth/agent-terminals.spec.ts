@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { execFileSync } from "./support";
 
 async function cleanupProject(page: Page, root: string): Promise<boolean> {
   return page.evaluate(async (rootPath) => {

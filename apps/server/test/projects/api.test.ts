@@ -180,7 +180,7 @@ describe("projects API", () => {
         const realDir = path.join(dir, "real");
         const link = path.join(dir, "link");
         await (await import("node:fs/promises")).mkdir(realDir);
-        await symlink(realDir, link);
+        await symlink(realDir, link, process.platform === "win32" ? "junction" : undefined);
         const first = await started.running.app.inject({
           method: "POST",
           url: "/api/projects",

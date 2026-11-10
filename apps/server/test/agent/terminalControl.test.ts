@@ -261,6 +261,8 @@ it("wires acquire, input, interrupt and read through approvals without persistin
       const row = await f.started.running.terminals.read(terminal.id);
       expect(row.status).toBe("RUNNING");
       expect(row.lease).toBeNull();
+      await until(async () => (await f.output(terminal.id)).includes("GOT:secret-payload"));
+      await until(async () => (await f.output(terminal.id)).includes("INT"));
       const text = await f.output(terminal.id);
       expect(text).toContain("GOT:secret-payload");
       expect(text).toContain("INT");
@@ -348,7 +350,9 @@ it("controls a human-created project shell while refusing another project and a 
         context,
         generation,
         1,
-        "printf 'SHELL_CONTROL_%s\\n' ok\r",
+        process.platform === "win32"
+          ? "echo SHELL_CONTROL_ok\r"
+          : "printf 'SHELL_CONTROL_%s\\n' ok\r",
       );
       await until(() => f.output(terminal.id).then((text) => text.includes("SHELL_CONTROL_ok")));
       expect(
@@ -387,7 +391,10 @@ it("uses the approved Agent tools to type and read a manually created Shell", as
           terminalId: terminal.id,
           leaseGeneration: 1,
           inputSequence: 1,
-          data: "printf 'AGENT_SHELL_%s\\n' ok\r",
+          data:
+            process.platform === "win32"
+              ? "echo AGENT_SHELL_ok\r"
+              : "printf 'AGENT_SHELL_%s\\n' ok\r",
         }),
         toolStep("read-shell", "read_terminal_output", { terminalId: terminal.id }),
         textStep("shell done"),

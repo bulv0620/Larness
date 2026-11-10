@@ -132,7 +132,11 @@ it("fails closed when the default root is replaced with an outside symlink", asy
       await mkdir(outside);
       await writeFile(path.join(outside, "secret.txt"), "outside-marker");
       await rename(session.workspacePath, `${session.workspacePath}-old`);
-      await symlink(outside, session.workspacePath);
+      await symlink(
+        outside,
+        session.workspacePath,
+        process.platform === "win32" ? "junction" : undefined,
+      );
       const result = await f.running.app.inject({
         url: "/api/files?workspace=default&path=secret.txt",
         headers: { cookie: f.cookie, origin: f.origin },
@@ -255,7 +259,10 @@ it("runs approved Agent control and file tools in the default workspace while is
           terminalId: terminal.id,
           leaseGeneration: 1,
           inputSequence: 1,
-          data: "printf 'DEFAULT_AI_%s\\n' ok\r",
+          data:
+            process.platform === "win32"
+              ? "echo DEFAULT_AI_ok\r"
+              : "printf 'DEFAULT_AI_%s\\n' ok\r",
         }),
         step("read", "read_terminal_output", { terminalId: terminal.id }),
         {

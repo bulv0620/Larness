@@ -1,7 +1,12 @@
 import { execFile, spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 import { promisify } from "node:util";
+import { commandEnvironment } from "../platform/environment.js";
+import { processAlive, processTreePids, terminateProcessTree } from "../platform/process.js";
 import { OutputRedactor } from "./redactor.js";
+import { windowsLaunch } from "./windows.js";
+
+export { commandEnvironment } from "../platform/environment.js";
 
 const exec = promisify(execFile);
 export const MAX_COMMAND_OUTPUT_BYTES = 1024 * 1024;
@@ -28,23 +33,6 @@ export interface CommandRunResult {
   reasonCode: string | null;
   truncated: boolean;
   stopped: boolean;
-}
-export function commandEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {};
-  for (const key of [
-    "PATH",
-    "HOME",
-    "TMPDIR",
-    "TMP",
-    "TEMP",
-    "LANG",
-    "LC_ALL",
-    "LC_CTYPE",
-    "TERM",
-  ]) {
-    if (source[key] !== undefined) env[key] = source[key];
-  }
-  return env;
 }
 interface GroupMember {
   pid: number;
@@ -106,9 +94,20 @@ export async function stopCommandGroup(
     return false;
   }
 }
+async function stopWindowsTree(
+  pid: number,
+  captured: Set<number>,
+  graceMs: number,
+  authorizeSignal?: () => Promise<boolean>,
+): Promise<boolean> {
+  const known = new Set(captured);
+  known.add(pid);
+  if (![...known].some((target) => processAlive(target))) return true;
+  if (authorizeSignal && !(await authorizeSignal())) return false;
+  if (!(await terminateProcessTree(pid, Math.max(2_000, graceMs + 2_000)))) return false;
+  return [...known].every((target) => !processAlive(target));
+}
 export async function runCommand(options: CommandRunOptions): Promise<CommandRunResult> {
-  if (process.platform === "win32")
-    throw new Error("Command execution unavailable on this platform");
   if (!Number.isInteger(options.timeoutMs) || options.timeoutMs <= 0 || options.timeoutMs > 600_000)
     throw new Error("Invalid command timeout");
   if (options.signal?.aborted)
@@ -132,9 +131,17 @@ export async function runCommand(options: CommandRunOptions): Promise<CommandRun
   const stopFinished = new Promise<void>((resolve) => {
     finishStop = resolve;
   });
+  const windows = process.platform === "win32";
   const owned = new Map<number, string>();
+  const windowsOwned = new Set<number>();
   let birthCapture: Promise<void> = Promise.resolve();
+  let windowsCapture: Promise<void> = Promise.resolve();
   const authorizeSignal = async () => {
+    if (windows) {
+      await windowsCapture;
+      if (!child.pid) return false;
+      return processAlive(child.pid) || [...windowsOwned].some((pid) => processAlive(pid));
+    }
     await birthCapture;
     if (!child.pid) return false;
     const members = await groupMembers(child.pid);
@@ -152,12 +159,17 @@ export async function runCommand(options: CommandRunOptions): Promise<CommandRun
   };
   const startStop = () => {
     if (!child.pid || stop) return;
-    stop = stopCommandGroup(child.pid, options.stopGraceMs, authorizeSignal);
+    stop = windows
+      ? stopWindowsTree(child.pid, windowsOwned, options.stopGraceMs ?? 300, authorizeSignal)
+      : stopCommandGroup(child.pid, options.stopGraceMs, authorizeSignal);
     void stop.then(() => {
       setTimeout(() => finishStop?.(), 200);
     });
   };
-  const child = spawn(options.executable, options.args, {
+  const launch = windows
+    ? windowsLaunch(options.executable, options.args, options.cwd)
+    : { executable: options.executable, args: options.args };
+  const child = spawn(launch.executable, launch.args, {
     cwd: options.cwd,
     env: {
       ...commandEnvironment(options.env),
@@ -166,7 +178,8 @@ export async function runCommand(options: CommandRunOptions): Promise<CommandRun
         : {}),
     },
     shell: false,
-    detached: true,
+    detached: !windows,
+    windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
   const requestStop = (code: string) => {
@@ -222,13 +235,23 @@ export async function runCommand(options: CommandRunOptions): Promise<CommandRun
   });
   child.once("spawn", () => {
     if (child.pid) {
-      birthCapture = groupMembers(child.pid)
-        .then((members) => {
-          if (child.exitCode === null && child.signalCode === null) {
-            for (const member of members) owned.set(member.pid, member.birth);
-          }
-        })
-        .catch(() => {});
+      if (windows) {
+        windowsCapture = processTreePids(child.pid)
+          .then((pids) => {
+            if (child.exitCode === null && child.signalCode === null) {
+              for (const pid of pids) windowsOwned.add(pid);
+            }
+          })
+          .catch(() => {});
+      } else {
+        birthCapture = groupMembers(child.pid)
+          .then((members) => {
+            if (child.exitCode === null && child.signalCode === null) {
+              for (const member of members) owned.set(member.pid, member.birth);
+            }
+          })
+          .catch(() => {});
+      }
     }
     try {
       if (child.pid) options.onSpawn?.(child.pid);
@@ -253,7 +276,10 @@ export async function runCommand(options: CommandRunOptions): Promise<CommandRun
   const stopped =
     pipesClosed &&
     (child.pid
-      ? await (stop ?? stopCommandGroup(child.pid, options.stopGraceMs, authorizeSignal))
+      ? await (stop ??
+          (windows
+            ? stopWindowsTree(child.pid, windowsOwned, options.stopGraceMs ?? 300, authorizeSignal)
+            : stopCommandGroup(child.pid, options.stopGraceMs, authorizeSignal)))
       : true);
   for (const channel of ["stdout", "stderr"] as const) {
     const stream = streams[channel];

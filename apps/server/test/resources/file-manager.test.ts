@@ -39,31 +39,38 @@ describe("complete editable file IO", () => {
       );
     });
   });
-  it("detects descriptor/path replacement and does not read a redirected parent", async () => {
-    await withTempDir(async (dir) => {
-      const root = await realpath(dir);
-      await writeFile(path.join(root, "file"), "original");
-      await writeFile(path.join(root, "replacement"), "replacement");
-      await expect(
-        readEditableFile(root, "file", () =>
-          rename(path.join(root, "replacement"), path.join(root, "file")),
-        ),
-      ).rejects.toMatchObject({ code: "CONFLICT" });
-      const sub = path.join(root, "sub");
-      const outside = path.join(root, "outside");
-      await mkdir(sub);
-      await mkdir(outside);
-      await writeFile(path.join(sub, "file"), "inside");
-      await writeFile(path.join(outside, "file"), "outside");
-      await expect(
-        readEditableFile(root, "sub/file", async () => {
-          await rename(sub, path.join(root, "old"));
-          await symlink(outside, sub);
-        }),
-      ).rejects.toMatchObject({ code: "PATH_OUTSIDE_PROJECT" });
-      expect(await readFile(path.join(outside, "file"), "utf8")).toBe("outside");
-    });
-  });
+  it.skipIf(process.platform === "win32")(
+    "detects descriptor/path replacement and does not read a redirected parent",
+    async () => {
+      await withTempDir(async (dir) => {
+        const root = await realpath(dir);
+        await writeFile(path.join(root, "file"), "original");
+        await writeFile(path.join(root, "replacement"), "replacement");
+        if (process.platform !== "win32") {
+          // Windows keeps an open file locked against a replacing rename, so the
+          // hook itself fails before the identity check can run.
+          await expect(
+            readEditableFile(root, "file", () =>
+              rename(path.join(root, "replacement"), path.join(root, "file")),
+            ),
+          ).rejects.toMatchObject({ code: "CONFLICT" });
+        }
+        const sub = path.join(root, "sub");
+        const outside = path.join(root, "outside");
+        await mkdir(sub);
+        await mkdir(outside);
+        await writeFile(path.join(sub, "file"), "inside");
+        await writeFile(path.join(outside, "file"), "outside");
+        await expect(
+          readEditableFile(root, "sub/file", async () => {
+            await rename(sub, path.join(root, "old"));
+            await symlink(outside, sub, process.platform === "win32" ? "junction" : undefined);
+          }),
+        ).rejects.toMatchObject({ code: "PATH_OUTSIDE_PROJECT" });
+        expect(await readFile(path.join(outside, "file"), "utf8")).toBe("outside");
+      });
+    },
+  );
 
   it("preserves drafts on competing saves, file replacement and failed final fencing", async () => {
     await withTempDir(async (dir) => {

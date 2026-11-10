@@ -19,34 +19,37 @@ vi.mock("node:child_process", async (original) => {
   return { ...actual, execFile };
 });
 
-it("confirms a stop when a shell forks into its own group between process snapshots", async () => {
-  const { ManagedPty } = await import("@larness/resources");
-  let onExit: (event: { exitCode: number }) => void = () => undefined;
-  const kill = vi.spyOn(process, "kill").mockImplementation(() => {
-    fixture.alive = false;
-    onExit({ exitCode: 0 });
-    return true;
-  });
-  try {
-    const pty = new ManagedPty(
-      {
-        pid: 40000,
-        write: () => undefined,
-        resize: () => undefined,
-        onData: () => ({ dispose: () => undefined }),
-        onExit: (callback) => {
-          onExit = callback;
-          return { dispose: () => undefined };
+it.skipIf(process.platform === "win32")(
+  "confirms a stop when a shell forks into its own group between process snapshots",
+  async () => {
+    const { ManagedPty } = await import("@larness/resources");
+    let onExit: (event: { exitCode: number }) => void = () => undefined;
+    const kill = vi.spyOn(process, "kill").mockImplementation(() => {
+      fixture.alive = false;
+      onExit({ exitCode: 0 });
+      return true;
+    });
+    try {
+      const pty = new ManagedPty(
+        {
+          pid: 40000,
+          write: () => undefined,
+          resize: () => undefined,
+          onData: () => ({ dispose: () => undefined }),
+          onExit: (callback) => {
+            onExit = callback;
+            return { dispose: () => undefined };
+          },
         },
-      },
-      [],
-      () => undefined,
-    );
-    await pty.ready;
-    expect(await pty.stop()).toBe(true);
-    expect(kill).toHaveBeenCalledWith(-40000, "SIGTERM");
-    expect(await pty.done).toEqual({ exitCode: 0, stopped: true });
-  } finally {
-    kill.mockRestore();
-  }
-});
+        [],
+        () => undefined,
+      );
+      await pty.ready;
+      expect(await pty.stop()).toBe(true);
+      expect(kill).toHaveBeenCalledWith(-40000, "SIGTERM");
+      expect(await pty.done).toEqual({ exitCode: 0, stopped: true });
+    } finally {
+      kill.mockRestore();
+    }
+  },
+);

@@ -15,7 +15,11 @@ import { getFreePort, testConfig, withTempDir } from "../helpers.js";
 it("loads a real Vite React page under nonce CSP and hot-updates over the authenticated public address", async () => {
   await withTempDir(async (root) => {
     const webRoot = fileURLToPath(new URL("../../../web/", import.meta.url));
-    await symlink(path.join(webRoot, "node_modules"), path.join(root, "node_modules"));
+    await symlink(
+      path.join(webRoot, "node_modules"),
+      path.join(root, "node_modules"),
+      process.platform === "win32" ? "junction" : undefined,
+    );
     await writeFile(
       path.join(root, "package.json"),
       await readFile(path.join(webRoot, "package.json")),
@@ -64,7 +68,9 @@ it("loads a real Vite React page under nonce CSP and hot-updates over the authen
           "node_modules/monaco-editor/esm/vs/languages/features/typescript/lib/typescriptServices.js",
         ),
       );
-      const vendorResponse = await fetch(`${origin}/@fs${vendor}`);
+      const vendorUrl =
+        process.platform === "win32" ? `/@fs/${vendor.replaceAll("\\", "/")}` : `/@fs${vendor}`;
+      const vendorResponse = await fetch(`${origin}${vendorUrl}`);
       expect(vendorResponse.status).toBe(200);
       const vendorBytes = (await vendorResponse.arrayBuffer()).byteLength;
       expect(vendorBytes).toBeGreaterThan(1024 * 1024);

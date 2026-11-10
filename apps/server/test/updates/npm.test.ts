@@ -38,7 +38,7 @@ describe("npm update check", () => {
       });
       expect(first && updateNoticeText(first)).toContain("有新版本 0.2.0");
       const stateFile = path.join(dir, "updates", "state.json");
-      expect(statSync(stateFile).mode & 0o777).toBe(0o600);
+      if (process.platform !== "win32") expect(statSync(stateFile).mode & 0o777).toBe(0o600);
       expect(JSON.parse(readFileSync(stateFile, "utf8"))).toMatchObject({
         lastNotifiedVersion: "0.2.0",
       });

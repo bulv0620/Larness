@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { processAlive } from "@larness/resources";
 import { expect, it } from "vitest";
 import { createProject } from "../../src/modules/projects/service.js";
 import { updateTurnRow } from "../../src/modules/sessions/repository.js";
@@ -244,9 +245,8 @@ it("cancels once through authenticated REST, cleans a real process tree, and hol
       expect(responses.map((response) => response.statusCode)).toEqual([200, 200]);
       expect(responses[0]?.json()).toMatchObject({ status: "CANCELLED" });
       await promise;
-      const { alive } = await import("../../scripts/m2-poc/system.js");
-      expect(await alive(pids.parent)).toBe(false);
-      expect(await alive(pids.child)).toBe(false);
+      expect(processAlive(pids.parent)).toBe(false);
+      expect(processAlive(pids.child)).toBe(false);
       expect(
         f.started.running.sqlite
           .prepare(
@@ -566,9 +566,8 @@ it("keeps restart recovery from signalling a stored PID and preserves the confli
       } finally {
         await restarted.shutdown("restart-fixture");
       }
-      const { alive } = await import("../../scripts/m2-poc/system.js");
       if (!unrelated.pid) throw new Error("Missing unrelated fixture PID");
-      expect(await alive(unrelated.pid)).toBe(true);
+      expect(processAlive(unrelated.pid)).toBe(true);
     } finally {
       unrelated.kill("SIGKILL");
       await stopAuthorizedServer(f.started);
@@ -724,68 +723,73 @@ it("uses the genuine standalone workspace and rejects invented environment or es
   });
 });
 
-it("reports an escaped pipe holder as unconfirmed and keeps its root blocked after cancellation", async () => {
-  await withTempDir(async (dir) => {
-    const f = await commandFixture(dir);
-    let escaped: number | undefined;
-    try {
-      const file = path.join(f.root, "escaped.json");
-      let id = "";
-      const pending = f.started.running.commands.execute(
-        {
-          ...f.context,
-          onCreated: (created) => {
-            id = created;
-          },
-        },
-        {
-          executable: process.execPath,
-          args: [
-            "-e",
-            "const c=require('node:child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:['ignore',process.stdout,process.stderr]});require('node:fs').writeFileSync(process.argv[1],JSON.stringify({pid:c.pid}));setInterval(()=>{},1000)",
-            file,
-          ],
-        },
-      );
-      await waitForCommand(async () => {
-        try {
-          escaped = (JSON.parse(await readFile(file, "utf8")) as { pid: number }).pid;
-          return true;
-        } catch {
-          return false;
-        }
-      });
-      expect(await f.started.running.commands.cancel(id, f.context.clientSessionId)).toMatchObject({
-        status: "INTERRUPTED",
-        reasonCode: "STOP_UNCONFIRMED",
-        truncated: true,
-      });
-      expect(await pending).toMatchObject({ status: "INTERRUPTED" });
-      const { acquireResourceLock } = await import("../../src/modules/locks/service.js");
-      expect(
-        acquireResourceLock(
-          { db: f.started.running.db, now: () => Date.now() + 100_000 },
+it.skipIf(process.platform === "win32")(
+  "reports an escaped pipe holder as unconfirmed and keeps its root blocked after cancellation",
+  async () => {
+    await withTempDir(async (dir) => {
+      const f = await commandFixture(dir);
+      let escaped: number | undefined;
+      try {
+        const file = path.join(f.root, "escaped.json");
+        let id = "";
+        const pending = f.started.running.commands.execute(
           {
-            resourceType: "project",
-            resourceId: f.project.id,
-            rootRealPath: f.project.realPath,
-            owner: "fixture",
-            executionId: "fixture",
-            ttlMs: 1000,
+            ...f.context,
+            onCreated: (created) => {
+              id = created;
+            },
           },
-        ),
-      ).toBeNull();
-    } finally {
-      // This fixture deliberately creates an out-of-group process; only its
-      // freshly recorded test PID is cleaned here, never by recovery code.
-      if (escaped) {
-        try {
-          process.kill(escaped, "SIGKILL");
-        } catch {
-          /* already exited */
+          {
+            executable: process.execPath,
+            args: [
+              "-e",
+              "const c=require('node:child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{detached:true,stdio:['ignore',process.stdout,process.stderr]});require('node:fs').writeFileSync(process.argv[1],JSON.stringify({pid:c.pid}));setInterval(()=>{},1000)",
+              file,
+            ],
+          },
+        );
+        await waitForCommand(async () => {
+          try {
+            escaped = (JSON.parse(await readFile(file, "utf8")) as { pid: number }).pid;
+            return true;
+          } catch {
+            return false;
+          }
+        });
+        expect(
+          await f.started.running.commands.cancel(id, f.context.clientSessionId),
+        ).toMatchObject({
+          status: "INTERRUPTED",
+          reasonCode: "STOP_UNCONFIRMED",
+          truncated: true,
+        });
+        expect(await pending).toMatchObject({ status: "INTERRUPTED" });
+        const { acquireResourceLock } = await import("../../src/modules/locks/service.js");
+        expect(
+          acquireResourceLock(
+            { db: f.started.running.db, now: () => Date.now() + 100_000 },
+            {
+              resourceType: "project",
+              resourceId: f.project.id,
+              rootRealPath: f.project.realPath,
+              owner: "fixture",
+              executionId: "fixture",
+              ttlMs: 1000,
+            },
+          ),
+        ).toBeNull();
+      } finally {
+        // This fixture deliberately creates an out-of-group process; only its
+        // freshly recorded test PID is cleaned here, never by recovery code.
+        if (escaped) {
+          try {
+            process.kill(escaped, "SIGKILL");
+          } catch {
+            /* already exited */
+          }
         }
+        await stopAuthorizedServer(f.started);
       }
-      await stopAuthorizedServer(f.started);
-    }
-  });
-});
+    });
+  },
+);

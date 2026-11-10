@@ -106,4 +106,6 @@ const report = {
   checks,
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-if (!report.ok) process.exitCode = 1;
+// node-pty may retain a ConPTY handle after the probe exits; end the smoke
+// process explicitly so Windows callers do not hang after a successful report.
+process.exit(report.ok ? 0 : 1);

@@ -4,7 +4,8 @@ import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { terminateProcessTree } from "@larness/resources";
 import pc from "picocolors";
 import {
   configFilePath,
@@ -105,7 +106,9 @@ export function managedCommands(options: {
   }
 
   const serverRequire = createRequire(path.join(options.serverRoot, "package.json"));
-  const tsxLoader = serverRequire.resolve("tsx/esm");
+  // Node's --import accepts module specifiers/URLs; a bare Windows drive path
+  // is parsed as the unsupported "c:" scheme.
+  const tsxLoader = pathToFileURL(serverRequire.resolve("tsx/esm")).href;
 
   return {
     serverCommand: nodePath,
@@ -195,8 +198,24 @@ function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
   });
 }
 
-async function stopChild(child: ChildProcess | null, timeoutMs: number): Promise<void> {
+async function stopChild(
+  child: ChildProcess | null,
+  timeoutMs: number,
+  graceful: "signal" | "message" | "disconnect" = "signal",
+): Promise<void> {
   if (child === null || child.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
+
+  if (process.platform === "win32" && child.pid) {
+    if (graceful === "message" && child.connected) {
+      child.send({ type: "larness.shutdown" });
+    } else if (graceful === "disconnect" && child.connected) {
+      child.disconnect();
+    }
+    if (await waitForExit(child, timeoutMs)) return;
+    await terminateProcessTree(child.pid, 2_000);
+    await waitForExit(child, 2_000);
     return;
   }
 
@@ -270,10 +289,10 @@ export async function startManagedRuntime(
     stopped = true;
     stopping ??= (async () => {
       try {
-        await stopChild(server, 10_000);
+        await stopChild(server, 10_000, "message");
       } finally {
         try {
-          await stopChild(web, 5_000);
+          await stopChild(web, 5_000, "disconnect");
         } finally {
           try {
             if (ownedCache) await rm(ownedCache, { recursive: true, force: true });
@@ -332,7 +351,7 @@ export async function startManagedRuntime(
         LARNESS_PM2_AUTO_INSTALL: process.env.LARNESS_PM2_AUTO_INSTALL ?? "1",
         ...(options.dev ? { LARNESS_SERVE_WEB: "0" } : {}),
       },
-      stdio: options.dev ? ["ignore", "pipe", "pipe", "ipc"] : ["ignore", "pipe", "pipe"],
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
     });
     observe(server, "[server]");
     server.once("exit", resolveServerExit);

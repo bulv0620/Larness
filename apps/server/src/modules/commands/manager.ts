@@ -211,7 +211,7 @@ export class CommandManager {
     const parsed = CommandParamsSchema.safeParse(input);
     if (!parsed.success || !ContextSchema.safeParse(context).success)
       throw new FileManagerError("VALIDATION_ERROR", "Invalid command request");
-    if (this.#closed || process.platform === "win32")
+    if (this.#closed)
       throw new FileManagerError("RESOURCE_UNAVAILABLE", "Command execution unavailable");
     const params = parsed.data;
     const session = getSessionById(this.options.db, context.sessionId);

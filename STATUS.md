@@ -1,7 +1,14 @@
 # STATUS
 
-> 最后更新：2026-11-09 (+08:00)
+> 最后更新：2026-11-10 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。下方的阶段交付与变更记录保留当时状态。
+
+## 当前任务
+
+- **M5-F1 Windows 原生支持**：`done`（2026-11-10，Windows 11 x64 实机），分支 `task/m5-f1-windows-support`。
+- 范围：Windows 10/11 x64 原生安装、TUI/Server/Web、ConPTY 终端、命令执行、文件/Git/路径、临时服务与预览、PM2 正式服务、定时脚本、锁与日志。
+- 结果：Windows 11 build 26200、Node 24.9.0 下 `pnpm check`（server 549、agent 42、web 141 通过；31 个平台条件跳过）、`pnpm build`、平台冒烟、`npm pack` 临时全局安装、源码与 dist TUI、ConPTY 终端、命令、服务/预览、真实 PM2 生命周期、定时脚本、文件/Git 均通过；Mock E2E 19/19、Auth E2E 18/18、生产构建 E2E 18/18。
+- 剩余：`M5-F1-W10` Windows 10 x64 1809+ 实机复测（同一实现，仅使用 Windows 10 自带 ConPTY/CIM/taskkill/Get-NetTCPConnection）；Ubuntu 见 `M5-F2`。未验证项不标通过。
 
 ## 依赖维护
 

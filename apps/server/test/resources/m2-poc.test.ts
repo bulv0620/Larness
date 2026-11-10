@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { probeFiles, probeProcesses, probePty, probeRoots } from "../../scripts/m2-poc/probes.js";
 
-describe("M2-0 real macOS resource feasibility", () => {
+describe.skipIf(process.platform !== "darwin")("M2-0 real macOS resource feasibility", () => {
   it("uses a real PTY for input, resize, interrupt and confirmed termination", async () => {
     expect(await probePty()).toEqual({
       input: true,

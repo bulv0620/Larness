@@ -22,7 +22,7 @@ describe("pre-upgrade database backup", () => {
           now: 1_000,
         });
         expect(path.basename(first)).toMatch(/^pre-upgrade-21-22-/);
-        expect(statSync(first).mode & 0o777).toBe(0o600);
+        if (process.platform !== "win32") expect(statSync(first).mode & 0o777).toBe(0o600);
 
         for (let index = 0; index < 6; index += 1) {
           backupBeforeMigrations(opened.sqlite, dir, {

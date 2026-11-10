@@ -1,5 +1,5 @@
-import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
+import { execFileSync } from "./support";
 
 test("opens the service operations dialog from the left navigation", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });

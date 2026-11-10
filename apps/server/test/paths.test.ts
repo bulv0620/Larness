@@ -14,7 +14,9 @@ const posixOnly = process.platform === "win32" ? it.skip : it;
 
 describe("resolveDataDir", () => {
   it("honours LARNESS_DATA_DIR", () => {
-    expect(resolveDataDir({ LARNESS_DATA_DIR: "/tmp/custom-larness" })).toBe("/tmp/custom-larness");
+    expect(resolveDataDir({ LARNESS_DATA_DIR: "/tmp/custom-larness" })).toBe(
+      path.resolve("/tmp/custom-larness"),
+    );
   });
 
   it("falls back to the OS data directory", () => {

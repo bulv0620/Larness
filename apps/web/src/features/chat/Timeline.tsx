@@ -1,4 +1,4 @@
-import type { MessageItem, TimelineItem, ToolItem } from "@larness/shared";
+import type { MessageItem, PlanItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
 import { ArrowDown, ChevronRight, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -65,13 +65,13 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     active && !answer
       ? [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant")
       : undefined;
+  const plans = items.filter((item): item is PlanItem => item.kind === "plan");
   const process = items.filter(
     (item) =>
       item !== user &&
       item !== answer &&
       item !== latestCommentary &&
       ((item.kind === "message" && item.role === "assistant") ||
-        item.kind === "plan" ||
         (item.kind === "tool" && item.name !== "update_plan")),
   );
   const approvals = items.filter((item) => item.kind === "approval");
@@ -134,6 +134,9 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   return (
     <section aria-label="对话轮次" className="min-w-0">
       {user ? <TimelineItemView item={user} /> : null}
+      {plans.map((item) => (
+        <TimelineItemView key={item.id} item={item} turnActive={turnActive} />
+      ))}
       <div className="space-y-3">
         {process.length > 0 || tools.length > 0 || reasoningPreview !== undefined ? (
           <div className="text-[12px] text-ink-3">
