@@ -314,7 +314,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | HX-1 | [用量细分与阶段耗时基线](070-runtime-efficiency/tasks.md#hx-1-用量细分与阶段耗时基线) | HX-0 | `done`（用量细分；耗时并入 HX-2） |
 | HX-2 | [截止时间与请求级约束](070-runtime-efficiency/tasks.md#hx-2-截止时间与请求级约束) | HX-0 | `done` |
 | HX-3 | [终态原因落库与 Job 判定](070-runtime-efficiency/tasks.md#hx-3-终态原因落库与-job-判定) | HX-2 | `done` |
-| HX-4 | [工具结果结构裁剪](070-runtime-efficiency/tasks.md#hx-4-工具结果结构裁剪) | HX-0 | `todo` |
+| HX-4 | [工具结果结构裁剪](070-runtime-efficiency/tasks.md#hx-4-工具结果结构裁剪) | HX-0 | `done`（批次级预算待 HX-6） |
 | HX-5 | [稳定前缀与资源观察移位](070-runtime-efficiency/tasks.md#hx-5-稳定前缀与资源观察移位) | HX-1 | `todo` |
 | HX-6 | [每步预算预检与估算校准](070-runtime-efficiency/tasks.md#hx-6-每步预算预检与估算校准) | HX-1 | `todo` |
 | HX-7 | [长 Turn 检查点与有界降级](070-runtime-efficiency/tasks.md#hx-7-长-turn-检查点与有界降级) | HX-6、HX-4 | `todo` |

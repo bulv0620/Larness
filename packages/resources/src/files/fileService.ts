@@ -246,6 +246,10 @@ export interface ReadFileResult {
   content: string;
   truncated: boolean;
   totalLines: number;
+  /** First line (1-based) included in `content`. */
+  offset: number;
+  /** Line to pass as the next `offset`; equal to `offset` when nothing follows. */
+  nextOffset: number;
 }
 
 export function hashContent(buffer: Buffer): string {
@@ -294,6 +298,10 @@ export async function readTextFile(
         : content,
     truncated,
     totalLines: lines.length,
+    offset,
+    // Line-based so a caller can always continue; a byte-truncated final line
+    // still counts as consumed.
+    nextOffset: Math.min(lines.length + 1, offset + selected.length),
   };
 }
 

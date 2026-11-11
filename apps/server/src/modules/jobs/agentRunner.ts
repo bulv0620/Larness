@@ -33,8 +33,6 @@ function policy(value: string | null): ScheduledJobApprovalPolicy {
   return value === "autonomous" ? "autonomous" : "readonly";
 }
 
-
-
 export const JOB_AGENT_INCOMPLETE: ScheduledJobRunErrorCode = "JOB_AGENT_INCOMPLETE";
 
 /**

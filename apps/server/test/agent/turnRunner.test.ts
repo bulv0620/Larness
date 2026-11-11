@@ -17,7 +17,7 @@ import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
-import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
+import { TurnRunner, toolMessageContent } from "../../src/modules/agent/turnRunner.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -72,6 +72,68 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2_000): Promise<voi
 
   throw new Error("condition not met in time");
 }
+
+describe("tool result serialization", () => {
+  it("keeps oversized tool results as valid JSON with a truncation page", () => {
+    const text = toolMessageContent({
+      ok: true,
+      summary: "read a.txt",
+      data: {
+        path: "a.txt",
+        version: "v".repeat(64),
+        totalLines: 40_000,
+        offset: 1,
+        nextOffset: 2_001,
+        content: "x".repeat(200_000),
+      },
+    });
+
+    expect(text.length).toBeLessThanOrEqual(16_000);
+
+    const parsed = JSON.parse(text) as {
+      path: string;
+      content: string;
+      nextOffset: number;
+      page: { truncated: boolean; omittedChars: number };
+    };
+
+    expect(parsed.path).toBe("a.txt");
+    expect(parsed.nextOffset).toBe(2_001);
+    expect(parsed.page.truncated).toBe(true);
+    expect(parsed.page.omittedChars).toBeGreaterThan(0);
+    expect(parsed.content).toContain("chars omitted");
+  });
+
+  it("keeps error results parseable and preserves the error code", () => {
+    const text = toolMessageContent({
+      ok: false,
+      summary: "command failed",
+      errorCode: "COMMAND_FAILED",
+      data: { output: "y".repeat(80_000), exitCode: 2 },
+    });
+
+    const parsed = JSON.parse(text) as {
+      errorCode: string;
+      message: string;
+      data: { exitCode: number; output: string; page?: { truncated: boolean } };
+    };
+
+    expect(parsed.errorCode).toBe("COMMAND_FAILED");
+    expect(parsed.message).toBe("command failed");
+    expect(parsed.data.exitCode).toBe(2);
+    expect(parsed.data.page?.truncated).toBe(true);
+  });
+
+  it("leaves small results untouched", () => {
+    const text = toolMessageContent({
+      ok: true,
+      summary: "list",
+      data: { files: ["a.ts", "b.ts"] },
+    });
+
+    expect(JSON.parse(text)).toEqual({ files: ["a.ts", "b.ts"] });
+  });
+});
 
 describe("TurnRunner", () => {
   it("runs a text-only turn, persists events and records usage", async () => {

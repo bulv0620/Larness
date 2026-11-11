@@ -13,7 +13,7 @@
 | HX-1 | 用量细分（阶段耗时移至 HX-2） | HX-0 | `done` |
 | HX-2 | 截止时间与请求级约束 | HX-0 | `done` |
 | HX-3 | 终态原因落库与 Job 判定 | HX-2 | `done` |
-| HX-4 | 工具结果结构裁剪 | HX-0 | `todo` |
+| HX-4 | 工具结果结构裁剪 | HX-0 | `done` |
 | HX-5 | 稳定前缀与资源观察移位 | HX-1 | `todo` |
 | HX-6 | 每步预算预检与估算校准 | HX-1 | `todo` |
 | HX-7 | 长 Turn 检查点与有界降级 | HX-6、HX-4 | `todo` |
@@ -105,7 +105,7 @@
 
 ### HX-4 工具结果结构裁剪
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11）
 - 依赖：HX-0
 - 目标：任何工具结果都能被模型解析，超限时可继续读，不再产出半截 JSON。
 - 交付物：
@@ -116,7 +116,10 @@
 - 验收：A6 通过；大文件按 `nextOffset` 连续读取可还原；命令尾部诊断可读。
 - 测试：超限文件、超长命令输出、错误结果三组用例断言 `JSON.parse` 成功与字段齐备。
 - 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`packages/resources/src/files/fileService.ts`、`packages/agent/src/tools/fileTools.ts`、`docs/contracts/agent-command-context.md`、`specs/051-agent-tool-contract/spec.md`
-- 备注：`MAX_TOOL_MESSAGE_CHARS/LINES` 由 token 预算替代，保留常量迁移说明；改动涉及工具结果契约，需同步 051 的"成功条件"描述。
+- 备注：`MAX_TOOL_MESSAGE_CHARS/LINES` 仅保留给原始终端文本捕获（`boundedTerminalOutput` / `run_command` 读数），模型可见的结果不再经过字符截断。
+- 实现要点：新增内容感知序列化 `shrinkValue` / `shrinkString`（长字符串保留头 60% + 尾 40% 并标注省略字符数），按字段预算 4k 字符、整包 16k 字符逐级收缩；超限结果附 `page: { truncated, omittedChars }`，绝不切割已序列化的 JSON。`read_file` 新增 `offset` / `nextOffset` 支持续读（`ReadFileResult` 扩展）。序列化函数导出以便单测。
+- 偏差：D5 的「每批次 12k tokens」尚未实现，当前只按单条结果预算；批次级预算留待 HX-6 的整包预检一并处理（那时才有统一的 token 估算）。
+- 验证：`packages/agent` 46 通过 / 1 跳过（含 `nextOffset` 续读用例）；`test/agent` 66 通过 / 9 个既有环境性失败；新增 3 个序列化单测（超大结果、错误结果、小结果不变）；biome 与 typecheck 通过。
 
 ### HX-5 稳定前缀与资源观察移位
 

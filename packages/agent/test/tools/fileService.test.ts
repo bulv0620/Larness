@@ -76,6 +76,13 @@ describe("file service", () => {
       const range = await readTextFile(dir, { path: "notes.txt", offset: 2, limit: 2 });
       expect(range.content).toBe("line2\nline3");
       expect(range.truncated).toBe(true);
+      expect(range.offset).toBe(2);
+      expect(range.nextOffset).toBe(4);
+
+      const rest = await readTextFile(dir, { path: "notes.txt", offset: range.nextOffset });
+      expect(rest.content.trimEnd()).toBe("line4");
+      expect(rest.truncated).toBe(false);
+      expect(rest.nextOffset).toBe(6);
 
       const beyond = await readTextFile(dir, { path: "notes.txt", offset: 99 });
       expect(beyond.content).toBe("");
