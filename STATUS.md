@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F13 右侧资源区 Tab**：`done`（2026-11-11），分支 `task/ui-f13-resource-tabs`。资源区改为 Tab 切换并移除「项目资源」标题行；Tabs 同心圆角与 `surface-2` 轨道，Git 提交输入框距面板顶部 8px；两面板常驻不丢状态。Web 单测 154、Mock E2E 23、认证定向（default-workspace / files / git / terminals）通过；commands 批量与 m1:80 为已记录的既有失败。[验收记录](specs/068-ui-fixes/tasks.md#ui-f13-2026-11-11windows)
+
 - **UI-F12 对话布局稳定性**：`done`（2026-11-11），分支 `task/ui-f12-stable-chat-layout`。模型切换提示悬浮于输入框左上方，回复首段正文起即显示主题气泡。用户视觉验收与 `pnpm check` 通过。
 
 - **UI-F11 本机执行提示**：`done`（2026-11-11），分支 `task/ui-f11-host-execution-copy`。终端、命令、完全自主与自动化直接说明本机账户权限。全量检查复跑和 4 项认证浏览器回归通过。[验收记录](specs/068-ui-fixes/tasks.md#ui-f11-2026-11-11windows)

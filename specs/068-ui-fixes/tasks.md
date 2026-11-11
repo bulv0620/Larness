@@ -16,8 +16,17 @@
 | UI-F10 | 最终答复 | 恢复最终正文气泡，沿用主题 | UI-F9 | done |
 | UI-F11 | 本机执行提示 | 简化重复提示并明确实际执行权限 | UI-F10 | done |
 | UI-F12 | 对话布局 | 悬浮模型切换提示，流式回复首段即显示气泡 | UI-F11 | done |
+| UI-F13 | 资源区 Tab | 右侧资源区 Tab 切换，移除标题栏，圆角与 Git 顶部间距 | UI-F12 | done |
 
 ## 验收记录
+
+### UI-F13（2026-11-11，Windows）
+
+- 组件回归先行：3 项 Tab 语义断言在原互斥展开实现下失败（无 `tab` role），实现后通过，覆盖默认选中、面板切换、双面板保持挂载与键盘激活。
+- 右侧资源区改为共享 @larness/ui Tabs：默认选中文件、移除「项目资源」标题行、Mock 计数徽标保留、两面板常驻（沿用 M2-26 不丢文件监听与 Git 输入的约束）。按用户补充要求，TabsList 圆角改为 9px 与 7px 触发器同心，轨道改用 `bg-surface-2`（应用内 `dark:` 变体依赖 OS 配色而非主题切换，token 方式两种主题实测正确）；Git 面板 `pt-2` 使提交信息输入框距面板顶部 8px（实测 8px，Tab 栏下沿到内容 14px，面板填满右栏，两 Tab 各 157px 平分）。
+- Mock E2E 23 项通过（默认 5173 端口被既有进程占用，改用独立端口）。五处资源区用例改为 Tab 语义，含切换后仅当前面板可见、Git 面板填满右栏与项目切换空态（改从 TopBar 断言项目名）。
+- 认证定向：default-workspace、files、git、terminals 3 项通过；default-workspace 与 files 因检查 Git 空态后切到 Git Tab，补回切文件 Tab 步骤后再走文件树断言。commands.spec 单独复跑通过；commands 批量运行与 m1:80（项目右键菜单）在干净 main 上同样失败，属[遗留问题](../../docs/open-questions.md)已记录的批量时序抖动与 Windows 测试基线问题，与本任务无关。
+- Web 类型检查、全量 Web 单测 154 项、改动文件 Biome 通过。未运行全量 `pnpm check`、生产构建与整套认证 / 生产 E2E。视觉由用户验收。
 
 ### UI-F12（2026-11-11，Windows）
 

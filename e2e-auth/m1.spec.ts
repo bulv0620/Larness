@@ -116,12 +116,16 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
 
     const resources = page.getByRole("complementary", { name: "项目资源" });
     await expect(resources).toBeVisible();
-    const fileSection = resources.getByRole("button", { name: /^文件/ }).first();
-    await expect(fileSection).toHaveAttribute("aria-expanded", "true");
-    await fileSection.click();
-    await expect(fileSection).toHaveAttribute("aria-expanded", "false");
-    await fileSection.click();
-    await expect(fileSection).toHaveAttribute("aria-expanded", "true");
+    const filesTab = resources.getByRole("tab", { name: /^文件/ });
+    await expect(filesTab).toHaveAttribute("aria-selected", "true");
+    await expect(resources.locator("#resource-files")).toBeVisible();
+    const gitTab = resources.getByRole("tab", { name: /^Git/ });
+    await gitTab.click();
+    await expect(gitTab).toHaveAttribute("aria-selected", "true");
+    await expect(resources.locator("#resource-git")).toBeVisible();
+    await filesTab.click();
+    await expect(filesTab).toHaveAttribute("aria-selected", "true");
+    await expect(resources.locator("#resource-files")).toBeVisible();
 
     await page.getByRole("main").getByRole("button", { name: "折叠项目资源" }).click();
     await expect(resources).toHaveCount(0);

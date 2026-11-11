@@ -10,7 +10,7 @@ export function TabsList({
 }: ComponentPropsWithoutRef<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
-      className={cn("inline-flex items-center gap-0.5 rounded-lg bg-black/[.04] p-0.5", className)}
+      className={cn("inline-flex items-center gap-0.5 rounded-[9px] bg-surface-2 p-0.5", className)}
       {...props}
     />
   );

@@ -66,11 +66,7 @@ test("M2-5b real Git panel shows status, stages, commits, diffs and approves a p
     await page.getByRole("dialog").getByRole("button", { name: "添加项目" }).click();
     await page.getByRole("button", { name: "在 repo 中新建会话" }).click();
     await expect.poll(() => page.getByText("main").count(), { timeout: 15000 }).toBeGreaterThan(0);
-    await page
-      .getByLabel("项目资源", { exact: true })
-      .getByRole("button", { name: /^Git/ })
-      .first()
-      .click();
+    await page.getByLabel("项目资源", { exact: true }).getByRole("tab", { name: "Git" }).click();
     const gitPanel = page.getByTestId("git-panel");
     await expect(gitPanel.getByText("a.txt").first()).toBeVisible();
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-5b-git.png") });

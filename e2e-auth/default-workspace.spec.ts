@@ -53,10 +53,13 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await expect(page.getByRole("banner")).toContainText("默认工作区");
     await expect(page.getByLabel("对话输入")).toBeEnabled();
     const resources = page.getByLabel("项目资源", { exact: true });
-    await expect(resources.getByRole("tablist")).toHaveCount(0);
+    await expect(resources.getByRole("tablist")).toHaveCount(1);
     await expect(resources.getByRole("button", { name: "刷新文件树" })).toHaveCount(0);
     await expect(resources.getByText("当前工作区暂无文件", { exact: true })).toBeVisible();
+    await resources.getByRole("tab", { name: "Git" }).click();
     await expect(resources.getByText("暂无 Git 仓库", { exact: true })).toBeVisible();
+    await resources.getByRole("tab", { name: "文件" }).click();
+    await expect(resources.getByText("当前工作区暂无文件", { exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-12-empty-sidebar.png") });
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await page.getByRole("button", { name: "新建终端", exact: true }).click();

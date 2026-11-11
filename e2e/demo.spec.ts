@@ -11,41 +11,49 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.getByLabel("项目资源", { exact: true })).toBeVisible();
     await expect(page.getByLabel("对话输入")).toBeVisible();
     await expect(page.getByText(/^最近/).first()).toBeVisible();
-    const fileHeader = page.getByRole("button", { name: /^文件/ }).first();
-    await fileHeader.click();
-    await expect(page.locator("#resource-files")).toHaveAttribute("aria-hidden", "true");
-    await fileHeader.click();
-    await expect(page.locator("#resource-files")).toHaveAttribute("aria-hidden", "false");
+    const aside = page.getByLabel("项目资源", { exact: true });
+    await expect(aside.getByRole("tab", { name: /^文件/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(aside.locator("#resource-files")).toBeVisible();
     await expect(page.getByText("AppShell.tsx", { exact: true })).toBeVisible();
   });
 
-  test("切换资源分区时只有当前分区展开", async ({ page }) => {
+  test("切换资源分区 Tab 时仅显示当前面板", async ({ page }) => {
     const aside = page.getByLabel("项目资源", { exact: true });
-    await aside.getByRole("button", { name: /^Git/ }).first().click();
-    await page.waitForTimeout(250);
-    await expect(aside.locator("#resource-files")).toHaveAttribute("aria-hidden", "true");
-    await expect(aside.locator("#resource-git")).toHaveAttribute("aria-hidden", "false");
+    const gitTab = aside.getByRole("tab", { name: /^Git/ });
+    await gitTab.click();
+    await expect(gitTab).toHaveAttribute("aria-selected", "true");
+    await expect(aside.getByRole("tab", { name: /^文件/ })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    await expect(aside.locator("#resource-files")).toBeHidden();
+    await expect(aside.locator("#resource-files")).toHaveCount(1);
+    await expect(aside.locator("#resource-git")).toBeVisible();
+    await aside.getByRole("tab", { name: /^文件/ }).click();
+    await expect(aside.locator("#resource-files")).toBeVisible();
+    await expect(aside.locator("#resource-git")).toBeHidden();
   });
 
   test("切换项目时资源栏与空态跟随", async ({ page }) => {
     await page.getByText("整理文档站首页导航", { exact: true }).first().click();
     await expect(page.getByRole("heading", { name: "整理文档站首页导航" })).toBeVisible();
-    await expect(
-      page.getByLabel("项目资源", { exact: true }).getByText("docs-site", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByLabel("项目资源", { exact: true }).getByText("当前项目暂无文件", { exact: true }),
-    ).toBeVisible();
-    await expect(page.getByText("暂无 Git 仓库", { exact: true })).toBeVisible();
+    await expect(page.getByRole("banner")).toContainText("docs-site");
+    const aside = page.getByLabel("项目资源", { exact: true });
+    await expect(aside.getByText("当前项目暂无文件", { exact: true })).toBeVisible();
+    await aside.getByRole("tab", { name: /^Git/ }).click();
+    await expect(aside.getByText("暂无 Git 仓库", { exact: true })).toBeVisible();
   });
 
-  test("右侧文件与 Git 同时展示且没有视图 Tab", async ({ page }) => {
+  test("右侧资源区以 Tab 切换文件与 Git", async ({ page }) => {
     const aside = page.getByLabel("项目资源", { exact: true });
-    await expect(aside.getByRole("tablist")).toHaveCount(0);
-    await expect(aside.getByRole("tab")).toHaveCount(0);
-    await expect(aside.locator("section")).toHaveCount(2);
-    await expect(aside.getByRole("button", { name: /^文件/ }).first()).toBeVisible();
-    await expect(aside.getByRole("button", { name: /^Git/ }).first()).toBeVisible();
+    await expect(aside.getByRole("tablist")).toHaveCount(1);
+    await expect(aside.getByRole("tab", { name: /^文件/ })).toBeVisible();
+    await expect(aside.getByRole("tab", { name: /^Git/ })).toBeVisible();
+    await expect(aside.locator("#resource-files")).toBeVisible();
+    await expect(aside.locator("#resource-git")).toBeHidden();
     await expect(aside.getByText("AppShell.tsx", { exact: true })).toBeVisible();
     await expect(page.getByLabel("项目窗口")).toBeVisible();
   });
@@ -62,21 +70,19 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(tree.getByText("AppShell.tsx", { exact: true })).toBeVisible();
   });
 
-  test("展开 Git 后文件分区收起且 Git 填满右栏", async ({ page }) => {
+  test("切到 Git 后文件面板隐藏且 Git 填满右栏", async ({ page }) => {
     const aside = page.getByLabel("项目资源", { exact: true });
-    await aside.getByRole("button", { name: /^Git/ }).first().click();
-    await page.waitForTimeout(250);
+    await aside.getByRole("tab", { name: /^Git/ }).click();
+    const gitPanel = aside.locator("#resource-git");
+    await expect(gitPanel).toBeVisible();
+    await expect(aside.locator("#resource-files")).toBeHidden();
 
-    const sections = aside.locator("section");
-    await expect(sections).toHaveCount(2);
-    const filesBox = await sections.nth(0).boundingBox();
     const asideBox = await aside.boundingBox();
-    const lastBox = await sections.last().boundingBox();
-    expect(filesBox?.height ?? 0).toBeLessThan(60);
+    const gitBox = await gitPanel.boundingBox();
     expect(asideBox).not.toBeNull();
-    expect(lastBox).not.toBeNull();
+    expect(gitBox).not.toBeNull();
     const gap =
-      (asideBox?.y ?? 0) + (asideBox?.height ?? 0) - ((lastBox?.y ?? 0) + (lastBox?.height ?? 0));
+      (asideBox?.y ?? 0) + (asideBox?.height ?? 0) - ((gitBox?.y ?? 0) + (gitBox?.height ?? 0));
     expect(gap).toBeLessThan(20);
   });
 
