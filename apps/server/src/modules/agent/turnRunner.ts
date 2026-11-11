@@ -61,6 +61,12 @@ import {
   reservedOutputTokens,
 } from "./tokenEstimator.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
+import {
+  checkpointMessage,
+  latestEventSeq,
+  saveTurnCheckpoint,
+  TurnFactsBuilder,
+} from "./turnCheckpoint.js";
 
 function commandDisplay(params: unknown) {
   const command = CommandParamsSchema.parse(params);
@@ -163,6 +169,15 @@ function deriveTerminalReason(
   return options.errorCode?.startsWith("PROVIDER_") === true ? "provider_error" : "error";
 }
 
+function turnInputText(json: string): string {
+  try {
+    const parsed = JSON.parse(json) as { text?: unknown };
+    return typeof parsed.text === "string" ? parsed.text : "";
+  } catch {
+    return "";
+  }
+}
+
 function isTerminal(status: TurnStatus): boolean {
   return (
     status === "COMPLETED" ||
@@ -218,6 +233,7 @@ function boundedTerminalOutput(
   return { text: bounded, truncated: bounded !== text };
 }
 
+const CHECKPOINT_MIN_GAIN = 200;
 const MAX_TOOL_RESULT_CHARS = 16_000;
 const TOOL_FIELD_CHARS = 4_000;
 const MAX_TOOL_ARRAY_ITEMS = 50;
@@ -500,6 +516,7 @@ export class TurnRunner {
     };
     let anchoredHeuristicTokens: number | undefined;
     let anchoredProviderTokens: number | undefined;
+    const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
 
     const finalize = (
       status: TurnStatus,
@@ -602,6 +619,7 @@ export class TurnRunner {
               return { ok: false, errorCode: "VALIDATION_ERROR", summary: "Invalid plan" };
             if (checkBudget() !== "ok")
               return { ok: false, errorCode: "FORBIDDEN", summary: "Turn no longer active" };
+            facts.recordPlan(plan.data.steps);
             this.#emit(turn, session, "plan.updated", {
               turnId: turn.id,
               plan: {
@@ -1332,7 +1350,7 @@ export class TurnRunner {
         const remainingMs = Math.max(1_000, deadline - this.#now());
         const stepStartedAt = this.#now();
         const heuristicTokens = estimateRequestTokens(messages, tools);
-        const estimatedInputTokens = calibrateEstimate({
+        let estimatedInputTokens = calibrateEstimate({
           heuristicTokens,
           anchoredHeuristicTokens,
           anchoredProviderTokens,
@@ -1341,7 +1359,73 @@ export class TurnRunner {
           maxOutputTokens: this.#budget.maxOutputTokens,
           contextWindow,
         });
-        const projectedTokens = estimatedInputTokens + reservedOutput;
+        let projectedTokens = estimatedInputTokens + reservedOutput;
+        const watermark = contextWatermark(projectedTokens, contextWindow);
+
+        if (steps > 0 && watermark !== "ok") {
+          this.#options.logger?.info(
+            {
+              turnId,
+              sessionId: session.id,
+              step: steps,
+              heuristicTokens,
+              estimatedInputTokens,
+              projectedTokens,
+              watermark,
+              factsEmpty: facts.isEmpty(),
+              messageCount: messages.length,
+            },
+            "checkpoint evaluation",
+          );
+        }
+
+        if (steps > 0 && messages.length > 2 && watermark !== "ok" && !facts.isEmpty()) {
+          const checkpointAt = this.#now();
+          // Compare on the same basis: both sides are heuristic estimates, so
+          // the reported "before/after" volume is like-for-like.
+          const tokensBefore = heuristicTokens;
+          const snapshot = facts.snapshot();
+          const candidate = [
+            messages[0] as ModelMessage,
+            checkpointMessage(snapshot, checkpointAt),
+          ];
+          const after = estimateRequestTokens(candidate, tools);
+
+          // Only replace history when it actually buys room for later steps.
+          if (tokensBefore - after >= CHECKPOINT_MIN_GAIN) {
+            const coveredUpToSeq = latestEventSeq(this.#options.db, session.id);
+            const saved = saveTurnCheckpoint(this.#options.db, {
+              sessionId: session.id,
+              turnId: turn.id,
+              coveredUpToSeq,
+              summary: JSON.stringify(snapshot),
+              tokensBefore,
+              tokensAfter: after,
+              degraded: false,
+              reason: watermark === "hard" ? "hard_watermark" : "soft_watermark",
+              now: checkpointAt,
+            });
+
+            messages = candidate;
+            estimatedInputTokens = after;
+            projectedTokens = after + reservedOutput;
+            anchoredHeuristicTokens = undefined;
+            anchoredProviderTokens = undefined;
+
+            this.#emit(turn, session, "context.checkpoint", {
+              turnId: turn.id,
+              summaryId: saved.id,
+              scope: "turn",
+              reason: watermark === "hard" ? "hard_watermark" : "soft_watermark",
+              coveredUpToSeq: saved.coveredUpToSeq,
+              tokensBefore,
+              tokensAfter: after,
+              files: snapshot.files.length,
+              failures: snapshot.failures.length,
+              openSteps: snapshot.openSteps.length,
+            });
+          }
+        }
 
         if (projectedTokens > contextWindow) {
           // Stop honestly instead of letting the provider reject the request.
@@ -1556,6 +1640,7 @@ export class TurnRunner {
                 errorCode: "RESOURCE_LOCKED",
                 summary: "project is locked by another writer",
               };
+              facts.recordToolFailure(result.errorCode, result.summary);
               this.#emit(turn, session, "tool.failed", {
                 turnId: turn.id,
                 toolCallId: request.id,
@@ -1744,6 +1829,12 @@ export class TurnRunner {
                     role: stoppedTerminal.data.role,
                   })
                 : undefined;
+            if (request.name === "run_command") {
+              facts.recordCommand(result.result.summary);
+            }
+
+            facts.recordResource(target);
+
             this.#emit(turn, session, "tool.completed", {
               turnId: turn.id,
               toolCallId: request.id,
@@ -1764,6 +1855,7 @@ export class TurnRunner {
                 | undefined;
 
               if (typeof changed?.path === "string" && typeof changed.version === "string") {
+                facts.recordFile(changed.path, changed.version);
                 this.#emit(turn, session, "file.changed", {
                   turnId: turn.id,
                   path: changed.path,
@@ -1773,6 +1865,7 @@ export class TurnRunner {
               }
             }
           } else {
+            facts.recordToolFailure(result.result.errorCode ?? "TOOL_ERROR", result.result.summary);
             this.#emit(turn, session, "tool.failed", {
               turnId: turn.id,
               toolCallId: request.id,

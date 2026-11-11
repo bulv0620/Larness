@@ -818,6 +818,93 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("compacts history into a checkpoint when the turn approaches the window", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const small = path.join(session.workspacePath, "a.txt");
+        await writeFile(small, "old\n");
+        await writeFile(path.join(session.workspacePath, "big.txt"), "x".repeat(6_000), "utf8");
+        const version = createHash("sha256").update("old\n").digest("hex");
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "compact me" });
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              {
+                type: "tool-call",
+                toolCall: {
+                  id: "call_patch",
+                  name: "apply_patch",
+                  args: {
+                    path: "a.txt",
+                    expectedVersion: version,
+                    patch: patchFor("old\n", "new\n"),
+                  },
+                },
+              },
+              {
+                type: "finish",
+                finishReason: "tool-calls",
+                usage: { inputTokens: 700, outputTokens: 30, totalTokens: 730 },
+              },
+            ],
+          },
+          {
+            chunks: [
+              {
+                type: "tool-call",
+                toolCall: { id: "call_read", name: "read_file", args: { path: "big.txt" } },
+              },
+              { type: "finish", finishReason: "tool-calls" },
+            ],
+          },
+          textStep("continued"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake", contextWindow: 1_900 }),
+          budget: { maxOutputTokens: 0 },
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const events = listSessionEvents(opened.db, session.id).items;
+        const checkpoint = events.find((event) => event.type === "context.checkpoint");
+        expect(checkpoint?.payload).toMatchObject({ scope: "turn", reason: "soft_watermark" });
+
+        expect(provider.calls).toHaveLength(3);
+        const last = provider.calls[2];
+        expect(last?.messages).toHaveLength(2);
+        const [, compacted] = last?.messages ?? [];
+        expect(compacted?.role).toBe("user");
+        if (compacted?.role === "user") {
+          expect(compacted.content).toContain("Work state checkpoint");
+          expect(compacted.content).toContain("a.txt");
+        }
+
+        const stored = opened.sqlite
+          .prepare(
+            "SELECT scope, reason, tokens_before, tokens_after FROM session_context_summaries WHERE session_id = ? AND scope = 'turn'",
+          )
+          .all(session.id) as {
+          scope: string;
+          reason: string;
+          tokens_before: number;
+          tokens_after: number;
+        }[];
+        expect(stored).toHaveLength(1);
+        expect(stored[0]?.scope).toBe("turn");
+        expect(stored[0]?.tokens_after).toBeLessThan(stored[0]?.tokens_before ?? 0);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("keeps reasoning in memory for the tool loop and never persists it", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

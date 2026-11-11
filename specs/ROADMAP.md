@@ -317,7 +317,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | HX-4 | [工具结果结构裁剪](070-runtime-efficiency/tasks.md#hx-4-工具结果结构裁剪) | HX-0 | `done`（批次级预算待 HX-6） |
 | HX-5 | [稳定前缀与资源观察移位](070-runtime-efficiency/tasks.md#hx-5-稳定前缀与资源观察移位) | HX-1 | `done` |
 | HX-6 | [每步预算预检与估算校准](070-runtime-efficiency/tasks.md#hx-6-每步预算预检与估算校准) | HX-1 | `done` |
-| HX-7 | [长 Turn 检查点与有界降级](070-runtime-efficiency/tasks.md#hx-7-长-turn-检查点与有界降级) | HX-6、HX-4 | `todo` |
+| HX-7 | [长 Turn 检查点与有界降级](070-runtime-efficiency/tasks.md#hx-7-长-turn-检查点与有界降级) | HX-6、HX-4 | `done` |
 | HX-8 | [编码工具效率与只读并发](070-runtime-efficiency/tasks.md#hx-8-编码工具效率与只读并发) | HX-4 | `todo` |
 | HX-9 | [工具参数校验的秘密查询收敛](070-runtime-efficiency/tasks.md#hx-9-工具参数校验的秘密查询收敛卫生项) | HX-0 | `todo` |
 | HX-10 | [重复失败调用的循环干预](070-runtime-efficiency/tasks.md#hx-10-重复失败调用的循环干预) | HX-0 | `todo` |

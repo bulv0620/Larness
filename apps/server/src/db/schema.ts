@@ -28,6 +28,8 @@ export type TurnStatus =
   | "INTERRUPTED";
 export type { TurnTerminalReason } from "@larness/shared";
 
+export type ContextSummaryScope = "session" | "turn";
+
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ResourceLockType = "project" | "service" | "file" | "git" | "global-maintenance";
 export type ModelProviderId = "deepseek" | "glm" | "openai-compatible";
@@ -262,9 +264,16 @@ export const sessionContextSummaries = sqliteTable(
     tokensBefore: integer("tokens_before").notNull(),
     tokensAfter: integer("tokens_after").notNull(),
     degraded: integer("degraded").notNull().default(0),
+    /** `session`: cross-Turn compression; `turn`: in-Turn checkpoint. */
+    scope: text("scope").$type<ContextSummaryScope>().notNull().default("session"),
+    turnId: text("turn_id"),
+    reason: text("reason"),
     createdAt: integer("created_at").notNull(),
   },
-  (table) => [index("idx_context_summaries_session").on(table.sessionId, table.createdAt)],
+  (table) => [
+    index("idx_context_summaries_session").on(table.sessionId, table.createdAt),
+    index("idx_summaries_session_scope_created").on(table.sessionId, table.scope, table.createdAt),
+  ],
 );
 
 export const modelDefaults = sqliteTable(

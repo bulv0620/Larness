@@ -66,7 +66,9 @@ export function createFakeProvider(
     capabilities: { ...FAKE_CAPABILITIES, ...options.capabilities },
     calls,
     async *streamStep(input: ProviderStepInput): AsyncGenerator<ProviderChunk> {
-      calls.push(input);
+      // Snapshot the request: the runner mutates its message array in place,
+      // so a stored reference would make every recorded call look identical.
+      calls.push({ ...input, messages: [...input.messages], tools: [...input.tools] });
       const step = script[cursor];
       cursor += 1;
 

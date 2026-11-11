@@ -50,6 +50,7 @@ export function latestContextSummary(db: Database, sessionId: string): ContextSu
     .where(
       and(
         eq(sessionContextSummaries.sessionId, sessionId),
+        eq(sessionContextSummaries.scope, "session"),
         eq(sessionContextSummaries.degraded, 0),
         ne(sessionContextSummaries.summary, ""),
       ),
@@ -225,6 +226,8 @@ export async function compressContext(options: {
       id,
       sessionId: options.session.id,
       coveredUpToSeq,
+      scope: "session",
+      reason: "open_turn",
       summary,
       tokensBefore: options.tokensBefore,
       tokensAfter,

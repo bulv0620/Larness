@@ -16,7 +16,7 @@
 | HX-4 | 工具结果结构裁剪 | HX-0 | `done` |
 | HX-5 | 稳定前缀与资源观察移位 | HX-1 | `done` |
 | HX-6 | 每步预算预检与估算校准 | HX-1 | `done` |
-| HX-7 | 长 Turn 检查点与有界降级 | HX-6、HX-4 | `todo` |
+| HX-7 | 长 Turn 检查点与有界降级 | HX-6、HX-4 | `done` |
 | HX-8 | 编码工具效率与只读并发 | HX-4 | `todo` |
 | HX-9 | 工具参数校验的秘密查询收敛（卫生项） | HX-0 | `todo` |
 | HX-10 | 重复失败调用的循环干预 | HX-0 | `todo` |
@@ -162,7 +162,7 @@
 
 ### HX-7 长 Turn 检查点与有界降级
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11）
 - 依赖：HX-6、HX-4
 - 目标：长 Turn 不因超窗丢失已完成工作，且降级有界、事实可核实。
 - 交付物：
@@ -175,7 +175,12 @@
 - 测试：30 步长 Turn 集成测试；tool call/result 配对完整性断言；摘要超时用例。
 - 涉及路径：`apps/server/src/modules/agent/{turnRunner,contextCompressor,contextAssembler}.ts`、`apps/server/src/db/schema.ts`、`apps/server/drizzle/`、`docs/contracts/{data-model,ws-events}.md`、`specs/063-multi-provider/spec.md`
 - 备注：迁移号顺延——`0023` 已被 HX-3 占用，本任务使用 `0024`，071 的恢复切片顺延为 `0025`。
-- 备注：不复用 `compressContext`——它排除当前 Turn 且只读已持久化文本；需新增独立函数并复用其脱敏与持久化路径。
+- 实现要点：新增 `turnCheckpoint.ts`（`TurnFactsBuilder` 收集已改文件与版本、命令摘要、失败诊断、未完成计划步骤、资源 ID，全部有上限）；迁移 `0024` 给 `session_context_summaries` 加 `scope` / `turn_id` / `reason` 与索引；`latestContextSummary` 只读 `scope='session'`，跨轮压缩与 Turn 检查点互不污染。
+- 触发：每步预检得到 soft（≥0.7）或 hard（≥0.9）水位时，且已有完整工具批次、事实非空、替换后同口径体积至少减少 200 tokens，才把 `messages[1..]` 替换为一条 `Work state checkpoint` 用户消息；替换后重置估算锚点，避免用旧锚点继续推算。
+- 事件：新增 `context.checkpoint`（`summaryId / scope / reason / coveredUpToSeq / tokensBefore / tokensAfter / files / failures / openSteps`），已持久化后再广播。
+- **偏差**：检查点只用结构化事实，不调用模型生成摘要（省一次请求与 token，也避免摘要编造）；因此没有「摘要失败降级」路径，`degraded` 恒为 0。A8 的降级分支标记为不适用。
+- 附加修复：`FakeProvider` 记录请求时改为快照 `messages` / `tools`，此前保存的是同一个可变数组引用，导致跨步断言（含 HX-5 的前缀门禁）实际读到最终状态。
+- 验证：`turnCheckpoint` 3 个单测（事实去重与上限、空态、`scope='turn'` 不污染跨轮摘要）+ Turn 内检查点集成测试（3 步、窗口 1900、断言事件、存储行、`tokens_after < tokens_before` 与替换后的消息条数）；`test/agent` 79 通过 / 9 个既有环境性失败，`packages/agent` 47 通过 / 1 跳过，`apps/web` 158 通过；迁移计数与 `schemaVersion` 期望同步到 24；biome 与 typecheck 通过。
 
 ### HX-8 编码工具效率与只读并发
 

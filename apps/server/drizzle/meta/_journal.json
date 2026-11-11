@@ -162,6 +162,13 @@
       "when": 1794408058141,
       "tag": "0023_turn_terminal_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1794409061932,
+      "tag": "0024_turn_checkpoints",
+      "breakpoints": true
     }
   ]
 }

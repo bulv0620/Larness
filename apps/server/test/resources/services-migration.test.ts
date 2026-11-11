@@ -41,7 +41,7 @@ it("adds services without changing existing resource streams", async () => {
       journal.entries = complete;
       await writeFile(journalPath, JSON.stringify(journal));
       runMigrations(opened.db, migrations);
-      expect(appliedMigrationCount(opened.sqlite)).toBe(23);
+      expect(appliedMigrationCount(opened.sqlite)).toBe(24);
       expect(opened.sqlite.prepare("SELECT * FROM resource_streams").all()).toEqual([
         { stream_id: "file:project:fixture", last_seq: 3 },
       ]);
