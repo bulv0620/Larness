@@ -211,8 +211,11 @@ export const gitChanges: GitFileChange[] = [
 
 export const host = {
   cpuPercent: 38,
-  memoryUsedGb: 9.6,
-  memoryTotalGb: 16,
+  memoryUsedBytes: 9.6 * 1024 ** 3,
+  memoryTotalBytes: 16 * 1024 ** 3,
+  diskUsedBytes: 284 * 1024 ** 3,
+  diskTotalBytes: 460 * 1024 ** 3,
+  sampledAt: now,
 };
 
 export const fileTree: FileNode[] = [

@@ -17,8 +17,20 @@
 | UI-F11 | 本机执行提示 | 简化重复提示并明确实际执行权限 | UI-F10 | done |
 | UI-F12 | 对话布局 | 悬浮模型切换提示，流式回复首段即显示气泡 | UI-F11 | done |
 | UI-F13 | 资源区 Tab | 右侧资源区 Tab 切换，移除标题栏，圆角与 Git 顶部间距 | UI-F12 | done |
+| UI-F14 | Header 服务端资源 | Header 右侧显示 Server 主机 CPU / ROM / RAM 占用 | UI-F13 | done |
 
 ## 验收记录
+
+### UI-F14（2026-11-11，macOS）
+
+- 用户于 2026-11-11 选定方案 C「环形仪表」。Header 改为三枚 22px 环（CPU `accent`、RAM `success`、ROM `warning`）加标签与百分比，悬停弹出详情卡；未改变 API、4 秒轮询、`xl` 断点或磁盘不可读时的 `—` 降级。
+- 组件 3 项断言随样式更新，覆盖三项百分比、未知占位与隐藏文本中的精确 GB / TB 值；新增第 4 项验证悬停后出现「服务端资源」详情卡及精确用量。1280 与 1440 显示且无横向溢出，1024 与窄屏隐藏。
+- 环形仪表区域使用按钮触发：悬停显示手型光标与 `accent` 圆角选中框，点击才弹出 D 方案的详情卡；再次点击、点击区域外或 Escape 关闭。卡片为实底 `surface`、16px 圆角、`shadow-pop`、顶部尖角，无标题栏，仅含三行图标、进度条和精确值，居中于触发区下方。Chromium 1280 / 1440 实测悬停不弹出、点击弹出、外部点击与 Escape 关闭，选中框与光标正确，且无溢出。
+- 新增已认证 `GET /api/system/metrics`：CPU 取 `os.cpus()` 增量，内存取 `totalmem - freemem`，磁盘取 Server 数据目录所在卷的 `fs.statfs`。服务端缓存 1 秒，Header 每 4 秒轮询；磁盘读取失败返回 0，前端显示 `—`。契约同步到 `docs/contracts/rest-api.md`。
+- 服务端先行测试：5 个指标单测覆盖 CPU 增量、首次采样、缓存、磁盘失败降级和真实 `statfs`；1 个 API 测试覆盖未认证 401、已认证字段、`no-store` 与不泄露数据目录。
+- `VITEST_MAX_WORKERS=2 pnpm check` 通过：Web 158、Agent 42、Server 577 项通过，12 项沿用既有跳过；Biome 仅报告仓库既有 warning（含配置 schema 2.6.4 / CLI 2.6.6 提示）。
+- `pnpm build` 通过：Server 四入口产物与 Web 生产构建完成，仅有既有 chunk 体积提示。
+- 未运行完整认证 / 生产浏览器套件与 Windows 实机验证；真实指标接口已由运行中 Server 的授权注入测试覆盖。
 
 ### UI-F13（2026-11-11，Windows）
 

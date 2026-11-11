@@ -15,3 +15,33 @@ export function uptime(seconds: number): string {
   const hours = Math.floor(minutes / 60);
   return `${hours}h ${minutes % 60}m`;
 }
+
+/** Formats a used / total byte pair in the largest unit shared by both values. */
+export function formatBytesPair(usedBytes: number, totalBytes: number): string {
+  if (!Number.isFinite(usedBytes) || !Number.isFinite(totalBytes) || totalBytes <= 0) {
+    return "—";
+  }
+
+  const used = Math.max(0, usedBytes);
+  const gib = 1024 ** 3;
+
+  if (totalBytes >= 1024 * gib) {
+    const tib = 1024 * gib;
+    return `${(used / tib).toFixed(1)} / ${(totalBytes / tib).toFixed(1)} TB`;
+  }
+
+  if (totalBytes >= 100 * gib) {
+    return `${Math.round(used / gib)} / ${Math.round(totalBytes / gib)} GB`;
+  }
+
+  const totalDecimals = totalBytes >= 10 * gib ? 0 : 1;
+  return `${(used / gib).toFixed(1)} / ${(totalBytes / gib).toFixed(totalDecimals)} GB`;
+}
+
+export function usedPercent(usedBytes: number, totalBytes: number): number {
+  if (!Number.isFinite(usedBytes) || !Number.isFinite(totalBytes) || totalBytes <= 0) {
+    return 0;
+  }
+
+  return Math.min(100, Math.max(0, (usedBytes / totalBytes) * 100));
+}

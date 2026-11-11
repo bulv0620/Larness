@@ -7,15 +7,14 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Hint,
   IconButton,
 } from "@larness/ui";
-import { Bell, Cpu, MemoryStick, Monitor, Moon, PanelLeft, Sun } from "lucide-react";
+import { Bell, Monitor, Moon, PanelLeft, Sun } from "lucide-react";
 import { useTheme } from "@/app/ThemeProvider";
 import { StatusDot } from "@/components/common/StatusDot";
-import { USE_MOCKS } from "@/lib/env";
+import { HostMetricsIndicator } from "@/components/layout/HostMetricsIndicator";
 import { useSnapshot } from "@/lib/queries";
-import { useLiveHost } from "@/lib/useLiveHost";
+import { useHostMetrics } from "@/lib/useHostMetrics";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -30,7 +29,7 @@ export function TopBar({ version }: { version?: string }) {
     state.items.some((item) => item.kind === "approval" && item.status === "pending"),
   );
   const isStreaming = useTimelineStore((state) => state.isStreaming);
-  const metrics = useLiveHost(data.host);
+  const metrics = useHostMetrics(data.host);
   const project = data.projects.find((item) => item.id === projectId) ?? null;
   const ThemeIcon = theme === "system" ? Monitor : resolved === "dark" ? Moon : Sun;
   const versionLabel =
@@ -79,33 +78,7 @@ export function TopBar({ version }: { version?: string }) {
       </div>
 
       <div className="ml-auto flex items-center gap-1">
-        {USE_MOCKS ? (
-          <div className="mx-1 hidden items-center gap-3 rounded-xl border border-line bg-surface-2/60 px-2.5 py-1 xl:flex">
-            <Hint label="Larness 主机 CPU 使用率">
-              <span className="flex items-center gap-1.5">
-                <Cpu size={12} className="text-ink-3" />
-                <span className="h-1 w-10 overflow-hidden rounded-full bg-black/[.08] dark:bg-white/[.1]">
-                  <span
-                    className="block h-full rounded-full bg-accent transition-[width] duration-700"
-                    style={{ width: `${metrics.cpuPercent}%` }}
-                  />
-                </span>
-                <span className="w-7 font-mono text-[10px] text-ink-2">
-                  {Math.round(metrics.cpuPercent)}%
-                </span>
-              </span>
-            </Hint>
-            <span className="h-3 w-px bg-line" />
-            <Hint label="Larness 主机内存占用">
-              <span className="flex items-center gap-1.5">
-                <MemoryStick size={12} className="text-ink-3" />
-                <span className="font-mono text-[10px] text-ink-2">
-                  {metrics.memoryUsedGb.toFixed(1)} / {metrics.memoryTotalGb} GB
-                </span>
-              </span>
-            </Hint>
-          </div>
-        ) : null}
+        <HostMetricsIndicator metrics={metrics} />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

@@ -404,6 +404,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | UI-F10 | [最终答复气泡](068-ui-fixes/spec.md#ui-f10-最终答复气泡) | UI-F9 done | `done` |
 | UI-F11 | [本机执行提示](068-ui-fixes/spec.md#ui-f11-本机执行提示) | UI-F10 done | `done` |
 | UI-F12 | [对话布局稳定性](068-ui-fixes/spec.md#ui-f12-对话布局稳定性) | UI-F11 done | `done` |
+| UI-F13 | [右侧资源区 Tab](068-ui-fixes/spec.md#ui-f13-右侧资源区-tab-切换) | UI-F12 done | `done` |
+| UI-F14 | [Header 服务端资源占用](068-ui-fixes/spec.md#ui-f14-header-服务端资源占用) | UI-F13 done | `done` |
 
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
 - 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。

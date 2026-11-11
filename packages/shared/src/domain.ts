@@ -64,8 +64,11 @@ export interface GitFileChange {
 
 export interface HostMetrics {
   cpuPercent: number;
-  memoryUsedGb: number;
-  memoryTotalGb: number;
+  memoryUsedBytes: number;
+  memoryTotalBytes: number;
+  diskUsedBytes: number;
+  diskTotalBytes: number;
+  sampledAt: number;
 }
 
 export interface FileNode {

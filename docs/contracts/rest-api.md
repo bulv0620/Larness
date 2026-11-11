@@ -283,6 +283,27 @@
 
 `dataDir` 仅返回给已认证客户端；日志中脱敏。
 
+### GET `/api/system/metrics`（已认证）
+
+返回运行 Server 的机器的实时资源占用，用于 Header 展示；不是浏览器所在设备的数据。
+
+```json
+{
+  "cpuPercent": 23.4,
+  "memoryUsedBytes": 10307921510,
+  "memoryTotalBytes": 17179869184,
+  "diskUsedBytes": 304942678016,
+  "diskTotalBytes": 493921239040,
+  "sampledAt": 1761900000000
+}
+```
+
+- `cpuPercent`：所有核心自上次采样以来的使用率，范围 `0–100`；进程刚启动时首次采样可能为 `0`。
+- `memoryUsedBytes` / `memoryTotalBytes`：`totalmem - freemem`。
+- `diskUsedBytes` / `diskTotalBytes`：Server 数据目录所在卷的 `statfs` 结果；读取失败时两者为 `0`，客户端显示 `—`。
+- 响应带 `cache-control: no-store`；服务端缓存采样至少 1 秒，避免多客户端轮询造成抖动。
+- 不返回主机名、路径、进程列表或任何凭据；仍要求已认证会话。
+
 ## 6. WebSocket
 
 `GET /ws`（Upgrade）。握手校验见 [ws-events.md](ws-events.md)。
