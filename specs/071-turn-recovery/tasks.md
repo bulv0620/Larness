@@ -43,7 +43,9 @@
 - 验收：构造已知数据后统计值与实际一致；接口需认证；不写任何库。
 - 测试：`storage.test.ts` 单元测试；认证/E2E 只读性断言。
 - 涉及路径：`apps/server/src/modules/system/`、`apps/server/test/system/storage.test.ts`
-- 备注：这是 TR-4 的前置证据；没有它不应开启任何删除。
+- 实现要点：`modules/system/storage.ts` 的 `storageReport` 返回三类表的行数、最旧/最新时间、保留期与 dry-run 候选条数，另报数据库文件与 WAL 字节、活跃会话数；候选集合排除存在活跃 Turn 的会话。REST 增加已认证只读 `GET /api/system/storage`，`policy` 恒为 `dry_run`，不写库。
+- 验证：新增 2 个单测（固定时钟下三类表的行数/保留期/候选数、活跃会话豁免与文件字节 > 0）；契约写入 `docs/contracts/rest-api.md`。
+- 备注：`sessions.pinned_at`（用户显式保留）随 TR-4 的迁移引入；`doctor` 复用同一函数待后续接入。这是 TR-4 的前置证据，没有它不应开启任何删除。
 
 ### TR-2 中断 Turn 恢复（新 Turn 接手）
 
