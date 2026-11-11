@@ -1,5 +1,4 @@
 import type { HostMetrics } from "@larness/shared";
-import { TooltipProvider } from "@larness/ui";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it } from "vitest";
@@ -8,11 +7,7 @@ import { HostMetricsIndicator } from "./HostMetricsIndicator";
 const GIB = 1024 ** 3;
 
 function renderIndicator(metrics: HostMetrics | null) {
-  return render(
-    <TooltipProvider delayDuration={0}>
-      <HostMetricsIndicator metrics={metrics} />
-    </TooltipProvider>,
-  );
+  return render(<HostMetricsIndicator metrics={metrics} />);
 }
 
 it("shows CPU, RAM and ROM ring gauges for the server host", () => {
@@ -25,7 +20,7 @@ it("shows CPU, RAM and ROM ring gauges for the server host", () => {
     sampledAt: 1_000,
   });
 
-  expect(screen.getByLabelText("服务端系统资源")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "服务端资源占用" })).toBeInTheDocument();
   expect(screen.getByText("23%")).toBeInTheDocument();
   expect(screen.getByText("63%")).toBeInTheDocument();
   expect(screen.getByText("65%")).toBeInTheDocument();
@@ -40,7 +35,7 @@ it("shows dashes until the first server sample arrives", () => {
   expect(screen.getAllByText("—")).toHaveLength(3);
 });
 
-it("keeps exact byte values in the hover label", () => {
+it("keeps exact byte values in the accessible summary", () => {
   const terabyte = 1024 * GIB;
 
   renderIndicator({
@@ -56,7 +51,7 @@ it("keeps exact byte values in the hover label", () => {
   expect(screen.getByText(/RAM.*32\.0 \/ 64 GB（50%）/)).toBeInTheDocument();
 });
 
-it("shows the detailed card when hovering the metrics group", async () => {
+it("opens the detailed card on click and closes it with Escape", async () => {
   const user = userEvent.setup();
 
   renderIndicator({
@@ -68,12 +63,19 @@ it("shows the detailed card when hovering the metrics group", async () => {
     sampledAt: 1_000,
   });
 
-  const trigger = screen.getByLabelText("服务端系统资源");
+  const trigger = screen.getByRole("button", { name: "服务端资源占用" });
   expect(trigger).toHaveClass("cursor-pointer");
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
 
-  await user.hover(trigger);
+  await user.click(trigger);
 
+  expect(trigger).toHaveAttribute("aria-expanded", "true");
   expect(await screen.findByText("9.6 / 16 GB")).toBeInTheDocument();
   expect(screen.getByText("284 / 460 GB")).toBeInTheDocument();
   expect(screen.queryByText("服务端资源")).toBeNull();
+
+  await user.keyboard("{Escape}");
+
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByText("9.6 / 16 GB")).toBeNull();
 });

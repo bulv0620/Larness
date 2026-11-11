@@ -1,6 +1,6 @@
 import type { HostMetrics } from "@larness/shared";
-import { Hint } from "@larness/ui";
 import { Cpu, HardDrive, type LucideIcon, MemoryStick } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { formatBytesPair, usedPercent } from "@/lib/format";
 
 const RING_SIZE = 22;
@@ -13,7 +13,6 @@ interface HostMetricProps {
   value: string;
   percent: number;
   color: string;
-  hint: string;
 }
 
 interface DetailRowProps {
@@ -60,7 +59,7 @@ function MetricRing({ percent, color }: { percent: number; color: string }) {
   );
 }
 
-function HostMetric({ label, value, percent, color, hint }: HostMetricProps) {
+function HostMetric({ label, value, percent, color }: HostMetricProps) {
   return (
     <span className="flex items-center gap-1.5">
       <MetricRing percent={percent} color={color} />
@@ -72,7 +71,6 @@ function HostMetric({ label, value, percent, color, hint }: HostMetricProps) {
           {value}
         </span>
       </span>
-      <span className="sr-only">{`${label}：${hint}`}</span>
     </span>
   );
 }
@@ -103,35 +101,38 @@ function MetricsDetails({ metrics }: { metrics: HostMetrics | null }) {
   const cpuPercent = metrics === null ? 0 : Math.min(100, Math.max(0, metrics.cpuPercent));
 
   return (
-    <div className="w-[264px]">
-      <div className="space-y-2.5">
-        <DetailRow
-          icon={Cpu}
-          label="CPU"
-          value={metrics === null ? "—" : `${Math.round(cpuPercent)}%`}
-          percent={cpuPercent}
-          color="var(--accent)"
-        />
-        <DetailRow
-          icon={MemoryStick}
-          label="RAM"
-          value={formatBytesPair(metrics?.memoryUsedBytes ?? 0, metrics?.memoryTotalBytes ?? 0)}
-          percent={metrics === null ? 0 : memoryPercent}
-          color="var(--success)"
-        />
-        <DetailRow
-          icon={HardDrive}
-          label="ROM"
-          value={formatBytesPair(metrics?.diskUsedBytes ?? 0, metrics?.diskTotalBytes ?? 0)}
-          percent={metrics === null ? 0 : diskPercent}
-          color="var(--warning)"
-        />
-      </div>
+    <div className="w-[264px] space-y-2.5">
+      <DetailRow
+        icon={Cpu}
+        label="CPU"
+        value={metrics === null ? "—" : `${Math.round(cpuPercent)}%`}
+        percent={cpuPercent}
+        color="var(--accent)"
+      />
+      <DetailRow
+        icon={MemoryStick}
+        label="RAM"
+        value={formatBytesPair(metrics?.memoryUsedBytes ?? 0, metrics?.memoryTotalBytes ?? 0)}
+        percent={metrics === null ? 0 : memoryPercent}
+        color="var(--success)"
+      />
+      <DetailRow
+        icon={HardDrive}
+        label="ROM"
+        value={formatBytesPair(metrics?.diskUsedBytes ?? 0, metrics?.diskTotalBytes ?? 0)}
+        percent={metrics === null ? 0 : diskPercent}
+        color="var(--warning)"
+      />
     </div>
   );
 }
 
 export function HostMetricsIndicator({ metrics }: { metrics: HostMetrics | null }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const cpuPercent = metrics === null ? null : Math.min(100, Math.max(0, metrics.cpuPercent));
   const memoryPercent = usedPercent(metrics?.memoryUsedBytes ?? 0, metrics?.memoryTotalBytes ?? 0);
   const diskPercent = usedPercent(metrics?.diskUsedBytes ?? 0, metrics?.diskTotalBytes ?? 0);
   const memoryValue = formatBytesPair(
@@ -139,50 +140,81 @@ export function HostMetricsIndicator({ metrics }: { metrics: HostMetrics | null 
     metrics?.memoryTotalBytes ?? 0,
   );
   const diskValue = formatBytesPair(metrics?.diskUsedBytes ?? 0, metrics?.diskTotalBytes ?? 0);
-  const cpuPercent = metrics === null ? null : Math.min(100, Math.max(0, metrics.cpuPercent));
   const hasMemory = metrics !== null && metrics.memoryTotalBytes > 0;
   const hasDisk = metrics !== null && metrics.diskTotalBytes > 0;
+  const cpuValue = cpuPercent === null ? "—" : `${Math.round(cpuPercent)}%`;
+  const memoryDetail = hasMemory ? `${memoryValue}（${Math.round(memoryPercent)}%）` : "—";
+  const diskDetail = hasDisk ? `${diskValue}（${Math.round(diskPercent)}%）` : "—";
+  const summary = `CPU：${cpuValue}；RAM：${memoryDetail}；ROM：${diskDetail}`;
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
 
   return (
-    <Hint variant="card" label={<MetricsDetails metrics={metrics} />}>
-      <section
-        aria-label="服务端系统资源"
-        className="mr-1 hidden cursor-pointer items-center gap-3 rounded-xl px-2 py-1 transition-[background-color,box-shadow] duration-200 hover:bg-surface-2/70 hover:ring-2 hover:ring-accent/20 data-[state=delayed-open]:bg-surface-2/80 data-[state=delayed-open]:ring-2 data-[state=delayed-open]:ring-accent/25 xl:flex"
+    <div ref={rootRef} className="relative mr-1 hidden xl:block">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label="服务端资源占用"
+        aria-expanded={open}
+        aria-controls="host-metrics-popover"
+        aria-describedby="host-metrics-summary"
+        onClick={() => setOpen((current) => !current)}
+        className={`flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1 transition-[background-color,box-shadow] duration-200 ${
+          open
+            ? "bg-surface-2/80 ring-2 ring-accent/25"
+            : "hover:bg-surface-2/70 hover:ring-2 hover:ring-accent/20"
+        }`}
       >
-        <HostMetric
-          label="CPU"
-          value={cpuPercent === null ? "—" : `${Math.round(cpuPercent)}%`}
-          percent={cpuPercent ?? 0}
-          color="var(--accent)"
-          hint={
-            cpuPercent === null
-              ? "运行 Larness Server 的机器 CPU 使用率：—"
-              : `运行 Larness Server 的机器 CPU 使用率：${Math.round(cpuPercent)}%`
-          }
-        />
+        <HostMetric label="CPU" value={cpuValue} percent={cpuPercent ?? 0} color="var(--accent)" />
         <HostMetric
           label="RAM"
           value={!hasMemory ? "—" : `${Math.round(memoryPercent)}%`}
           percent={metrics === null ? 0 : memoryPercent}
           color="var(--success)"
-          hint={
-            metrics === null
-              ? "运行 Larness Server 的机器内存占用：—"
-              : `运行 Larness Server 的机器内存占用：${memoryValue}（${Math.round(memoryPercent)}%）`
-          }
         />
         <HostMetric
           label="ROM"
           value={!hasDisk ? "—" : `${Math.round(diskPercent)}%`}
           percent={metrics === null ? 0 : diskPercent}
           color="var(--warning)"
-          hint={
-            metrics === null
-              ? "运行 Larness Server 的机器磁盘占用：—"
-              : `运行 Larness Server 的机器磁盘占用（数据目录所在卷）：${diskValue}（${Math.round(diskPercent)}%）`
-          }
         />
-      </section>
-    </Hint>
+        <span id="host-metrics-summary" className="sr-only">
+          {summary}
+        </span>
+      </button>
+
+      {open ? (
+        <div
+          id="host-metrics-popover"
+          role="dialog"
+          aria-label="服务端资源详情"
+          className="absolute left-1/2 top-full z-[200] mt-4 -translate-x-1/2 rounded-2xl border border-line bg-surface p-3 shadow-pop"
+        >
+          <span className="pointer-events-none absolute -top-[5px] left-1/2 h-2.5 w-2.5 -translate-x-1/2 rotate-45 border-l border-t border-line bg-surface" />
+          <MetricsDetails metrics={metrics} />
+        </div>
+      ) : null}
+    </div>
   );
 }
