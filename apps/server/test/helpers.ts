@@ -6,6 +6,7 @@ import { Writable } from "node:stream";
 import {
   type AppConfig,
   type AuthConfig,
+  type CleanupConfig,
   DEFAULT_APP_CONFIG,
   type LoggingConfig,
   type PreviewConfig,
@@ -51,6 +52,7 @@ export interface TestConfigOverrides {
   logging?: Partial<LoggingConfig>;
   updates?: Partial<UpdatesConfig>;
   preview?: Partial<PreviewConfig>;
+  cleanup?: Partial<CleanupConfig>;
 }
 
 export function testConfig(overrides: TestConfigOverrides = {}): AppConfig {
@@ -63,6 +65,7 @@ export function testConfig(overrides: TestConfigOverrides = {}): AppConfig {
     logging: { ...base.logging, ...overrides.logging },
     updates: { ...base.updates, ...overrides.updates },
     preview: { ...base.preview, ...overrides.preview },
+    cleanup: { ...base.cleanup, ...overrides.cleanup },
   };
 }
 

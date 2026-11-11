@@ -38,6 +38,8 @@ export interface SessionDto {
   createdAt: number;
   updatedAt: number;
   lastActivityAt: number;
+  /** Non-null when the user pinned this session out of retention cleanup. */
+  pinnedAt: number | null;
 }
 
 export interface SessionDetailDto extends SessionDto {
@@ -90,6 +92,7 @@ export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     lastActivityAt: row.lastActivityAt,
+    pinnedAt: row.pinnedAt,
   };
 }
 

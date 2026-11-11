@@ -46,7 +46,7 @@ it("adds deployment targets, builds, artifacts and plans without changing existi
       journal.entries = complete;
       await writeFile(journalPath, JSON.stringify(journal));
       runMigrations(opened.db, migrations);
-      expect(appliedMigrationCount(opened.sqlite)).toBe(25);
+      expect(appliedMigrationCount(opened.sqlite)).toBe(26);
       expect(opened.sqlite.prepare("SELECT * FROM resource_streams").all()).toEqual([
         { stream_id: "file:project:fixture", last_seq: 3 },
       ]);

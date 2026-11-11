@@ -85,6 +85,8 @@ export const sessions = sqliteTable(
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     lastActivityAt: integer("last_activity_at").notNull(),
+    /** Set when the user explicitly keeps this session out of retention cleanup. */
+    pinnedAt: integer("pinned_at"),
   },
   (table) => [
     index("idx_sessions_project_updated").on(table.projectId, table.updatedAt),

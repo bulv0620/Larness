@@ -64,6 +64,28 @@ export const PreviewConfigSchema = z.strictObject({
   port: z.number().int().min(1).max(65535).default(3211),
 });
 
+export const CleanupRetentionSchema = z.strictObject({
+  events: z.number().int().min(1).max(3650).default(90),
+  turns: z.number().int().min(1).max(3650).default(180),
+  summaries: z.number().int().min(1).max(3650).default(90),
+});
+
+/**
+ * Retention cleanup is opt-in (ADR-058 decision 4): disabled by default and
+ * dry-run only until a human turns it on.
+ */
+export const CleanupConfigSchema = z.strictObject({
+  enabled: z.boolean().default(false),
+  /** Remove the session row as well; default keeps history entries visible. */
+  deleteSessions: z.boolean().default(false),
+  keepPinned: z.boolean().default(true),
+  retentionDays: CleanupRetentionSchema.default({ events: 90, turns: 180, summaries: 90 }),
+  /** Hard size budget in bytes; 0 disables the check. */
+  maxBytes: z.number().int().min(0).default(0),
+});
+
+export const DEFAULT_CLEANUP_CONFIG = CleanupConfigSchema.parse({});
+
 export const AppConfigSchema = z.strictObject({
   version: z.literal(1),
   server: ServerConfigSchema,
@@ -72,6 +94,7 @@ export const AppConfigSchema = z.strictObject({
   logging: LoggingConfigSchema,
   updates: UpdatesConfigSchema,
   preview: PreviewConfigSchema,
+  cleanup: CleanupConfigSchema.default(DEFAULT_CLEANUP_CONFIG),
 });
 
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
@@ -82,6 +105,7 @@ export type LoggingConfig = z.infer<typeof LoggingConfigSchema>;
 export type UpdateChannel = z.infer<typeof UpdateChannelSchema>;
 export type UpdatesConfig = z.infer<typeof UpdatesConfigSchema>;
 export type PreviewConfig = z.infer<typeof PreviewConfigSchema>;
+export type CleanupConfig = z.infer<typeof CleanupConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema>;
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
@@ -115,6 +139,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     enabled: false,
     port: 3211,
   },
+  cleanup: DEFAULT_CLEANUP_CONFIG,
 };
 
 export type WebAuthnDisabledReason = "rp_id_is_ip" | "remote_http";

@@ -13,7 +13,7 @@
 | TR-1 | 数据体积诊断（只读） | TR-0 | `done` |
 | TR-2 | 中断 Turn 恢复（新 Turn 接手） | TR-0、070 HX-7 | `done` |
 | TR-3 | 恢复入口与确认交互 | TR-2 | `done` |
-| TR-4 | 保留策略与清理执行 | TR-1、TR-0 | `todo` |
+| TR-4 | 保留策略与清理执行 | TR-1、TR-0 | `done`（默认关闭） |
 
 ## 任务卡
 
@@ -83,7 +83,7 @@
 
 ### TR-4 保留策略与清理执行
 
-- 状态：`todo`
+- 状态：`done`（2026-11-12，默认关闭；删除语义待用户复核）
 - 依赖：TR-1、TR-0
 - 目标：给历史数据明确寿命，同时保证默认不删、删除可审计、失败整体回滚。
 - 交付物：
@@ -95,7 +95,13 @@
 - 验收：A4、A5 通过；默认配置下不删除任何行；活跃会话被跳过；注入失败时零删除。
 - 测试：dry-run 不写库；候选集合边界（保留期边界、pinned、活跃）；事务回滚；审计字段。
 - 涉及路径：`apps/server/src/db/cleanup.ts`、`apps/server/src/modules/system/`、`packages/shared/src/config.ts`、`apps/server/drizzle/0024_turn_recovery.sql`、`docs/contracts/data-model.md`
-- 备注：破坏性任务，最后实施；D2/D3 未确认不动。默认值与开关必须在 spec 与配置示例中同时写明。
+- 实现要点：迁移 `0026` 加 `sessions.pinned_at`；`config.json` 新增 `cleanup`（`enabled=false`、`deleteSessions=false`、`keepPinned=true`、`retentionDays={events:90,turns:180,summaries:90}`、`maxBytes=0`）；`modules/system/retention.ts` 以**会话为单元**计算候选（`sessions.updated_at` 早于 turns 保留期、无活跃 Turn、未被 pin），默认只统计；开启后**先备份**（`backupDatabase`，失败即整体中止），再在单事务内删除该会话的 `agent_events` / `session_context_summaries` / `turns`，写 `storage.cleanup` 审计（策略、条数、备份路径）；`deleteSessions=true` 时改为删会话行（级联）。
+- 接入：`startCleanupScheduler` 在 `cleanup.enabled` 时按同一周期执行清理；日志记录结果或失败。
+- 验证：新增 4 个用例——默认只统计不删、备份后删除且跳过 pinned/活跃会话、备份失败零删除、`deleteSessions` 时删除会话行；`test/system` 22 通过；迁移计数与 `schemaVersion` 同步到 26；完整 server 套件 73 失败 / 546 通过（失败集合与基线一致）。
+- **偏差与待复核**：
+  1. `maxBytes` 字段已加入配置但**未启用强制淘汰**——需要把 TR-1 的体积测量接进调度器，且「超预算时删哪些会话」是产品决策，留待复核。
+  2. 删除粒度按**会话整段**、默认**保留 `sessions` 行**（历史列表仍在、内容为空）；`deleteSessions=true` 才会连会话行一起删。这与 D2 的「按会话整段删除」一致，但「是否连会话行一起删」仍建议用户确认。
+  3. 开启清理前不做强制二次确认（当前只有配置开关）；如需 UI 开关与确认，属于后续界面任务。
 
 ## 验收记录
 

@@ -13,6 +13,7 @@ import type { FastifyInstance } from "fastify";
 import type { DestinationStream, Logger } from "pino";
 import { createApp } from "../app.js";
 import { loadOrCreateCsrfKey } from "../auth/csrf.js";
+import { backupDatabase } from "../db/backup.js";
 import { type CleanupScheduler, startCleanupScheduler } from "../db/cleanup.js";
 import { type Database, type OpenedDatabase, openDatabase } from "../db/client.js";
 import {
@@ -393,7 +394,13 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     });
     ensureDefaultModelProfiles(opened.db);
 
-    const cleanupScheduler = startCleanupScheduler(opened.db, { logger: activeLogger });
+    const cleanupScheduler = startCleanupScheduler(opened.db, {
+      logger: activeLogger,
+      retention: {
+        config: loaded.config.cleanup,
+        backup: () => backupDatabase(opened.sqlite, path.join(dataDir, "backups"), Date.now()),
+      },
+    });
     cleanup = cleanupScheduler;
 
     const csrfKey = await loadOrCreateCsrfKey(dataDir);

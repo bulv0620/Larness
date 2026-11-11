@@ -53,6 +53,7 @@ export function createSessionRow(db: DbExecutor, input: CreateSessionRowInput): 
     createdAt: input.now,
     updatedAt: input.now,
     lastActivityAt: input.now,
+    pinnedAt: null,
   };
 
   db.insert(sessions).values(row).run();

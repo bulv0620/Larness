@@ -24,7 +24,8 @@
 - **M6-TR1（071）数据体积诊断**：`done`（2026-11-12）。`modules/system/storage.ts` 提供只读 `storageReport`（三类表行数/最旧最新时间/保留期/dry-run 候选数、数据库与 WAL 字节、活跃会话数），候选集合排除有活跃 Turn 的会话；新增已认证只读 `GET /api/system/storage`，`policy` 恒为 `dry_run`，不写库。验证：2 个单测通过，契约已更新。
 - **M6-TR2（071）中断 Turn 恢复**：`done`（2026-11-12）。迁移 `0025` 加 `turns.resumed_from_turn_id`；新增从 `agent_events` 反读事实的 `extractFactsFromEvents` / `loadTurnFacts`；`resumeInterruptedTurn` 校验 `INTERRUPTED` + 事实非空后用原模型快照创建新 Turn，写 `resumedFromTurnId`、`turn.resumed` 事件与审计，`idempotencyKey=resume:<原TurnId>` 保证幂等；新增 `POST /api/turns/:id/resume`（202）。验证：4 个恢复用例通过，迁移计数与 `schemaVersion` 同步到 25，`test/agent` 91 通过 / 9 个既有环境性失败，契约三处已更新。
 - **M6-TR3（071）恢复入口**：`done`（2026-11-12，视觉待确认）。`workspaceApi.resumeTurn` + `timelineStore.resumeTurn`（成功后置流式并同步事件，失败追加错误条目）；时间线在中断轮次显示「继续这个任务」，经二次确认才调用；已取消/已完成轮次不显示。验证：新增 2 个组件测试，`apps/web` 160 通过，typecheck 与 biome 通过。**视觉验收待用户确认**。
-- **剩余待办**：HX-12b（循环体拆分，建议在可跑全量套件的机器上做）、071 的 TR-4（清理执行，破坏性；前需 TR-1 真实体积报告与备份路径）。
+- **M6-TR4（071）保留策略与清理执行**：`done`（2026-11-12，**默认关闭**）。迁移 `0026` 加 `sessions.pinned_at`；`config.json` 新增 `cleanup`（默认 `enabled=false`、`keepPinned=true`、保留期 90/180/90）；`runRetentionCleanup` 以会话为单元：默认只统计，开启后先备份（失败即中止）再在单事务内删该会话的事件/摘要/轮次并写 `storage.cleanup` 审计；`deleteSessions=true` 时连会话行一起删。接入清理调度器。验证：4 个用例（只统计不删、备份后删除且跳过 pinned/活跃、备份失败零删除、删除会话行），`test/system` 22 通过，迁移计数与 `schemaVersion` 同步到 26，完整 server 73 失败 / 546 通过（失败集合与基线一致）。**偏差**：`maxBytes` 仅入配置未强制；删除粒度默认保留会话行，待用户复核。
+- **剩余待办**：仅 HX-12b（`turnRunner` 循环体拆分，建议在能跑全量套件的机器上做）。070 与 071 的实现任务全部交付。
 
 - **M6-0b（HX-9～HX-12 + 071 草案）**：`done`（2026-11-11，仅文档）。在 070 追加 4 个任务：HX-9 秘密查询收敛（卫生项，明确无性能收益）、HX-10 重复失败调用干预、HX-11 token 消耗上限、HX-12 `turnRunner` 机械拆分（建议先于 HX-4 完成以降低回归面）；新增 [071 切片](specs/071-turn-recovery/spec.md)（`draft`）与 [ADR-058](docs/adr/ADR-058-turn-recovery-retention.md)（`proposed`），覆盖中断 Turn 接手恢复与事件保留策略。新增待决 D8–D10（070）与 D1–D4（071），Q-033/Q-034 已登记。未运行 `pnpm check`（仅 Markdown）。
 
