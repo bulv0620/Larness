@@ -112,7 +112,7 @@ test("conversation actions follow the outer light/dark theme without expanding t
   await page.screenshot({ path: path.join(tmpdir(), "larness-m2-16-mobile.png") });
 });
 
-test("only settled answer markdown uses the themed message bubble", async ({ page }) => {
+test("only reply markdown uses the themed message bubble", async ({ page }) => {
   await page.goto("/");
   const bubble = page.getByTestId("final-answer-bubble");
   await expect(bubble).toHaveCount(0);

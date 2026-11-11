@@ -66,6 +66,48 @@ it("keeps the final answer visible when a completed tool event arrives after the
   render(<Timeline />);
   expect(screen.getByText("项目文件已列出。")).toBeVisible();
 });
+it("keeps the same reply bubble from the first streamed text through completion", () => {
+  const user = {
+    id: "user",
+    kind: "message",
+    role: "user",
+    text: "list",
+    createdAt: 1,
+    turnId: "turn-1",
+  } as const;
+  const answer = {
+    id: "answer",
+    kind: "message",
+    role: "assistant",
+    text: "项目文件",
+    createdAt: 2,
+    turnId: user.turnId,
+    streaming: true,
+  } as const;
+  useTimelineStore.setState({
+    items: [user, answer],
+    activeTurnId: user.turnId,
+    isStreaming: true,
+  });
+  render(<Timeline />);
+  const bubble = screen.getByTestId("final-answer-bubble");
+  expect(bubble).toHaveTextContent("项目文件");
+
+  act(() => {
+    useTimelineStore.setState({
+      items: [
+        { ...user, turnOutcome: "completed" },
+        { ...answer, text: "项目文件已列出。", streaming: false },
+      ],
+      activeTurnId: null,
+      isStreaming: false,
+    });
+  });
+  expect(screen.getByTestId("final-answer-bubble")).toBe(bubble);
+  expect(bubble).toHaveTextContent("项目文件已列出。");
+  expect(within(bubble).queryByRole("button", { name: "复制答复" })).toBeNull();
+});
+
 it("shows the current tool and a spinner outside the scrollable transcript", () => {
   useTimelineStore.setState({
     items: [

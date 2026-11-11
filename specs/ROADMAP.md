@@ -403,6 +403,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | UI-F9 | [新对话布局与输入框过渡](068-ui-fixes/spec.md#ui-f9-新对话布局与输入框过渡) | UI-F8 done | `done` |
 | UI-F10 | [最终答复气泡](068-ui-fixes/spec.md#ui-f10-最终答复气泡) | UI-F9 done | `done` |
 | UI-F11 | [本机执行提示](068-ui-fixes/spec.md#ui-f11-本机执行提示) | UI-F10 done | `done` |
+| UI-F12 | [对话布局稳定性](068-ui-fixes/spec.md#ui-f12-对话布局稳定性) | UI-F11 done | `done` |
 
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
 - 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。

@@ -237,9 +237,12 @@ export function Composer({
   };
 
   return (
-    <div className="rounded-[18px] border border-line bg-surface shadow-[var(--shadow-card)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:ring-2 focus-within:ring-accent/10">
+    <div className="relative rounded-[18px] border border-line bg-surface shadow-[var(--shadow-card)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:ring-2 focus-within:ring-accent/10">
       {switchNotice ? (
-        <p role="status" className="px-3.5 pt-2 text-[10.5px] text-ink-3">
+        <p
+          role="status"
+          className="pointer-events-none absolute bottom-full left-2 mb-1 w-fit max-w-[calc(100%-1rem)] truncate rounded-md bg-surface/90 px-2 py-0.5 text-[10.5px] text-ink-3"
+        >
           {switchNotice}
         </p>
       ) : null}

@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F12 对话布局稳定性**：`done`（2026-11-11），分支 `task/ui-f12-stable-chat-layout`。模型切换提示悬浮于输入框左上方，回复首段正文起即显示主题气泡。用户视觉验收与 `pnpm check` 通过。
+
 - **UI-F11 本机执行提示**：`done`（2026-11-11），分支 `task/ui-f11-host-execution-copy`。终端、命令、完全自主与自动化直接说明本机账户权限。全量检查复跑和 4 项认证浏览器回归通过。[验收记录](specs/068-ui-fixes/tasks.md#ui-f11-2026-11-11windows)
 
 - **UI-F10 最终答复气泡**：`done`（2026-11-11），分支 `task/ui-f10-final-answer-bubble`。仅为已结束轮次的最终答复正文恢复主题气泡。Web 类型、对话组件和主题浏览器定向检查通过。

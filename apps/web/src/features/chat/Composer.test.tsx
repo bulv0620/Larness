@@ -180,7 +180,9 @@ it("switches model and thinking from the two-level menu", async () => {
   expect(useComposerStore.getState().modelId).toBe("glm-4.6");
   expect(useComposerStore.getState().credentialProfileId).toBe("cred_glm");
   expect(useComposerStore.getState().thinking).toBe("on");
-  expect(screen.getByText("已切换到 GLM-4.6")).toBeVisible();
+  const switchNotice = screen.getByText("已切换到 GLM-4.6");
+  expect(switchNotice).toBeVisible();
+  expect(switchNotice).toHaveClass("absolute", "bottom-full");
 
   await user.click(screen.getByRole("button", { name: "模型与思考：GLM-4.6 · 开启" }));
   const glmPopover = screen.getByRole("dialog", { name: "模型与思考" });
