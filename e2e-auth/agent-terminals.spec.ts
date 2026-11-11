@@ -88,7 +88,7 @@ test("M2-4c agent starts two approved project dev terminals and exposes non-focu
     await page.getByRole("button", { name: "发送消息" }).click();
 
     await expect(page.getByRole("button", { name: "批准执行" })).toBeVisible();
-    await expect(page.getByText(/项目目录不是沙箱/).first()).toBeVisible();
+    await expect(page.getByText(/以本机账户权限运行，可访问项目外文件/).first()).toBeVisible();
     await expect(page.getByText("启动项目终端 frontend").first()).toBeVisible();
     await page.getByRole("button", { name: "批准执行" }).click();
     await expect(page.getByRole("button", { name: "批准执行" })).toBeVisible();

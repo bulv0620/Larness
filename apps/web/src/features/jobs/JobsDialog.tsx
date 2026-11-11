@@ -375,7 +375,7 @@ export function JobsDialog({
                       {current.kind === "script" ? (
                         <>
                           <p className="mb-2 rounded bg-warning/10 px-2 py-1.5 text-[10.5px] text-warning">
-                            脚本以本机账户权限运行，不是沙箱；输出有界并脱敏。
+                            脚本以本机账户权限运行，可访问项目外文件和网络。输出有长度限制并经过脱敏。
                           </p>
                           <pre className="max-h-48 overflow-auto rounded bg-surface-2 p-2 text-[10.5px] leading-relaxed">
                             {current.script?.source ?? ""}
@@ -459,7 +459,7 @@ export function JobsDialog({
           <>
             <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
               <p className="text-[11px] text-ink-3">
-                Cron / 固定间隔任务，支持脚本与 Agent；脚本不是沙箱。
+                支持按 Cron 表达式或固定间隔运行脚本和 Agent。
               </p>
               <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
                 <Plus size={12} />
@@ -853,7 +853,7 @@ function JobForm({
               />
             </Field>
             <p className="mt-1 text-[10px] text-warning">
-              以本机账户权限运行，不是沙箱；可使用文件与网络。
+              脚本以本机账户权限运行，可访问项目外文件和网络。
             </p>
           </div>
         ) : (
@@ -905,7 +905,7 @@ function JobForm({
                 />
                 <span>
                   我了解：该任务无人值守运行，可按完全自主策略执行已登记工具（含文件写入 /
-                  命令），程序具有本机账户权限且不是沙箱。
+                  命令）。程序以本机账户权限运行，可访问项目外文件和网络。
                 </span>
               </label>
             )}

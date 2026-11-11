@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F11 本机执行提示**：`done`（2026-11-11），分支 `task/ui-f11-host-execution-copy`。终端、命令、完全自主与自动化直接说明本机账户权限。全量检查复跑和 4 项认证浏览器回归通过。[验收记录](specs/068-ui-fixes/tasks.md#ui-f11-2026-11-11windows)
+
 - **UI-F10 最终答复气泡**：`done`（2026-11-11），分支 `task/ui-f10-final-answer-bubble`。仅为已结束轮次的最终答复正文恢复主题气泡。Web 类型、对话组件和主题浏览器定向检查通过。
 
 - **UI-F9 新对话布局**：`done`（2026-11-11），分支 `task/ui-f9-new-chat`。已实现居中空态、快捷建议和首发 290 ms 落位，必要校验通过，视觉由用户验收。[验收记录](specs/068-ui-fixes/tasks.md#ui-f9-2026-11-11windows)

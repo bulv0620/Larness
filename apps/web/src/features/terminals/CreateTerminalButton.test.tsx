@@ -9,7 +9,9 @@ it("creates only after confirmation, pins the scope and retries with the same id
   vi.mocked(createTerminal).mockRejectedValue(new Error("Unconfirmed"));
   const { rerender } = render(<CreateTerminalButton scope={{ projectId: "prj_original" }} />);
   fireEvent.click(screen.getByRole("button", { name: "新建终端" }));
-  expect(screen.getByRole("dialog", { name: "创建终端确认" })).toHaveTextContent("不是沙箱");
+  expect(screen.getByRole("dialog", { name: "创建终端确认" })).toHaveTextContent(
+    "终端以本机账户权限运行，可访问项目外文件。",
+  );
   expect(createTerminal).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "取消" }));
   expect(createTerminal).not.toHaveBeenCalled();

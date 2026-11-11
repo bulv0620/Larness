@@ -141,6 +141,7 @@ it("requires risk confirmation before switching to autonomous, with cancellation
   await user.click(screen.getByRole("menuitemradio", { name: /完全自主/ }));
   expect(useComposerStore.getState().policy).toBe("standard");
   const dialog = await screen.findByRole("dialog", { name: "启用完全自主？" });
+  expect(dialog).toHaveTextContent("程序以本机账户权限运行，可访问项目外文件和网络。");
   await user.click(within(dialog).getByRole("button", { name: "取消" }));
   expect(useComposerStore.getState().policy).toBe("standard");
   await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));

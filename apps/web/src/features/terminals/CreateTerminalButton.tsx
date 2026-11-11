@@ -47,7 +47,7 @@ export function CreateTerminalButton({
       >
         <DialogContent className="max-w-sm">
           <DialogTitle>创建终端确认</DialogTitle>
-          <DialogDescription>终端以本机账户运行，项目目录不是沙箱。</DialogDescription>
+          <DialogDescription>终端以本机账户权限运行，可访问项目外文件。</DialogDescription>
           <ErrorMessage message={error} onDismiss={() => setError("")} />
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" disabled={busy} onClick={() => setRequest(null)}>

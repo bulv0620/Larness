@@ -45,7 +45,8 @@ export function createTerminalTools(options: {
       requiresProject: true,
       requiresProjectLock: false,
       schema: startSchema,
-      summarize: (args) => `启动项目终端 ${args.role}（项目目录不是沙箱；dev 进程可能并发写源码）`,
+      summarize: (args) =>
+        `启动项目终端 ${args.role}（以本机账户权限运行，可访问项目外文件。dev 进程可能并发写源码）`,
       handler: async (args, context) =>
         context.startTerminal
           ? context.startTerminal(args)

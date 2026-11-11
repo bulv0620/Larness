@@ -367,7 +367,7 @@ export function Composer({
           <DialogTitle>启用完全自主？</DialogTitle>
           <DialogDescription>
             Agent 将不再逐次请求工具审批，可自行修改或删除文件、执行命令、进行 Git
-            推送等操作。程序以本机账户权限运行，这不是沙箱。请仅在信任当前任务时启用；下一轮生效，随时可以切回标准审批。
+            推送等操作。程序以本机账户权限运行，可访问项目外文件和网络。请仅在信任当前任务时启用。下一轮生效，随时可以切回标准审批。
           </DialogDescription>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setConfirmAutonomous(false)}>

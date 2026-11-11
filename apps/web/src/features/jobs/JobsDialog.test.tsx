@@ -123,6 +123,7 @@ it("disables a job from the detail view", async () => {
 it("creates a script job from the form", async () => {
   renderDialog();
   fireEvent.click(await screen.findByRole("button", { name: "新建任务" }));
+  expect(screen.getByText("脚本以本机账户权限运行，可访问项目外文件和网络。")).toBeVisible();
   fireEvent.change(screen.getByLabelText("名称"), { target: { value: "新的任务" } });
   fireEvent.click(screen.getByRole("button", { name: "保存" }));
   await waitFor(() =>

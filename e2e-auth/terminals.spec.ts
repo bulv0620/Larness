@@ -97,7 +97,7 @@ test("M2 terminals: two authenticated observers, exclusive input, replay and exp
       .getByRole("button", { name: "新建终端", exact: true })
       .click();
     await expect(page.getByRole("dialog", { name: "创建终端确认" })).toContainText(
-      "项目目录不是沙箱",
+      "终端以本机账户权限运行，可访问项目外文件。",
     );
     await page.getByRole("button", { name: "确认创建" }).click();
     const terminal = page.getByTestId("live-terminal");

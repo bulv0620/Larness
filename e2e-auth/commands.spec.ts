@@ -49,7 +49,7 @@ test("M2 command approval runs real bytes, streams redacted output, survives ref
     await composer.fill("command finite");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByRole("button", { name: "批准执行" })).toBeVisible();
-    await expect(page.getByText(/项目目录不是沙箱/).first()).toBeVisible();
+    await expect(page.getByText(/以本机账户权限运行，可访问项目外文件/).first()).toBeVisible();
     const approval = page.getByRole("region", { name: "待处理审批" });
     const approvalBox = await approval.boundingBox();
     const composerBox = await composer.boundingBox();
