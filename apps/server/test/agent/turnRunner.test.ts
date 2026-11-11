@@ -905,6 +905,97 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("intervenes after the same call fails three times without blocking it", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "repeat" });
+        const missing = {
+          id: "call_missing",
+          name: "read_file",
+          args: { path: "missing.txt" },
+        };
+        const provider = createFakeProvider([
+          toolStep(missing),
+          toolStep({ ...missing, id: "call_missing_2" }),
+          toolStep({ ...missing, id: "call_missing_3" }),
+          textStep("blocked"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        // All three attempts still executed; the intervention only adds a fact.
+        expect(provider.calls).toHaveLength(4);
+
+        const afterThird = provider.calls[3]?.messages ?? [];
+        const nudge = afterThird.find(
+          (message) =>
+            message.role === "user" &&
+            typeof message.content === "string" &&
+            message.content.includes("failed 3 times in a row"),
+        );
+        expect(nudge).toBeDefined();
+
+        const failures = listSessionEvents(opened.db, session.id).items.filter(
+          (event) => event.type === "tool.failed",
+        );
+        expect(failures).toHaveLength(3);
+        expect(failures[2]?.payload).toMatchObject({ repeatCount: 3 });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("stops on the token cap when one is configured", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "spend" });
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              { type: "tool-call", toolCall: { id: "call_list", name: "list_files", args: {} } },
+              {
+                type: "finish",
+                finishReason: "tool-calls",
+                usage: { inputTokens: 900, outputTokens: 100, totalTokens: 1_000 },
+              },
+            ],
+          },
+          textStep("never reached"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          budget: { maxTotalTokens: 500 },
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+        expect(provider.calls).toHaveLength(1);
+
+        const row = opened.sqlite
+          .prepare("SELECT terminal_reason FROM turns WHERE id = ?")
+          .get(turn.turnId) as { terminal_reason: string | null };
+        expect(row.terminal_reason).toBe("budget");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("keeps reasoning in memory for the tool loop and never persists it", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

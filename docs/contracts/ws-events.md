@@ -96,7 +96,7 @@ interface ServerEvent<T = unknown> {
 | `tool.approval.resolved` | `approvalId, decision` | 是 |
 | `tool.started` | `toolCallId, name` | 是 |
 | `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?`（M2-2 成功文件修改附授权 scope / path / version） | 是 |
-| `tool.failed` | `toolCallId, errorCode, message` | 是 |
+| `tool.failed` | `toolCallId, errorCode, message, repeatCount?`（M6-10：同一 `(tool, 规范化参数)` 连续失败次数） | 是 |
 | `file.changed` | `path, changeType, version` | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
 | `turn.completed` | `turnId, usage, durationMs, terminalReason, budgetExhausted?`（`usage` 与 `model.usage` 同口径，含 `cacheReadTokens?` / `noCacheTokens?`） | 是 |
@@ -110,6 +110,8 @@ interface ServerEvent<T = unknown> {
 `assistant.reasoning.delta` 使用与 `assistant.delta` 相同的临时信封，不含 `sequence`，不写 `agent_events`，刷新 / 重连后不重放；只发给订阅该会话的已认证客户端。推理正文不得进入日志、审计、其他会话或跨模型上下文。
 
 `assistant.delta` 可使用独立信封 `{ kind: "assistant.delta", topic: "agent", streamId, sessionId, turnId, messageId, text, timestamp }`，不占用持久化 `sequence`，刷新后不重放；最终 `assistant.message` 使用相同 `messageId` 覆盖完整文本。可按 50 ms / 16 KiB 聚合；`turn.*`、审批与工具状态不得仅存在内存。
+
+`repeatCount` 只在同一调用连续失败达到阈值时由后端记录，并同时在 tool result 之后追加一条模型可见的事实说明；它不改变执行策略、授权或审批。
 
 `terminalReason`（M6-3，[ADR-057](../adr/ADR-057-runtime-efficiency.md)）在每个 `turn.*` 终态事件中给出结束原因：`normal / budget / output_truncated / provider_error / error / cancelled / interrupted`。它和事件类型正交——`turn.completed` 也可能是 `budget` 或 `output_truncated`，客户端必须按 `terminalReason` 而不是仅按事件类型判断「任务是否真的做完」。
 

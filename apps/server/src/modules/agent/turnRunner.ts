@@ -90,6 +90,9 @@ const DEFAULT_BUDGET = {
   maxDurationMs: 10 * 60_000,
   contextRatio: 0.8,
   maxOutputTokens: 8_192,
+  repeatFailureThreshold: 3,
+  // 0 disables the spend cap until D10 confirms a default.
+  maxTotalTokens: 0,
 } as const;
 
 const APPROVAL_POLL_MS = 100;
@@ -116,6 +119,8 @@ export interface TurnBudget {
   maxDurationMs: number;
   contextRatio: number;
   maxOutputTokens: number;
+  repeatFailureThreshold: number;
+  maxTotalTokens: number;
 }
 
 export interface TurnRunnerOptions {
@@ -167,6 +172,28 @@ function deriveTerminalReason(
   }
 
   return options.errorCode?.startsWith("PROVIDER_") === true ? "provider_error" : "error";
+}
+
+function canonicalArgs(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonicalArgs);
+  }
+
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.keys(record)
+        .sort()
+        .map((key) => [key, canonicalArgs(record[key])]),
+    );
+  }
+
+  return value;
+}
+
+/** Identical calls must compare equal regardless of argument key order. */
+function stableArgsKey(name: string, args: unknown): string {
+  return `${name}|${JSON.stringify(canonicalArgs(args))}`;
 }
 
 function turnInputText(json: string): string {
@@ -517,6 +544,7 @@ export class TurnRunner {
     let anchoredHeuristicTokens: number | undefined;
     let anchoredProviderTokens: number | undefined;
     const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
+    const repeatFailures = new Map<string, number>();
 
     const finalize = (
       status: TurnStatus,
@@ -1432,6 +1460,14 @@ export class TurnRunner {
           return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
         }
 
+        if (this.#budget.maxTotalTokens > 0) {
+          const spentTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+
+          if (spentTokens >= this.#budget.maxTotalTokens) {
+            return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
+          }
+        }
+
         if (contextWatermark(projectedTokens, contextWindow) === "soft") {
           this.#options.logger?.info(
             {
@@ -1829,6 +1865,8 @@ export class TurnRunner {
                     role: stoppedTerminal.data.role,
                   })
                 : undefined;
+            repeatFailures.delete(stableArgsKey(request.name, request.args));
+
             if (request.name === "run_command") {
               facts.recordCommand(result.result.summary);
             }
@@ -1865,12 +1903,16 @@ export class TurnRunner {
               }
             }
           } else {
+            const repeatKey = stableArgsKey(request.name, request.args);
+            const repeatCount = (repeatFailures.get(repeatKey) ?? 0) + 1;
+            repeatFailures.set(repeatKey, repeatCount);
             facts.recordToolFailure(result.result.errorCode ?? "TOOL_ERROR", result.result.summary);
             this.#emit(turn, session, "tool.failed", {
               turnId: turn.id,
               toolCallId: request.id,
               errorCode: result.result.errorCode ?? "TOOL_ERROR",
               message: result.result.summary,
+              ...(repeatCount > 1 ? { repeatCount } : {}),
             });
           }
 
@@ -1881,6 +1923,23 @@ export class TurnRunner {
             content: toolMessageContent(result.result),
             isError: !result.result.ok,
           });
+
+          const repeatCount = repeatFailures.get(stableArgsKey(request.name, request.args));
+
+          if (
+            !result.result.ok &&
+            repeatCount !== undefined &&
+            repeatCount === this.#budget.repeatFailureThreshold
+          ) {
+            messages.push({
+              role: "user",
+              content: `The exact same ${request.name} call with identical arguments has failed ${repeatCount} times in a row and returned the same error. Repeating it will not change the result: change the approach or state what blocks progress.`,
+            });
+            this.#options.logger?.info(
+              { turnId, toolName: request.name, repeatCount },
+              "identical tool call keeps failing",
+            );
+          }
         }
       }
 

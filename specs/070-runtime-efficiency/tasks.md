@@ -19,8 +19,8 @@
 | HX-7 | 长 Turn 检查点与有界降级 | HX-6、HX-4 | `done` |
 | HX-8 | 编码工具效率与只读并发 | HX-4 | `todo` |
 | HX-9 | 工具参数校验的秘密查询收敛（卫生项） | HX-0 | `todo` |
-| HX-10 | 重复失败调用的循环干预 | HX-0 | `todo` |
-| HX-11 | Turn 级 token 消耗上限 | HX-1 | `todo` |
+| HX-10 | 重复失败调用的循环干预 | HX-0 | `done` |
+| HX-11 | Turn 级 token 消耗上限 | HX-1 | `done` |
 | HX-12 | turnRunner 机械拆分（前置工程动作） | HX-0 | `todo` |
 
 ## 任务卡
@@ -212,7 +212,7 @@
 
 ### HX-10 重复失败调用的循环干预
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11）
 - 依赖：HX-0
 - 目标：同一 `(tool, 参数)` 连续失败时给模型一次明确干预，避免在同一失败上烧掉整个步数预算。
 - 交付物：
@@ -222,11 +222,13 @@
 - 验收：构造同一失败命令连续调用 5 次的用例，断言第 3 次后出现干预且后续仍按策略执行（不自动跳过、不自动放弃）；步数与 token 有前后对比。
 - 测试：`turnRunner` 单测（FakeProvider 脚本化 5 次相同调用）；断言 argsHash 不受参数顺序影响。
 - 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`docs/contracts/ws-events.md`（`tool.failed` 增可选字段）
-- 备注：只做"提示"，不做"禁止/跳过"——后者属于新的执行策略，必须另立 ADR。D9 确认阈值与文案。
+- 实现要点：`stableArgsKey` 对参数做键排序后哈希，保证键序不同也视为同一调用；同一 `(tool, 规范化参数)` 连续失败计数，成功即清零；第 3 次失败（`repeatFailureThreshold`，可配置）后在 tool result 之后追加一条事实说明，并记 `tool.failed.repeatCount` 供审计。执行策略、授权与审批不变。
+- 验证：新增用例——同一 `read_file missing.txt` 连续失败 3 次，断言 3 次都执行、第 3 次后出现「failed 3 times in a row」说明、`tool.failed` 事件第 3 条带 `repeatCount: 3`。
+- 备注：只做"提示"，不做"禁止/跳过"——后者属于新的执行策略，必须另立 ADR。D9 的默认值（3 次）按 spec 建议启用，文案可后续调整。
 
 ### HX-11 Turn 级 token 消耗上限
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11，默认关闭）
 - 依赖：HX-1（无用量细分则无法计量）
 - 目标：在步数/工具数/时长之外增加消耗约束，防止「步数内跑完但烧掉大量 token」。
 - 交付物：
@@ -237,7 +239,10 @@
 - 验收：构造 3 步即超限的用例，断言终止原因、事件与 Job 判定一致；正常任务不受影响。
 - 测试：`runtime-budget.test.ts` 增 token 超限用例；HX-3 的终态矩阵补一行。
 - 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`apps/server/src/db/schema.ts`（如终态细分需要）、`docs/contracts/ws-events.md`
-- 备注：默认值需人类确认（D10）；未确认前不启用，只保留字段与测试。
+- 实现要点：`TurnBudget.maxTotalTokens`（默认 `0` = 关闭），每步预检按 `input+output` 累计判断，超限以 `budget` 终态结束；摘要调用用量当前不计入（`compressContext` 未回传 usage），已在备注记录。
+- 验证：新增用例——`maxTotalTokens: 500` 且首步回报 1000 tokens，断言只发 1 次请求且 `terminal_reason=budget`。
+- 备注：**默认关闭**。D10 的人类确认仍未完成，因此只交付字段、校验与测试，不改变默认行为；确认后只需调整默认值。
+- 偏差：HX-10 与 HX-11 因共用同一文件的连续改动，合并在一个提交 `feat(agent): stop repeated failing calls and cap spend (HX-10, HX-11)` 中；两者的测试与文档各自独立。
 
 ### HX-12 turnRunner 机械拆分（前置工程动作）
 
