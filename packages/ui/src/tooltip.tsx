@@ -5,28 +5,43 @@ import { cn } from "./cn";
 export const TooltipProvider = TooltipPrimitive.Provider;
 
 export interface HintProps {
-  label: string;
+  label: ReactNode;
   children: ReactElement;
   side?: "top" | "right" | "bottom" | "left";
+  align?: "start" | "center" | "end";
   className?: string;
+  variant?: "default" | "card";
 }
 
-export function Hint({ label, children, side = "bottom", className }: HintProps) {
+export function Hint({
+  label,
+  children,
+  side = "bottom",
+  align,
+  className,
+  variant = "default",
+}: HintProps) {
   return (
     <TooltipPrimitive.Root>
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
           side={side}
-          sideOffset={6}
+          align={align}
+          sideOffset={variant === "card" ? 16 : 6}
           className={cn(
-            "z-[200] select-none rounded-md bg-[#1d1d1f] px-2 py-1 text-[11px] font-medium text-white shadow-lg",
-            "data-[state=delayed-open]:animate-in dark:bg-[#f5f5f7] dark:text-[#1d1d1f]",
+            "z-[200]",
+            variant === "default"
+              ? "select-none rounded-md bg-[#1d1d1f] px-2 py-1 text-[11px] font-medium text-white shadow-lg dark:bg-[#f5f5f7] dark:text-[#1d1d1f]"
+              : "rounded-xl border border-line bg-surface/95 text-ink shadow-pop backdrop-blur-xl",
+            "data-[state=delayed-open]:animate-in",
             className,
           )}
         >
           {label}
-          <TooltipPrimitive.Arrow className="fill-[#1d1d1f] dark:fill-[#f5f5f7]" />
+          {variant === "default" ? (
+            <TooltipPrimitive.Arrow className="fill-[#1d1d1f] dark:fill-[#f5f5f7]" />
+          ) : null}
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>
     </TooltipPrimitive.Root>

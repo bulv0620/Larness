@@ -1,6 +1,7 @@
 import type { HostMetrics } from "@larness/shared";
 import { TooltipProvider } from "@larness/ui";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { expect, it } from "vitest";
 import { HostMetricsIndicator } from "./HostMetricsIndicator";
 
@@ -8,7 +9,7 @@ const GIB = 1024 ** 3;
 
 function renderIndicator(metrics: HostMetrics | null) {
   return render(
-    <TooltipProvider>
+    <TooltipProvider delayDuration={0}>
       <HostMetricsIndicator metrics={metrics} />
     </TooltipProvider>,
   );
@@ -53,4 +54,23 @@ it("keeps exact byte values in the hover label", () => {
 
   expect(screen.getByText(/ROM.*1\.5 \/ 4\.0 TB（38%）/)).toBeInTheDocument();
   expect(screen.getByText(/RAM.*32\.0 \/ 64 GB（50%）/)).toBeInTheDocument();
+});
+
+it("shows the detailed card when hovering the metrics group", async () => {
+  const user = userEvent.setup();
+
+  renderIndicator({
+    cpuPercent: 38,
+    memoryUsedBytes: 9.6 * GIB,
+    memoryTotalBytes: 16 * GIB,
+    diskUsedBytes: 284 * GIB,
+    diskTotalBytes: 460 * GIB,
+    sampledAt: 1_000,
+  });
+
+  await user.hover(screen.getByLabelText("服务端系统资源"));
+
+  expect(await screen.findByText("服务端资源")).toBeInTheDocument();
+  expect(screen.getByText("9.6 / 16 GB")).toBeInTheDocument();
+  expect(screen.getByText("284 / 460 GB")).toBeInTheDocument();
 });
