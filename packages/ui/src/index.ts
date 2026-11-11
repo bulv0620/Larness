@@ -19,6 +19,7 @@ export {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
+export { Checkbox, FormSelect, Input, Textarea } from "./form-controls";
 export { IconButton, type IconButtonProps } from "./icon-button";
 export { Kbd } from "./kbd";
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";

@@ -1,6 +1,7 @@
 import type { ServiceActionView, ServiceDto } from "@larness/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 import { ServiceWindow } from "./ServiceWindow";
@@ -131,6 +132,7 @@ it("shows readable terminal output across chunk boundaries and refreshes without
 });
 
 it("registers through the resource action and shows the new detail after approval", async () => {
+  const user = userEvent.setup();
   vi.mocked(listServices).mockResolvedValue([]);
   vi.mocked(listTerminals).mockResolvedValue({
     items: [{ id: terminalId, status: "RUNNING", title: "dev", role: "frontend" }],
@@ -173,8 +175,10 @@ it("registers through the resource action and shows the new detail after approva
   await screen.findByText("登记临时服务");
   expect(screen.getByText(/选择当前项目.*服务的监听端口/)).toBeTruthy();
   expect(screen.getByText(/0\.0\.0\.0.*可登记/)).toBeTruthy();
-  await screen.findByRole("option", { name: /dev/ });
-  fireEvent.change(screen.getByLabelText("选择终端"), { target: { value: terminalId } });
+  const terminal = screen.getByRole("button", { name: "选择终端" });
+  await waitFor(() => expect(terminal).toBeEnabled());
+  await user.click(terminal);
+  await user.click(screen.getByRole("menuitemradio", { name: /dev/ }));
   fireEvent.change(screen.getByLabelText("服务名称"), { target: { value: "web" } });
   fireEvent.change(screen.getByLabelText("服务端口"), { target: { value: "5173" } });
   fireEvent.click(screen.getByRole("button", { name: "继续" }));
@@ -184,6 +188,7 @@ it("registers through the resource action and shows the new detail after approva
 });
 
 it("returns to the form when execution fails terminally instead of leaving a dead approval", async () => {
+  const user = userEvent.setup();
   vi.mocked(listServices).mockResolvedValue([]);
   vi.mocked(listTerminals).mockResolvedValue({
     items: [{ id: terminalId, status: "RUNNING", title: "dev", role: "backend" }],
@@ -221,8 +226,10 @@ it("returns to the form when execution fails terminally instead of leaving a dea
   const [register] = await screen.findAllByRole("button", { name: "登记服务" });
   fireEvent.click(register);
   await screen.findByText("登记临时服务");
-  await screen.findByRole("option", { name: /dev/ });
-  fireEvent.change(screen.getByLabelText("选择终端"), { target: { value: terminalId } });
+  const terminal = screen.getByRole("button", { name: "选择终端" });
+  await waitFor(() => expect(terminal).toBeEnabled());
+  await user.click(terminal);
+  await user.click(screen.getByRole("menuitemradio", { name: /dev/ }));
   fireEvent.change(screen.getByLabelText("服务名称"), { target: { value: "web" } });
   fireEvent.change(screen.getByLabelText("服务端口"), { target: { value: "5173" } });
   fireEvent.click(screen.getByRole("button", { name: "继续" }));

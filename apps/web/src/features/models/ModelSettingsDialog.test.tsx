@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import {
   type ApiCredential,
@@ -75,6 +76,28 @@ async function addKey() {
   fireEvent.click(screen.getByRole("button", { name: "添加" }));
   return invalidateQueries;
 }
+
+it("selects a GLM endpoint through the shared dropdown", async () => {
+  const user = userEvent.setup();
+  vi.mocked(refreshModelCatalog).mockResolvedValue({ ...synced, groups: [synced] });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ModelSettingsDialog open onOpenChange={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  await screen.findByText("还没有 Key。添加后即可同步官方模型目录。");
+  await user.click(screen.getByRole("button", { name: "添加 Key" }));
+  await user.click(screen.getByRole("button", { name: "GLM" }));
+  await user.click(screen.getByRole("button", { name: "GLM 端点" }));
+  await user.click(screen.getByRole("menuitemradio", { name: "Coding Plan · 国际" }));
+  await user.type(screen.getByLabelText("API Key"), "placeholder");
+  await user.click(screen.getByRole("button", { name: "添加" }));
+
+  expect(await screen.findByRole("button", { name: /测试凭据.*1 个模型/ })).toBeVisible();
+  expect(createCredential).toHaveBeenCalledWith(
+    expect.objectContaining({ provider: "glm", endpoint: "https://api.z.ai/api/coding/paas/v4" }),
+  );
+});
 
 it("synchronizes the official catalog after saving a Key", async () => {
   vi.mocked(refreshModelCatalog).mockResolvedValue({ ...synced, groups: [synced] });

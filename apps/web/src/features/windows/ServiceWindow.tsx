@@ -1,8 +1,17 @@
 import type { ServiceDto } from "@larness/shared";
-import { Button, cn, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
+import {
+  Button,
+  cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  FormSelect,
+  Input,
+} from "@larness/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ExternalLink, Plus, Server, SquareTerminal } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
   createServiceAction,
   decideServiceAction,
@@ -471,6 +480,7 @@ function RegisterServiceDialog({
   onClose: () => void;
   onRegistered: (id: string) => void;
 }) {
+  const fieldId = useId();
   const client = useQueryClient();
   const terminals = useQuery({
     queryKey: ["terminals", "service-picker", projectId],
@@ -592,43 +602,40 @@ function RegisterServiceDialog({
           </div>
         ) : (
           <>
-            <label className="block space-y-1">
+            <div className="block space-y-1">
               <span className="text-[11px] font-medium text-ink-2">运行中的终端</span>
-              <select
-                aria-label="选择终端"
+              <FormSelect
+                label="选择终端"
                 value={terminalId}
-                onChange={(event) => setTerminalId(event.target.value)}
-                className="w-full rounded border border-line bg-surface px-2 py-1.5 text-[12px]"
-              >
-                <option value="">选择终端</option>
-                {running.map((terminal) => (
-                  <option key={terminal.id} value={terminal.id}>
-                    {terminal.title ?? terminal.role ?? terminal.id.slice(-6)} ·{" "}
-                    {terminal.id.slice(-6)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1">
+                onValueChange={setTerminalId}
+                placeholder="选择终端"
+                options={running.map((terminal) => ({
+                  value: terminal.id,
+                  label: `${terminal.title ?? terminal.role ?? terminal.id.slice(-6)} · ${terminal.id.slice(-6)}`,
+                }))}
+              />
+            </div>
+            <label htmlFor={`${fieldId}-name`} className="block space-y-1">
               <span className="text-[11px] font-medium text-ink-2">服务名称</span>
-              <input
+              <Input
+                id={`${fieldId}-name`}
                 aria-label="服务名称"
                 value={name}
                 maxLength={80}
                 onChange={(event) => setName(event.target.value)}
                 placeholder="例如 web"
-                className="w-full rounded border border-line bg-surface px-2 py-1.5 text-[12px]"
               />
             </label>
-            <label className="block space-y-1">
+            <label htmlFor={`${fieldId}-port`} className="block space-y-1">
               <span className="text-[11px] font-medium text-ink-2">服务端口</span>
-              <input
+              <Input
+                id={`${fieldId}-port`}
                 aria-label="服务端口"
                 value={port}
                 inputMode="numeric"
                 onChange={(event) => setPort(event.target.value.replace(/[^0-9]/g, ""))}
                 placeholder="例如 5173"
-                className="w-full rounded border border-line bg-surface px-2 py-1.5 font-mono text-[12px]"
+                className="font-mono"
               />
             </label>
             <p className="text-[10px] text-ink-3">

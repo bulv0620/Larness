@@ -1,6 +1,7 @@
 import type { ScheduledJobDto, ScheduledJobRunDto } from "@larness/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { createJob, deleteJob, listJobs, runJobNow, updateJob } from "./api";
 import { JobsDialog } from "./JobsDialog";
@@ -120,16 +121,17 @@ it("creates a script job from the form", async () => {
 });
 
 it("requires a risk confirmation for autonomous Agent jobs", async () => {
+  const user = userEvent.setup();
   renderDialog();
   fireEvent.click(await screen.findByRole("button", { name: "新建任务" }));
   fireEvent.change(screen.getByLabelText("名称"), { target: { value: "Agent 任务" } });
-  fireEvent.change(screen.getByLabelText("类型"), { target: { value: "agent" } });
+  await user.click(screen.getByRole("button", { name: "类型" }));
+  await user.click(screen.getByRole("menuitemradio", { name: "Agent" }));
   fireEvent.change(screen.getByLabelText("Agent 提示词"), {
     target: { value: "检查项目" },
   });
-  fireEvent.change(screen.getByLabelText("审批策略"), {
-    target: { value: "autonomous" },
-  });
+  await user.click(screen.getByRole("button", { name: "审批策略" }));
+  await user.click(screen.getByRole("menuitemradio", { name: "完全自主" }));
   fireEvent.click(screen.getByRole("button", { name: "保存" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("请先确认完全自主风险");
   expect(createJob).not.toHaveBeenCalled();

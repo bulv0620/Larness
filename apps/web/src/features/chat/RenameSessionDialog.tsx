@@ -1,4 +1,4 @@
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Input } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { updateSession } from "@/lib/workspaceApi";
@@ -44,12 +44,12 @@ export function RenameSessionDialog({
       <DialogContent>
         <DialogTitle>重命名会话</DialogTitle>
         <DialogDescription>标题只用于展示，不参与授权。</DialogDescription>
-        <input
+        <Input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           aria-label="会话标题"
           autoFocus
-          className="mt-4 h-9 w-full rounded-lg border border-line bg-surface-2 px-2.5 text-[12px] text-ink outline-none focus:border-accent/40"
+          className="mt-4 h-9"
         />
         {error ? (
           <p role="alert" className="mt-2 text-[11px] text-danger">

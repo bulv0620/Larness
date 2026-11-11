@@ -114,7 +114,8 @@ test("M3-2 registers a live dev service and shows cards, detail, logs and the ow
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText(/0\.0\.0\.0.*可登记/)).toBeVisible();
     await dialog.screenshot({ path: test.info().outputPath("service-registration-dialog.png") });
-    await dialog.getByLabel("选择终端").selectOption({ index: 1 });
+    await dialog.getByRole("button", { name: "选择终端" }).click();
+    await page.getByRole("menuitemradio", { name: /backend/ }).click();
     await dialog.getByLabel("服务名称").fill("web");
     await dialog.getByLabel("服务端口").fill(String(port));
     await dialog.getByRole("button", { name: "继续" }).click();

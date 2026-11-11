@@ -62,6 +62,20 @@ test("creates a script job, runs it manually and keeps the history after refresh
   await page.setViewportSize({ width: 1440, height: 900 });
 
   await dialog.getByRole("button", { name: "新建任务" }).first().click();
+  const scheduleType = dialog.getByRole("button", { name: "触发方式" });
+  await expect(scheduleType).toBeVisible();
+  await scheduleType.press("ArrowDown");
+  const cron = page.getByRole("menuitemradio", { name: "Cron" });
+  await expect(cron).toHaveAttribute("aria-checked", "true");
+  await expect(cron).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menuitemradio", { name: "固定间隔" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(scheduleType).toHaveText("固定间隔");
+  await expect(scheduleType).toBeFocused();
+  await expect(dialog.getByLabel("间隔（秒）")).toBeVisible();
+  await scheduleType.click();
+  await cron.click();
   await dialog.getByLabel("名称").fill("E2E 脚本");
   await dialog.getByRole("button", { name: "保存" }).click();
 

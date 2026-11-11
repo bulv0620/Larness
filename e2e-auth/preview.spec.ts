@@ -160,11 +160,8 @@ test("M3-4 previews a real Vite app through an isolated iframe with HMR and no d
     await expect(serviceWindow.getByText("当前项目暂无服务")).toBeVisible();
     await serviceWindow.getByRole("button", { name: "登记服务" }).first().click();
     const dialog = page.getByRole("dialog", { name: "登记临时服务" });
-    const frontendOption = dialog.getByRole("option", { name: /frontend/ });
-    await expect(frontendOption).toBeAttached();
-    await dialog
-      .getByLabel("选择终端")
-      .selectOption((await frontendOption.getAttribute("value")) ?? "");
+    await dialog.getByRole("button", { name: "选择终端" }).click();
+    await page.getByRole("menuitemradio", { name: /frontend/ }).click();
     await dialog.getByLabel("服务名称").fill("web");
     await dialog.getByLabel("服务端口").fill(String(port));
     await dialog.getByRole("button", { name: "继续" }).click();

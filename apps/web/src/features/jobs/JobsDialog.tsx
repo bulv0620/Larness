@@ -9,16 +9,20 @@ import type {
 } from "@larness/shared";
 import {
   Button,
+  Checkbox,
   cn,
   Dialog,
   DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
+  FormSelect,
+  Input,
+  Textarea,
 } from "@larness/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock, Play, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import { relativeTime } from "@/lib/format";
 import { type ApiModelCatalog, listModelCatalog, listProjects } from "@/lib/workspaceApi";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -626,6 +630,7 @@ function JobForm({
   onSaved: (job: ScheduledJobDto) => void;
   onError: (message: string) => void;
 }) {
+  const fieldId = useId();
   const [name, setName] = useState(job?.name ?? "");
   const [projectId, setProjectId] = useState(job?.projectId ?? "");
   const [kind, setKind] = useState<"script" | "agent">(job?.kind ?? "script");
@@ -768,62 +773,52 @@ function JobForm({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="名称">
-          <input
-            className={inputClass}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
+          <Input value={name} onChange={(event) => setName(event.target.value)} />
         </Field>
         <Field label="项目">
-          <select
-            className={inputClass}
+          <FormSelect
+            label="项目"
             value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
+            onValueChange={setProjectId}
             disabled={job !== null}
-          >
-            <option value="">默认工作区</option>
-            {projects
-              .filter((project) => project.kind !== "default")
-              .map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-          </select>
+            options={[
+              { value: "", label: "默认工作区" },
+              ...projects
+                .filter((project) => project.kind !== "default")
+                .map((project) => ({ value: project.id, label: project.name })),
+            ]}
+          />
         </Field>
         <Field label="类型">
-          <select
-            className={inputClass}
+          <FormSelect
+            label="类型"
             value={kind}
-            onChange={(event) => setKind(event.target.value as "script" | "agent")}
+            onValueChange={setKind}
             disabled={job !== null}
-          >
-            <option value="script">脚本</option>
-            <option value="agent">Agent</option>
-          </select>
+            options={[
+              { value: "script", label: "脚本" },
+              { value: "agent", label: "Agent" },
+            ]}
+          />
         </Field>
         <Field label="触发方式">
-          <select
-            className={inputClass}
+          <FormSelect
+            label="触发方式"
             value={scheduleType}
-            onChange={(event) => setScheduleType(event.target.value as "cron" | "interval")}
-          >
-            <option value="cron">Cron</option>
-            <option value="interval">固定间隔</option>
-          </select>
+            onValueChange={setScheduleType}
+            options={[
+              { value: "cron", label: "Cron" },
+              { value: "interval", label: "固定间隔" },
+            ]}
+          />
         </Field>
         {scheduleType === "cron" ? (
           <Field label="Cron（分 时 日 月 周）">
-            <input
-              className={inputClass}
-              value={cron}
-              onChange={(event) => setCron(event.target.value)}
-            />
+            <Input value={cron} onChange={(event) => setCron(event.target.value)} />
           </Field>
         ) : (
           <Field label="间隔（秒）">
-            <input
-              className={inputClass}
+            <Input
               type="number"
               min={60}
               value={seconds}
@@ -832,15 +827,10 @@ function JobForm({
           </Field>
         )}
         <Field label="时区（IANA）">
-          <input
-            className={inputClass}
-            value={timezone}
-            onChange={(event) => setTimezone(event.target.value)}
-          />
+          <Input value={timezone} onChange={(event) => setTimezone(event.target.value)} />
         </Field>
         <Field label="超时（秒）">
-          <input
-            className={inputClass}
+          <Input
             type="number"
             min={60}
             max={3_600}
@@ -849,20 +839,21 @@ function JobForm({
           />
         </Field>
         <Field label="错过触发">
-          <select
-            className={inputClass}
+          <FormSelect
+            label="错过触发"
             value={missedPolicy}
-            onChange={(event) => setMissedPolicy(event.target.value as "skip" | "run_once")}
-          >
-            <option value="skip">跳过</option>
-            <option value="run_once">补跑一次</option>
-          </select>
+            onValueChange={setMissedPolicy}
+            options={[
+              { value: "skip", label: "跳过" },
+              { value: "run_once", label: "补跑一次" },
+            ]}
+          />
         </Field>
         {kind === "script" ? (
           <div className="md:col-span-2">
             <Field label="脚本源码（Node ESM）">
-              <textarea
-                className={cn(inputClass, "h-40 resize-y font-mono leading-relaxed")}
+              <Textarea
+                className="h-40 resize-y font-mono leading-relaxed"
                 value={source}
                 onChange={(event) => setSource(event.target.value)}
               />
@@ -875,44 +866,45 @@ function JobForm({
           <>
             <div className="md:col-span-2">
               <Field label="Agent 提示词">
-                <textarea
-                  className={cn(inputClass, "h-28 resize-y leading-relaxed")}
+                <Textarea
+                  className="h-28 resize-y leading-relaxed"
                   value={prompt}
                   onChange={(event) => setPrompt(event.target.value)}
                 />
               </Field>
             </div>
             <Field label="审批策略">
-              <select
-                className={inputClass}
+              <FormSelect
+                label="审批策略"
                 value={approvalPolicy}
-                onChange={(event) => {
-                  setApprovalPolicy(event.target.value as ScheduledJobApprovalPolicy);
+                onValueChange={(value) => {
+                  setApprovalPolicy(value);
                   setAutonomousConfirmed(false);
                 }}
-              >
-                <option value="readonly">只读</option>
-                <option value="autonomous">完全自主</option>
-              </select>
+                options={[
+                  { value: "readonly", label: "只读" },
+                  { value: "autonomous", label: "完全自主" },
+                ]}
+              />
             </Field>
             <Field label="模型">
-              <select
-                className={inputClass}
+              <FormSelect
+                label="模型"
                 value={modelKey}
-                onChange={(event) => setModelKey(event.target.value)}
-              >
-                <option value="">继承会话默认</option>
-                {models.map((model) => (
-                  <option key={model.key} value={model.key}>
-                    {model.label}
-                  </option>
-                ))}
-              </select>
+                onValueChange={setModelKey}
+                options={[
+                  { value: "", label: "继承会话默认" },
+                  ...models.map((model) => ({ value: model.key, label: model.label })),
+                ]}
+              />
             </Field>
             {approvalPolicy === "autonomous" && (
-              <label className="md:col-span-2 flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/5 px-2 py-2 text-[11px]">
-                <input
-                  type="checkbox"
+              <label
+                htmlFor={`${fieldId}-confirm-autonomous`}
+                className="md:col-span-2 flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/5 px-2 py-2 text-[11px]"
+              >
+                <Checkbox
+                  id={`${fieldId}-confirm-autonomous`}
                   className="mt-0.5"
                   checked={autonomousConfirmed}
                   onChange={(event) => setAutonomousConfirmed(event.target.checked)}
@@ -942,9 +934,6 @@ function JobForm({
     </div>
   );
 }
-
-const inputClass =
-  "h-8 w-full rounded-md border border-line bg-surface px-2 text-[11.5px] outline-none focus:border-accent";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (

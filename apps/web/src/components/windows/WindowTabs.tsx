@@ -1,4 +1,4 @@
-import { cn } from "@larness/ui";
+import { cn, Input } from "@larness/ui";
 import {
   ChevronLeft,
   ChevronRight,
@@ -148,7 +148,7 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
                       }
                     }}
                   >
-                    <input
+                    <Input
                       ref={(node) => node?.focus()}
                       aria-label="终端名称"
                       maxLength={80}
@@ -157,7 +157,7 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
                       onKeyDown={(event) => {
                         if (event.key === "Escape") setRename(null);
                       }}
-                      className="w-32 rounded border border-accent/40 bg-surface px-1 text-[11px] outline-none"
+                      className="h-5 w-32 border-accent/40 px-1 text-[11px]"
                     />
                   </form>
                 ) : (

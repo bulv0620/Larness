@@ -1,5 +1,14 @@
 import type { GitAction, GitActionView } from "@larness/shared";
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  FormSelect,
+  Input,
+  Textarea,
+} from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDown,
@@ -153,7 +162,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
   return (
     <div data-testid="git-panel" className="relative flex h-full min-h-0 flex-col px-1 pb-1">
       <div className="shrink-0 space-y-2 px-1 pb-2">
-        <textarea
+        <Textarea
           aria-label="提交信息"
           value={message}
           disabled={busy}
@@ -166,7 +175,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
           }}
           rows={2}
           placeholder="提交信息（⌘ / Ctrl + Enter）"
-          className="w-full resize-none rounded-lg border border-line bg-surface px-2.5 py-2 text-[11px] focus:border-accent focus:outline-none"
+          className="resize-none py-2 text-[11px] focus:outline-none"
         />
         <button
           type="button"
@@ -278,25 +287,19 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
                 分支读取失败，请刷新重试。
               </p>
             ) : null}
-            <select
-              aria-label="切换分支"
+            <FormSelect
+              label="切换分支"
               value={data.branch}
               disabled={disabled || !branches.data}
-              onChange={(event) => {
-                const name = event.target.value;
+              onValueChange={(name) => {
                 if (name !== data.branch) void runL1({ action: "switchBranch", name });
               }}
-              className="w-full rounded border border-line bg-surface px-2 py-1 text-[11px]"
-            >
-              {!branches.data?.some((item) => item.name === data.branch) ? (
-                <option value={data.branch}>{data.branch}</option>
-              ) : null}
-              {(branches.data ?? []).map((branch) => (
-                <option key={branch.name} value={branch.name}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
+              placeholder={data.branch}
+              options={(branches.data ?? []).map((branch) => ({
+                value: branch.name,
+                label: branch.name,
+              }))}
+            />
             <form
               className="flex gap-1"
               onSubmit={(event) => {
@@ -305,12 +308,12 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
                   void runL1({ action: "createBranch", name: branchName.trim() });
               }}
             >
-              <input
+              <Input
                 aria-label="新分支名"
                 value={branchName}
                 onChange={(event) => setBranchName(event.target.value)}
                 placeholder="新分支名"
-                className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-1 text-[11px]"
+                className="min-w-0 flex-1 py-1 text-[11px]"
               />
               <button
                 type="submit"

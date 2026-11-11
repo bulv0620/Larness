@@ -1,7 +1,7 @@
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Input } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronUp, Folder, FolderPlus, Home, Loader2, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { createProject, type DirectoryListing, listDirectories } from "@/lib/workspaceApi";
 
 export function ProjectDialog({
@@ -11,6 +11,7 @@ export function ProjectDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const fieldId = useId();
   const queryClient = useQueryClient();
   const [rootPath, setRootPath] = useState("");
   const [name, setName] = useState("");
@@ -173,25 +174,33 @@ export function ProjectDialog({
           </div>
         </div>
 
-        <label className="mt-3 block text-[11px] font-medium text-ink-2">
+        <label
+          htmlFor={`${fieldId}-directory`}
+          className="mt-3 block text-[11px] font-medium text-ink-2"
+        >
           项目目录（也可直接粘贴绝对路径）
-          <input
+          <Input
+            id={`${fieldId}-directory`}
             value={rootPath}
             onChange={(event) => setRootPath(event.target.value)}
             aria-label="项目目录"
             placeholder="/Users/me/project"
             spellCheck={false}
-            className="mt-1.5 h-9 w-full rounded-lg border border-line bg-surface-2 px-2.5 font-mono text-[11.5px] text-ink outline-none focus:border-accent/40"
+            className="mt-1.5 h-9 font-mono text-[11.5px]"
           />
         </label>
 
-        <label className="mt-2.5 block text-[11px] font-medium text-ink-2">
+        <label
+          htmlFor={`${fieldId}-name`}
+          className="mt-2.5 block text-[11px] font-medium text-ink-2"
+        >
           显示名称（可选）
-          <input
+          <Input
+            id={`${fieldId}-name`}
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="默认取目录名"
-            className="mt-1.5 h-9 w-full rounded-lg border border-line bg-surface-2 px-2.5 text-[11.5px] text-ink outline-none focus:border-accent/40"
+            className="mt-1.5 h-9 text-[11.5px]"
           />
         </label>
 

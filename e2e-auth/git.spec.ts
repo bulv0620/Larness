@@ -94,13 +94,11 @@ test("M2-5b real Git panel shows status, stages, commits, diffs and approves a p
     await page.getByRole("button", { name: "管理分支" }).click();
     await page.getByLabel("新分支名").fill("ui-branch");
     await page.getByRole("button", { name: "创建分支" }).click();
-    await expect
-      .poll(() => page.getByLabel("切换分支").inputValue(), { timeout: 15000 })
-      .toBe("ui-branch");
-    await page.getByLabel("切换分支").selectOption("main");
-    await expect
-      .poll(() => page.getByLabel("切换分支").inputValue(), { timeout: 15000 })
-      .toBe("main");
+    const branchSelect = page.getByRole("button", { name: "切换分支" });
+    await expect(branchSelect).toHaveText("ui-branch", { timeout: 15000 });
+    await branchSelect.click();
+    await page.getByRole("menuitemradio", { name: "main", exact: true }).click();
+    await expect(branchSelect).toHaveText("main", { timeout: 15000 });
 
     await page.getByRole("button", { name: "推送" }).click();
     const approval = page.getByRole("region", { name: "Git 操作审批" });
@@ -111,6 +109,23 @@ test("M2-5b real Git panel shows status, stages, commits, diffs and approves a p
     await expect(approval).toHaveCount(0, { timeout: 15000 });
     expect(git(remote, "rev-parse", "main")).toBe(git(repo, "rev-parse", "HEAD"));
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    await page.evaluate(async (rootPath) => {
+      const response = await fetch("/api/auth/session");
+      if (!response.ok) return;
+      const session = (await response.json()) as { csrfToken: string };
+      const { projects } = (await (await fetch("/api/projects")).json()) as {
+        projects: { id: string; rootPath: string; realPath: string }[];
+      };
+      const project = projects.find(
+        (item) => item.rootPath === rootPath || item.realPath === rootPath,
+      );
+      if (project) {
+        await fetch(`/api/projects/${project.id}`, {
+          method: "DELETE",
+          headers: { "x-csrf-token": session.csrfToken },
+        });
+      }
+    }, repo);
+    rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });

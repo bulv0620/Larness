@@ -91,7 +91,8 @@ async function registerService(page: Page, port: number) {
   const serviceWindow = page.getByRole("dialog", { name: "服务", exact: true });
   await serviceWindow.getByRole("button", { name: "登记服务" }).first().click();
   const dialog = page.getByRole("dialog", { name: "登记临时服务" });
-  await dialog.getByLabel("选择终端").selectOption({ index: 1 });
+  await dialog.getByRole("button", { name: "选择终端" }).click();
+  await page.getByRole("menuitemradio").first().click();
   await dialog.getByLabel("服务名称").fill("web");
   await dialog.getByLabel("服务端口").fill(String(port));
   await dialog.getByRole("button", { name: "继续" }).click();

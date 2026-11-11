@@ -1,3 +1,4 @@
+import { Input } from "@larness/ui";
 import {
   browserSupportsWebAuthn,
   type PublicKeyCredentialCreationOptionsJSON,
@@ -372,9 +373,9 @@ export function PairPage() {
             <label className="mt-4 block text-xs font-medium text-ink-2" htmlFor="pair-code">
               配对码
             </label>
-            <input
+            <Input
               id="pair-code"
-              className="mt-1 h-11 w-full rounded-md border border-line bg-surface-2 px-3 font-mono text-lg tracking-[0.14em] outline-none focus:border-accent"
+              className="mt-1 h-11 px-3 font-mono text-lg tracking-[0.14em]"
               value={code}
               onChange={(event) => setCode(event.target.value.toUpperCase())}
               placeholder="XXXXX-XXXXX"

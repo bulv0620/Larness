@@ -1,4 +1,4 @@
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Input } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { updateProject } from "@/lib/workspaceApi";
@@ -44,12 +44,12 @@ export function RenameProjectDialog({
       <DialogContent>
         <DialogTitle>重命名项目</DialogTitle>
         <DialogDescription>只改变展示名称，不移动或重命名本地目录。</DialogDescription>
-        <input
+        <Input
           value={name}
           onChange={(event) => setName(event.target.value)}
           aria-label="项目名称"
           autoFocus
-          className="mt-4 h-9 w-full rounded-lg border border-line bg-surface-2 px-2.5 text-[12px] text-ink outline-none focus:border-accent/40"
+          className="mt-4 h-9"
         />
         {error ? (
           <p role="alert" className="mt-2 text-[11px] text-danger">

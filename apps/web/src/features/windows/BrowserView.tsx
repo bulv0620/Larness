@@ -1,4 +1,4 @@
-import { cn, IconButton } from "@larness/ui";
+import { cn, IconButton, Input } from "@larness/ui";
 import {
   ArrowLeft,
   ArrowRight,
@@ -212,7 +212,8 @@ function MockBrowser({ tab }: { tab: WindowTab }) {
           }}
         >
           <ShieldCheck size={11} className="shrink-0 text-success" />
-          <input
+          <Input
+            variant="bare"
             value={address}
             onChange={(event) => setAddress(event.target.value)}
             aria-label="预览地址"

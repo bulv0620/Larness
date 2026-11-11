@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
   Hint,
   IconButton,
+  Textarea,
 } from "@larness/ui";
 import { ArrowUp, Plus, Shield, ShieldAlert, ShieldCheck, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -235,7 +236,8 @@ export function Composer() {
           {switchNotice}
         </p>
       ) : null}
-      <textarea
+      <Textarea
+        variant="bare"
         ref={textareaRef}
         value={draft}
         rows={1}

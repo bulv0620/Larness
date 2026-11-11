@@ -5,6 +5,8 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  FormSelect,
+  Input,
 } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,7 +21,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   type ApiCatalogGroup,
   type ApiCatalogModel,
@@ -80,6 +82,7 @@ export function ModelSettingsDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const fieldId = useId();
   const queryClient = useQueryClient();
   const [view, setView] = useState<View>({ kind: "list" });
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
@@ -414,19 +417,14 @@ export function ModelSettingsDialog({
                 </p>
               </div>
               {activeGroup?.provider === "glm" ? (
-                <select
-                  aria-label="GLM 端点"
+                <FormSelect
+                  label="GLM 端点"
                   value={activeCredential?.endpoint ?? DEFAULT_GLM_ENDPOINT}
                   disabled={busy}
-                  onChange={(event) => void changeEndpoint(view.credentialId, event.target.value)}
-                  className="h-7 rounded-lg border border-line bg-surface-2 px-1.5 text-[10.5px] text-ink outline-none"
-                >
-                  {GLM_ENDPOINT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(value) => void changeEndpoint(view.credentialId, value)}
+                  options={GLM_ENDPOINT_OPTIONS}
+                  className="h-7 w-auto text-[10.5px]"
+                />
               ) : null}
               <Button size="sm" variant="secondary" disabled={busy} onClick={() => void refresh()}>
                 <RefreshCw size={12} className={busy ? "animate-spin" : undefined} />
@@ -455,23 +453,31 @@ export function ModelSettingsDialog({
             </div>
             {activeGroup?.provider === "openai-compatible" ? (
               <div className="flex shrink-0 flex-wrap items-end gap-2 border-b border-line px-4 py-2">
-                <label className="block min-w-0 flex-1 text-[10px] font-semibold text-ink-3">
+                <label
+                  htmlFor={`${fieldId}-endpoint-edit`}
+                  className="block min-w-0 flex-1 text-[10px] font-semibold text-ink-3"
+                >
                   端点 URL
-                  <input
+                  <Input
+                    id={`${fieldId}-endpoint-edit`}
                     value={endpointDraft}
                     onChange={(event) => setEndpointDraft(event.target.value)}
                     aria-label="兼容端点 URL"
-                    className="mt-1 h-7 w-full rounded-lg border border-line bg-surface-2 px-2 font-mono text-[10.5px] font-normal text-ink outline-none"
+                    className="mt-1 h-7 font-mono text-[10.5px]"
                   />
                 </label>
-                <label className="block w-24 text-[10px] font-semibold text-ink-3">
+                <label
+                  htmlFor={`${fieldId}-window-edit`}
+                  className="block w-24 text-[10px] font-semibold text-ink-3"
+                >
                   窗口（K）
-                  <input
+                  <Input
+                    id={`${fieldId}-window-edit`}
                     value={windowDraft}
                     onChange={(event) => setWindowDraft(event.target.value)}
                     aria-label="兼容上下文窗口（K）"
                     inputMode="numeric"
-                    className="mt-1 h-7 w-full rounded-lg border border-line bg-surface-2 px-2 font-mono text-[10.5px] font-normal text-ink outline-none"
+                    className="mt-1 h-7 font-mono text-[10.5px]"
                   />
                 </label>
                 <Button
@@ -590,65 +596,76 @@ export function ModelSettingsDialog({
                 ))}
               </div>
               {provider === "glm" ? (
-                <label className="block text-[10.5px] font-semibold text-ink-3">
+                <div className="block text-[10.5px] font-semibold text-ink-3">
                   端点
-                  <select
-                    aria-label="GLM 端点"
+                  <FormSelect
+                    label="GLM 端点"
                     value={endpoint}
-                    onChange={(event) => setEndpoint(event.target.value)}
-                    className="mt-1 h-8 w-full rounded-lg border border-line bg-surface-2 px-2 text-[11px] font-normal text-ink outline-none"
-                  >
-                    {GLM_ENDPOINT_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    onValueChange={setEndpoint}
+                    options={GLM_ENDPOINT_OPTIONS}
+                    className="mt-1"
+                  />
+                </div>
               ) : null}
               {provider === "openai-compatible" ? (
                 <>
-                  <label className="block text-[10.5px] font-semibold text-ink-3">
+                  <label
+                    htmlFor={`${fieldId}-endpoint`}
+                    className="block text-[10.5px] font-semibold text-ink-3"
+                  >
                     端点 URL
-                    <input
+                    <Input
+                      id={`${fieldId}-endpoint`}
                       value={compatEndpoint}
                       onChange={(event) => setCompatEndpoint(event.target.value)}
                       aria-label="兼容端点 URL"
                       placeholder="https://api.example.com/v1"
-                      className="mt-1 h-8 w-full rounded-lg border border-line bg-surface-2 px-2 font-mono text-[11px] font-normal text-ink outline-none focus:border-accent/40"
+                      className="mt-1 font-mono text-[11px]"
                     />
                   </label>
-                  <label className="block text-[10.5px] font-semibold text-ink-3">
+                  <label
+                    htmlFor={`${fieldId}-window`}
+                    className="block text-[10.5px] font-semibold text-ink-3"
+                  >
                     上下文窗口（K）
-                    <input
+                    <Input
+                      id={`${fieldId}-window`}
                       value={compatWindowK}
                       onChange={(event) => setCompatWindowK(event.target.value)}
                       aria-label="兼容上下文窗口（K）"
                       inputMode="numeric"
-                      className="mt-1 h-8 w-full rounded-lg border border-line bg-surface-2 px-2 font-mono text-[11px] font-normal text-ink outline-none focus:border-accent/40"
+                      className="mt-1 font-mono text-[11px]"
                     />
                   </label>
                 </>
               ) : null}
-              <label className="block text-[10.5px] font-semibold text-ink-3">
+              <label
+                htmlFor={`${fieldId}-credential-name`}
+                className="block text-[10.5px] font-semibold text-ink-3"
+              >
                 名称
-                <input
+                <Input
+                  id={`${fieldId}-credential-name`}
                   value={label}
                   onChange={(event) => setLabel(event.target.value)}
                   aria-label="凭据名称"
-                  className="mt-1 h-8 w-full rounded-lg border border-line bg-surface-2 px-2 text-[11px] font-normal text-ink outline-none focus:border-accent/40"
+                  className="mt-1 text-[11px]"
                 />
               </label>
-              <label className="block text-[10.5px] font-semibold text-ink-3">
+              <label
+                htmlFor={`${fieldId}-api-key`}
+                className="block text-[10.5px] font-semibold text-ink-3"
+              >
                 API Key
-                <input
+                <Input
+                  id={`${fieldId}-api-key`}
                   type="password"
                   value={apiKey}
                   onChange={(event) => setApiKey(event.target.value)}
                   aria-label="API Key"
                   placeholder="sk-…"
                   autoComplete="off"
-                  className="mt-1 h-8 w-full rounded-lg border border-line bg-surface-2 px-2 font-mono text-[11px] font-normal text-ink outline-none focus:border-accent/40"
+                  className="mt-1 font-mono text-[11px]"
                 />
               </label>
               <Button

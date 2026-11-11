@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  Input,
   Kbd,
 } from "@larness/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,7 +28,7 @@ import {
   UserRound,
   Zap,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
 import { useLogout } from "@/features/auth/useAuth";
 import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
@@ -60,6 +61,7 @@ type SidebarDialog =
   | null;
 
 export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
+  const fieldId = useId();
   const { data } = useSnapshot();
   const {
     projectId,
@@ -205,9 +207,14 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <div className="px-2.5 pt-2.5">
-        <label className="flex h-7 items-center gap-1.5 rounded-lg bg-black/[.035] px-2 text-ink-3 transition-colors focus-within:bg-surface focus-within:ring-1 focus-within:ring-accent/30 dark:bg-white/[.05]">
+        <label
+          htmlFor={`${fieldId}-search`}
+          className="flex h-7 items-center gap-1.5 rounded-lg bg-black/[.035] px-2 text-ink-3 transition-colors focus-within:bg-surface focus-within:ring-1 focus-within:ring-accent/30 dark:bg-white/[.05]"
+        >
           <Search size={12.5} />
-          <input
+          <Input
+            id={`${fieldId}-search`}
+            variant="bare"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="搜索项目或会话"
