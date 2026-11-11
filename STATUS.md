@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F5 自动化空态**：`done`（2026-11-11），分支 `task/ui-f5-jobs-empty-state`。空态在列表可用区域居中，首次读取失败显示错误提示。浏览器和全量检查通过。
+
 - **UI-F4 Header 版本**：`done`（2026-11-11），分支 `task/ui-f4-header-version`。显示启动响应的实际版本，覆盖版本缺失、开发与生产构建浏览器及全量检查。
 
 - **UI-F3 服务关联终端输出**：`done`（2026-11-11），分支 `task/ui-f3-service-terminal-output`。服务日志纯文本视图过滤 VT 序列，分块、刷新和重开回归及 Windows ConPTY 定向 E2E 通过。

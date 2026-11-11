@@ -2,7 +2,7 @@ import type { ScheduledJobDto, ScheduledJobRunDto } from "@larness/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { createJob, deleteJob, runJobNow, updateJob } from "./api";
+import { createJob, deleteJob, listJobs, runJobNow, updateJob } from "./api";
 import { JobsDialog } from "./JobsDialog";
 
 const now = Date.now();
@@ -78,6 +78,14 @@ function renderDialog() {
     </QueryClientProvider>,
   );
 }
+
+it("shows a list read error without presenting it as an empty list", async () => {
+  vi.mocked(listJobs).mockRejectedValueOnce(new Error("unavailable"));
+  renderDialog();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("任务列表读取失败");
+  expect(screen.queryByText("还没有定时任务")).toBeNull();
+});
 
 it("lists jobs, opens the detail, shows the run history and runs manually", async () => {
   renderDialog();

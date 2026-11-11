@@ -508,17 +508,19 @@ export function JobsDialog({
                     </button>
                   ))}
                 </div>
-              ) : (
-                <div className="flex flex-col items-center gap-2 py-10 text-center">
-                  <Clock size={20} className="text-ink-3" />
-                  <p className="text-[12px] font-medium">还没有定时任务</p>
-                  <p className="max-w-xs text-[10.5px] text-ink-3">
-                    创建脚本或 Agent 任务，Larness 会按 Cron / 间隔在本机执行并保留运行记录。
-                  </p>
-                  <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
-                    <Plus size={12} />
-                    新建任务
-                  </Button>
+              ) : jobs.isError ? null : (
+                <div className="grid min-h-full place-items-center p-4">
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <Clock size={20} className="text-ink-3" />
+                    <p className="text-[12px] font-medium">还没有定时任务</p>
+                    <p className="max-w-xs text-[10.5px] text-ink-3">
+                      创建脚本或 Agent 任务，Larness 会按 Cron / 间隔在本机执行并保留运行记录。
+                    </p>
+                    <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
+                      <Plus size={12} />
+                      新建任务
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

@@ -38,7 +38,28 @@ test("creates a script job, runs it manually and keeps the history after refresh
   await page.getByRole("button", { name: "自动化任务" }).click();
   const dialog = page.getByTestId("jobs-dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("还没有定时任务")).toBeVisible();
+  const emptyState = dialog.getByText("还没有定时任务");
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 590 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(emptyState).toBeVisible();
+    await expect
+      .poll(() =>
+        emptyState.evaluate((title) => {
+          const list = title.closest(".overflow-y-auto")?.getBoundingClientRect();
+          const content = title.parentElement?.getBoundingClientRect();
+          if (!list || !content) return Number.POSITIVE_INFINITY;
+          return Math.max(
+            Math.abs(list.left + list.width / 2 - (content.left + content.width / 2)),
+            Math.abs(list.top + list.height / 2 - (content.top + content.height / 2)),
+          );
+        }),
+      )
+      .toBeLessThanOrEqual(2);
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
 
   await dialog.getByRole("button", { name: "新建任务" }).first().click();
   await dialog.getByLabel("名称").fill("E2E 脚本");
