@@ -54,6 +54,7 @@ export interface ExecuteToolInput {
   registerService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
+  refreshObservations?: () => Promise<ToolResult>;
 }
 
 export type ToolExecutionOutcome =
@@ -415,6 +416,17 @@ export async function executeTool(
             return (
               input.gitAction?.(args, assertAuthorized) ??
               denied("FORBIDDEN", "Git action context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.refreshObservations
+      ? {
+          refreshObservations: async () => {
+            assertAuthorized();
+            return (
+              input.refreshObservations?.() ??
+              denied("FORBIDDEN", "Observation context unavailable")
             );
           },
         }

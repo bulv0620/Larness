@@ -128,4 +128,70 @@ describe("AI SDK provider wire contract", () => {
       },
     });
   });
+
+  it("serializes the second step as a strict superset of the first request", async () => {
+    const base = { id: "response", object: "chat.completion.chunk", model: "test" };
+    const response = [
+      { ...base, choices: [{ index: 0, delta: { content: "ok" }, finish_reason: null }] },
+      { ...base, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] },
+    ];
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          response.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") +
+            "data: [DONE]\n\n",
+          { headers: { "content-type": "text/event-stream" } },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const tools = [
+      {
+        name: "read_file",
+        description: "Read a file",
+        parameters: { type: "object", properties: { path: { type: "string" } } },
+      },
+    ];
+    const firstMessages = [
+      { role: "system" as const, content: "stable core" },
+      { role: "user" as const, content: "read it" },
+    ];
+    const provider = createDeepSeekProvider();
+    const call = async (messages: typeof firstMessages | unknown[]) => {
+      for await (const _chunk of provider.streamStep({
+        apiKey: "test-key",
+        endpoint: "http://127.0.0.1",
+        model: "test",
+        signal: new AbortController().signal,
+        // biome-ignore lint/suspicious/noExplicitAny: progressive message arrays in the test
+        messages: messages as any,
+        tools,
+      })) {
+        // Drain the stream; only the serialized request body matters here.
+      }
+    };
+
+    await call(firstMessages);
+    await call([
+      ...firstMessages,
+      {
+        role: "assistant" as const,
+        content: "",
+        toolCalls: [{ id: "call-1", name: "read_file", args: { path: "a.txt" } }],
+      },
+      { role: "tool" as const, toolCallId: "call-1", toolName: "read_file", content: "body" },
+    ]);
+
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as {
+      messages: unknown[];
+      tools: unknown;
+    };
+    const secondBody = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as {
+      messages: unknown[];
+      tools: unknown;
+    };
+
+    expect(secondBody.messages.slice(0, firstBody.messages.length)).toEqual(firstBody.messages);
+    expect(secondBody.tools).toEqual(firstBody.tools);
+  });
 });

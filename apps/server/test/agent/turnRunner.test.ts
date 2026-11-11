@@ -17,6 +17,7 @@ import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
+import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { TurnRunner, toolMessageContent } from "../../src/modules/agent/turnRunner.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -178,11 +179,12 @@ describe("TurnRunner", () => {
         expect(sequences).toEqual([...sequences].sort((left, right) => left - right));
         expect(new Set(sequences).size).toBe(sequences.length);
 
+        // Sorted by name so the tool array stays byte-identical across steps.
         expect(provider.calls[0]?.tools.map((tool) => tool.name)).toEqual([
+          "apply_patch",
           "list_files",
           "read_file",
           "search_code",
-          "apply_patch",
         ]);
         expect(provider.calls[0]?.messages[0]?.role).toBe("system");
       } finally {
@@ -664,6 +666,120 @@ describe("TurnRunner", () => {
           .prepare("SELECT terminal_reason FROM turns WHERE id = ?")
           .get(budgetTurn.turnId) as { terminal_reason: string | null };
         expect(budgetRow.terminal_reason).toBe("budget");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("keeps the request prefix identical across steps and reads observations once", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "prefix" });
+        let pm2Calls = 0;
+        const pm2 = {
+          available: true,
+          nodeExecutable: "/usr/bin/node",
+          entry: "/usr/lib/pm2/bin/pm2",
+          version: "7.1.2",
+          home: path.join(dir, "pm2"),
+          namespace: "larness" as const,
+          serviceNamePattern: "larness:<projectId>:<serviceKey>" as const,
+          project: null,
+          services: [],
+        };
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              { type: "tool-call", toolCall: { id: "call_list", name: "list_files", args: {} } },
+              { type: "finish", finishReason: "tool-calls" },
+            ],
+          },
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          pm2Context: async () => {
+            pm2Calls += 1;
+            return pm2;
+          },
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+        expect(pm2Calls).toBe(1);
+
+        const first = provider.calls[0];
+        const second = provider.calls[1];
+        expect(first).toBeDefined();
+        expect(second).toBeDefined();
+        if (first === undefined || second === undefined) return;
+
+        // Strict superset: the previous request is a byte-identical prefix.
+        expect(second.messages.slice(0, first.messages.length)).toEqual(first.messages);
+        expect(second.messages[0]).toEqual(first.messages[0]);
+        expect(second.tools).toEqual(first.tools);
+        expect(second.messages[0]?.role).toBe("system");
+        if (second.messages[0]?.role === "system") {
+          expect(second.messages[0].content).toContain("Larness prompt version:");
+          expect(second.messages[0].content).toContain("snapshot at Turn start");
+        }
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("refreshes observations through an L0 tool instead of rewriting the prefix", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "refresh" });
+        const registry = createFileToolRegistry();
+        registry.register(createObservationTool());
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              {
+                type: "tool-call",
+                toolCall: { id: "call_refresh", name: "refresh_observations", args: {} },
+              },
+              { type: "finish", finishReason: "tool-calls" },
+            ],
+          },
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry,
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const result = provider.calls[1]?.messages.at(-1);
+        expect(result?.role).toBe("tool");
+        if (result?.role !== "tool") return;
+
+        const parsed = JSON.parse(result.content) as {
+          observedAt: number;
+          preview: unknown[];
+          terminals: unknown[];
+          pm2: unknown;
+        };
+        expect(typeof parsed.observedAt).toBe("number");
+        expect(Array.isArray(parsed.preview)).toBe(true);
+        expect(Array.isArray(parsed.terminals)).toBe(true);
+        expect(parsed.pm2).toBeNull();
+        expect(result.isError).toBe(false);
       } finally {
         opened.close();
       }

@@ -27,6 +27,7 @@ export interface ToolContext {
   registerService?: (args: unknown) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
+  refreshObservations?: () => Promise<ToolResult>;
 }
 
 export interface ToolResult {

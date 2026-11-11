@@ -10,7 +10,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 ## 系统信息
 
-每次模型请求使用实际运行时生成的 PM2 信息。模型步骤之间刷新服务观察。系统 JSON 的字段如下。
+系统上下文在 **Turn 起点**取一次真实运行时快照（PM2、临时服务、终端），并在整个 Turn 内保持不变，以保证续步请求的前缀稳定（[ADR-057](../adr/ADR-057-runtime-efficiency.md)）。Turn 内不再每步刷新：需要当前状态时，模型调用只读工具 `refresh_observations`，或使用既有的服务 / 终端 / PM2 查询；状态变更类工具的结果自带最新观察。快照带有观察时间，声明状态前必须先刷新；`running` / 在线不构成健康证明。系统 JSON 的字段如下。
 
 | 字段 | 含义 |
 |---|---|
@@ -18,6 +18,8 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 | nodeExecutable / entry | Node 和全局 PM2 入口的绝对路径 |
 | home / namespace | 后端注入的 PM2_HOME 和 `larness` 命名空间 |
 | serviceNamePattern | `larness:<projectId>:<serviceKey>` |
+
+`refresh_observations` 无参数、风险级别 `L0`（只读、不申请项目锁），返回 `{ observedAt, preview, terminals, pm2 }`：`preview` 为当前项目的临时开发预览（含端点与观察时间），`terminals` 为运行中终端（`terminalId / title / mode`），`pm2` 与系统快照同字段。它不缓存跨 Turn 状态，也不会改变执行授权。
 | project | 当前真实登记项目的 id/name/root/releaseRoot，未选项目为 null |
 | services | 服务的 projectId/projectName/name/pm2Name/observedState/pid/updatedAt |
 | unassociatedServices | 名称归属缺失、重名或与旧记录冲突的本实例服务 |

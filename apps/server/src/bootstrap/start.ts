@@ -31,6 +31,7 @@ import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { createCommandTool } from "../modules/agent/commandTool.js";
 import { createGitTools } from "../modules/agent/gitTool.js";
+import { createObservationTool } from "../modules/agent/observationTool.js";
 import { createPlanTool } from "../modules/agent/planTool.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
@@ -423,6 +424,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         registry.register(tool);
       for (const tool of createGitTools()) registry.register(tool);
       for (const tool of createServiceTools()) registry.register(tool);
+      registry.register(createObservationTool());
       const runner = new TurnRunner({
         dataDir,
         db: opened.db,

@@ -52,6 +52,7 @@ import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approv
 import { assembleContext } from "./contextAssembler.js";
 import { compressContext, shouldCompress } from "./contextCompressor.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
+import { buildObservationSnapshot } from "./observationSnapshot.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
 
@@ -1183,6 +1184,38 @@ export class TurnRunner {
               return gitFailure(error, "Git action failed");
             }
           },
+          refreshObservations: async () => {
+            if (checkBudget() !== "ok") {
+              return {
+                ok: false,
+                errorCode: "TOOL_ERROR",
+                summary: "execution is no longer authorized",
+              };
+            }
+
+            try {
+              const pm2 = await this.#options.pm2Context?.(session.projectId);
+              const snapshot = buildObservationSnapshot({
+                db: this.#options.db,
+                session,
+                workspaceRoot: projectRoot,
+                pm2: pm2 ?? null,
+                now: this.#now(),
+              });
+
+              return {
+                ok: true,
+                summary: `observations refreshed at ${snapshot.observedAt}`,
+                data: snapshot,
+              };
+            } catch {
+              return {
+                ok: false,
+                errorCode: "TOOL_ERROR",
+                summary: "observation refresh failed",
+              };
+            }
+          },
         },
       );
     try {
@@ -1279,22 +1312,6 @@ export class TurnRunner {
           });
         }
 
-        if (steps > 0 && this.#options.pm2Context) {
-          const refreshed = assembleContext(
-            {
-              db: this.#options.db,
-              registry: this.#options.registry,
-              maxContextTokens:
-                resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens,
-              policy,
-              workspaceRoot: projectRoot,
-              pm2Context: await this.#options.pm2Context(session.projectId),
-            },
-            session,
-            turn,
-          );
-          messages[0] = refreshed.messages[0];
-        }
         steps += 1;
         const assistantMessageId = newId("msg");
         let text = "";

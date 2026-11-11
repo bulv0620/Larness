@@ -14,7 +14,7 @@
 | HX-2 | 截止时间与请求级约束 | HX-0 | `done` |
 | HX-3 | 终态原因落库与 Job 判定 | HX-2 | `done` |
 | HX-4 | 工具结果结构裁剪 | HX-0 | `done` |
-| HX-5 | 稳定前缀与资源观察移位 | HX-1 | `todo` |
+| HX-5 | 稳定前缀与资源观察移位 | HX-1 | `done` |
 | HX-6 | 每步预算预检与估算校准 | HX-1 | `todo` |
 | HX-7 | 长 Turn 检查点与有界降级 | HX-6、HX-4 | `todo` |
 | HX-8 | 编码工具效率与只读并发 | HX-4 | `todo` |
@@ -123,7 +123,7 @@
 
 ### HX-5 稳定前缀与资源观察移位
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11）
 - 依赖：HX-1（无 HX-1 时无法验证收益）
 - 目标：普通续步请求体是上一次的严格超集；system 与 tools 在 Turn 内逐字节不变。
 - 交付物：
@@ -136,7 +136,10 @@
 - 验收：A1 通过并作为硬门禁；A7 通过；真实热续步命中率有前后对比记录。
 - 测试：`ai-sdk-wire.test.ts` 捕获两次 fetch body 比较前缀；部署/预览认证 E2E 回归。
 - 涉及路径：`apps/server/src/modules/agent/{turnRunner,contextAssembler}.ts`、`packages/agent/src/tools/registry.ts`、`apps/server/src/modules/service-ops/commandContext.ts`、`docs/contracts/agent-command-context.md`
-- 备注：本任务是本切片唯一改变既有产品行为的项；D1 已确认走「起点快照 + 显式刷新」，ADR-057 已 accepted。「尾部变化才追加」仅作为实现受阻时的降级，采用前需回到 ADR。
+- 实现要点：system 增加 `PROMPT_VERSION`（`m6-1`），工具数组按名称排序并在 Turn 内只取一次；删除每步 `assembleContext` 重装配，Turn 起点取一次运行时快照；新增 `observationSnapshot.ts` 统一快照构造，system 与 `refresh_observations`（L0、无参数、不申请项目锁）共用同一实现；`ToolContext` / `ExecuteToolInput` 增加 `refreshObservations` 注入；`bootstrap` 注册新工具。
+- 契约：`docs/contracts/agent-command-context.md` 的「模型步骤之间刷新服务观察」改为「Turn 起点快照 + 显式刷新」；`specs/051` 记录新工具与结果裁剪。
+- 验证（硬门禁）：`ai-sdk-wire.test.ts` 新增「第 2 步请求是第 1 步的严格超集」用例（比较 SDK 序列化后的 `messages` 前缀与 `tools`）；`turnRunner` 新增用例断言 `pm2Context` 每 Turn 只调用 1 次、`messages[0]` 与 `tools` 跨步完全相等、system 含 `PROMPT_VERSION` 与「snapshot at Turn start」；`refresh_observations` 用例验证返回 `observedAt / preview / terminals / pm2` 且不触发审批。`test/agent` 68 通过 / 9 个既有环境性失败，`packages/agent` 47 通过 / 1 跳过，`apps/web` 158 通过；biome 与 typecheck 通过。
+- 备注：本任务是本切片唯一改变既有产品行为的项；D1 已确认走「起点快照 + 显式刷新」。「尾部变化才追加」未采用。
 
 ### HX-6 每步预算预检与估算校准
 
