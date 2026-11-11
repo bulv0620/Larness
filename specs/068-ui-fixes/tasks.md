@@ -17,8 +17,18 @@
 | UI-F11 | 本机执行提示 | 简化重复提示并明确实际执行权限 | UI-F10 | done |
 | UI-F12 | 对话布局 | 悬浮模型切换提示，流式回复首段即显示气泡 | UI-F11 | done |
 | UI-F13 | 资源区 Tab | 右侧资源区 Tab 切换，移除标题栏，圆角与 Git 顶部间距 | UI-F12 | done |
+| UI-F14 | Header 服务端资源 | Header 右侧显示 Server 主机 CPU / ROM / RAM 占用 | UI-F13 | done |
 
 ## 验收记录
+
+### UI-F14（2026-11-11，macOS）
+
+- 新增已认证 `GET /api/system/metrics`：CPU 取 `os.cpus()` 增量，内存取 `totalmem - freemem`，磁盘取 Server 数据目录所在卷的 `fs.statfs`。服务端缓存 1 秒，Header 每 4 秒轮询；磁盘读取失败返回 0，前端显示 `—`。契约同步到 `docs/contracts/rest-api.md`。
+- 服务端先行测试：5 个指标单测覆盖 CPU 增量、首次采样、缓存、磁盘失败降级和真实 `statfs`；1 个 API 测试覆盖未认证 401、已认证字段、`no-store` 与不泄露数据目录。Web 组件 3 项覆盖 CPU / RAM / ROM、未知占位和 TB 单位。
+- Mock Chromium 在 1440×900 确认 Header 右侧显示 `CPU 38% · RAM 9.6 / 16 GB · ROM 284 / 460 GB`；1024 / 1280 / 1440 断点为 1024 隐藏、1280 与 1440 显示，三者均无横向溢出，390px 窄屏按设计隐藏。Mock 数值来自 fixture，真实模式不显示模拟值。
+- `VITEST_MAX_WORKERS=2 pnpm check` 通过：Web 157、Agent 42、Server 577 项通过，12 项沿用既有跳过；Biome 仅报告仓库既有 warning（含配置 schema 2.6.4 / CLI 2.6.6 提示）。
+- `pnpm build` 通过：Server 四入口产物与 Web 生产构建完成，仅有既有 chunk 体积提示。
+- 未运行完整认证 / 生产浏览器套件与 Windows 实机验证；真实指标接口已由运行中 Server 的授权注入测试覆盖。
 
 ### UI-F13（2026-11-11，Windows）
 

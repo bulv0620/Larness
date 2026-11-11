@@ -20,6 +20,7 @@ import { registerServiceOpsRoutes } from "./api/service-ops.js";
 import { registerServiceRoutes } from "./api/services.js";
 import { registerSessionRoutes, type TurnControls } from "./api/sessions.js";
 import { registerStaticRoutes } from "./api/static.js";
+import { registerSystemRoutes } from "./api/system.js";
 import { registerTerminalRoutes } from "./api/terminals.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
 import { resolveActiveSession } from "./auth/sessions.js";
@@ -40,6 +41,7 @@ import { DeploymentManager } from "./modules/service-ops/deployments.js";
 import type { ServiceActionAuthorizationService } from "./modules/service-ops/serviceActions.js";
 import type { ServiceOpsRuntime } from "./modules/service-ops/serviceOps.js";
 import { ServiceManager } from "./modules/services/manager.js";
+import { createHostMetricsService } from "./modules/system/metrics.js";
 import { TerminalManager } from "./modules/terminals/manager.js";
 import { resolveRequestId } from "./request-id.js";
 import { installSecurityGuard } from "./security/guard.js";
@@ -109,6 +111,11 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       limiter: new RateLimiter(),
     });
     registerBootstrapRoutes(app, options.services);
+    registerSystemRoutes(app, {
+      metrics: createHostMetricsService(options.services.dataDir, {
+        onDiskError: (error) => app.log.warn({ err: error }, "host disk metrics unavailable"),
+      }),
+    });
   }
 
   if (options.services) {

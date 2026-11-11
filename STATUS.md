@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F14 Header 服务端资源**：`done`（2026-11-11），分支 `task/ui-f14-header-host-metrics`。Header 右侧改为显示运行 Server 的机器 CPU、RAM、ROM（数据目录所在卷）占用，4 秒刷新；新增已认证 `GET /api/system/metrics`，磁盘不可读时显示 `—`，不再使用随机模拟值。`VITEST_MAX_WORKERS=2 pnpm check`（Web 157、Agent 42、Server 577，12 项既有跳过）与 `pnpm build` 通过，Mock Chromium 1024/1280/1440 断点与 390px 窄屏检查通过。[验收记录](specs/068-ui-fixes/tasks.md#ui-f14-2026-11-11macos)
+
 - **UI-F13 右侧资源区 Tab**：`done`（2026-11-11），分支 `task/ui-f13-resource-tabs`，已合并 main 推送。资源区改为 Tab 切换并移除「项目资源」标题行；Tabs 同心圆角与 `surface-2` 轨道，Git 提交输入框距面板顶部 8px；两面板常驻不丢状态。用户视觉验收、Mock E2E 23、认证定向与合并前全量 `pnpm check`（复跑）通过；commands 批量与 m1:80 为已记录的既有失败。[验收记录](specs/068-ui-fixes/tasks.md#ui-f13-2026-11-11windows)
 
 - **UI-F12 对话布局稳定性**：`done`（2026-11-11），分支 `task/ui-f12-stable-chat-layout`。模型切换提示悬浮于输入框左上方，回复首段正文起即显示主题气泡。用户视觉验收与 `pnpm check` 通过。

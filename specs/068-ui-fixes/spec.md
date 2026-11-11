@@ -100,3 +100,14 @@ depends_on: [052-workspace-polish, 063-multi-provider, 064-scheduler, 065-launch
 - Given 浅色、深色与不同侧栏宽度，Then Tab 轨道与选中态随主题 token 切换，两个 Tab 平分宽度，Git 提交信息输入框距面板顶部 8px，面板填满右栏高度。
 
 变更限于前端呈现、共享 Tabs 控件默认样式与受影响测试；契约同步见 [resource-views](../../docs/contracts/resource-views.md)。API、事件、持久化和授权沿用；右侧折叠、拖宽、xl 显隐不变。
+
+## UI-F14 Header 服务端资源占用
+
+2026-11-11 用户要求 Header 右侧显示服务侧系统的 CPU、ROM（磁盘）和 RAM 占用。此前只在 Mock 中显示随机模拟值，真实 Server 没有主机资源数据。
+
+- Given 已认证打开工作区，When Header 渲染，Then 右侧显示运行 Larness Server 的机器的 CPU 使用率、RAM 已用 / 总量和磁盘已用 / 总量；不读取浏览器所在设备的数据。数值每 4 秒刷新。
+- Given Server 刚启动、首次采样还未完成或磁盘占用不可读，Then CPU 或对应资源显示 `—`，不把占位 `0` 当作真实占用。
+- Given 窄屏、浅色或深色主题，Then 资源块在 `xl`（1280px）以下隐藏，其余尺寸不挤压项目名和右侧操作；颜色沿用工作区语义 token。
+- Given 演示 Mock 模式，Then 使用固定 Mock 值保持视觉 Demo 可用；Mock E2E 不访问真实指标接口。
+
+数据来自新增的已认证 `GET /api/system/metrics`，契约见 [REST API](../../docs/contracts/rest-api.md#get-apisystemmetrics已认证)。CPU 使用 `os.cpus()` 增量，内存使用 `totalmem - freemem`，磁盘使用 Server 数据目录所在卷的 `fs.statfs`。变更不涉及数据库、权限、审批或持久化。
