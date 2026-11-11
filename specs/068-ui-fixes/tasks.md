@@ -5,7 +5,7 @@
 | ID | 用户项 | 分类与交付 | 依赖 | 状态 |
 |---|---|---|---|---|
 | UI-F1 | 1 | 数据刷新，添加 Key 后刷新列表与模型目录 | 068 ready | done |
-| UI-F2 | 2 | 样式，完全自主确认按钮各交互状态可读 | UI-F1 | todo |
+| UI-F2 | 2 | 样式，完全自主确认按钮各交互状态可读 | UI-F1 | done |
 | UI-F3 | 3 | 输出链路，修复服务关联终端乱码 | UI-F2 | todo |
 | UI-F4 | 5 | 版本信息，Header 显示运行版本 | UI-F3 | todo |
 | UI-F5 | 6 | 布局，自动化任务空态双向居中 | UI-F4 | todo |
@@ -22,3 +22,8 @@
 - 安装 Playwright Chromium Headless Shell 并用 `VITEST_MAX_WORKERS=3` 复跑，类型检查、Web 145 项和 Agent 42 项通过，服务端 4 失败、545 通过、31 跳过。部署授权的 scope/domain/actor/identity 不匹配用例从首轮 `missing artifact` 变为 20 秒超时。其余失败同样位于部署授权或部署计划测试。
 - 用户授权后排查并以 M5-F1-R1 修复 Windows 产物重命名 EPERM。恢复 UI-F1 后 `VITEST_MAX_WORKERS=3 pnpm check` 通过，Web 145、Agent 42、Server 552 项通过，32 项沿用既有跳过。
 - 新增 Key 的认证浏览器定向用例通过，使用测试目录响应。既有 M1 综合用例在项目右键菜单步骤失败，未到达新增 Key 步骤。未运行构建及整套 E2E。
+
+### UI-F2（2026-11-11，Windows）
+
+- Chromium 回归先复现次要按钮的悬停样式，再通过亮暗主题悬停及键盘焦点验证。复用已有 danger 变体。
+- 首轮全量检查有一项服务端命令锁心跳用例失败，降至 2 workers 后 `pnpm check` 通过（Web 145、Agent 42、Server 552 项通过，32 项沿用跳过）。未运行整套浏览器测试。

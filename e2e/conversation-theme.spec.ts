@@ -2,6 +2,34 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 
+test("keeps the autonomous confirmation readable on hover and keyboard focus", async ({ page }) => {
+  await page.goto("/");
+  for (const theme of ["浅色", "深色"]) {
+    await page.getByRole("button", { name: "外观与主题" }).click();
+    await page.getByRole("menuitemradio", { name: theme, exact: false }).click();
+    await page.getByRole("button", { name: "审批策略：标准审批" }).click();
+    await page.getByRole("menuitemradio", { name: /完全自主/ }).click();
+
+    const dialog = page.getByRole("dialog", { name: "启用完全自主？" });
+    const confirm = dialog.getByRole("button", { name: "确认启用" });
+    await expect(confirm).toBeVisible();
+    const background = await confirm.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    await confirm.hover();
+    await expect(confirm).toHaveCSS("filter", "brightness(1.1)");
+    await expect(confirm).toHaveCSS("background-color", background);
+    await expect(confirm).toHaveCSS("color", "rgb(255, 255, 255)");
+
+    await dialog.getByRole("heading").hover();
+    await dialog.getByRole("button", { name: "取消" }).press("Tab");
+    await expect(confirm).toBeFocused();
+    await expect(confirm).toHaveCSS("background-color", background);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+  }
+});
+
 test("conversation actions follow the outer light/dark theme without expanding the compact layout", async ({
   page,
 }) => {

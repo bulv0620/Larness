@@ -359,7 +359,7 @@ export function Composer() {
               取消
             </Button>
             <Button
-              className="bg-danger text-white"
+              variant="danger"
               onClick={() => {
                 setPolicy("autonomous");
                 setConfirmAutonomous(false);

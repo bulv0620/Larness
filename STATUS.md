@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F2 完全自主确认按钮样式**：`done`（2026-11-11），分支 `task/ui-f2-autonomous-hover`。已采用共享危险按钮样式，亮暗主题悬停、键盘焦点回归及全量检查通过。
+
 - **UI-F1 添加 Key 后刷新**：`done`（2026-11-11），分支 `task/ui-f1-key-refresh`。保存后自动同步目录及失败提示已通过回归、认证定向 E2E 和全量 check。[验收记录](specs/068-ui-fixes/tasks.md#验收记录)
 - **M5-F1-R1 Windows 部署产物提交**：`done`（2026-11-11），分支 `task/m5-f1-r1-artifact-rename`。Windows 暂存目录原子重命名偶发 EPERM 时有限重试。部署和运维定向测试 35 项通过，`VITEST_MAX_WORKERS=3 pnpm check` 通过。解除 UI-F1 的部署测试阻塞。
 
