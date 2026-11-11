@@ -112,6 +112,8 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     });
     registerBootstrapRoutes(app, options.services);
     registerSystemRoutes(app, {
+      db: options.services.db,
+      dataDir: options.services.dataDir,
       metrics: createHostMetricsService(options.services.dataDir, {
         onDiskError: (error) => app.log.warn({ err: error }, "host disk metrics unavailable"),
       }),

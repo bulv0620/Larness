@@ -283,6 +283,26 @@
 
 `dataDir` 仅返回给已认证客户端；日志中脱敏。
 
+### GET `/api/system/storage`（已认证，只读）
+
+数据体积报告与保留期 dry-run（M6 TR-1）。**不删除、不修改任何数据**；`policy` 恒为 `dry_run`。
+
+```json
+{
+  "generatedAt": 1800000000000,
+  "database": { "file": "/…/larness.db", "bytes": 10485760, "walBytes": 262144 },
+  "retentionDays": { "events": 90, "turns": 180, "summaries": 90 },
+  "tables": [
+    { "table": "agent_events", "rows": 1200, "oldestAt": 1790000000000, "newestAt": 1800000000000, "retentionDays": 90, "candidates": 30 }
+  ],
+  "candidates": { "total": 42 },
+  "activeSessions": 1,
+  "policy": "dry_run"
+}
+```
+
+`candidates` 只统计**超出保留期且不属于活跃 Turn 会话**的行；清理本身由后续任务（TR-4）实现，默认关闭。
+
 ### GET `/api/system/metrics`（已认证）
 
 返回运行 Server 的机器的实时资源占用，用于 Header 展示；不是浏览器所在设备的数据。
