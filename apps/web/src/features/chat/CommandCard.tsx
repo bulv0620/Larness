@@ -93,7 +93,7 @@ export function CommandCard({ commandId }: { commandId: string }) {
       aria-label="命令执行"
       className="mt-2 overflow-hidden rounded-xl border border-line bg-surface"
     >
-      <div className="flex items-center gap-2 px-3 py-2 text-[11px]">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 text-[11px]">
         <span className="font-semibold text-ink">命令执行</span>
         <span role="status" className="text-ink-2">
           {state.data ? LABELS[state.data.status] : state.error ? "命令不可用" : "正在读取状态…"}
@@ -101,7 +101,7 @@ export function CommandCard({ commandId }: { commandId: string }) {
         {state.data?.exitCode !== null && state.data?.exitCode !== undefined ? (
           <span className="font-mono text-ink-3">退出码 {state.data.exitCode}</span>
         ) : null}
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto flex flex-wrap gap-1">
           <Button size="sm" variant="secondary" onClick={() => void refresh()}>
             刷新输出
           </Button>

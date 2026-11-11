@@ -98,7 +98,7 @@ it("keeps commentary inside a collapsed turn process and final answer outside", 
   render(<Timeline />);
   expect(screen.getByText("已完成修复")).toBeVisible();
   expect(screen.queryByText("先检查文件")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /执行了 1 项操作/ }));
+  fireEvent.click(screen.getByRole("button", { name: "执行过程 · 探索 1 项" }));
   expect(screen.getByText("先检查文件")).toBeVisible();
   expect(screen.getAllByText("已完成修复")).toHaveLength(1);
   act(() =>
@@ -113,7 +113,7 @@ it("shows no empty process for a plain answer and renders a real collapsible pla
     items: [base[0], base[3]].filter((item): item is TimelineItem => Boolean(item)),
   });
   const view = render(<Timeline />);
-  expect(screen.queryByRole("button", { name: /项操作/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: /执行过程/ })).toBeNull();
   act(() =>
     useTimelineStore.setState({
       items: [

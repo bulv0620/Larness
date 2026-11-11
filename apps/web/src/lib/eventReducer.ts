@@ -154,7 +154,15 @@ function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineI
       return commandId && /^cmd_[a-f0-9-]{36}$/.test(commandId)
         ? patchTool(items, toolId(event, data), {
             commandId,
-            ...(command.success ? { args: JSON.stringify(command.data, null, 2) } : {}),
+            ...(command.success
+              ? {
+                  args: JSON.stringify(command.data, null, 2),
+                  commandLabel: [
+                    command.data.executable.split(/[\\/]/).at(-1),
+                    ...command.data.args,
+                  ].join(" "),
+                }
+              : {}),
           })
         : items;
     }

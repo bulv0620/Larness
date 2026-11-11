@@ -164,7 +164,7 @@ test("M2-4d human takes over agent terminal control and the old generation is re
     await page.getByRole("button", { name: "批准执行" }).click();
     await expect(page.getByText("done", { exact: true })).toBeVisible({ timeout: 15000 });
     const controlTurn = page.getByRole("region", { name: "对话轮次" }).last();
-    await controlTurn.getByRole("button", { name: /执行过程 · 执行了 2 项操作/ }).click();
+    await controlTurn.getByRole("button", { name: /执行过程 · 其他 2 项/ }).click();
     await controlTurn.getByRole("button", { name: /向终端/ }).click();
     await expect(page.getByText(/TERMINAL_LEASE_REQUIRED/).first()).toBeVisible({
       timeout: 15000,

@@ -7,20 +7,23 @@ import { PreviewResultCard } from "@/features/services/PreviewResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore } from "@/stores/windowStore";
+import { CommandCard } from "./CommandCard";
 import { MarkdownText } from "./MarkdownText";
 
 export function TimelineItemView({
   item,
   turnActive = false,
+  commentary = false,
   onRetry,
 }: {
   item: TimelineItem;
   turnActive?: boolean;
+  commentary?: boolean;
   onRetry?: () => void;
 }) {
   switch (item.kind) {
     case "message":
-      return <MessageBubble item={item} />;
+      return <MessageBubble item={item} commentary={commentary} />;
     case "plan":
       return <PlanCard item={item} turnActive={turnActive} />;
     case "tool":
@@ -55,7 +58,15 @@ export function TimelineItemView({
   }
 }
 
-export function MessageBubble({ item, children }: { item: MessageItem; children?: ReactNode }) {
+export function MessageBubble({
+  item,
+  children,
+  commentary = false,
+}: {
+  item: MessageItem;
+  children?: ReactNode;
+  commentary?: boolean;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   if (item.role === "user")
@@ -83,10 +94,13 @@ export function MessageBubble({ item, children }: { item: MessageItem; children?
       </div>
     );
   return (
-    <article className="min-w-0 break-words text-[13px] leading-[1.65] text-ink [overflow-wrap:anywhere]">
-      <div className="w-fit min-w-0 max-w-full rounded-2xl rounded-tl-md border border-line bg-surface px-3.5 py-2.5 shadow-[var(--shadow-card)]">
-        <MarkdownText text={item.text} />
-      </div>
+    <article
+      className={cn(
+        "min-w-0 break-words leading-[1.65] [overflow-wrap:anywhere]",
+        commentary ? "text-[12px] text-ink-2" : "text-[13px] text-ink",
+      )}
+    >
+      <MarkdownText text={item.text} />
       {children}
       {!item.streaming && item.text ? (
         <div className="mt-1 flex items-center gap-2 px-0.5">
@@ -191,8 +205,19 @@ function ToolCard({ item }: { item: ToolItem }) {
         className="flex w-full items-start gap-1.5 rounded-md py-1 text-left transition-colors hover:text-accent"
       >
         <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
-        <span className="min-w-0 break-words">{item.summary || item.name}</span>
-        {item.status === "error" ? <X size={13} className="mt-0.5 shrink-0 text-danger" /> : null}
+        <span
+          className={cn(
+            "min-w-0 [overflow-wrap:anywhere]",
+            item.commandLabel && "line-clamp-2 font-mono",
+          )}
+        >
+          {item.commandLabel || item.summary || item.name}
+        </span>
+        {item.status === "error" ? (
+          <span className="ml-auto flex shrink-0 items-center gap-0.5 text-danger">
+            <X size={13} /> 失败
+          </span>
+        ) : null}
       </button>
       {expanded ? (
         <div className="ml-5 space-y-2">
@@ -210,6 +235,7 @@ function ToolCard({ item }: { item: ToolItem }) {
               {item.output}
             </pre>
           ) : null}
+          {item.commandId ? <CommandCard commandId={item.commandId} /> : null}
         </div>
       ) : null}
     </div>

@@ -397,6 +397,10 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 [068 规格](068-ui-fixes/spec.md) 的 UI-F1～UI-F7 均为 done（2026-11-11）。七项依次处理 Key 刷新、确认按钮、服务终端输出、Header 版本、自动化空态、表单组件和错误 message。[任务清单与验收](068-ui-fixes/tasks.md)
 
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| UI-F8 | [对话执行展示](068-ui-fixes/spec.md#ui-f8-对话执行展示) | UI-F7 done | `done` |
+
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
 - 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。
 - 阻塞：`blocked` + 原因 + 需要谁决策；解除后回到 `todo`。

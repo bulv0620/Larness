@@ -1,13 +1,13 @@
 import type { MessageItem, PlanItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
-import { ArrowDown, ChevronRight, Loader2 } from "lucide-react";
+import { ArrowDown, ChevronRight, Loader2, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
 import { PreviewResultCard } from "@/features/services/PreviewResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
+import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
-import { CommandCard } from "./CommandCard";
 import { MessageBubble, TimelineItemView } from "./TimelineItemView";
 import { Welcome } from "./Welcome";
 
@@ -34,6 +34,28 @@ function groupTurns(items: TimelineItem[]): TurnGroup[] {
     }
   }
   return groups;
+}
+
+function summarizeTools(tools: ToolItem[]): string {
+  let exploration = 0;
+  let edits = 0;
+  let commands = 0;
+  for (const tool of tools) {
+    if (tool.name === "run_command" || tool.commandId) commands++;
+    else if (tool.name === "apply_patch") edits++;
+    else if (["read_file", "list_files", "search_code"].includes(tool.name)) exploration++;
+  }
+  const other = tools.length - exploration - edits - commands;
+  return (
+    [
+      exploration && `探索 ${exploration} 项`,
+      edits && `修改 ${edits} 项`,
+      commands && `命令 ${commands} 条`,
+      other && `其他 ${other} 项`,
+    ]
+      .filter(Boolean)
+      .join(" · ") || "执行了 0 项操作"
+  );
 }
 
 function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
@@ -74,23 +96,22 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
       ((item.kind === "message" && item.role === "assistant") ||
         (item.kind === "tool" && item.name !== "update_plan")),
   );
-  const approvals = items.filter((item) => item.kind === "approval");
-  const runningTool = [...tools].reverse().find((tool) => tool.status === "running");
-  const pending = approvals.find((item) => item.kind === "approval" && item.status === "pending");
   const failed = user?.turnOutcome === "failed" || user?.turnOutcome === "interrupted";
   const stopped = user?.turnOutcome === "cancelled";
   const duration = user?.durationMs;
   const seconds = duration === undefined ? "" : ` · ${Math.round(duration / 1000)}秒`;
   const reasoningPreview = [...items].reverse().find((item) => item.kind === "reasoning")?.text;
-  const summary = active
-    ? pending
-      ? `本轮 ${tools.length} 项操作`
-      : runningTool
-        ? `正在执行 · ${runningTool.summary || runningTool.name}`
-        : reasoningPreview
-          ? `正在思考${tools.length > 0 ? ` · 已执行 ${tools.length} 项操作` : ""} · ${reasoningPreview}`
-          : `已执行 ${tools.length} 项操作`
-    : `${stopped ? "已停止" : failed ? "执行未完成" : "执行了"} ${tools.length} 项操作${seconds}`;
+  const showReasoning =
+    turnActive &&
+    reasoningPreview &&
+    !tools.some((tool) => tool.status === "running") &&
+    pendingApprovals(items).length === 0;
+  const summary = [stopped ? "已停止" : failed ? "执行未完成" : "", summarizeTools(tools) + seconds]
+    .filter(Boolean)
+    .join(" · ");
+  const visibleProcess = expanded
+    ? process
+    : process.filter((item) => item.kind === "tool" && item.status === "error");
   const targets = new Map<string, NonNullable<ToolItem["resourceTarget"]>>();
   for (const tool of tools) {
     const target = tool.resourceTarget;
@@ -112,7 +133,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   );
   const results =
     !turnActive && (targets.size > 0 || artifacts.length > 0) ? (
-      <div className="mt-2 space-y-2">
+      <div className="mt-3 space-y-2 border-t border-line pt-2">
         {targets.size > 0 ? (
           <section aria-label="本次成果" className="flex flex-wrap gap-1.5 pt-0.5">
             {[...targets.entries()].map(([key, target]) =>
@@ -142,54 +163,34 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
           <div className="text-[12px] text-ink-3">
             <button
               type="button"
-              aria-label={`执行过程 · ${summary}`}
+              aria-label={`执行过程 · ${showReasoning ? "正在思考 · " : ""}${summary}`}
               aria-expanded={expanded}
               onClick={() => setExpanded((value) => !value)}
-              className={cn(
-                "flex w-full items-start gap-1.5 rounded-md py-1 text-left transition-colors hover:text-accent",
-                active && !pending && "text-accent",
-              )}
+              className="flex w-full items-start gap-1.5 rounded-md py-1 text-left transition-colors hover:text-accent"
             >
-              {active && !pending ? (
-                <Loader2
-                  size={13}
-                  data-testid="turn-running-spinner"
-                  className="mt-0.5 shrink-0 animate-spin text-accent motion-reduce:animate-none"
-                />
-              ) : (
-                <ChevronRight
-                  size={13}
-                  className={cn("mt-0.5 shrink-0", expanded && "rotate-90")}
-                />
-              )}
-              <span className="min-w-0 truncate">{summary}</span>
+              <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
+              <span className="min-w-0">
+                <span className="block break-words">{summary}</span>
+                {showReasoning ? (
+                  <span className="block truncate">正在思考 · {reasoningPreview}</span>
+                ) : null}
+              </span>
             </button>
-            {expanded ? (
-              <div className="ml-1.5 mt-2 space-y-2 border-l border-accent/15 pl-4">
-                {process.map((item) => (
-                  <div key={item.id}>
-                    <TimelineItemView item={item} turnActive={turnActive} />
-                    {item.kind === "tool" && item.commandId ? (
-                      <CommandCard commandId={item.commandId} />
-                    ) : null}
-                  </div>
+            {visibleProcess.length > 0 ? (
+              <div className="ml-1.5 mt-1 space-y-1 border-l border-line pl-3">
+                {visibleProcess.map((item) => (
+                  <TimelineItemView key={item.id} item={item} turnActive={turnActive} commentary />
                 ))}
               </div>
             ) : null}
           </div>
         ) : null}
-        {latestCommentary ? <TimelineItemView item={latestCommentary} /> : null}
+        {latestCommentary ? <TimelineItemView item={latestCommentary} commentary /> : null}
         {answer?.kind === "message" ? (
           <MessageBubble item={answer}>{results}</MessageBubble>
         ) : (
           results
         )}
-        {active && !pending && !runningTool && !answer && !latestCommentary ? (
-          <div role="status" className="flex items-center gap-2 text-[12px] text-ink-3">
-            <Loader2 size={12} className="animate-spin text-accent motion-reduce:animate-none" />
-            正在处理…
-          </div>
-        ) : null}
         {items
           .filter((item) => item.kind === "error")
           .map((item) => (
@@ -238,70 +239,113 @@ export function Timeline() {
     return () => observer.disconnect();
   }, [follow]);
   const groups = groupTurns(items);
+  const activeGroup = isStreaming
+    ? activeTurnId === null
+      ? groups.at(-1)
+      : groups.find((group) => group.id === activeTurnId)
+    : undefined;
+  const waiting = pendingApprovals(items).length > 0;
+  const runningTool =
+    activeGroup &&
+    [...activeGroup.items]
+      .reverse()
+      .find(
+        (item): item is ToolItem =>
+          item.kind === "tool" && item.name !== "update_plan" && item.status === "running",
+      );
+  const replying = activeGroup?.items.some(
+    (item) => item.kind === "message" && item.role === "assistant" && item.streaming,
+  );
+  let activity = "";
+  if (waiting) activity = "等待审批";
+  else if (runningTool)
+    activity = `正在执行 · ${runningTool.commandLabel || runningTool.summary || runningTool.name}`;
+  else if (replying) activity = "正在回复…";
+  else if (isStreaming) activity = "正在处理…";
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col">
-      <div
-        ref={scrollRef}
-        role="log"
-        aria-label="会话时间线"
-        onClickCapture={(event) => {
-          if (event.target instanceof Element && event.target.closest("button[aria-expanded]"))
-            pinnedRef.current = false;
-        }}
-        onScroll={(event) => {
-          const el = event.currentTarget;
-          const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-          pinnedRef.current = distance < 70;
-          setShowJump(distance > 140);
-        }}
-        className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 [scrollbar-gutter:stable]"
-      >
-        <div ref={contentRef} className="mx-auto w-full max-w-[760px] space-y-8 pb-5">
-          {contextNotice ? (
-            <p role="status" className="text-[11px] text-ink-3">
-              上下文已压缩{contextNotice.degraded ? "（降级：超出部分已截断）" : ""}
-            </p>
-          ) : null}
-          {loading ? (
-            <div role="status" className="py-8 text-[12px] text-ink-3">
-              正在加载对话…
-            </div>
-          ) : !items.length ? (
-            <Welcome />
-          ) : (
-            groups.map((group, index) => (
-              <TurnView
-                key={`${sessionId}:${group.id}`}
-                group={group}
-                active={
-                  isStreaming &&
-                  (activeTurnId === group.id ||
-                    (activeTurnId === null && index === groups.length - 1))
-                }
-              />
-            ))
-          )}
-        </div>
-      </div>
-      <div aria-hidden="true" className="conversation-scroll-edge conversation-scroll-edge-top" />
-      <div
-        aria-hidden="true"
-        className="conversation-scroll-edge conversation-scroll-edge-bottom"
-      />
-      {showJump ? (
-        <button
-          type="button"
-          aria-label="回到最新消息"
-          onClick={() => {
-            pinnedRef.current = true;
-            follow();
-            setShowJump(false);
+    <>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          role="log"
+          aria-label="会话时间线"
+          onClickCapture={(event) => {
+            if (event.target instanceof Element && event.target.closest("button[aria-expanded]"))
+              pinnedRef.current = false;
           }}
-          className="absolute bottom-3 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-accent shadow-[var(--shadow-card)] transition-colors hover:bg-accent-soft"
+          onScroll={(event) => {
+            const el = event.currentTarget;
+            const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+            pinnedRef.current = distance < 70;
+            setShowJump(distance > 140);
+          }}
+          className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 [scrollbar-gutter:stable]"
         >
-          <ArrowDown size={14} />
-        </button>
+          <div ref={contentRef} className="mx-auto w-full max-w-[760px] space-y-8 pb-5">
+            {contextNotice ? (
+              <p role="status" className="text-[11px] text-ink-3">
+                上下文已压缩{contextNotice.degraded ? "（降级：超出部分已截断）" : ""}
+              </p>
+            ) : null}
+            {loading ? (
+              <div role="status" className="py-8 text-[12px] text-ink-3">
+                正在加载对话…
+              </div>
+            ) : !items.length ? (
+              <Welcome />
+            ) : (
+              groups.map((group) => (
+                <TurnView
+                  key={`${sessionId}:${group.id}`}
+                  group={group}
+                  active={activeGroup === group}
+                />
+              ))
+            )}
+          </div>
+        </div>
+        <div aria-hidden="true" className="conversation-scroll-edge conversation-scroll-edge-top" />
+        <div
+          aria-hidden="true"
+          className="conversation-scroll-edge conversation-scroll-edge-bottom"
+        />
+        {showJump ? (
+          <button
+            type="button"
+            aria-label="回到最新消息"
+            onClick={() => {
+              pinnedRef.current = true;
+              follow();
+              setShowJump(false);
+            }}
+            className="absolute bottom-3 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-accent shadow-[var(--shadow-card)] transition-colors hover:bg-accent-soft"
+          >
+            <ArrowDown size={14} />
+          </button>
+        ) : null}
+      </div>
+      {activity ? (
+        <div className="shrink-0 px-4 sm:px-7">
+          <div
+            role="status"
+            aria-label="当前执行状态"
+            className="mx-auto flex w-full max-w-[760px] items-center gap-2 py-1.5 text-[12px] text-ink-2"
+          >
+            {waiting ? (
+              <ShieldAlert size={13} className="shrink-0 text-warning" />
+            ) : (
+              <Loader2
+                size={13}
+                data-testid="turn-running-spinner"
+                className="shrink-0 animate-spin text-accent motion-reduce:animate-none"
+              />
+            )}
+            <span className="min-w-0 truncate" title={activity}>
+              {activity}
+            </span>
+          </div>
+        </div>
       ) : null}
-    </div>
+    </>
   );
 }

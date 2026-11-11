@@ -154,9 +154,9 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByText("项目文件已列出。")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("我先看一下。")).toHaveCount(0);
-    await page.getByRole("button", { name: /执行过程 · 执行了 1 项操作/ }).click();
+    await page.getByRole("button", { name: /执行过程 · 探索 1 项/ }).click();
     await expect(page.getByText("我先看一下。")).toBeVisible();
-    await page.getByRole("button", { name: /执行过程 · 执行了 1 项操作/ }).click();
+    await page.getByRole("button", { name: /执行过程 · 探索 1 项/ }).click();
     await expect(page.getByRole("heading", { name: "list" })).toBeVisible();
     await expect(page.getByText("草稿")).toHaveCount(0);
 

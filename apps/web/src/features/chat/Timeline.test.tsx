@@ -1,9 +1,17 @@
-import type { ServerEvent } from "@larness/shared";
+import type { ServerEvent, ToolItem } from "@larness/shared";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { applyServerEvent, eventsToTimeline } from "@/lib/eventReducer";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { Timeline } from "./Timeline";
+
+vi.mock("./CommandCard", () => ({
+  CommandCard: ({ commandId }: { commandId: string }) => (
+    <div role="log" aria-label="命令输出">
+      {commandId}
+    </div>
+  ),
+}));
 
 beforeEach(() => {
   useTimelineStore.setState({
@@ -58,7 +66,7 @@ it("keeps the final answer visible when a completed tool event arrives after the
   render(<Timeline />);
   expect(screen.getByText("项目文件已列出。")).toBeVisible();
 });
-it("shows a spinner at the process summary while the turn is running", () => {
+it("shows the current tool and a spinner outside the scrollable transcript", () => {
   useTimelineStore.setState({
     items: [
       {
@@ -85,6 +93,63 @@ it("shows a spinner at the process summary while the turn is running", () => {
   });
   render(<Timeline />);
   expect(screen.getByTestId("turn-running-spinner")).toBeTruthy();
+  expect(screen.getByRole("status", { name: "当前执行状态" })).toHaveTextContent("启动终端");
+  expect(
+    within(screen.getByRole("log", { name: "会话时间线" })).queryByText("正在执行 · 启动终端"),
+  ).toBeNull();
+});
+
+it("reports a pending approval outside the transcript even before the turn is restored", () => {
+  useTimelineStore.setState({
+    items: [{ id: "approval", kind: "approval", status: "pending", createdAt: 1 }],
+  });
+  render(<Timeline />);
+  expect(screen.getByRole("status", { name: "当前执行状态" })).toHaveTextContent("等待审批");
+  expect(screen.queryByTestId("turn-running-spinner")).toBeNull();
+});
+
+it("summarizes tool calls and opens individual command output directly from a failure", () => {
+  const tool = (name: string, summary: string, commandId?: string): ToolItem => ({
+    id: summary,
+    kind: "tool",
+    name,
+    summary,
+    commandId,
+    args: "",
+    status: commandId === "failed-command" ? "error" : "done",
+    createdAt: 1,
+    turnId: "t1",
+  });
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "u",
+        kind: "message",
+        role: "user",
+        text: "验证",
+        createdAt: 1,
+        turnId: "t1",
+        turnOutcome: "completed",
+      },
+      tool("read_file", "读取 README"),
+      tool("apply_patch", "修改 README"),
+      tool("run_command", "第一次检查", "failed-command"),
+      tool("run_command", "重试检查", "passed-command"),
+    ],
+  });
+  render(<Timeline />);
+  const summary = screen.getByRole("button", {
+    name: /执行过程 · 探索 1 项 · 修改 1 项 · 命令 2 条/,
+  });
+  const failure = screen.getByRole("button", { name: /第一次检查.*失败/ });
+  expect(summary).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByLabelText("命令输出")).toBeNull();
+  fireEvent.click(failure);
+  expect(screen.getByLabelText("命令输出")).toHaveTextContent("failed-command");
+  fireEvent.click(summary);
+  expect(screen.getByLabelText("命令输出")).toHaveTextContent("failed-command");
+  fireEvent.click(screen.getByRole("button", { name: "重试检查" }));
+  expect(screen.getAllByLabelText("命令输出")).toHaveLength(2);
 });
 
 it.each(["completed", "cancelled"] as const)(

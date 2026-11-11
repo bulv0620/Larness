@@ -104,6 +104,7 @@ export interface ToolItem {
   output?: string;
   durationMs?: number;
   commandId?: string;
+  commandLabel?: string;
   resourceTarget?: ResourceTarget;
   createdAt: number;
 }

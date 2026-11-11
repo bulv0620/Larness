@@ -36,6 +36,11 @@ test("conversation actions follow the outer light/dark theme without expanding t
   await page.goto("/");
   const panel = page.getByRole("region", { name: "待处理审批" });
   await expect(panel).toBeVisible();
+  const activity = page.getByRole("status", { name: "当前执行状态" });
+  await expect(activity).toHaveText("等待审批");
+  await expect(
+    page.getByRole("log", { name: "会话时间线" }).getByRole("status", { name: "当前执行状态" }),
+  ).toHaveCount(0);
   for (const theme of ["浅色", "深色"]) {
     await page.getByRole("button", { name: "外观与主题" }).click();
     await page.getByRole("menuitemradio", { name: theme, exact: false }).click();
@@ -66,6 +71,8 @@ test("conversation actions follow the outer light/dark theme without expanding t
   }
   await panel.getByRole("button", { name: "批准部署" }).click();
   await expect(panel).toHaveCount(0);
+  await expect(page.getByText("部署成功", { exact: true })).toBeVisible();
+  await page.screenshot({ path: path.join(tmpdir(), "larness-ui-f8-completed.png") });
   await page.getByLabel("对话输入").fill("保留当前对话结构");
   const accent = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue("--accent").trim(),
@@ -86,12 +93,14 @@ test("conversation actions follow the outer light/dark theme without expanding t
   await expect(page.getByText(/正在执行，可先编辑|工作区上下文/)).toHaveCount(0);
   await page.getByRole("button", { name: "发送消息" }).click();
   await expect(page.getByRole("button", { name: "停止执行" })).toBeVisible();
+  await expect(activity).toBeVisible();
   const process = page.getByRole("button", { name: /执行过程/ }).last();
   await expect(process).toBeVisible();
   await process.click();
   await expect(page.getByRole("button", { name: /计划 ·/ }).last()).toBeVisible();
   await page.getByRole("button", { name: "停止执行" }).click();
   await expect(page.getByRole("button", { name: "发送消息" })).toBeVisible();
+  await expect(activity).toHaveCount(0);
   for (const width of [736, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
     expect(
