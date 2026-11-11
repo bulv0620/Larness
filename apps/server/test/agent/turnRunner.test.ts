@@ -18,7 +18,8 @@ import { runMigrations } from "../../src/db/migrate.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
-import { TurnRunner, toolMessageContent } from "../../src/modules/agent/turnRunner.js";
+import { toolMessageContent } from "../../src/modules/agent/turn/toolResults.js";
+import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -133,6 +134,81 @@ describe("tool result serialization", () => {
     });
 
     expect(JSON.parse(text)).toEqual({ files: ["a.ts", "b.ts"] });
+  });
+});
+
+describe("event ordering", () => {
+  it("keeps the published event sequence for a multi-step turn", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        await writeFile(path.join(session.workspacePath, "a.txt"), "old\n");
+        const version = createHash("sha256").update("old\n").digest("hex");
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "sequence" });
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              { type: "tool-call", toolCall: { id: "c1", name: "list_files", args: {} } },
+              { type: "finish", finishReason: "tool-calls" },
+            ],
+          },
+          {
+            chunks: [
+              {
+                type: "tool-call",
+                toolCall: {
+                  id: "c2",
+                  name: "apply_patch",
+                  args: {
+                    path: "a.txt",
+                    expectedVersion: version,
+                    patch: patchFor("old\n", "new\n"),
+                  },
+                },
+              },
+              { type: "finish", finishReason: "tool-calls" },
+            ],
+          },
+          textStep("done"),
+        ]);
+        const published: ServerEvent[] = [];
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          publish: (event) => {
+            if ("sequence" in event) published.push(event);
+          },
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        // turn.created is published by createTurn before the runner is wired.
+        expect(published.map((event) => event.type)).toEqual([
+          "turn.status",
+          "turn.status",
+          "tool.requested",
+          "tool.started",
+          "tool.completed",
+          "tool.requested",
+          "tool.started",
+          "tool.completed",
+          "file.changed",
+          "model.usage",
+          "assistant.message",
+          "turn.completed",
+        ]);
+
+        const sequences = published.map((event) => event.sequence);
+        expect(sequences).toEqual([...sequences].sort((left, right) => left - right));
+        expect(new Set(sequences).size).toBe(sequences.length);
+      } finally {
+        opened.close();
+      }
+    });
   });
 });
 

@@ -322,7 +322,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | HX-9 | [工具参数校验的秘密查询收敛](070-runtime-efficiency/tasks.md#hx-9-工具参数校验的秘密查询收敛卫生项) | HX-0 | `todo` |
 | HX-10 | [重复失败调用的循环干预](070-runtime-efficiency/tasks.md#hx-10-重复失败调用的循环干预) | HX-0 | `done` |
 | HX-11 | [Turn 级 token 消耗上限](070-runtime-efficiency/tasks.md#hx-11-turn-级-token-消耗上限) | HX-1 | `done`（默认关闭，待 D10） |
-| HX-12 | [turnRunner 机械拆分](070-runtime-efficiency/tasks.md#hx-12-turnrunner-机械拆分前置工程动作) | HX-0 | `todo` |
+| HX-12 | [turnRunner 机械拆分](070-runtime-efficiency/tasks.md#hx-12-turnrunner-机械拆分前置工程动作) | HX-0 | `done`（纯函数层；循环体见 HX-12b） |
+| HX-12b | [turnRunner 循环体拆分](070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) | HX-12 | `todo` |
 
 ### 8.2 M6 后续：Turn 恢复与数据保留（071，draft）
 

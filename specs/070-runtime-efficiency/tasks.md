@@ -21,7 +21,8 @@
 | HX-9 | 工具参数校验的秘密查询收敛（卫生项） | HX-0 | `todo` |
 | HX-10 | 重复失败调用的循环干预 | HX-0 | `done` |
 | HX-11 | Turn 级 token 消耗上限 | HX-1 | `done` |
-| HX-12 | turnRunner 机械拆分（前置工程动作） | HX-0 | `todo` |
+| HX-12 | turnRunner 机械拆分（纯函数层） | HX-0 | `done` |
+| HX-12b | turnRunner 循环体拆分（providerStep / toolBatch / finalize） | HX-12 | `todo` |
 
 ## 任务卡
 
@@ -251,7 +252,7 @@
 
 ### HX-12 turnRunner 机械拆分（前置工程动作）
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11，纯函数层）
 - 依赖：HX-0
 - 目标：把 1758 行的 `turnRunner.ts` 按职责拆成可独立测试的模块，**行为零变化**，为 HX-2～HX-8 降低回归面。
 - 交付物：
@@ -261,7 +262,23 @@
 - 验收：拆分前后 `pnpm check`（server 577 项）全绿；事件序列与终态用例逐条一致；无行为差异的 diff 审查记录。
 - 测试：既有 `turnRunner.test.ts` 全量通过即为主要验收；补充一个"事件顺序快照"用例锁定拆分前行为。
 - 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、新增 `apps/server/src/modules/agent/turn/`（或等价目录）
-- 备注：纯机械动作，禁止夹带行为改动；若发现必须改行为的地方，单独记入 `docs/open-questions.md` 而不是顺手改。建议在 HX-4 之前完成。
+- 实现要点：先补「事件顺序快照」用例锁定现状（12 个事件的类型序列 + sequence 严格递增），再把无状态的纯函数按职责抽出：
+  - `turn/budget.ts`：`DEFAULT_BUDGET`、`TurnBudget`、`deriveTerminalReason`、`addUsage`；
+  - `turn/toolResults.ts`：`truncateToolMessage`、`boundedTerminalOutput`、结构感知序列化（`shrinkValue` / `toolMessageContent`）与相关常量；
+  - `turn/text.ts`：`canonicalArgs`、`stableArgsKey`、`turnInputText`。
+  `turnRunner.ts` 由 2182 行降到 1951 行，只剩编排、预算判定与闭包状态。
+- 验收：拆分前后 `test/agent` 82 通过 / 9 个既有环境性失败一致；完整 server 套件 72 失败 / 532 通过（失败集合与基线一致）；无行为差异。
+- **偏差（记录在案）**：`providerStep` / `toolBatch` / `finalize` 三个循环体模块**未**在本任务拆出。原因：循环体共享约 20 个可变闭包状态（预算计数、锁、审批、事实、重复失败表），机械拆分要么引入一个巨型上下文对象、要么必须改动可变状态的所有权，两者都不满足"行为零变化"的前提；且本机 72 个环境性失败的覆盖缺口让大重构不可验证。已另立 `HX-12b` 承接。
+- 备注：纯机械动作，禁止夹带行为改动；发现的非行为问题只登记 `docs/open-questions.md`。
+
+### HX-12b turnRunner 循环体拆分
+
+- 状态：`todo`
+- 依赖：HX-12
+- 目标：把单步请求、工具批次、终态三段从 `TurnRunner` 的循环闭包中提取为独立模块，行为零变化。
+- 前置条件：先把可变闭包状态整理成一个显式的 `TurnRunState`（预算计数、锚点、事实、重复失败表、锁句柄、审批状态），并有测试覆盖该状态的迁移；当前环境有 72 个依赖真实 `node`/PTY 的用例不可用，**建议在能跑全量套件的机器上做**。
+- 验收：事件顺序快照、终态矩阵与 30+ turnRunner 用例全绿；拆分提交不含行为改动。
+- 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`turn/{providerStep,toolBatch,finalize}.ts`
 
 ## 验收记录
 

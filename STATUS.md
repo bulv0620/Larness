@@ -18,7 +18,8 @@
 - **M6-10（HX-10）重复失败调用干预**：`done`（2026-11-11）。同一 `(tool, 规范化参数)` 连续失败计数、成功清零，第 3 次失败后在 tool result 后追加一条事实说明并记 `tool.failed.repeatCount`；不跳过、不改变授权。验证：连续 3 次失败用例通过，`test/agent` 81 通过 / 9 个既有环境性失败。
 - **M6-11（HX-11）token 消耗上限**：`done`（2026-11-11，**默认关闭**）。`TurnBudget.maxTotalTokens` 默认 0（关闭），配置后按 `input+output` 累计在每步预检拦截，超限走 `budget` 终态；用例验证只发 1 次请求即停止。D10 的默认值仍需人类确认，确认后只需改默认值。
 - **M6-8（HX-8）编码工具效率**：`done`（2026-11-11，搜索效率部分）。`search_code` 增加 `contextLines`（0–5）/ `glob` / `maxFiles` 扫描预算，结果增加 `scanBudgetExhausted`，描述提示用范围缩小与上下文替代重复读；`packages/agent` 47 通过 / 1 跳过。**偏差**：只读并发按 D7 不做；「工具集对比报告」因本机无真实 Provider 基准环境未产出（不凭空写数据）。
-- **剩余待办**：HX-9（秘密查询收敛，需 D8 确认）、HX-12（`turnRunner` 机械拆分，纯工程动作）、071 的 TR 系列（需 D1–D4 确认）。**D8、D9、D10 的人类确认仍未完成**；HX-10 已按 spec 建议默认值启用，HX-11 保持默认关闭。
+- **M6-12（HX-12）`turnRunner` 机械拆分**：`done`（2026-11-11，纯函数层）。先补事件顺序快照用例锁定 12 个事件的类型序列与 sequence 单调性，再把 `budget` / `toolResults` / `text` 三组纯函数抽到 `turn/` 下，`turnRunner.ts` 2182 → 1951 行；行为零变化（`test/agent` 82 通过 / 9 个既有环境性失败；完整 server 72 失败 / 532 通过，失败集合与基线一致）。**偏差**：`providerStep` / `toolBatch` / `finalize` 循环体未拆（共享约 20 个可变闭包状态，机械拆分会破坏"行为零变化"前提且本机有 72 个环境性失败不可验证），已另立 **HX-12b** 承接。
+- **剩余待办**：HX-9（秘密查询收敛，需 D8 确认）、HX-12b（循环体拆分，建议在可跑全量套件的机器上做）、071 的 TR 系列（需 D1–D4 确认）。**D8、D9、D10 的人类确认仍未完成**；HX-10 已按 spec 建议默认值启用，HX-11 保持默认关闭。
 
 - **M6-0b（HX-9～HX-12 + 071 草案）**：`done`（2026-11-11，仅文档）。在 070 追加 4 个任务：HX-9 秘密查询收敛（卫生项，明确无性能收益）、HX-10 重复失败调用干预、HX-11 token 消耗上限、HX-12 `turnRunner` 机械拆分（建议先于 HX-4 完成以降低回归面）；新增 [071 切片](specs/071-turn-recovery/spec.md)（`draft`）与 [ADR-058](docs/adr/ADR-058-turn-recovery-retention.md)（`proposed`），覆盖中断 Turn 接手恢复与事件保留策略。新增待决 D8–D10（070）与 D1–D4（071），Q-033/Q-034 已登记。未运行 `pnpm check`（仅 Markdown）。
 

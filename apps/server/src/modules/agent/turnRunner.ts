@@ -61,6 +61,13 @@ import {
   reservedOutputTokens,
 } from "./tokenEstimator.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
+import { addUsage, DEFAULT_BUDGET, deriveTerminalReason, type TurnBudget } from "./turn/budget.js";
+import { stableArgsKey, turnInputText } from "./turn/text.js";
+import {
+  boundedTerminalOutput,
+  toolMessageContent,
+  truncateToolMessage,
+} from "./turn/toolResults.js";
 import {
   checkpointMessage,
   latestEventSeq,
@@ -84,20 +91,8 @@ function commandDisplay(params: unknown) {
   };
 }
 
-const DEFAULT_BUDGET = {
-  maxSteps: 30,
-  maxToolCalls: 50,
-  maxDurationMs: 10 * 60_000,
-  contextRatio: 0.8,
-  maxOutputTokens: 8_192,
-  repeatFailureThreshold: 3,
-  // 0 disables the spend cap until D10 confirms a default.
-  maxTotalTokens: 0,
-} as const;
-
 const APPROVAL_POLL_MS = 100;
-const MAX_TOOL_MESSAGE_CHARS = 20_000;
-const MAX_TOOL_MESSAGE_LINES = 1_000;
+const CHECKPOINT_MIN_GAIN = 200;
 
 export interface ResolvedProvider {
   adapter: ProviderAdapter;
@@ -112,16 +107,6 @@ export type ProviderResolver = (
   session: SessionRow,
   turn: TurnRow,
 ) => ResolvedProvider | Promise<ResolvedProvider>;
-
-export interface TurnBudget {
-  maxSteps: number;
-  maxToolCalls: number;
-  maxDurationMs: number;
-  contextRatio: number;
-  maxOutputTokens: number;
-  repeatFailureThreshold: number;
-  maxTotalTokens: number;
-}
 
 export interface TurnRunnerOptions {
   dataDir?: string;
@@ -151,60 +136,6 @@ export type TurnRunResult = {
   errorCode?: string;
 };
 
-function deriveTerminalReason(
-  status: TurnStatus,
-  options: { budgetExhausted?: boolean; finishReason?: ProviderFinishReason; errorCode?: string },
-): TurnTerminalReason {
-  if (status === "CANCELLED") {
-    return "cancelled";
-  }
-
-  if (status === "INTERRUPTED") {
-    return "interrupted";
-  }
-
-  if (status === "COMPLETED") {
-    if (options.budgetExhausted === true) {
-      return "budget";
-    }
-
-    return options.finishReason === "length" ? "output_truncated" : "normal";
-  }
-
-  return options.errorCode?.startsWith("PROVIDER_") === true ? "provider_error" : "error";
-}
-
-function canonicalArgs(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(canonicalArgs);
-  }
-
-  if (value !== null && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    return Object.fromEntries(
-      Object.keys(record)
-        .sort()
-        .map((key) => [key, canonicalArgs(record[key])]),
-    );
-  }
-
-  return value;
-}
-
-/** Identical calls must compare equal regardless of argument key order. */
-function stableArgsKey(name: string, args: unknown): string {
-  return `${name}|${JSON.stringify(canonicalArgs(args))}`;
-}
-
-function turnInputText(json: string): string {
-  try {
-    const parsed = JSON.parse(json) as { text?: unknown };
-    return typeof parsed.text === "string" ? parsed.text : "";
-  } catch {
-    return "";
-  }
-}
-
 function isTerminal(status: TurnStatus): boolean {
   return (
     status === "COMPLETED" ||
@@ -216,17 +147,6 @@ function isTerminal(status: TurnStatus): boolean {
 
 function approvalPolicy(value: string): ApprovalPolicy {
   return value === "strict" || value === "readonly" || value === "autonomous" ? value : "standard";
-}
-
-function truncateToolMessage(text: string): string {
-  const lines = text.split(/\r?\n/);
-  const limited = lines.slice(0, MAX_TOOL_MESSAGE_LINES).join("\n");
-  return (
-    limited.slice(0, MAX_TOOL_MESSAGE_CHARS) +
-    (lines.length > MAX_TOOL_MESSAGE_LINES || limited.length > MAX_TOOL_MESSAGE_CHARS
-      ? "...[truncated]"
-      : "")
-  );
 }
 
 function gitFailure(error: unknown, summary: string): ToolResult {
@@ -244,151 +164,6 @@ function terminalFailure(error: unknown, summary: string): ToolResult {
     ok: false,
     errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
     summary,
-  };
-}
-
-function boundedTerminalOutput(
-  text: string,
-  maxJsonChars = 12_000,
-): {
-  text: string;
-  truncated: boolean;
-} {
-  let bounded = truncateToolMessage(text);
-  while (JSON.stringify(bounded).length > maxJsonChars)
-    bounded = `${bounded.slice(0, Math.max(1, Math.floor(bounded.length * 0.7)))}...[truncated]`;
-  return { text: bounded, truncated: bounded !== text };
-}
-
-const CHECKPOINT_MIN_GAIN = 200;
-const MAX_TOOL_RESULT_CHARS = 16_000;
-const TOOL_FIELD_CHARS = 4_000;
-const MAX_TOOL_ARRAY_ITEMS = 50;
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function shrinkString(value: string, maxChars: number): { text: string; omitted: number } {
-  if (value.length <= maxChars) {
-    return { text: value, omitted: 0 };
-  }
-
-  const omitted = value.length - maxChars;
-  const marker = `\n…[${omitted} chars omitted]…\n`;
-  const available = Math.max(2, maxChars - marker.length);
-  const headChars = Math.max(1, Math.floor(available * 0.6));
-  const tailChars = Math.max(0, available - headChars);
-  const tail = tailChars === 0 ? "" : value.slice(-tailChars);
-
-  return { text: `${value.slice(0, headChars)}${marker}${tail}`, omitted };
-}
-
-function shrinkValue(value: unknown, budget: number): { value: unknown; omitted: number } {
-  if (typeof value === "string") {
-    const shrunk = shrinkString(value, budget);
-    return { value: shrunk.text, omitted: shrunk.omitted };
-  }
-
-  if (Array.isArray(value)) {
-    const kept = value.slice(0, MAX_TOOL_ARRAY_ITEMS);
-    let omitted = value.length - kept.length;
-    const items = kept.map((item) => {
-      const next = shrinkValue(item, budget);
-      omitted += next.omitted;
-      return next.value;
-    });
-    return { value: items, omitted };
-  }
-
-  if (isPlainRecord(value)) {
-    let omitted = 0;
-    const entries = Object.entries(value).map(([key, entry]) => {
-      const next = shrinkValue(entry, budget);
-      omitted += next.omitted;
-      return [key, next.value] as const;
-    });
-    return { value: Object.fromEntries(entries), omitted };
-  }
-
-  return { value, omitted: 0 };
-}
-
-function withPage(value: unknown, omittedChars: number): unknown {
-  const page = { truncated: true, omittedChars };
-  return isPlainRecord(value) ? { ...value, page } : { value, page };
-}
-
-/**
- * Tool results must stay parseable: shrink content values first, then
- * serialize. A character cut of already-serialized JSON is never acceptable.
- */
-export function toolMessageContent(result: {
-  ok: boolean;
-  summary: string;
-  data?: unknown;
-  errorCode?: string;
-}): string {
-  const data = result.ok ? (result.data ?? { summary: result.summary }) : result.data;
-  let budget = TOOL_FIELD_CHARS;
-
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const shrunk = shrinkValue(data, budget);
-    const shaped = shrunk.omitted > 0 ? withPage(shrunk.value, shrunk.omitted) : shrunk.value;
-    const payload = result.ok
-      ? shaped
-      : { errorCode: result.errorCode ?? "TOOL_ERROR", message: result.summary, data: shaped };
-    const text = JSON.stringify(payload);
-
-    if (text.length <= MAX_TOOL_RESULT_CHARS) {
-      return text;
-    }
-
-    budget = Math.max(200, Math.floor(budget / 2));
-  }
-
-  return JSON.stringify(
-    result.ok
-      ? { summary: result.summary, page: { truncated: true, dataOmitted: true } }
-      : {
-          errorCode: result.errorCode ?? "TOOL_ERROR",
-          message: result.summary,
-          page: { truncated: true, dataOmitted: true },
-        },
-  );
-}
-
-function addKnownTokens(total: number | undefined, next: number | undefined): number | undefined {
-  return total === undefined || next === undefined ? undefined : total + next;
-}
-
-function addUsage(total: ProviderUsage, next: ProviderUsage | undefined): ProviderUsage {
-  if (next === undefined) {
-    return total;
-  }
-
-  const started =
-    total.inputTokens !== undefined ||
-    total.outputTokens !== undefined ||
-    total.totalTokens !== undefined ||
-    total.cacheReadTokens !== undefined ||
-    total.noCacheTokens !== undefined;
-
-  if (!started) {
-    return { ...next };
-  }
-
-  // Cache usage stays unknown once any step fails to report it, so a partial
-  // sum is never presented as a measured hit rate.
-  const cacheReadTokens = addKnownTokens(total.cacheReadTokens, next.cacheReadTokens);
-  const noCacheTokens = addKnownTokens(total.noCacheTokens, next.noCacheTokens);
-
-  return {
-    inputTokens: (total.inputTokens ?? 0) + (next.inputTokens ?? 0),
-    outputTokens: (total.outputTokens ?? 0) + (next.outputTokens ?? 0),
-    totalTokens: (total.totalTokens ?? 0) + (next.totalTokens ?? 0),
-    ...(cacheReadTokens === undefined ? {} : { cacheReadTokens }),
-    ...(noCacheTokens === undefined ? {} : { noCacheTokens }),
   };
 }
 
