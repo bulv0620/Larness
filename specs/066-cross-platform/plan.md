@@ -103,3 +103,7 @@ pnpm test:e2e:auth
 - D1–D5 见 [spec §13](spec.md#13-开放问题与待确认决策)。
 - Windows / Linux 实机可用性；Linux 发行版选择。
 - 是否后续自建 node-pty Linux 预编译包。
+
+## M5-F1-R1 部署产物重命名
+
+注入一次和持续 EPERM 验证恢复与失败路径。在暂存目录原子重命名处仅对 Windows EPERM 做有界退避。运行部署、服务运维与全量检查。

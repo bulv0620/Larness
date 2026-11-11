@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { closeSync, constants, fsyncSync, openSync, writeSync } from "node:fs";
 import { chmod, lstat, mkdir, open, readdir, realpath, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import type { CommandOutputChunk } from "@larness/resources";
 import { isInsideRoot } from "@larness/resources";
 import {
@@ -367,7 +368,22 @@ export async function commitArtifact(dataDir: string, staged: StagedArtifact): P
   const targetDirectory = path.join(root, staged.targetId);
   await mkdir(targetDirectory, { recursive: true, mode: 0o700 });
   const destination = path.join(targetDirectory, staged.artifactId);
-  await rename(staged.directory, destination);
+  for (let retries = 0; ; retries++) {
+    try {
+      await rename(staged.directory, destination);
+      break;
+    } catch (error) {
+      if (
+        process.platform !== "win32" ||
+        retries >= 4 ||
+        !(error instanceof Error && "code" in error && error.code === "EPERM")
+      ) {
+        throw error;
+      }
+      // A temporary Windows sharing lock can prevent an otherwise valid rename.
+      await delay(50 * 2 ** retries);
+    }
+  }
   return path.posix.join(staged.targetId, staged.artifactId);
 }
 

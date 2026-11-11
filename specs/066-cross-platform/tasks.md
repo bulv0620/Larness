@@ -62,6 +62,14 @@
   - [x] Windows 10 同构实现（ConPTY/CIM/taskkill/Get-NetTCPConnection），剩余实机复测见 M5-F1-W10。
 - 涉及路径：Windows 平台层、terminals / commands / services / PM2 / 路径与测试。
 
+### 发布后跟踪 M5-F1-R1：Windows 部署产物提交
+
+- 状态 `done`（2026-11-11），依赖 M5-F1。UI-F1 的全量检查暴露部署产物暂存目录重命名偶发 EPERM，用户授权先排查基线。
+- 目标、验收与测试见 [规格](spec.md#m5-f1-r1-windows-部署产物提交)及[计划](plan.md#m5-f1-r1-部署产物重命名)。
+- 涉及路径为 Server 部署存储与对应回归测试。
+- [x] 注入一次 EPERM 和持续 EPERM，先复现失败，再验证原子提交与有界失败。
+- [x] Windows、Node 24.19.0 下部署和运维定向测试 35 通过、2 跳过。`VITEST_MAX_WORKERS=3 pnpm check` 通过（Server 552/31、Agent 42/1、Web 141 通过）。本任务未运行构建或整套 E2E。
+
 ### 发布后跟踪 M5-F1-W10：Windows 10 x64 实机复测（不计入 M5 完成）
 
 - 状态：`todo`

@@ -294,6 +294,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 任务 | 说明 | 状态 |
 |---|---|---|---|
 | M5-F1 | Windows 终端、命令、PM2 实现与 Windows 11 实机验证 | Windows 11 实机通过：check 549/31、build、platform-smoke、pack 安装、TUI、ConPTY、命令、服务/预览、PM2 生命周期 | `done` |
+| M5-F1-R1 | [Windows 部署产物原子提交纠错](066-cross-platform/tasks.md#发布后跟踪-m5-f1-r1windows-部署产物提交) | M5-F1；用户授权排查 UI-F1 检查阻塞 | `done` |
 | M5-F1-W10 | Windows 10 x64 1809+ 实机复测 | 同一实现；ConPTY/CIM/taskkill/Get-NetTCPConnection 均为 Windows 10 自带能力 | `todo` |
 | M5-F2 | Ubuntu 22.04 / 24.04 实机验证与修复 | node-pty 编译回退、路径/锁/PM2 | `todo` |
 | M5-F3 | 三端结果补齐后的支持矩阵与验收更新 | 未验证项不标通过 | `todo` |

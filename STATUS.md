@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **M5-F1-R1 Windows 部署产物提交**：`done`（2026-11-11），分支 `task/m5-f1-r1-artifact-rename`。Windows 暂存目录原子重命名偶发 EPERM 时有限重试。部署和运维定向测试 35 项通过，`VITEST_MAX_WORKERS=3 pnpm check` 通过。解除 UI-F1 的部署测试阻塞。
+
 - **M5-F1 Windows 原生支持**：`done`（2026-11-10，Windows 11 x64 实机），分支 `task/m5-f1-windows-support`。
 - 范围：Windows 10/11 x64 原生安装、TUI/Server/Web、ConPTY 终端、命令执行、文件/Git/路径、临时服务与预览、PM2 正式服务、定时脚本、锁与日志。
 - 结果：Windows 11 build 26200、Node 24.9.0 下 `pnpm check`（server 549、agent 42、web 141 通过；31 个平台条件跳过）、`pnpm build`、平台冒烟、`npm pack` 临时全局安装、源码与 dist TUI、ConPTY 终端、命令、服务/预览、真实 PM2 生命周期、定时脚本、文件/Git 均通过；Mock E2E 19/19、Auth E2E 18/18、生产构建 E2E 18/18。
