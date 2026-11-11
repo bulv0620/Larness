@@ -26,7 +26,7 @@ export function HomeRoute() {
 
   return (
     <RequireAuth redirectTo={unauthenticatedTo}>
-      <WorkspaceHome />
+      <WorkspaceHome version={bootstrap.data.app?.version} />
     </RequireAuth>
   );
 }

@@ -14,7 +14,7 @@ import { activeWindowScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
 
-export function AppShell() {
+export function AppShell({ version }: { version?: string }) {
   const { data, isPending, isError } = useSnapshot();
   const sessionId = useNavigationStore((state) => state.sessionId);
   const reconcileWorkspace = useNavigationStore((state) => state.reconcileWorkspace);
@@ -92,7 +92,7 @@ export function AppShell() {
       className="flex h-screen flex-col overflow-hidden bg-canvas text-ink"
       data-testid="workspace-home"
     >
-      <TopBar />
+      <TopBar version={version} />
       <div className="relative flex min-h-0 flex-1">
         {!sidebarCollapsed ? <ProjectSidebar /> : null}
         {!sidebarCollapsed ? (

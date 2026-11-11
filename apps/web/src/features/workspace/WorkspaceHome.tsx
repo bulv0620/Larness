@@ -1,7 +1,7 @@
 import { AppShell } from "@/app/AppShell";
 import { useSessionMonitor } from "@/features/auth/useSessionMonitor";
 
-export function WorkspaceHome() {
+export function WorkspaceHome({ version }: { version?: string }) {
   useSessionMonitor();
-  return <AppShell />;
+  return <AppShell version={version} />;
 }

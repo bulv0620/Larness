@@ -30,6 +30,29 @@ function ipc(command: string, ...args: string[]): IpcResult {
   return JSON.parse(output.trim()) as IpcResult;
 }
 
+test("shows the running version in the workspace header", async ({ page }) => {
+  await page.goto("/pair");
+  const pairPanel = page.locator("[data-request-id]");
+  await expect(pairPanel).toHaveAttribute("data-stage", "waiting", { timeout: 10_000 });
+  const requestId = await pairPanel.getAttribute("data-request-id");
+  const approved = ipc("approve", requestId ?? "", "allow_once");
+  expect(approved.code).toBeTruthy();
+  await page.getByLabel("配对码").fill(approved.code ?? "");
+  await page.getByRole("button", { name: "兑换配对码" }).click();
+
+  const header = page.getByRole("banner");
+  const metadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+  await expect(header.getByText(`v${metadata.version}`, { exact: true })).toBeVisible();
+
+  await page.route("**/api/bootstrap", async (route) => {
+    const response = await route.fetch();
+    const bootstrap = await response.json();
+    await route.fulfill({ response, json: { ...bootstrap, app: { name: "Larness" } } });
+  });
+  await page.reload();
+  await expect(header.getByText("版本未知", { exact: true })).toBeVisible();
+});
+
 test("synchronizes models after a Key is added", async ({ page }) => {
   await page.goto("/pair");
   const pairPanel = page.locator("[data-request-id]");

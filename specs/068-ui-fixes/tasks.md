@@ -7,7 +7,7 @@
 | UI-F1 | 1 | 数据刷新，添加 Key 后刷新列表与模型目录 | 068 ready | done |
 | UI-F2 | 2 | 样式，完全自主确认按钮各交互状态可读 | UI-F1 | done |
 | UI-F3 | 3 | 输出链路，修复服务关联终端乱码 | UI-F2 | done |
-| UI-F4 | 5 | 版本信息，Header 显示运行版本 | UI-F3 | todo |
+| UI-F4 | 5 | 版本信息，Header 显示运行版本 | UI-F3 | done |
 | UI-F5 | 6 | 布局，自动化任务空态双向居中 | UI-F4 | todo |
 | UI-F6 | 4 | 组件统一，下拉框及业务表单优化 | UI-F5 | todo |
 | UI-F7 | 7 | 错误反馈，操作失败统一浮动 message | UI-F6 | todo |
@@ -32,3 +32,9 @@
 
 - 原始 VT 转义序列出现在纯文本日志中。先拼接返回的分块，再过滤控制序列并统一换行。现有日志分页范围与 API 保持不变。
 - 组件覆盖跨块 VT 序列、中文、刷新与重开，定向认证 E2E 验证真实 ConPTY 的彩色中文输出。修正测试查询参数的类型错误后，`VITEST_MAX_WORKERS=2 pnpm check` 通过（Web 146、Agent 42、Server 552 项，32 项沿用跳过）。未运行整套 E2E。
+
+### UI-F4（2026-11-11，Windows）
+
+- 浏览器先复现 Header 显示写死的 v0.1。接入已有 bootstrap 版本字段，缺失或无效时显示「版本未知」。
+- 开发版及生产构建版版本定向 E2E 均通过，`pnpm build` 通过。未重跑 npm 临时安装和整套 E2E。
+- 全量检查首轮 Windows 终端测试 worker 以 0xC0000005 退出。相同配置重跑 `VITEST_MAX_WORKERS=2 pnpm check` 通过（Web 146、Agent 42、Server 552 项，32 项沿用跳过）。

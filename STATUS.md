@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F4 Header 版本**：`done`（2026-11-11），分支 `task/ui-f4-header-version`。显示启动响应的实际版本，覆盖版本缺失、开发与生产构建浏览器及全量检查。
+
 - **UI-F3 服务关联终端输出**：`done`（2026-11-11），分支 `task/ui-f3-service-terminal-output`。服务日志纯文本视图过滤 VT 序列，分块、刷新和重开回归及 Windows ConPTY 定向 E2E 通过。
 
 - **UI-F2 完全自主确认按钮样式**：`done`（2026-11-11），分支 `task/ui-f2-autonomous-hover`。已采用共享危险按钮样式，亮暗主题悬停、键盘焦点回归及全量检查通过。

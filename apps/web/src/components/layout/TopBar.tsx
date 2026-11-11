@@ -21,7 +21,7 @@ import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 
-export function TopBar() {
+export function TopBar({ version }: { version?: string }) {
   const { data } = useSnapshot();
   const { theme, resolved, setTheme } = useTheme();
   const { projectId, sessionId, toggleSidebar, setMobileSidebar } = useNavigationStore();
@@ -33,6 +33,12 @@ export function TopBar() {
   const metrics = useLiveHost(data.host);
   const project = data.projects.find((item) => item.id === projectId) ?? null;
   const ThemeIcon = theme === "system" ? Monitor : resolved === "dark" ? Moon : Sun;
+  const versionLabel =
+    typeof version === "string" &&
+    version !== "0.0.0" &&
+    /^\d+\.\d+\.\d+(?:-[\w.-]+)?(?:\+[\w.-]+)?$/.test(version)
+      ? `v${version}`
+      : "版本未知";
 
   return (
     <header className="relative z-50 flex h-12 shrink-0 items-center gap-2 border-b border-line bg-surface/70 px-2.5 backdrop-blur-xl">
@@ -42,7 +48,7 @@ export function TopBar() {
         </div>
         <span className="shrink-0 text-[12.5px] font-semibold tracking-[-.01em]">Larness</span>
         <span className="shrink-0 rounded-full border border-line bg-surface-2 px-1.5 py-[1px] font-mono text-[9px] text-ink-3">
-          v0.1
+          {versionLabel}
         </span>
       </div>
 
