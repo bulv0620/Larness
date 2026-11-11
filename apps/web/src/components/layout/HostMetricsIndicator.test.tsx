@@ -14,7 +14,7 @@ function renderIndicator(metrics: HostMetrics | null) {
   );
 }
 
-it("shows CPU, RAM and ROM usage for the server host", () => {
+it("shows CPU, RAM and ROM ring gauges for the server host", () => {
   renderIndicator({
     cpuPercent: 23.4,
     memoryUsedBytes: 10 * GIB,
@@ -26,8 +26,11 @@ it("shows CPU, RAM and ROM usage for the server host", () => {
 
   expect(screen.getByLabelText("服务端系统资源")).toBeInTheDocument();
   expect(screen.getByText("23%")).toBeInTheDocument();
-  expect(screen.getByText("10.0 / 16 GB")).toBeInTheDocument();
-  expect(screen.getByText("300 / 460 GB")).toBeInTheDocument();
+  expect(screen.getByText("63%")).toBeInTheDocument();
+  expect(screen.getByText("65%")).toBeInTheDocument();
+  expect(screen.getByText(/CPU.*23%/)).toBeInTheDocument();
+  expect(screen.getByText(/RAM.*10\.0 \/ 16 GB（63%）/)).toBeInTheDocument();
+  expect(screen.getByText(/ROM.*300 \/ 460 GB（65%）/)).toBeInTheDocument();
 });
 
 it("shows dashes until the first server sample arrives", () => {
@@ -36,7 +39,7 @@ it("shows dashes until the first server sample arrives", () => {
   expect(screen.getAllByText("—")).toHaveLength(3);
 });
 
-it("renders terabyte volumes with one shared unit", () => {
+it("keeps exact byte values in the hover label", () => {
   const terabyte = 1024 * GIB;
 
   renderIndicator({
@@ -48,6 +51,6 @@ it("renders terabyte volumes with one shared unit", () => {
     sampledAt: 1_000,
   });
 
-  expect(screen.getByText("1.5 / 4.0 TB")).toBeInTheDocument();
-  expect(screen.getByText("32.0 / 64 GB")).toBeInTheDocument();
+  expect(screen.getByText(/ROM.*1\.5 \/ 4\.0 TB（38%）/)).toBeInTheDocument();
+  expect(screen.getByText(/RAM.*32\.0 \/ 64 GB（50%）/)).toBeInTheDocument();
 });

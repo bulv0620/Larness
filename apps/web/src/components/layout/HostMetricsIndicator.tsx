@@ -1,64 +1,121 @@
 import type { HostMetrics } from "@larness/shared";
 import { Hint } from "@larness/ui";
-import { Cpu, HardDrive, type LucideIcon, MemoryStick } from "lucide-react";
 import { formatBytesPair, usedPercent } from "@/lib/format";
 
+const RING_SIZE = 22;
+const RING_STROKE = 2.2;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
 interface HostMetricProps {
-  icon: LucideIcon;
   label: string;
   value: string;
-  barPercent: number;
+  percent: number;
+  color: string;
   hint: string;
 }
 
-function HostMetric({ icon: Icon, label, value, barPercent, hint }: HostMetricProps) {
+function MetricRing({ percent, color }: { percent: number; color: string }) {
+  const offset = RING_CIRCUMFERENCE * (1 - percent / 100);
+
+  return (
+    <svg
+      aria-hidden="true"
+      width={RING_SIZE}
+      height={RING_SIZE}
+      viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+      className="-rotate-90"
+    >
+      <circle
+        cx={RING_SIZE / 2}
+        cy={RING_SIZE / 2}
+        r={RING_RADIUS}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={RING_STROKE}
+        className="text-ink-3/20"
+      />
+      <circle
+        cx={RING_SIZE / 2}
+        cy={RING_SIZE / 2}
+        r={RING_RADIUS}
+        fill="none"
+        stroke={color}
+        strokeWidth={RING_STROKE}
+        strokeLinecap="round"
+        strokeDasharray={RING_CIRCUMFERENCE}
+        strokeDashoffset={offset}
+        className="transition-[stroke-dashoffset] duration-700"
+      />
+    </svg>
+  );
+}
+
+function HostMetric({ label, value, percent, color, hint }: HostMetricProps) {
   return (
     <Hint label={hint}>
       <span className="flex items-center gap-1.5">
-        <Icon size={12} className="shrink-0 text-ink-3" />
-        <span className="font-mono text-[9px] text-ink-3">{label}</span>
-        <span className="h-1 w-8 overflow-hidden rounded-full bg-black/[.08] dark:bg-white/[.1]">
-          <span
-            className="block h-full rounded-full bg-accent transition-[width] duration-700"
-            style={{ width: `${barPercent}%` }}
-          />
+        <MetricRing percent={percent} color={color} />
+        <span aria-hidden="true" className="flex flex-col leading-none">
+          <span className="text-[8px] font-medium uppercase tracking-[.09em] text-ink-3">
+            {label}
+          </span>
+          <span className="mt-0.5 font-mono text-[10px] font-medium tabular-nums text-ink">
+            {value}
+          </span>
         </span>
-        <span className="shrink-0 font-mono text-[10px] tabular-nums text-ink-2">{value}</span>
+        <span className="sr-only">{`${label}：${hint}`}</span>
       </span>
     </Hint>
   );
 }
 
 export function HostMetricsIndicator({ metrics }: { metrics: HostMetrics | null }) {
+  const memoryPercent = usedPercent(metrics?.memoryUsedBytes ?? 0, metrics?.memoryTotalBytes ?? 0);
+  const diskPercent = usedPercent(metrics?.diskUsedBytes ?? 0, metrics?.diskTotalBytes ?? 0);
+  const memoryValue = formatBytesPair(
+    metrics?.memoryUsedBytes ?? 0,
+    metrics?.memoryTotalBytes ?? 0,
+  );
+  const diskValue = formatBytesPair(metrics?.diskUsedBytes ?? 0, metrics?.diskTotalBytes ?? 0);
   const cpuPercent = metrics === null ? null : Math.min(100, Math.max(0, metrics.cpuPercent));
+  const hasMemory = metrics !== null && metrics.memoryTotalBytes > 0;
+  const hasDisk = metrics !== null && metrics.diskTotalBytes > 0;
 
   return (
-    <section
-      aria-label="服务端系统资源"
-      className="mx-1 hidden items-center gap-3 rounded-xl border border-line bg-surface-2/60 px-2.5 py-1 xl:flex"
-    >
+    <section aria-label="服务端系统资源" className="mr-1 hidden items-center gap-3 xl:flex">
       <HostMetric
-        icon={Cpu}
         label="CPU"
         value={cpuPercent === null ? "—" : `${Math.round(cpuPercent)}%`}
-        barPercent={cpuPercent ?? 0}
-        hint="运行 Larness Server 的机器 CPU 使用率"
+        percent={cpuPercent ?? 0}
+        color="var(--accent)"
+        hint={
+          cpuPercent === null
+            ? "运行 Larness Server 的机器 CPU 使用率：—"
+            : `运行 Larness Server 的机器 CPU 使用率：${Math.round(cpuPercent)}%`
+        }
       />
-      <span className="h-3 w-px shrink-0 bg-line" />
       <HostMetric
-        icon={MemoryStick}
         label="RAM"
-        value={formatBytesPair(metrics?.memoryUsedBytes ?? 0, metrics?.memoryTotalBytes ?? 0)}
-        barPercent={usedPercent(metrics?.memoryUsedBytes ?? 0, metrics?.memoryTotalBytes ?? 0)}
-        hint="运行 Larness Server 的机器内存占用"
+        value={!hasMemory ? "—" : `${Math.round(memoryPercent)}%`}
+        percent={metrics === null ? 0 : memoryPercent}
+        color="var(--success)"
+        hint={
+          metrics === null
+            ? "运行 Larness Server 的机器内存占用：—"
+            : `运行 Larness Server 的机器内存占用：${memoryValue}（${Math.round(memoryPercent)}%）`
+        }
       />
-      <span className="h-3 w-px shrink-0 bg-line" />
       <HostMetric
-        icon={HardDrive}
         label="ROM"
-        value={formatBytesPair(metrics?.diskUsedBytes ?? 0, metrics?.diskTotalBytes ?? 0)}
-        barPercent={usedPercent(metrics?.diskUsedBytes ?? 0, metrics?.diskTotalBytes ?? 0)}
-        hint="运行 Larness Server 的机器磁盘占用（数据目录所在卷）"
+        value={!hasDisk ? "—" : `${Math.round(diskPercent)}%`}
+        percent={metrics === null ? 0 : diskPercent}
+        color="var(--warning)"
+        hint={
+          metrics === null
+            ? "运行 Larness Server 的机器磁盘占用：—"
+            : `运行 Larness Server 的机器磁盘占用（数据目录所在卷）：${diskValue}（${Math.round(diskPercent)}%）`
+        }
       />
     </section>
   );
