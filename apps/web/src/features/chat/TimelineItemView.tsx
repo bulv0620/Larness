@@ -62,10 +62,12 @@ export function MessageBubble({
   item,
   children,
   commentary = false,
+  finalAnswer = false,
 }: {
   item: MessageItem;
   children?: ReactNode;
   commentary?: boolean;
+  finalAnswer?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -100,7 +102,16 @@ export function MessageBubble({
         commentary ? "text-[12px] text-ink-2" : "text-[13px] text-ink",
       )}
     >
-      <MarkdownText text={item.text} />
+      {finalAnswer && item.text ? (
+        <div
+          data-testid="final-answer-bubble"
+          className="w-fit min-w-0 max-w-full rounded-2xl rounded-tl-md border border-line bg-surface px-3.5 py-2.5"
+        >
+          <MarkdownText text={item.text} />
+        </div>
+      ) : (
+        <MarkdownText text={item.text} />
+      )}
       {children}
       {!item.streaming && item.text ? (
         <div className="mt-1 flex items-center gap-2 px-0.5">

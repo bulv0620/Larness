@@ -186,7 +186,9 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         ) : null}
         {latestCommentary ? <TimelineItemView item={latestCommentary} commentary /> : null}
         {answer?.kind === "message" ? (
-          <MessageBubble item={answer}>{results}</MessageBubble>
+          <MessageBubble item={answer} finalAnswer={!turnActive && !answer.streaming}>
+            {results}
+          </MessageBubble>
         ) : (
           results
         )}

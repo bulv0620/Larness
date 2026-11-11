@@ -111,3 +111,29 @@ test("conversation actions follow the outer light/dark theme without expanding t
   }
   await page.screenshot({ path: path.join(tmpdir(), "larness-m2-16-mobile.png") });
 });
+
+test("only settled answer markdown uses the themed message bubble", async ({ page }) => {
+  await page.goto("/");
+  const bubble = page.getByTestId("final-answer-bubble");
+  await expect(bubble).toHaveCount(0);
+  await page.getByRole("button", { name: "批准部署" }).click();
+  await expect(bubble).toContainText("已批准部署");
+  await expect(bubble.getByText("部署成功", { exact: true })).toHaveCount(0);
+  await expect(bubble.getByRole("button", { name: "复制答复" })).toHaveCount(0);
+  await expect(bubble.getByRole("time")).toHaveCount(0);
+  await page.getByRole("button", { name: /执行过程/ }).click();
+  await expect(page.getByText(/我先检查项目结构/)).toBeVisible();
+  await expect(bubble.getByText(/我先检查项目结构/)).toHaveCount(0);
+  for (const [theme, surface] of [
+    ["浅色", "rgb(255, 255, 255)"],
+    ["深色", "rgb(34, 34, 37)"],
+  ]) {
+    await page.getByRole("button", { name: "外观与主题" }).click();
+    await page.getByRole("menuitemradio", { name: theme, exact: false }).click();
+    await expect(bubble).toHaveCSS("background-color", surface);
+  }
+  await page.setViewportSize({ width: 320, height: 800 });
+  await expect(bubble).toBeVisible();
+  const box = await bubble.boundingBox();
+  expect(box && box.x >= 0 && box.x + box.width <= 320).toBeTruthy();
+});
