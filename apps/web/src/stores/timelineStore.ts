@@ -27,6 +27,7 @@ import {
   decideApproval,
   fetchAllEvents,
   getSession,
+  resumeTurn as requestResumeTurn,
   updateSession,
 } from "@/lib/workspaceApi";
 import { gateway } from "@/mocks/gateway";
@@ -79,6 +80,7 @@ interface TimelineState {
   syncEvents: () => Promise<void>;
   send: (text: string) => Promise<void>;
   stop: () => void;
+  resumeTurn: (turnId: string) => Promise<void>;
   resolveApproval: (approvalId: string, decision: "approve" | "reject") => Promise<void>;
 }
 
@@ -606,6 +608,28 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         items: [...state.items, errorItem(`停止失败：${message}`)],
       }));
     });
+  },
+
+  resumeTurn: async (turnId) => {
+    if (USE_MOCKS) {
+      set({ isStreaming: true, activeTurnId: turnId, turnStartedAt: Date.now() });
+      return;
+    }
+
+    try {
+      const resumed = await requestResumeTurn(turnId);
+      set({
+        isStreaming: true,
+        activeTurnId: resumed.turnId,
+        turnStartedAt: Date.now(),
+      });
+      await get().syncEvents();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "无法继续该任务";
+      useTimelineStore.setState((state) => ({
+        items: [...state.items, errorItem(`继续失败：${message}`)],
+      }));
+    }
   },
 
   resolveApproval: async (approvalId, decision) => {

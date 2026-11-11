@@ -5,6 +5,18 @@ import { applyServerEvent, eventsToTimeline } from "@/lib/eventReducer";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { Timeline } from "./Timeline";
 
+const resumeTurn = vi.fn(async () => ({
+  turnId: "turn-resumed",
+  status: "QUEUED",
+  sessionId: "s1",
+  resumedFromTurnId: "turn-1",
+}));
+
+vi.mock("@/lib/workspaceApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/workspaceApi")>()),
+  resumeTurn: () => resumeTurn(),
+}));
+
 vi.mock("./CommandCard", () => ({
   CommandCard: ({ commandId }: { commandId: string }) => (
     <div role="log" aria-label="命令输出">
@@ -395,4 +407,50 @@ it("shows a single-line reasoning preview and keeps it out of the expanded proce
   fireEvent.click(finished);
   expect(screen.getByText("完成")).toBeVisible();
   expect(screen.queryByText("先分析目录结构。")).toBeNull();
+});
+
+it("offers to resume an interrupted turn after an explicit confirmation", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "跑完测试",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "interrupted",
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  expect(screen.queryByRole("button", { name: "确认继续" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "继续这个任务" }));
+  expect(screen.getByText(/继续会新建一轮/)).toBeTruthy();
+  expect(resumeTurn).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "确认继续" }));
+  expect(resumeTurn).toHaveBeenCalledTimes(1);
+});
+
+it("does not offer resume for a cancelled turn", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "停一下",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "cancelled",
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  expect(screen.queryByRole("button", { name: "继续这个任务" })).toBeNull();
 });

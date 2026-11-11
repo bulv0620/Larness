@@ -12,7 +12,7 @@
 | TR-0 | 规格与 ADR 草案 | — | `done` |
 | TR-1 | 数据体积诊断（只读） | TR-0 | `done` |
 | TR-2 | 中断 Turn 恢复（新 Turn 接手） | TR-0、070 HX-7 | `done` |
-| TR-3 | 恢复入口与确认交互 | TR-2 | `todo` |
+| TR-3 | 恢复入口与确认交互 | TR-2 | `done` |
 | TR-4 | 保留策略与清理执行 | TR-1、TR-0 | `todo` |
 
 ## 任务卡
@@ -67,7 +67,7 @@
 
 ### TR-3 恢复入口与确认交互
 
-- 状态：`todo`
+- 状态：`done`（2026-11-12；视觉验收待用户确认）
 - 依赖：TR-2
 - 目标：让"继续被中断任务"可发现、可确认、不会被误解为任务已完成。
 - 交付物：
@@ -77,7 +77,9 @@
 - 验收：Mock 场景"中断 → 继续"链路可用；窄屏与键盘可达；错误态可见。
 - 测试：组件测试 + Mock Chromium E2E。
 - 涉及路径：`apps/web/src/features/chat/`、`apps/web/src/lib/workspaceApi.ts`
-- 备注：入口只对具备事实且模型可用的 Turn 显示；不得在自动化任务界面提供自动恢复。
+- 实现要点：`workspaceApi.resumeTurn` 调 `POST /api/turns/:id/resume`；`timelineStore.resumeTurn` 成功后置为流式并 `syncEvents` 拉取新轮次，失败追加错误条目（不静默）。时间线在 `turnOutcome=interrupted` 的轮次下显示「继续这个任务」，点击后展开**二次确认**（说明会新建一轮并带上核对事实、原轮次保持原样），确认才发起请求；已取消/已完成的轮次不显示入口。
+- 验证：新增 2 个组件测试——中断轮次需二次确认后才调用接口、取消的轮次不显示入口；`apps/web` 160 通过；两个 tsconfig 的 typecheck 与 biome 通过。
+- 备注：入口只对 `interrupted` 轮次显示；自动化任务界面不提供恢复。**视觉验收待用户确认**（本环境无浏览器，未做截图核对）。
 
 ### TR-4 保留策略与清理执行
 

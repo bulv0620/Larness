@@ -355,6 +355,21 @@ export async function cancelTurn(turnId: string): Promise<{ turnId: string; stat
   });
 }
 
+export interface ResumeTurnResponse {
+  turnId: string;
+  status: string;
+  sessionId: string;
+  resumedFromTurnId: string;
+}
+
+export async function resumeTurn(turnId: string): Promise<ResumeTurnResponse> {
+  return apiFetch<ResumeTurnResponse>(`/api/turns/${encodeURIComponent(turnId)}/resume`, {
+    method: "POST",
+    body: {},
+    csrf: true,
+  });
+}
+
 export async function fetchEvents(sessionId: string, after = 0, limit = 200): Promise<EventPage> {
   return apiFetch<EventPage>(
     `/api/sessions/${encodeURIComponent(sessionId)}/events?after=${after}&limit=${limit}`,

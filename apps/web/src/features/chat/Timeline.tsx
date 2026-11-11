@@ -59,12 +59,14 @@ function summarizeTools(tools: ToolItem[]): string {
 
 function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const send = useTimelineStore((state) => state.send);
+  const resumeTurn = useTimelineStore((state) => state.resumeTurn);
   const items = group.items;
   const user = items.find(
     (item): item is MessageItem => item.kind === "message" && item.role === "user",
   );
   const turnActive = active && user?.turnOutcome === undefined;
   const [expanded, setExpanded] = useState(false);
+  const [confirmResume, setConfirmResume] = useState(false);
   const tools = items.filter(
     (item): item is ToolItem => item.kind === "tool" && item.name !== "update_plan",
   );
@@ -192,6 +194,45 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
                 ))}
               </div>
             ) : null}
+          </div>
+        ) : null}
+        {user?.turnOutcome === "interrupted" && user.turnId !== undefined ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-[12px] text-ink-2">
+            {confirmResume ? (
+              <>
+                <span className="min-w-0 flex-1">
+                  继续会新建一轮，并带上已完成文件、命令与失败诊断的核对事实；原轮次保持原样。
+                </span>
+                <button
+                  type="button"
+                  className="rounded border border-line px-2 py-0.5 text-ink transition-colors hover:text-accent"
+                  onClick={() => {
+                    setConfirmResume(false);
+                    void resumeTurn(user.turnId ?? "");
+                  }}
+                >
+                  确认继续
+                </button>
+                <button
+                  type="button"
+                  className="rounded px-2 py-0.5 text-ink-3 transition-colors hover:text-ink"
+                  onClick={() => setConfirmResume(false)}
+                >
+                  取消
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="min-w-0 flex-1">上次执行被中断（服务重启或退出）。</span>
+                <button
+                  type="button"
+                  className="rounded border border-line px-2 py-0.5 text-ink transition-colors hover:text-accent"
+                  onClick={() => setConfirmResume(true)}
+                >
+                  继续这个任务
+                </button>
+              </>
+            )}
           </div>
         ) : null}
         {latestCommentary ? <TimelineItemView item={latestCommentary} commentary /> : null}
