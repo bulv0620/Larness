@@ -12,9 +12,10 @@ function makePreviousMigrations(target: string): void {
   const journal = JSON.parse(readFileSync(journalPath, "utf8")) as {
     entries: { tag: string }[];
   };
-  journal.entries = journal.entries.filter((entry) => entry.tag !== "0022_scheduler");
+  const latest = journal.entries.at(-1)?.tag;
+  journal.entries = journal.entries.filter((entry) => entry.tag !== latest);
   writeFileSync(journalPath, JSON.stringify(journal));
-  rmSync(path.join(target, "0022_scheduler.sql"), { force: true });
+  if (latest !== undefined) rmSync(path.join(target, `${latest}.sql`), { force: true });
 }
 
 describe("pre-upgrade startup backup", () => {
@@ -28,7 +29,7 @@ describe("pre-upgrade startup backup", () => {
       const opened = openDatabase(path.join(dataDir, "larness.db"));
       try {
         runMigrations(opened.db, oldMigrations);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(21);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(22);
       } finally {
         opened.close();
       }
@@ -45,7 +46,7 @@ describe("pre-upgrade startup backup", () => {
 
       try {
         const backups = readdirSync(path.join(dataDir, "backups")).filter((entry) =>
-          entry.startsWith("pre-upgrade-21-22-"),
+          entry.startsWith("pre-upgrade-22-23-"),
         );
         expect(backups).toHaveLength(1);
       } finally {

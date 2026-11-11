@@ -39,7 +39,7 @@ describe("collectStatus", () => {
         expect(status.running).toBe(true);
         expect(status.pid).toBe(process.pid);
         expect(status.uptimeMs).toBeGreaterThanOrEqual(0);
-        expect(status.db).toMatchObject({ ok: true, schemaVersion: 22 });
+        expect(status.db).toMatchObject({ ok: true, schemaVersion: 23 });
       } finally {
         await running.shutdown("test");
       }
