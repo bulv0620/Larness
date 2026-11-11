@@ -90,7 +90,7 @@ function DetailRow({ icon: Icon, label, value, percent, color }: DetailRowProps)
           style={{ width: `${percent}%`, background: color }}
         />
       </span>
-      <span className="w-[88px] text-right font-mono text-[9.5px] tabular-nums text-ink-2">
+      <span className="w-[92px] text-right font-mono text-[10px] tabular-nums text-ink-2">
         {value}
       </span>
     </div>
@@ -103,12 +103,17 @@ function MetricsDetails({ metrics }: { metrics: HostMetrics | null }) {
   const cpuPercent = metrics === null ? 0 : Math.min(100, Math.max(0, metrics.cpuPercent));
 
   return (
-    <div className="w-[258px]">
-      <div className="mb-2.5 flex items-center justify-between">
-        <span className="text-[10px] font-semibold text-ink">服务端资源</span>
-        <span className="font-mono text-[8.5px] text-ink-3">4s</span>
+    <div className="w-[264px]">
+      <div className="mb-2.5 flex items-center justify-between border-b border-line pb-2">
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-success" />
+          <span className="text-[10.5px] font-semibold text-ink">服务端资源</span>
+        </span>
+        <span className="rounded-full bg-surface-2 px-1.5 py-[1px] font-mono text-[8px] text-ink-3">
+          4s
+        </span>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         <DetailRow
           icon={Cpu}
           label="CPU"
@@ -148,8 +153,11 @@ export function HostMetricsIndicator({ metrics }: { metrics: HostMetrics | null 
   const hasDisk = metrics !== null && metrics.diskTotalBytes > 0;
 
   return (
-    <Hint align="end" variant="card" label={<MetricsDetails metrics={metrics} />}>
-      <section aria-label="服务端系统资源" className="mr-1 hidden items-center gap-3 xl:flex">
+    <Hint variant="card" label={<MetricsDetails metrics={metrics} />}>
+      <section
+        aria-label="服务端系统资源"
+        className="mr-1 hidden cursor-pointer items-center gap-3 rounded-xl px-2 py-1 transition-[background-color,box-shadow] duration-200 hover:bg-surface-2/70 hover:ring-2 hover:ring-accent/20 data-[state=delayed-open]:bg-surface-2/80 data-[state=delayed-open]:ring-2 data-[state=delayed-open]:ring-accent/25 xl:flex"
+      >
         <HostMetric
           label="CPU"
           value={cpuPercent === null ? "—" : `${Math.round(cpuPercent)}%`}

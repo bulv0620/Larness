@@ -68,7 +68,10 @@ it("shows the detailed card when hovering the metrics group", async () => {
     sampledAt: 1_000,
   });
 
-  await user.hover(screen.getByLabelText("服务端系统资源"));
+  const trigger = screen.getByLabelText("服务端系统资源");
+  expect(trigger).toHaveClass("cursor-pointer");
+
+  await user.hover(trigger);
 
   expect(await screen.findByText("服务端资源")).toBeInTheDocument();
   expect(screen.getByText("9.6 / 16 GB")).toBeInTheDocument();

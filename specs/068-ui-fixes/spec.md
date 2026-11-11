@@ -106,7 +106,7 @@ depends_on: [052-workspace-polish, 063-multi-provider, 064-scheduler, 065-launch
 2026-11-11 用户要求 Header 右侧显示服务侧系统的 CPU、ROM（磁盘）和 RAM 占用。此前只在 Mock 中显示随机模拟值，真实 Server 没有主机资源数据。
 
 - Given 已认证打开工作区，When Header 渲染，Then 右侧显示运行 Larness Server 的机器的 CPU、RAM、磁盘占用环形仪表；不读取浏览器所在设备的数据。数值每 4 秒刷新。
-- Given 鼠标经过三枚环形仪表区域，Then 弹出「服务端资源」详情卡，逐项显示 CPU 百分比、RAM 与磁盘已用 / 总量及百分比；离开后关闭，辅助技术仍可读取同样的隐藏文本。
+- Given 鼠标经过三枚环形仪表区域，Then 光标变为手型，区域出现圆角选中框，并弹出「服务端资源」详情卡；卡片逐项显示 CPU 百分比、RAM 与磁盘已用 / 总量及百分比，带阴影、分隔线与指向触发区的尖角。离开后关闭，辅助技术仍可读取同样的隐藏文本。
 - Given Server 刚启动、首次采样还未完成或磁盘占用不可读，Then CPU 或对应资源显示 `—`，不把占位 `0` 当作真实占用。
 - Given 窄屏、浅色或深色主题，Then 资源块在 `xl`（1280px）以下隐藏，其余尺寸不挤压项目名和右侧操作；颜色沿用工作区语义 token。
 - Given 演示 Mock 模式，Then 使用固定 Mock 值保持视觉 Demo 可用；Mock E2E 不访问真实指标接口。
