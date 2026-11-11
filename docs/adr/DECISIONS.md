@@ -150,3 +150,11 @@ accepted，2026-11-09 人类明确确认。对齐 M5-3 的 npm 分发、手动�
 ## ADR-056 · 依赖主版本与工具链分批升级（2026-11-09）
 
 accepted，2026-11-09 人类明确批准。为 AI SDK、SQLite 原生模块、Web 与构建工具链列出独立升级和验收批次。见 [ADR-056](ADR-056-dependency-major-upgrades.md)。
+
+## ADR-057 · 运行时效率：稳定前缀、预算终态与长 Turn 检查点（2026-11-11）
+
+accepted，2026-11-11 人类直接确认 D1–D7 全部采用推荐方案。system 只放 Turn 起点快照以保证续步前缀稳定，资源观察改为显式刷新（替换 [命令上下文契约](../contracts/agent-command-context.md) 的每步刷新条款）；预算与输出截断用 `terminal_reason` 表达，自动化不再记成功；截止时间贯穿模型、摘要与工具；长 Turn 检查点复用摘要表并只以已持久化事件为事实来源。见 [ADR-057](ADR-057-runtime-efficiency.md) 与 [070 spec](../../specs/070-runtime-efficiency/spec.md)。
+
+## ADR-058 · 中断 Turn 的接手恢复与事件保留策略（2026-11-11）
+
+proposed，待人类确认 D1–D4。恢复通过新建 Turn 接手、旧 Turn 不可变且不自动续跑（避免重复副作用）；清理默认 dry-run 不删数据，开启后按会话整段删除并要求先备份与审计。见 [ADR-058](ADR-058-turn-recovery-retention.md) 与 [071 spec](../../specs/071-turn-recovery/spec.md)。

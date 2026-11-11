@@ -5,6 +5,12 @@
 
 ## 当前任务
 
+- **M6-0（HX-0）运行时效率规格**：`done`（2026-11-11）。把仓库外方案稿《Larness Harness 核心优化方案》按当前代码复核后收敛为 [070 规格](specs/070-runtime-efficiency/spec.md)（`ready`）、[plan](specs/070-runtime-efficiency/plan.md)、[tasks](specs/070-runtime-efficiency/tasks.md) 与 [ADR-057](docs/adr/ADR-057-runtime-efficiency.md)（`accepted`）。用户于 2026-11-11 确认 D1–D7 全部采用推荐方案，G-Spec-M6 通过。本任务只写文档，未改任何执行层代码，`pnpm check` 未运行（仅 Markdown；相对链接与路线图锚点已校验）。复核出的现状证据：system 每步重装配致前缀失效、用量缺缓存细分、截止时间未接在途请求、预算与输出截断被记为完成、长 Turn 无上下文保护、工具结果按字符切断 JSON。
+
+- **M6-1（HX-1）用量细分与阶段耗时基线**：`todo`（未开始，最小可执行任务）。先写带 `prompt_cache_hit_tokens` 的失败测试，再扩 `ProviderUsage` 与 `mapUsage`。**在 HX-1 交付前，不对外宣称任何缓存收益或性能提升。**
+
+- **M6-0b（HX-9～HX-12 + 071 草案）**：`done`（2026-11-11，仅文档）。在 070 追加 4 个任务：HX-9 秘密查询收敛（卫生项，明确无性能收益）、HX-10 重复失败调用干预、HX-11 token 消耗上限、HX-12 `turnRunner` 机械拆分（建议先于 HX-4 完成以降低回归面）；新增 [071 切片](specs/071-turn-recovery/spec.md)（`draft`）与 [ADR-058](docs/adr/ADR-058-turn-recovery-retention.md)（`proposed`），覆盖中断 Turn 接手恢复与事件保留策略。新增待决 D8–D10（070）与 D1–D4（071），Q-033/Q-034 已登记。未运行 `pnpm check`（仅 Markdown）。
+
 - **UI-F14 Header 服务端资源**：`done`（2026-11-11），分支 `task/ui-f14-header-host-metrics`，用户验收通过并已合并 main 推送。Header 右侧以三枚环形仪表显示运行 Server 的机器 CPU、RAM、ROM（数据目录所在卷）占用，悬停显示手型与选中框、点击弹出资源详情卡，4 秒刷新；新增已认证 `GET /api/system/metrics`，磁盘不可读时显示 `—`，不再使用随机模拟值。`VITEST_MAX_WORKERS=2 pnpm check`（Web 158、Agent 42、Server 577，12 项既有跳过）与 `pnpm build` 通过，Mock Chromium 1024/1280/1440 断点与 390px 窄屏检查通过。[验收记录](specs/068-ui-fixes/tasks.md#ui-f14-2026-11-11macos)
 
 - **UI-F13 右侧资源区 Tab**：`done`（2026-11-11），分支 `task/ui-f13-resource-tabs`，已合并 main 推送。资源区改为 Tab 切换并移除「项目资源」标题行；Tabs 同心圆角与 `surface-2` 轨道，Git 提交输入框距面板顶部 8px；两面板常驻不丢状态。用户视觉验收、Mock E2E 23、认证定向与合并前全量 `pnpm check`（复跑）通过；commands 批量与 m1:80 为已记录的既有失败。[验收记录](specs/068-ui-fixes/tasks.md#ui-f13-2026-11-11windows)

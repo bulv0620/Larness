@@ -62,6 +62,10 @@
 - [067 安全复核、发布清单与文档定稿](067-release-hardening/spec.md)
 - [068 发布后界面与输出纠错](068-ui-fixes/spec.md)
 
+### M6（草案）
+
+- [070 运行时效率：前缀缓存、上下文预算与停止语义](070-runtime-efficiency/spec.md)
+- [071 Turn 恢复与数据保留](071-turn-recovery/spec.md)
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 

@@ -15,6 +15,7 @@
 | M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 全部 done；远程 HTTPS 延后并标未验证 |
 | M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `done` | G4 于 2026-11-07 通过人类验收，见 [M4 收尾](050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `done` | G5 条件通过（2026-11-08） |
+| M6 | 运行时效率与上下文预算 | [070](070-runtime-efficiency/spec.md) | `ready` | G-Spec-M6 通过（2026-11-11，D1–D7 确认、ADR-057 accepted）；G-M6 待实现验收 |
 
 关键路径：
 
@@ -300,6 +301,42 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-F3 | 三端结果补齐后的支持矩阵与验收更新 | 未验证项不标通过 | `todo` |
 
 [061 DeepSeek 官方接入、模型与思考档位](061-deepseek-integration/spec.md) 于 2026-11-07 按用户确认的三项决策（旧档案忽略、思考默认开启、推理数据先实测）由 `draft` 转 `ready`，[ADR-053](../docs/adr/ADR-053-model-catalog-thinking.md) accepted。M5-1a 已交付：目录同步与缓存、模型 / 档位选择与 Turn 快照、Provider 参数、Composer 浮层与设置页；后续工具续跑与单次圆环分别由 M5-1b / M5-1c 交付。GLM、通用兼容端点、上下文压缩与跨模型迁移见 [063 规格](063-multi-provider/spec.md)（`done`，2026-11-07 人类验收）。Scheduler 见 [064 规格](064-scheduler/spec.md)（`done`，2026-11-08 当前范围验收）。
+
+## 8.1 M6 运行时效率（ready，未开工）
+
+目标：让普通续步的请求体成为上一次的严格超集（由 Provider 前缀缓存承担重复成本），让长 Turn 在预算内完成或**诚实停止**。来源为仓库外的方案稿，已按当前代码复核并收敛为 [070 规格](070-runtime-efficiency/spec.md)；行为与契约变更见 [ADR-057](../docs/adr/ADR-057-runtime-efficiency.md)（`accepted`，2026-11-11）。
+
+门禁：G-Spec-M6 于 2026-11-11 通过（D1–D7 全部采用推荐方案）。HX-5 改变资源观察语义、HX-8 的只读并发默认不做，两者仍各自需要实现验收。G-M6 = A1–A8 通过且真实 Provider 基线有记录。
+
+| ID | 任务 | 依赖 | 状态 |
+|---|---|---|---|
+| HX-0 | [规格、ADR 与契约草案](070-runtime-efficiency/tasks.md#hx-0-规格adr-与契约草案) | — | `done` |
+| HX-1 | [用量细分与阶段耗时基线](070-runtime-efficiency/tasks.md#hx-1-用量细分与阶段耗时基线) | HX-0 | `todo` |
+| HX-2 | [截止时间与请求级约束](070-runtime-efficiency/tasks.md#hx-2-截止时间与请求级约束) | HX-0 | `todo` |
+| HX-3 | [终态原因落库与 Job 判定](070-runtime-efficiency/tasks.md#hx-3-终态原因落库与-job-判定) | HX-2 | `todo` |
+| HX-4 | [工具结果结构裁剪](070-runtime-efficiency/tasks.md#hx-4-工具结果结构裁剪) | HX-0 | `todo` |
+| HX-5 | [稳定前缀与资源观察移位](070-runtime-efficiency/tasks.md#hx-5-稳定前缀与资源观察移位) | HX-1 | `todo` |
+| HX-6 | [每步预算预检与估算校准](070-runtime-efficiency/tasks.md#hx-6-每步预算预检与估算校准) | HX-1 | `todo` |
+| HX-7 | [长 Turn 检查点与有界降级](070-runtime-efficiency/tasks.md#hx-7-长-turn-检查点与有界降级) | HX-6、HX-4 | `todo` |
+| HX-8 | [编码工具效率与只读并发](070-runtime-efficiency/tasks.md#hx-8-编码工具效率与只读并发) | HX-4 | `todo` |
+| HX-9 | [工具参数校验的秘密查询收敛](070-runtime-efficiency/tasks.md#hx-9-工具参数校验的秘密查询收敛卫生项) | HX-0 | `todo` |
+| HX-10 | [重复失败调用的循环干预](070-runtime-efficiency/tasks.md#hx-10-重复失败调用的循环干预) | HX-0 | `todo` |
+| HX-11 | [Turn 级 token 消耗上限](070-runtime-efficiency/tasks.md#hx-11-turn-级-token-消耗上限) | HX-1 | `todo` |
+| HX-12 | [turnRunner 机械拆分](070-runtime-efficiency/tasks.md#hx-12-turnrunner-机械拆分前置工程动作) | HX-0 | `todo` |
+
+### 8.2 M6 后续：Turn 恢复与数据保留（071，draft）
+
+目标：让被中断的长 Turn 由新 Turn 接手（复用 070 HX-7 的事实），并给事件、Turn、摘要明确寿命。行为与破坏性操作见 [ADR-058](../docs/adr/ADR-058-turn-recovery-retention.md)（`proposed`）。清理默认关闭，只做 dry-run。
+
+门禁：G-Spec-M6-R = 071 的 D1–D4 确认且 ADR-058 accepted；TR-4（删除）还需 TR-1 体积报告完成。
+
+| ID | 任务 | 依赖 | 状态 |
+|---|---|---|---|
+| TR-0 | [规格与 ADR 草案](071-turn-recovery/tasks.md#tr-0-规格与-adr-草案) | — | `review` |
+| TR-1 | [数据体积诊断（只读）](071-turn-recovery/tasks.md#tr-1-数据体积诊断只读) | TR-0 | `todo` |
+| TR-2 | [中断 Turn 恢复](071-turn-recovery/tasks.md#tr-2-中断-turn-恢复新-turn-接手) | TR-0、070 HX-7 | `todo` |
+| TR-3 | [恢复入口与确认交互](071-turn-recovery/tasks.md#tr-3-恢复入口与确认交互) | TR-2 | `todo` |
+| TR-4 | [保留策略与清理执行](071-turn-recovery/tasks.md#tr-4-保留策略与清理执行) | TR-1、TR-0 | `todo` |
 
 ## 9. 门禁
 
