@@ -46,6 +46,7 @@ export interface TurnDto {
   usage: unknown;
   error: unknown;
   terminalReason: TurnTerminalReason | null;
+  resumedFromTurnId: string | null;
   createdAt: number;
   startedAt: number | null;
   endedAt: number | null;
@@ -116,6 +117,7 @@ export function turnDto(row: TurnRow): TurnDto {
     usage: parseJson(row.usageJson),
     error: parseJson(row.errorJson),
     terminalReason: row.terminalReason,
+    resumedFromTurnId: row.resumedFromTurnId,
     createdAt: row.createdAt,
     startedAt: row.startedAt,
     endedAt: row.endedAt,

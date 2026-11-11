@@ -11,7 +11,7 @@
 |---|---|---|---|
 | TR-0 | 规格与 ADR 草案 | — | `review` |
 | TR-1 | 数据体积诊断（只读） | TR-0 | `done` |
-| TR-2 | 中断 Turn 恢复（新 Turn 接手） | TR-0、070 HX-7 | `todo` |
+| TR-2 | 中断 Turn 恢复（新 Turn 接手） | TR-0、070 HX-7 | `done` |
 | TR-3 | 恢复入口与确认交互 | TR-2 | `todo` |
 | TR-4 | 保留策略与清理执行 | TR-1、TR-0 | `todo` |
 
@@ -49,7 +49,7 @@
 
 ### TR-2 中断 Turn 恢复（新 Turn 接手）
 
-- 状态：`todo`
+- 状态：`done`（2026-11-12）
 - 依赖：TR-0、070 HX-7（事实提取器）
 - 目标：被中断的 Turn 能在用户确认后由新 Turn 接手，不重跑已完成步骤。
 - 交付物：
@@ -60,7 +60,10 @@
 - 验收：A1–A3 通过；不可恢复时稳定错误码且不发模型请求；审计含 from/to Turn。
 - 测试：`recovery.test.ts`（无事实、模型不可用、非 INTERRUPTED 三种拒绝；成功路径断言旧 Turn 未变）。
 - 涉及路径：`apps/server/src/modules/agent/recovery/`、`sessions/{turns,service}.ts`、`http/routes/sessions.ts`、`db/schema.ts`、`drizzle/0024_turn_recovery.sql`、`docs/contracts/{rest-api,ws-events,data-model}.md`
-- 备注：不接受客户端覆盖模型/凭据；沿用原 Turn 快照，不可用即拒绝。
+- 实现要点：迁移 `0025` 给 `turns` 加 `resumed_from_turn_id`；`turnCheckpoint.ts` 增加 `extractFactsFromEvents` / `loadTurnFacts`（与 Turn 内检查点共用 `CheckpointFacts` 形状，从 `agent_events` 反读文件版本、命令摘要、失败诊断、计划步骤、资源 ID）；`modules/agent/recovery/resume.ts` 校验 `INTERRUPTED` + 事实非空 → 复用 `createTurn`（显式带原 `model` / `thinking` / `credentialProfileId`）→ 写 `resumedFromTurnId` + `turn.resumed` 事件 + 审计。用 `idempotencyKey = resume:<原TurnId>` 保证重复调用返回同一个新 Turn。REST 增加 `POST /api/turns/:id/resume`（202）。
+- 契约：`rest-api.md`（新路由与 DTO 字段）、`ws-events.md`（`turn.resumed`）、`data-model.md`（新列）。
+- 验证：新增 `recovery.test.ts` 4 个用例——成功接手（事实注入、原 Turn 不变、事件存在、重复调用幂等）、非中断拒绝、无事实拒绝、Turn 不存在；迁移计数与 `schemaVersion` 同步到 25；`test/agent` 91 通过 / 9 个既有环境性失败；biome 与 typecheck 通过。
+- 备注：不接受客户端覆盖模型/凭据；沿用原 Turn 快照，不可用即拒绝（映射为 `RESOURCE_UNAVAILABLE`）。错误码复用既有集合（`NOT_FOUND` / `CONFLICT` / `RESOURCE_UNAVAILABLE`），未扩展 `ErrorCode`。
 
 ### TR-3 恢复入口与确认交互
 

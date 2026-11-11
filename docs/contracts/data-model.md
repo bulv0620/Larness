@@ -135,7 +135,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 |---|---|---|
 | `projects` | `id, name, root_path, real_path, settings_json, git_detected, created_at, updated_at` | `real_path` canonical 且唯一；`settings_json` 含默认模型 / 指令 / ignore；删除只删行 |
 | `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, credential_profile_id?, model?, thinking?, approval_policy_id, created_at, updated_at, last_activity_at` | `status`: `active / archived`；归档不删 workspace；独立会话 workspace 在 dataDir 下；`model` / `thinking` / `credential_profile_id` 为 M5-1 当前选择（可空，旧行无值） |
-| `turns` | `id, session_id, model_profile_id, credential_profile_id?, provider, model, thinking?, context_window?, status, input_json, usage_json, error_json, terminal_reason?, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn；provider / model / thinking / 窗口 / 凭据在 Turn 运行时快照；`thinking` 取值 `off / on / low / medium / high`（旧行可能是 `default`） |
+| `turns` | `id, session_id, model_profile_id, credential_profile_id?, provider, model, thinking?, context_window?, status, input_json, usage_json, error_json, terminal_reason?, resumed_from_turn_id?, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn；provider / model / thinking / 窗口 / 凭据在 Turn 运行时快照；`thinking` 取值 `off / on / low / medium / high`（旧行可能是 `default`） |
 | `agent_events` | `id, session_id, turn_id, seq, type, payload_json, created_at`；`UNIQUE(session_id, seq)` | `seq` 在 Session 内递增，事务内分配 |
 | `model_profiles` | `id, label, provider, model, credential_profile_id, endpoint, capabilities_json, created_at` | 不含密钥；M5-1 起旧档案被忽略，行保留，不再进入选择器 |
 | `model_catalog_cache` | `credential_profile_id`（主键）, `provider, endpoint, models_json, synced_at, last_attempt_at, last_error_code` | M5-1 官方目录缓存，按凭据隔离；`models_json` 只含展示字段；`last_error_code` 只存稳定错误码 |
@@ -149,7 +149,9 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 
 索引：`agent_events(session_id, seq)`、`turns(session_id, created_at)`、`sessions(project_id, updated_at)`、`projects(real_path)`。
 
-`turns.terminal_reason`（迁移 `0023`，M6-3）取值 `normal / budget / output_truncated / provider_error / error / cancelled / interrupted`，只加可空列、不回填：旧 Turn 为 `NULL`，读取方必须按 `normal` 处理。它记录「为什么结束」，与 `status` 正交——`status=COMPLETED` 且 `terminal_reason=budget` 表示预算停止而不是正常完成。
+`turns.terminal_reason`（迁移 `0023`，M6-3）取值 `normal / budget / output_truncated / provider_error / error / cancelled / interrupted`，只加可空列、不回填：旧 Turn 为 `NULL`，读取方必须按 `normal` 处理。`turns.resumed_from_turn_id`（迁移 `0025`）只在恢复产生的新 Turn 上写入，指向被中断的原 Turn；原 Turn 保持 `INTERRUPTED` 且该列为空。
+
+它记录「为什么结束」，与 `status` 正交——`status=COMPLETED` 且 `terminal_reason=budget` 表示预算停止而不是正常完成。
 
 约束：
 

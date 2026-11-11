@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Database } from "../db/client.js";
 import { HttpError } from "../errors.js";
 import { listSessionEvents } from "../modules/agent/events.js";
+import { ResumeError, resumeInterruptedTurn } from "../modules/agent/recovery/resume.js";
 import { SessionError } from "../modules/sessions/errors.js";
 import {
   archiveSession,
@@ -201,6 +202,39 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
       return reply.code(202).send(turn);
     } catch (error) {
       throwSession(error);
+    }
+  });
+
+  app.post<{ Params: { id: string } }>("/api/turns/:id/resume", async (request, reply) => {
+    const id = parse(SessionIdSchema, request.params.id);
+
+    try {
+      const result = resumeInterruptedTurn(
+        { db: options.db, now: options.now },
+        {
+          turnId: id,
+          ...(request.clientSession?.id === undefined
+            ? {}
+            : { clientSessionId: request.clientSession.id }),
+        },
+      );
+      publishWorkspaceSessionsChanged();
+      deps.turnControls?.enqueue(result.turnId, result.sessionId);
+      return reply.code(202).send(result);
+    } catch (error) {
+      if (error instanceof ResumeError) {
+        throw new HttpError(
+          error.code === "TURN_NOT_FOUND" || error.code === "SESSION_NOT_FOUND"
+            ? "NOT_FOUND"
+            : error.code === "MODEL_UNAVAILABLE"
+              ? "RESOURCE_UNAVAILABLE"
+              : "CONFLICT",
+          error.message,
+          { details: { reason: error.code } },
+        );
+      }
+
+      throw error;
     }
   });
 

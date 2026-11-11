@@ -154,6 +154,7 @@ export function createTurnRow(db: DbExecutor, input: CreateTurnRowInput): TurnRo
     usageJson: null,
     errorJson: null,
     terminalReason: null,
+    resumedFromTurnId: null,
     idempotencyKey: input.idempotencyKey,
     createdAt: input.now,
     startedAt: null,
@@ -219,6 +220,7 @@ export function updateTurnRow(
     usageJson?: string | null;
     errorJson?: string | null;
     terminalReason?: TurnTerminalReason | null;
+    resumedFromTurnId?: string | null;
   },
 ): TurnRow | null {
   const changes = {
@@ -230,6 +232,9 @@ export function updateTurnRow(
     ...(input.usageJson === undefined ? {} : { usageJson: input.usageJson }),
     ...(input.errorJson === undefined ? {} : { errorJson: input.errorJson }),
     ...(input.terminalReason === undefined ? {} : { terminalReason: input.terminalReason }),
+    ...(input.resumedFromTurnId === undefined
+      ? {}
+      : { resumedFromTurnId: input.resumedFromTurnId }),
   };
 
   db.update(turns).set(changes).where(eq(turns.id, id)).run();

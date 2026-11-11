@@ -1,5 +1,5 @@
 import type { ModelMessage } from "@larness/agent";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { agentEvents, sessionContextSummaries } from "../../db/schema.js";
@@ -131,6 +131,124 @@ export function checkpointMessage(facts: CheckpointFacts, observedAt: number): M
       bounded,
     ].join("\n"),
   };
+}
+
+interface EventLike {
+  type: string;
+  payloadJson: string;
+}
+
+function payloadOf(event: EventLike): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(event.payloadJson) as unknown;
+    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Rebuild the facts of a finished Turn from its persisted events. Recovery uses
+ * the same shape as the in-Turn checkpoint so both describe facts identically.
+ */
+export function extractFactsFromEvents(events: EventLike[], goal: string): CheckpointFacts {
+  const facts = new TurnFactsBuilder(goal);
+  const toolNames = new Map<string, string>();
+
+  for (const event of events) {
+    const payload = payloadOf(event);
+
+    if (event.type === "tool.requested") {
+      const toolCallId = typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;
+      const name = typeof payload.name === "string" ? payload.name : undefined;
+
+      if (toolCallId !== undefined && name !== undefined) {
+        toolNames.set(toolCallId, name);
+      }
+
+      continue;
+    }
+
+    if (event.type === "tool.completed") {
+      const toolCallId = typeof payload.toolCallId === "string" ? payload.toolCallId : undefined;
+      const toolName = toolCallId === undefined ? undefined : toolNames.get(toolCallId);
+
+      if (toolName === "run_command" && typeof payload.resultSummary === "string") {
+        facts.recordCommand(payload.resultSummary);
+      }
+
+      facts.recordResource(payload.resourceTarget);
+      continue;
+    }
+
+    if (event.type === "file.changed") {
+      if (typeof payload.path === "string" && typeof payload.version === "string") {
+        facts.recordFile(payload.path, payload.version);
+      }
+
+      continue;
+    }
+
+    if (event.type === "tool.failed") {
+      const errorCode = typeof payload.errorCode === "string" ? payload.errorCode : "TOOL_ERROR";
+      const message = typeof payload.message === "string" ? payload.message : "";
+      facts.recordToolFailure(errorCode, message);
+      continue;
+    }
+
+    if (event.type === "plan.updated") {
+      const plan = payload.plan;
+
+      if (typeof plan === "object" && plan !== null) {
+        const steps = (plan as { steps?: unknown }).steps;
+
+        if (Array.isArray(steps)) {
+          facts.recordPlan(
+            steps.flatMap((step) => {
+              if (typeof step !== "object" || step === null) {
+                return [];
+              }
+
+              const record = step as { id?: unknown; title?: unknown; status?: unknown };
+
+              return typeof record.id === "string" && typeof record.title === "string"
+                ? [
+                    {
+                      id: record.id,
+                      title: record.title,
+                      status: String(record.status ?? "pending"),
+                    },
+                  ]
+                : [];
+            }),
+          );
+        }
+      }
+    }
+  }
+
+  return facts.snapshot();
+}
+
+export function loadTurnFacts(db: DbExecutor, turnId: string, goal: string): CheckpointFacts {
+  const rows = db
+    .select()
+    .from(agentEvents)
+    .where(eq(agentEvents.turnId, turnId))
+    .orderBy(asc(agentEvents.seq))
+    .all();
+
+  return extractFactsFromEvents(rows, goal);
+}
+
+export function factsAreEmpty(facts: CheckpointFacts): boolean {
+  return (
+    facts.files.length === 0 &&
+    facts.commands.length === 0 &&
+    facts.failures.length === 0 &&
+    facts.openSteps.length === 0 &&
+    facts.resources.length === 0
+  );
 }
 
 export function latestEventSeq(db: DbExecutor, sessionId: string): number {

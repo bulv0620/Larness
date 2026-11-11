@@ -111,6 +111,8 @@ export const turns = sqliteTable(
     usageJson: text("usage_json"),
     errorJson: text("error_json"),
     terminalReason: text("terminal_reason").$type<TurnTerminalReason>(),
+    /** Set when this Turn continues an interrupted Turn. */
+    resumedFromTurnId: text("resumed_from_turn_id"),
     idempotencyKey: text("idempotency_key"),
     createdAt: integer("created_at").notNull(),
     startedAt: integer("started_at"),

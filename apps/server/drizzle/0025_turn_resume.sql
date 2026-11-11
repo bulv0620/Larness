@@ -1,0 +1,1 @@
+ALTER TABLE `turns` ADD `resumed_from_turn_id` text;

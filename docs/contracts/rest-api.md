@@ -345,6 +345,7 @@
 | DELETE | `/api/sessions/:id` | 归档会话（`status=archived`，不删 workspace / 源码）；活跃 Turn 返回 409 |
 | POST | `/api/sessions/:id/turns` | `{ input, model?, thinking?, credentialProfileId?, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
 | POST | `/api/turns/:id/cancel` | 活跃 Turn 置 `CANCELLING`；无活跃 Turn 返回 409 |
+| POST | `/api/turns/:id/resume` | 仅 `INTERRUPTED` 且已有可接手事实时，新建继承事实的 Turn（`resumedFromTurnId`）；202。非中断 409 `CONFLICT`，无事实 409，模型不可用 409 `RESOURCE_UNAVAILABLE`，Turn 不存在 404 |
 | GET | `/api/sessions/:id/events?after=<seq>&limit=` | 增量事件，按 `seq` 升序；`limit` 1–500（默认 100） |
 | GET | `/api/approvals/:id` | 审批详情（参数摘要、范围、过期时间） |
 | POST | `/api/approvals/:id` | `{ decision: "approve" \| "reject" }`；校验参数哈希与范围 |
@@ -404,6 +405,7 @@
     "usage": null,
     "error": null,
     "terminalReason": null,
+    "resumedFromTurnId": null,
     "createdAt": 1790000000000,
     "startedAt": null,
     "endedAt": null
