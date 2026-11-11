@@ -256,6 +256,37 @@ it("keeps identical provider call IDs distinct across turns and restores termina
     { turnId: "t2", status: "running" },
   ]);
   expect(items[0]).toMatchObject({ turnOutcome: "cancelled", durationMs: 2000 });
+
+  const budgetEvent = {
+    kind: "event",
+    eventId: "e1",
+    protocolVersion: 1,
+    topic: "agent",
+    streamId: "s1",
+    sessionId: "s1",
+    sequence: 5,
+    timestamp: 3_000,
+    type: "turn.completed",
+    payload: { turnId: "t1", status: "COMPLETED", terminalReason: "budget", durationMs: 900 },
+  } as const;
+  const budgetItems = applyServerEvent(
+    [{ id: "u1", kind: "message", role: "user", text: "go", createdAt: 1, turnId: "t1" }],
+    budgetEvent,
+  );
+  expect(budgetItems[0]).toMatchObject({
+    turnOutcome: "completed",
+    terminalReason: "budget",
+    durationMs: 900,
+  });
+
+  const unknownReasonItems = applyServerEvent(
+    [{ id: "u1", kind: "message", role: "user", text: "go", createdAt: 1, turnId: "t1" }],
+    {
+      ...budgetEvent,
+      payload: { turnId: "t1", status: "COMPLETED", terminalReason: "not-a-reason" },
+    },
+  );
+  expect(unknownReasonItems[0]).not.toHaveProperty("terminalReason");
 });
 
 it("keeps the latest single-request usage per model", () => {

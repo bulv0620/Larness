@@ -29,6 +29,7 @@ export const ScheduledJobRunErrorCodeSchema = z.enum([
   "JOB_TIMEOUT",
   "JOB_RUN_CANCELLED",
   "JOB_AGENT_FAILED",
+  "JOB_AGENT_INCOMPLETE",
   "JOB_INTERRUPTED",
   "JOB_OVERLAP",
 ]);

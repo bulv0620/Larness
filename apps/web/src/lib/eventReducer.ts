@@ -6,6 +6,7 @@ import type {
   ServerEvent,
   TimelineItem,
   ToolItem,
+  TurnTerminalReason,
 } from "@larness/shared";
 import { CommandParamsSchema, PlanItemSchema, ResourceTargetSchema } from "@larness/shared";
 
@@ -23,6 +24,23 @@ function stringField(source: Payload, key: string): string | undefined {
 function numberField(source: Payload, key: string): number | undefined {
   const value = source[key];
   return typeof value === "number" ? value : undefined;
+}
+
+const TERMINAL_REASONS = new Set<TurnTerminalReason>([
+  "normal",
+  "budget",
+  "output_truncated",
+  "provider_error",
+  "error",
+  "cancelled",
+  "interrupted",
+]);
+
+function terminalReasonField(source: Payload): TurnTerminalReason | undefined {
+  const value = source.terminalReason;
+  return typeof value === "string" && TERMINAL_REASONS.has(value as TurnTerminalReason)
+    ? (value as TurnTerminalReason)
+    : undefined;
 }
 
 function upsert(items: TimelineItem[], item: TimelineItem): TimelineItem[] {
@@ -275,13 +293,18 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
         : event.type === "turn.cancelled"
           ? "cancelled"
           : "interrupted";
+  const terminalReason = terminalReasonField(data);
   return next.map((item) =>
     item.turnId === turnId && item.kind === "message"
       ? {
           ...item,
           streaming: false,
           ...(item.role === "user"
-            ? { turnOutcome: outcome, durationMs: numberField(data, "durationMs") }
+            ? {
+                turnOutcome: outcome,
+                durationMs: numberField(data, "durationMs"),
+                ...(terminalReason === undefined ? {} : { terminalReason }),
+              }
             : {}),
         }
       : item,

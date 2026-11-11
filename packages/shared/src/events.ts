@@ -65,6 +65,15 @@ export interface AssistantDeltaEvent {
   timestamp: number;
 }
 
+export type TurnTerminalReason =
+  | "normal"
+  | "budget"
+  | "output_truncated"
+  | "provider_error"
+  | "error"
+  | "cancelled"
+  | "interrupted";
+
 export interface MessageItem {
   id: string;
   kind: "message";
@@ -74,6 +83,7 @@ export interface MessageItem {
   turnId?: string;
   streaming?: boolean;
   turnOutcome?: "completed" | "failed" | "cancelled" | "interrupted";
+  terminalReason?: TurnTerminalReason;
   durationMs?: number;
 }
 

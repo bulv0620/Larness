@@ -1,0 +1,1 @@
+ALTER TABLE `turns` ADD `terminal_reason` text;

@@ -97,6 +97,9 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   );
   const failed = user?.turnOutcome === "failed" || user?.turnOutcome === "interrupted";
   const stopped = user?.turnOutcome === "cancelled";
+  // A turn can end "completed" yet still be incomplete: budget stop or truncated output.
+  const budgetStopped = user?.terminalReason === "budget";
+  const truncated = user?.terminalReason === "output_truncated";
   const duration = user?.durationMs;
   const seconds = duration === undefined ? "" : ` · ${Math.round(duration / 1000)}秒`;
   const reasoningPreview = [...items].reverse().find((item) => item.kind === "reasoning")?.text;
@@ -105,9 +108,16 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     reasoningPreview &&
     !tools.some((tool) => tool.status === "running") &&
     pendingApprovals(items).length === 0;
-  const summary = [stopped ? "已停止" : failed ? "执行未完成" : "", summarizeTools(tools) + seconds]
-    .filter(Boolean)
-    .join(" · ");
+  const outcomeLabel = stopped
+    ? "已停止"
+    : failed
+      ? "执行未完成"
+      : budgetStopped
+        ? "预算停止"
+        : truncated
+          ? "输出被截断"
+          : "";
+  const summary = [outcomeLabel, summarizeTools(tools) + seconds].filter(Boolean).join(" · ");
   const visibleProcess = expanded
     ? process
     : process.filter((item) => item.kind === "tool" && item.status === "error");

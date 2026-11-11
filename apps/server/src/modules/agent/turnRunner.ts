@@ -38,7 +38,7 @@ import { z } from "zod";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
-import type { SessionRow, TurnRow, TurnStatus } from "../../db/schema.js";
+import type { SessionRow, TurnRow, TurnStatus, TurnTerminalReason } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { publishAgentEvent } from "../../ws/publisher.js";
 import type { CommandManager } from "../commands/manager.js";
@@ -132,6 +132,29 @@ export type TurnRunResult = {
   status: TurnStatus;
   errorCode?: string;
 };
+
+function deriveTerminalReason(
+  status: TurnStatus,
+  options: { budgetExhausted?: boolean; finishReason?: ProviderFinishReason; errorCode?: string },
+): TurnTerminalReason {
+  if (status === "CANCELLED") {
+    return "cancelled";
+  }
+
+  if (status === "INTERRUPTED") {
+    return "interrupted";
+  }
+
+  if (status === "COMPLETED") {
+    if (options.budgetExhausted === true) {
+      return "budget";
+    }
+
+    return options.finishReason === "length" ? "output_truncated" : "normal";
+  }
+
+  return options.errorCode?.startsWith("PROVIDER_") === true ? "provider_error" : "error";
+}
 
 function isTerminal(status: TurnStatus): boolean {
   return (
@@ -1768,9 +1791,11 @@ export class TurnRunner {
       finishReason?: ProviderFinishReason;
       usage?: ProviderUsage;
       durationMs?: number;
+      terminalReason?: TurnTerminalReason;
     },
   ): TurnRunResult {
     const now = this.#now();
+    const terminalReason = options.terminalReason ?? deriveTerminalReason(status, options);
     const errorJson =
       options.errorCode === undefined
         ? null
@@ -1781,6 +1806,7 @@ export class TurnRunner {
       updateTurnRow(tx, turn.id, {
         status,
         endedAt: now,
+        terminalReason,
         ...(errorJson === null ? {} : { errorJson }),
         ...(options.usage === undefined ? {} : { usageJson: JSON.stringify(options.usage) }),
       });
@@ -1800,6 +1826,7 @@ export class TurnRunner {
             ? {}
             : { budgetExhausted: options.budgetExhausted }),
           ...(options.finishReason === undefined ? {} : { finishReason: options.finishReason }),
+          terminalReason,
         },
         now,
       });
@@ -1811,6 +1838,7 @@ export class TurnRunner {
         resourceId: turn.id,
         details: {
           status,
+          terminalReason,
           ...(options.errorCode === undefined ? {} : { errorCode: options.errorCode }),
           ...(options.budgetExhausted === undefined
             ? {}

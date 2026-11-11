@@ -228,7 +228,7 @@ And 拆分提交不含任何行为改动
 ## 8. 数据与迁移
 
 - 新列：
-  - `turns.terminal_reason TEXT NULL`（`normal` / `budget` / `output_truncated` / `provider_error` / `cancelled` / `interrupted`）；
+  - `turns.terminal_reason TEXT NULL`（`normal` / `budget` / `output_truncated` / `provider_error` / `error` / `cancelled` / `interrupted`）；
   - `session_context_summaries.scope TEXT NOT NULL DEFAULT 'session'`（`session` | `turn`）；
   - `session_context_summaries.turn_id TEXT NULL`；
   - `session_context_summaries.reason TEXT NULL`（`open_turn` / `soft_watermark` / `rebuilt`）。

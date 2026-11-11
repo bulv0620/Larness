@@ -1,7 +1,7 @@
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
-import type { TurnRow, TurnStatus } from "../../db/schema.js";
+import type { TurnRow, TurnStatus, TurnTerminalReason } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { appendAgentEvent } from "../agent/events.js";
 import { resolveCatalogSelection } from "../models/catalog.js";
@@ -45,6 +45,7 @@ export interface TurnDto {
   input: { text: string };
   usage: unknown;
   error: unknown;
+  terminalReason: TurnTerminalReason | null;
   createdAt: number;
   startedAt: number | null;
   endedAt: number | null;
@@ -114,6 +115,7 @@ export function turnDto(row: TurnRow): TurnDto {
         : { text: "" },
     usage: parseJson(row.usageJson),
     error: parseJson(row.errorJson),
+    terminalReason: row.terminalReason,
     createdAt: row.createdAt,
     startedAt: row.startedAt,
     endedAt: row.endedAt,

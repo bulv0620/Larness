@@ -1,7 +1,8 @@
-import type { ScheduledJobApprovalPolicy } from "@larness/shared";
+import type { ScheduledJobApprovalPolicy, ScheduledJobRunErrorCode } from "@larness/shared";
 import { eq } from "drizzle-orm";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
+import type { TurnTerminalReason } from "../../db/schema.js";
 import {
   type ScheduledJobRow,
   type ScheduledJobRunRow,
@@ -30,6 +31,33 @@ export interface AgentJobExecutorOptions {
 
 function policy(value: string | null): ScheduledJobApprovalPolicy {
   return value === "autonomous" ? "autonomous" : "readonly";
+}
+
+
+
+export const JOB_AGENT_INCOMPLETE: ScheduledJobRunErrorCode = "JOB_AGENT_INCOMPLETE";
+
+/**
+ * A Turn that stopped on a budget or truncation is not a successful job run.
+ * `null` keeps pre-migration rows and genuine completions compatible.
+ */
+export function incompleteTurnError(
+  reason: TurnTerminalReason | null,
+): { errorCode: ScheduledJobRunErrorCode; errorMessage: string } | null {
+  if (reason === null || reason === "normal") {
+    return null;
+  }
+
+  const message =
+    reason === "budget"
+      ? "Agent 任务因预算耗尽提前结束，请复核已完成的部分"
+      : reason === "output_truncated"
+        ? "Agent 输出被截断，任务未完整完成"
+        : reason === "cancelled" || reason === "interrupted"
+          ? "Agent 任务未正常结束"
+          : "Agent 任务失败";
+
+  return { errorCode: JOB_AGENT_INCOMPLETE, errorMessage: message };
 }
 
 function turnError(value: string | null): string | null {
@@ -216,6 +244,21 @@ export class AgentJobExecutor {
       }
 
       if (final.status === "COMPLETED") {
+        const incomplete = incompleteTurnError(final.terminalReason);
+
+        if (incomplete !== null) {
+          return {
+            status: "failed",
+            exitCode: null,
+            output: "",
+            truncated: false,
+            errorCode: incomplete.errorCode,
+            errorMessage: incomplete.errorMessage,
+            sessionId: session.id,
+            turnId: created.turnId,
+          };
+        }
+
         return {
           status: "succeeded",
           exitCode: 0,
@@ -277,6 +320,7 @@ export class AgentJobExecutor {
           id: turns.id,
           status: turns.status,
           errorJson: turns.errorJson,
+          terminalReason: turns.terminalReason,
         })
         .from(turns)
         .where(eq(turns.id, turnId))

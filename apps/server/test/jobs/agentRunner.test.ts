@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
-import { AgentJobExecutor } from "../../src/modules/jobs/agentRunner.js";
+import { AgentJobExecutor, incompleteTurnError } from "../../src/modules/jobs/agentRunner.js";
 import { jobById } from "../../src/modules/jobs/repository.js";
 import { JobService } from "../../src/modules/jobs/service.js";
 import { getSessionById } from "../../src/modules/sessions/repository.js";
@@ -128,6 +128,21 @@ function queuedRun(jobId: string) {
     createdAt: 1,
   };
 }
+
+describe("incomplete turn mapping", () => {
+  it("does not count a budget or truncated turn as a successful run", () => {
+    expect(incompleteTurnError(null)).toBeNull();
+    expect(incompleteTurnError("normal")).toBeNull();
+
+    expect(incompleteTurnError("budget")).toEqual({
+      errorCode: "JOB_AGENT_INCOMPLETE",
+      errorMessage: "Agent 任务因预算耗尽提前结束，请复核已完成的部分",
+    });
+    expect(incompleteTurnError("output_truncated")?.errorCode).toBe("JOB_AGENT_INCOMPLETE");
+    expect(incompleteTurnError("provider_error")?.errorCode).toBe("JOB_AGENT_INCOMPLETE");
+    expect(incompleteTurnError("cancelled")?.errorCode).toBe("JOB_AGENT_INCOMPLETE");
+  });
+});
 
 describe("agent job cancellation", () => {
   it("times out and cancels the Turn when no runner settles it", async () => {

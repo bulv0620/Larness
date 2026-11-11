@@ -36,6 +36,7 @@ export function repairInterruptedTurns(options: RepairInterruptedTurnsOptions): 
       updateTurnRow(tx, current.id, {
         status,
         endedAt: now,
+        terminalReason: "interrupted",
         errorJson: JSON.stringify(INTERRUPTED_ERROR),
       });
       appendAgentEvent(tx, {

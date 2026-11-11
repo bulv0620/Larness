@@ -7,6 +7,7 @@ import {
   sessions,
   type TurnRow,
   type TurnStatus,
+  type TurnTerminalReason,
   turns,
 } from "../../db/schema.js";
 
@@ -152,6 +153,7 @@ export function createTurnRow(db: DbExecutor, input: CreateTurnRowInput): TurnRo
     inputJson: input.inputJson,
     usageJson: null,
     errorJson: null,
+    terminalReason: null,
     idempotencyKey: input.idempotencyKey,
     createdAt: input.now,
     startedAt: null,
@@ -216,6 +218,7 @@ export function updateTurnRow(
     endedAt?: number | null;
     usageJson?: string | null;
     errorJson?: string | null;
+    terminalReason?: TurnTerminalReason | null;
   },
 ): TurnRow | null {
   const changes = {
@@ -226,6 +229,7 @@ export function updateTurnRow(
     ...(input.endedAt === undefined ? {} : { endedAt: input.endedAt }),
     ...(input.usageJson === undefined ? {} : { usageJson: input.usageJson }),
     ...(input.errorJson === undefined ? {} : { errorJson: input.errorJson }),
+    ...(input.terminalReason === undefined ? {} : { terminalReason: input.terminalReason }),
   };
 
   db.update(turns).set(changes).where(eq(turns.id, id)).run();

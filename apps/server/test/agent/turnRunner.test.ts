@@ -479,6 +479,135 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("records a normal terminal reason for a completed turn", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "normal" });
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: createFakeProvider([textStep("ok")]), model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const row = opened.sqlite
+          .prepare("SELECT status, terminal_reason FROM turns WHERE id = ?")
+          .get(turn.turnId) as { status: string; terminal_reason: string | null };
+        expect(row.status).toBe("COMPLETED");
+        expect(row.terminal_reason).toBe("normal");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("marks a length-limited answer as output_truncated instead of plain completion", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "truncated" });
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({
+            adapter: createFakeProvider([
+              {
+                chunks: [
+                  { type: "text-delta", text: "partial" },
+                  { type: "finish", finishReason: "length" },
+                ],
+              },
+            ]),
+            model: "fake",
+          }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const row = opened.sqlite
+          .prepare("SELECT terminal_reason FROM turns WHERE id = ?")
+          .get(turn.turnId) as { terminal_reason: string | null };
+        expect(row.terminal_reason).toBe("output_truncated");
+
+        const completed = listSessionEvents(opened.db, session.id).items.find(
+          (event) => event.type === "turn.completed",
+        );
+        expect(completed?.payload).toMatchObject({ terminalReason: "output_truncated" });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("records provider failures and budget stops with their own terminal reason", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const failedTurn = createTurn(sessionOptions, {
+          sessionId: session.id,
+          text: "provider fails",
+        });
+        const failing = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({
+            adapter: createFakeProvider([
+              {
+                chunks: [
+                  {
+                    type: "error",
+                    error: new ProviderError("PROVIDER_CONTEXT_LIMIT", "context limit exceeded"),
+                  },
+                ],
+              },
+            ]),
+            model: "fake",
+          }),
+        });
+
+        expect((await failing.run(failedTurn.turnId)).status).toBe("FAILED");
+
+        const failedRow = opened.sqlite
+          .prepare("SELECT terminal_reason FROM turns WHERE id = ?")
+          .get(failedTurn.turnId) as { terminal_reason: string | null };
+        expect(failedRow.terminal_reason).toBe("provider_error");
+
+        const budgetTurn = createTurn(sessionOptions, { sessionId: session.id, text: "budget" });
+        const slow = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({
+            adapter: createFakeProvider([
+              { delayMs: 30_000, chunks: [{ type: "finish", finishReason: "stop" }] },
+            ]),
+            model: "fake",
+          }),
+          budget: { maxDurationMs: 50 },
+        });
+
+        expect((await slow.run(budgetTurn.turnId)).status).toBe("COMPLETED");
+
+        const budgetRow = opened.sqlite
+          .prepare("SELECT terminal_reason FROM turns WHERE id = ?")
+          .get(budgetTurn.turnId) as { terminal_reason: string | null };
+        expect(budgetRow.terminal_reason).toBe("budget");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("keeps reasoning in memory for the tool loop and never persists it", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

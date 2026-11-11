@@ -12,7 +12,7 @@
 | HX-0 | 规格、ADR 与契约草案 | — | `done` |
 | HX-1 | 用量细分（阶段耗时移至 HX-2） | HX-0 | `done` |
 | HX-2 | 截止时间与请求级约束 | HX-0 | `done` |
-| HX-3 | 终态原因落库与 Job 判定 | HX-2 | `todo` |
+| HX-3 | 终态原因落库与 Job 判定 | HX-2 | `done` |
 | HX-4 | 工具结果结构裁剪 | HX-0 | `todo` |
 | HX-5 | 稳定前缀与资源观察移位 | HX-1 | `todo` |
 | HX-6 | 每步预算预检与估算校准 | HX-1 | `todo` |
@@ -84,7 +84,7 @@
 
 ### HX-3 终态原因落库与 Job 判定
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11）
 - 依赖：HX-2
 - 目标：完成、预算、截断、Provider 失败、取消四端一致；自动化不再把预算停止记为成功。
 - 交付物：
@@ -97,6 +97,11 @@
 - 测试：Job 执行器单测；turnRunner 终态矩阵（步数/工具数/时长/截断/取消）；`eventReducer` 单测。
 - 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`apps/server/src/modules/jobs/agentRunner.ts`、`apps/server/src/modules/sessions/turns.ts`、`apps/server/src/db/schema.ts`、`apps/server/drizzle/`、`apps/web/src/lib/eventReducer.ts`、`docs/contracts/{ws-events,rest-api,data-model}.md`、`specs/064-scheduler/spec.md`
 - 备注：`TurnStatus` 枚举不变（D2 推荐方案）；如人类选择新增枚举，本任务改为迁移 + 全量读取方改造。
+- 实现要点：迁移 `0023_turn_terminal_reason.sql` 加可空 `turns.terminal_reason`；`TurnTerminalReason` 定义在 `@larness/shared`（web 与 server 共用），枚举在 spec 六值基础上增加 `error`，用于非 Provider 的失败（如锁冲突、审批无效），避免把这类失败误标为 `provider_error`。
+- 终态推导集中在 `#finalize`：`budgetExhausted` → `budget`，`finishReason=length` → `output_truncated`，取消 / 中断 / Provider 错误码前缀分别映射；事件、REST DTO、审计 detail 三处同值。
+- Job 判定：`AgentJobExecutor` 把非 `normal` 的 `COMPLETED` 记为 `failed` + `JOB_AGENT_INCOMPLETE`（新增到 `ScheduledJobRunErrorCode`），旧 Turn 的 `NULL` 仍按 `normal` 兼容。
+- UI：时间线在 `completed` 但 `terminalReason` 为 `budget` / `output_truncated` 时显示「预算停止」「输出被截断」；**视觉验收待用户确认**（本环境无浏览器）。
+- 验证：`apps/server` `turnRunner + repair + agentRunner` 26 通过；`apps/web` 158 通过；`test/agent` 63 通过 / 9 个既有环境性失败；全包 typecheck 与 biome 通过。
 
 ### HX-4 工具结果结构裁剪
 
@@ -159,6 +164,7 @@
 - 验收：A5、A8 通过；检查点前后体积同口径可比；`degraded` 不覆盖旧摘要。
 - 测试：30 步长 Turn 集成测试；tool call/result 配对完整性断言；摘要超时用例。
 - 涉及路径：`apps/server/src/modules/agent/{turnRunner,contextCompressor,contextAssembler}.ts`、`apps/server/src/db/schema.ts`、`apps/server/drizzle/`、`docs/contracts/{data-model,ws-events}.md`、`specs/063-multi-provider/spec.md`
+- 备注：迁移号顺延——`0023` 已被 HX-3 占用，本任务使用 `0024`，071 的恢复切片顺延为 `0025`。
 - 备注：不复用 `compressContext`——它排除当前 Turn 且只读已持久化文本；需新增独立函数并复用其脱敏与持久化路径。
 
 ### HX-8 编码工具效率与只读并发

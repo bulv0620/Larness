@@ -1,3 +1,4 @@
+import type { TurnTerminalReason } from "@larness/shared";
 import { sql } from "drizzle-orm";
 import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
@@ -25,6 +26,8 @@ export type TurnStatus =
   | "FAILED"
   | "CANCELLED"
   | "INTERRUPTED";
+export type { TurnTerminalReason } from "@larness/shared";
+
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ResourceLockType = "project" | "service" | "file" | "git" | "global-maintenance";
 export type ModelProviderId = "deepseek" | "glm" | "openai-compatible";
@@ -105,6 +108,7 @@ export const turns = sqliteTable(
     inputJson: text("input_json").notNull(),
     usageJson: text("usage_json"),
     errorJson: text("error_json"),
+    terminalReason: text("terminal_reason").$type<TurnTerminalReason>(),
     idempotencyKey: text("idempotency_key"),
     createdAt: integer("created_at").notNull(),
     startedAt: integer("started_at"),
