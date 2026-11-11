@@ -417,7 +417,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     if (options.turnRunner !== false) {
       const registry = createFileToolRegistry();
       registry.register(createPlanTool({ db: opened.db, secretStore }));
-      registry.register(createCommandTool({ db: opened.db, secretStore }));
+      registry.register(createCommandTool({ secretStore }));
       for (const tool of createTerminalTools({ db: opened.db, secretStore }))
         registry.register(tool);
       for (const tool of createTerminalControlTools({ db: opened.db, secretStore }))

@@ -18,7 +18,7 @@
 | HX-6 | 每步预算预检与估算校准 | HX-1 | `done` |
 | HX-7 | 长 Turn 检查点与有界降级 | HX-6、HX-4 | `done` |
 | HX-8 | 编码工具效率与只读并发 | HX-4 | `done`（搜索效率；并发按 D7 不做） |
-| HX-9 | 工具参数校验的秘密查询收敛（卫生项） | HX-0 | `todo` |
+| HX-9 | 工具参数校验的秘密查询收敛（卫生项） | HX-0 | `done` |
 | HX-10 | 重复失败调用的循环干预 | HX-0 | `done` |
 | HX-11 | Turn 级 token 消耗上限 | HX-1 | `done` |
 | HX-12 | turnRunner 机械拆分（纯函数层） | HX-0 | `done` |
@@ -204,7 +204,7 @@
 
 ### HX-9 工具参数校验的秘密查询收敛（卫生项）
 
-- 状态：`todo`
+- 状态：`done`（2026-11-12，D8 已确认）
 - 依赖：HX-0
 - 目标：把「每次工具参数校验都全表查询并解密全部秘密」收敛为每 Turn 一次查询，同时保持凭据出现在命令参数时的拦截能力。
 - 交付物：
@@ -214,7 +214,9 @@
 - 验收：含秘密的参数仍被拒（正反例）；秘密轮换后新 Turn 生效；`pnpm check` 与命令审批回归通过。
 - 测试：`apps/server/test/agent/` 命令工具正反例；断言每 Turn 查询次数。
 - 涉及路径：`apps/server/src/modules/agent/commandTool.ts`、`apps/server/src/modules/agent/turnRunner.ts`、`apps/server/src/modules/models/repository.ts`
-- 备注：**这是卫生项（可读性 + 明文驻留次数），不是性能项**——实测该路径为微秒级，收益不在耗时。D8 未确认前保持现状：若要跨 Turn 缓存明文，必须先评估明文驻留期延长，默认不做。
+- 实现要点：秘密检查从 Zod `superRefine` 移到 `run_command` 的 handler——schema 只做结构校验；`ToolContext.loadSecrets` 由 runner 注入，`turn/secrets.ts` 的 `createSecretLoader` 保证**每 Turn 只查一次表**；每次调用仍逐条解密（`commandSecretVerdict`），明文不跨调用缓存。秘密存在但没有 store 时失败关闭（`Command protection unavailable`）。
+- 验证：新增 `commandSecret.test.ts` 5 个用例——命中拦截、无秘密放行、无 store 失败关闭、loader 每 Turn 只调一次、两次调用两次解密且被拦命令不执行；`test/agent` 87 通过 / 9 个既有环境性失败；biome 与 typecheck 通过。
+- 备注：**这是卫生项（可读性 + 明文驻留次数），不是性能项**——实测该路径为微秒级，收益不在耗时。按 D8 不跨 Turn 缓存明文，也顺带把 `createCommandTool` 的 `db` 依赖去掉（不再自己查询）。
 
 ### HX-10 重复失败调用的循环干预
 

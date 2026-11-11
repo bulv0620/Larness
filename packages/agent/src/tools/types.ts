@@ -6,6 +6,13 @@ export type ApprovalPolicy = "standard" | "strict" | "readonly" | "autonomous";
 
 export type ToolAccessDecision = "allow" | "require_approval" | "deny";
 
+/** Structural form of an encrypted credential row; decryption stays in the server. */
+export interface EncryptedSecretRef {
+  ciphertext: string;
+  nonce: string;
+  tag: string;
+}
+
 export interface ToolContext {
   projectRoot: string;
   ignore?: string[];
@@ -28,6 +35,8 @@ export interface ToolContext {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  /** Per-Turn cached secret rows; callers must not cache plaintext. */
+  loadSecrets?: () => EncryptedSecretRef[];
 }
 
 export interface ToolResult {

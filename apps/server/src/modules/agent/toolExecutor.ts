@@ -55,6 +55,7 @@ export interface ExecuteToolInput {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  loadSecrets?: () => import("@larness/agent").EncryptedSecretRef[];
 }
 
 export type ToolExecutionOutcome =
@@ -420,6 +421,7 @@ export async function executeTool(
           },
         }
       : {}),
+    ...(input.loadSecrets ? { loadSecrets: input.loadSecrets } : {}),
     ...(input.refreshObservations
       ? {
           refreshObservations: async () => {

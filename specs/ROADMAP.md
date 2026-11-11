@@ -319,13 +319,13 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | HX-6 | [每步预算预检与估算校准](070-runtime-efficiency/tasks.md#hx-6-每步预算预检与估算校准) | HX-1 | `done` |
 | HX-7 | [长 Turn 检查点与有界降级](070-runtime-efficiency/tasks.md#hx-7-长-turn-检查点与有界降级) | HX-6、HX-4 | `done` |
 | HX-8 | [编码工具效率与只读并发](070-runtime-efficiency/tasks.md#hx-8-编码工具效率与只读并发) | HX-4 | `done`（搜索效率；并发不做） |
-| HX-9 | [工具参数校验的秘密查询收敛](070-runtime-efficiency/tasks.md#hx-9-工具参数校验的秘密查询收敛卫生项) | HX-0 | `todo` |
+| HX-9 | [工具参数校验的秘密查询收敛](070-runtime-efficiency/tasks.md#hx-9-工具参数校验的秘密查询收敛卫生项) | HX-0 | `done` |
 | HX-10 | [重复失败调用的循环干预](070-runtime-efficiency/tasks.md#hx-10-重复失败调用的循环干预) | HX-0 | `done` |
 | HX-11 | [Turn 级 token 消耗上限](070-runtime-efficiency/tasks.md#hx-11-turn-级-token-消耗上限) | HX-1 | `done`（默认关闭，待 D10） |
 | HX-12 | [turnRunner 机械拆分](070-runtime-efficiency/tasks.md#hx-12-turnrunner-机械拆分前置工程动作) | HX-0 | `done`（纯函数层；循环体见 HX-12b） |
 | HX-12b | [turnRunner 循环体拆分](070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) | HX-12 | `todo` |
 
-### 8.2 M6 后续：Turn 恢复与数据保留（071，draft）
+### 8.2 M6 后续：Turn 恢复与数据保留（071，ready）
 
 目标：让被中断的长 Turn 由新 Turn 接手（复用 070 HX-7 的事实），并给事件、Turn、摘要明确寿命。行为与破坏性操作见 [ADR-058](../docs/adr/ADR-058-turn-recovery-retention.md)（`proposed`）。清理默认关闭，只做 dry-run。
 
@@ -333,7 +333,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| TR-0 | [规格与 ADR 草案](071-turn-recovery/tasks.md#tr-0-规格与-adr-草案) | — | `review` |
+| TR-0 | [规格与 ADR 草案](071-turn-recovery/tasks.md#tr-0-规格与-adr-草案) | — | `done` |
 | TR-1 | [数据体积诊断（只读）](071-turn-recovery/tasks.md#tr-1-数据体积诊断只读) | TR-0 | `todo` |
 | TR-2 | [中断 Turn 恢复](071-turn-recovery/tasks.md#tr-2-中断-turn-恢复新-turn-接手) | TR-0、070 HX-7 | `todo` |
 | TR-3 | [恢复入口与确认交互](071-turn-recovery/tasks.md#tr-3-恢复入口与确认交互) | TR-2 | `todo` |

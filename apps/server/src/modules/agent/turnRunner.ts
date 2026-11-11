@@ -43,6 +43,7 @@ import { immediateTransaction } from "../../db/transaction.js";
 import { publishAgentEvent } from "../../ws/publisher.js";
 import type { CommandManager } from "../commands/manager.js";
 import type { GitManager } from "../git/manager.js";
+import { listEncryptedSecrets } from "../models/repository.js";
 import { getProjectById } from "../projects/repository.js";
 import type { ServiceManager } from "../services/manager.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
@@ -62,6 +63,7 @@ import {
 } from "./tokenEstimator.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
 import { addUsage, DEFAULT_BUDGET, deriveTerminalReason, type TurnBudget } from "./turn/budget.js";
+import { createSecretLoader } from "./turn/secrets.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
 import {
   boundedTerminalOutput,
@@ -320,6 +322,8 @@ export class TurnRunner {
     let anchoredProviderTokens: number | undefined;
     const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
     const repeatFailures = new Map<string, number>();
+    // One secret table read per Turn (D8); plaintext is still decrypted per call.
+    const loadSecrets = createSecretLoader(() => listEncryptedSecrets(this.#options.db));
 
     const finalize = (
       status: TurnStatus,
@@ -1013,6 +1017,7 @@ export class TurnRunner {
               return gitFailure(error, "Git action failed");
             }
           },
+          loadSecrets,
           refreshObservations: async () => {
             if (checkBudget() !== "ok") {
               return {

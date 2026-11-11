@@ -22,7 +22,7 @@ it("provides PM2 environment and project associations to the normal command cont
       const turn = getTurnById(opened.db, created.turnId);
       if (!sessionRow || !turn) throw new Error("fixture missing");
       const registry = createFileToolRegistry();
-      registry.register(createCommandTool({ db: opened.db }));
+      registry.register(createCommandTool({}));
       const context = assembleContext(
         {
           db: opened.db,

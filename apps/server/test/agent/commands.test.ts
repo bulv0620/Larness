@@ -5,6 +5,7 @@ import { expect, it } from "vitest";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
 import { createCommandTool } from "../../src/modules/agent/commandTool.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
+import { listEncryptedSecrets } from "../../src/modules/models/repository.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -66,7 +67,7 @@ async function fixture(
     },
   ]);
   const registry = createFileToolRegistry();
-  registry.register(createCommandTool({ db: started.running.db }));
+  registry.register(createCommandTool({}));
   const events: { type: string; payload: unknown }[] = [];
   const runner = new TurnRunner({
     db: started.running.db,
@@ -387,12 +388,23 @@ it("rejects known credential literals including quotes before creating approval 
       });
       expect(response.statusCode).toBe(201);
       const tool = createCommandTool({
-        db: f.started.running.db,
         secretStore: f.started.running.commands.options.secretStore,
       });
-      expect(tool.schema.safeParse({ executable: process.execPath, args: [secret] }).success).toBe(
-        false,
+      // The credential check moved from the schema into the handler so the
+      // secret rows can be read once per Turn (D8).
+      const outcome = await tool.execute(
+        { executable: process.execPath, args: [secret] },
+        {
+          projectRoot: dir,
+          loadSecrets: () => listEncryptedSecrets(f.started.running.db),
+          runCommand: async () => ({ ok: true, summary: "should not run" }),
+        },
       );
+      expect(outcome).toMatchObject({
+        ok: false,
+        errorCode: "FORBIDDEN",
+        summary: "Protected credentials cannot be command arguments",
+      });
     } finally {
       await stopAuthorizedServer(f.started);
     }

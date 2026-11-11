@@ -2,7 +2,7 @@
 id: 071-turn-recovery
 title: Turn 恢复与数据保留
 milestone: M6
-status: draft
+status: ready
 depends_on: [070-runtime-efficiency]
 owners: [human]
 created: 2026-11-11
@@ -11,7 +11,7 @@ updated: 2026-11-11
 
 # Turn 恢复与数据保留（M6 后续）
 
-> 状态：`draft`（2026-11-11 起草，待人类确认第 13 节 D1–D4）。本切片是 [070](../070-runtime-efficiency/spec.md) 的后续：070 让长 Turn「要么完成、要么诚实停止并留下事实」，本切片让这些事实可以被**下一次 Turn 接手**，并给历史数据一个明确的寿命。
+> 状态：`ready`（2026-11-12 人类确认 D1–D4 全部采用推荐方案，[ADR-058](../../docs/adr/ADR-058-turn-recovery-retention.md) accepted）。本切片是 [070](../070-runtime-efficiency/spec.md) 的后续：070 让长 Turn「要么完成、要么诚实停止并留下事实」，本切片让这些事实可以被**下一次 Turn 接手**，并给历史数据一个明确的寿命。
 > 依赖 070 交付的检查点事实（HX-7）与用量口径（HX-1）；两者未交付前本切片只能做文档与诊断。
 
 ## 1. 背景与问题

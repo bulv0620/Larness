@@ -1,6 +1,6 @@
 # ADR-058 中断 Turn 的接手恢复与事件保留策略
 
-- 状态 proposed（2026-11-11 草案，待人类负责人确认 D1–D4）。确认后改为 accepted 并记录日期。
+- 状态 accepted（2026-11-12，人类直接确认 D1–D4 全部采用推荐方案）。
 - 关联：[071 spec](../../specs/071-turn-recovery/spec.md)、[070 运行时效率](../../specs/070-runtime-efficiency/spec.md)、[ADR-055](ADR-055-npm-update-security.md)（升级前备份）、[ADR-054](ADR-054-scheduler-execution.md)（自动化执行边界）、[工程宪法](../../CONSTITUTION.md) 第三条（失败关闭）、第六条（秘密不进入模型与前端）。
 - 实施状态：未实施。规格 `draft`；TR-4（删除）必须在 D2、D3 确认且 TR-1 体积报告完成后才可开工。
 

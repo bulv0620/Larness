@@ -157,4 +157,4 @@ accepted，2026-11-11 人类直接确认 D1–D7 全部采用推荐方案。syst
 
 ## ADR-058 · 中断 Turn 的接手恢复与事件保留策略（2026-11-11）
 
-proposed，待人类确认 D1–D4。恢复通过新建 Turn 接手、旧 Turn 不可变且不自动续跑（避免重复副作用）；清理默认 dry-run 不删数据，开启后按会话整段删除并要求先备份与审计。见 [ADR-058](ADR-058-turn-recovery-retention.md) 与 [071 spec](../../specs/071-turn-recovery/spec.md)。
+accepted，2026-11-12 人类直接确认 D1–D4 全部采用推荐方案。恢复通过新建 Turn 接手、旧 Turn 不可变且不自动续跑（避免重复副作用）；清理默认 dry-run 不删数据，开启后按会话整段删除并要求先备份与审计。见 [ADR-058](ADR-058-turn-recovery-retention.md) 与 [071 spec](../../specs/071-turn-recovery/spec.md)。
