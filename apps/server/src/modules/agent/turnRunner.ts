@@ -54,6 +54,12 @@ import { compressContext, shouldCompress } from "./contextCompressor.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
 import { buildObservationSnapshot } from "./observationSnapshot.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
+import {
+  calibrateEstimate,
+  contextWatermark,
+  estimateRequestTokens,
+  reservedOutputTokens,
+} from "./tokenEstimator.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
 
 function commandDisplay(params: unknown) {
@@ -492,6 +498,8 @@ export class TurnRunner {
       toolMs: 0,
       firstTokenMs: undefined as number | undefined,
     };
+    let anchoredHeuristicTokens: number | undefined;
+    let anchoredProviderTokens: number | undefined;
 
     const finalize = (
       status: TurnStatus,
@@ -1323,6 +1331,36 @@ export class TurnRunner {
 
         const remainingMs = Math.max(1_000, deadline - this.#now());
         const stepStartedAt = this.#now();
+        const heuristicTokens = estimateRequestTokens(messages, tools);
+        const estimatedInputTokens = calibrateEstimate({
+          heuristicTokens,
+          anchoredHeuristicTokens,
+          anchoredProviderTokens,
+        });
+        const reservedOutput = reservedOutputTokens({
+          maxOutputTokens: this.#budget.maxOutputTokens,
+          contextWindow,
+        });
+        const projectedTokens = estimatedInputTokens + reservedOutput;
+
+        if (projectedTokens > contextWindow) {
+          // Stop honestly instead of letting the provider reject the request.
+          return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
+        }
+
+        if (contextWatermark(projectedTokens, contextWindow) === "soft") {
+          this.#options.logger?.info(
+            {
+              turnId,
+              sessionId: session.id,
+              step: steps,
+              estimatedInputTokens,
+              projectedTokens,
+              contextWindow,
+            },
+            "context soft watermark",
+          );
+        }
 
         for await (const chunk of resolved.adapter.streamStep({
           model: resolved.model,
@@ -1391,6 +1429,11 @@ export class TurnRunner {
         }
 
         usage = addUsage(usage, stepUsage);
+
+        if (stepUsage?.inputTokens !== undefined) {
+          anchoredHeuristicTokens = heuristicTokens;
+          anchoredProviderTokens = stepUsage.inputTokens;
+        }
 
         if (stepUsage !== undefined) {
           this.#emit(turn, session, "model.usage", {

@@ -786,6 +786,38 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("stops before sending a request that would exceed the context window", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "window" });
+        const provider = createFakeProvider([textStep("too late")]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          // Far smaller than the fixed system prompt, so the pre-check must
+          // refuse to send at all instead of letting the provider reject it.
+          resolveProvider: () => ({ adapter: provider, model: "fake", contextWindow: 500 }),
+        });
+
+        const result = await runner.run(turn.turnId);
+
+        expect(result.status).toBe("COMPLETED");
+        expect(provider.calls).toHaveLength(0);
+
+        const row = opened.sqlite
+          .prepare("SELECT terminal_reason FROM turns WHERE id = ?")
+          .get(turn.turnId) as { terminal_reason: string | null };
+        expect(row.terminal_reason).toBe("budget");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("keeps reasoning in memory for the tool loop and never persists it", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

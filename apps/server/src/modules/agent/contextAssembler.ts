@@ -14,6 +14,7 @@ import { getProjectById } from "../projects/repository.js";
 import { parseProjectSettings } from "../projects/service.js";
 import { latestContextSummary } from "./contextCompressor.js";
 import { buildObservationSnapshot } from "./observationSnapshot.js";
+import { estimateRequestTokens } from "./tokenEstimator.js";
 
 const SYSTEM_POLICY = [
   "You are Larness, a local coding agent working in the current authorized workspace.",
@@ -37,7 +38,6 @@ const SERVICE_LIFECYCLE_POLICY = [
  */
 export const PROMPT_VERSION = "m6-1";
 const HISTORY_LIMIT = 40;
-const APPROX_CHARS_PER_TOKEN = 4;
 
 export interface ContextAssemblerOptions {
   db: Database;
@@ -126,12 +126,6 @@ function historyMessages(
   return messages.reverse().slice(-HISTORY_LIMIT);
 }
 
-function estimateTokens(messages: ModelMessage[], tools: ToolSchema[]): number {
-  return Math.ceil(
-    (JSON.stringify(messages).length + JSON.stringify(tools).length) / APPROX_CHARS_PER_TOKEN,
-  );
-}
-
 export function assembleContext(
   options: ContextAssemblerOptions,
   session: SessionRow,
@@ -208,13 +202,13 @@ export function assembleContext(
     1_024,
     Math.floor((options.maxContextTokens || 128_000) * (options.contextRatio ?? 0.8)),
   );
-  let estimatedTokens = estimateTokens(messages, tools);
+  let estimatedTokens = estimateRequestTokens(messages, tools);
   let truncatedHistory = false;
 
   while (estimatedTokens > budgetTokens && messages.length > 2) {
     messages.splice(1, 1);
     truncatedHistory = true;
-    estimatedTokens = estimateTokens(messages, tools);
+    estimatedTokens = estimateRequestTokens(messages, tools);
   }
 
   return {

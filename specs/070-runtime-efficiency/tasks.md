@@ -15,7 +15,7 @@
 | HX-3 | 终态原因落库与 Job 判定 | HX-2 | `done` |
 | HX-4 | 工具结果结构裁剪 | HX-0 | `done` |
 | HX-5 | 稳定前缀与资源观察移位 | HX-1 | `done` |
-| HX-6 | 每步预算预检与估算校准 | HX-1 | `todo` |
+| HX-6 | 每步预算预检与估算校准 | HX-1 | `done` |
 | HX-7 | 长 Turn 检查点与有界降级 | HX-6、HX-4 | `todo` |
 | HX-8 | 编码工具效率与只读并发 | HX-4 | `todo` |
 | HX-9 | 工具参数校验的秘密查询收敛（卫生项） | HX-0 | `todo` |
@@ -143,7 +143,7 @@
 
 ### HX-6 每步预算预检与估算校准
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11）
 - 依赖：HX-1
 - 目标：每步请求前可知是否超预算，且估算误差可控（尤其中文）。
 - 交付物：
@@ -154,7 +154,11 @@
 - 验收：中文长会话不再出现"估算远低于实际"导致的超窗失败；预检不改变开轮 `shouldCompress` 的 70% 规则。
 - 测试：中文、源码、JSON、转义命令参数四组；用真实 `inputTokens` 反向校验。
 - 涉及路径：`apps/server/src/modules/agent/contextAssembler.ts`、`turnRunner.ts`
-- 备注：`APPROX_CHARS_PER_TOKEN=4` 对中文低估约 3 倍，必须替换而非叠加。
+- 实现要点：新增 `tokenEstimator.ts`——ASCII 4 字符/token、CJK 1 字符/token、其他 2 字符/token，工具 schema 单独计入；`calibrateEstimate` 用「上次上游 `inputTokens` × 本轮启发式增长比」锚定；`reservedOutputTokens = min(maxOutputTokens, 15% 窗口)`；`contextWatermark` 给出 ok/soft/hard（0.7 / 0.9）。
+- 每步预检：`estimated + reserved > window` 时以 `budget` 终态停止，**不发请求**；soft 水位只记日志（检查点在 HX-7 落地）。
+- 复用：`contextAssembler` 的开轮估算与截断循环改用同一估算器，删除 `APPROX_CHARS_PER_TOKEN`。
+- 验证：新增 `tokenEstimator.test.ts` 6 个用例（长 ASCII、中文对比、转义命令参数、工具 schema、锚定、水位与预留）；`turnRunner` 新增「窗口过小不发送请求」用例；`turnRunner + contextAssembler + contextCompressor + tokenEstimator` 33 通过；biome 与 typecheck 通过。
+- 备注：`APPROX_CHARS_PER_TOKEN=4` 对中文低估约 3 倍，已整体替换而非叠加。
 
 ### HX-7 长 Turn 检查点与有界降级
 
