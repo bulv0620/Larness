@@ -25,7 +25,7 @@
 
 - 用户于 2026-11-11 选定方案 C「环形仪表」。Header 改为三枚 22px 环（CPU `accent`、RAM `success`、ROM `warning`）加标签与百分比，悬停弹出详情卡；未改变 API、4 秒轮询、`xl` 断点或磁盘不可读时的 `—` 降级。
 - 组件 3 项断言随样式更新，覆盖三项百分比、未知占位与隐藏文本中的精确 GB / TB 值；新增第 4 项验证悬停后出现「服务端资源」详情卡及精确用量。1280 与 1440 显示且无横向溢出，1024 与窄屏隐藏。
-- 鼠标经过环形仪表区域时显示手型光标与 `accent` 圆角选中框，并弹出 D 方案的详情卡。卡片为实底 `surface`、16px 圆角、`shadow-pop`、顶部尖角、状态点、`4s` 徽标与分隔线，含三行图标、进度条和精确值；复用 `@larness/ui` `Hint` 新增的 `card` 变体，居中于触发区上方并在下方展开。Chromium 1280 / 1440 实测卡片、尖角、选中框与光标正确，且无溢出。
+- 鼠标经过环形仪表区域时显示手型光标与 `accent` 圆角选中框，并弹出 D 方案的详情卡。卡片为实底 `surface`、16px 圆角、`shadow-pop`、顶部尖角，无标题栏，仅含三行图标、进度条和精确值；复用 `@larness/ui` `Hint` 新增的 `card` 变体，居中于触发区上方并在下方展开。Chromium 1280 / 1440 实测卡片、尖角、选中框与光标正确，且无溢出。
 - 新增已认证 `GET /api/system/metrics`：CPU 取 `os.cpus()` 增量，内存取 `totalmem - freemem`，磁盘取 Server 数据目录所在卷的 `fs.statfs`。服务端缓存 1 秒，Header 每 4 秒轮询；磁盘读取失败返回 0，前端显示 `—`。契约同步到 `docs/contracts/rest-api.md`。
 - 服务端先行测试：5 个指标单测覆盖 CPU 增量、首次采样、缓存、磁盘失败降级和真实 `statfs`；1 个 API 测试覆盖未认证 401、已认证字段、`no-store` 与不泄露数据目录。
 - `VITEST_MAX_WORKERS=2 pnpm check` 通过：Web 158、Agent 42、Server 577 项通过，12 项沿用既有跳过；Biome 仅报告仓库既有 warning（含配置 schema 2.6.4 / CLI 2.6.6 提示）。

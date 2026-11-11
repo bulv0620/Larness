@@ -104,15 +104,6 @@ function MetricsDetails({ metrics }: { metrics: HostMetrics | null }) {
 
   return (
     <div className="w-[264px]">
-      <div className="mb-2.5 flex items-center justify-between border-b border-line pb-2">
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-success" />
-          <span className="text-[10.5px] font-semibold text-ink">服务端资源</span>
-        </span>
-        <span className="rounded-full bg-surface-2 px-1.5 py-[1px] font-mono text-[8px] text-ink-3">
-          4s
-        </span>
-      </div>
       <div className="space-y-2.5">
         <DetailRow
           icon={Cpu}

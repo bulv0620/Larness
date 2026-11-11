@@ -73,7 +73,7 @@ it("shows the detailed card when hovering the metrics group", async () => {
 
   await user.hover(trigger);
 
-  expect(await screen.findByText("服务端资源")).toBeInTheDocument();
-  expect(screen.getByText("9.6 / 16 GB")).toBeInTheDocument();
+  expect(await screen.findByText("9.6 / 16 GB")).toBeInTheDocument();
   expect(screen.getByText("284 / 460 GB")).toBeInTheDocument();
+  expect(screen.queryByText("服务端资源")).toBeNull();
 });
