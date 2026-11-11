@@ -26,7 +26,8 @@
 - 右侧资源区改为共享 @larness/ui Tabs：默认选中文件、移除「项目资源」标题行、Mock 计数徽标保留、两面板常驻（沿用 M2-26 不丢文件监听与 Git 输入的约束）。按用户补充要求，TabsList 圆角改为 9px 与 7px 触发器同心，轨道改用 `bg-surface-2`（应用内 `dark:` 变体依赖 OS 配色而非主题切换，token 方式两种主题实测正确）；Git 面板 `pt-2` 使提交信息输入框距面板顶部 8px（实测 8px，Tab 栏下沿到内容 14px，面板填满右栏，两 Tab 各 157px 平分）。
 - Mock E2E 23 项通过（默认 5173 端口被既有进程占用，改用独立端口）。五处资源区用例改为 Tab 语义，含切换后仅当前面板可见、Git 面板填满右栏与项目切换空态（改从 TopBar 断言项目名）。
 - 认证定向：default-workspace、files、git、terminals 3 项通过；default-workspace 与 files 因检查 Git 空态后切到 Git Tab，补回切文件 Tab 步骤后再走文件树断言。commands.spec 单独复跑通过；commands 批量运行与 m1:80（项目右键菜单）在干净 main 上同样失败，属[遗留问题](../../docs/open-questions.md)已记录的批量时序抖动与 Windows 测试基线问题，与本任务无关。
-- Web 类型检查、全量 Web 单测 154 项、改动文件 Biome 通过。未运行全量 `pnpm check`、生产构建与整套认证 / 生产 E2E。视觉由用户验收。
+- Web 类型检查、全量 Web 单测 154 项、改动文件 Biome 通过。用户于 2026-11-11 确认视觉验收通过并要求合并推送。
+- 合并前 `VITEST_MAX_WORKERS=2 pnpm check` 首轮 Server 550 项通过但一 worker 在 `services.test.ts` 结束后以 0xC0000005 退出（UI-F4 已记录的 Windows 崩溃模式）；同配置复跑通过，Web 154、Agent 42、Server 552 项通过，31 项沿用既有跳过。已合并 main 并推送。未运行生产构建或整套认证 / 生产 E2E。
 
 ### UI-F12（2026-11-11，Windows）
 
