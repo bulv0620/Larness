@@ -334,7 +334,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | TR-0 | [规格与 ADR 草案](071-turn-recovery/tasks.md#tr-0-规格与-adr-草案) | — | `done` |
-| TR-1 | [数据体积诊断（只读）](071-turn-recovery/tasks.md#tr-1-数据体积诊断只读) | TR-0 | `todo` |
+| TR-1 | [数据体积诊断（只读）](071-turn-recovery/tasks.md#tr-1-数据体积诊断只读) | TR-0 | `done` |
 | TR-2 | [中断 Turn 恢复](071-turn-recovery/tasks.md#tr-2-中断-turn-恢复新-turn-接手) | TR-0、070 HX-7 | `todo` |
 | TR-3 | [恢复入口与确认交互](071-turn-recovery/tasks.md#tr-3-恢复入口与确认交互) | TR-2 | `todo` |
 | TR-4 | [保留策略与清理执行](071-turn-recovery/tasks.md#tr-4-保留策略与清理执行) | TR-1、TR-0 | `todo` |
