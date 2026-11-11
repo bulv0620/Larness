@@ -311,18 +311,54 @@ export interface SearchCodeOptions {
   limit?: number;
   caseSensitive?: boolean;
   ignore?: string[];
+  /** Extra lines around each match, 0-5. */
+  contextLines?: number;
+  /** Restrict to paths matching a simple glob such as `*.ts` or `src/**`. */
+  glob?: string;
+  /** Stop after this many files; a scanning budget for large repositories. */
+  maxFiles?: number;
 }
 
 export interface SearchMatch {
   path: string;
   line: number;
   preview: string;
+  /** Context window around the match, joined with newlines, when requested. */
+  context?: string;
 }
 
 export interface SearchCodeResult {
   matches: SearchMatch[];
   truncated: boolean;
   scannedFiles: number;
+  /** True when the file budget stopped the scan before the tree was exhausted. */
+  scanBudgetExhausted: boolean;
+}
+
+function globToRegExp(glob: string): RegExp {
+  let pattern = "";
+
+  for (let index = 0; index < glob.length; index += 1) {
+    const char = glob[index] ?? "";
+
+    if (char === "*") {
+      if (glob[index + 1] === "*" && glob[index + 2] === "/") {
+        pattern += "(?:.*/)?";
+        index += 2;
+      } else if (glob[index + 1] === "*") {
+        pattern += ".*";
+        index += 1;
+      } else {
+        pattern += "[^/]*";
+      }
+    } else if (char === "?") {
+      pattern += "[^/]";
+    } else {
+      pattern += char.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+
+  return new RegExp(`^${pattern}$`);
 }
 
 export async function searchCode(
@@ -339,12 +375,17 @@ export async function searchCode(
   const limit = Math.min(Math.max(Math.trunc(options.limit ?? 100), 1), 500);
   const ignore = options.ignore ?? [];
   const needle = options.caseSensitive === true ? query : query.toLowerCase();
+  const contextLines = Math.min(Math.max(Math.trunc(options.contextLines ?? 0), 0), 5);
+  const maxFiles = Math.min(Math.max(Math.trunc(options.maxFiles ?? 2_000), 1), 20_000);
+  const globPattern: RegExp | undefined =
+    options.glob === undefined ? undefined : globToRegExp(options.glob);
   const matches: SearchMatch[] = [];
   let scannedFiles = 0;
   let truncated = false;
+  let scanBudgetExhausted = false;
 
   const searchFile = async (file: string): Promise<void> => {
-    if (truncated) {
+    if (truncated || scanBudgetExhausted) {
       return;
     }
 
@@ -360,9 +401,19 @@ export async function searchCode(
       return;
     }
 
-    scannedFiles += 1;
-    const lines = buffer.toString("utf8").split(/\r?\n/);
     const relativePath = toPosix(path.relative(rootReal, file));
+
+    if (globPattern !== undefined && !globPattern.test(relativePath)) {
+      return;
+    }
+
+    scannedFiles += 1;
+
+    if (scannedFiles >= maxFiles) {
+      scanBudgetExhausted = true;
+    }
+
+    const lines = buffer.toString("utf8").split(/\r?\n/);
 
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index] ?? "";
@@ -372,10 +423,19 @@ export async function searchCode(
         continue;
       }
 
+      const context =
+        contextLines === 0
+          ? undefined
+          : lines
+              .slice(Math.max(0, index - contextLines), index + contextLines + 1)
+              .join("\n")
+              .slice(0, 2_000);
+
       matches.push({
         path: relativePath,
         line: index + 1,
         preview: line.trim().slice(0, 240),
+        ...(context === undefined ? {} : { context }),
       });
 
       if (matches.length > limit) {
@@ -395,7 +455,7 @@ export async function searchCode(
       truncated = true;
     }
 
-    return { matches, truncated, scannedFiles };
+    return { matches, truncated, scannedFiles, scanBudgetExhausted };
   }
 
   const walk = async (dir: string): Promise<void> => {
@@ -433,7 +493,7 @@ export async function searchCode(
     truncated = true;
   }
 
-  return { matches, truncated, scannedFiles };
+  return { matches, truncated, scannedFiles, scanBudgetExhausted };
 }
 
 export interface ApplyPatchOptions {

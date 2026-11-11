@@ -17,7 +17,7 @@
 | HX-5 | 稳定前缀与资源观察移位 | HX-1 | `done` |
 | HX-6 | 每步预算预检与估算校准 | HX-1 | `done` |
 | HX-7 | 长 Turn 检查点与有界降级 | HX-6、HX-4 | `done` |
-| HX-8 | 编码工具效率与只读并发 | HX-4 | `todo` |
+| HX-8 | 编码工具效率与只读并发 | HX-4 | `done`（搜索效率；并发按 D7 不做） |
 | HX-9 | 工具参数校验的秘密查询收敛（卫生项） | HX-0 | `todo` |
 | HX-10 | 重复失败调用的循环干预 | HX-0 | `done` |
 | HX-11 | Turn 级 token 消耗上限 | HX-1 | `done` |
@@ -184,7 +184,7 @@
 
 ### HX-8 编码工具效率与只读并发
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11，搜索效率部分）
 - 依赖：HX-4
 - 目标：减少无关扫描与无效读取，评估工具集瘦身与只读并发的真实收益。
 - 交付物：
@@ -194,7 +194,12 @@
 - 验收：搜索定位的 token 开销下降且定位准确率不降；权限、锁、审批语义不变；对比报告有数据。
 - 测试：搜索参数与结果结构单测；并发路径的顺序断言；工具执行权限回归。
 - 涉及路径：`packages/agent/src/tools/fileTools.ts`、`packages/resources/src/files/fileService.ts`、`apps/server/src/modules/agent/turnRunner.ts`、`specs/051-agent-tool-contract/spec.md`
-- 备注：D7 已确认——并发只在本任务内单独评估，默认不做；工具集变更属契约变更，需同步 051 的说明与受影响界面提示。
+- 实现要点：`search_code` 新增 `contextLines`（0–5，返回匹配行上下文的拼接文本）、`glob`（简单通配，支持 `*.ts` / `src/**` / `**/x`）、`maxFiles`（扫描预算，默认 2000，上限 2 万）；`SearchCodeResult` 增加 `scanBudgetExhausted`；工具描述同步说明"用 path/glob/maxFiles 缩小扫描，用 contextLines 代替反复读文件"。
+- 验证：`fileService` 搜索用例覆盖 glob 过滤、上下文行与扫描预算；`packages/agent` 47 通过 / 1 跳过；biome 与 typecheck 通过。
+- **偏差（两项未做，理由记录）**：
+  1. 只读并发按 D7「默认不做」跳过，未实现也未评估——它需要重排工具批次执行顺序，风险高于收益。
+  2. 「固定编码工具集 vs 完整工具集」对比报告未产出：本机没有可用的真实 Provider 凭据与基准环境，凭空写报告会失真；等 HX-1 基线矩阵具备条件后另行评估。
+- 工具 schema 变更属执行契约变更，已在 `specs/051` 同步。
 
 ### HX-9 工具参数校验的秘密查询收敛（卫生项）
 

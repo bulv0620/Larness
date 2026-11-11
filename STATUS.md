@@ -17,7 +17,8 @@
 - **M6-7（HX-7）长 Turn 检查点与有界降级**：`done`（2026-11-11）。迁移 `0024` 给摘要表加 `scope` / `turn_id` / `reason` 与索引；`TurnFactsBuilder` 从执行过程收集已改文件与版本、命令摘要、失败诊断、未完成计划步骤、资源 ID（各有上限）；soft/hard 水位时在完整工具批次后把消息历史替换为一条 `Work state checkpoint` 用户消息，替换后重置估算锚点；新增 `context.checkpoint` 事件；跨轮压缩只读 `scope='session'`，检查点互不污染。**偏差**：检查点不调用模型摘要，只用结构化事实（无 degraded 路径）。顺带修复 `FakeProvider` 记录请求未快照导致跨步断言失真（含 HX-5 前缀门禁）。验证：`test/agent` 79 通过 / 9 个既有环境性失败，`packages/agent` 47、`apps/web` 158 通过，迁移计数与 `schemaVersion` 同步到 24，biome 与 typecheck 通过。
 - **M6-10（HX-10）重复失败调用干预**：`done`（2026-11-11）。同一 `(tool, 规范化参数)` 连续失败计数、成功清零，第 3 次失败后在 tool result 后追加一条事实说明并记 `tool.failed.repeatCount`；不跳过、不改变授权。验证：连续 3 次失败用例通过，`test/agent` 81 通过 / 9 个既有环境性失败。
 - **M6-11（HX-11）token 消耗上限**：`done`（2026-11-11，**默认关闭**）。`TurnBudget.maxTotalTokens` 默认 0（关闭），配置后按 `input+output` 累计在每步预检拦截，超限走 `budget` 终态；用例验证只发 1 次请求即停止。D10 的默认值仍需人类确认，确认后只需改默认值。
-- **M6-8（HX-8）编码工具效率与只读并发**：`todo`（下一个任务，SHOULD）。`search_code` 加上下文行 / glob / 扫描预算；只读并发按 D7 默认不做，仅评估。HX-9（秘密查询收敛）与 HX-12（`turnRunner` 拆分）同为待办，HX-9 需 D8 确认后再动安全相关路径。
+- **M6-8（HX-8）编码工具效率**：`done`（2026-11-11，搜索效率部分）。`search_code` 增加 `contextLines`（0–5）/ `glob` / `maxFiles` 扫描预算，结果增加 `scanBudgetExhausted`，描述提示用范围缩小与上下文替代重复读；`packages/agent` 47 通过 / 1 跳过。**偏差**：只读并发按 D7 不做；「工具集对比报告」因本机无真实 Provider 基准环境未产出（不凭空写数据）。
+- **剩余待办**：HX-9（秘密查询收敛，需 D8 确认）、HX-12（`turnRunner` 机械拆分，纯工程动作）、071 的 TR 系列（需 D1–D4 确认）。**D8、D9、D10 的人类确认仍未完成**；HX-10 已按 spec 建议默认值启用，HX-11 保持默认关闭。
 
 - **M6-0b（HX-9～HX-12 + 071 草案）**：`done`（2026-11-11，仅文档）。在 070 追加 4 个任务：HX-9 秘密查询收敛（卫生项，明确无性能收益）、HX-10 重复失败调用干预、HX-11 token 消耗上限、HX-12 `turnRunner` 机械拆分（建议先于 HX-4 完成以降低回归面）；新增 [071 切片](specs/071-turn-recovery/spec.md)（`draft`）与 [ADR-058](docs/adr/ADR-058-turn-recovery-retention.md)（`proposed`），覆盖中断 Turn 接手恢复与事件保留策略。新增待决 D8–D10（070）与 D1–D4（071），Q-033/Q-034 已登记。未运行 `pnpm check`（仅 Markdown）。
 

@@ -827,7 +827,7 @@ describe("TurnRunner", () => {
         const session = await createSession(sessionOptions, {});
         const small = path.join(session.workspacePath, "a.txt");
         await writeFile(small, "old\n");
-        await writeFile(path.join(session.workspacePath, "big.txt"), "x".repeat(6_000), "utf8");
+        await writeFile(path.join(session.workspacePath, "big.txt"), "x".repeat(20_000), "utf8");
         const version = createHash("sha256").update("old\n").digest("hex");
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "compact me" });
         const provider = createFakeProvider([
@@ -845,11 +845,7 @@ describe("TurnRunner", () => {
                   },
                 },
               },
-              {
-                type: "finish",
-                finishReason: "tool-calls",
-                usage: { inputTokens: 700, outputTokens: 30, totalTokens: 730 },
-              },
+              { type: "finish", finishReason: "tool-calls" },
             ],
           },
           {
@@ -866,7 +862,7 @@ describe("TurnRunner", () => {
         const runner = new TurnRunner({
           db: opened.db,
           registry: createFileToolRegistry(),
-          resolveProvider: () => ({ adapter: provider, model: "fake", contextWindow: 1_900 }),
+          resolveProvider: () => ({ adapter: provider, model: "fake", contextWindow: 3_000 }),
           budget: { maxOutputTokens: 0 },
         });
 

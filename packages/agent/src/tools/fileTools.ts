@@ -33,6 +33,9 @@ const SearchCodeSchema = z
     path: PathSchema.optional(),
     limit: z.number().int().min(1).max(500).optional(),
     caseSensitive: z.boolean().optional(),
+    contextLines: z.number().int().min(0).max(5).optional(),
+    glob: z.string().min(1).max(200).optional(),
+    maxFiles: z.number().int().min(1).max(20_000).optional(),
   })
   .strict();
 
@@ -113,7 +116,8 @@ export function createFileTools() {
     }),
     defineTool({
       name: "search_code",
-      description: "Search for a literal string in project text files.",
+      description:
+        "Search for a literal string in project text files. Narrow the scan with path, glob and maxFiles, and ask for contextLines to see the surrounding code instead of repeated reads.",
       riskLevel: "L0",
       schema: SearchCodeSchema,
       summarize: (args) => `search ${args.query}`,
@@ -124,6 +128,9 @@ export function createFileTools() {
             ...(args.path === undefined ? {} : { path: args.path }),
             ...(args.limit === undefined ? {} : { limit: args.limit }),
             ...(args.caseSensitive === undefined ? {} : { caseSensitive: args.caseSensitive }),
+            ...(args.contextLines === undefined ? {} : { contextLines: args.contextLines }),
+            ...(args.glob === undefined ? {} : { glob: args.glob }),
+            ...(args.maxFiles === undefined ? {} : { maxFiles: args.maxFiles }),
             ...(context.ignore === undefined ? {} : { ignore: context.ignore }),
           });
 

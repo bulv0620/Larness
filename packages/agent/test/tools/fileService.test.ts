@@ -122,6 +122,33 @@ describe("file service", () => {
     });
   });
 
+  it("narrows the scan with glob and budget and can return context lines", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "src"), { recursive: true });
+      await mkdir(path.join(dir, "docs"), { recursive: true });
+      await writeFile(path.join(dir, "src", "one.ts"), "before\ntarget here\nafter\n");
+      await writeFile(path.join(dir, "src", "two.ts"), "target again\n");
+      await writeFile(path.join(dir, "docs", "guide.md"), "target in docs\n");
+
+      const scoped = await searchCode(dir, { query: "target", glob: "src/*.ts" });
+      expect(scoped.matches.map((match) => match.path).sort()).toEqual([
+        "src/one.ts",
+        "src/two.ts",
+      ]);
+
+      const withContext = await searchCode(dir, {
+        query: "target",
+        path: "src/one.ts",
+        contextLines: 1,
+      });
+      expect(withContext.matches[0]?.context).toBe("before\ntarget here\nafter");
+
+      const budgeted = await searchCode(dir, { query: "target", maxFiles: 1 });
+      expect(budgeted.scannedFiles).toBe(1);
+      expect(budgeted.scanBudgetExhausted).toBe(true);
+    });
+  });
+
   it("caps read output at 2000 lines", async () => {
     await withTempDir(async (dir) => {
       const content = Array.from({ length: 2_001 }, (_, index) => `line ${index}`).join("\n");
