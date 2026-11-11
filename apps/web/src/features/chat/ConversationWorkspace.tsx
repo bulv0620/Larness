@@ -1,4 +1,5 @@
 import {
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -8,7 +9,7 @@ import {
 } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal, PanelRight } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { ResourceDock } from "@/components/windows/ResourceDock";
 import { operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
@@ -17,10 +18,12 @@ import { archiveSession } from "@/lib/workspaceApi";
 import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
+import { useTimelineStore } from "@/stores/timelineStore";
 import { Composer } from "./Composer";
 import { PendingApproval } from "./PendingApproval";
 import { RenameSessionDialog } from "./RenameSessionDialog";
 import { Timeline } from "./Timeline";
+import { WelcomeHeading, WelcomeSuggestions } from "./Welcome";
 
 export function ConversationWorkspace() {
   const { data } = useSnapshot();
@@ -28,6 +31,42 @@ export function ConversationWorkspace() {
   const extra = useLocalSessionsStore((state) => state.extra);
   const client = useQueryClient();
   const [renameOpen, setRenameOpen] = useState(false);
+  const centered = useTimelineStore(
+    (state) =>
+      state.sessionId === sessionId && !state.loading && !state.isStreaming && !state.items.length,
+  );
+  const composerRef = useRef<HTMLDivElement>(null);
+  const departure = useRef<{ sessionId: string; top: number } | null>(null);
+  const movement = useRef<Animation | null>(null);
+
+  const captureComposerPosition = () => {
+    if (
+      centered &&
+      composerRef.current &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      departure.current = { sessionId, top: composerRef.current.getBoundingClientRect().top };
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (centered) {
+      movement.current?.cancel();
+      return;
+    }
+    const origin = departure.current;
+    departure.current = null;
+    const composer = composerRef.current;
+    if (origin?.sessionId !== sessionId || !composer || typeof composer.animate !== "function")
+      return;
+    const offset = origin.top - composer.getBoundingClientRect().top;
+    if (offset) {
+      movement.current = composer.animate(
+        [{ transform: `translateY(${offset}px)` }, { transform: "translateY(0)" }],
+        { duration: 290, easing: "cubic-bezier(.22,.75,.25,1)" },
+      );
+    }
+  }, [centered, sessionId]);
   const session = [...(USE_MOCKS ? extra : []), ...data.sessions].find(
     (item) => item.id === sessionId,
   );
@@ -82,17 +121,40 @@ export function ConversationWorkspace() {
           </DropdownMenu>
         </div>
       </header>
-      <Timeline />
+      {centered ? null : <Timeline />}
       <RenameSessionDialog
         session={session ? { id: session.id, title: session.title } : null}
         onClose={() => setRenameOpen(false)}
         open={renameOpen}
       />
-      <div data-testid="composer-dock" className="relative shrink-0 px-4 pb-3 pt-1 sm:px-7">
-        <div className="relative mx-auto w-full max-w-[760px]">
-          <ResourceDock />
+      <div
+        data-testid="composer-dock"
+        data-placement={centered ? "center" : "bottom"}
+        className={cn(
+          "relative px-4 sm:px-7",
+          centered ? "flex min-h-0 flex-1 flex-col overflow-y-auto py-5" : "shrink-0 pb-3 pt-1",
+        )}
+      >
+        <div
+          className={cn(
+            "relative mx-auto flex w-full max-w-[760px] flex-col",
+            centered && "my-auto shrink-0",
+          )}
+        >
+          {centered ? <WelcomeHeading /> : null}
+          {centered ? null : <ResourceDock />}
           <PendingApproval />
-          <Composer />
+          <div ref={composerRef} data-composer-motion className="relative z-10 min-w-0">
+            <Composer centered={centered} onSubmit={captureComposerPosition} />
+          </div>
+          {centered ? (
+            <>
+              <WelcomeSuggestions />
+              <div className="mt-5">
+                <ResourceDock />
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     </main>

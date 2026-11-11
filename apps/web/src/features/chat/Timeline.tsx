@@ -9,7 +9,6 @@ import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { MessageBubble, TimelineItemView } from "./TimelineItemView";
-import { Welcome } from "./Welcome";
 
 interface TurnGroup {
   id: string;
@@ -291,8 +290,6 @@ export function Timeline() {
               <div role="status" className="py-8 text-[12px] text-ink-3">
                 正在加载对话…
               </div>
-            ) : !items.length ? (
-              <Welcome />
             ) : (
               groups.map((group) => (
                 <TurnView

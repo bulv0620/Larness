@@ -35,8 +35,12 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
   await expect(page.getByTestId("workspace-home")).toBeVisible();
   await page.getByRole("button", { name: "在 默认工作区 中新建会话" }).click();
   const input = page.getByLabel("对话输入");
+  const composerDock = page.getByTestId("composer-dock");
+  await expect(composerDock).toHaveAttribute("data-placement", "center");
+  const initialInput = await input.elementHandle();
   await input.fill("conversation plan");
   await page.getByRole("button", { name: "发送消息" }).click();
+  await expect(composerDock).toHaveAttribute("data-placement", "bottom");
   // The fake provider can finish the two steps before a slower CI host renders
   // the intermediate 0/2 label; accepting any plan state keeps this E2E about
   // the durable plan/replay result rather than a scheduling race.
@@ -49,11 +53,13 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
   await expect(page.getByText("计划验证结束。", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
+  expect(await initialInput?.evaluate((element) => element.isConnected)).toBe(true);
   await expect(page.getByRole("button", { name: /计划 · 2\/2/ })).toHaveCount(1);
   await page.screenshot({ path: path.join(tmpdir(), "larness-m2-15-desktop.png") });
   await page.reload();
   const plan = page.getByRole("button", { name: /计划 · 2\/2/ });
   await expect(plan).toHaveCount(1);
+  await expect(composerDock).toHaveAttribute("data-placement", "bottom");
   const log = page.getByRole("log", { name: "会话时间线" });
   await log.evaluate((element) => {
     element.scrollTop = 0;

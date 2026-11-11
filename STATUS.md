@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F9 新对话布局**：`done`（2026-11-11），分支 `task/ui-f9-new-chat`。已实现居中空态、快捷建议和首发 290 ms 落位，必要校验通过，视觉由用户验收。[验收记录](specs/068-ui-fixes/tasks.md#ui-f9-2026-11-11windows)
+
 - **UI-F8 对话执行展示**：`done`（2026-11-11），分支 `task/ui-f8-agent-loop`。沿用工作区主题实现固定状态、工具分类摘要、失败详情入口和正文层级。全量检查、生产构建、Demo 浏览器及认证命令和对话回归通过。[验收记录](specs/068-ui-fixes/tasks.md#ui-f8-2026-11-11windows)
 
 - **UI-F7 操作失败消息**：`done`（2026-11-11），分支 `task/ui-f7-error-messages`。操作失败采用共享浮动消息。文件、Git、自动化与服务登记的认证回归、全量检查、构建和浏览器复验通过。UI-F1～UI-F7 全部完成，详见[验收记录](specs/068-ui-fixes/tasks.md#验收记录)。

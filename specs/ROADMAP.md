@@ -400,6 +400,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
 | UI-F8 | [对话执行展示](068-ui-fixes/spec.md#ui-f8-对话执行展示) | UI-F7 done | `done` |
+| UI-F9 | [新对话布局与输入框过渡](068-ui-fixes/spec.md#ui-f9-新对话布局与输入框过渡) | UI-F8 done | `done` |
 
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
 - 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。

@@ -73,7 +73,13 @@ function thinkingAllowed(
   return ["off", "low", "medium", "high"].includes(thinking);
 }
 
-export function Composer() {
+export function Composer({
+  centered = false,
+  onSubmit,
+}: {
+  centered?: boolean;
+  onSubmit?: () => void;
+}) {
   const [confirmAutonomous, setConfirmAutonomous] = useState(false);
   const [switchNotice, setSwitchNotice] = useState<string | null>(null);
   const { catalog, error: catalogError } = useModelCatalog();
@@ -224,6 +230,7 @@ export function Composer() {
     if (isStreaming || pendingApproval) return;
     const value = draft.trim();
     if (!value) return;
+    onSubmit?.();
     void send(value);
     setDraft("");
     requestAnimationFrame(() => textareaRef.current?.focus());
@@ -241,7 +248,13 @@ export function Composer() {
         ref={textareaRef}
         value={draft}
         rows={1}
-        placeholder={hasSession ? "继续对话，或提出新的任务…" : "新建或选择一个会话…"}
+        placeholder={
+          hasSession
+            ? centered
+              ? "提问、描述要做的改动…"
+              : "继续对话，或提出新的任务…"
+            : "新建或选择一个会话…"
+        }
         aria-label="对话输入"
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
