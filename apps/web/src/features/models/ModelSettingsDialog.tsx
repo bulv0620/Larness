@@ -157,17 +157,31 @@ export function ModelSettingsDialog({
     );
   }, [activeCredential?.id, activeCredential?.endpoint, activeCredential?.contextWindow]);
 
-  const refresh = async () => {
+  const refresh = async (savedCredentialId?: string) => {
     setBusy(true);
     setError(null);
 
     try {
-      setCatalog(await refreshModelCatalog());
-      await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
+      const nextCatalog = await refreshModelCatalog();
+      setCatalog(nextCatalog);
+      const savedGroup = nextCatalog.groups.find(
+        (group) => group.credentialProfileId === savedCredentialId,
+      );
+      if (savedCredentialId && (!savedGroup || savedGroup.lastRefreshError)) {
+        setError("Key 已保存，目录同步失败。请打开该 Key 后重试刷新。");
+      }
     } catch (refreshError) {
-      setError(refreshError instanceof Error ? refreshError.message : "刷新目录失败");
-      setCatalog(await listModelCatalog().catch(() => null));
+      setError(
+        savedCredentialId
+          ? "Key 已保存，目录同步失败。请打开该 Key 后重试刷新。"
+          : refreshError instanceof Error
+            ? refreshError.message
+            : "刷新目录失败",
+      );
+      const cachedCatalog = await listModelCatalog().catch(() => null);
+      if (cachedCatalog) setCatalog(cachedCatalog);
     } finally {
+      await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
       setBusy(false);
     }
   };
@@ -220,7 +234,7 @@ export function ModelSettingsDialog({
     setError(null);
 
     try {
-      await createCredential({
+      const saved = await createCredential({
         provider,
         label: label.trim() || (provider === "glm" ? "GLM Key" : "DeepSeek Key"),
         apiKey,
@@ -234,7 +248,7 @@ export function ModelSettingsDialog({
       });
       setApiKey("");
       await reload();
-      await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
+      await refresh(saved.id);
       setView({ kind: "list" });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "保存 Key 失败");

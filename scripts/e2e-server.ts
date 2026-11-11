@@ -395,6 +395,10 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
   };
 };
 
+const catalogFetcher = async () => ({
+  data: [{ id: "deepseek-flash" }, { id: "deepseek-chat" }],
+});
+
 running = await startServer({
   env: {
     LARNESS_DATA_DIR: dataDir,
@@ -404,6 +408,7 @@ running = await startServer({
   },
   logDestination: process.stderr,
   providerResolver: fakeProviderResolver,
+  catalogFetcher,
 });
 
 const e2eSecretStore = await SecretStore.open(dataDir);
@@ -415,7 +420,7 @@ await refreshModelCatalog(
   {
     db: running.db,
     secretStore: e2eSecretStore,
-    fetcher: async () => ({ data: [{ id: "deepseek-flash" }, { id: "deepseek-chat" }] }),
+    fetcher: catalogFetcher,
   },
   { clientSessionId: "bs_e2e" },
 );

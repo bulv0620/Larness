@@ -30,6 +30,30 @@ function ipc(command: string, ...args: string[]): IpcResult {
   return JSON.parse(output.trim()) as IpcResult;
 }
 
+test("synchronizes models after a Key is added", async ({ page }) => {
+  await page.goto("/pair");
+  const pairPanel = page.locator("[data-request-id]");
+  await expect(pairPanel).toHaveAttribute("data-stage", "waiting", { timeout: 10_000 });
+  const requestId = await pairPanel.getAttribute("data-request-id");
+  const approved = ipc("approve", requestId ?? "", "allow_once");
+  expect(approved.code).toBeTruthy();
+  await page.getByLabel("配对码").fill(approved.code ?? "");
+  await page.getByRole("button", { name: "兑换配对码" }).click();
+  await expect(page.getByTestId("workspace-home")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: "设置与模型" }).click();
+  const dialog = page.getByRole("dialog", { name: "模型与凭据" });
+  await dialog.getByRole("button", { name: "添加 Key" }).click();
+  await dialog.getByLabel("凭据名称").fill("目录同步测试");
+  await dialog.getByLabel("API Key").fill("placeholder-key");
+  await dialog.getByRole("button", { name: "添加", exact: true }).click();
+  const syncedKey = dialog.getByRole("button", { name: /目录同步测试.*2 个模型/ });
+  await expect(syncedKey).toBeVisible();
+  await syncedKey.click();
+  await dialog.getByRole("button", { name: "删除 Key" }).click();
+  await expect(dialog.getByRole("button", { name: /目录同步测试/ })).toHaveCount(0);
+});
+
 test("M1 runs a real turn, approves a patch, restores after refresh, switches model and cancels", async ({
   page,
   request,

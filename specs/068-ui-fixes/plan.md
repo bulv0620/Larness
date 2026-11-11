@@ -1,0 +1,11 @@
+# 实施计划
+
+1. 确认规格后创建 task/ui-f1-key-refresh 分支，声明 UI-F1 为 in_progress。
+2. 顺序执行 UI-F1 至 UI-F7，每项独立测试、实现、验证、更新状态和提交，完成前不启动下一项。
+3. UI-F1 检查 ModelSettingsDialog 与目录查询失效、同步流程。
+4. UI-F2 检查确认弹窗和共享 Button 的 variant、hover 语义 token。
+5. UI-F3 跟踪 PTY / 命令源到服务日志接口再到 ServiceWindow 的完整链路，用真实输出定位编码或控制序列问题。
+6. UI-F4 检查前后端构建版本来源与 Header 使用，覆盖源码和打包运行。
+7. UI-F5 检查自动化列表容器的高度与空态布局。
+8. UI-F6 盘点全部业务表单，复用现有 Radix primitives 与 @larness/ui。需要未冻结依赖时先记录并确认。
+9. UI-F7 盘点操作失败反馈，提供共享浮动消息入口，逐处替换并覆盖去重、关闭和无障碍。

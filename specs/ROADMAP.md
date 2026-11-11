@@ -393,6 +393,10 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 ## 10. 任务卡维护
 
+### 2026-11-11 界面与输出纠错
+
+[068 规格](068-ui-fixes/spec.md) 已确认，按 [任务清单](068-ui-fixes/tasks.md) 顺序执行 UI-F1～UI-F7。七项依次处理 Key 刷新、确认按钮、服务终端输出、Header 版本、自动化空态、表单组件和错误 message。UI-F1 为 done，其余为 todo。
+
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
 - 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。
 - 阻塞：`blocked` + 原因 + 需要谁决策；解除后回到 `todo`。

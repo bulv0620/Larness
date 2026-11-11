@@ -60,6 +60,7 @@
 - [065 npm 分发与版本更新提示](065-launcher-updater/spec.md)
 - [066 跨平台安装与运行 PoC](066-cross-platform/spec.md)
 - [067 安全复核、发布清单与文档定稿](067-release-hardening/spec.md)
+- [068 发布后界面与输出纠错](068-ui-fixes/spec.md)
 
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
