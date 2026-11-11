@@ -99,8 +99,8 @@ interface ServerEvent<T = unknown> {
 | `tool.failed` | `toolCallId, errorCode, message` | 是 |
 | `file.changed` | `path, changeType, version` | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
-| `turn.completed` | `turnId, usage, durationMs, budgetExhausted?` | 是 |
-| `model.usage` | `turnId, model, inputTokens, outputTokens?, totalTokens?, contextWindow`（M5-1 单次请求） | 是 |
+| `turn.completed` | `turnId, usage, durationMs, budgetExhausted?`（`usage` 与 `model.usage` 同口径，含 `cacheReadTokens?` / `noCacheTokens?`） | 是 |
+| `model.usage` | `turnId, model, inputTokens, outputTokens?, totalTokens?, cacheReadTokens?, noCacheTokens?, usageSource, contextWindow`（M5-1 单次请求；M6-1 增缓存细分） | 是 |
 | `context.compressed` | `turnId, summaryId, coveredUpToSeq, tokensBefore, tokensAfter, degraded`（M5-1d 压缩） | 是 |
 | `turn.failed` | `turnId, errorCode, message` | 是 |
 | `turn.cancelled` | `turnId, reason` | 是 |
@@ -112,7 +112,7 @@ interface ServerEvent<T = unknown> {
 
 `context.compressed` 在压缩成功后先持久化再广播；`degraded: true` 表示摘要失败，Turn 继续使用截断历史。摘要正文只存 `session_context_summaries`，不进入事件、日志或审计。
 
-`model.usage`（M5-1，061 / ADR-053）在每个模型请求完成且上游返回用量时写入一条，只含模型标识、单次输入 / 输出 / 总量与同次窗口，不含 prompt、推理正文或密钥。上下文圆环取当前时间线中「最近一条 model 等于所选模型」的 `model.usage` 计算单次占比；无匹配时显示「暂无统计」。整轮累计仍由 `turn.completed.usage` 提供，两者口径独立。
+`model.usage`（M5-1，061 / ADR-053）在每个模型请求完成且上游返回用量时写入一条，只含模型标识、单次输入 / 输出 / 总量、缓存命中 / 未命中与同次窗口，不含 prompt、推理正文或密钥。缓存细分为 M6-1（[ADR-057](../adr/ADR-057-runtime-efficiency.md)）：`usageSource=provider` 表示上游确实回报了缓存字段（`cacheReadTokens=0` 是已知未命中），`usageSource=unknown` 表示上游未回报，此时 `cacheReadTokens` / `noCacheTokens` 必须缺省而不是填 0；命中率只能对 `usageSource=provider` 的请求求分母，并单独报告未知占比。上下文圆环取当前时间线中「最近一条 model 等于所选模型」的 `model.usage` 计算单次占比；无匹配时显示「暂无统计」。整轮累计仍由 `turn.completed.usage` 提供，两者口径独立。
 
 ### 4.2 `terminal`（streamId = terminalId）
 

@@ -10,7 +10,7 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | HX-0 | 规格、ADR 与契约草案 | — | `done` |
-| HX-1 | 用量细分与阶段耗时基线 | HX-0 | `todo` |
+| HX-1 | 用量细分（阶段耗时移至 HX-2） | HX-0 | `done` |
 | HX-2 | 截止时间与请求级约束 | HX-0 | `todo` |
 | HX-3 | 终态原因落库与 Job 判定 | HX-2 | `todo` |
 | HX-4 | 工具结果结构裁剪 | HX-0 | `todo` |
@@ -46,9 +46,9 @@
 
 ### HX-1 用量细分与阶段耗时基线
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11，分支 `task/hx-1-usage-cache-metrics`）
 - 依赖：HX-0
-- 目标：让"缓存命中"和"时间花在哪"可测量，作为后续所有优化的判据。
+- 目标：让"缓存命中"和"时间花在哪"可测量，作为后续所有优化的判据。实际交付只含**用量细分**；阶段耗时移到 HX-2（见备注）。
 - 交付物：
   - `ProviderUsage` 增 `cacheReadTokens` / `noCacheTokens` / `usageSource`；
   - `mapUsage` 读取 `totalUsage.inputTokenDetails`（DeepSeek 已把 `prompt_cache_hit_tokens` 映射为 `cacheRead`）；
@@ -60,6 +60,8 @@
 - 测试：`packages/agent/test/providers/ai-sdk-wire.test.ts` 造带 `prompt_cache_hit_tokens` 与不带该字段的两种 SSE；`eventReducer` 单测。
 - 涉及路径：`packages/agent/src/providers/{types,deepseek,compatible,fake}.ts`、`apps/server/src/modules/agent/turnRunner.ts`、`apps/web/src/lib/eventReducer.ts`、`docs/contracts/ws-events.md`
 - 备注：`inputTokenDetails` 由 AI SDK 提供，无需升级依赖；真实 Provider 核对用 `LARNESS_DEEPSEEK_SMOKE=1`。
+- 偏差记录：阶段耗时（排队 / 装配 / 首 token / 工具 / 摘要）未随本任务交付，移到 HX-2。理由：耗时只有与截止时间、终态一起改才有意义，单独加会在同一段代码做两次契约变更。
+- 验证：`packages/agent` 28 通过（1 跳过），`apps/server` `test/agent/turnRunner.test.ts` 16 通过；全量 server 仍有 73 个**环境性**失败（本机无独立 `node`，子进程/PTY 用例由 Electron 充当），与本次改动无关，详见 STATUS。
 
 ### HX-2 截止时间与请求级约束
 
@@ -70,7 +72,8 @@
   - `deadline = startedAt + maxDurationMs`，越界时中止在途请求（与用户取消分开的原因）；
   - 每步下发 `timeoutMs = min(适配器默认, 剩余预算)`、`maxOutputTokens`、有界 `maxRetries`；
   - 摘要调用共享同一 signal 与剩余时长；
-  - 工具执行沿用 `remainingMs` 但统一取同一 deadline。
+  - 工具执行沿用 `remainingMs` 但统一取同一 deadline；
+  - 阶段耗时（排队、装配、首 token、工具执行、摘要），随 `model.usage` 或独立诊断字段输出（HX-1 移入）。
 - 验收：A3 通过；Provider 挂起时 Turn 预算 + 宽限内进入终态；取消路径与超时路径产生不同终态。
 - 测试：`apps/server/test/agent/runtime-budget.test.ts` 用 FakeProvider 挂起；断言 abort 时间与终态。
 - 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`apps/server/src/modules/agent/contextCompressor.ts`

@@ -77,4 +77,55 @@ describe("AI SDK provider wire contract", () => {
       tools: [{ type: "function", function: { name: "read_file", parameters } }],
     });
   });
+
+  it("reports cache hit and miss tokens from a real DeepSeek usage payload", async () => {
+    const base = { id: "response", object: "chat.completion.chunk", model: "test" };
+    const response = [
+      { ...base, choices: [{ index: 0, delta: { content: "ok" }, finish_reason: null }] },
+      {
+        ...base,
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        usage: {
+          prompt_tokens: 1200,
+          completion_tokens: 80,
+          total_tokens: 1280,
+          prompt_cache_hit_tokens: 900,
+          prompt_cache_miss_tokens: 300,
+        },
+      },
+    ];
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(
+          response.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join("") +
+            "data: [DONE]\n\n",
+          { headers: { "content-type": "text/event-stream" } },
+        ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const chunks = [];
+    for await (const chunk of createDeepSeekProvider().streamStep({
+      apiKey: "test-key",
+      endpoint: "http://127.0.0.1",
+      model: "test",
+      signal: new AbortController().signal,
+      messages: [{ role: "user", content: "hello" }],
+      tools: [],
+    })) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.at(-1)).toEqual({
+      type: "finish",
+      finishReason: "stop",
+      usage: {
+        inputTokens: 1200,
+        outputTokens: 80,
+        totalTokens: 1280,
+        cacheReadTokens: 900,
+        noCacheTokens: 300,
+      },
+    });
+  });
 });

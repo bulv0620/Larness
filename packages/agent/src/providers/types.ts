@@ -46,6 +46,10 @@ export interface ProviderUsage {
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
+  /** Cached (prefix-hit) input tokens. Absent when the provider did not report cache usage. */
+  cacheReadTokens?: number;
+  /** Non-cached input tokens. Absent when the provider did not report cache usage. */
+  noCacheTokens?: number;
 }
 
 export type ProviderThinkingEffort = "low" | "high" | "max";

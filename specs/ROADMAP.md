@@ -311,7 +311,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | HX-0 | [规格、ADR 与契约草案](070-runtime-efficiency/tasks.md#hx-0-规格adr-与契约草案) | — | `done` |
-| HX-1 | [用量细分与阶段耗时基线](070-runtime-efficiency/tasks.md#hx-1-用量细分与阶段耗时基线) | HX-0 | `todo` |
+| HX-1 | [用量细分与阶段耗时基线](070-runtime-efficiency/tasks.md#hx-1-用量细分与阶段耗时基线) | HX-0 | `done`（用量细分；耗时并入 HX-2） |
 | HX-2 | [截止时间与请求级约束](070-runtime-efficiency/tasks.md#hx-2-截止时间与请求级约束) | HX-0 | `todo` |
 | HX-3 | [终态原因落库与 Job 判定](070-runtime-efficiency/tasks.md#hx-3-终态原因落库与-job-判定) | HX-2 | `todo` |
 | HX-4 | [工具结果结构裁剪](070-runtime-efficiency/tasks.md#hx-4-工具结果结构裁剪) | HX-0 | `todo` |

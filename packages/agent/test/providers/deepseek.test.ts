@@ -93,6 +93,125 @@ describe("DeepSeek stream mapping", () => {
     ]);
   });
 
+  it("maps provider-reported cache hits and misses into usage", async () => {
+    const chunks = await collect(
+      mapAiSdkStream(
+        parts([
+          {
+            type: "finish",
+            finishReason: "stop",
+            totalUsage: {
+              inputTokens: 1200,
+              outputTokens: 80,
+              totalTokens: 1280,
+              inputTokenDetails: {
+                noCacheTokens: 300,
+                cacheReadTokens: 900,
+                cacheWriteTokens: undefined,
+              },
+              raw: {
+                prompt_tokens: 1200,
+                completion_tokens: 80,
+                total_tokens: 1280,
+                prompt_cache_hit_tokens: 900,
+                prompt_cache_miss_tokens: 300,
+              },
+            },
+          },
+        ]),
+      ),
+    );
+
+    expect(chunks).toEqual([
+      {
+        type: "finish",
+        finishReason: "stop",
+        usage: {
+          inputTokens: 1200,
+          outputTokens: 80,
+          totalTokens: 1280,
+          cacheReadTokens: 900,
+          noCacheTokens: 300,
+        },
+      },
+    ]);
+  });
+
+  it("keeps cache usage unknown when the provider omits the cache fields", async () => {
+    const chunks = await collect(
+      mapAiSdkStream(
+        parts([
+          {
+            type: "finish",
+            finishReason: "stop",
+            totalUsage: {
+              inputTokens: 500,
+              outputTokens: 20,
+              totalTokens: 520,
+              inputTokenDetails: {
+                noCacheTokens: 500,
+                cacheReadTokens: 0,
+                cacheWriteTokens: undefined,
+              },
+            },
+          },
+        ]),
+      ),
+    );
+
+    expect(chunks).toEqual([
+      {
+        type: "finish",
+        finishReason: "stop",
+        usage: { inputTokens: 500, outputTokens: 20, totalTokens: 520 },
+      },
+    ]);
+  });
+
+  it("treats an explicitly reported zero cache hit as a known miss", async () => {
+    const chunks = await collect(
+      mapAiSdkStream(
+        parts([
+          {
+            type: "finish",
+            finishReason: "stop",
+            totalUsage: {
+              inputTokens: 640,
+              outputTokens: 32,
+              totalTokens: 672,
+              inputTokenDetails: {
+                noCacheTokens: 640,
+                cacheReadTokens: 0,
+                cacheWriteTokens: undefined,
+              },
+              raw: {
+                prompt_tokens: 640,
+                completion_tokens: 32,
+                total_tokens: 672,
+                prompt_cache_hit_tokens: 0,
+                prompt_cache_miss_tokens: 640,
+              },
+            },
+          },
+        ]),
+      ),
+    );
+
+    expect(chunks).toEqual([
+      {
+        type: "finish",
+        finishReason: "stop",
+        usage: {
+          inputTokens: 640,
+          outputTokens: 32,
+          totalTokens: 672,
+          cacheReadTokens: 0,
+          noCacheTokens: 640,
+        },
+      },
+    ]);
+  });
+
   it("passes reasoning through and synthesizes a finish when the stream ends early", async () => {
     const chunks = await collect(
       mapAiSdkStream(

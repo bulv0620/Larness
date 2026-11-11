@@ -96,18 +96,66 @@ function mapFinishReason(value: unknown): ProviderFinishReason {
   }
 }
 
+function numberOrUndefined(candidate: unknown): number | undefined {
+  return typeof candidate === "number" ? candidate : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * Providers report cache usage in their raw payload, and the AI SDK defaults
+ * cacheRead to 0. An absent raw field must stay "unknown" instead of a miss.
+ */
+function reportsCacheUsage(raw: unknown): boolean {
+  if (!isRecord(raw)) {
+    return false;
+  }
+
+  if (typeof raw.prompt_cache_hit_tokens === "number") {
+    return true;
+  }
+
+  const details = raw.prompt_tokens_details;
+
+  return isRecord(details) && typeof details.cached_tokens === "number";
+}
+
+function cacheUsage(usage: Record<string, unknown>): {
+  cacheReadTokens?: number;
+  noCacheTokens?: number;
+} {
+  const details = usage.inputTokenDetails;
+
+  if (!isRecord(details) || !reportsCacheUsage(usage.raw)) {
+    return {};
+  }
+
+  const cacheReadTokens = numberOrUndefined(details.cacheReadTokens);
+
+  if (cacheReadTokens === undefined) {
+    return {};
+  }
+
+  const noCacheTokens = numberOrUndefined(details.noCacheTokens);
+
+  return {
+    cacheReadTokens,
+    ...(noCacheTokens === undefined ? {} : { noCacheTokens }),
+  };
+}
+
 function mapUsage(value: unknown): ProviderUsage | undefined {
-  if (typeof value !== "object" || value === null) {
+  if (!isRecord(value)) {
     return undefined;
   }
 
-  const usage = value as Record<string, unknown>;
-  const numberOrUndefined = (candidate: unknown): number | undefined =>
-    typeof candidate === "number" ? candidate : undefined;
   const mapped: ProviderUsage = {
-    inputTokens: numberOrUndefined(usage.inputTokens),
-    outputTokens: numberOrUndefined(usage.outputTokens),
-    totalTokens: numberOrUndefined(usage.totalTokens),
+    inputTokens: numberOrUndefined(value.inputTokens),
+    outputTokens: numberOrUndefined(value.outputTokens),
+    totalTokens: numberOrUndefined(value.totalTokens),
+    ...cacheUsage(value),
   };
 
   return mapped.inputTokens === undefined &&

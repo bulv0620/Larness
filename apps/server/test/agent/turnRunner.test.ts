@@ -269,10 +269,137 @@ describe("TurnRunner", () => {
           inputTokens: 100,
           outputTokens: 10,
           totalTokens: 110,
+          usageSource: "unknown",
           contextWindow: 1_048_576,
         });
         expect(usageEvents[1]?.payload).toMatchObject({ inputTokens: 3, contextWindow: 1_048_576 });
         expect(usageEvents[0]?.sequence).toBeLessThan(usageEvents[1]?.sequence ?? 0);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("reports provider cache hits per request and accumulates them for the turn", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "cache" });
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              { type: "tool-call", toolCall: { id: "call_list", name: "list_files", args: {} } },
+              {
+                type: "finish",
+                finishReason: "tool-calls",
+                usage: {
+                  inputTokens: 1200,
+                  outputTokens: 80,
+                  totalTokens: 1280,
+                  cacheReadTokens: 900,
+                  noCacheTokens: 300,
+                },
+              },
+            ],
+          },
+          {
+            chunks: [
+              { type: "text-delta", text: "done" },
+              {
+                type: "finish",
+                finishReason: "stop",
+                usage: {
+                  inputTokens: 2000,
+                  outputTokens: 40,
+                  totalTokens: 2040,
+                  cacheReadTokens: 1800,
+                  noCacheTokens: 200,
+                },
+              },
+            ],
+          },
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const usageEvents = listSessionEvents(opened.db, session.id).items.filter(
+          (event) => event.type === "model.usage",
+        );
+        expect(usageEvents[0]?.payload).toMatchObject({
+          cacheReadTokens: 900,
+          noCacheTokens: 300,
+          usageSource: "provider",
+        });
+        expect(usageEvents[1]?.payload).toMatchObject({
+          cacheReadTokens: 1800,
+          noCacheTokens: 200,
+        });
+
+        const row = opened.sqlite
+          .prepare("SELECT usage_json FROM turns WHERE id = ?")
+          .get(turn.turnId) as { usage_json: string };
+        expect(JSON.parse(row.usage_json)).toMatchObject({
+          inputTokens: 3200,
+          outputTokens: 120,
+          cacheReadTokens: 2700,
+          noCacheTokens: 500,
+        });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("marks turn cache usage unknown when one step omits it", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "mixed" });
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              { type: "tool-call", toolCall: { id: "call_list", name: "list_files", args: {} } },
+              {
+                type: "finish",
+                finishReason: "tool-calls",
+                usage: {
+                  inputTokens: 1200,
+                  outputTokens: 80,
+                  totalTokens: 1280,
+                  cacheReadTokens: 900,
+                  noCacheTokens: 300,
+                },
+              },
+            ],
+          },
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const row = opened.sqlite
+          .prepare("SELECT usage_json FROM turns WHERE id = ?")
+          .get(turn.turnId) as { usage_json: string };
+        const usage = JSON.parse(row.usage_json) as Record<string, unknown>;
+        expect(usage.inputTokens).toBe(1203);
+        expect(usage.cacheReadTokens).toBeUndefined();
+        expect(usage.noCacheTokens).toBeUndefined();
       } finally {
         opened.close();
       }
