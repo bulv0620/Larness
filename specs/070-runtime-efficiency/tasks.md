@@ -11,7 +11,7 @@
 |---|---|---|---|
 | HX-0 | 规格、ADR 与契约草案 | — | `done` |
 | HX-1 | 用量细分（阶段耗时移至 HX-2） | HX-0 | `done` |
-| HX-2 | 截止时间与请求级约束 | HX-0 | `todo` |
+| HX-2 | 截止时间与请求级约束 | HX-0 | `done` |
 | HX-3 | 终态原因落库与 Job 判定 | HX-2 | `todo` |
 | HX-4 | 工具结果结构裁剪 | HX-0 | `todo` |
 | HX-5 | 稳定前缀与资源观察移位 | HX-1 | `todo` |
@@ -65,7 +65,7 @@
 
 ### HX-2 截止时间与请求级约束
 
-- 状态：`todo`
+- 状态：`done`（2026-11-11，分支 `task/hx-1-usage-cache-metrics`，随 HX-1 分支连续交付）
 - 依赖：HX-0
 - 目标：单步不得越过 Turn 截止时间；取消、超时、预算三种中止原因可区分。
 - 交付物：
@@ -77,7 +77,10 @@
 - 验收：A3 通过；Provider 挂起时 Turn 预算 + 宽限内进入终态；取消路径与超时路径产生不同终态。
 - 测试：`apps/server/test/agent/runtime-budget.test.ts` 用 FakeProvider 挂起；断言 abort 时间与终态。
 - 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`apps/server/src/modules/agent/contextCompressor.ts`
-- 备注：不改变 `DEFAULT_BUDGET` 数值，除非 D5 确认；AI SDK 默认重试必须显式收窄，否则 3×600s 无法被预算约束。
+- 备注：不改变 `DEFAULT_BUDGET` 的步数 / 工具数 / 时长数值；新增 `maxOutputTokens=8192`（内部常量，未进用户设置）。AI SDK 默认重试必须显式收窄，否则 3×600s 无法被预算约束。
+- 实现要点：`deadline` 计时器到点 `abort` 在途请求并置 `deadlineReached`，取消与超时因此可区分；模型请求、摘要调用、工具执行共享同一 deadline；`#waitForApproval` 因超时返回 `cancelled` 时改判预算终态。
+- 阶段耗时（原 HX-1 交付物）随本任务落地：`TurnRunner` 接收可选 `logger`，Turn 结束输出 `assembleMs / summaryMs / toolMs / firstTokenMs / durationMs`，只进日志不进事件，避免契约膨胀。
+- 验证：`packages/agent` 46 通过 / 1 跳过；`apps/server` `turnRunner + contextCompressor + contextAssembler` 24 通过；`test/agent` 60 通过 / 9 个既有环境性失败（命令与终端用例需要真实 `node`）；biome 与两处 typecheck 通过。
 
 ### HX-3 终态原因落库与 Job 判定
 

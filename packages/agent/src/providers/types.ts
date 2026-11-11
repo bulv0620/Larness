@@ -76,6 +76,7 @@ export interface ProviderStepInput {
   temperature?: number;
   maxOutputTokens?: number;
   timeoutMs?: number;
+  maxRetries?: number;
   thinking?: ProviderThinking;
 }
 

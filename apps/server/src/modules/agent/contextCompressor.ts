@@ -150,6 +150,8 @@ export async function compressContext(options: {
   contextWindow: number;
   tokensBefore: number;
   now?: () => number;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 }): Promise<CompressionResult | null> {
   const now = options.now?.() ?? Date.now();
   const previous = latestContextSummary(options.db, options.session.id);
@@ -167,7 +169,12 @@ export async function compressContext(options: {
   const summarized = entries.slice(0, entries.length - KEEP_RECENT);
   const coveredUpToSeq = summarized[summarized.length - 1]?.seq ?? 0;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS);
+  const forwardAbort = (): void => controller.abort();
+  options.signal?.addEventListener("abort", forwardAbort, { once: true });
+  const timer = setTimeout(
+    () => controller.abort(),
+    Math.min(options.timeoutMs ?? SUMMARY_TIMEOUT_MS, SUMMARY_TIMEOUT_MS),
+  );
   let text = "";
   let degraded = false;
 
@@ -198,6 +205,7 @@ export async function compressContext(options: {
     degraded = true;
   } finally {
     clearTimeout(timer);
+    options.signal?.removeEventListener("abort", forwardAbort);
   }
 
   const summary = new OutputRedactor([]).push(text, true).trim();

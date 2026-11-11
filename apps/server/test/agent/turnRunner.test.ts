@@ -406,6 +406,79 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("stops at the turn deadline instead of waiting for the provider", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "slow" });
+        const provider = createFakeProvider([
+          {
+            delayMs: 30_000,
+            chunks: [
+              { type: "text-delta", text: "late" },
+              { type: "finish", finishReason: "stop" },
+            ],
+          },
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          budget: { maxDurationMs: 60 },
+        });
+
+        const startedAt = Date.now();
+        const result = await runner.run(turn.turnId);
+
+        expect(Date.now() - startedAt).toBeLessThan(2_000);
+        expect(result.status).toBe("COMPLETED");
+
+        const completed = listSessionEvents(opened.db, session.id).items.find(
+          (event) => event.type === "turn.completed",
+        );
+        expect(completed?.payload).toMatchObject({
+          turnId: turn.turnId,
+          status: "COMPLETED",
+          budgetExhausted: true,
+        });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("bounds each provider request by the remaining turn budget", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "bounds" });
+        const provider = createFakeProvider([textStep("ok")]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          budget: { maxDurationMs: 5_000 },
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const call = provider.calls[0];
+        expect(call?.maxOutputTokens).toBe(8_192);
+        expect(call?.maxRetries).toBe(1);
+        expect(call?.timeoutMs).toBeGreaterThan(0);
+        expect(call?.timeoutMs).toBeLessThanOrEqual(5_000);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("keeps reasoning in memory for the tool loop and never persists it", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

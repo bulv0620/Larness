@@ -76,6 +76,7 @@ const DEFAULT_BUDGET = {
   maxToolCalls: 50,
   maxDurationMs: 10 * 60_000,
   contextRatio: 0.8,
+  maxOutputTokens: 8_192,
 } as const;
 
 const APPROVAL_POLL_MS = 100;
@@ -101,6 +102,7 @@ export interface TurnBudget {
   maxToolCalls: number;
   maxDurationMs: number;
   contextRatio: number;
+  maxOutputTokens: number;
 }
 
 export interface TurnRunnerOptions {
@@ -119,6 +121,11 @@ export interface TurnRunnerOptions {
   git?: GitManager;
   services?: ServiceManager;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
+  logger?: TurnTimingLogger;
+}
+
+export interface TurnTimingLogger {
+  info(fields: Record<string, unknown>, message: string): void;
 }
 
 export type TurnRunResult = {
@@ -339,6 +346,17 @@ export class TurnRunner {
     const controller = new AbortController();
     this.#controllers.set(turnId, controller);
     const startedAt = turn.startedAt ?? this.#now();
+    const deadline = startedAt + this.#budget.maxDurationMs;
+    // A request must not outlive the turn budget: cancel only stops on demand.
+    let deadlineReached = false;
+    const deadlineTimer = setTimeout(
+      () => {
+        deadlineReached = true;
+        controller.abort();
+      },
+      Math.max(0, deadline - this.#now()),
+    );
+    deadlineTimer.unref?.();
     const project =
       session.projectId === null ? null : getProjectById(this.#options.db, session.projectId);
     let projectRoot = project?.realPath ?? session.workspacePath;
@@ -364,6 +382,12 @@ export class TurnRunner {
     let steps = 0;
     let toolCalls = 0;
     let finalized = false;
+    const timing = {
+      assembleMs: 0,
+      summaryMs: 0,
+      toolMs: 0,
+      firstTokenMs: undefined as number | undefined,
+    };
 
     const finalize = (
       status: TurnStatus,
@@ -394,7 +418,7 @@ export class TurnRunner {
 
     const checkBudget = (): "ok" | "cancel" | "budget" => {
       if (controller.signal.aborted) {
-        return "cancel";
+        return deadlineReached ? "budget" : "cancel";
       }
 
       const current = getTurnById(this.#options.db, turnId);
@@ -1081,7 +1105,9 @@ export class TurnRunner {
         workspaceRoot: projectRoot,
         pm2Context: await this.#options.pm2Context?.(session.projectId),
       };
+      const assembleStarted = this.#now();
       let context = assembleContext(contextOptions, session, turn);
+      timing.assembleMs += this.#now() - assembleStarted;
       let messages: ModelMessage[] = context.messages;
       const tools: ToolSchema[] = context.tools;
 
@@ -1094,6 +1120,8 @@ export class TurnRunner {
       this.#transition(turn, session, "RUNNING");
 
       if (shouldCompress(context.estimatedTokens, contextWindow)) {
+        const summaryStarted = this.#now();
+
         try {
           const compression = await compressContext({
             db: this.#options.db,
@@ -1106,6 +1134,8 @@ export class TurnRunner {
             contextWindow,
             tokensBefore: context.estimatedTokens,
             now: () => this.#now(),
+            signal: controller.signal,
+            timeoutMs: Math.max(1_000, deadline - this.#now()),
           });
 
           if (compression !== null) {
@@ -1122,6 +1152,8 @@ export class TurnRunner {
           }
         } catch {
           // Compression is best-effort; keep the truncated context on failure.
+        } finally {
+          timing.summaryMs += this.#now() - summaryStarted;
         }
       }
 
@@ -1169,16 +1201,26 @@ export class TurnRunner {
         let stepUsage: ProviderUsage | undefined;
         let providerError: { code: string; message: string } | null = null;
 
+        const remainingMs = Math.max(1_000, deadline - this.#now());
+        const stepStartedAt = this.#now();
+
         for await (const chunk of resolved.adapter.streamStep({
           model: resolved.model,
           messages,
           tools,
           signal: controller.signal,
+          timeoutMs: remainingMs,
+          maxOutputTokens: this.#budget.maxOutputTokens,
+          maxRetries: 1,
           ...(resolved.apiKey === undefined ? {} : { apiKey: resolved.apiKey }),
           ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
           ...(resolved.thinking === undefined ? {} : { thinking: resolved.thinking }),
         })) {
           if (chunk.type === "text-delta") {
+            if (steps === 1 && timing.firstTokenMs === undefined) {
+              timing.firstTokenMs = this.#now() - stepStartedAt;
+            }
+
             text += chunk.text;
             this.#publishDelta(turn, session, {
               kind: "assistant.delta",
@@ -1258,6 +1300,13 @@ export class TurnRunner {
 
         if (providerError !== null) {
           if (providerError.code === "PROVIDER_ABORTED") {
+            if (deadlineReached) {
+              return finalize("COMPLETED", {
+                eventType: "turn.completed",
+                budgetExhausted: true,
+              });
+            }
+
             const current = getTurnById(this.#options.db, turn.id);
 
             if (current?.status === "CANCELLING") {
@@ -1367,7 +1416,9 @@ export class TurnRunner {
             name: request.name,
           });
 
+          const toolStartedAt = this.#now();
           const outcome: ToolExecutionOutcome = await execute(request);
+          timing.toolMs += this.#now() - toolStartedAt;
 
           if (outcome.status === "approval_required") {
             this.#transition(turn, session, "WAITING_APPROVAL");
@@ -1392,6 +1443,13 @@ export class TurnRunner {
             );
 
             if (decision === "cancelled") {
+              if (deadlineReached) {
+                return finalize("COMPLETED", {
+                  eventType: "turn.completed",
+                  budgetExhausted: true,
+                });
+              }
+
               return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
             }
 
@@ -1576,6 +1634,10 @@ export class TurnRunner {
         throw error;
       }
 
+      if (deadlineReached) {
+        return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
+      }
+
       if (
         controller.signal.aborted ||
         getTurnById(this.#options.db, turnId)?.status === "CANCELLING"
@@ -1598,7 +1660,20 @@ export class TurnRunner {
         message: message.slice(0, 500),
       });
     } finally {
+      clearTimeout(deadlineTimer);
       clearInterval(heartbeat);
+      this.#options.logger?.info(
+        {
+          turnId,
+          sessionId: turn.sessionId,
+          steps,
+          toolCalls,
+          durationMs: this.#now() - startedAt,
+          deadlineReached,
+          ...timing,
+        },
+        "turn timing",
+      );
       try {
         this.#options.terminals?.releaseAgentLeases(turn.id);
       } catch {

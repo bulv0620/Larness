@@ -105,6 +105,7 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
           ...(input.maxOutputTokens === undefined
             ? {}
             : { maxOutputTokens: input.maxOutputTokens }),
+          ...(input.maxRetries === undefined ? {} : { maxRetries: input.maxRetries }),
         });
 
         yield* mapAiSdkStream(result.fullStream);
