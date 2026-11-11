@@ -19,6 +19,7 @@ export {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
+export { ErrorMessage } from "./error-message";
 export { Checkbox, FormSelect, Input, Textarea } from "./form-controls";
 export { IconButton, type IconButtonProps } from "./icon-button";
 export { Kbd } from "./kbd";

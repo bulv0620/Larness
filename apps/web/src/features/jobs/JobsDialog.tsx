@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  ErrorMessage,
   FormSelect,
   Input,
   Textarea,
@@ -23,6 +24,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Clock, Play, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
 import { type ReactNode, useEffect, useId, useState } from "react";
+import { operationError } from "@/lib/api";
 import { relativeTime } from "@/lib/format";
 import { type ApiModelCatalog, listModelCatalog, listProjects } from "@/lib/workspaceApi";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -164,21 +166,21 @@ export function JobsDialog({
     mutationFn: (id: string) => runJobNow(id),
     retry: false,
     onMutate: () => setError(null),
-    onError: (caught) => setError(caught instanceof Error ? caught.message : "执行失败"),
+    onError: (caught) => setError(operationError(caught, "执行失败")),
     onSettled: refresh,
   });
   const cancel = useMutation({
     mutationFn: (id: string) => cancelJobRun(id),
     retry: false,
     onMutate: () => setError(null),
-    onError: (caught) => setError(caught instanceof Error ? caught.message : "取消失败"),
+    onError: (caught) => setError(operationError(caught, "取消失败")),
     onSettled: refresh,
   });
   const remove = useMutation({
     mutationFn: (id: string) => deleteJob(id),
     retry: false,
     onMutate: () => setError(null),
-    onError: (caught) => setError(caught instanceof Error ? caught.message : "删除失败"),
+    onError: (caught) => setError(operationError(caught, "删除失败")),
     onSuccess: () => {
       setSelectedId(null);
       setConfirmDelete(false);
@@ -189,7 +191,7 @@ export function JobsDialog({
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => updateJob(id, { enabled }),
     retry: false,
     onMutate: () => setError(null),
-    onError: (caught) => setError(caught instanceof Error ? caught.message : "更新失败"),
+    onError: (caught) => setError(operationError(caught, "更新失败")),
     onSettled: refresh,
   });
 
@@ -240,16 +242,10 @@ export function JobsDialog({
           </DialogClose>
         </header>
 
-        {error !== null && (
-          <p role="alert" className="border-b border-line px-3 py-2 text-[11px] text-danger">
-            {error}
-          </p>
-        )}
-        {jobs.isError && (
-          <p role="alert" className="border-b border-line px-3 py-2 text-[11px] text-danger">
-            任务列表读取失败，请刷新重试。
-          </p>
-        )}
+        <ErrorMessage
+          message={error ?? (jobs.isError ? "任务列表读取失败，请刷新重试。" : null)}
+          onDismiss={error ? () => setError(null) : undefined}
+        />
 
         {editing !== null ? (
           <JobForm
@@ -755,9 +751,7 @@ function JobForm({
       const saved = job ? await updateJob(job.id, patch) : await createJob(input);
       onSaved(saved);
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "保存失败";
-      setFormError(message);
-      onError(message);
+      onError(operationError(caught, "保存任务失败，请重试。"));
     } finally {
       setSaving(false);
     }

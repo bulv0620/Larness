@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  ErrorMessage,
 } from "@larness/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -171,16 +172,20 @@ export function ServiceOpsDialog({
             </Button>
           </DialogClose>
         </header>
-        {services.isError && (
-          <p role="alert" className="border-b border-line px-3 py-2 text-[11px] text-danger">
-            {services.data ? "刷新失败，当前为上次观察结果。" : "正式服务不可用，请刷新重试。"}
-          </p>
-        )}
-        {controlError && (
-          <p role="alert" className="border-b border-line px-3 py-2 text-[11px] text-danger">
-            操作失败，请刷新状态和日志后再试。
-          </p>
-        )}
+        <ErrorMessage
+          message={
+            controlError
+              ? "操作失败，请刷新状态和日志后再试。"
+              : services.isError
+                ? services.data
+                  ? "刷新失败，当前为上次观察结果。"
+                  : "正式服务不可用，请刷新重试。"
+                : selected && logs.isError
+                  ? "日志读取失败，请刷新重试。"
+                  : null
+          }
+          onDismiss={controlError ? () => setControlError(false) : undefined}
+        />
         {services.isPending ? (
           <p role="status" className="p-3 text-[11px] text-ink-3">
             正在读取服务…
@@ -271,15 +276,11 @@ export function ServiceOpsDialog({
                 运行日志
               </h3>
               <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-line bg-[#0f1115] p-2 font-mono text-[10px] leading-5 text-[#c7ccd4]">
-                {logs.isError ? (
-                  <p role="alert" className="text-red-300">
-                    日志读取失败，请刷新重试。
-                  </p>
-                ) : logs.isPending ? (
+                {logs.isPending ? (
                   <p className="text-white/35">读取中…</p>
                 ) : (
                   <pre className="whitespace-pre-wrap break-all">
-                    {logs.data.text || "暂无日志"}
+                    {logs.data?.text || (logs.isError ? "日志暂不可用" : "暂无日志")}
                   </pre>
                 )}
               </div>

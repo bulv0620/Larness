@@ -1,5 +1,5 @@
 import type { GitDiffView } from "@larness/shared";
-import { cn } from "@larness/ui";
+import { cn, ErrorMessage } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Check, GitCompare, Loader2, Plus, Trash2 } from "lucide-react";
 import { readGitDiff } from "@/features/git/api";
@@ -31,9 +31,10 @@ function RealDiffView({ tab }: { tab: WindowTab }) {
     );
   if (query.isError)
     return (
-      <p role="alert" className="p-4 text-xs text-danger">
-        Diff 读取失败；文件仍可按当前状态重新打开。
-      </p>
+      <ErrorMessage
+        message="差异读取失败，请重新打开或重试。"
+        retry={{ label: "重新读取", run: () => void query.refetch() }}
+      />
     );
   const data: GitDiffView = query.data;
   return <DiffBody data={data} />;

@@ -1,4 +1,5 @@
 import type { FileScope } from "@larness/shared";
+import { ErrorMessage } from "@larness/ui";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, FileText, Folder } from "lucide-react";
 import { useState } from "react";
@@ -23,11 +24,7 @@ function RealFileTree({ scope }: { scope: FileScope }) {
   useFileWatch(scope, expanded);
   return (
     <div className="p-1.5 text-[11px] text-ink-2">
-      {error ? (
-        <p role="alert" className="p-2 text-danger">
-          {error}
-        </p>
-      ) : null}
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
       <Directory
         scope={scope}
         path="."
@@ -77,21 +74,16 @@ function Directory({
   return (
     <>
       {query.isPending ? <p className="p-2 text-ink-3">正在读取目录…</p> : null}
-      {query.isError ? (
-        <div role="alert" className="p-2 text-danger">
-          {fileError(query.error)}
-          <button
-            type="button"
-            onClick={() =>
-              void queryClient.resetQueries({
-                queryKey: ["files", scopeId(scope), "directory", path],
-              })
-            }
-          >
-            重新加载目录
-          </button>
-        </div>
-      ) : null}
+      <ErrorMessage
+        message={query.isError ? fileError(query.error) : null}
+        retry={{
+          label: "重新加载目录",
+          run: () =>
+            void queryClient.resetQueries({
+              queryKey: ["files", scopeId(scope), "directory", path],
+            }),
+        }}
+      />
       {query.data?.pages
         .flatMap((page) => page.items)
         .map((entry) => (

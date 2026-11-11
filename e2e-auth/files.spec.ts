@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type Route, test } from "@playwright/test";
 import { execFileSync } from "./support";
 
 test.setTimeout(120_000);
@@ -84,7 +84,24 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await page.keyboard.press(macBindings ? "Meta+ArrowDown" : "Control+End");
     await expect(page.locator(".view-lines").first()).toContainText("line 2499");
     await replaceEditor(page, "mine\r\n");
-    await page.getByRole("button", { name: "保存文件", exact: true }).click();
+    const saveButton = page.getByRole("button", { name: "保存文件", exact: true });
+    const editorPosition = await editor.boundingBox();
+    const rejectSave = async (route: Route) => {
+      if (route.request().method() !== "PUT") return route.fallback();
+      await route.fulfill({
+        status: 409,
+        json: { error: { code: "RESOURCE_LOCKED", message: "Project is locked" } },
+      });
+    };
+    await page.route("**/api/files", rejectSave);
+    await saveButton.click();
+    const failure = page.getByRole("alert").filter({ hasText: /项目正在写入/ });
+    await expect(failure).toHaveCSS("position", "fixed");
+    expect(await editor.boundingBox()).toEqual(editorPosition);
+    await failure.getByRole("button", { name: "关闭错误消息" }).click();
+    await expect(failure).toHaveCount(0);
+    await page.unroute("**/api/files", rejectSave);
+    await saveButton.click();
     await expect.poll(() => readFileSync(file, "utf8")).toBe("mine\r\n");
     await replaceEditor(page, "unsaved draft\r\n");
     await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
@@ -111,7 +128,7 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await page.getByRole("button", { name: "查看差异", exact: true }).click();
     await expect(page.getByText("磁盘版本 → 本地草稿", { exact: true })).toBeVisible();
     expect(readFileSync(file, "utf8")).toBe("external\r\n");
-    await page.screenshot({ path: "/tmp/larness-m2-2-conflict.png" });
+    await page.screenshot({ path: path.join(tmpdir(), "larness-m2-2-conflict.png") });
     await page.getByRole("button", { name: "手工合并", exact: true }).click();
     await replaceEditor(page, "merged\r\n");
     await page.getByRole("button", { name: "关闭 note.txt", exact: true }).click();

@@ -1,6 +1,6 @@
 ---
 id: 068-ui-fixes
-status: active
+status: done
 created: 2026-11-11
 depends_on: [052-workspace-polish, 063-multi-provider, 064-scheduler, 065-launcher-updater, 066-cross-platform]
 ---

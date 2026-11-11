@@ -12,6 +12,21 @@ export class ApiError extends Error {
   }
 }
 
+export function operationError(error: unknown, fallback: string): string {
+  if (!(error instanceof ApiError)) return fallback;
+  switch (error.code) {
+    case "RESOURCE_LOCKED":
+      return "项目正在写入，请稍后重试。";
+    case "FORBIDDEN":
+    case "UNAUTHORIZED":
+      return "当前操作没有权限。";
+    case "VALIDATION_ERROR":
+      return "输入无效，请核对后重试。";
+    default:
+      return fallback;
+  }
+}
+
 let csrfToken: string | null = null;
 
 export function setCsrfToken(token: string | null): void {

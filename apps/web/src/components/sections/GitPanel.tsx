@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  ErrorMessage,
   FormSelect,
   Input,
   Textarea,
@@ -31,6 +32,7 @@ import {
   readGitStatus,
 } from "@/features/git/api";
 import { GitChangeTree, type GitTreeChange } from "@/features/git/GitChangeTree";
+import { operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useWindowStore } from "@/stores/windowStore";
@@ -74,6 +76,10 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
     enabled: projectId !== null,
     retry: false,
   });
+  const closeDiscard = () => {
+    setDiscardTarget(null);
+    setError("");
+  };
 
   if (projectId === null)
     return <p className="px-2 py-3 text-[10.5px] text-ink-3">暂无 Git 仓库</p>;
@@ -106,7 +112,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       await action();
       await refresh();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Git 操作失败");
+      setError(operationError(failure, "Git 操作失败，请核对状态后重试。"));
       await refresh();
     } finally {
       running.current = false;
@@ -282,11 +288,6 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
                 <X size={12} />
               </button>
             </div>
-            {branches.isError ? (
-              <p role="alert" className="text-[10px] text-danger">
-                分支读取失败，请刷新重试。
-              </p>
-            ) : null}
             <FormSelect
               label="切换分支"
               value={data.branch}
@@ -332,7 +333,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       <Dialog
         open={discardTarget !== null}
         onOpenChange={(open) => {
-          if (!open && !busy) setDiscardTarget(null);
+          if (!open && !busy) closeDiscard();
         }}
       >
         <DialogContent
@@ -353,13 +354,9 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
           <p className="break-all rounded bg-surface-2 p-2 font-mono text-xs">
             {discardTarget?.path}
           </p>
-          {error ? (
-            <p role="alert" className="text-danger">
-              {error}
-            </p>
-          ) : null}
+          <ErrorMessage message={error} onDismiss={() => setError("")} />
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" disabled={busy} onClick={() => setDiscardTarget(null)}>
+            <Button variant="secondary" disabled={busy} onClick={closeDiscard}>
               取消
             </Button>
             <Button
@@ -375,15 +372,18 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
           </div>
         </DialogContent>
       </Dialog>
-      {status.isError ? (
-        <p role="status" className="px-2 text-[10px] text-ink-3">
-          Git 状态读取失败，请刷新后继续。
-        </p>
-      ) : null}
-      {error ? (
-        <p role="alert" className="px-2 text-[10.5px] leading-4 text-danger">
-          {error}
-        </p>
+      {discardTarget === null ? (
+        <ErrorMessage
+          message={
+            error ||
+            (status.isError
+              ? "Git 状态读取失败，请刷新后继续。"
+              : branchOpen && branches.isError
+                ? "分支读取失败，请刷新重试。"
+                : null)
+          }
+          onDismiss={error ? () => setError("") : undefined}
+        />
       ) : null}
       {pending ? (
         <section
@@ -432,9 +432,6 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
               >
                 执行一次
               </button>
-            ) : null}
-            {pending.status === "FAILED" ? (
-              <p className="text-[10px] text-danger">执行失败；读取最新状态后重试。</p>
             ) : null}
           </div>
         </section>

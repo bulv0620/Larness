@@ -1,7 +1,8 @@
 import type { ApprovalItem } from "@larness/shared";
-import { Button } from "@larness/ui";
+import { Button, ErrorMessage } from "@larness/ui";
 import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { operationError } from "@/lib/api";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useSnapshot } from "@/lib/queries";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -58,7 +59,7 @@ function ApprovalPanel({
     try {
       await resolve(item.id, decision);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "审批提交失败，请重试");
+      setError(operationError(error, "审批提交失败，请重试"));
     } finally {
       setBusy(false);
     }
@@ -105,11 +106,7 @@ function ApprovalPanel({
           审批已过期，等待任务更新。
         </p>
       ) : null}
-      {error ? (
-        <p role="alert" className="mt-1.5 break-words text-danger">
-          {error}
-        </p>
-      ) : null}
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
       <div className="mt-1.5 flex items-start gap-3">
         <details className="min-w-0 flex-1 pt-1 text-[11px] text-ink-3">
           <summary className="cursor-pointer">查看操作详情</summary>

@@ -1,4 +1,5 @@
 import type { GatewaySnapshot } from "@larness/shared";
+import { ErrorMessage } from "@larness/ui";
 import { useEffect, useState } from "react";
 import { ProjectResourceSidebar } from "@/components/layout/ProjectResourceSidebar";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
@@ -126,18 +127,7 @@ export function AppShell({ version }: { version?: string }) {
         <WindowLayer />
       </div>
 
-      {workspaceError ? (
-        <div className="fixed bottom-4 left-1/2 z-[200] flex -translate-x-1/2 items-center gap-3 rounded-lg border border-danger/25 bg-surface px-3 py-2 text-[11.5px] text-danger shadow-[var(--shadow-pop)]">
-          <span>{workspaceError}</span>
-          <button
-            type="button"
-            className="text-ink-3 hover:text-ink"
-            onClick={() => setWorkspaceError(null)}
-          >
-            关闭
-          </button>
-        </div>
-      ) : null}
+      <ErrorMessage message={workspaceError} onDismiss={() => setWorkspaceError(null)} />
 
       {mobileSidebarOpen ? (
         <div className="fixed inset-0 z-[150] md:hidden">

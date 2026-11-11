@@ -81,7 +81,24 @@ test("M2-5b real Git panel shows status, stages, commits, diffs and approves a p
     await diffWindow.getByRole("button", { name: "隐藏窗口" }).click();
     await expect(diffWindow).toHaveCount(0);
 
-    await gitPanel.getByRole("button", { name: "暂存 a.txt" }).click();
+    const stage = gitPanel.getByRole("button", { name: "暂存 a.txt" });
+    const stagePosition = await stage.boundingBox();
+    await page.route(
+      "**/api/projects/*/git/actions",
+      (route) =>
+        route.fulfill({
+          status: 409,
+          json: { error: { code: "RESOURCE_LOCKED", message: "Project is locked" } },
+        }),
+      { times: 1 },
+    );
+    await stage.click();
+    const failure = page.getByRole("alert").filter({ hasText: /稍后重试/ });
+    await expect(failure).toHaveCSS("position", "fixed");
+    expect(await stage.boundingBox()).toEqual(stagePosition);
+    await failure.getByRole("button", { name: "关闭错误消息" }).click();
+    await expect(failure).toHaveCount(0);
+    await stage.click();
     await expect(gitPanel.getByRole("button", { name: "取消暂存 a.txt" })).toBeVisible({
       timeout: 15000,
     });

@@ -10,6 +10,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { MoreHorizontal, PanelRight } from "lucide-react";
 import { useState } from "react";
 import { ResourceDock } from "@/components/windows/ResourceDock";
+import { operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { archiveSession } from "@/lib/workspaceApi";
@@ -39,7 +40,7 @@ export function ConversationWorkspace() {
     } catch (error) {
       window.dispatchEvent(
         new CustomEvent("larness:workspace-error", {
-          detail: error instanceof Error ? error.message : "归档会话失败",
+          detail: operationError(error, "归档会话失败"),
         }),
       );
     }

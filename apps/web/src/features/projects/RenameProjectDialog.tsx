@@ -1,6 +1,15 @@
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Input } from "@larness/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  ErrorMessage,
+  Input,
+} from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { operationError } from "@/lib/api";
 import { updateProject } from "@/lib/workspaceApi";
 
 export function RenameProjectDialog({
@@ -33,7 +42,7 @@ export function RenameProjectDialog({
       await queryClient.invalidateQueries({ queryKey: ["workspace"] });
       onClose();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "重命名失败");
+      setError(operationError(submitError, "重命名失败"));
     } finally {
       setBusy(false);
     }
@@ -51,11 +60,7 @@ export function RenameProjectDialog({
           autoFocus
           className="mt-4 h-9"
         />
-        {error ? (
-          <p role="alert" className="mt-2 text-[11px] text-danger">
-            {error}
-          </p>
-        ) : null}
+        <ErrorMessage message={error} onDismiss={() => setError(null)} />
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onClose}>
             取消

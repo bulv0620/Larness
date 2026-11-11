@@ -88,6 +88,22 @@ it("shows a list read error without presenting it as an empty list", async () =>
   expect(screen.queryByText("还没有定时任务")).toBeNull();
 });
 
+it("shows one dismissible message for a failed save and keeps the form editable", async () => {
+  vi.mocked(createJob).mockRejectedValueOnce(new Error("internal transport failure"));
+  renderDialog();
+  fireEvent.click(await screen.findByRole("button", { name: "新建任务" }));
+  const name = screen.getByRole("textbox", { name: "名称" });
+  fireEvent.change(name, { target: { value: "待重试的任务" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("保存任务失败，请重试");
+  expect(screen.queryByText("internal transport failure")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "关闭错误消息" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(name).toHaveValue("待重试的任务");
+  expect(screen.getByRole("button", { name: "保存" })).toBeEnabled();
+});
+
 it("lists jobs, opens the detail, shows the run history and runs manually", async () => {
   renderDialog();
   fireEvent.click(await screen.findByRole("button", { name: /每日检查.*成功/ }));

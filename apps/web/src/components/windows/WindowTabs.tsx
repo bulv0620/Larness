@@ -1,4 +1,4 @@
-import { cn, Input } from "@larness/ui";
+import { cn, ErrorMessage, Input } from "@larness/ui";
 import {
   ChevronLeft,
   ChevronRight,
@@ -73,14 +73,7 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
 
   return (
     <div className="relative flex h-8 shrink-0 items-stretch border-b border-line bg-surface-2/35">
-      {terminalError ? (
-        <p
-          role="alert"
-          className="absolute top-full left-0 z-50 rounded bg-surface p-2 text-xs text-danger"
-        >
-          {terminalError}
-        </p>
-      ) : null}
+      <ErrorMessage message={terminalError} onDismiss={() => setTerminalError("")} />
       {overflow ? (
         <button
           type="button"

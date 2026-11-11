@@ -16,7 +16,7 @@ export const DialogContent = forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-[301] w-[min(560px,calc(100vw-40px))] -translate-x-1/2 -translate-y-1/2",
+        "fixed inset-0 z-[301] m-auto h-fit w-[min(560px,calc(100vw-40px))]",
         "rounded-2xl border border-line bg-surface p-5 text-ink shadow-[var(--shadow-pop)] outline-none",
         className,
       )}

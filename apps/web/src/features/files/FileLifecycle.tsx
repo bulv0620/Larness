@@ -1,5 +1,12 @@
 import type { FileScope } from "@larness/shared";
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  ErrorMessage,
+} from "@larness/ui";
 import { useEffect, useRef, useState } from "react";
 import { useWindowStore } from "@/stores/windowStore";
 import { saveDraft } from "./actions";
@@ -93,11 +100,7 @@ export function FileLifecycle() {
           <DialogContent className="pointer-events-auto space-y-4 text-sm">
             <DialogTitle>未保存的文件</DialogTitle>
             <DialogDescription>{tab.title} 有未保存的改动。</DialogDescription>
-            {error ? (
-              <p role="alert" className="text-danger">
-                {error}
-              </p>
-            ) : null}
+            <ErrorMessage message={error} onDismiss={() => setError(null)} />
             <div className="flex gap-3">
               <Button
                 type="button"

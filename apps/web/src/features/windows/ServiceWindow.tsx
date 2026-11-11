@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  ErrorMessage,
   FormSelect,
   Input,
 } from "@larness/ui";
@@ -26,7 +27,7 @@ import {
   stopService,
 } from "@/features/services/api";
 import { listTerminals, openTerminal, readTerminal } from "@/features/terminals/api";
-import { ApiError } from "@/lib/api";
+import { ApiError, operationError } from "@/lib/api";
 import type { WindowTab } from "@/lib/windowTypes";
 import { useWindowStore } from "@/stores/windowStore";
 
@@ -61,9 +62,8 @@ function registrationError(cause: unknown): string {
     if (cause.code === "APPROVAL_INVALID" || cause.code === "EXPIRED") {
       return "这次登记已结束（执行失败或过期），请重新登记。";
     }
-    return cause.message;
   }
-  return cause instanceof Error ? cause.message : "登记失败";
+  return operationError(cause, "登记失败，请核对服务状态后重试。");
 }
 
 function closesAction(cause: unknown): boolean {
@@ -158,12 +158,8 @@ function LiveServiceWindow({
         </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        {query.isError ? (
-          <p role="alert" className="text-[11px] text-danger">
-            服务读取失败，请稍后重试。
-          </p>
-        ) : null}
-        {services.length === 0 ? (
+        <ErrorMessage message={query.isError ? "服务读取失败，请刷新重试。" : null} />
+        {services.length === 0 && !query.isError ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <Server size={22} className="text-ink-3" />
             <div className="space-y-1">
@@ -349,17 +345,7 @@ function ServiceDetail({
           服务已结束或暂不可用；登记与预览不会重新启动源进程。
         </div>
       ) : null}
-      {terminalError ? (
-        <p role="alert" className="px-3 py-2 text-[11px] text-danger">
-          {terminalError}
-        </p>
-      ) : null}
-
-      {actionError ? (
-        <p role="alert" className="px-3 py-2 text-[11px] text-danger">
-          {actionError}
-        </p>
-      ) : null}
+      <ErrorMessage message={terminalError} onDismiss={() => setTerminalError("")} />
       <Dialog
         open={action !== null}
         onOpenChange={(value) => (!value && !actionBusy ? setAction(null) : undefined)}
@@ -371,6 +357,7 @@ function ServiceDetail({
               ? "会终止该监听进程及其子进程，并撤销预览；终端 Shell 和无关进程不受影响。共享同一进程的其他服务也会失效。"
               : "只删除登记并撤销预览，不会停止正在运行的进程；终端可继续使用。"}
           </DialogDescription>
+          <ErrorMessage message={actionError} onDismiss={() => setActionError("")} />
           <div className="flex justify-end gap-2">
             <Button variant="secondary" disabled={actionBusy} onClick={() => setAction(null)}>
               取消
@@ -390,11 +377,7 @@ function ServiceDetail({
                   })
                   .catch((cause: unknown) => {
                     setActionError(
-                      cause instanceof Error
-                        ? cause.message
-                        : action === "stop"
-                          ? "停止失败"
-                          : "删除失败",
+                      operationError(cause, action === "stop" ? "停止服务失败" : "删除登记失败"),
                     );
                   })
                   .finally(() => setActionBusy(false));
@@ -420,14 +403,11 @@ function ServiceDetail({
           </span>
         </div>
         <div className="mt-1 min-h-0 flex-1 overflow-auto rounded-lg border border-line bg-[#0f1115] p-2 font-mono text-[10px] leading-5 text-[#c7ccd4]">
-          {logs.isError ? (
-            <p role="alert" className="text-danger">
-              日志读取失败
-            </p>
-          ) : logText ? (
+          <ErrorMessage message={logs.isError ? "日志读取失败，请刷新重试。" : null} />
+          {logText ? (
             <pre className="whitespace-pre-wrap break-all">{logText}</pre>
           ) : (
-            <span className="text-white/35">暂无输出</span>
+            <span className="text-white/35">{logs.isError ? "日志暂不可用" : "暂无输出"}</span>
           )}
         </div>
         <button
@@ -492,6 +472,7 @@ function RegisterServiceDialog({
   const [port, setPort] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [validationError, setValidationError] = useState("");
   const [pending, setPending] = useState<{ id: string } | null>(null);
   const running = (terminals.data?.items ?? []).filter((item) => item.status === "RUNNING");
 
@@ -508,11 +489,12 @@ function RegisterServiceDialog({
       parsedPort < 1 ||
       parsedPort > 65535
     ) {
-      setError("请选择运行中的终端，并填写 1–80 字名称与有效端口");
+      setValidationError("请选择运行中的终端，并填写 1–80 字名称与有效端口");
       return;
     }
     setBusy(true);
     setError("");
+    setValidationError("");
     try {
       const action = await createServiceAction({
         kind: "temporary",
@@ -581,16 +563,12 @@ function RegisterServiceDialog({
         <DialogDescription>
           选择当前项目中运行服务的终端并填写服务的监听端口。后端会核验监听是否属于该终端。
         </DialogDescription>
+        <ErrorMessage message={error} onDismiss={() => setError("")} />
         {pending ? (
           <div className="space-y-3">
             <p className="rounded-md border border-line bg-surface-2/60 p-2 text-[11px] text-ink-2">
               登记属于 L2 操作，需要审批。批准后会再次核验监听身份并登记。
             </p>
-            {error ? (
-              <p role="alert" className="text-[11px] text-danger">
-                {error}
-              </p>
-            ) : null}
             <div className="flex justify-end gap-2">
               <Button variant="secondary" disabled={busy} onClick={() => void reject()}>
                 拒绝
@@ -641,9 +619,9 @@ function RegisterServiceDialog({
             <p className="text-[10px] text-ink-3">
               填写所选终端中服务的实际监听端口。0.0.0.0 和 :: 等监听也可登记，无需改绑定或重启。
             </p>
-            {error ? (
+            {validationError ? (
               <p role="alert" className="text-[11px] text-danger">
-                {error}
+                {validationError}
               </p>
             ) : null}
             <div className="flex justify-end gap-2">

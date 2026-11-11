@@ -1,4 +1,5 @@
 import type { FileResultTarget } from "@larness/shared";
+import { ErrorMessage } from "@larness/ui";
 import { FileText } from "lucide-react";
 import { useState } from "react";
 import { ResultCard } from "@/features/chat/ResultCard";
@@ -36,11 +37,7 @@ export function FileResultCard({ target }: { target: FileResultTarget }) {
           文件已变化，已打开当前版本。
         </p>
       ) : null}
-      {error ? (
-        <p role="alert" className="mt-1 text-[10.5px] text-danger">
-          {error}
-        </p>
-      ) : null}
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
     </div>
   );
 }

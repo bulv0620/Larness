@@ -1,7 +1,16 @@
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle, Input } from "@larness/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  ErrorMessage,
+  Input,
+} from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronUp, Folder, FolderPlus, Home, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
+import { operationError } from "@/lib/api";
 import { createProject, type DirectoryListing, listDirectories } from "@/lib/workspaceApi";
 
 export function ProjectDialog({
@@ -28,7 +37,7 @@ export function ProjectDialog({
     try {
       setListing(await listDirectories(directory));
     } catch (browseError) {
-      setListingError(browseError instanceof Error ? browseError.message : "无法读取目录");
+      setListingError(operationError(browseError, "无法读取目录"));
     } finally {
       setLoadingListing(false);
     }
@@ -61,7 +70,7 @@ export function ProjectDialog({
       await queryClient.invalidateQueries({ queryKey: ["workspace"] });
       onOpenChange(false);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "添加项目失败");
+      setError(operationError(submitError, "添加项目失败"));
     } finally {
       setBusy(false);
     }
@@ -123,7 +132,7 @@ export function ProjectDialog({
               <RefreshCw size={12} />
             </button>
             <span className="min-w-0 flex-1 truncate px-1 font-mono text-[10.5px] text-ink-2">
-              {listing?.path ?? "读取中…"}
+              {listing?.path ?? (listingError ? "目录不可用" : "读取中…")}
             </span>
           </div>
 
@@ -132,13 +141,6 @@ export function ProjectDialog({
               <div className="flex h-full items-center justify-center gap-1.5 text-[11px] text-ink-3">
                 <Loader2 size={12} className="animate-spin" /> 正在读取目录…
               </div>
-            ) : listingError ? (
-              <p
-                role="alert"
-                className="rounded-lg bg-danger/10 px-2.5 py-2 text-[11px] text-danger"
-              >
-                {listingError}
-              </p>
             ) : listing?.entries.length === 0 ? (
               <p className="px-2 py-3 text-[11px] text-ink-3">没有子目录</p>
             ) : (
@@ -204,14 +206,10 @@ export function ProjectDialog({
           />
         </label>
 
-        {error ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-lg bg-danger/10 px-2.5 py-2 text-[11px] text-danger"
-          >
-            {error}
-          </p>
-        ) : null}
+        <ErrorMessage
+          message={error ?? listingError}
+          onDismiss={error ? () => setError(null) : undefined}
+        />
 
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={() => onOpenChange(false)}>

@@ -1,5 +1,12 @@
 import type { FileScope } from "@larness/shared";
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  ErrorMessage,
+} from "@larness/ui";
 import { type ReactNode, useState } from "react";
 import { queryClient } from "@/lib/queries";
 import { createTerminal, openTerminal } from "./api";
@@ -41,11 +48,7 @@ export function CreateTerminalButton({
         <DialogContent className="max-w-sm">
           <DialogTitle>创建终端确认</DialogTitle>
           <DialogDescription>终端以本机账户运行，项目目录不是沙箱。</DialogDescription>
-          {error ? (
-            <p role="alert" className="mt-3 text-xs text-danger">
-              {error}
-            </p>
-          ) : null}
+          <ErrorMessage message={error} onDismiss={() => setError("")} />
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" disabled={busy} onClick={() => setRequest(null)}>
               取消

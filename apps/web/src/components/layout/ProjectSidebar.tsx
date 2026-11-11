@@ -6,6 +6,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  ErrorMessage,
   Input,
   Kbd,
 } from "@larness/ui";
@@ -38,6 +39,7 @@ import { ModelSettingsDialog } from "@/features/models/ModelSettingsDialog";
 import { ProjectDialog } from "@/features/projects/ProjectDialog";
 import { RenameProjectDialog } from "@/features/projects/RenameProjectDialog";
 import { ServiceOpsDialog } from "@/features/serviceOps/ServiceOpsDialog";
+import { operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { relativeTime } from "@/lib/format";
 import { useSnapshot } from "@/lib/queries";
@@ -657,7 +659,7 @@ function ConfirmActionDialog({
     try {
       await onConfirm();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "操作失败");
+      setError(operationError(submitError, "操作失败"));
       setBusy(false);
     }
   };
@@ -667,14 +669,7 @@ function ConfirmActionDialog({
       <DialogContent>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
-        {error ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-lg bg-danger/10 px-2.5 py-2 text-[11px] text-danger"
-          >
-            {error}
-          </p>
-        ) : null}
+        <ErrorMessage message={error} onDismiss={() => setError(null)} />
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
             取消

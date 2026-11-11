@@ -1,3 +1,4 @@
+import { ErrorMessage } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { saveDraft } from "@/features/files/actions";
@@ -83,11 +84,10 @@ function EditableFile({ tab, target }: { tab: WindowTab; target: NonNullable<Win
           {saving ? "保存中…" : "保存"}
         </button>
       </div>
-      {(error && !conflict) || query.isError ? (
-        <div role="alert" className="shrink-0 p-2 text-danger">
-          {error ?? fileError(query.error)}
-        </div>
-      ) : null}
+      <ErrorMessage
+        message={query.isError ? fileError(query.error) : conflict ? null : error}
+        onDismiss={query.isError ? undefined : () => setError(null)}
+      />
       {conflict ? (
         <div className="shrink-0 space-y-2 border-b border-line bg-warning/10 p-2">
           <p role="status">磁盘文件已变化，草稿已保留。</p>

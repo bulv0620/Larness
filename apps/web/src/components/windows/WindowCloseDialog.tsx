@@ -1,4 +1,11 @@
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@larness/ui";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  ErrorMessage,
+} from "@larness/ui";
 import { useEffect, useState } from "react";
 import { saveDraft } from "@/features/files/actions";
 import { useFileDraftStore } from "@/features/files/drafts";
@@ -50,11 +57,7 @@ function CloseRequest({ request }: { request: { windowId: string; tabIds: string
             ? `${dirty?.title ?? "文件"} 有未保存的改动。`
             : "最小化可以保留这些 Tab，关闭后需要重新打开。"}
         </DialogDescription>
-        {error ? (
-          <p role="alert" className="text-danger">
-            {error}
-          </p>
-        ) : null}
+        <ErrorMessage message={error} onDismiss={() => setError("")} />
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="secondary" disabled={blocked} onClick={dismiss}>
             取消

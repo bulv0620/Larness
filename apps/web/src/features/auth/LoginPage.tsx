@@ -1,3 +1,4 @@
+import { ErrorMessage } from "@larness/ui";
 import {
   browserSupportsWebAuthn,
   type PublicKeyCredentialRequestOptionsJSON,
@@ -6,7 +7,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError, apiFetch, operationError } from "@/lib/api";
 import { useBootstrap, useSession } from "./useAuth";
 
 interface AuthenticationOptions {
@@ -33,14 +34,13 @@ function messageFor(error: unknown): string {
     if (error.code === "WEBAUTHN_NOT_CONFIGURED" || error.code === "ORIGIN_INVALID") {
       return "当前来源不能使用 Passkey，请改用 localhost / HTTPS 或使用配对码";
     }
-    return error.message;
   }
 
   if (error instanceof DOMException && error.name === "NotAllowedError") {
     return "已取消 Passkey 登录";
   }
 
-  return error instanceof Error ? error.message : "登录失败";
+  return operationError(error, "登录失败，请重试。");
 }
 
 export function LoginPage() {
@@ -173,11 +173,7 @@ export function LoginPage() {
           </button>
         ) : null}
 
-        {error ? (
-          <p role="alert" className="mt-4 rounded-md bg-surface-2 p-3 text-sm text-danger">
-            {error}
-          </p>
-        ) : null}
+        <ErrorMessage message={error} onDismiss={() => setError(null)} />
 
         <div className="mt-5 flex items-center justify-between text-sm">
           <Link className="text-accent hover:underline" to="/pair">

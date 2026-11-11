@@ -181,7 +181,8 @@ it("shows approval failure inline, disables expired requests and navigates multi
   });
   render(<PendingApproval />);
   fireEvent.click(screen.getByRole("button", { name: "批准执行" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent("offline");
+  expect(await screen.findByRole("alert")).toHaveTextContent("审批提交失败，请重试");
+  expect(screen.getByRole("alert")).not.toHaveTextContent("offline");
   expect(screen.getByRole("button", { name: "批准执行" })).toBeEnabled();
   fireEvent.click(screen.getByRole("button", { name: "下一项审批" }));
   expect(screen.getByText("other")).toBeVisible();

@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  ErrorMessage,
   FormSelect,
   Input,
 } from "@larness/ui";
@@ -22,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
+import { operationError } from "@/lib/api";
 import {
   type ApiCatalogGroup,
   type ApiCatalogModel,
@@ -133,7 +135,7 @@ export function ModelSettingsDialog({
       setCredentials(nextCredentials);
       setCatalog(nextCatalog);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "加载模型设置失败");
+      setError(operationError(loadError, "加载模型设置失败"));
     } finally {
       setLoading(false);
     }
@@ -177,9 +179,7 @@ export function ModelSettingsDialog({
       setError(
         savedCredentialId
           ? "Key 已保存，目录同步失败。请打开该 Key 后重试刷新。"
-          : refreshError instanceof Error
-            ? refreshError.message
-            : "刷新目录失败",
+          : operationError(refreshError, "刷新目录失败"),
       );
       const cachedCatalog = await listModelCatalog().catch(() => null);
       if (cachedCatalog) setCatalog(cachedCatalog);
@@ -206,7 +206,7 @@ export function ModelSettingsDialog({
       setCatalog(await listModelCatalog());
       await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
     } catch (modelError) {
-      setError(modelError instanceof Error ? modelError.message : "设置默认模型失败");
+      setError(operationError(modelError, "设置默认模型失败"));
     } finally {
       setBusy(false);
     }
@@ -225,7 +225,7 @@ export function ModelSettingsDialog({
       setCatalog(await listModelCatalog());
       await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
     } catch (visibilityError) {
-      setError(visibilityError instanceof Error ? visibilityError.message : "更新显示状态失败");
+      setError(operationError(visibilityError, "更新显示状态失败"));
     } finally {
       setBusy(false);
     }
@@ -254,7 +254,7 @@ export function ModelSettingsDialog({
       await refresh(saved.id);
       setView({ kind: "list" });
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "保存 Key 失败");
+      setError(operationError(saveError, "保存 Key 失败"));
     } finally {
       setBusy(false);
     }
@@ -269,7 +269,7 @@ export function ModelSettingsDialog({
       await reload();
       await refresh();
     } catch (endpointError) {
-      setError(endpointError instanceof Error ? endpointError.message : "更新端点失败");
+      setError(operationError(endpointError, "更新端点失败"));
     } finally {
       setBusy(false);
     }
@@ -287,7 +287,7 @@ export function ModelSettingsDialog({
       await reload();
       await refresh();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "保存兼容端点失败");
+      setError(operationError(saveError, "保存兼容端点失败"));
     } finally {
       setBusy(false);
     }
@@ -303,7 +303,7 @@ export function ModelSettingsDialog({
       await reload();
       await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
     } catch (removeError) {
-      setError(removeError instanceof Error ? removeError.message : "删除 Key 失败");
+      setError(operationError(removeError, "删除 Key 失败"));
     } finally {
       setBusy(false);
     }
@@ -326,14 +326,7 @@ export function ModelSettingsDialog({
           </DialogClose>
         </header>
 
-        {error ? (
-          <p
-            role="alert"
-            className="shrink-0 border-b border-line px-4 py-2 text-[11px] text-danger"
-          >
-            {error}
-          </p>
-        ) : null}
+        <ErrorMessage message={error} onDismiss={() => setError(null)} />
 
         {view.kind === "list" ? (
           <>

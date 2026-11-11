@@ -1,5 +1,5 @@
 import { CommandDtoSchema, CommandOutputPageSchema, type CommandStatus } from "@larness/shared";
-import { Button } from "@larness/ui";
+import { Button, ErrorMessage } from "@larness/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { apiFetch } from "@/lib/api";
@@ -125,11 +125,16 @@ export function CommandCard({ commandId }: { commandId: string }) {
           执行已中断；停止情况以状态原因为准，不能确认时项目保持受阻。
         </p>
       ) : null}
-      {state.error || output.error || cancel.error ? (
-        <p role="alert" className="px-3 py-1 text-[11px] text-danger">
-          命令状态或输出读取失败；取消失败时请刷新确认。
-        </p>
-      ) : null}
+      <ErrorMessage
+        message={
+          cancel.error
+            ? "取消命令失败，请刷新确认。"
+            : state.error || output.error
+              ? "命令状态或输出读取失败。"
+              : null
+        }
+        onDismiss={cancel.error ? () => cancel.reset() : undefined}
+      />
       {output.data?.gap ? (
         <p className="px-3 text-[11px] text-warning">输出有缺口，以下仅为当前可用记录。</p>
       ) : null}

@@ -11,6 +11,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  ErrorMessage,
 } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import { MoreHorizontal } from "lucide-react";
@@ -100,6 +101,7 @@ export function LiveTerminalView({
   const [inputReady, setInputReady] = useState(false);
   const [connection, setConnection] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [gap, setGap] = useState(false);
   const [log, setLog] = useState("");
   const [replaying, setReplaying] = useState(true);
@@ -499,10 +501,11 @@ export function LiveTerminalView({
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true);
     setError("");
+    setActionError("");
     try {
       await action();
     } catch {
-      setError("终端操作失败，请刷新状态后重试。");
+      setActionError("终端操作失败，请刷新状态后重试。");
     } finally {
       setBusy(false);
     }
@@ -583,6 +586,10 @@ export function LiveTerminalView({
           {(!terminalEnded && error) || "终端不可用，请刷新核对；不会自动重建。"}
         </p>
       ) : null}
+      <ErrorMessage
+        message={!terminalEnded && visible ? actionError : null}
+        onDismiss={() => setActionError("")}
+      />
       {showTerminal ? (
         <>
           {replaying ? (
