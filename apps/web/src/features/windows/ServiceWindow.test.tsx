@@ -100,6 +100,36 @@ it("shows registered service cards, detail, terminal output and opens the owning
   await waitFor(() => expect(openTerminal).toHaveBeenCalled());
 });
 
+it("shows readable terminal output across chunk boundaries and refreshes without duplicate lines", async () => {
+  const chunks = [
+    { cursor: 1, data: "\u001b]0;Power", timestamp: 1 },
+    { cursor: 2, data: "Shell\u001b\\\u001b[3", timestamp: 1 },
+    { cursor: 3, data: "2m服务已", timestamp: 1 },
+    { cursor: 4, data: "启动\u001b[0m\r\n", timestamp: 1 },
+  ];
+  const page = { terminalId, chunks, nextCursor: 4, truncated: false, resyncRequired: false };
+  vi.mocked(readServiceLogs)
+    .mockResolvedValueOnce(page)
+    .mockResolvedValue({
+      ...page,
+      chunks: [...chunks, { cursor: 5, data: "Ready\u001b[?25h\r\n", timestamp: 2 }],
+      nextCursor: 5,
+    });
+
+  const { container } = renderWindow({ ...tab, id: "tab-readable-logs" });
+  fireEvent.click(await screen.findByRole("button", { name: /web/ }));
+  await waitFor(() => expect(container.querySelector("pre")?.textContent).toBe("服务已启动\n"));
+  fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+  await waitFor(() =>
+    expect(container.querySelector("pre")?.textContent).toBe("服务已启动\nReady\n"),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "返回" }));
+  fireEvent.click(await screen.findByRole("button", { name: /web/ }));
+  await waitFor(() =>
+    expect(container.querySelector("pre")?.textContent).toBe("服务已启动\nReady\n"),
+  );
+});
+
 it("registers through the resource action and shows the new detail after approval", async () => {
   vi.mocked(listServices).mockResolvedValue([]);
   vi.mocked(listTerminals).mockResolvedValue({

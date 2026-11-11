@@ -254,7 +254,7 @@ function ServiceDetail({
   }
   if (!service) return <div className="p-3 text-xs text-ink-3">读取服务…</div>;
   const ended = service.status !== "RUNNING";
-  const logText = (logs.data?.chunks ?? []).map((chunk) => chunk.data).join("");
+  const logText = formatTerminalLog((logs.data?.chunks ?? []).map((chunk) => chunk.data).join(""));
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-start gap-2 border-b border-line px-3 py-2">
@@ -445,6 +445,20 @@ function Info({ label, value, mono }: { label: string; value: string; mono?: boo
     </div>
   );
 }
+
+// A service log is a text view. Join the chunks before stripping VT sequences,
+// since one sequence can span several terminal output records.
+function formatTerminalLog(text: string): string {
+  return text.replace(terminalControlSequences, "").replace(/\r\n?/g, "\n");
+}
+
+const terminalControlSequences = new RegExp(
+  String.raw`(?:\x1b\]|\x9d)[^\x07\x1b\x9c]*(?:\x07|\x1b\\|\x9c|$)` +
+    String.raw`|(?:\x1b[P^_X]|[\x90\x98\x9e\x9f])[^\x1b\x9c]*(?:\x1b\\|\x9c|$)` +
+    String.raw`|(?:\x1b\[|\x9b)[0-?]*[ -/]*(?:[@-~]|$)` +
+    String.raw`|\x1b[ -/]*[0-~]|[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]`,
+  "g",
+);
 
 function RegisterServiceDialog({
   open,

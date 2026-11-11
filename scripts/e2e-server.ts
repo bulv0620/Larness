@@ -208,7 +208,7 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
                   executable: process.execPath,
                   args: [
                     "-e",
-                    `require("node:http").createServer((request, response) => response.end("ok")).listen(${port}, "127.0.0.1", () => console.log("SERVICE_READY"));`,
+                    `require("node:http").createServer((request, response) => response.end("ok")).listen(${port}, "127.0.0.1", () => console.log("\\u001b[32mSERVICE_READY \\u670d\\u52a1\\u5df2\\u542f\\u52a8\\u001b[0m"));`,
                   ],
                 },
               },

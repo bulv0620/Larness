@@ -125,7 +125,10 @@ test("M3-2 registers a live dev service and shows cards, detail, logs and the ow
       timeout: 20_000,
     });
     await expect(serviceWindow.getByText(`http://127.0.0.1:${port}`)).toBeVisible();
-    await expect(serviceWindow.getByText(/SERVICE_READY/)).toBeVisible({ timeout: 20_000 });
+    await expect(serviceWindow.locator("pre")).toContainText("SERVICE_READY 服务已启动", {
+      timeout: 20_000,
+    });
+    expect(await serviceWindow.locator("pre").textContent()).not.toContain("\u001b");
     await serviceWindow.getByRole("button", { name: "返回" }).click();
     await expect(serviceWindow.getByText("web", { exact: true })).toBeVisible();
     await expect(serviceWindow.getByText(`127.0.0.1:${port}`)).toBeVisible();
