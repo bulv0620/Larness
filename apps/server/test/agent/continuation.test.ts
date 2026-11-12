@@ -50,6 +50,7 @@ describe("automatic continuation", () => {
           { db: opened.db, now: () => NOW },
           {
             turnId: first.turnId,
+            budgetCause: "tokens",
           },
         );
 
@@ -68,6 +69,7 @@ describe("automatic continuation", () => {
           { db: opened.db, now: () => NOW },
           {
             turnId: first.turnId,
+            budgetCause: "tokens",
           },
         );
         expect(again?.turnId).toBe(next?.turnId);
@@ -93,6 +95,7 @@ describe("automatic continuation", () => {
             { db: opened.db, now: () => NOW, maxContinuations: 3 },
             {
               turnId,
+              budgetCause: "tokens",
             },
           );
 
@@ -102,7 +105,33 @@ describe("automatic continuation", () => {
 
         finishAsBudget(opened, session.id, turnId);
         expect(
-          continueBudgetedTurn({ db: opened.db, now: () => NOW, maxContinuations: 3 }, { turnId }),
+          continueBudgetedTurn(
+            { db: opened.db, now: () => NOW, maxContinuations: 3 },
+            { turnId, budgetCause: "tokens" },
+          ),
+        ).toBeNull();
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("does not continue a turn that stopped on the stall guard", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+
+      try {
+        const options = { db: opened.db, dataDir: dir, now: () => NOW };
+        const session = await createSession(options, {});
+        const turn = createTurn(options, { sessionId: session.id, text: "stalled" });
+        finishAsBudget(opened, session.id, turn.turnId);
+
+        expect(
+          continueBudgetedTurn(
+            { db: opened.db, now: () => NOW },
+            { turnId: turn.turnId, budgetCause: "duration" },
+          ),
         ).toBeNull();
       } finally {
         opened.close();

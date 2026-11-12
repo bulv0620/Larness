@@ -14,12 +14,24 @@ interface TurnGroup {
   id: string;
   items: TimelineItem[];
 }
+function isContinuationTurn(item: TimelineItem): boolean {
+  return (
+    item.kind === "message" && item.role === "user" && item.text.startsWith("Work state checkpoint")
+  );
+}
+
 function groupTurns(items: TimelineItem[]): TurnGroup[] {
   const groups: TurnGroup[] = [];
   const byId = new Map<string, TurnGroup>();
   let current: TurnGroup | undefined;
   for (const item of items) {
     const isUser = item.kind === "message" && item.role === "user";
+    // An automatically continued turn belongs to the task it continues, so it
+    // reads as one flow instead of a new turn.
+    if (isContinuationTurn(item) && item.turnId !== undefined && current !== undefined) {
+      byId.set(item.turnId, current);
+      continue;
+    }
     const id = item.turnId ?? (isUser ? item.id : (current?.id ?? item.id));
     const existing = byId.get(id);
     if (existing) {
@@ -64,7 +76,15 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const user = items.find(
     (item): item is MessageItem => item.kind === "message" && item.role === "user",
   );
-  const turnActive = active && user?.turnOutcome === undefined;
+  const lastTurnId = [...items].reverse().find((item) => item.turnId !== undefined)?.turnId;
+  const lastTurnUser = items.find(
+    (item): item is MessageItem =>
+      item.kind === "message" &&
+      item.role === "user" &&
+      item.turnId !== undefined &&
+      item.turnId === lastTurnId,
+  );
+  const turnActive = active && lastTurnUser?.turnOutcome === undefined;
   const [expanded, setExpanded] = useState(false);
   const [confirmResume, setConfirmResume] = useState(false);
   const tools = items.filter(

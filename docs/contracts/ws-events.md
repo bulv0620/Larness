@@ -99,7 +99,7 @@ interface ServerEvent<T = unknown> {
 | `tool.failed` | `toolCallId, errorCode, message, issues?, repeatCount?`（M6-10：同一 `(tool, 规范化参数)` 连续失败次数；`issues` 为最多 5 条 `{path,message}` 的参数校验原因） | 是 |
 | `file.changed` | `path, changeType, version` | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
-| `turn.completed` | `turnId, usage, durationMs, terminalReason, budgetExhausted?`（`usage` 与 `model.usage` 同口径，含 `cacheReadTokens?` / `noCacheTokens?`） | 是 |
+| `turn.completed` | `turnId, usage, durationMs, terminalReason, budgetExhausted?, budgetCause?`（`usage` 与 `model.usage` 同口径，含 `cacheReadTokens?` / `noCacheTokens?`） | 是 |
 | `model.usage` | `turnId, model, inputTokens, outputTokens?, totalTokens?, cacheReadTokens?, noCacheTokens?, usageSource, contextWindow`（M5-1 单次请求；M6-1 增缓存细分） | 是 |
 | `context.compressed` | `turnId, summaryId, coveredUpToSeq, tokensBefore, tokensAfter, degraded`（M5-1d 压缩） | 是 |
 | `context.checkpoint` | `turnId, summaryId, scope, reason, coveredUpToSeq, tokensBefore, tokensAfter, files, failures, openSteps`（M6-7 Turn 内检查点） | 是 |
@@ -118,6 +118,8 @@ interface ServerEvent<T = unknown> {
 `repeatCount` 只在同一调用连续失败达到阈值时由后端记录，并同时在 tool result 之后追加一条模型可见的事实说明；它不改变执行策略、授权或审批。
 
 `turn.continued` 由自动接续写入：`depth` 是接续链深度（原始 Turn 为 0），默认最多 3。`turn.resumed` 由恢复操作写入新 Turn：`fromTurnId` 是被中断的原 Turn，原 Turn 本身不被改写。
+
+`budgetCause`（ADR-059）说明是哪一项预算结束了本轮：`tokens`（花费上限，可自动接续）/ `context`（上下文放不下，可自动接续）/ `duration`（卡死兜底，不接续）/ `steps` / `tool_calls`（仅在显式配置上限时出现）。
 
 `terminalReason`（M6-3，[ADR-057](../adr/ADR-057-runtime-efficiency.md)）在每个 `turn.*` 终态事件中给出结束原因：`normal / budget / output_truncated / provider_error / error / cancelled / interrupted`。它和事件类型正交——`turn.completed` 也可能是 `budget` 或 `output_truncated`，客户端必须按 `terminalReason` 而不是仅按事件类型判断「任务是否真的做完」。
 

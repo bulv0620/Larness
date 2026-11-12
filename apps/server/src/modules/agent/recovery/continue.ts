@@ -5,6 +5,7 @@ import { getSessionById, getTurnById, updateTurnRow } from "../../sessions/repos
 import { createTurn } from "../../sessions/turns.js";
 import { appendAgentEvent } from "../events.js";
 import { checkpointMessage, factsAreEmpty, loadTurnFacts } from "../turnCheckpoint.js";
+import type { TurnBudgetCause } from "../turnRunner.js";
 
 export const DEFAULT_MAX_CONTINUATIONS = 3;
 
@@ -43,13 +44,22 @@ function chainDepth(db: Database, turnId: string): number {
  */
 export function continueBudgetedTurn(
   options: { db: Database; maxContinuations?: number; now?: () => number },
-  input: { turnId: string },
+  input: { turnId: string; budgetCause?: TurnBudgetCause },
 ): ContinuationResult | null {
   const maxContinuations = options.maxContinuations ?? DEFAULT_MAX_CONTINUATIONS;
   const now = options.now?.() ?? Date.now();
   const turn = getTurnById(options.db, input.turnId);
 
   if (turn === null || turn.status !== "COMPLETED" || turn.terminalReason !== "budget") {
+    return null;
+  }
+
+  // Only spend or context pressure means "this work needs another slice".
+  if (
+    input.budgetCause !== undefined &&
+    input.budgetCause !== "tokens" &&
+    input.budgetCause !== "context"
+  ) {
     return null;
   }
 

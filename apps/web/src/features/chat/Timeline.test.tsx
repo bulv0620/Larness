@@ -206,6 +206,53 @@ it("summarizes tool calls and opens individual command output directly from a fa
   expect(screen.getAllByLabelText("命令输出")).toHaveLength(2);
 });
 
+it("merges an automatically continued turn into the task it continues", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "u1",
+        kind: "message",
+        role: "user",
+        text: "重构 todo 页面",
+        createdAt: 1,
+        turnId: "t1",
+        turnOutcome: "completed",
+      },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "第一步已完成。",
+        createdAt: 2,
+        turnId: "t1",
+      },
+      {
+        id: "u2",
+        kind: "message",
+        role: "user",
+        text: 'Work state checkpoint (verified facts, observed at 3).\n{"goal":"重构 todo"}',
+        createdAt: 3,
+        turnId: "t2",
+      },
+      {
+        id: "a2",
+        kind: "message",
+        role: "assistant",
+        text: "全部完成。",
+        createdAt: 4,
+        turnId: "t2",
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  expect(screen.getAllByLabelText("对话轮次")).toHaveLength(1);
+  expect(screen.queryByText("自动继续上一轮的未完成工作")).toBeNull();
+  expect(screen.getByText("重构 todo 页面")).toBeTruthy();
+  expect(screen.queryByText(/"goal":"重构 todo"/)).toBeNull();
+});
+
 it("marks an automatically continued turn without dumping the checkpoint", () => {
   useTimelineStore.setState({
     items: [

@@ -601,6 +601,7 @@ describe("TurnRunner", () => {
 
         expect(Date.now() - startedAt).toBeLessThan(2_000);
         expect(result.status).toBe("COMPLETED");
+        expect(result.budgetCause).toBe("duration");
 
         const completed = listSessionEvents(opened.db, session.id).items.find(
           (event) => event.type === "turn.completed",
@@ -910,6 +911,7 @@ describe("TurnRunner", () => {
         const result = await runner.run(turn.turnId);
 
         expect(result.status).toBe("COMPLETED");
+        expect(result.budgetCause).toBe("context");
         expect(provider.calls).toHaveLength(0);
 
         const row = opened.sqlite
@@ -1082,7 +1084,9 @@ describe("TurnRunner", () => {
           budget: { maxTotalTokens: 500 },
         });
 
-        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+        const capped = await runner.run(turn.turnId);
+        expect(capped.status).toBe("COMPLETED");
+        expect(capped.budgetCause).toBe("tokens");
         expect(provider.calls).toHaveLength(1);
 
         const row = opened.sqlite

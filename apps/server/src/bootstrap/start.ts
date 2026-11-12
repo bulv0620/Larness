@@ -458,8 +458,17 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
             return;
           }
 
+          // Wall-clock and step stops are stall guards, not "the work needs
+          // another slice"; only spend or context pressure is continued.
+          if (result.budgetCause !== "tokens" && result.budgetCause !== "context") {
+            return;
+          }
+
           try {
-            const next = continueBudgetedTurn({ db: opened.db, now: () => Date.now() }, { turnId });
+            const next = continueBudgetedTurn(
+              { db: opened.db, now: () => Date.now() },
+              { turnId, budgetCause: result.budgetCause },
+            );
 
             if (next === null) {
               return;

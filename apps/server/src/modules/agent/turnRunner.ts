@@ -135,10 +135,14 @@ export interface TurnTimingLogger {
   info(fields: Record<string, unknown>, message: string): void;
 }
 
+export type TurnBudgetCause = "duration" | "tokens" | "context" | "steps" | "tool_calls";
+
 export type TurnRunResult = {
   status: TurnStatus;
   errorCode?: string;
   terminalReason?: TurnTerminalReason;
+  /** Which budget stopped the turn; only spend/context stops are continuable. */
+  budgetCause?: TurnBudgetCause;
 };
 
 function isTerminal(status: TurnStatus): boolean {
@@ -354,6 +358,7 @@ export class TurnRunner {
         message?: string;
         reason?: string;
         budgetExhausted?: boolean;
+        budgetCause?: TurnBudgetCause;
         finishReason?: ProviderFinishReason;
       },
     ): TurnRunResult => {
@@ -1175,7 +1180,11 @@ export class TurnRunner {
         }
 
         if (budgetState === "budget") {
-          return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
+          return finalize("COMPLETED", {
+            eventType: "turn.completed",
+            budgetExhausted: true,
+            budgetCause: "duration",
+          });
         }
 
         if (!renewProjectLock()) {
@@ -1292,14 +1301,22 @@ export class TurnRunner {
 
         if (projectedTokens > contextWindow) {
           // Stop honestly instead of letting the provider reject the request.
-          return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
+          return finalize("COMPLETED", {
+            eventType: "turn.completed",
+            budgetExhausted: true,
+            budgetCause: "context",
+          });
         }
 
         if (this.#budget.maxTotalTokens > 0) {
           const spentTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
 
           if (spentTokens >= this.#budget.maxTotalTokens) {
-            return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
+            return finalize("COMPLETED", {
+              eventType: "turn.completed",
+              budgetExhausted: true,
+              budgetCause: "tokens",
+            });
           }
         }
 
@@ -1424,6 +1441,7 @@ export class TurnRunner {
               return finalize("COMPLETED", {
                 eventType: "turn.completed",
                 budgetExhausted: true,
+                budgetCause: "duration",
               });
             }
 
@@ -1473,7 +1491,11 @@ export class TurnRunner {
           const cancelState = checkBudget();
 
           if (cancelState === "budget")
-            return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
+            return finalize("COMPLETED", {
+              eventType: "turn.completed",
+              budgetExhausted: true,
+              budgetCause: "duration",
+            });
           if (cancelState === "cancel") {
             return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
           }
@@ -1484,6 +1506,7 @@ export class TurnRunner {
             return finalize("COMPLETED", {
               eventType: "turn.completed",
               budgetExhausted: true,
+              budgetCause: "tool_calls",
             });
           }
 
@@ -1568,6 +1591,7 @@ export class TurnRunner {
                 return finalize("COMPLETED", {
                   eventType: "turn.completed",
                   budgetExhausted: true,
+                  budgetCause: "duration",
                 });
               }
 
@@ -1782,14 +1806,22 @@ export class TurnRunner {
         }
       }
 
-      return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
+      return finalize("COMPLETED", {
+        eventType: "turn.completed",
+        budgetExhausted: true,
+        budgetCause: "steps",
+      });
     } catch (error) {
       if (finalized) {
         throw error;
       }
 
       if (deadlineReached) {
-        return finalize("COMPLETED", { eventType: "turn.completed", budgetExhausted: true });
+        return finalize("COMPLETED", {
+          eventType: "turn.completed",
+          budgetExhausted: true,
+          budgetCause: "duration",
+        });
       }
 
       if (
@@ -1919,6 +1951,7 @@ export class TurnRunner {
       message?: string;
       reason?: string;
       budgetExhausted?: boolean;
+      budgetCause?: TurnBudgetCause;
       finishReason?: ProviderFinishReason;
       usage?: ProviderUsage;
       durationMs?: number;
@@ -1956,6 +1989,7 @@ export class TurnRunner {
           ...(options.budgetExhausted === undefined
             ? {}
             : { budgetExhausted: options.budgetExhausted }),
+          ...(options.budgetCause === undefined ? {} : { budgetCause: options.budgetCause }),
           ...(options.finishReason === undefined ? {} : { finishReason: options.finishReason }),
           terminalReason,
         },
@@ -1974,6 +2008,7 @@ export class TurnRunner {
           ...(options.budgetExhausted === undefined
             ? {}
             : { budgetExhausted: options.budgetExhausted }),
+          ...(options.budgetCause === undefined ? {} : { budgetCause: options.budgetCause }),
         },
         now,
       });
@@ -1985,6 +2020,7 @@ export class TurnRunner {
       status,
       ...(options.errorCode === undefined ? {} : { errorCode: options.errorCode }),
       terminalReason,
+      ...(options.budgetCause === undefined ? {} : { budgetCause: options.budgetCause }),
     };
   }
 

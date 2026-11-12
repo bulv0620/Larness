@@ -2,11 +2,11 @@ import type { ProviderFinishReason, ProviderUsage } from "@larness/agent";
 import type { TurnStatus, TurnTerminalReason } from "../../../db/schema.js";
 
 export const DEFAULT_BUDGET = {
-  // 0 = no step cap. Long tasks are bounded by spend and wall clock, and a
-  // turn that stops on a budget is continued automatically (ADR-059).
+  // 0 = no step cap. A turn runs until it finishes or hits the spend cap;
+  // wall clock is only a stall guard (ADR-059, option A).
   maxSteps: 0,
   maxToolCalls: 0,
-  maxDurationMs: 10 * 60_000,
+  maxDurationMs: 60 * 60_000,
   contextRatio: 0.8,
   // 0 = let the provider choose. A hard cap truncates thinking models, whose
   // reasoning tokens are charged against the same output budget.
