@@ -1,9 +1,11 @@
 # STATUS
 
-> 最后更新：2026-11-11 (+08:00)
+> 最后更新：2026-11-12 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。下方的阶段交付与变更记录保留当时状态。
 
 ## 当前任务
+
+- **M6-EB（072）工具调用错误预算**：`done`（2026-11-12，分支 `task/eb-agent-error-budget`）。按用户“快和省，工程化消除可避免错误”的要求审查了 89 轮 / 143 步 / 4.98M 输入 token 的全部工具失败：`INVALID_PATCH` 43 次（31%）、`VALIDATION_ERROR` 24、`NONZERO_EXIT` 23，且 139 次失败中 87 次在同轮以相同参数重发成功。交付三项修复：(1) `normalizePatchText` 在解析前按正文重算 hunk 头计数、把裸行/空行按上下文补空格，上下文仍精确匹配、不匹配失败关闭；(2) `defineTool` 新增可选 `repairArgs`，`update_plan` 把 `in_progress`/`completed` 等词归一为 canonical 状态，`apply_patch` 接受 `file_path`/`file`/`diff` 别名（schema 仍严格校验）；(3) `@larness/web` 增 `test:file`，`AGENTS.md` 写明单文件验证命令与 `pnpm check <files>` / `pnpm test -- <pattern>` 两处误用，`run_command` 描述补合法参数示例。验证：`packages/agent` 55 通过 / 1 跳过，`apps/server test/agent` 116 通过 / 2 个既有环境失败（缺 PATH 上的 node/pnpm），`toolContract`+`plan`+`commandSecret` 14 通过，agent/resources/server typecheck 与改动文件 biome 通过。**未运行**完整 `pnpm check` 与真实 `pnpm test:file`（本机无 pnpm）。详见 [072 spec](specs/072-agent-error-budget/spec.md) 与 [验收记录](specs/072-agent-error-budget/tasks.md)。
 
 - **M6-0（HX-0）运行时效率规格**：`done`（2026-11-11）。把仓库外方案稿《Larness Harness 核心优化方案》按当前代码复核后收敛为 [070 规格](specs/070-runtime-efficiency/spec.md)（`ready`）、[plan](specs/070-runtime-efficiency/plan.md)、[tasks](specs/070-runtime-efficiency/tasks.md) 与 [ADR-057](docs/adr/ADR-057-runtime-efficiency.md)（`accepted`）。用户于 2026-11-11 确认 D1–D7 全部采用推荐方案，G-Spec-M6 通过。本任务只写文档，未改任何执行层代码，`pnpm check` 未运行（仅 Markdown；相对链接与路线图锚点已校验）。复核出的现状证据：system 每步重装配致前缀失效、用量缺缓存细分、截止时间未接在途请求、预算与输出截断被记为完成、长 Turn 无上下文保护、工具结果按字符切断 JSON。
 

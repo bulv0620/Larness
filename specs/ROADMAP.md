@@ -339,6 +339,19 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | TR-3 | [恢复入口与确认交互](071-turn-recovery/tasks.md#tr-3-恢复入口与确认交互) | TR-2 | `done`（视觉待确认） |
 | TR-4 | [保留策略与清理执行](071-turn-recovery/tasks.md#tr-4-保留策略与清理执行) | TR-1、TR-0 | `done`（默认关闭） |
 
+### 8.3 M6 后续：工具调用错误预算（072，done）
+
+目标：把“模型形状不对 → 工具拒收 → 再烧一个步进重发”的可工程消除部分压掉。审查数据与诱因见 [072 spec](072-agent-error-budget/spec.md#1-背景与问题数据审查)；2026-11-12 用户授权“从工程化角度降低大模型错误的都要做”。
+
+门禁：G-072 = A1–A6 通过，且 `toolContract` 矩阵、biome、各包 typecheck 不回归。
+
+| ID | 任务 | 依赖 | 状态 |
+|---|---|---|---|
+| EB-1 | [补丁信封修复](072-agent-error-budget/tasks.md) | — | `done` |
+| EB-2 | [参数修复层与状态别名](072-agent-error-budget/tasks.md) | — | `done` |
+| EB-3 | [命令用法与脚本](072-agent-error-budget/tasks.md) | — | `done` |
+| EB-4 | [审查结论与状态回填](072-agent-error-budget/tasks.md) | EB-1～EB-3 | `done` |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo
