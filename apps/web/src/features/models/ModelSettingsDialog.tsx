@@ -98,6 +98,7 @@ export function ModelSettingsDialog({
   const [label, setLabel] = useState("DeepSeek Key");
   const [apiKey, setApiKey] = useState("");
   const [showUnavailable, setShowUnavailable] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +147,7 @@ export function ModelSettingsDialog({
     if (!open) {
       setApiKey("");
       setShowUnavailable(false);
+      setConfirmRemove(false);
       setView({ kind: "list" });
       return;
     }
@@ -299,12 +301,14 @@ export function ModelSettingsDialog({
 
     try {
       await deleteCredential(credentialId);
+      setConfirmRemove(false);
       setView({ kind: "list" });
       await reload();
       await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
     } catch (removeError) {
       setError(operationError(removeError, "删除 Key 失败"));
     } finally {
+      setConfirmRemove(false);
       setBusy(false);
     }
   };
@@ -439,7 +443,7 @@ export function ModelSettingsDialog({
                 variant="ghost"
                 aria-label="删除 Key"
                 disabled={busy}
-                onClick={() => void removeKey(view.credentialId)}
+                onClick={() => setConfirmRemove(true)}
               >
                 <Trash2 size={12} />
               </Button>
@@ -541,6 +545,37 @@ export function ModelSettingsDialog({
             <footer className="shrink-0 border-t border-line px-4 py-2 text-[10.5px] text-ink-3">
               点模型名设为新会话默认；眼睛图标控制是否出现在输入框选择器。
             </footer>
+            <Dialog
+              open={confirmRemove}
+              onOpenChange={(value) => (!value && !busy ? setConfirmRemove(false) : undefined)}
+            >
+              <DialogContent className="w-[min(400px,calc(100vw-40px))] space-y-3 text-sm">
+                <DialogTitle>删除 Key？</DialogTitle>
+                <DialogDescription>
+                  {activeGroup
+                    ? `${providerLabel(activeGroup.provider)} · ${activeGroup.credentialLabel}`
+                    : "该 Key"}{" "}
+                  会从本机移除，对应模型也会从选择器中消失；此操作不可撤销。
+                </DialogDescription>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={busy}
+                    onClick={() => setConfirmRemove(false)}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    variant="danger"
+                    disabled={busy}
+                    onClick={() => void removeKey(view.credentialId)}
+                  >
+                    {busy ? <Loader2 size={12} className="animate-spin" /> : null}
+                    删除
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </>
         ) : null}
 

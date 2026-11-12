@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import {
   type ApiCredential,
   type ApiModelCatalog,
   createCredential,
+  deleteCredential,
   listCredentials,
   listModelCatalog,
   refreshModelCatalog,
@@ -14,6 +15,7 @@ import { ModelSettingsDialog } from "./ModelSettingsDialog";
 
 vi.mock("@/lib/workspaceApi", () => ({
   createCredential: vi.fn(),
+  deleteCredential: vi.fn(),
   listCredentials: vi.fn(),
   listModelCatalog: vi.fn(),
   refreshModelCatalog: vi.fn(),
@@ -134,4 +136,31 @@ it("does not synchronize when saving the Key fails", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("保存 Key 失败");
   expect(refreshModelCatalog).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "添加" })).toBeEnabled();
+});
+
+it("asks for confirmation before deleting a Key", async () => {
+  vi.mocked(listCredentials).mockReset().mockResolvedValue([credential]);
+  vi.mocked(listModelCatalog)
+    .mockReset()
+    .mockResolvedValue({ ...synced, groups: [synced] });
+  vi.mocked(deleteCredential).mockResolvedValue(undefined);
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ModelSettingsDialog open onOpenChange={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: /测试凭据/ }));
+  fireEvent.click(screen.getByRole("button", { name: "删除 Key" }));
+
+  expect(screen.getByText("删除 Key？")).toBeVisible();
+  expect(deleteCredential).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  await waitFor(() => expect(screen.queryByText("删除 Key？")).toBeNull());
+  expect(deleteCredential).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "删除 Key" }));
+  fireEvent.click(screen.getByRole("button", { name: "删除" }));
+
+  await waitFor(() => expect(deleteCredential).toHaveBeenCalledWith("credential_test"));
 });

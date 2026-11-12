@@ -74,6 +74,8 @@ test("synchronizes models after a Key is added", async ({ page }) => {
   await expect(syncedKey).toBeVisible();
   await syncedKey.click();
   await dialog.getByRole("button", { name: "删除 Key" }).click();
+  const confirmDelete = page.getByRole("dialog", { name: "删除 Key？" });
+  await confirmDelete.getByRole("button", { name: "删除" }).click();
   await expect(dialog.getByRole("button", { name: /目录同步测试/ })).toHaveCount(0);
 });
 
