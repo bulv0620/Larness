@@ -28,7 +28,7 @@ import {
 } from "../../src/modules/agent/turn/toolResults.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { getProjectById } from "../../src/modules/projects/repository.js";
-import { createProject } from "../../src/modules/projects/service.js";
+import { createProject, updateProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
 import { withTempDir } from "../helpers.js";
@@ -1871,6 +1871,51 @@ it("does not supersede a failure when the retry uses different arguments", async
       expect(events.find((event) => event.type === "tool.completed")?.payload).not.toHaveProperty(
         "supersedes",
       );
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("honors the project ignore list in search_code and list_files", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const root = path.join(dir, "repo");
+      await mkdir(path.join(root, "dist"), { recursive: true });
+      await writeFile(path.join(root, "dist", "bundle.js"), "needle\n");
+      await writeFile(path.join(root, "src.ts"), "needle\n");
+      const project = await createProject(
+        { db: opened.db, detectGit: async () => false },
+        { rootPath: root },
+      );
+      updateProject({ db: opened.db }, { id: project.id, settings: { ignore: ["dist"] } });
+
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, { projectId: project.id });
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "find needle" });
+      const provider = createFakeProvider([
+        toolStep({ id: "call_search", name: "search_code", args: { query: "needle" } }),
+        toolStep({ id: "call_list", name: "list_files", args: { path: "." } }),
+        textStep("done"),
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry: createFileToolRegistry(),
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+      const completed = listSessionEvents(opened.db, session.id).items.filter(
+        (event) => event.type === "tool.completed",
+      );
+      const summaries = completed.map(
+        (event) => (event.payload as { resultSummary?: string }).resultSummary ?? "",
+      );
+      expect(summaries).toContain("1 matches in 1 files");
+      expect(summaries).toContain("1 entries");
     } finally {
       opened.close();
     }

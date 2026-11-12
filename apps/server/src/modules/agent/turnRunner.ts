@@ -45,7 +45,7 @@ import type { CommandManager } from "../commands/manager.js";
 import type { GitManager } from "../git/manager.js";
 import { listEncryptedSecrets } from "../models/repository.js";
 import { getProjectById, updateProjectRow } from "../projects/repository.js";
-import { detectGit } from "../projects/service.js";
+import { detectGit, parseProjectSettings } from "../projects/service.js";
 import type { ServiceManager } from "../services/manager.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
 import type { TerminalManager } from "../terminals/manager.js";
@@ -297,6 +297,9 @@ export class TurnRunner {
     const project =
       session.projectId === null ? null : getProjectById(this.#options.db, session.projectId);
     let projectRoot = project?.realPath ?? session.workspacePath;
+    // Project-configured ignore patterns apply to list/search for the whole Turn.
+    const projectIgnore =
+      project === null ? undefined : parseProjectSettings(project.settingsJson).ignore;
     // One probe per Turn keeps the snapshot fresh while staying prefix-stable.
     let gitObservation: { detected: boolean; observedAt: number } | undefined;
 
@@ -442,6 +445,9 @@ export class TurnRunner {
           args: request.args,
           policy,
           projectRoot,
+          ...(projectIgnore === undefined || projectIgnore.length === 0
+            ? {}
+            : { ignore: projectIgnore }),
           signal: controller.signal,
           clientSessionId: snapshot?.clientSessionId,
           policySnapshotId: snapshot?.policySnapshotId,

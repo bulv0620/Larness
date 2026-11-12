@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **项目忽略规则接入 Agent 工具（2026-11-12，用户确认）**：项目设置的 `ignore` 之前只被文件 watcher / 文件服务使用，TurnRunner 调 `executeTool` 时没有传 `ignore`，导致 `search_code` / `list_files` 的 `context.ignore` 永远是 `undefined`。现在 TurnRunner 每 Turn 解析一次项目设置并把非空 `ignore` 传入执行上下文；两个工具遍历时跳过匹配的路径或目录名（`dist` 同时跳过整个子树）。只影响可见文件集合，路径守卫与越界拒绝不变。验证：新增用例（`dist/` 内命中不被搜索、`list_files` 不再列出该目录），`turnRunner` 41 通过，`test/agent` 121 通过 / 2 个既有环境失败，server typecheck 与改动文件 biome 通过。
+
 - **工具摘要修复（2026-11-12，用户反馈）**：最近一轮出现 `list undefined`——`list_files` 省略 `path` 时 schema 默认值不参与 `summarize`，原始参数直接进了 argsSummary。修复：`summarize` 现在先过 `repairArgs`（别名场景也能显示真实路径），`list_files` 摘要用 `path ?? "."`。顺带在 AGENTS.md 第 7 节补根级 biome 命令，并点明 `pnpm ci <file>` 是 pnpm 安装子命令、不是 biome（当轮 `ERR_PNPM_CI_NOT_IMPLEMENTED` 的直接原因）。验证：`packages/agent` 57 通过 / 1 跳过，`toolContract` 3 通过，`packages/agent` typecheck 与改动文件 biome 通过。
 
 - **M6-RB（073）上下文预算：读文件分页与结果裁剪**：`done`（2026-11-12）。审查确认 `read_file` 160 次里有 15 次是「同 Turn 同路径、尚未修改」的重复读（最典型一轮 `style.css` 在首次 patch 前读 5 次）：序列化器把每个字符串压到 4,000 字符，而 `nextOffset` 指向请求范围末尾，模型再读也拿不到中部。三项修复：(1) 字段预算改为「总量−2,000」起步（14k）、超限阶梯减半，总量仍 ≤16k 且 JSON 合法；(2) `read_file` 按 12,000 字符返回**连续页**，`truncated`/`nextOffset` 按实际行数计算，摘要给出「lines X–Y of Z, next offset=N」，单行超预算时截断并前进；(3) `run_command` 输出改为头 60% + 尾 40% 保留，尾部测试摘要不再丢失。验证：`packages/agent` 57 通过 / 1 跳过，`test/agent` 120 通过 / 2 个既有环境失败，`apps/web` 168 通过，resources/agent/server typecheck 与改动文件 biome 通过。**夹具调整**：checkpoint 用例的 `big.txt` 20,000→4,000 字符（单页上限变大后原尺寸会直接越过 hard 水位，断言未放宽）。**未运行**完整 `pnpm check`（本机无 pnpm）。详见 [073 spec](specs/073-context-budget/spec.md) 与 [验收记录](specs/073-context-budget/tasks.md)。
