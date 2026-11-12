@@ -23,6 +23,8 @@ created: 2026-11-06
 
    M6-4（2026-11-11）起，工具结果先按内容值裁剪再序列化，超大结果附 `page: { truncated, omittedChars }`；`read_file` 额外返回 `offset` / `nextOffset` 支持续读。任何实现都不得对已序列化的 JSON 做字符截断。
 
+   M6 收口后补充（2026-11-12，用户确认）：新增工具契约矩阵测试 `apps/server/test/agent/toolContract.test.ts`——断言语义上注册的工具集合与矩阵完全一致（新增工具不补矩阵即失败），并对每个需要 Turn 上下文 handler 的工具断言「参数合法时确实到达 handler」+「参数非法时返回 `VALIDATION_ERROR`」；文件工具另在真实项目根上覆盖成功与失败路径。该矩阵可直接拦住「ToolContext 漏绑定」这类死工具（`resolve_service_preview` 即此类）。
+
    M6 收口后补充（2026-11-12，用户反馈）：修复 `resolve_service_preview` 从未被绑定到工具上下文、永远返回 `FORBIDDEN: Service context unavailable` 的问题（`toolExecutor` 的 `ToolContext` 组装漏了该 handler）。校验失败摘要改为点名首个出错字段（如 `invalid tool arguments: executable — expected string, received undefined`），模型与界面无需再猜。
 
    M6 收口后补充（2026-11-12，用户确认）：新增 `write_file`（L1，项目内相对路径、1 MiB 上限、父目录自动创建、**仅创建**；已存在时返回 `VERSION_CONFLICT` 并提示改用 `apply_patch`），成功后与 `apply_patch` 一样发 `file.changed`（`changeType=created`）。`start_project_terminal` 的秘密检查与 `run_command` / `update_plan` 统一到 handler + 每 Turn 一次的秘密加载。
