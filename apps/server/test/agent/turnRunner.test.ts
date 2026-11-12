@@ -21,7 +21,11 @@ import { runMigrations } from "../../src/db/migrate.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
-import { toolFailureIssues, toolMessageContent } from "../../src/modules/agent/turn/toolResults.js";
+import {
+  boundedCommandOutput,
+  toolFailureIssues,
+  toolMessageContent,
+} from "../../src/modules/agent/turn/toolResults.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { getProjectById } from "../../src/modules/projects/repository.js";
 import { createProject } from "../../src/modules/projects/service.js";
@@ -132,6 +136,35 @@ describe("tool result serialization", () => {
     expect(parsed.page.truncated).toBe(true);
     expect(parsed.page.omittedChars).toBeGreaterThan(0);
     expect(parsed.content).toContain("chars omitted");
+  });
+
+  it("lets a single large field use most of the result budget", () => {
+    const text = toolMessageContent({
+      ok: true,
+      summary: "read big.txt",
+      data: { path: "big.txt", content: "x".repeat(200_000) },
+    });
+
+    expect(text.length).toBeLessThanOrEqual(16_000);
+
+    const parsed = JSON.parse(text) as {
+      content: string;
+      page: { truncated: boolean; omittedChars: number };
+    };
+
+    expect(parsed.content.length).toBeGreaterThanOrEqual(12_000);
+    expect(parsed.page.truncated).toBe(true);
+    expect(parsed.page.omittedChars).toBeGreaterThan(0);
+  });
+
+  it("keeps the tail of a long command output", () => {
+    const output = `${"head line\n".repeat(3_000)}FAIL src/a.test.ts\nTests 1 failed\n`;
+    const bounded = boundedCommandOutput(output, 12_000);
+
+    expect(bounded.text.length).toBeLessThanOrEqual(12_000);
+    expect(bounded.text).toContain("Tests 1 failed");
+    expect(bounded.text).toContain("chars omitted");
+    expect(bounded.truncated).toBe(true);
   });
 
   it("keeps error results parseable and preserves the error code", () => {
@@ -936,7 +969,9 @@ describe("TurnRunner", () => {
         const session = await createSession(sessionOptions, {});
         const small = path.join(session.workspacePath, "a.txt");
         await writeFile(small, "old\n");
-        await writeFile(path.join(session.workspacePath, "big.txt"), "x".repeat(20_000), "utf8");
+        // Sized against the current tool-result budget so the read crosses the
+        // soft watermark without jumping past the hard one.
+        await writeFile(path.join(session.workspacePath, "big.txt"), "x".repeat(4_000), "utf8");
         const version = createHash("sha256").update("old\n").digest("hex");
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "compact me" });
         const provider = createFakeProvider([

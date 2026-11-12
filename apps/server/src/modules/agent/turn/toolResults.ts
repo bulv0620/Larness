@@ -70,8 +70,31 @@ export function boundedTerminalOutput(
   return { text: bounded, truncated: bounded !== text };
 }
 
+/**
+ * A finite command's diagnostics live at the end (test summary, exit reason).
+ * Keep the head and the tail instead of cutting only from the end.
+ */
+export function boundedCommandOutput(
+  text: string,
+  maxChars = 12_000,
+): {
+  text: string;
+  truncated: boolean;
+} {
+  if (text.length <= maxChars) return { text, truncated: false };
+
+  const marker = `\n…[${text.length - maxChars} chars omitted]…\n`;
+  const available = Math.max(2, maxChars - marker.length);
+  const headChars = Math.floor(available * 0.6);
+  const tailChars = available - headChars;
+  const tail = tailChars > 0 ? text.slice(-tailChars) : "";
+
+  return { text: `${text.slice(0, headChars)}${marker}${tail}`, truncated: true };
+}
+
 const MAX_TOOL_RESULT_CHARS = 16_000;
-const TOOL_FIELD_CHARS = 4_000;
+/** Leave room for the envelope; one large field may use most of the budget. */
+const INITIAL_FIELD_BUDGET = MAX_TOOL_RESULT_CHARS - 2_000;
 const MAX_TOOL_ARRAY_ITEMS = 50;
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
@@ -139,9 +162,9 @@ export function toolMessageContent(result: {
   errorCode?: string;
 }): string {
   const data = result.ok ? (result.data ?? { summary: result.summary }) : result.data;
-  let budget = TOOL_FIELD_CHARS;
+  let budget = INITIAL_FIELD_BUDGET;
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     const shrunk = shrinkValue(data, budget);
     const shaped = shrunk.omitted > 0 ? withPage(shrunk.value, shrunk.omitted) : shrunk.value;
     const payload = result.ok

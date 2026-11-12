@@ -67,10 +67,10 @@ import { addUsage, DEFAULT_BUDGET, deriveTerminalReason, type TurnBudget } from 
 import { createSecretLoader } from "./turn/secrets.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
 import {
+  boundedCommandOutput,
   boundedTerminalOutput,
   toolFailureIssues,
   toolMessageContent,
-  truncateToolMessage,
 } from "./turn/toolResults.js";
 import {
   checkpointMessage,
@@ -506,15 +506,14 @@ export class TurnRunner {
               );
               const output = await this.#options.commands.output(row.id, 0, 500);
               const completeText = output.chunks.map((chunk) => chunk.data).join("");
-              let text = truncateToolMessage(completeText);
-              // Reserve room for the result envelope, including JSON escaping.
-              while (JSON.stringify(text).length > 12_000)
-                text = `${text.slice(0, Math.floor(text.length * 0.7))}...[truncated]`;
+              // Keep the tail: test summaries and exit diagnostics live there.
+              const bounded = boundedCommandOutput(completeText, 12_000);
+              const text = bounded.text;
               const truncated =
                 row.truncated ||
                 output.truncated ||
                 output.resyncRequired ||
-                text !== completeText ||
+                bounded.truncated ||
                 output.chunks.length >= 500;
               return {
                 ok: row.status === "COMPLETED" && row.exitCode === 0,
