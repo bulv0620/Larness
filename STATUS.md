@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **T0-5 概览“活跃会话”口径与命名修正（2026-11-12，用户反馈）**：`done`，分支 `task/t0-5-online-sessions`。原统计只排除已撤销和已绝对过期（默认 12 小时）的会话行，关浏览器后仍显示在线。改为与认证一致的“有效会话”——未撤销、未绝对过期、且 `last_seen_at` 在 `idleTtlMinutes`（默认 30 分钟）内；一个有效会话行算一个；显示文案同步由“在线会话”改为“活跃会话”。不引入 WS 实时连接、不轮询、不改 schema/字段；CLI `status` 仍不显示活跃会话数。验证：新增用例先失败后通过（收到 4/1，期望 2/0），定向 32 项通过，server typecheck 与改动文件 biome 通过；未运行完整 `pnpm check`（本机 PATH 无 node/pnpm）、未做真实 TUI 人工复核。**2026-11-12 人类验收通过，合并 `main` 并推送。** 详见 [016 T0-5](specs/016-tui-experience/tasks.md#t0-5-活跃会话口径与命名)。
+
 - **UI-F16 默认工作区点击不创建会话（2026-11-12，用户反馈）**：`done`。默认工作区条目的点击改为与普通项目一致，只切换展开 / 折叠，不再创建草稿或后端会话；右侧 `+`（`在 默认工作区 中新建会话`）继续创建默认工作区草稿并聚焦输入区。验证：`ProjectSidebar` 5 项（含正反例）、Web 全量 39 文件 178 项、认证 E2E `default-workspace`、Web typecheck、`pnpm build`、`biome ci .`（0 error）与 `git diff --check` 通过。无 API / 数据库 / 权限变更。详见 [068 验收记录](specs/068-ui-fixes/tasks.md#ui-f162026-11-12macos)。
 
 - **UI-F15 项目列表拖拽排序（2026-11-12，用户直接要求）**：`done`。项目顺序改为服务端持久化的 `projects.sortOrder`（迁移 `0027`），新增 `PUT /api/projects/order`；侧栏直接拖动项目条目，显示插入位置，并支持键盘上下移动；拖拽后抑制误触展开。按用户视觉反馈移除左侧专用拖拽按钮，会话区域缩进收敛为约 `10px`；拖拽越过阈值时折叠全部项目，松开后恢复原展开状态。默认工作区固定首位，搜索过滤时禁用拖拽，新项目追加到末尾。验证：server 项目/迁移定向 47 项、Web 全量 177 项、真实认证浏览器验证折叠/恢复/排序并刷新保持、全包 typecheck、`pnpm build`、`biome ci .`（0 error）与 `git diff --check` 通过；未运行完整 `pnpm check`（本机 server 套件既有 73 个环境性失败）。详见 [068 验收记录](specs/068-ui-fixes/tasks.md#ui-f152026-11-12macos)。
