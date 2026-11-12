@@ -49,7 +49,7 @@ export async function runScreenDashboard(deps: {
           : "正在读取运行状态…",
         `Web：${deps.webUrl ?? (status ? `http://localhost:${status.listen.port}` : "读取中")}`,
         status
-          ? `待配对 ${status.sessions.pendingPairings} · 在线会话 ${status.sessions.online}`
+          ? `待配对 ${status.sessions.pendingPairings} · 活跃会话 ${status.sessions.online}`
           : "",
         ...(status?.warnings.map((warning) => `! ${warning}`) ?? []),
         ...(updateNotice ? ["", updateNotice] : []),

@@ -24,7 +24,7 @@ export function formatStatus(status: StatusReport): string {
     }`,
     `IPC: ${status.ipc === null ? "不可用" : `${status.ipc.clients} 个客户端`}`,
     `WebAuthn: ${status.webauthn.enabled ? "enabled" : "disabled"} (${status.webauthn.origin})`,
-    `会话: ${status.sessions.online} 在线 / ${status.sessions.pendingPairings} 待审批`,
+    `会话: ${status.sessions.online} 活跃 / ${status.sessions.pendingPairings} 待审批`,
   ];
 
   if (status.warnings.length > 0) {

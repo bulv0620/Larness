@@ -41,7 +41,7 @@ describe("screen dashboard", () => {
     const request = vi.fn(async () => status);
     const run = runScreenDashboard({ terminal: f.terminal, client: { request } });
     try {
-      await vi.waitFor(() => expect(f.latest()).toContain("在线会话 2"));
+      await vi.waitFor(() => expect(f.latest()).toContain("活跃会话 2"));
       expect(request).toHaveBeenCalledTimes(1);
       f.stdin.write("q");
       await vi.waitFor(() => expect(f.latest()).toContain("退出确认"));

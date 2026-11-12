@@ -8,7 +8,7 @@
 | T0-2 | 配对与设备页面统一 | T0-1 | done | 1–2 天 |
 | T0-3 | 日志/审计阅读页与整体验收 | T0-2 | done | 2 天 |
 | T0-4 | 初始化页文案清理（人类直接指定） | T0-3 | done | 小修 |
-| T0-5 | 概览“在线会话”口径修正（用户反馈） | T0-4 | done | 小修 |
+| T0-5 | 概览“活跃会话”口径与命名修正（用户反馈） | T0-4 | done | 小修 |
 
 ## T0-1 页面与生命周期基础
 
@@ -56,14 +56,15 @@
 
 - T0-4 人类验收：2026-11-02 明确“验收通过”。
 
-## T0-5 在线会话口径
+## T0-5 活跃会话口径与命名
 
 - 人类反馈概览“在线会话”不准确：原实现只排除已撤销和已绝对过期（默认 12 小时）的会话行，关闭浏览器后仍会计入，且忽略了认证实际使用的空闲超时。
 - 口径修正：只统计仍能通过 `resolveActiveSession` 的会话——未撤销、未绝对过期、且 `last_seen_at` 不早于 `now - idleTtlMinutes`（默认 30 分钟）。一个有效浏览器会话算一个。
 - 范围：`apps/server/src/db/stats.ts`、`apps/server/src/ipc/handlers.ts`（传入配置的空闲 TTL）、新增 `apps/server/test/db/stats.test.ts`、`docs/contracts/ipc.md`。
 - 不包含：WS 实时连接统计（“真在线”）、TUI 自动轮询、CLI `status` 的在线数（独立进程，仍不显示）、数据库 schema 或 IPC 字段变更。
+- 显示文案由“在线会话”改为“活跃会话”：概览为 `待配对 N · 活跃会话 M`，旧面板为 `会话: N 活跃 / M 待审批`；测试断言同步。
 - 未按设备去重：`device_id` 只有 passkey 会话才有，混合“设备/会话”会让口径不一致；同一设备的重复登录产生的旧会话会在空闲超时后自动退出计数。
 - [x] 测试先行：`test/db/stats.test.ts` 两个用例先失败（旧实现把空闲/越界会话计入，收到 4 与 1，期望 2 与 0）；
-- [x] 实现后定向测试通过（stats 2 + IPC 10 + TUI 20，共 32），server typecheck 与改动文件 biome 通过；
+- [x] 实现后定向测试通过（stats 2 + IPC 10 + TUI 20，共 32），server typecheck 与改动文件 biome 通过；文案改用“活跃会话”，`screen-dashboard` 断言已更新；
 - [x] 契约 `sessions.online` 口径已写入 [ipc.md](../../docs/contracts/ipc.md)；STATUS 已更新并单任务提交。
 - 验证范围：未运行完整 `pnpm check`（本机 PATH 无 node/pnpm，仅用 Electron 内置 Node 跑定向套件），未做真实 TUI 人工复核。
