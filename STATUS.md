@@ -5,6 +5,10 @@
 
 ## 当前任务
 
+- **UI-F16 默认工作区点击不创建会话（2026-11-12，用户反馈）**：`done`。默认工作区条目的点击改为与普通项目一致，只切换展开 / 折叠，不再创建草稿或后端会话；右侧 `+`（`在 默认工作区 中新建会话`）继续创建默认工作区草稿并聚焦输入区。验证：`ProjectSidebar` 5 项（含正反例）、Web 全量 39 文件 178 项、认证 E2E `default-workspace`、Web typecheck、`pnpm build`、`biome ci .`（0 error）与 `git diff --check` 通过。无 API / 数据库 / 权限变更。详见 [068 验收记录](specs/068-ui-fixes/tasks.md#ui-f162026-11-12macos)。
+
+- **UI-F15 项目列表拖拽排序（2026-11-12，用户直接要求）**：`done`。项目顺序改为服务端持久化的 `projects.sortOrder`（迁移 `0027`），新增 `PUT /api/projects/order`；侧栏直接拖动项目条目，显示插入位置，并支持键盘上下移动；拖拽后抑制误触展开。按用户视觉反馈移除左侧专用拖拽按钮，会话区域缩进收敛为约 `10px`；拖拽越过阈值时折叠全部项目，松开后恢复原展开状态。默认工作区固定首位，搜索过滤时禁用拖拽，新项目追加到末尾。验证：server 项目/迁移定向 47 项、Web 全量 177 项、真实认证浏览器验证折叠/恢复/排序并刷新保持、全包 typecheck、`pnpm build`、`biome ci .`（0 error）与 `git diff --check` 通过；未运行完整 `pnpm check`（本机 server 套件既有 73 个环境性失败）。详见 [068 验收记录](specs/068-ui-fixes/tasks.md#ui-f152026-11-12macos)。
+
 - **项目忽略规则接入 Agent 工具（2026-11-12，用户确认）**：项目设置的 `ignore` 之前只被文件 watcher / 文件服务使用，TurnRunner 调 `executeTool` 时没有传 `ignore`，导致 `search_code` / `list_files` 的 `context.ignore` 永远是 `undefined`。现在 TurnRunner 每 Turn 解析一次项目设置并把非空 `ignore` 传入执行上下文；两个工具遍历时跳过匹配的路径或目录名（`dist` 同时跳过整个子树）。只影响可见文件集合，路径守卫与越界拒绝不变。验证：新增用例（`dist/` 内命中不被搜索、`list_files` 不再列出该目录），`turnRunner` 41 通过，`test/agent` 121 通过 / 2 个既有环境失败，server typecheck 与改动文件 biome 通过。
 
 - **工具摘要修复（2026-11-12，用户反馈）**：最近一轮出现 `list undefined`——`list_files` 省略 `path` 时 schema 默认值不参与 `summarize`，原始参数直接进了 argsSummary。修复：`summarize` 现在先过 `repairArgs`（别名场景也能显示真实路径），`list_files` 摘要用 `path ?? "."`。顺带在 AGENTS.md 第 7 节补根级 biome 命令，并点明 `pnpm ci <file>` 是 pnpm 安装子命令、不是 biome（当轮 `ERR_PNPM_CI_NOT_IMPLEMENTED` 的直接原因）。验证：`packages/agent` 57 通过 / 1 跳过，`toolContract` 3 通过，`packages/agent` typecheck 与改动文件 biome 通过。

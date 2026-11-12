@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { symlink, writeFile } from "node:fs/promises";
+import { mkdir, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { canonicalDirectory } from "@larness/resources";
 import { describe, expect, it } from "vitest";
@@ -146,6 +146,136 @@ describe("projects API", () => {
         expect(actions).toContain("project.created");
         expect(actions).toContain("project.updated");
         expect(actions).toContain("project.deleted");
+      } finally {
+        started.client.close();
+        await started.running.shutdown("test");
+      }
+    });
+  });
+
+  it("reorders registered projects, appends new projects and audits the change", async () => {
+    await withTempDir(async (dir) => {
+      const started = await startSession(dir);
+
+      try {
+        const headers = {
+          cookie: started.cookie,
+          origin: started.origin,
+          "x-csrf-token": started.csrf,
+        };
+        const ids: string[] = [];
+
+        for (const name of ["Alpha", "Beta", "Gamma"]) {
+          const projectDir = path.join(dir, name.toLowerCase());
+          await mkdir(projectDir);
+          const created = await started.running.app.inject({
+            method: "POST",
+            url: "/api/projects",
+            headers,
+            payload: { name, rootPath: projectDir },
+          });
+          expect(created.statusCode).toBe(201);
+          ids.push((created.json() as { id: string }).id);
+        }
+
+        const initial = await started.running.app.inject({
+          method: "GET",
+          url: "/api/projects",
+          headers: { cookie: started.cookie },
+        });
+        expect((initial.json().projects as { id: string }[]).map((project) => project.id)).toEqual([
+          "prj_default",
+          ...ids,
+        ]);
+
+        const reordered = await started.running.app.inject({
+          method: "PUT",
+          url: "/api/projects/order",
+          headers,
+          payload: { projectIds: [ids[2], ids[0], ids[1]] },
+        });
+        expect(reordered.statusCode).toBe(200);
+        expect(
+          (reordered.json().projects as { id: string; sortOrder: number }[]).map((project) => [
+            project.id,
+            project.sortOrder,
+          ]),
+        ).toEqual([
+          [ids[2], 0],
+          [ids[0], 1],
+          [ids[1], 2],
+        ]);
+
+        const listed = await started.running.app.inject({
+          method: "GET",
+          url: "/api/projects",
+          headers: { cookie: started.cookie },
+        });
+        expect((listed.json().projects as { id: string }[]).map((project) => project.id)).toEqual([
+          "prj_default",
+          ids[2],
+          ids[0],
+          ids[1],
+        ]);
+
+        const deltaDir = path.join(dir, "delta");
+        await mkdir(deltaDir);
+        const delta = await started.running.app.inject({
+          method: "POST",
+          url: "/api/projects",
+          headers,
+          payload: { name: "Delta", rootPath: deltaDir },
+        });
+        expect(delta.statusCode).toBe(201);
+        expect((delta.json() as { sortOrder: number }).sortOrder).toBe(3);
+        const deltaId = (delta.json() as { id: string }).id;
+
+        const appended = await started.running.app.inject({
+          method: "GET",
+          url: "/api/projects",
+          headers: { cookie: started.cookie },
+        });
+        expect((appended.json().projects as { id: string }[]).map((project) => project.id)).toEqual(
+          ["prj_default", ids[2], ids[0], ids[1], deltaId],
+        );
+
+        const duplicate = await started.running.app.inject({
+          method: "PUT",
+          url: "/api/projects/order",
+          headers,
+          payload: { projectIds: [ids[0], ids[0], ids[1]] },
+        });
+        expect(duplicate.statusCode).toBe(400);
+        expect(duplicate.json()).toMatchObject({ error: { code: "VALIDATION_ERROR" } });
+
+        const partial = await started.running.app.inject({
+          method: "PUT",
+          url: "/api/projects/order",
+          headers,
+          payload: { projectIds: [ids[0], ids[1]] },
+        });
+        expect(partial.statusCode).toBe(409);
+        expect(partial.json()).toMatchObject({ error: { code: "CONFLICT" } });
+
+        const defaultProject = await started.running.app.inject({
+          method: "PUT",
+          url: "/api/projects/order",
+          headers,
+          payload: { projectIds: [ids[0], ids[1], ids[2], deltaId, "prj_default"] },
+        });
+        expect(defaultProject.statusCode).toBe(403);
+        expect(defaultProject.json()).toMatchObject({ error: { code: "FORBIDDEN" } });
+
+        const unauthenticated = await started.running.app.inject({
+          method: "PUT",
+          url: "/api/projects/order",
+          headers: { origin: started.origin },
+          payload: { projectIds: [ids[0], ids[1], ids[2], deltaId] },
+        });
+        expect(unauthenticated.statusCode).toBe(401);
+
+        const actions = listRecentAudit(started.running.db, 30).map((row) => row.action);
+        expect(actions).toContain("project.reordered");
       } finally {
         started.client.close();
         await started.running.shutdown("test");

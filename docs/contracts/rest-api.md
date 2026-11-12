@@ -333,8 +333,9 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | `/api/fs/directories?path=` | 本机 loopback 专用；只返回目录 `{ path, parent, home, entries, truncated }`，不返回文件内容 |
-| GET | `/api/projects` | `{ projects: Project[] }`，按 `updatedAt` 倒序 |
-| POST | `/api/projects` | `{ name?, rootPath }`；校验目录存在、可读、realpath；201 |
+| GET | `/api/projects` | `{ projects: Project[] }`，默认工作区固定首位，其余按 `sortOrder` 升序 |
+| POST | `/api/projects` | `{ name?, rootPath }`；校验目录存在、可读、realpath；201；新项目追加到 `sortOrder` 末尾 |
+| PUT | `/api/projects/order` | `{ projectIds: string[] }`；原子调整登记项目顺序；需 CSRF；返回 200 |
 | GET | `/api/projects/:id` | 详情 |
 | PATCH | `/api/projects/:id` | `{ name?, settings? }`；settings 局部合并 |
 | DELETE | `/api/projects/:id` | `{ ok: true }`；仅删数据库行，不删目录 |
@@ -375,10 +376,13 @@
   "realPath": "/Users/me/demo",
   "settings": { "defaultModelProfileId": null, "instructions": "", "ignore": [] },
   "gitDetected": true,
+  "sortOrder": 0,
   "createdAt": 1790000000000,
   "updatedAt": 1790000000000
 }
 ```
+
+`sortOrder` 为项目列表顺序，值越小越靠前；同一顺序值时按 `updatedAt` 倒序、`id` 倒序稳定排列。默认工作区固定返回在首位且 `sortOrder` 恒为 0，不参与 `PUT /api/projects/order`。
 
 `Session` 响应字段（详情额外带 `activeTurn`）：
 
@@ -620,6 +624,10 @@ M2-4（2026-11-03）：已实现 `/api/terminals` 列表 / 人工创建及 `/:id
 - GET `/api/files?workspace=default&path=...`、PUT `/api/files` 的 scope `{ workspace: "default" }`：仅固定默认目录，不开放任意 dataDir 路径；鉴权、Origin / CSRF、相对路径 / 符号链接、秘密扫描、版本 / 幂等与审计沿用现有文件接口。
 - POST `/api/sessions` 不提供 projectId 时，新会话共用默认目录；Session DTO 增加 workspaceKind（project/default/session），旧独立会话仍返回原 workspacePath。
 - POST `/api/terminals` 支持默认 scope；默认会话别名归并为共享终端，workspaceSessionId=null。cwd 响应为实际绝对目录，执行入参仍相对授权根。详见 m2-resources §24。
+
+## UI-F15 项目排序（2026-11-12）
+
+`PUT /api/projects/order`，body `{ projectIds: string[] }`（1–1000 个唯一 ID，`prj_default` 禁止出现）。必须恰好覆盖当前全部登记项目（不含默认工作区），否则返回 `CONFLICT`（项目列表已被其他客户端改变，客户端应刷新后重试）。请求需已认证、Origin / CSRF 校验；成功在一个事务内把数组下标写入 `projects.sort_order` 并审计 `project.reordered`，返回 `{ projects: Project[] }`（登记项目，已按新顺序）。重复 ID 返回 `VALIDATION_ERROR`，包含默认工作区返回 `FORBIDDEN`，未认证返回 `UNAUTHENTICATED`。相同顺序为幂等无操作，不新增审计。
 
 ## M2-13 默认系统项目
 GET /api/projects 在列表首位返回固定系统项目 `{ id: "prj_default", kind: "default", name: "默认工作区", rootPath, realPath, ... }`；kind 为可选新增字段，普通登记项目沿用原结构。GET /api/projects/prj_default 可读固定描述；系统元数据时间 createdAt / updatedAt 为 0，表示内建资源而非用户登记时间。PATCH 合法名称 / settings 或 DELETE 该 ID 返回 FORBIDDEN（403）并审计；无认证仍 401，非法请求仍按 schema 拒绝。目录和内容不删除、不只读；不能将默认目录重复登记为普通项目（409）。

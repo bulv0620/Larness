@@ -18,8 +18,25 @@
 | UI-F12 | 对话布局 | 悬浮模型切换提示，流式回复首段即显示气泡 | UI-F11 | done |
 | UI-F13 | 资源区 Tab | 右侧资源区 Tab 切换，移除标题栏，圆角与 Git 顶部间距 | UI-F12 | done |
 | UI-F14 | Header 服务端资源 | Header 右侧显示 Server 主机 CPU / ROM / RAM 占用 | UI-F13 | done |
+| UI-F15 | 项目拖拽排序 | 项目条目直接拖拽（及键盘）调整顺序，顺序服务端持久化，会话层级加深缩进 | UI-F14 | done |
+| UI-F16 | 默认工作区点击 | 点击默认工作区条目只切换展开；仅 `+` 创建默认会话 | UI-F15 | done |
 
 ## 验收记录
+
+### UI-F16（2026-11-12，macOS）
+
+- 用户反馈点击默认工作区条目会创建会话，要求仍由 `+` 创建。`ProjectSidebar` 的默认项目点击分支改为与普通项目一致，只调用 `toggleProject`；`+` 继续调用 `newProjectSession`（默认项目映射到 `startDraft(null)`）。
+- 组件测试新增「点击默认工作区不创建会话、`+` 仍创建草稿」正反例；`ProjectSidebar` 5 项通过。认证 E2E `default-workspace` 将两处点击默认项目改为点击 `+`，继续覆盖默认工作区文件 / 会话 / 终端共享、刷新与项目切换，整项通过。
+- 全量 Web 39 文件 178 项通过；Web typecheck、`pnpm build`、仓库级 `biome ci .`（0 error）与 `git diff --check` 通过。无 API、数据库、权限或持久化变更。
+
+### UI-F15（2026-11-12，macOS）
+
+- 用户直接要求项目列表支持拖拽排序，随后两次视觉反馈：不要左侧专用拖拽按钮、会话缩进约 10px 即可；拖拽开始时折叠全部项目，结束后恢复。最终实现为直接拖动项目条目本身：4px 阈值区分点击与拖拽，越过阈值后记录当前展开状态并折叠所有项目，拖动时显示插入线，松开后立即恢复展开状态并乐观更新 / 调用 Server；拖拽结束抑制同一次手势的展开点击。搜索过滤、默认工作区、Mock 模式不参与拖拽；键盘聚焦项目条目后可用上下方向键排序。会话区域缩进为 `ml-[10px] + pl-1`，保留左侧竖线。
+- 数据：迁移 `0027_project_sort_order` 为 `projects` 增加 `sort_order INTEGER NOT NULL DEFAULT 0` 与 `idx_projects_order(sort_order, updated_at)`；`GET /api/projects` 按该列升序，新项目追加末尾。新增需 CSRF 的 `PUT /api/projects/order`，body 必须恰好覆盖全部登记项目（不含 `prj_default`），事务写入并审计 `project.reordered`；重复 ID 400、默认工作区 403、集合不一致 409、未认证 401。契约同步到 [REST API](../../docs/contracts/rest-api.md#7-工作区与模型) 与 [数据模型](../../docs/contracts/data-model.md)。
+- 测试先行：`test/projects/api.test.ts` 新增用例覆盖创建顺序、重排、新项目追加、DTO `sortOrder`、重复/缺失/默认工作区/未认证失败与审计，3 项通过；迁移与启动相关套件 13 文件 47 项通过（迁移计数与 `schemaVersion` 同步到 27）。
+- Web：新增 `projectOrder` 纯函数用例 4 项、`ProjectSidebar` 指针拖拽/折叠恢复/键盘/点击/过滤 4 项、导航 store 展开映射替换 1 项；全量 Web 39 文件 177 项通过。
+- 真实浏览器：临时 Playwright 认证脚本（未提交）完成配对、创建 3 个项目，拖拽越过阈值后断言所有项目 `aria-expanded=false`，松开后全部恢复为 `true`；将 Alpha 拖到折叠后的 Beta 之后，列表变为 `默认工作区 / Beta / Alpha / Gamma`，刷新后顺序保持。Mock 页面截图核对无左侧拖拽空位，会话行相对项目条目缩进约 10px 且左侧竖线可辨。
+- 全包 typecheck、`pnpm build`、`pnpm exec biome ci .`（0 error，仅既有 warning）与 `git diff --check` 通过。未运行完整 `pnpm check`：本机 server 套件存在已记录的 73 个环境性失败；本次改为定向 server 用例 + 全量 Web + 构建 + 仓库级 Biome。
 
 ### UI-F14（2026-11-11，macOS）
 

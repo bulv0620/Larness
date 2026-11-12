@@ -49,7 +49,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
       .click({ button: "right" });
     await expect(page.getByRole("menu", { name: "会话或项目操作" })).toHaveCount(0);
     await expect(page.getByText("还没有登记项目。", { exact: false })).toHaveCount(0);
-    await page.getByRole("button", { name: "默认工作区", exact: true }).click();
+    await defaultProject.getByRole("button", { name: "在 默认工作区 中新建会话" }).click();
     await expect(page.getByRole("banner")).toContainText("默认工作区");
     await expect(page.getByLabel("对话输入")).toBeEnabled();
     const resources = page.getByLabel("项目资源", { exact: true });
@@ -148,7 +148,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await expect(
       page.getByRole("button", { name: "恢复 default-note.txt", exact: true }),
     ).toHaveCount(0);
-    await page.getByRole("button", { name: "默认工作区", exact: true }).click();
+    await defaultProject.getByRole("button", { name: "在 默认工作区 中新建会话" }).click();
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(terminal).toHaveAttribute("data-terminal-id", terminalId);
     await expect(terminal).toHaveAttribute("data-input-state", "active");

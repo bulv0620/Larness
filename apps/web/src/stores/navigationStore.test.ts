@@ -59,6 +59,23 @@ it("recovers older persisted draft identities without choosing another project's
     draftSession: { id: "draft_legacy", projectId: "project-a" },
   });
 });
+it("replaces and restores the expanded project map", () => {
+  useNavigationStore.setState({ expandedProjects: { "project-a": true, "project-b": false } });
+  const previous = useNavigationStore.getState().expandedProjects;
+
+  useNavigationStore.getState().setExpandedProjects({ "project-a": false, "project-b": false });
+  expect(useNavigationStore.getState().expandedProjects).toEqual({
+    "project-a": false,
+    "project-b": false,
+  });
+
+  useNavigationStore.getState().setExpandedProjects(previous);
+  expect(useNavigationStore.getState().expandedProjects).toEqual({
+    "project-a": true,
+    "project-b": false,
+  });
+});
+
 it("starts a default draft without selecting a registered project and falls back safely after project removal", () => {
   useNavigationStore
     .getState()
