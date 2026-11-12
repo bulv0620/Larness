@@ -73,15 +73,22 @@
 ```bash
 pnpm install
 pnpm dev              # Server + Vite + TUI；关闭 TUI 停止全部
-pnpm check            # biome + typecheck + unit tests
+pnpm check            # biome + typecheck + unit tests（整仓门禁，不接受文件参数）
 pnpm build            # server（四入口）+ web 构建
 pnpm test:e2e         # Playwright（Chromium，Mock）
 pnpm test:e2e:auth    # 真实 server + 虚拟认证器
 pnpm test:e2e:prod    # 需先 pnpm build
 pnpm --filter @larness/web dev
+
+# 只验证改动文件时用这些；不要给 pnpm check 传文件路径
+pnpm --filter @larness/web test:file src/features/models/ModelSettingsDialog.test.tsx
+pnpm --filter @larness/web exec biome check src/features/models/ModelSettingsDialog.tsx
+pnpm --filter @larness/web typecheck
 ```
 
 根脚本、Server 与跨包构建已落地。当前在本地运行检查与发布验证。
+
+> 已知误用：`pnpm check <files>` 会把路径透传给 `vitest`，在 `apps/web` 下找不到文件而以 1 退出；`pnpm test -- <pattern>` 也不会按文件过滤（会跑全量）。单文件验证只用上面的 `test:file`。
 
 ## 8. 提交与分支
 

@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tools.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:file": "vitest run"
   },
   "dependencies": {
     "@larness/shared": "workspace:*",
