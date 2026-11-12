@@ -11,7 +11,7 @@ export const MAX_READ_BYTES = 1_048_576;
 export const MAX_WRITE_BYTES = 1_048_576;
 export const MAX_SEARCH_FILE_BYTES = 262_144;
 
-const DEFAULT_IGNORED = new Set([".git", "node_modules", ".larness"]);
+export const DEFAULT_IGNORED = new Set([".git", "node_modules", ".larness"]);
 
 export type FileErrorCode =
   | "VALIDATION_ERROR"

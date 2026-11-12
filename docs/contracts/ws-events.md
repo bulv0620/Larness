@@ -95,17 +95,17 @@ interface ServerEvent<T = unknown> {
 | `tool.approval.required` | `toolCallId, approvalId, summary, scope, expiresAt` | 是 |
 | `tool.approval.resolved` | `approvalId, decision` | 是 |
 | `tool.started` | `toolCallId, name` | 是 |
-| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?, supersedes?`（M2-2 成功文件修改附授权 scope / path / version；`supersedes` 为同一 `(tool, 规范化参数)` 之前失败、本次成功的 callId 列表） | 是 |
+| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?, supersedes?`（M2-2 成功文件修改附授权 scope / path / version，074 起 `write_file` 同样生成；`supersedes` 为同一 `(tool, 规范化参数)` 之前失败、本次成功的 callId 列表） | 是 |
 | `tool.failed` | `toolCallId, errorCode, message, issues?, repeatCount?`（M6-10：同一 `(tool, 规范化参数)` 连续失败次数；`issues` 为最多 5 条 `{path,message}` 的参数校验原因） | 是 |
 | `file.changed` | `path, changeType, version`（`changeType`: `modified`（`apply_patch`）/ `created`（`write_file`）） | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
-| `turn.completed` | `turnId, usage, durationMs, terminalReason, budgetExhausted?, budgetCause?`（`usage` 与 `model.usage` 同口径，含 `cacheReadTokens?` / `noCacheTokens?`） | 是 |
+| `turn.completed` | `turnId, usage, durationMs, terminalReason, budgetExhausted?, budgetCause?, fileResults?, fileResultsOmitted?`（`usage` 与 `model.usage` 同口径，含 `cacheReadTokens?` / `noCacheTokens?`；`fileResults` 见 074） | 是 |
 | `model.usage` | `turnId, model, inputTokens, outputTokens?, totalTokens?, cacheReadTokens?, noCacheTokens?, usageSource, contextWindow`（M5-1 单次请求；M6-1 增缓存细分） | 是 |
 | `context.compressed` | `turnId, summaryId, coveredUpToSeq, tokensBefore, tokensAfter, degraded`（M5-1d 压缩） | 是 |
 | `context.checkpoint` | `turnId, summaryId, scope, reason, coveredUpToSeq, tokensBefore, tokensAfter, files, failures, openSteps`（M6-7 Turn 内检查点） | 是 |
-| `turn.failed` | `turnId, errorCode, message, terminalReason` | 是 |
-| `turn.cancelled` | `turnId, reason, terminalReason` | 是 |
-| `turn.interrupted` | `turnId, reason, terminalReason` | 是 |
+| `turn.failed` | `turnId, errorCode, message, terminalReason, fileResults?, fileResultsOmitted?` | 是 |
+| `turn.cancelled` | `turnId, reason, terminalReason, fileResults?, fileResultsOmitted?` | 是 |
+| `turn.interrupted` | `turnId, reason, terminalReason, fileResults?, fileResultsOmitted?` | 是 |
 | `turn.resumed` | `turnId, fromTurnId`（M6 TR-2：新 Turn 接手被中断的 Turn） | 是 |
 | `turn.continued` | `turnId, fromTurnId, depth`（ADR-059：预算分片结束后自动接续的新 Turn） | 是 |
 
@@ -120,6 +120,8 @@ interface ServerEvent<T = unknown> {
 `turn.continued` 由自动接续写入：`depth` 是接续链深度（原始 Turn 为 0），默认最多 3。`turn.resumed` 由恢复操作写入新 Turn：`fromTurnId` 是被中断的原 Turn，原 Turn 本身不被改写。
 
 `budgetCause`（ADR-059）说明是哪一项预算结束了本轮：`tokens`（花费上限，可自动接续）/ `context`（上下文放不下，可自动接续）/ `duration`（卡死兜底，不接续）/ `steps` / `tool_calls`（仅在显式配置上限时出现）。
+
+`fileResults`（074）是 Turn 终态的文件处置：仅在本轮确有文件写入时出现，`{ path, changeType: "created"|"modified", version, existed, category: "deliverable"|"process" }[]`，按首次改动顺序、同路径去重。`existed=false` 表示 Turn 结束时文件已不存在；`category=process` 表示临时 / 生成 / 项目忽略 / 已删除文件。字段只含项目内相对路径与版本哈希，不含正文、绝对路径或命令。单 Turn 上限 200 条，超出部分只给 `fileResultsOmitted` 计数，不渲染条目。历史事件与旧客户端忽略这两个字段，继续按 `file.changed` / `resourceTarget` 渲染。
 
 `terminalReason`（M6-3，[ADR-057](../adr/ADR-057-runtime-efficiency.md)）在每个 `turn.*` 终态事件中给出结束原因：`normal / budget / output_truncated / provider_error / error / cancelled / interrupted`。它和事件类型正交——`turn.completed` 也可能是 `budget` 或 `output_truncated`，客户端必须按 `terminalReason` 而不是仅按事件类型判断「任务是否真的做完」。
 

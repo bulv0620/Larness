@@ -191,7 +191,7 @@ export function createFileTools() {
     defineTool({
       name: "write_file",
       description:
-        "Create a NEW text file inside the project. Parent directories are created. Fails with VERSION_CONFLICT when the file already exists — read it and use apply_patch to change it. Path must be project-relative. Content is limited to 1 MiB.",
+        "Create a NEW text file inside the project. Parent directories are created. Fails with VERSION_CONFLICT when the file already exists — read it and use apply_patch to change it. Path must be project-relative. Content is limited to 1 MiB. Put temporary scratch files (test scripts, probes) under tmp/ and delete them before the turn ends; temporary and generated paths are folded into process files instead of results.",
       riskLevel: "L1",
       schema: WriteFileSchema,
       summarize: (args) => `create ${args.path}`,

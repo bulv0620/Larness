@@ -29,6 +29,8 @@ created: 2026-11-06
 
    M6 收口后补充（2026-11-12，用户确认）：新增 `write_file`（L1，项目内相对路径、1 MiB 上限、父目录自动创建、**仅创建**；已存在时返回 `VERSION_CONFLICT` 并提示改用 `apply_patch`），成功后与 `apply_patch` 一样发 `file.changed`（`changeType=created`）。`start_project_terminal` 的秘密检查与 `run_command` / `update_plan` 统一到 handler + 每 Turn 一次的秘密加载。
 
+   074（2026-11-12，用户确认）：`write_file` 描述补充约定「临时脚本（测试脚本、探针）放 `tmp/` 并在 Turn 结束前删除」，并说明临时 / 生成路径在成果区归入过程文件；工具 schema 不变，成功结果同时生成文件结果卡（`resourceTarget`），Turn 终态附 `fileResults` 供成果区分类。
+
    M6 收口后补充（2026-11-12）：`apply_patch` 在解析前规范化常见模型形状（代码围栏、`\n` 双重转义、缺失 `---/+++` 头、CRLF、前置说明文字），上下文匹配仍保持精确（fuzzFactor 0）；失败信息改为可定位的 `patch could not be parsed: missing @@ hunk header` 等，并在工具描述里写清格式要求。
 
    EB（2026-11-12，072）：`apply_patch` 的容错再向前一步——解析前按正文重算 `@@ -a,b +c,d @@` 的行数，把缺少行首标记的非空行与空行按上下文行补空格，遇到第二个文件的 `---/+++` 头则结束当前 hunk（不吞掉多文件补丁）；应用时仍是 `fuzzFactor: 0` 的精确上下文匹配，修错只会失败关闭。`defineTool` 新增可选 `repairArgs`，在 `safeParse` 前归一已知别名：`update_plan` 的 `in_progress`/`completed`/`todo`/`blocked` 等映射到 `running`/`done`/`pending`/`failed`，`apply_patch` 接受 `file_path`/`file`/`filename`/`diff` 作为 `path`/`patch` 的别名。模型收到的 JSON schema 不变，未命中的词或缺失必填字段仍返回 `VALIDATION_ERROR` 与 `issues`；`toolContract` 矩阵与状态别名用例覆盖正反例。`run_command` 描述补最小合法参数示例（减少漏传 `executable`）。

@@ -1,4 +1,10 @@
-import type { MessageItem, PlanItem, TimelineItem, ToolItem } from "@larness/shared";
+import type {
+  FileResultTarget,
+  MessageItem,
+  PlanItem,
+  TimelineItem,
+  ToolItem,
+} from "@larness/shared";
 import { cn } from "@larness/ui";
 import { ArrowDown, ChevronRight, Loader2, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -8,6 +14,7 @@ import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
+import { ProcessFilesRow } from "./ProcessFilesRow";
 import { MessageBubble, TimelineItemView } from "./TimelineItemView";
 
 interface TurnGroup {
@@ -182,16 +189,41 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const filePaths = new Set(
     [...targets.values()].filter((target) => target.kind === "file").map((target) => target.path),
   );
-  const artifacts = items.filter(
-    (item) =>
-      item.kind === "artifact" && !filePaths.has(item.title.replace(/^已(?:修改|创建) /, "")),
+  const fileTargets = new Map<string, FileResultTarget>();
+  for (const target of targets.values()) {
+    if (target.kind === "file") fileTargets.set(target.path, target);
+  }
+  // A turn settled with per-file dispositions renders from them, so temporary
+  // and deleted files stay out of the results while remaining inspectable.
+  const fileResults = user?.fileResults;
+  const deliverablePaths = new Set(
+    (fileResults ?? []).filter((file) => file.category === "deliverable").map((file) => file.path),
   );
+  const processFiles = (fileResults ?? []).filter((file) => file.category === "process");
+  const visibleTargets =
+    fileResults === undefined
+      ? [...targets.entries()]
+      : [...targets.entries()].filter(
+          ([, target]) => target.kind !== "file" || deliverablePaths.has(target.path),
+        );
+  const artifacts = items.filter((item) => {
+    if (item.kind !== "artifact") return false;
+    const titlePath = item.title.replace(/^已(?:修改|创建) /, "");
+    // With per-file dispositions, file artifacts are represented by the cards.
+    if (fileResults !== undefined) return titlePath === item.title;
+    return !filePaths.has(titlePath);
+  });
+  const hasResults =
+    visibleTargets.length > 0 ||
+    artifacts.length > 0 ||
+    processFiles.length > 0 ||
+    (user?.fileResultsOmitted ?? 0) > 0;
   const results =
-    !turnActive && (targets.size > 0 || artifacts.length > 0) ? (
+    !turnActive && hasResults ? (
       <div className="mt-2 space-y-2">
-        {targets.size > 0 ? (
+        {visibleTargets.length > 0 ? (
           <section aria-label="本次成果" className="flex flex-wrap gap-1.5">
-            {[...targets.entries()].map(([key, target]) =>
+            {visibleTargets.map(([key, target]) =>
               target.kind === "file" ? (
                 <FileResultCard key={key} target={target} />
               ) : target.kind === "preview" ? (
@@ -205,6 +237,10 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         {artifacts.map((item) => (
           <TimelineItemView key={item.id} item={item} />
         ))}
+        <ProcessFilesRow files={processFiles} targets={fileTargets} />
+        {user?.fileResultsOmitted ? (
+          <p className="text-[11px] text-ink-3">{`另有 ${user.fileResultsOmitted} 个文件未列出`}</p>
+        ) : null}
       </div>
     ) : null;
   return (

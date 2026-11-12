@@ -33,6 +33,7 @@ import {
   StopProjectTerminalParamsSchema,
   TerminalDevSchema,
   TerminalResultTargetSchema,
+  type TurnFileResult,
 } from "@larness/shared";
 import { z } from "zod";
 import type { Database } from "../../db/client.js";
@@ -78,6 +79,7 @@ import {
   saveTurnCheckpoint,
   TurnFactsBuilder,
 } from "./turnCheckpoint.js";
+import { collectTurnFileResults, type TurnFileChange } from "./turnResults.js";
 
 function commandDisplay(params: unknown) {
   const command = CommandParamsSchema.parse(params);
@@ -349,6 +351,8 @@ export class TurnRunner {
     let anchoredProviderTokens: number | undefined;
     let wrapUpRequested = false;
     const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
+    // First-touch order survives; later writes only refresh the version.
+    const fileChanges = new Map<string, TurnFileChange>();
     const repeatFailures = new Map<string, number>();
     // Failed callIds per (tool, canonical args), so a later identical success can
     // tell the UI which earlier attempts it superseded.
@@ -356,7 +360,7 @@ export class TurnRunner {
     // One secret table read per Turn (D8); plaintext is still decrypted per call.
     const loadSecrets = createSecretLoader(() => listEncryptedSecrets(this.#options.db));
 
-    const finalize = (
+    const finalize = async (
       status: TurnStatus,
       options: {
         eventType: string;
@@ -367,7 +371,7 @@ export class TurnRunner {
         budgetCause?: TurnBudgetCause;
         finishReason?: ProviderFinishReason;
       },
-    ): TurnRunResult => {
+    ): Promise<TurnRunResult> => {
       if (lockLost && status === "CANCELLED") {
         status = "FAILED";
         options = {
@@ -376,11 +380,15 @@ export class TurnRunner {
           message: "Project write lock was lost",
         };
       }
+      const fileResults = await this.#collectFileResults(projectRoot, projectIgnore, fileChanges);
+      const omitted = fileChanges.size - fileResults.length;
       finalized = true;
       return this.#finalize(turn, session, status, {
         ...options,
         usage,
         durationMs: this.#now() - startedAt,
+        ...(fileResults.length === 0 ? {} : { fileResults }),
+        ...(omitted <= 0 ? {} : { fileResultsOmitted: omitted }),
       });
     };
 
@@ -1140,7 +1148,7 @@ export class TurnRunner {
       this.#transition(turn, session, "PREPARING", startedAt);
 
       if (checkBudget() === "cancel") {
-        return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+        return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
       }
 
       this.#transition(turn, session, "RUNNING");
@@ -1187,11 +1195,11 @@ export class TurnRunner {
         const budgetState = checkBudget();
 
         if (budgetState === "cancel") {
-          return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+          return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
         }
 
         if (budgetState === "budget") {
-          return finalize("COMPLETED", {
+          return await finalize("COMPLETED", {
             eventType: "turn.completed",
             budgetExhausted: true,
             budgetCause: "duration",
@@ -1199,7 +1207,7 @@ export class TurnRunner {
         }
 
         if (!renewProjectLock()) {
-          return finalize("FAILED", {
+          return await finalize("FAILED", {
             eventType: "turn.failed",
             errorCode: "RESOURCE_LOCKED",
             message: "project write lock was lost",
@@ -1312,7 +1320,7 @@ export class TurnRunner {
 
         if (projectedTokens > contextWindow) {
           // Stop honestly instead of letting the provider reject the request.
-          return finalize("COMPLETED", {
+          return await finalize("COMPLETED", {
             eventType: "turn.completed",
             budgetExhausted: true,
             budgetCause: "context",
@@ -1323,7 +1331,7 @@ export class TurnRunner {
           const spentTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
 
           if (spentTokens >= this.#budget.maxTotalTokens) {
-            return finalize("COMPLETED", {
+            return await finalize("COMPLETED", {
               eventType: "turn.completed",
               budgetExhausted: true,
               budgetCause: "tokens",
@@ -1443,13 +1451,13 @@ export class TurnRunner {
         const afterStep = checkBudget();
 
         if (afterStep === "cancel") {
-          return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+          return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
         }
 
         if (providerError !== null) {
           if (providerError.code === "PROVIDER_ABORTED") {
             if (deadlineReached) {
-              return finalize("COMPLETED", {
+              return await finalize("COMPLETED", {
                 eventType: "turn.completed",
                 budgetExhausted: true,
                 budgetCause: "duration",
@@ -1459,17 +1467,17 @@ export class TurnRunner {
             const current = getTurnById(this.#options.db, turn.id);
 
             if (current?.status === "CANCELLING") {
-              return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+              return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
             }
 
-            return finalize("FAILED", {
+            return await finalize("FAILED", {
               eventType: "turn.failed",
               errorCode: "PROVIDER_UNAVAILABLE",
               message: "执行超时或连接中断，请重试",
             });
           }
 
-          return finalize("FAILED", {
+          return await finalize("FAILED", {
             eventType: "turn.failed",
             errorCode: providerError.code,
             message: providerError.message,
@@ -1485,7 +1493,7 @@ export class TurnRunner {
         }
 
         if (toolRequests.length === 0) {
-          return finalize("COMPLETED", {
+          return await finalize("COMPLETED", {
             eventType: "turn.completed",
             finishReason,
           });
@@ -1502,19 +1510,19 @@ export class TurnRunner {
           const cancelState = checkBudget();
 
           if (cancelState === "budget")
-            return finalize("COMPLETED", {
+            return await finalize("COMPLETED", {
               eventType: "turn.completed",
               budgetExhausted: true,
               budgetCause: "duration",
             });
           if (cancelState === "cancel") {
-            return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+            return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
           }
 
           toolCalls += 1;
 
           if (this.#budget.maxToolCalls > 0 && toolCalls > this.#budget.maxToolCalls) {
-            return finalize("COMPLETED", {
+            return await finalize("COMPLETED", {
               eventType: "turn.completed",
               budgetExhausted: true,
               budgetCause: "tool_calls",
@@ -1601,14 +1609,14 @@ export class TurnRunner {
 
             if (decision === "cancelled") {
               if (deadlineReached) {
-                return finalize("COMPLETED", {
+                return await finalize("COMPLETED", {
                   eventType: "turn.completed",
                   budgetExhausted: true,
                   budgetCause: "duration",
                 });
               }
 
-              return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+              return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
             }
 
             this.#emit(turn, session, "tool.approval.resolved", {
@@ -1656,7 +1664,7 @@ export class TurnRunner {
           }
 
           if (result.status === "approval_required") {
-            return finalize("FAILED", {
+            return await finalize("FAILED", {
               eventType: "turn.failed",
               errorCode: "APPROVAL_INVALID",
               message: "approval was requested twice for one tool call",
@@ -1665,7 +1673,7 @@ export class TurnRunner {
 
           if (result.result.ok) {
             const fileResult =
-              request.name === "apply_patch"
+              request.name === "apply_patch" || request.name === "write_file"
                 ? (result.result.data as { path?: unknown; version?: unknown } | undefined)
                 : undefined;
             const fileTarget = FileResultTargetSchema.safeParse({
@@ -1773,6 +1781,11 @@ export class TurnRunner {
 
               if (typeof changed?.path === "string" && typeof changed.version === "string") {
                 facts.recordFile(changed.path, changed.version);
+                fileChanges.set(changed.path, {
+                  path: changed.path,
+                  changeType: request.name === "write_file" ? "created" : "modified",
+                  version: changed.version,
+                });
                 this.#emit(turn, session, "file.changed", {
                   turnId: turn.id,
                   path: changed.path,
@@ -1825,7 +1838,7 @@ export class TurnRunner {
         }
       }
 
-      return finalize("COMPLETED", {
+      return await finalize("COMPLETED", {
         eventType: "turn.completed",
         budgetExhausted: true,
         budgetCause: "steps",
@@ -1836,7 +1849,7 @@ export class TurnRunner {
       }
 
       if (deadlineReached) {
-        return finalize("COMPLETED", {
+        return await finalize("COMPLETED", {
           eventType: "turn.completed",
           budgetExhausted: true,
           budgetCause: "duration",
@@ -1847,11 +1860,11 @@ export class TurnRunner {
         controller.signal.aborted ||
         getTurnById(this.#options.db, turnId)?.status === "CANCELLING"
       ) {
-        return finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+        return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
       }
 
       if (error instanceof ProviderError) {
-        return finalize("FAILED", {
+        return await finalize("FAILED", {
           eventType: "turn.failed",
           errorCode: error.code,
           message: error.message,
@@ -1859,7 +1872,7 @@ export class TurnRunner {
       }
 
       const message = error instanceof Error ? error.message : String(error);
-      return finalize("FAILED", {
+      return await finalize("FAILED", {
         eventType: "turn.failed",
         errorCode: "INTERNAL",
         message: message.slice(0, 500),
@@ -1960,6 +1973,38 @@ export class TurnRunner {
     this.#publish(eventRow, session);
   }
 
+  async #collectFileResults(
+    root: string,
+    projectIgnore: string[] | undefined,
+    changes: Map<string, TurnFileChange>,
+  ): Promise<TurnFileResult[]> {
+    if (changes.size === 0) {
+      return [];
+    }
+
+    try {
+      return await collectTurnFileResults({
+        root,
+        projectIgnore: projectIgnore ?? [],
+        changes: changes.values(),
+        onError: (filePath, error) =>
+          this.#options.logger?.info(
+            {
+              path: filePath,
+              code: (error as NodeJS.ErrnoException).code ?? "UNKNOWN",
+            },
+            "turn file result check failed",
+          ),
+      });
+    } catch (error) {
+      this.#options.logger?.info(
+        { code: (error as NodeJS.ErrnoException).code ?? "UNKNOWN" },
+        "turn file result collection failed",
+      );
+      return [];
+    }
+  }
+
   #finalize(
     turn: TurnRow,
     session: SessionRow,
@@ -1975,6 +2020,8 @@ export class TurnRunner {
       usage?: ProviderUsage;
       durationMs?: number;
       terminalReason?: TurnTerminalReason;
+      fileResults?: TurnFileResult[];
+      fileResultsOmitted?: number;
     },
   ): TurnRunResult {
     const now = this.#now();
@@ -2010,6 +2057,10 @@ export class TurnRunner {
             : { budgetExhausted: options.budgetExhausted }),
           ...(options.budgetCause === undefined ? {} : { budgetCause: options.budgetCause }),
           ...(options.finishReason === undefined ? {} : { finishReason: options.finishReason }),
+          ...(options.fileResults === undefined ? {} : { fileResults: options.fileResults }),
+          ...(options.fileResultsOmitted === undefined
+            ? {}
+            : { fileResultsOmitted: options.fileResultsOmitted }),
           terminalReason,
         },
         now,
