@@ -508,6 +508,7 @@ export class TurnRunner {
                     if (checkBudget() !== "ok" || lockLost)
                       throw new Error("Execution no longer authorized");
                   },
+                  isBudgetExpired: () => deadlineReached,
                   onCreated: (commandId) =>
                     this.#emit(turn, session, "tool.command.created", {
                       turnId: turn.id,

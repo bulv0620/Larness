@@ -58,6 +58,8 @@ export interface CommandContext extends z.infer<typeof ContextSchema> {
   signal?: AbortSignal;
   inheritedLock?: ResourceLockHandle;
   onCreated?: (id: string) => void;
+  /** True when the owning Turn has exhausted its duration budget. */
+  isBudgetExpired?: () => boolean;
 }
 interface Runtime {
   controller: AbortController;
@@ -389,7 +391,7 @@ export class CommandManager {
     };
     this.#active.set(id, runtime);
     const abort = () => {
-      runtime.reason ??= "CANCELLED";
+      runtime.reason ??= context.isBudgetExpired?.() ? "TIMED_OUT" : "CANCELLED";
       runtime.controller.abort();
     };
     context.signal?.addEventListener("abort", abort, { once: true });
