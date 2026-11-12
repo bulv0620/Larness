@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Dirent, Stats } from "node:fs";
-import { readdir, readFile as readFileAsync, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile as readFileAsync, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { applyPatch as applyTextPatch, diffLines, parsePatch } from "diff";
 import { PathGuardError, resolveInsideRoot } from "./pathGuard.js";
@@ -8,6 +8,7 @@ import { PathGuardError, resolveInsideRoot } from "./pathGuard.js";
 export const MAX_TOOL_OUTPUT_BYTES = 1_048_576;
 export const MAX_TOOL_OUTPUT_LINES = 2_000;
 export const MAX_READ_BYTES = 1_048_576;
+export const MAX_WRITE_BYTES = 1_048_576;
 export const MAX_SEARCH_FILE_BYTES = 262_144;
 
 const DEFAULT_IGNORED = new Set([".git", "node_modules", ".larness"]);
@@ -558,6 +559,61 @@ function diagnosePatch(text: string, error: unknown): string {
   const message = error instanceof Error ? error.message : "";
 
   return message.trim().slice(0, 160) || "unrecognized diff format";
+}
+
+export interface CreateTextFileResult {
+  path: string;
+  version: string;
+  bytes: number;
+  lines: number;
+  created: true;
+}
+
+export async function createTextFile(
+  rootReal: string,
+  options: { path: string; content: string },
+): Promise<CreateTextFileResult> {
+  if (options.content.includes("\0")) {
+    throw new FileError("VALIDATION_ERROR", "content must be text");
+  }
+
+  const bytes = Buffer.byteLength(options.content, "utf8");
+
+  if (bytes > MAX_WRITE_BYTES) {
+    throw new FileError("TOO_LARGE", `content exceeds ${MAX_WRITE_BYTES} bytes`, { bytes });
+  }
+
+  const target = await resolveInput(rootReal, options.path);
+  await mkdir(path.dirname(target), { recursive: true });
+
+  try {
+    // `wx` keeps this create-only: existing files must be changed via apply_patch.
+    await writeFile(target, options.content, { encoding: "utf8", flag: "wx", mode: 0o644 });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+
+    if (code === "EEXIST") {
+      const existing = await readFileAsync(target);
+
+      throw new FileError(
+        "VERSION_CONFLICT",
+        "file already exists; read it and use apply_patch to change it",
+        { currentVersion: hashContent(existing) },
+      );
+    }
+
+    throw new FileError("INTERNAL", `cannot write file: ${code ?? "unknown"}`);
+  }
+
+  const buffer = await readFileAsync(target);
+
+  return {
+    path: toPosix(path.relative(rootReal, target)),
+    version: hashContent(buffer),
+    bytes,
+    lines: options.content.split("\n").length,
+    created: true,
+  };
 }
 
 export async function applyPatch(

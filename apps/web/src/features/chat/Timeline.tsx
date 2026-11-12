@@ -171,7 +171,8 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     [...targets.values()].filter((target) => target.kind === "file").map((target) => target.path),
   );
   const artifacts = items.filter(
-    (item) => item.kind === "artifact" && !filePaths.has(item.title.replace(/^已修改 /, "")),
+    (item) =>
+      item.kind === "artifact" && !filePaths.has(item.title.replace(/^已(?:修改|创建) /, "")),
   );
   const results =
     !turnActive && (targets.size > 0 || artifacts.length > 0) ? (

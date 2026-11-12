@@ -97,7 +97,7 @@ interface ServerEvent<T = unknown> {
 | `tool.started` | `toolCallId, name` | 是 |
 | `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?`（M2-2 成功文件修改附授权 scope / path / version） | 是 |
 | `tool.failed` | `toolCallId, errorCode, message, issues?, repeatCount?`（M6-10：同一 `(tool, 规范化参数)` 连续失败次数；`issues` 为最多 5 条 `{path,message}` 的参数校验原因） | 是 |
-| `file.changed` | `path, changeType, version` | 是 |
+| `file.changed` | `path, changeType, version`（`changeType`: `modified`（`apply_patch`）/ `created`（`write_file`）） | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
 | `turn.completed` | `turnId, usage, durationMs, terminalReason, budgetExhausted?, budgetCause?`（`usage` 与 `model.usage` 同口径，含 `cacheReadTokens?` / `noCacheTokens?`） | 是 |
 | `model.usage` | `turnId, model, inputTokens, outputTokens?, totalTokens?, cacheReadTokens?, noCacheTokens?, usageSource, contextWindow`（M5-1 单次请求；M6-1 增缓存细分） | 是 |

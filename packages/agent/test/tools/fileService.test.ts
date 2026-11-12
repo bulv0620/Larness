@@ -1,7 +1,14 @@
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { applyPatch, hashContent, listFiles, readTextFile, searchCode } from "@larness/resources";
+import {
+  applyPatch,
+  createTextFile,
+  hashContent,
+  listFiles,
+  readTextFile,
+  searchCode,
+} from "@larness/resources";
 import { createPatch } from "diff";
 import { describe, expect, it } from "vitest";
 
@@ -215,6 +222,38 @@ describe("file service", () => {
       expect(result.truncated).toBe(true);
       expect(result.content.split("\n")).toHaveLength(2_000);
       expect(result.totalLines).toBe(2_001);
+    });
+  });
+
+  it("creates a new file once, including parent directories", async () => {
+    await withTempDir(async (dir) => {
+      const created = await createTextFile(dir, {
+        path: "src/components/new.ts",
+        content: "export const a = 1;\n",
+      });
+
+      expect(created).toMatchObject({ path: "src/components/new.ts", created: true, lines: 2 });
+      expect(created.version).toBe(hashContent(Buffer.from("export const a = 1;\n", "utf8")));
+      expect(await readTextFile(dir, { path: "src/components/new.ts" })).toMatchObject({
+        content: "export const a = 1;\n",
+        version: created.version,
+      });
+
+      await expect(
+        createTextFile(dir, { path: "src/components/new.ts", content: "other" }),
+      ).rejects.toMatchObject({ code: "VERSION_CONFLICT" });
+
+      await expect(
+        createTextFile(dir, { path: "../escape.ts", content: "x" }),
+      ).rejects.toMatchObject({ code: "PATH_OUTSIDE_PROJECT" });
+
+      await expect(
+        createTextFile(dir, { path: "big.ts", content: "a".repeat(1_048_577) }),
+      ).rejects.toMatchObject({ code: "TOO_LARGE" });
+
+      await expect(
+        createTextFile(dir, { path: "binary.ts", content: "a\0b" }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     });
   });
 

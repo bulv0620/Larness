@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { commandSecretVerdict, createCommandTool } from "../../src/modules/agent/commandTool.js";
+import { createTerminalTools } from "../../src/modules/agent/terminalTool.js";
 import { createSecretLoader } from "../../src/modules/agent/turn/secrets.js";
 import type { SecretStore } from "../../src/security/secretStore.js";
 
@@ -73,6 +74,37 @@ describe("plan secret guard", () => {
       context,
     );
     expect(clean).toMatchObject({ ok: true });
+  });
+});
+
+describe("terminal secret guard", () => {
+  it("refuses to start a terminal with a credential in its arguments", async () => {
+    const counter = { decrypts: 0 };
+    const store = stubStore({ c1: "sk-live-123" }, counter);
+    const tool = createTerminalTools({ db: {} as never, secretStore: store })[0];
+    const startTerminal = vi.fn(async () => ({ ok: true as const, summary: "started" }));
+    const context = {
+      projectRoot: "/tmp",
+      loadSecrets: () => [secretRow("c1")],
+      startTerminal,
+    };
+
+    const blocked = await tool?.execute(
+      { role: "dev", executable: "node", args: ["sk-live-123"], cwd: "." },
+      context,
+    );
+    expect(blocked).toMatchObject({
+      ok: false,
+      summary: "Protected credentials cannot be terminal arguments",
+    });
+    expect(startTerminal).not.toHaveBeenCalled();
+
+    const allowed = await tool?.execute(
+      { role: "dev", executable: "node", args: ["server.js"], cwd: "." },
+      context,
+    );
+    expect(allowed).toMatchObject({ ok: true });
+    expect(startTerminal).toHaveBeenCalledTimes(1);
   });
 });
 

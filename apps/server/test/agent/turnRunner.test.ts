@@ -287,6 +287,7 @@ describe("TurnRunner", () => {
           "list_files",
           "read_file",
           "search_code",
+          "write_file",
         ]);
         expect(provider.calls[0]?.messages[0]?.role).toBe("system");
       } finally {
@@ -968,7 +969,7 @@ describe("TurnRunner", () => {
         const runner = new TurnRunner({
           db: opened.db,
           registry: createFileToolRegistry(),
-          resolveProvider: () => ({ adapter: provider, model: "fake", contextWindow: 3_600 }),
+          resolveProvider: () => ({ adapter: provider, model: "fake", contextWindow: 3_800 }),
         });
 
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
@@ -1215,6 +1216,46 @@ describe("TurnRunner", () => {
           return tail !== undefined && isWrapUp(tail);
         });
         expect(hinted?.messages.at(-1)?.content).toContain("Do not start new work.");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("records a created file for write_file", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "new file" });
+        const provider = createFakeProvider([
+          toolStep({
+            id: "call_write",
+            name: "write_file",
+            args: { path: "src/hello.txt", content: "hello\n" },
+          }),
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const changed = listSessionEvents(opened.db, session.id).items.find(
+          (event) => event.type === "file.changed",
+        );
+        expect(changed?.payload).toMatchObject({
+          path: "src/hello.txt",
+          changeType: "created",
+        });
+        expect(await readFile(path.join(session.workspacePath, "src/hello.txt"), "utf8")).toBe(
+          "hello\n",
+        );
       } finally {
         opened.close();
       }

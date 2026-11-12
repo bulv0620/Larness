@@ -203,12 +203,13 @@ function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineI
     case "file.changed": {
       const path = stringField(data, "path") ?? "file";
       const version = stringField(data, "version") ?? "";
+      const changeType = stringField(data, "changeType") ?? "modified";
       const artifact: ArtifactItem = {
         id: `file_${turnId}_${path}_${version}`,
         kind: "artifact",
         turnId,
-        title: `已修改 ${path}`,
-        description: `文件变更 · ${stringField(data, "changeType") ?? "modified"}`,
+        title: `${changeType === "created" ? "已创建" : "已修改"} ${path}`,
+        description: `文件变更 · ${changeType}`,
         meta: version.slice(0, 12),
         createdAt: event.timestamp,
       };

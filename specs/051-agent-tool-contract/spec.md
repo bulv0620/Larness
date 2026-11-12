@@ -23,6 +23,8 @@ created: 2026-11-06
 
    M6-4（2026-11-11）起，工具结果先按内容值裁剪再序列化，超大结果附 `page: { truncated, omittedChars }`；`read_file` 额外返回 `offset` / `nextOffset` 支持续读。任何实现都不得对已序列化的 JSON 做字符截断。
 
+   M6 收口后补充（2026-11-12，用户确认）：新增 `write_file`（L1，项目内相对路径、1 MiB 上限、父目录自动创建、**仅创建**；已存在时返回 `VERSION_CONFLICT` 并提示改用 `apply_patch`），成功后与 `apply_patch` 一样发 `file.changed`（`changeType=created`）。`start_project_terminal` 的秘密检查与 `run_command` / `update_plan` 统一到 handler + 每 Turn 一次的秘密加载。
+
    M6 收口后补充（2026-11-12）：`apply_patch` 在解析前规范化常见模型形状（代码围栏、`\n` 双重转义、缺失 `---/+++` 头、CRLF、前置说明文字），上下文匹配仍保持精确（fuzzFactor 0）；失败信息改为可定位的 `patch could not be parsed: missing @@ hunk header` 等，并在工具描述里写清格式要求。
 
    M6 收口补充（2026-11-12）：`run_command` 描述明确「参数对象是 strict，只接受 executable/args/cwd/timeoutMs，cwd 必须是项目内相对路径」；`git_status` 等只读 Git 工具明确「非 Git 仓库或缺少 Git 时返回 GIT_UNAVAILABLE，不要用同一调用重试」；`tool.failed` 事件补 `issues`（字段路径 + 校验消息，不含参数值，最多 5 条）；系统上下文增加「Git availability at Turn start」，`refresh_observations` 返回 `git: { detected, observedAt }`，Turn 起点探测结果与 `projects.git_detected` 不一致时回写该列（修复 `git init` 后侧栏永久显示 no git）。

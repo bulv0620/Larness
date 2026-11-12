@@ -1,5 +1,6 @@
 import {
   applyPatch as applyFilePatch,
+  createTextFile,
   FileError,
   listFiles,
   readTextFile,
@@ -36,6 +37,13 @@ const SearchCodeSchema = z
     contextLines: z.number().int().min(0).max(5).optional(),
     glob: z.string().min(1).max(200).optional(),
     maxFiles: z.number().int().min(1).max(20_000).optional(),
+  })
+  .strict();
+
+const WriteFileSchema = z
+  .object({
+    path: PathSchema,
+    content: z.string().max(1_048_576),
   })
   .strict();
 
@@ -141,6 +149,30 @@ export function createFileTools() {
             }${result.truncated ? " (truncated)" : ""}`,
             data: result,
             truncated: result.truncated,
+          };
+        } catch (error) {
+          return fileFailure(error);
+        }
+      },
+    }),
+    defineTool({
+      name: "write_file",
+      description:
+        "Create a NEW text file inside the project. Parent directories are created. Fails with VERSION_CONFLICT when the file already exists — read it and use apply_patch to change it. Path must be project-relative. Content is limited to 1 MiB.",
+      riskLevel: "L1",
+      schema: WriteFileSchema,
+      summarize: (args) => `create ${args.path}`,
+      async handler(args, context) {
+        try {
+          const result = await createTextFile(context.projectRoot, {
+            path: args.path,
+            content: args.content,
+          });
+
+          return {
+            ok: true,
+            summary: `created ${result.path} (${result.lines} lines, version ${result.version.slice(0, 12)})`,
+            data: result,
           };
         } catch (error) {
           return fileFailure(error);

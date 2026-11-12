@@ -6,7 +6,7 @@ import {
 } from "@larness/shared";
 import type { Database } from "../../db/client.js";
 import type { SecretStore } from "../../security/secretStore.js";
-import { listEncryptedSecrets } from "../models/repository.js";
+import { secretVerdict } from "./secretGuard.js";
 
 function unavailable(summary: string) {
   return { ok: false as const, errorCode: "FORBIDDEN", summary };
@@ -16,26 +16,6 @@ export function createTerminalTools(options: {
   db: Database;
   secretStore?: SecretStore;
 }): ToolDefinition[] {
-  const startSchema = TerminalDevSchema.superRefine((args, context) => {
-    const encrypted = listEncryptedSecrets(options.db);
-    if (encrypted.length && !options.secretStore) {
-      context.addIssue({ code: "custom", message: "Terminal protection unavailable" });
-      return;
-    }
-    const values = [args.executable, args.role, args.cwd, ...args.args];
-    if (
-      encrypted.some((secret) => {
-        const plaintext = options.secretStore?.decrypt(secret);
-        return plaintext && values.some((value) => value.includes(plaintext));
-      })
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "Protected credentials cannot be terminal arguments",
-      });
-    }
-  });
-
   return [
     defineTool({
       name: "start_project_terminal",
@@ -44,13 +24,30 @@ export function createTerminalTools(options: {
       riskLevel: "L2",
       requiresProject: true,
       requiresProjectLock: false,
-      schema: startSchema,
+      schema: TerminalDevSchema,
       summarize: (args) =>
         `启动项目终端 ${args.role}（以本机账户权限运行，可访问项目外文件。dev 进程可能并发写源码）`,
-      handler: async (args, context) =>
-        context.startTerminal
-          ? context.startTerminal(args)
-          : unavailable("Terminal execution context unavailable"),
+      handler: async (args, context) => {
+        if (!context.startTerminal) {
+          return unavailable("Terminal execution context unavailable");
+        }
+
+        const verdict = secretVerdict(
+          [args.executable, args.role, args.cwd, ...args.args],
+          context.loadSecrets?.() ?? [],
+          options.secretStore,
+        );
+
+        if (verdict === "unavailable") {
+          return unavailable("Terminal protection unavailable");
+        }
+
+        if (verdict === "blocked") {
+          return unavailable("Protected credentials cannot be terminal arguments");
+        }
+
+        return context.startTerminal(args);
+      },
     }),
     defineTool({
       name: "read_terminal_output",

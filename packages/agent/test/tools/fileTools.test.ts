@@ -26,6 +26,7 @@ describe("file tools", () => {
         { name: "list_files", description: expect.any(String), riskLevel: "L0" },
         { name: "read_file", description: expect.any(String), riskLevel: "L0" },
         { name: "search_code", description: expect.any(String), riskLevel: "L0" },
+        { name: "write_file", description: expect.any(String), riskLevel: "L1" },
         { name: "apply_patch", description: expect.any(String), riskLevel: "L1" },
       ]);
 
@@ -48,6 +49,14 @@ describe("file tools", () => {
       );
       expect(search).toMatchObject({ ok: true });
       expect((search.data as { matches: unknown[] }).matches).toHaveLength(1);
+
+      const created = await registry.execute(
+        "write_file",
+        { path: "nested/new.txt", content: "hello\n" },
+        { projectRoot: dir },
+      );
+      expect(created).toMatchObject({ ok: true });
+      expect(created.summary).toMatch(/created nested\/new\.txt/);
 
       const patch = createPatch("a.txt", "one\ntwo\n", "one\nTWO\n");
       const applied = await registry.execute(

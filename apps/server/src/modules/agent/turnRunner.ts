@@ -1751,7 +1751,7 @@ export class TurnRunner {
                 : { truncated: result.result.truncated }),
             });
 
-            if (request.name === "apply_patch") {
+            if (request.name === "apply_patch" || request.name === "write_file") {
               const changed = result.result.data as
                 | { path?: unknown; version?: unknown }
                 | undefined;
@@ -1761,7 +1761,7 @@ export class TurnRunner {
                 this.#emit(turn, session, "file.changed", {
                   turnId: turn.id,
                   path: changed.path,
-                  changeType: "modified",
+                  changeType: request.name === "write_file" ? "created" : "modified",
                   version: changed.version,
                 });
               }
