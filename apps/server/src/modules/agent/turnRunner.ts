@@ -44,7 +44,8 @@ import { publishAgentEvent } from "../../ws/publisher.js";
 import type { CommandManager } from "../commands/manager.js";
 import type { GitManager } from "../git/manager.js";
 import { listEncryptedSecrets } from "../models/repository.js";
-import { getProjectById } from "../projects/repository.js";
+import { getProjectById, updateProjectRow } from "../projects/repository.js";
+import { detectGit } from "../projects/service.js";
 import type { ServiceManager } from "../services/manager.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
 import type { TerminalManager } from "../terminals/manager.js";
@@ -291,6 +292,23 @@ export class TurnRunner {
     const project =
       session.projectId === null ? null : getProjectById(this.#options.db, session.projectId);
     let projectRoot = project?.realPath ?? session.workspacePath;
+    // One probe per Turn keeps the snapshot fresh while staying prefix-stable.
+    let gitObservation: { detected: boolean; observedAt: number } | undefined;
+
+    if (project !== null) {
+      const detected = await detectGit(project.realPath);
+      gitObservation = { detected, observedAt: this.#now() };
+
+      // Self-heal the stored flag so the sidebar is not stale after `git init`.
+      if (detected !== project.gitDetected) {
+        immediateTransaction(this.#options.db, (tx) =>
+          updateProjectRow(tx, project.id, {
+            gitDetected: detected,
+            updatedAt: project.updatedAt,
+          }),
+        );
+      }
+    }
     let turnInput: unknown;
     try {
       turnInput = JSON.parse(turn.inputJson);
@@ -1030,11 +1048,29 @@ export class TurnRunner {
 
             try {
               const pm2 = await this.#options.pm2Context?.(session.projectId);
+              const git =
+                project === null
+                  ? null
+                  : {
+                      detected: await detectGit(project.realPath),
+                      observedAt: this.#now(),
+                    };
+
+              if (git !== null && project !== null && git.detected !== project.gitDetected) {
+                immediateTransaction(this.#options.db, (tx) =>
+                  updateProjectRow(tx, project.id, {
+                    gitDetected: git.detected,
+                    updatedAt: project.updatedAt,
+                  }),
+                );
+              }
+
               const snapshot = buildObservationSnapshot({
                 db: this.#options.db,
                 session,
                 workspaceRoot: projectRoot,
                 pm2: pm2 ?? null,
+                git,
                 now: this.#now(),
               });
 
@@ -1075,6 +1111,7 @@ export class TurnRunner {
         contextRatio: this.#budget.contextRatio,
         workspaceRoot: projectRoot,
         pm2Context: await this.#options.pm2Context?.(session.projectId),
+        ...(gitObservation === undefined ? {} : { git: gitObservation }),
       };
       const assembleStarted = this.#now();
       let context = assembleContext(contextOptions, session, turn);

@@ -139,6 +139,7 @@
 - 验收：A1 通过并作为硬门禁；A7 通过；真实热续步命中率有前后对比记录。
 - 测试：`ai-sdk-wire.test.ts` 捕获两次 fetch body 比较前缀；部署/预览认证 E2E 回归。
 - 涉及路径：`apps/server/src/modules/agent/{turnRunner,contextAssembler}.ts`、`packages/agent/src/tools/registry.ts`、`apps/server/src/modules/service-ops/commandContext.ts`、`docs/contracts/agent-command-context.md`
+- 补充（2026-11-12，用户确认）：系统快照增加「Git availability at Turn start」（每 Turn 一次 `git rev-parse` 探测），`refresh_observations` 返回 `git: { detected, observedAt }`；探测结果与 `projects.git_detected` 不一致时回写该列，顺带修复「`git init` 后侧栏永久显示 no git」。措辞明确「Turn 起点观察，需要当前状态请刷新」，避免模型在 Turn 内 `git init` 后基于过期事实断言。
 - 实现要点：system 增加 `PROMPT_VERSION`（`m6-1`），工具数组按名称排序并在 Turn 内只取一次；删除每步 `assembleContext` 重装配，Turn 起点取一次运行时快照；新增 `observationSnapshot.ts` 统一快照构造，system 与 `refresh_observations`（L0、无参数、不申请项目锁）共用同一实现；`ToolContext` / `ExecuteToolInput` 增加 `refreshObservations` 注入；`bootstrap` 注册新工具。
 - 契约：`docs/contracts/agent-command-context.md` 的「模型步骤之间刷新服务观察」改为「Turn 起点快照 + 显式刷新」；`specs/051` 记录新工具与结果裁剪。
 - 验证（硬门禁）：`ai-sdk-wire.test.ts` 新增「第 2 步请求是第 1 步的严格超集」用例（比较 SDK 序列化后的 `messages` 前缀与 `tools`）；`turnRunner` 新增用例断言 `pm2Context` 每 Turn 只调用 1 次、`messages[0]` 与 `tools` 跨步完全相等、system 含 `PROMPT_VERSION` 与「snapshot at Turn start」；`refresh_observations` 用例验证返回 `observedAt / preview / terminals / pm2` 且不触发审批。`test/agent` 68 通过 / 9 个既有环境性失败，`packages/agent` 47 通过 / 1 跳过，`apps/web` 158 通过；biome 与 typecheck 通过。

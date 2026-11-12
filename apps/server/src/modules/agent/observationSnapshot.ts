@@ -25,12 +25,18 @@ export interface TerminalObservation {
   mode: string;
 }
 
+export interface GitObservation {
+  detected: boolean;
+  observedAt: number;
+}
+
 export interface ObservationSnapshot {
   /** When this snapshot was taken. Callers must treat older snapshots as stale. */
   observedAt: number;
   preview: PreviewObservation[];
   terminals: TerminalObservation[];
   pm2: Pm2CommandContext | null;
+  git: GitObservation | null;
 }
 
 const MAX_PREVIEW_SERVICES = 50;
@@ -45,6 +51,7 @@ export function buildObservationSnapshot(options: {
   session: SessionRow;
   workspaceRoot?: string;
   pm2?: Pm2CommandContext | null;
+  git?: GitObservation | null;
   now?: number;
 }): ObservationSnapshot {
   const { db, session } = options;
@@ -89,5 +96,6 @@ export function buildObservationSnapshot(options: {
     preview,
     terminals,
     pm2: options.pm2 ?? null,
+    git: options.git ?? null,
   };
 }

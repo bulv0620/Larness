@@ -19,7 +19,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 | home / namespace | 后端注入的 PM2_HOME 和 `larness` 命名空间 |
 | serviceNamePattern | `larness:<projectId>:<serviceKey>` |
 
-`refresh_observations` 无参数、风险级别 `L0`（只读、不申请项目锁），返回 `{ observedAt, preview, terminals, pm2 }`：`preview` 为当前项目的临时开发预览（含端点与观察时间），`terminals` 为运行中终端（`terminalId / title / mode`），`pm2` 与系统快照同字段。它不缓存跨 Turn 状态，也不会改变执行授权。
+`refresh_observations` 无参数、风险级别 `L0`（只读、不申请项目锁），返回 `{ observedAt, preview, terminals, pm2, git }`：`preview` 为当前项目的临时开发预览（含端点与观察时间），`terminals` 为运行中终端（`terminalId / title / mode`），`pm2` 与系统快照同字段；`git` 为 `{ detected, observedAt }`，表示项目当前是否为 Git 仓库（非项目会话为 `null`）。它不缓存跨 Turn 状态，也不会改变执行授权。
 | project | 当前真实登记项目的 id/name/root/releaseRoot，未选项目为 null |
 | services | 服务的 projectId/projectName/name/pm2Name/observedState/pid/updatedAt |
 | unassociatedServices | 名称归属缺失、重名或与旧记录冲突的本实例服务 |

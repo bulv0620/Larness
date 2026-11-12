@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -20,6 +21,7 @@ import { listSessionEvents } from "../../src/modules/agent/events.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { toolFailureIssues, toolMessageContent } from "../../src/modules/agent/turn/toolResults.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
+import { getProjectById } from "../../src/modules/projects/repository.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -1111,6 +1113,56 @@ describe("TurnRunner", () => {
 
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
         expect(provider.calls[0]?.maxOutputTokens).toBe(4_096);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("probes Git once per turn and heals the stored flag after git init", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const root = path.join(dir, "repo");
+        await mkdir(root);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false },
+          { rootPath: root },
+        );
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, { projectId: project.id });
+        const registry = createFileToolRegistry();
+        const first = createFakeProvider([textStep("ok")]);
+        const firstRunner = new TurnRunner({
+          db: opened.db,
+          registry,
+          resolveProvider: () => ({ adapter: first, model: "fake" }),
+        });
+
+        const firstTurn = createTurn(sessionOptions, { sessionId: session.id, text: "before" });
+        expect((await firstRunner.run(firstTurn.turnId)).status).toBe("COMPLETED");
+        const firstSystem = first.calls[0]?.messages[0];
+        expect(firstSystem?.role === "system" && firstSystem.content).toContain(
+          "no Git repository was detected",
+        );
+
+        execFileSync("git", ["init", "-q", root]);
+        const second = createFakeProvider([textStep("ok")]);
+        const secondRunner = new TurnRunner({
+          db: opened.db,
+          registry,
+          resolveProvider: () => ({ adapter: second, model: "fake" }),
+        });
+        const secondTurn = createTurn(sessionOptions, { sessionId: session.id, text: "after" });
+        expect((await secondRunner.run(secondTurn.turnId)).status).toBe("COMPLETED");
+        const secondSystem = second.calls[0]?.messages[0];
+        expect(secondSystem?.role === "system" && secondSystem.content).toContain(
+          "this project is a Git repository",
+        );
+
+        // The stored flag self-heals so the sidebar stops claiming "no git".
+        expect(getProjectById(opened.db, project.id)?.gitDetected).toBe(true);
       } finally {
         opened.close();
       }

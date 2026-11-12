@@ -126,6 +126,55 @@ describe("context assembler", () => {
     });
   });
 
+  it("states Git availability from the Turn-start observation", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const root = path.join(dir, "project");
+        await mkdir(root);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false },
+          { rootPath: root },
+        );
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, { projectId: project.id });
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "check git" });
+        const turnRow = getTurnById(opened.db, turn.turnId);
+        if (turnRow === null) throw new Error("turn missing");
+
+        const without = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+            git: { detected: false, observedAt: 1 },
+          },
+          session,
+          turnRow,
+        );
+        expect(without.messages[0]?.content).toContain("no Git repository was detected");
+        expect(without.messages[0]?.content).toContain("GIT_UNAVAILABLE");
+
+        const withRepo = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+            git: { detected: true, observedAt: 1 },
+          },
+          session,
+          turnRow,
+        );
+        expect(withRepo.messages[0]?.content).toContain("this project is a Git repository");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("orders safety, project instructions, history and the current request", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

@@ -10,7 +10,7 @@ export function createObservationTool(): ToolDefinition {
   return defineTool({
     name: "refresh_observations",
     description:
-      "Read the current runtime observations for this workspace: temporary development previews, running terminals, and the PM2 service snapshot, each with its observation time. Read-only and safe to call repeatedly. Use it before claiming that a service, deployment or terminal is in a particular state, or after another actor may have changed it. A RUNNING terminal or an online PM2 process still does not prove HTTP health.",
+      "Read the current runtime observations for this workspace: temporary development previews, running terminals, the PM2 service snapshot and whether the project is now a Git repository, each with its observation time. Read-only and safe to call repeatedly. Use it before claiming that a service, deployment or terminal is in a particular state, or after another actor may have changed it. A RUNNING terminal or an online PM2 process still does not prove HTTP health.",
     riskLevel: "L0",
     requiresProjectLock: false,
     schema: z.object({}).strict(),

@@ -47,6 +47,7 @@ export interface ContextAssemblerOptions {
   contextRatio?: number;
   workspaceRoot?: string;
   pm2Context?: Pm2CommandContext;
+  git?: { detected: boolean; observedAt: number };
 }
 
 export interface AssembledContext {
@@ -151,7 +152,16 @@ export function assembleContext(
     session,
     ...(options.workspaceRoot === undefined ? {} : { workspaceRoot: options.workspaceRoot }),
     ...(options.pm2Context === undefined ? {} : { pm2: options.pm2Context }),
+    ...(options.git === undefined ? {} : { git: options.git }),
   });
+
+  if (snapshot.git !== null) {
+    systemBlocks.push(
+      snapshot.git.detected
+        ? "Git availability at Turn start: this project is a Git repository, so git_status / git_diff / git_log / git_branches work."
+        : "Git availability at Turn start: no Git repository was detected, so Git tools will fail with GIT_UNAVAILABLE. Do not retry them; call refresh_observations if the repository may have just been created.",
+    );
+  }
 
   if (snapshot.preview.length > 0) {
     systemBlocks.push(
