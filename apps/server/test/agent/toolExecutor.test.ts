@@ -6,6 +6,7 @@ import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { listRecentAudit } from "../../src/db/repositories/audit.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
+import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -105,6 +106,63 @@ describe("tool executor", () => {
         expect(actions).toContain("tool.requested");
         expect(actions).toContain("tool.completed");
         expect(actions).toContain("approval.granted");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("routes resolve_service_preview to the Turn's resolver", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      const projectRoot = path.join(dir, "project");
+      await mkdir(projectRoot);
+      const realRoot = await realpath(projectRoot);
+      const options = { db: opened.db, dataDir: dir, now: () => 1_000 };
+      const session = await createSession(options, {});
+      const turn = createTurn(options, { sessionId: session.id, text: "preview" });
+      const registry = createFileToolRegistry();
+      for (const tool of createServiceTools()) registry.register(tool);
+      const executor = { db: opened.db, registry, now: () => 1_000 };
+      const seen: unknown[] = [];
+
+      try {
+        const resolved = await executeTool(executor, {
+          sessionId: session.id,
+          turnId: turn.turnId,
+          toolCallId: "call_preview",
+          toolName: "resolve_service_preview",
+          args: { serviceId: "svc_00000000-0000-4000-8000-000000000000", path: "/" },
+          policy: "standard",
+          projectRoot: realRoot,
+          resolveServicePreview: async (args) => {
+            seen.push(args);
+            return { ok: true, summary: "preview ready", data: { kind: "preview" } };
+          },
+        });
+
+        expect(resolved.status).toBe("completed");
+        if (resolved.status === "completed") {
+          expect(resolved.result).toMatchObject({ ok: true, summary: "preview ready" });
+        }
+        expect(seen).toEqual([
+          { serviceId: "svc_00000000-0000-4000-8000-000000000000", path: "/" },
+        ]);
+
+        // Without a resolver the tool must fail closed, not silently succeed.
+        const missing = await executeTool(executor, {
+          sessionId: session.id,
+          turnId: turn.turnId,
+          toolCallId: "call_preview_2",
+          toolName: "resolve_service_preview",
+          args: { serviceId: "svc_00000000-0000-4000-8000-000000000000", path: "/" },
+          policy: "standard",
+          projectRoot: realRoot,
+        });
+        expect(missing.status).toBe("completed");
+        if (missing.status === "completed") {
+          expect(missing.result).toMatchObject({ ok: false, errorCode: "FORBIDDEN" });
+        }
       } finally {
         opened.close();
       }

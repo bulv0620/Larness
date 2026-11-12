@@ -133,18 +133,25 @@ export async function executeTool(
       },
       now,
     });
+    const issues = parsed.error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message,
+    }));
+    // Name the first offending field so the model and the user can act on it
+    // without digging into the structured issues.
+    const first = issues[0];
+    const detail =
+      first === undefined
+        ? ""
+        : `: ${first.path.length > 0 ? first.path : "<arguments>"} — ${first.message}`;
+
     return {
       status: "completed",
       result: {
         ok: false,
         errorCode: "VALIDATION_ERROR",
-        summary: "invalid tool arguments",
-        data: {
-          issues: parsed.error.issues.map((issue) => ({
-            path: issue.path.join("."),
-            message: issue.message,
-          })),
-        },
+        summary: `invalid tool arguments${detail}`.slice(0, 300),
+        data: { issues },
       },
     };
   }
@@ -331,6 +338,17 @@ export async function executeTool(
           listServices: async (args: unknown) => {
             assertAuthorized();
             return input.listServices?.(args) ?? denied("FORBIDDEN", "Service context unavailable");
+          },
+        }
+      : {}),
+    ...(input.resolveServicePreview
+      ? {
+          resolveServicePreview: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.resolveServicePreview?.(args) ??
+              denied("FORBIDDEN", "Service context unavailable")
+            );
           },
         }
       : {}),
