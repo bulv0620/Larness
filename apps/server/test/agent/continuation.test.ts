@@ -2,9 +2,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
-import { appendAgentEvent } from "../../src/modules/agent/events.js";
+import { appendAgentEvent, listSessionEvents } from "../../src/modules/agent/events.js";
 import { continueBudgetedTurn } from "../../src/modules/agent/recovery/continue.js";
-import { listSessionEvents } from "../../src/modules/agent/events.js";
 import {
   createSessionRow,
   getTurnById,
@@ -47,9 +46,12 @@ describe("automatic continuation", () => {
         const first = createTurn(options, { sessionId: session.id, text: "long task" });
         finishAsBudget(opened, session.id, first.turnId);
 
-        const next = continueBudgetedTurn({ db: opened.db, now: () => NOW }, {
-          turnId: first.turnId,
-        });
+        const next = continueBudgetedTurn(
+          { db: opened.db, now: () => NOW },
+          {
+            turnId: first.turnId,
+          },
+        );
 
         expect(next).toMatchObject({ fromTurnId: first.turnId, depth: 1 });
         const created = getTurnById(opened.db, next?.turnId ?? "");
@@ -62,9 +64,12 @@ describe("automatic continuation", () => {
         expect(events.some((event) => event.type === "turn.continued")).toBe(true);
 
         // Repeating the call is idempotent: the same continuation turn comes back.
-        const again = continueBudgetedTurn({ db: opened.db, now: () => NOW }, {
-          turnId: first.turnId,
-        });
+        const again = continueBudgetedTurn(
+          { db: opened.db, now: () => NOW },
+          {
+            turnId: first.turnId,
+          },
+        );
         expect(again?.turnId).toBe(next?.turnId);
       } finally {
         opened.close();
@@ -84,9 +89,12 @@ describe("automatic continuation", () => {
 
         for (let depth = 1; depth <= 3; depth += 1) {
           finishAsBudget(opened, session.id, turnId);
-          const next = continueBudgetedTurn({ db: opened.db, now: () => NOW, maxContinuations: 3 }, {
-            turnId,
-          });
+          const next = continueBudgetedTurn(
+            { db: opened.db, now: () => NOW, maxContinuations: 3 },
+            {
+              turnId,
+            },
+          );
 
           expect(next?.depth).toBe(depth);
           turnId = next?.turnId ?? "";
@@ -115,6 +123,8 @@ describe("automatic continuation", () => {
           workspacePath: dir,
           title: "job",
           origin: "scheduled",
+          modelProfileId: null,
+          approvalPolicyId: "readonly",
           now: NOW,
         });
         const jobTurn = createTurn(options, { sessionId: scheduled.id, text: "job task" });

@@ -107,6 +107,7 @@ interface ServerEvent<T = unknown> {
 | `turn.cancelled` | `turnId, reason, terminalReason` | 是 |
 | `turn.interrupted` | `turnId, reason, terminalReason` | 是 |
 | `turn.resumed` | `turnId, fromTurnId`（M6 TR-2：新 Turn 接手被中断的 Turn） | 是 |
+| `turn.continued` | `turnId, fromTurnId, depth`（ADR-059：预算分片结束后自动接续的新 Turn） | 是 |
 
 `assistant.reasoning.delta` 使用与 `assistant.delta` 相同的临时信封，不含 `sequence`，不写 `agent_events`，刷新 / 重连后不重放；只发给订阅该会话的已认证客户端。推理正文不得进入日志、审计、其他会话或跨模型上下文。
 
@@ -116,7 +117,7 @@ interface ServerEvent<T = unknown> {
 
 `repeatCount` 只在同一调用连续失败达到阈值时由后端记录，并同时在 tool result 之后追加一条模型可见的事实说明；它不改变执行策略、授权或审批。
 
-`turn.resumed` 由恢复操作写入新 Turn：`fromTurnId` 是被中断的原 Turn，原 Turn 本身不被改写。
+`turn.continued` 由自动接续写入：`depth` 是接续链深度（原始 Turn 为 0），默认最多 3。`turn.resumed` 由恢复操作写入新 Turn：`fromTurnId` 是被中断的原 Turn，原 Turn 本身不被改写。
 
 `terminalReason`（M6-3，[ADR-057](../adr/ADR-057-runtime-efficiency.md)）在每个 `turn.*` 终态事件中给出结束原因：`normal / budget / output_truncated / provider_error / error / cancelled / interrupted`。它和事件类型正交——`turn.completed` 也可能是 `budget` 或 `output_truncated`，客户端必须按 `terminalReason` 而不是仅按事件类型判断「任务是否真的做完」。
 

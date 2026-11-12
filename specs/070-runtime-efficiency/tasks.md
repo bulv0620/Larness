@@ -60,6 +60,7 @@
 - 验收：A2 通过；未知口径有独立计数；事件与 DTO 只含数字与枚举。
 - 测试：`packages/agent/test/providers/ai-sdk-wire.test.ts` 造带 `prompt_cache_hit_tokens` 与不带该字段的两种 SSE；`eventReducer` 单测。
 - 涉及路径：`packages/agent/src/providers/{types,deepseek,compatible,fake}.ts`、`apps/server/src/modules/agent/turnRunner.ts`、`apps/web/src/lib/eventReducer.ts`、`docs/contracts/ws-events.md`
+- 分片预算与自动接续（2026-11-12，用户选择激进档，[ADR-059](../../docs/adr/ADR-059-long-task-budget-and-continuation.md)）：取消 `maxSteps` / `maxToolCalls` 上限（默认 0），改用挂钟分片（10 分钟）+ 花费上限（200 万 token）；撞预算时自动用检查点事实创建新 Turn 接续（深度上限 3，仅 `origin=user`，无事实不接续），新增 `turn.continued` 事件与界面「自动继续」标记。
 - 预算收敛补充（2026-11-12，用户反馈「loop 有问题」）：实测一轮 UI 重构用了 **30 次模型请求 = 正好耗尽 `maxSteps`**（39 个工具调用、193 秒，末步缓存命中 99.6%），说明不是缓存或上下文问题，而是步数上限在任务中途切断、且没有收尾提示。处理：`maxSteps` 默认 30 → 50；新增「临近上限提示」——剩余 ≤4 步或已用 80% 时长时，在请求尾部追加一次收尾提示（完成当前操作、更新计划、总结已完成/已验证/未完成），只追加一次且不重写前缀；`TurnRunner` 的 `logger` 在 bootstrap 中接上，`turn timing` / `turn wrap-up requested` 现在真的会落日志。
 - 备注：`inputTokenDetails` 由 AI SDK 提供，无需升级依赖；真实 Provider 核对用 `LARNESS_DEEPSEEK_SMOKE=1`。
 - 偏差记录：阶段耗时（排队 / 装配 / 首 token / 工具 / 摘要）未随本任务交付，移到 HX-2。理由：耗时只有与截止时间、终态一起改才有意义，单独加会在同一段代码做两次契约变更。

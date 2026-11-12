@@ -14,7 +14,6 @@ import type { DestinationStream, Logger } from "pino";
 import { createApp } from "../app.js";
 import { loadOrCreateCsrfKey } from "../auth/csrf.js";
 import { backupDatabase } from "../db/backup.js";
-import { continueBudgetedTurn } from "../modules/agent/recovery/continue.js";
 import { type CleanupScheduler, startCleanupScheduler } from "../db/cleanup.js";
 import { type Database, type OpenedDatabase, openDatabase } from "../db/client.js";
 import {
@@ -36,6 +35,7 @@ import { createGitTools } from "../modules/agent/gitTool.js";
 import { createObservationTool } from "../modules/agent/observationTool.js";
 import { createPlanTool } from "../modules/agent/planTool.js";
 import { TurnQueue } from "../modules/agent/queue.js";
+import { continueBudgetedTurn } from "../modules/agent/recovery/continue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { createServiceTools } from "../modules/agent/serviceTool.js";
 import { createTerminalControlTools } from "../modules/agent/terminalControlTool.js";
@@ -459,10 +459,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
           }
 
           try {
-            const next = continueBudgetedTurn(
-              { db: opened.db, now: () => Date.now() },
-              { turnId },
-            );
+            const next = continueBudgetedTurn({ db: opened.db, now: () => Date.now() }, { turnId });
 
             if (next === null) {
               return;

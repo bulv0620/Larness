@@ -151,7 +151,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 
 `turns.terminal_reason`（迁移 `0023`，M6-3）取值 `normal / budget / output_truncated / provider_error / error / cancelled / interrupted`，只加可空列、不回填：旧 Turn 为 `NULL`，读取方必须按 `normal` 处理。`sessions.pinned_at`（迁移 `0026`，M6 TR-4）非空表示用户显式保留该会话，保留期清理会跳过它；默认 `NULL`，不回填。
 
-`turns.resumed_from_turn_id`（迁移 `0025`）只在恢复产生的新 Turn 上写入，指向被中断的原 Turn；原 Turn 保持 `INTERRUPTED` 且该列为空。
+`turns.resumed_from_turn_id`（迁移 `0025`）只在接手产生的新 Turn 上写入，指向来源 Turn。两种来源：用户恢复被中断的 Turn（原 Turn 保持 `INTERRUPTED` 且该列为空），以及预算分片结束后的自动接续（ADR-059，原 Turn 为 `COMPLETED` + `terminal_reason=budget`）。
 
 它记录「为什么结束」，与 `status` 正交——`status=COMPLETED` 且 `terminal_reason=budget` 表示预算停止而不是正常完成。
 

@@ -1198,7 +1198,7 @@ describe("TurnRunner", () => {
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
 
         const isWrapUp = (message: { role: string; content: string }) =>
-          message.role === "user" && message.content.includes("steps for this turn");
+          message.role === "user" && message.content.includes("near its budget");
 
         // Injected once, then carried along like any other message.
         const lastCall = provider.calls.at(-1);
