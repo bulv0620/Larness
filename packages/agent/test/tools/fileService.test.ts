@@ -190,6 +190,64 @@ describe("file service", () => {
     });
   });
 
+  it("recalculates a miscounted hunk header instead of rejecting the patch", async () => {
+    await withTempDir(async (dir) => {
+      const original = "one\ntwo\nthree\nfour\n";
+      await writeFile(path.join(dir, "a.txt"), original);
+      const { version } = await readTextFile(dir, { path: "a.txt" });
+      // Declared 9/9, but the body has 3 old and 3 new lines.
+      const patch = ["@@ -2,9 +2,9 @@", " two", "-three", "+THREE", " four"].join("\n");
+
+      const applied = await applyPatch(dir, {
+        path: "a.txt",
+        expectedVersion: version,
+        patch,
+      });
+
+      expect(applied.additions).toBe(1);
+      expect(applied.deletions).toBe(1);
+      expect((await readTextFile(dir, { path: "a.txt" })).content).toBe("one\ntwo\nTHREE\nfour\n");
+    });
+  });
+
+  it("treats bare hunk lines and blank lines as context", async () => {
+    await withTempDir(async (dir) => {
+      const original = "alpha\n\nbeta\n";
+      await writeFile(path.join(dir, "b.txt"), original);
+      const { version } = await readTextFile(dir, { path: "b.txt" });
+      // "alpha" and the empty line lost their leading space.
+      const patch = ["@@ -1,3 +1,3 @@", "alpha", "", "-beta", "+gamma"].join("\n");
+
+      const applied = await applyPatch(dir, {
+        path: "b.txt",
+        expectedVersion: version,
+        patch,
+      });
+
+      expect(applied.additions).toBe(1);
+      expect((await readTextFile(dir, { path: "b.txt" })).content).toBe("alpha\n\ngamma\n");
+    });
+  });
+
+  it("still fails closed when the repaired context does not match the file", async () => {
+    await withTempDir(async (dir) => {
+      const original = "one\ntwo\n";
+      await writeFile(path.join(dir, "c.txt"), original);
+      const { version } = await readTextFile(dir, { path: "c.txt" });
+      const patch = ["@@ -1,2 +1,2 @@", " nope", "-two", "+TWO"].join("\n");
+
+      let message = "";
+      try {
+        await applyPatch(dir, { path: "c.txt", expectedVersion: version, patch });
+      } catch (error) {
+        message = (error as { message?: string }).message ?? "";
+      }
+
+      expect(message).toContain("does not match the file");
+      expect((await readTextFile(dir, { path: "c.txt" })).content).toBe(original);
+    });
+  });
+
   it("explains why an unparsable patch was rejected", async () => {
     await withTempDir(async (dir) => {
       const original = "one\n";

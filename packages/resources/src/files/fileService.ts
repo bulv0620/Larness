@@ -544,7 +544,103 @@ export function normalizePatchText(patch: string, filePath: string): string {
     text = `--- a/${filePath}\n+++ b/${filePath}\n${text}`;
   }
 
-  return text;
+  return repairHunkEnvelope(text);
+}
+
+const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/;
+
+/**
+ * The model often miscounts `@@ -a,b +c,d @@`, drops the leading space of a
+ * context line, or sends a blank line where a context line belongs. The body
+ * is authoritative: recompute the counts from it and prefix bare lines as
+ * context. Application still matches context exactly (fuzzFactor 0), so a
+ * wrong repair fails closed instead of writing a different file.
+ */
+function repairHunkEnvelope(text: string): string {
+  const lines = text.split("\n");
+  const output: string[] = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index] ?? "";
+    const header = HUNK_HEADER.exec(line);
+
+    if (header === null) {
+      output.push(line);
+      index += 1;
+      continue;
+    }
+
+    const oldStart = header[1] ?? "0";
+    const newStart = header[3] ?? "0";
+    const tail = header[5] ?? "";
+    index += 1;
+    const body: string[] = [];
+    let oldLines = 0;
+    let newLines = 0;
+
+    while (index < lines.length) {
+      const bodyLine = lines[index] ?? "";
+
+      if (
+        bodyLine.startsWith("@@ ") ||
+        bodyLine.startsWith("diff --git ") ||
+        bodyLine.startsWith("Index: ")
+      ) {
+        break;
+      }
+
+      if (bodyLine.startsWith("\\ No newline")) {
+        body.push(bodyLine);
+        index += 1;
+        continue;
+      }
+
+      if (bodyLine.length === 0) {
+        // The trailing empty element is the artifact of a patch ending in "\n".
+        if (index === lines.length - 1) {
+          index += 1;
+          break;
+        }
+
+        body.push(" ");
+        oldLines += 1;
+        newLines += 1;
+        index += 1;
+        continue;
+      }
+
+      const marker = bodyLine[0];
+
+      if (marker === "+") {
+        body.push(bodyLine);
+        newLines += 1;
+      } else if (marker === "-") {
+        body.push(bodyLine);
+        oldLines += 1;
+      } else if (marker === " ") {
+        body.push(bodyLine);
+        oldLines += 1;
+        newLines += 1;
+      } else {
+        body.push(` ${bodyLine}`);
+        oldLines += 1;
+        newLines += 1;
+      }
+
+      index += 1;
+    }
+
+    if (body.length === 0) {
+      // Nothing to measure: keep the original header so the parser reports it.
+      output.push(line);
+      continue;
+    }
+
+    output.push(`@@ -${oldStart},${oldLines} +${newStart},${newLines} @@${tail}`, ...body);
+  }
+
+  return output.join("\n");
 }
 
 function diagnosePatch(text: string, error: unknown): string {
