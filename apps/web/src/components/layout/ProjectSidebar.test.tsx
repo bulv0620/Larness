@@ -112,6 +112,22 @@ describe("ProjectSidebar project ordering", () => {
     });
   });
 
+  it("only creates a default workspace session from the plus button, not the project row", () => {
+    renderSidebar();
+    const defaultProject = screen.getByRole("button", { name: "默认工作区" });
+
+    fireEvent.click(defaultProject);
+
+    expect(useNavigationStore.getState().sessionId).toBe("");
+    expect(useNavigationStore.getState().draftSession).toBeNull();
+    expect(defaultProject).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: "在 默认工作区 中新建会话" }));
+
+    expect(useNavigationStore.getState().sessionId).toMatch(/^draft_/);
+    expect(useNavigationStore.getState().draftSession?.projectId).toBeNull();
+  });
+
   it("moves a project to the end by dragging the project itself", async () => {
     renderSidebar();
     const project = screen.getByRole("button", { name: "Alpha no git" });

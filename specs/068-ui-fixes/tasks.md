@@ -19,8 +19,15 @@
 | UI-F13 | 资源区 Tab | 右侧资源区 Tab 切换，移除标题栏，圆角与 Git 顶部间距 | UI-F12 | done |
 | UI-F14 | Header 服务端资源 | Header 右侧显示 Server 主机 CPU / ROM / RAM 占用 | UI-F13 | done |
 | UI-F15 | 项目拖拽排序 | 项目条目直接拖拽（及键盘）调整顺序，顺序服务端持久化，会话层级加深缩进 | UI-F14 | done |
+| UI-F16 | 默认工作区点击 | 点击默认工作区条目只切换展开；仅 `+` 创建默认会话 | UI-F15 | done |
 
 ## 验收记录
+
+### UI-F16（2026-11-12，macOS）
+
+- 用户反馈点击默认工作区条目会创建会话，要求仍由 `+` 创建。`ProjectSidebar` 的默认项目点击分支改为与普通项目一致，只调用 `toggleProject`；`+` 继续调用 `newProjectSession`（默认项目映射到 `startDraft(null)`）。
+- 组件测试新增「点击默认工作区不创建会话、`+` 仍创建草稿」正反例；`ProjectSidebar` 5 项通过。认证 E2E `default-workspace` 将两处点击默认项目改为点击 `+`，继续覆盖默认工作区文件 / 会话 / 终端共享、刷新与项目切换，整项通过。
+- 全量 Web 39 文件 178 项通过；Web typecheck、`pnpm build`、仓库级 `biome ci .`（0 error）与 `git diff --check` 通过。无 API、数据库、权限或持久化变更。
 
 ### UI-F15（2026-11-12，macOS）
 

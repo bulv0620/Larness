@@ -464,10 +464,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                         suppressProjectClickRef.current = false;
                         return;
                       }
-                      if (isDefault && !defaultSelected) {
-                        startDraft(null);
-                        focusComposer();
-                      } else toggleProject(project.id);
+                      toggleProject(project.id);
                     }}
                     onPointerDown={(event) => beginProjectDrag(event, project.id)}
                     onPointerMove={moveProjectDrag}

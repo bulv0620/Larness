@@ -129,3 +129,14 @@ depends_on: [052-workspace-polish, 063-multi-provider, 064-scheduler, 065-launch
 - Given 浅色、深色与窄侧栏，Then 拖拽态与插入线沿用工作区语义 token，不遮挡项目名和新建会话按钮。
 
 数据变更：`projects` 增加 `sortOrder`（迁移 `0027`）；`GET /api/projects` 按该列升序返回，默认工作区仍固定首位。新增已认证、需 CSRF 的 `PUT /api/projects/order`，body `{ projectIds: string[] }` 必须恰好覆盖全部登记项目（不含 `prj_default`），原子写入并审计 `project.reordered`。接口与错误码同步到 [REST API](../../docs/contracts/rest-api.md#7-工作区与模型)。不新增依赖，不改变项目目录、会话、Agent 工具或授权范围。
+
+## UI-F16 默认工作区点击不创建会话
+
+2026-11-12 用户反馈：点击默认工作区条目会直接创建默认工作区草稿会话，没有必要；只有项目行右侧的 `+` 才应创建会话。
+
+- Given 默认工作区未选中且没有会话，When 点击项目条目，Then 只切换该项目的展开 / 折叠，不创建草稿或后端会话，也不自动聚焦输入区。
+- Given 点击默认工作区右侧 `+`，Then 维持原行为：创建默认工作区草稿并聚焦输入区。
+- Given 普通项目条目，Then 点击仍只切换展开 / 折叠；右侧 `+` 创建该项目的会话。展开的会话条目仍可点击切换。
+- Given 拖拽排序、右键菜单、项目移除和搜索过滤，Then 行为不变。
+
+变更仅限前端点击分流；REST、会话创建、持久化、权限和事件不变。更新受影响的组件测试与认证 E2E（默认工作区用例改用 `+` 创建会话）。
