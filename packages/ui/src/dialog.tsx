@@ -9,10 +9,16 @@ export const DialogClose = DialogPrimitive.Close;
 
 export const DialogContent = forwardRef<
   ElementRef<typeof DialogPrimitive.Content>,
-  ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { children: ReactNode }
->(({ className, children, ...props }, ref) => (
+  ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    children: ReactNode;
+    /** 嵌套弹窗的遮罩需高于外层弹窗（外层 content 为 z-[301]），用此类提升层级。 */
+    overlayClassName?: string;
+  }
+>(({ className, overlayClassName, children, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-[300] bg-black/20 backdrop-blur-[2px]" />
+    <DialogPrimitive.Overlay
+      className={cn("fixed inset-0 z-[300] bg-black/20 backdrop-blur-[2px]", overlayClassName)}
+    />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(

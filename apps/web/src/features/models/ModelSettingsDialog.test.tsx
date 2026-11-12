@@ -153,6 +153,15 @@ it("asks for confirmation before deleting a Key", async () => {
   fireEvent.click(screen.getByRole("button", { name: "删除 Key" }));
 
   expect(screen.getByText("删除 Key？")).toBeVisible();
+  // 回归：确认弹窗的遮罩/内容层级必须高于外层弹窗内容（z-[301]），否则遮罩盖不住外层弹窗。
+  const confirmDialog = screen.getByText("删除 Key？").closest('[role="dialog"]');
+  expect(confirmDialog).toHaveClass("z-[311]");
+  const confirmOverlay = confirmDialog?.previousElementSibling;
+  expect(confirmOverlay).toHaveClass("z-[310]");
+  const outerDialog = screen
+    .getAllByRole("dialog", { hidden: true })
+    .find((dialog) => dialog !== confirmDialog);
+  expect(outerDialog).toHaveClass("z-[301]");
   expect(deleteCredential).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole("button", { name: "取消" }));

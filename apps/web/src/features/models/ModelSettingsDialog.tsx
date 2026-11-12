@@ -549,7 +549,10 @@ export function ModelSettingsDialog({
               open={confirmRemove}
               onOpenChange={(value) => (!value && !busy ? setConfirmRemove(false) : undefined)}
             >
-              <DialogContent className="w-[min(400px,calc(100vw-40px))] space-y-3 text-sm">
+              <DialogContent
+                overlayClassName="z-[310]"
+                className="z-[311] w-[min(400px,calc(100vw-40px))] space-y-3 text-sm"
+              >
                 <DialogTitle>删除 Key？</DialogTitle>
                 <DialogDescription>
                   {activeGroup
