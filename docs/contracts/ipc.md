@@ -95,6 +95,8 @@
 }
 ```
 
+`sessions.online` 是“仍能通过认证校验的浏览器会话数”：未撤销、未绝对过期，且 `last_seen_at` 在 `auth.idleTtlMinutes`（默认 30 分钟）内；一个有效会话行算一个。它不是实时 WebSocket 连接数，关闭浏览器后会在空闲窗口结束后退出计数。
+
 ## 5. 事件
 
 | event | data | 触发 |

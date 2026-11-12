@@ -115,7 +115,7 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
           },
           ipc: { ok: true, clients: context.ipcClients },
           sessions: {
-            online: countOnlineSessions(deps.db, now()),
+            online: countOnlineSessions(deps.db, now(), deps.config.auth.idleTtlMinutes),
             pendingPairings: countPendingPairings(deps.db),
           },
         };
