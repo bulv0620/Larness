@@ -67,7 +67,7 @@
   "bin": {
     "larness": "app.js"
   },
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Larness — local-first agent workspace for projects, terminals, services and deployments",
   "license": "MIT",
   "keywords": [
