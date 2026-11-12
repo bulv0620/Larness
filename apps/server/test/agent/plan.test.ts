@@ -187,3 +187,43 @@ it("does not write a plan after cancellation and refuses known credentials", asy
     }
   });
 });
+
+it("normalizes the model's status vocabulary before validating a plan", async () => {
+  await withTempDir(async (dir) => {
+    const opened = openDatabase(path.join(dir, "test.db"));
+    runMigrations(opened.db);
+    try {
+      const tool = createPlanTool({ db: opened.db });
+      const updates: unknown[] = [];
+      const result = await tool.execute(
+        {
+          title: "计划",
+          steps: [
+            { id: "a", title: "检查", status: "in_progress" },
+            { id: "b", title: "验证", status: "completed" },
+          ],
+        },
+        {
+          projectRoot: dir,
+          updatePlan: async (args) => {
+            updates.push(args);
+            return { ok: true, summary: "updated" };
+          },
+        },
+      );
+
+      expect(result).toMatchObject({ ok: true });
+      expect(updates).toEqual([
+        {
+          title: "计划",
+          steps: [
+            { id: "a", title: "检查", status: "running" },
+            { id: "b", title: "验证", status: "done" },
+          ],
+        },
+      ]);
+    } finally {
+      opened.close();
+    }
+  });
+});

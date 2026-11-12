@@ -30,6 +30,31 @@ describe("ToolRegistry", () => {
     expect(invalid.summary).toBe("invalid tool arguments");
   });
 
+  it("repairs known argument aliases before schema validation", async () => {
+    const statusTool = defineTool({
+      name: "status_like",
+      description: "Status",
+      riskLevel: "L0",
+      schema: z.object({ status: z.enum(["running", "done"]) }).strict(),
+      repairArgs: (raw) => {
+        const args = raw as { status?: unknown };
+        const aliases: Record<string, string> = { in_progress: "running", completed: "done" };
+        const mapped = typeof args.status === "string" ? aliases[args.status] : undefined;
+        return mapped === undefined ? raw : { status: mapped };
+      },
+      async handler(args) {
+        return { ok: true, summary: args.status };
+      },
+    });
+
+    await expect(
+      statusTool.execute({ status: "in_progress" }, { projectRoot: "/tmp" }),
+    ).resolves.toMatchObject({ ok: true, summary: "running" });
+    await expect(
+      statusTool.execute({ status: "invented" }, { projectRoot: "/tmp" }),
+    ).resolves.toMatchObject({ ok: false, errorCode: "VALIDATION_ERROR" });
+  });
+
   it("rejects duplicate registrations and unknown tools", async () => {
     const registry = new ToolRegistry();
     registry.register(echoTool);

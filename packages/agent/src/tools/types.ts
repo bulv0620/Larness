@@ -69,6 +69,12 @@ export interface ToolDefinitionInput<Schema extends z.ZodType> {
   summarize?: (args: z.infer<Schema>) => string;
   requiresProject?: boolean;
   requiresProjectLock?: boolean;
+  /**
+   * Normalize known model aliases (for example a status word or a field alias)
+   * before schema validation. The repaired value must still satisfy `schema`;
+   * this hook must never relax an authorization or secret check.
+   */
+  repairArgs?: (rawArgs: unknown) => unknown;
   handler: (args: z.infer<Schema>, context: ToolContext) => Promise<ToolResult>;
 }
 
@@ -86,7 +92,8 @@ export function defineTool<Schema extends z.ZodType>(
       ? {}
       : { summarize: (args: unknown) => input.summarize?.(args as z.infer<Schema>) ?? "" }),
     async execute(rawArgs: unknown, context: ToolContext): Promise<ToolResult> {
-      const parsed = input.schema.safeParse(rawArgs);
+      const repairedArgs = input.repairArgs === undefined ? rawArgs : input.repairArgs(rawArgs);
+      const parsed = input.schema.safeParse(repairedArgs);
 
       if (!parsed.success) {
         return {

@@ -55,6 +55,33 @@ const ApplyPatchSchema = z
   })
   .strict();
 
+/**
+ * Models occasionally send a field alias instead of the documented name.
+ * Normalize the alias and drop it: the schema is strict.
+ */
+function repairPatchArgs(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+
+  const repaired: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+
+  if (typeof repaired.path !== "string") {
+    for (const key of ["file_path", "file", "filename"] as const) {
+      if (typeof repaired[key] === "string") {
+        repaired.path = repaired[key];
+        break;
+      }
+    }
+  }
+
+  if (typeof repaired.patch !== "string" && typeof repaired.diff === "string") {
+    repaired.patch = repaired.diff;
+  }
+
+  for (const key of ["file_path", "file", "filename", "diff"]) delete repaired[key];
+
+  return repaired;
+}
+
 function fileFailure(error: unknown): ToolResult {
   if (error instanceof FileError) {
     return {
@@ -185,6 +212,7 @@ export function createFileTools() {
         "Apply a unified diff to an existing file. Requires the sha256 version returned by read_file. Send real newlines inside the `patch` string (JSON `\\n` escapes are decoded for you) and keep the diff minimal: at least one `@@ -start,count +start,count @@` hunk with exact context lines. `--- a/<path>` / `+++ b/<path>` headers are optional; code fences, prose and CRLF are tolerated. Context must match the current file exactly — a stale version fails with VERSION_CONFLICT.",
       riskLevel: "L1",
       schema: ApplyPatchSchema,
+      repairArgs: repairPatchArgs,
       summarize: (args) => `patch ${args.path}`,
       async handler(args, context) {
         try {
