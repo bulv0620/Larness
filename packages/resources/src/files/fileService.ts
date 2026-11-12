@@ -585,7 +585,9 @@ function repairHunkEnvelope(text: string): string {
       if (
         bodyLine.startsWith("@@ ") ||
         bodyLine.startsWith("diff --git ") ||
-        bodyLine.startsWith("Index: ")
+        bodyLine.startsWith("Index: ") ||
+        // A second file's header pair ends this hunk; the outer loop keeps it.
+        (bodyLine.startsWith("--- ") && (lines[index + 1] ?? "").startsWith("+++ "))
       ) {
         break;
       }

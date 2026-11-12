@@ -31,6 +31,8 @@ created: 2026-11-06
 
    M6 收口后补充（2026-11-12）：`apply_patch` 在解析前规范化常见模型形状（代码围栏、`\n` 双重转义、缺失 `---/+++` 头、CRLF、前置说明文字），上下文匹配仍保持精确（fuzzFactor 0）；失败信息改为可定位的 `patch could not be parsed: missing @@ hunk header` 等，并在工具描述里写清格式要求。
 
+   EB（2026-11-12，072）：`apply_patch` 的容错再向前一步——解析前按正文重算 `@@ -a,b +c,d @@` 的行数，把缺少行首标记的非空行与空行按上下文行补空格，遇到第二个文件的 `---/+++` 头则结束当前 hunk（不吞掉多文件补丁）；应用时仍是 `fuzzFactor: 0` 的精确上下文匹配，修错只会失败关闭。`defineTool` 新增可选 `repairArgs`，在 `safeParse` 前归一已知别名：`update_plan` 的 `in_progress`/`completed`/`todo`/`blocked` 等映射到 `running`/`done`/`pending`/`failed`，`apply_patch` 接受 `file_path`/`file`/`filename`/`diff` 作为 `path`/`patch` 的别名。模型收到的 JSON schema 不变，未命中的词或缺失必填字段仍返回 `VALIDATION_ERROR` 与 `issues`；`toolContract` 矩阵与状态别名用例覆盖正反例。`run_command` 描述补最小合法参数示例（减少漏传 `executable`）。
+
    M6 收口补充（2026-11-12）：`run_command` 描述明确「参数对象是 strict，只接受 executable/args/cwd/timeoutMs，cwd 必须是项目内相对路径」；`git_status` 等只读 Git 工具明确「非 Git 仓库或缺少 Git 时返回 GIT_UNAVAILABLE，不要用同一调用重试」；`tool.failed` 事件补 `issues`（字段路径 + 校验消息，不含参数值，最多 5 条）；系统上下文增加「Git availability at Turn start」，`refresh_observations` 返回 `git: { detected, observedAt }`，Turn 起点探测结果与 `projects.git_detected` 不一致时回写该列（修复 `git init` 后侧栏永久显示 no git）。
 
    M6-8（2026-11-11）`search_code` 增加 `contextLines` / `glob` / `maxFiles`，结果新增 `scanBudgetExhausted`，用于缩小扫描范围并以上下文替代重复读文件。
