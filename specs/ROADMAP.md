@@ -353,6 +353,19 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | EB-4 | [审查结论与状态回填](072-agent-error-budget/tasks.md) | EB-1～EB-3 | `done` |
 | EB-5 | [失败呈现与重试语义](072-agent-error-budget/tasks.md) | EB-4 | `done` |
 
+### 8.4 M6 后续：上下文预算（073，done）
+
+目标：修掉“读一次看不到全文 → 再读一次”的重复读根因，并让命令输出保留尾部诊断。审查数据与验收见 [073 spec](073-context-budget/spec.md#1-背景与问题数据审查)。
+
+门禁：G-073 = A1–A4 通过，`packages/agent`、`test/agent`、`apps/web` 不回归，typecheck 与 biome 通过。
+
+| ID | 任务 | 依赖 | 状态 |
+|---|---|---|---|
+| RB-1 | [结果预算按总量分配](073-context-budget/tasks.md) | — | `done` |
+| RB-2 | [读文件字符分页](073-context-budget/tasks.md) | — | `done` |
+| RB-3 | [命令输出头尾保留](073-context-budget/tasks.md) | — | `done` |
+| RB-4 | [审查与状态回填](073-context-budget/tasks.md) | RB-1～RB-3 | `done` |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

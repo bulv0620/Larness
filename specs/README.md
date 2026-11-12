@@ -67,6 +67,7 @@
 - [070 运行时效率：前缀缓存、上下文预算与停止语义](070-runtime-efficiency/spec.md)
 - [071 Turn 恢复与数据保留](071-turn-recovery/spec.md)
 - [072 工具调用错误预算：补丁容错、参数修复与命令用法](072-agent-error-budget/spec.md)
+- [073 上下文预算：读文件分页与结果裁剪](073-context-budget/spec.md)
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 

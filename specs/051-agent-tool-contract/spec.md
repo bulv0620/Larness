@@ -35,6 +35,8 @@ created: 2026-11-06
 
    EB-5（2026-11-12，072）：成功 `tool.completed` 可附 `supersedes: string[]`，仅当同一 Turn 内同一 `(tool, 规范化参数)` 的更早调用失败过；客户端把被取代条目显示为「失败 · 已重试」，摘要只把未被取代的失败计为「失败 N 项」并单列「重试成功 M 次」。`tool.failed` 事件不改，审计保留每次失败；参数不同的成功不算重试。
 
+   RB（2026-11-12，073）：`read_file` 默认按 12,000 字符返回**连续页**（按整行切分），`truncated` 与 `nextOffset` 按实际返回行计算，摘要附行范围与下一页 offset；单行超预算时截断该行并前进一行。工具结果序列化的字段预算从固定 4,000 改为「总量−2,000」起步并阶梯减半，单字段可用约 14,000 字符但总量仍 ≤16,000、始终合法 JSON；`run_command` 超长输出改为头 60% + 尾 40% 保留并标注省略字符数。
+
    M6 收口补充（2026-11-12）：`run_command` 描述明确「参数对象是 strict，只接受 executable/args/cwd/timeoutMs，cwd 必须是项目内相对路径」；`git_status` 等只读 Git 工具明确「非 Git 仓库或缺少 Git 时返回 GIT_UNAVAILABLE，不要用同一调用重试」；`tool.failed` 事件补 `issues`（字段路径 + 校验消息，不含参数值，最多 5 条）；系统上下文增加「Git availability at Turn start」，`refresh_observations` 返回 `git: { detected, observedAt }`，Turn 起点探测结果与 `projects.git_detected` 不一致时回写该列（修复 `git init` 后侧栏永久显示 no git）。
 
    M6-8（2026-11-11）`search_code` 增加 `contextLines` / `glob` / `maxFiles`，结果新增 `scanBudgetExhausted`，用于缩小扫描范围并以上下文替代重复读文件。
