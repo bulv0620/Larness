@@ -206,6 +206,28 @@ it("summarizes tool calls and opens individual command output directly from a fa
   expect(screen.getAllByLabelText("命令输出")).toHaveLength(2);
 });
 
+it("marks an automatically continued turn without dumping the checkpoint", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "u",
+        kind: "message",
+        role: "user",
+        text: 'Work state checkpoint (verified facts, observed at 1).\n{"goal":"重构 todo"}',
+        createdAt: 1,
+        turnId: "t2",
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  expect(screen.getByText("自动继续上一轮的未完成工作")).toBeTruthy();
+  expect(screen.queryByText(/"goal":"重构 todo"/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "查看核对事实" }));
+  expect(screen.getByText(/"goal":"重构 todo"/)).toBeTruthy();
+});
+
 it("wraps each step's commentary in the same bubble as the answer", () => {
   useTimelineStore.setState({
     isStreaming: true,

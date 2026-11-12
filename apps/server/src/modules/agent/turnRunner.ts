@@ -138,6 +138,7 @@ export interface TurnTimingLogger {
 export type TurnRunResult = {
   status: TurnStatus;
   errorCode?: string;
+  terminalReason?: TurnTerminalReason;
 };
 
 function isTerminal(status: TurnStatus): boolean {
@@ -1166,7 +1167,7 @@ export class TurnRunner {
         }
       }
 
-      while (steps < this.#budget.maxSteps) {
+      while (this.#budget.maxSteps === 0 || steps < this.#budget.maxSteps) {
         const budgetState = checkBudget();
 
         if (budgetState === "cancel") {
@@ -1186,11 +1187,13 @@ export class TurnRunner {
         }
 
         // Ask the model to land the turn before the budget cuts it mid-sentence.
-        if (!wrapUpRequested && this.#shouldRequestWrapUp(steps, startedAt)) {
+        const spentTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+
+        if (!wrapUpRequested && this.#shouldRequestWrapUp(steps, startedAt, spentTokens)) {
           wrapUpRequested = true;
           messages.push({
             role: "user",
-            content: `You have used ${steps} of ${this.#budget.maxSteps} steps for this turn. Stop exploring: finish the operation in progress, update the plan to match reality, and reply with a concise summary of what changed, what was verified, and what remains unfinished. Do not start new work.`,
+            content: `This turn is near its budget (${steps} steps, ${Math.round(spentTokens / 1000)}k tokens). Stop exploring: finish the operation in progress, update the plan to match reality, and reply with a concise summary of what changed, what was verified, and what remains unfinished. Do not start new work.`,
           });
           this.#options.logger?.info(
             { turnId, sessionId: session.id, steps, maxSteps: this.#budget.maxSteps },
@@ -1477,7 +1480,7 @@ export class TurnRunner {
 
           toolCalls += 1;
 
-          if (toolCalls > this.#budget.maxToolCalls) {
+          if (this.#budget.maxToolCalls > 0 && toolCalls > this.#budget.maxToolCalls) {
             return finalize("COMPLETED", {
               eventType: "turn.completed",
               budgetExhausted: true,
@@ -1981,6 +1984,7 @@ export class TurnRunner {
     return {
       status,
       ...(options.errorCode === undefined ? {} : { errorCode: options.errorCode }),
+      terminalReason,
     };
   }
 
@@ -2013,11 +2017,13 @@ export class TurnRunner {
   }
 
   /** True when the remaining step or time budget is about to end the turn. */
-  #shouldRequestWrapUp(steps: number, startedAt: number): boolean {
+  #shouldRequestWrapUp(steps: number, startedAt: number, spentTokens: number): boolean {
     const nearSteps = this.#budget.maxSteps >= 8 && steps >= this.#budget.maxSteps - 4;
     const nearTime = this.#now() - startedAt >= this.#budget.maxDurationMs * 0.8;
+    const nearTokens =
+      this.#budget.maxTotalTokens > 0 && spentTokens >= this.#budget.maxTotalTokens * 0.8;
 
-    return nearSteps || nearTime;
+    return nearSteps || nearTime || nearTokens;
   }
 
   #now(): number {

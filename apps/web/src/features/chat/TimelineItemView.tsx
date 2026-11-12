@@ -71,6 +71,30 @@ export function MessageBubble({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  if (item.role === "user" && item.text.startsWith("Work state checkpoint")) {
+    // Automatic continuation carries machine facts; show a compact marker
+    // instead of dumping the checkpoint into the conversation.
+    return (
+      <div className="mb-5 flex justify-end">
+        <div className="max-w-[91%] rounded-[18px] bg-surface-2 px-3.5 py-2.5 text-[12px] leading-[1.65] text-ink-2 sm:max-w-[82%]">
+          <div className="text-ink">自动继续上一轮的未完成工作</div>
+          <div className="mt-0.5">已带上已完成文件、命令与失败诊断的核对事实。</div>
+          <button
+            type="button"
+            className="mt-1 text-[11px] text-ink-3 transition-colors hover:text-accent"
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? "收起核对事实" : "查看核对事实"}
+          </button>
+          {expanded ? (
+            <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] text-ink-3">
+              {item.text}
+            </pre>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
   if (item.role === "user")
     return (
       <div className="mb-5 flex justify-end">

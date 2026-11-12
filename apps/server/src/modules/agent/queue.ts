@@ -10,6 +10,8 @@ export interface TurnQueueOptions {
   runner: QueuedTurnRunner;
   maxConcurrent?: number;
   onError?: (error: unknown, turnId: string) => void;
+  /** Called after a run settles; used for automatic continuation. */
+  onSettled?: (turnId: string, sessionId: string, result: TurnRunResult) => void;
 }
 
 interface PendingTurn {
@@ -21,6 +23,9 @@ export class TurnQueue {
   readonly #runner: QueuedTurnRunner;
   readonly #maxConcurrent: number;
   readonly #onError: ((error: unknown, turnId: string) => void) | undefined;
+  readonly #onSettled:
+    | ((turnId: string, sessionId: string, result: TurnRunResult) => void)
+    | undefined;
   readonly #pending: PendingTurn[] = [];
   readonly #running = new Set<string>();
   readonly #runningSessions = new Set<string>();
@@ -32,6 +37,7 @@ export class TurnQueue {
     this.#runner = options.runner;
     this.#maxConcurrent = Math.max(Math.trunc(options.maxConcurrent ?? 2), 1);
     this.#onError = options.onError;
+    this.#onSettled = options.onSettled;
   }
 
   enqueue(turnId: string, sessionId: string): void {
@@ -90,6 +96,15 @@ export class TurnQueue {
 
       const task = this.#runner
         .run(entry.turnId)
+        .then((result) => {
+          try {
+            this.#onSettled?.(entry.turnId, entry.sessionId, result);
+          } catch (error) {
+            this.#onError?.(error, entry.turnId);
+          }
+
+          return result;
+        })
         .catch((error: unknown) => {
           this.#onError?.(error, entry.turnId);
         })

@@ -14,6 +14,7 @@ import type { DestinationStream, Logger } from "pino";
 import { createApp } from "../app.js";
 import { loadOrCreateCsrfKey } from "../auth/csrf.js";
 import { backupDatabase } from "../db/backup.js";
+import { continueBudgetedTurn } from "../modules/agent/recovery/continue.js";
 import { type CleanupScheduler, startCleanupScheduler } from "../db/cleanup.js";
 import { type Database, type OpenedDatabase, openDatabase } from "../db/client.js";
 import {
@@ -451,6 +452,30 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         runner,
         onError: (error, turnId) => {
           activeLogger.error({ err: error, turnId }, "turn runner failed");
+        },
+        onSettled: (turnId, _sessionId, result) => {
+          if (result.status !== "COMPLETED" || result.terminalReason !== "budget") {
+            return;
+          }
+
+          try {
+            const next = continueBudgetedTurn(
+              { db: opened.db, now: () => Date.now() },
+              { turnId },
+            );
+
+            if (next === null) {
+              return;
+            }
+
+            activeLogger.info(
+              { turnId: next.turnId, fromTurnId: next.fromTurnId, depth: next.depth },
+              "turn continued automatically",
+            );
+            turnQueue?.enqueue(next.turnId, next.sessionId);
+          } catch (error) {
+            activeLogger.warn({ err: error, turnId }, "automatic continuation failed");
+          }
         },
       });
     }
