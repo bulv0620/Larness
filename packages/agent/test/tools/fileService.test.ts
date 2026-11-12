@@ -149,6 +149,63 @@ describe("file service", () => {
     });
   });
 
+  it("repairs common model patch shapes before applying", async () => {
+    await withTempDir(async (dir) => {
+      const original = "const re = /\\d+/;\nvalue = 1;\n";
+      await writeFile(path.join(dir, "app.js"), original);
+      const { version } = await readTextFile(dir, { path: "app.js" });
+      const body = ["@@ -1,2 +1,2 @@", " const re = /\\d+/;", "-value = 1;", "+value = 2;"].join(
+        "\n",
+      );
+
+      const shapes = [
+        body,
+        `\`\`\`diff\n${body}\n\`\`\``,
+        `--- a/app.js\n+++ b/app.js\n${body}`,
+        `Here is the patch:\n--- a/app.js\n+++ b/app.js\n${body}`,
+        body.replace(/\n/g, "\\n"),
+        `--- a/app.js\r\n+++ b/app.js\r\n${body.replace(/\n/g, "\r\n")}`,
+      ];
+
+      for (const patch of shapes) {
+        const applied = await applyPatch(dir, {
+          path: "app.js",
+          expectedVersion: version,
+          patch,
+        });
+        expect(applied.additions).toBe(1);
+        expect((await readTextFile(dir, { path: "app.js" })).content).toBe(
+          "const re = /\\d+/;\nvalue = 2;\n",
+        );
+        // Restore for the next shape.
+        await writeFile(path.join(dir, "app.js"), original);
+      }
+    });
+  });
+
+  it("explains why an unparsable patch was rejected", async () => {
+    await withTempDir(async (dir) => {
+      const original = "one\n";
+      await writeFile(path.join(dir, "a.txt"), original);
+      const { version } = await readTextFile(dir, { path: "a.txt" });
+
+      await expect(
+        applyPatch(dir, { path: "a.txt", expectedVersion: version, patch: "not a patch" }),
+      ).rejects.toMatchObject({
+        code: "INVALID_PATCH",
+      });
+
+      let message = "";
+      try {
+        await applyPatch(dir, { path: "a.txt", expectedVersion: version, patch: "not a patch" });
+      } catch (error) {
+        message = (error as { message?: string }).message ?? "";
+      }
+
+      expect(message).toContain("missing @@ hunk header");
+    });
+  });
+
   it("caps read output at 2000 lines", async () => {
     await withTempDir(async (dir) => {
       const content = Array.from({ length: 2_001 }, (_, index) => `line ${index}`).join("\n");

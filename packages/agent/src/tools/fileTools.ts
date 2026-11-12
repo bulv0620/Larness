@@ -150,7 +150,7 @@ export function createFileTools() {
     defineTool({
       name: "apply_patch",
       description:
-        "Apply a unified diff to an existing file. Requires the sha256 version returned by read_file.",
+        "Apply a unified diff to an existing file. Requires the sha256 version returned by read_file. Send real newlines inside the `patch` string (JSON `\\n` escapes are decoded for you) and keep the diff minimal: at least one `@@ -start,count +start,count @@` hunk with exact context lines. `--- a/<path>` / `+++ b/<path>` headers are optional; code fences, prose and CRLF are tolerated. Context must match the current file exactly — a stale version fails with VERSION_CONFLICT.",
       riskLevel: "L1",
       schema: ApplyPatchSchema,
       summarize: (args) => `patch ${args.path}`,

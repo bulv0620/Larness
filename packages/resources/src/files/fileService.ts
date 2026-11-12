@@ -510,6 +510,56 @@ export interface ApplyPatchResult {
   deletions: number;
 }
 
+/**
+ * Models regularly wrap diffs in code fences, escape newlines twice, or omit
+ * the ---/+++ headers. Normalize those shapes before parsing instead of
+ * rejecting an otherwise correct diff. Context matching stays exact
+ * (fuzzFactor 0); only the envelope is repaired.
+ */
+export function normalizePatchText(patch: string, filePath: string): string {
+  let text = patch.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  const fenced = text.match(/^\s*```[a-zA-Z]*\s*\n([\s\S]*?)\n```\s*$/);
+
+  if (fenced !== null && fenced[1] !== undefined) {
+    text = fenced[1];
+  }
+
+  // Double-escaped payload: no real newline, but literal \n sequences.
+  if (!text.includes("\n") && text.includes("\\n")) {
+    text = text.replace(/\\n/g, "\n").replace(/\\t/g, "\t");
+  }
+
+  // Drop any prose before the first diff line.
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => /^(--- |\+\+\+ |@@ |diff --git )/.test(line));
+
+  if (start > 0) {
+    text = lines.slice(start).join("\n");
+  }
+
+  // Synthesize the file headers when only hunks were sent.
+  if (/^@@ /m.test(text) && (!/^--- /m.test(text) || !/^\+\+\+ /m.test(text))) {
+    text = `--- a/${filePath}\n+++ b/${filePath}\n${text}`;
+  }
+
+  return text;
+}
+
+function diagnosePatch(text: string, error: unknown): string {
+  if (!/^@@ /m.test(text)) {
+    return "missing @@ hunk header";
+  }
+
+  if (!/^--- /m.test(text) || !/^\+\+\+ /m.test(text)) {
+    return "missing ---/+++ file headers";
+  }
+
+  const message = error instanceof Error ? error.message : "";
+
+  return message.trim().slice(0, 160) || "unrecognized diff format";
+}
+
 export async function applyPatch(
   rootReal: string,
   options: ApplyPatchOptions,
@@ -544,25 +594,32 @@ export async function applyPatch(
   }
 
   const original = originalBuffer.toString("utf8");
+  const normalized = normalizePatchText(options.patch, options.path);
 
   try {
-    const parsedPatches = parsePatch(options.patch);
+    const parsedPatches = parsePatch(normalized);
 
     if (parsedPatches.length === 0 || parsedPatches.every((parsed) => parsed.hunks.length === 0)) {
-      throw new FileError("INVALID_PATCH", "patch has no hunks");
+      throw new FileError(
+        "INVALID_PATCH",
+        `patch has no hunks: ${diagnosePatch(normalized, undefined)}`,
+      );
     }
   } catch (error) {
     if (error instanceof FileError) {
       throw error;
     }
 
-    throw new FileError("INVALID_PATCH", "patch could not be parsed");
+    throw new FileError(
+      "INVALID_PATCH",
+      `patch could not be parsed: ${diagnosePatch(normalized, error)}`,
+    );
   }
 
   let patched: string | false;
 
   try {
-    patched = applyTextPatch(original, options.patch, { fuzzFactor: 0 });
+    patched = applyTextPatch(original, normalized, { fuzzFactor: 0 });
   } catch {
     throw new FileError("INVALID_PATCH", "patch could not be applied");
   }
