@@ -97,17 +97,21 @@ export function ModelControl({
         onClick={toggleOpen}
         className="flex h-7 min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
       >
-        <span className="max-w-[96px] truncate sm:max-w-[128px]">{model?.label ?? "选择模型"}</span>
-        {model ? (
-          <span
-            className={cn(
-              "shrink-0 text-[10px] font-semibold",
-              thinking === "off" || !thinkingEnabled ? "text-ink-3" : "text-accent",
-            )}
-          >
-            {currentThinking}
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <span className="max-w-[96px] truncate sm:max-w-[128px]">
+            {model?.label ?? "选择模型"}
           </span>
-        ) : null}
+          {model ? (
+            <span
+              className={cn(
+                "shrink-0 text-[10px] font-semibold",
+                thinking === "off" || !thinkingEnabled ? "text-ink-3" : "text-accent",
+              )}
+            >
+              {currentThinking}
+            </span>
+          ) : null}
+        </span>
         <ChevronDown size={11} className="shrink-0 text-ink-3" />
       </button>
 
