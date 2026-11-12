@@ -5,7 +5,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   IconButton,
 } from "@larness/ui";
@@ -129,10 +128,6 @@ export function TopBar({ version }: { version?: string }) {
             ) : (
               <DropdownMenuItem disabled>暂无新通知</DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
-              <span className="text-[11px] text-ink-3">通知仅保留在当前设备</span>
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
