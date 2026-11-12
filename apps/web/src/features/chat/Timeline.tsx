@@ -142,11 +142,18 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         : truncated
           ? "输出被截断"
           : "";
-  const failures = tools.filter((tool) => tool.status === "error").length;
+  const failedTools = tools.filter((tool) => tool.status === "error");
+  const retriedFailures = failedTools.filter((tool) => tool.retried === true).length;
+  const unresolvedFailures = failedTools.length - retriedFailures;
+  const failureLabel = [
+    unresolvedFailures > 0 ? `失败 ${unresolvedFailures} 项` : "",
+    retriedFailures > 0 ? `重试成功 ${retriedFailures} 次` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const summary = [
     outcomeLabel,
-    [summarizeTools(tools), failures > 0 ? `失败 ${failures} 项` : ""].filter(Boolean).join(" · ") +
-      seconds,
+    [summarizeTools(tools), failureLabel].filter(Boolean).join(" · ") + seconds,
   ]
     .filter(Boolean)
     .join(" · ");

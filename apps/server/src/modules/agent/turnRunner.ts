@@ -347,6 +347,9 @@ export class TurnRunner {
     let wrapUpRequested = false;
     const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
     const repeatFailures = new Map<string, number>();
+    // Failed callIds per (tool, canonical args), so a later identical success can
+    // tell the UI which earlier attempts it superseded.
+    const failedCalls = new Map<string, string[]>();
     // One secret table read per Turn (D8); plaintext is still decrypted per call.
     const loadSecrets = createSecretLoader(() => listEncryptedSecrets(this.#options.db));
 
@@ -1540,6 +1543,8 @@ export class TurnRunner {
                 summary: "project is locked by another writer",
               };
               facts.recordToolFailure(result.errorCode, result.summary);
+              const lockedKey = stableArgsKey(request.name, request.args);
+              failedCalls.set(lockedKey, [...(failedCalls.get(lockedKey) ?? []), request.id]);
               this.#emit(turn, session, "tool.failed", {
                 turnId: turn.id,
                 toolCallId: request.id,
@@ -1729,7 +1734,11 @@ export class TurnRunner {
                     role: stoppedTerminal.data.role,
                   })
                 : undefined;
-            repeatFailures.delete(stableArgsKey(request.name, request.args));
+            const successKey = stableArgsKey(request.name, request.args);
+            repeatFailures.delete(successKey);
+            const supersededCalls = failedCalls.get(successKey);
+
+            if (supersededCalls !== undefined) failedCalls.delete(successKey);
 
             if (request.name === "run_command") {
               facts.recordCommand(result.result.summary);
@@ -1749,6 +1758,7 @@ export class TurnRunner {
               ...(result.result.truncated === undefined
                 ? {}
                 : { truncated: result.result.truncated }),
+              ...(supersededCalls === undefined ? {} : { supersedes: supersededCalls }),
             });
 
             if (request.name === "apply_patch" || request.name === "write_file") {
@@ -1770,6 +1780,7 @@ export class TurnRunner {
             const repeatKey = stableArgsKey(request.name, request.args);
             const repeatCount = (repeatFailures.get(repeatKey) ?? 0) + 1;
             repeatFailures.set(repeatKey, repeatCount);
+            failedCalls.set(repeatKey, [...(failedCalls.get(repeatKey) ?? []), request.id]);
             facts.recordToolFailure(result.result.errorCode ?? "TOOL_ERROR", result.result.summary);
             const issues = toolFailureIssues(result.result.data);
             this.#emit(turn, session, "tool.failed", {

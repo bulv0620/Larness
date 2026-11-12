@@ -252,6 +252,7 @@ function ToolCard({ item }: { item: ToolItem }) {
         {item.status === "error" ? (
           <span className="ml-auto flex shrink-0 items-center gap-0.5 text-danger">
             <X size={13} /> 失败
+            {item.retried === true ? <span className="text-ink-3">· 已重试</span> : null}
           </span>
         ) : null}
       </button>

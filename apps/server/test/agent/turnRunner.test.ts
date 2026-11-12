@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   createFakeProvider,
   createFileToolRegistry,
+  defineTool,
   type ProviderChunk,
   ProviderError,
 } from "@larness/agent";
@@ -14,6 +15,7 @@ import type {
   ServerEvent,
 } from "@larness/shared";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
@@ -1744,5 +1746,98 @@ describe("TurnRunner", () => {
         opened.close();
       }
     });
+  });
+});
+
+it("marks earlier identical failures as superseded when the call finally succeeds", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      let attempts = 0;
+      const flaky = defineTool({
+        name: "flaky_check",
+        description: "test-only tool",
+        riskLevel: "L0",
+        schema: z.object({ target: z.string() }).strict(),
+        async handler() {
+          attempts += 1;
+          return attempts === 1
+            ? { ok: false, errorCode: "TOOL_ERROR", summary: "temporary failure" }
+            : { ok: true, summary: "ok now" };
+        },
+      });
+      const registry = createFileToolRegistry();
+      registry.register(flaky);
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "retry" });
+      const provider = createFakeProvider([
+        toolStep({ id: "call_first", name: "flaky_check", args: { target: "x" } }),
+        toolStep({ id: "call_second", name: "flaky_check", args: { target: "x" } }),
+        textStep("done"),
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry,
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+      const events = listSessionEvents(opened.db, session.id).items;
+      expect(events.filter((event) => event.type === "tool.failed")).toHaveLength(1);
+      expect(events.find((event) => event.type === "tool.completed")?.payload).toMatchObject({
+        supersedes: ["call_first"],
+      });
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("does not supersede a failure when the retry uses different arguments", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      let attempts = 0;
+      const flaky = defineTool({
+        name: "flaky_check",
+        description: "test-only tool",
+        riskLevel: "L0",
+        schema: z.object({ target: z.string() }).strict(),
+        async handler() {
+          attempts += 1;
+          return attempts === 1
+            ? { ok: false, errorCode: "TOOL_ERROR", summary: "temporary failure" }
+            : { ok: true, summary: "ok now" };
+        },
+      });
+      const registry = createFileToolRegistry();
+      registry.register(flaky);
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "retry" });
+      const provider = createFakeProvider([
+        toolStep({ id: "call_first", name: "flaky_check", args: { target: "x" } }),
+        toolStep({ id: "call_second", name: "flaky_check", args: { target: "y" } }),
+        textStep("done"),
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry,
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+      const events = listSessionEvents(opened.db, session.id).items;
+      expect(events.find((event) => event.type === "tool.completed")?.payload).not.toHaveProperty(
+        "supersedes",
+      );
+    } finally {
+      opened.close();
+    }
   });
 });

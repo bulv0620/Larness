@@ -242,6 +242,47 @@ it("replays valid plan replacements and ignores malformed plan events", () => {
   expect(items[0]).toMatchObject({ turnId: "trn_1", steps: [{ status: "done" }] });
 });
 
+it("marks the earlier failed attempt as retried when the retry succeeds", () => {
+  let items = eventsToTimeline([
+    event("user.message", { turnId: "t1", text: "run the check" }),
+    event("tool.requested", {
+      turnId: "t1",
+      toolCallId: "call_1",
+      name: "run_command",
+      argsSummary: "run the check",
+    }),
+    event("tool.failed", {
+      turnId: "t1",
+      toolCallId: "call_1",
+      errorCode: "NONZERO_EXIT",
+      message: "Command FAILED; exit code 1",
+    }),
+    event("tool.requested", {
+      turnId: "t1",
+      toolCallId: "call_2",
+      name: "run_command",
+      argsSummary: "run the check",
+    }),
+  ]);
+  items = applyServerEvent(
+    items,
+    event("tool.completed", {
+      turnId: "t1",
+      toolCallId: "call_2",
+      resultSummary: "Command COMPLETED; exit code 0",
+      supersedes: ["call_1"],
+    }),
+  );
+
+  expect(items.find((item) => item.kind === "tool" && item.id === "t1:call_1")).toMatchObject({
+    status: "error",
+    retried: true,
+  });
+  expect(items.find((item) => item.kind === "tool" && item.id === "t1:call_2")).toMatchObject({
+    status: "done",
+  });
+});
+
 it("keeps identical provider call IDs distinct across turns and restores terminal turn metadata", () => {
   const items = eventsToTimeline([
     event("user.message", { turnId: "t1", text: "first" }),

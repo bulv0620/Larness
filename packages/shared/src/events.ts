@@ -111,6 +111,8 @@ export interface ToolItem {
   summary: string;
   args: string;
   status: "running" | "done" | "error";
+  /** This failed attempt was later retried with identical arguments and succeeded. */
+  retried?: boolean;
   output?: string;
   durationMs?: number;
   commandId?: string;

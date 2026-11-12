@@ -187,11 +187,19 @@ function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineI
     case "tool.completed": {
       const id = toolId(event, data);
       const target = ResourceTargetSchema.safeParse(data.resourceTarget);
-      return patchTool(items, id, {
+      const supersedes = Array.isArray(data.supersedes)
+        ? data.supersedes.filter((value): value is string => typeof value === "string")
+        : [];
+      const completed = patchTool(items, id, {
         status: "done",
         output: stringField(data, "resultSummary") ?? "",
         ...(target.success ? { resourceTarget: target.data } : {}),
       });
+      return supersedes.reduce<TimelineItem[]>(
+        (next, callId) =>
+          patchTool(next, toolId(event, { turnId, toolCallId: callId }), { retried: true }),
+        completed,
+      );
     }
     case "tool.failed": {
       const id = toolId(event, data);

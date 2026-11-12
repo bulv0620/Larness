@@ -376,6 +376,51 @@ it("folds failed steps into the record once the turn has an answer", () => {
   expect(screen.getByRole("button", { name: /运行命令.*失败/ })).toBeTruthy();
 });
 
+it("counts only unresolved failures in the summary and marks retried attempts", () => {
+  const failure = (id: string, retried?: boolean): ToolItem => ({
+    id,
+    kind: "tool",
+    name: "run_command",
+    summary: "运行命令（本机账户权限）",
+    args: "",
+    status: "error",
+    ...(retried === true ? { retried: true } : {}),
+    createdAt: 2,
+    turnId: "t1",
+  });
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "u",
+        kind: "message",
+        role: "user",
+        text: "跑检查",
+        createdAt: 1,
+        turnId: "t1",
+        turnOutcome: "completed",
+      },
+      failure("f1"),
+      failure("f2", true),
+      {
+        id: "a",
+        kind: "message",
+        role: "assistant",
+        text: "检查完成。",
+        createdAt: 3,
+        turnId: "t1",
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  const summary = screen.getByRole("button", {
+    name: /执行过程 · 命令 2 条 · 失败 1 项 · 重试成功 1 次/,
+  });
+  expect(summary).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /运行命令.*失败/ })).toBeNull();
+});
+
 it.each(["completed", "cancelled"] as const)(
   "holds results until the current turn is %s",
   (outcome) => {

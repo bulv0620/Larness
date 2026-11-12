@@ -50,6 +50,7 @@ approved: 2026-11-12
 - **G-3 命令用法有确定答案**：仓库给出“单文件测试 / 单文件 biome / 整仓门禁”的准确命令，并提供脚本，避免模型自创带参数的 `pnpm check`。
 - **G-4 可回归**：每一类修复都有正例与反例测试；反例必须仍然失败关闭。
 - **G-5 不增加上下文成本**：修复不向模型回传额外提示文本，不扩大工具结果。
+- **G-6 重试语义可区分**：同一 `(tool, 规范化参数)` 之前的失败被后续成功取代时，界面把该次标记为已重试，摘要只把未被取代的失败计为失败，并单列重试成功次数；事件层保留每次失败。
 
 ## 3. 非目标
 
@@ -58,7 +59,7 @@ approved: 2026-11-12
 - **NG-3** 不把真实测试变红、权限拒绝、用户取消算作“错误”去消除；它们保留为有效信号。
 - **NG-4** 不为了省 token 截断失败诊断；`issues` / 原因码保持可定位。
 - **NG-5** 不引入新依赖（复用现有 `diff`、`zod`）。
-- **NG-6** 不改时间线的失败计数口径（另立任务，需产品确认“重试后成功”如何展示）。
+- **NG-6** 不隐藏、不降级未被取代的真实失败；摘要必须继续显示它们。
 
 ## 4. 用户故事
 
@@ -125,6 +126,26 @@ And AGENTS.md 的命令章节列出该用法
 And 明确 pnpm check 不接受文件参数
 ```
 
+### A7 重试成功与未解决失败分开呈现
+
+```gherkin
+Given 同一 Turn 内 call_1 以参数 P 失败，call_2 以同一参数 P 成功
+When tool.completed(call_2) 带 supersedes=["call_1"]
+Then 事件中 call_1 的 tool.failed 原样保留
+And 时间线把 call_1 标为「失败 · 已重试」
+And 摘要显示「失败 0 项 · 重试成功 1 次」或只显示「重试成功 1 次」
+And 参数不同的 call_2 成功不产生 supersedes
+```
+
+### A8 未解决失败不被折叠掉
+
+```gherkin
+Given 一个 Turn 有 2 次失败，只有 1 次被后续相同参数成功取代
+When 查看时间线摘要
+Then 显示「失败 1 项 · 重试成功 1 次」
+And 展开后仍能看到两次失败条目
+```
+
 ## 6. 功能需求
 
 | ID | 级别 | 需求 |
@@ -137,6 +158,8 @@ And 明确 pnpm check 不接受文件参数
 | R-6 | MUST | `apply_patch` 归一 `file`/`file_path` → `path` |
 | R-7 | SHOULD | `@larness/web` 增加 `test:file` 脚本；`AGENTS.md` 第 7 节给出单文件测试/biome/整仓门禁的准确命令与禁用形态 |
 | R-8 | SHOULD | `run_command` 描述补一个最小合法参数示例（减少漏 `executable`） |
+| R-9 | MUST | 成功的 `tool.completed` 可附 `supersedes: string[]`：仅同一 Turn、同一 `(tool, 规范化参数)` 的更早失败；客户端标 `retried` 并单列重试成功 |
+| R-10 | MUST | 未被取代的失败仍计入「失败 N 项」，条目、命令输出与审计不隐藏 |
 
 ## 7. 接口与契约变更
 
@@ -161,5 +184,7 @@ And 明确 pnpm check 不接受文件参数
 - `packages/agent/test/tools/registry.test.ts`：`repairArgs` 在 `safeParse` 前运行且不改变失败路径。
 - `apps/server/test/agent/plan.test.ts`：状态别名归一、非法状态仍拒绝、计划事件存 canonical。
 - `apps/server/test/agent/toolContract.test.ts`：工具集合与“合法参数到达 handler / 非法参数 VALIDATION_ERROR”矩阵不回归。
-- `apps/web`：不涉及。
+- `apps/server/test/agent/turnRunner.test.ts`：同参数失败后成功附 `supersedes`；不同参数成功不附。
+- `apps/web/src/lib/eventReducer.test.ts`：`supersedes` 把更早失败标为 `retried`。
+- `apps/web/src/features/chat/Timeline.test.tsx`：摘要只计未解决失败并单列重试成功。
 - 手工：`pnpm --filter @larness/web test:file <file>` 实跑一次。

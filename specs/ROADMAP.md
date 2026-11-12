@@ -343,7 +343,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 目标：把“模型形状不对 → 工具拒收 → 再烧一个步进重发”的可工程消除部分压掉。审查数据与诱因见 [072 spec](072-agent-error-budget/spec.md#1-背景与问题数据审查)；2026-11-12 用户授权“从工程化角度降低大模型错误的都要做”。
 
-门禁：G-072 = A1–A6 通过，且 `toolContract` 矩阵、biome、各包 typecheck 不回归。
+门禁：G-072 = A1–A8 通过，且 `toolContract` 矩阵、biome、各包 typecheck 不回归。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
@@ -351,6 +351,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | EB-2 | [参数修复层与状态别名](072-agent-error-budget/tasks.md) | — | `done` |
 | EB-3 | [命令用法与脚本](072-agent-error-budget/tasks.md) | — | `done` |
 | EB-4 | [审查结论与状态回填](072-agent-error-budget/tasks.md) | EB-1～EB-3 | `done` |
+| EB-5 | [失败呈现与重试语义](072-agent-error-budget/tasks.md) | EB-4 | `done` |
 
 ## 9. 门禁
 

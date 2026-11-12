@@ -95,7 +95,7 @@ interface ServerEvent<T = unknown> {
 | `tool.approval.required` | `toolCallId, approvalId, summary, scope, expiresAt` | 是 |
 | `tool.approval.resolved` | `approvalId, decision` | 是 |
 | `tool.started` | `toolCallId, name` | 是 |
-| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?`（M2-2 成功文件修改附授权 scope / path / version） | 是 |
+| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?, supersedes?`（M2-2 成功文件修改附授权 scope / path / version；`supersedes` 为同一 `(tool, 规范化参数)` 之前失败、本次成功的 callId 列表） | 是 |
 | `tool.failed` | `toolCallId, errorCode, message, issues?, repeatCount?`（M6-10：同一 `(tool, 规范化参数)` 连续失败次数；`issues` 为最多 5 条 `{path,message}` 的参数校验原因） | 是 |
 | `file.changed` | `path, changeType, version`（`changeType`: `modified`（`apply_patch`）/ `created`（`write_file`）） | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
@@ -225,6 +225,9 @@ Agent工具 `update_plan({title,steps:[{id,title,status,detail?}]})` 为L0元数
 
 ## M2-15 对话呈现补充
 `tool.command.created`新增可选`command`（CommandParamsSchema：executable/args/cwd/timeoutMs），仅在已授权Manager验证参数及凭据后、启动前写入；字段经输出脱敏器处理，敏感选项后的值隐藏，不包含环境。客户端Zod验证后用于折叠详情。命令输出仍经授权游标接口读取，不复制进消息。UI按turnId分轮，工具视图身份为turnId+toolCallId，防止Provider在不同轮复用call ID覆盖历史；历史无turnId按用户消息边界分组。Turn终态及durationMs从既有持久事件恢复。审批只在输入框上方可操作，后端确认前不乐观标成功，失败保留。
+
+## 072 工具失败与重试呈现（2026-11-12）
+成功调用可附 `supersedes: string[]`：仅当同一 Turn 内、同一 `(tool, 规范化参数)` 的更早调用失败过且本次成功时出现，列出被取代的 `toolCallId`。规范化使用与 M6-10 `repeatCount` 相同的 `stableArgsKey`，不同参数的成功不算重试。事件仍先持久化再广播；`tool.failed` 本身不改，审计保留每次失败。客户端把被取代的失败条目标记 `retried`，时间线摘要只把未被取代的失败计为「失败 N 项」，并单列「重试成功 M 次」；旧客户端忽略该可选字段，行为与之前一致。
 
 ## M2-21 Agent 终端关闭视图同步
 成功 `stop_project_terminal` 的 `tool.completed` 可附 `closedTerminalTarget: { kind: "terminal", projectId, terminalId, role }` 和 `originClientSessionId`。字段来自经过授权的真实 stop 结果（EXITED / TERMINATED）与 Turn 快照；失败 / 中断未知结果不附。事件先持久化再广播，兼容旧客户端忽略可选字段。不是打开资源的 resourceTarget，不生成“打开”结果卡或创建终端。
