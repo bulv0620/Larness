@@ -80,6 +80,7 @@
 - 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`apps/server/src/modules/agent/contextCompressor.ts`
 - 备注：不改变 `DEFAULT_BUDGET` 的步数 / 工具数 / 时长数值；新增 `maxOutputTokens=8192`（内部常量，未进用户设置）。AI SDK 默认重试必须显式收窄，否则 3×600s 无法被预算约束。
 - 实现要点：`deadline` 计时器到点 `abort` 在途请求并置 `deadlineReached`，取消与超时因此可区分；模型请求、摘要调用、工具执行共享同一 deadline；`#waitForApproval` 因超时返回 `cancelled` 时改判预算终态。
+- **回归与修复（2026-11-12）**：本任务最初硬编码 `maxOutputTokens: 8192` 并总是下发，导致开启思考模式时推理 token 占满输出预算、模型在给出正文前就被截断——实际表现为常规任务 2 步后以「输出被截断」结束且没有任何回答。修复：默认**不发送** `max_tokens`（`TurnBudget.maxOutputTokens = 0` 表示交给 Provider 默认值），仅在明确配置时才下发；每步预检的输出预留仍按 `min(8192, 15% 窗口)` 估算，不影响安全边界。新增回归用例：默认不下发、显式配置时下发。
 - 阶段耗时（原 HX-1 交付物）随本任务落地：`TurnRunner` 接收可选 `logger`，Turn 结束输出 `assembleMs / summaryMs / toolMs / firstTokenMs / durationMs`，只进日志不进事件，避免契约膨胀。
 - 验证：`packages/agent` 46 通过 / 1 跳过；`apps/server` `turnRunner + contextCompressor + contextAssembler` 24 通过；`test/agent` 60 通过 / 9 个既有环境性失败（命令与终端用例需要真实 `node`）；biome 与两处 typecheck 通过。
 

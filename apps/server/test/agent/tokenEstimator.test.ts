@@ -71,5 +71,8 @@ describe("token estimation", () => {
 
     expect(reservedOutputTokens({ maxOutputTokens: 8_192, contextWindow: 100_000 })).toBe(8_192);
     expect(reservedOutputTokens({ maxOutputTokens: 8_192, contextWindow: 10_000 })).toBe(1_500);
+    // Without a configured cap the reserve still assumes a default answer size.
+    expect(reservedOutputTokens({ maxOutputTokens: 0, contextWindow: 100_000 })).toBe(8_192);
+    expect(reservedOutputTokens({ maxOutputTokens: 0, contextWindow: 10_000 })).toBe(1_500);
   });
 });

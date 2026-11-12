@@ -125,9 +125,15 @@ export function contextWatermark(
  * Reserve room for the response so a request is never accepted by the provider
  * and then truncated mid-answer.
  */
+const DEFAULT_OUTPUT_RESERVE = 8_192;
+
 export function reservedOutputTokens(options: {
   maxOutputTokens: number;
   contextWindow: number;
 }): number {
-  return Math.min(options.maxOutputTokens, Math.max(0, Math.floor(options.contextWindow * 0.15)));
+  // A configured cap bounds the reserve; without one we still reserve room for
+  // the answer so the pre-check never accepts an over-window request.
+  const cap = options.maxOutputTokens > 0 ? options.maxOutputTokens : DEFAULT_OUTPUT_RESERVE;
+
+  return Math.min(cap, Math.max(0, Math.floor(options.contextWindow * 0.15)));
 }

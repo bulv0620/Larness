@@ -1268,7 +1268,9 @@ export class TurnRunner {
           tools,
           signal: controller.signal,
           timeoutMs: remainingMs,
-          maxOutputTokens: this.#budget.maxOutputTokens,
+          ...(this.#budget.maxOutputTokens > 0
+            ? { maxOutputTokens: this.#budget.maxOutputTokens }
+            : {}),
           maxRetries: 1,
           ...(resolved.apiKey === undefined ? {} : { apiKey: resolved.apiKey }),
           ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),

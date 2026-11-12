@@ -6,7 +6,9 @@ export const DEFAULT_BUDGET = {
   maxToolCalls: 50,
   maxDurationMs: 10 * 60_000,
   contextRatio: 0.8,
-  maxOutputTokens: 8_192,
+  // 0 = let the provider choose. A hard cap truncates thinking models, whose
+  // reasoning tokens are charged against the same output budget.
+  maxOutputTokens: 0,
   repeatFailureThreshold: 3,
   // 0 disables the spend cap until D10 confirms a default.
   maxTotalTokens: 0,

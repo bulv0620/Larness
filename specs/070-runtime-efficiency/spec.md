@@ -196,7 +196,7 @@ And 拆分提交不含任何行为改动
 | R-3 | MUST | 资源观察（临时服务、终端、PM2、摘要）不再每步重写 system；改用 Turn 起点快照 + 显式刷新 + 工具结果携带（D1） |
 | R-4 | MUST | 每步请求前预检：system + tools + messages + 预留输出额度 ≤ 窗口预算；软水位触发检查点，硬水位触发有界降级 |
 | R-5 | MUST | token 估算以「上次上游回报的 inputTokens + 尾部增量启发式」为准，启发式对中文、源码、JSON、转义命令参数有测试 |
-| R-6 | MUST | 截止时间贯穿：`timeoutMs` 取剩余预算、`maxOutputTokens` 有界、重试次数有界、截止时中止在途请求，摘要调用共享同一 signal |
+| R-6 | MUST | 截止时间贯穿：`timeoutMs` 取剩余预算、重试次数有界、截止时中止在途请求，摘要调用共享同一 signal；输出额度**不硬编码**，仅在明确配置时下发（思考模式的推理 token 计入同一预算，固定上限会在给出正文前截断） |
 | R-7 | MUST | 终态原因落库（`turns.terminal_reason`），事件、REST DTO、UI 与 Job 判定共用同一枚举 |
 | R-8 | MUST | 预算耗尽与输出截断不再映射为 Job `succeeded`，错误码稳定 |
 | R-9 | MUST | 工具结果结构裁剪：先按 token 预算裁剪内容再序列化，保证合法 JSON；保留 summary、错误码、分页/游标、头部与尾部片段 |

@@ -609,7 +609,9 @@ describe("TurnRunner", () => {
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
 
         const call = provider.calls[0];
-        expect(call?.maxOutputTokens).toBe(8_192);
+        // No cap by default: a fixed limit truncates thinking models before
+        // they emit an answer (reasoning tokens share the output budget).
+        expect(call?.maxOutputTokens).toBeUndefined();
         expect(call?.maxRetries).toBe(1);
         expect(call?.timeoutMs).toBeGreaterThan(0);
         expect(call?.timeoutMs).toBeLessThanOrEqual(5_000);
@@ -938,8 +940,7 @@ describe("TurnRunner", () => {
         const runner = new TurnRunner({
           db: opened.db,
           registry: createFileToolRegistry(),
-          resolveProvider: () => ({ adapter: provider, model: "fake", contextWindow: 3_000 }),
-          budget: { maxOutputTokens: 0 },
+          resolveProvider: () => ({ adapter: provider, model: "fake", contextWindow: 3_600 }),
         });
 
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
@@ -1062,6 +1063,30 @@ describe("TurnRunner", () => {
           .prepare("SELECT terminal_reason FROM turns WHERE id = ?")
           .get(turn.turnId) as { terminal_reason: string | null };
         expect(row.terminal_reason).toBe("budget");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("forwards an explicitly configured output cap", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "cap" });
+        const provider = createFakeProvider([textStep("ok")]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          budget: { maxOutputTokens: 4_096 },
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+        expect(provider.calls[0]?.maxOutputTokens).toBe(4_096);
       } finally {
         opened.close();
       }
