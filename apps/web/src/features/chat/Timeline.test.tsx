@@ -78,7 +78,7 @@ it("keeps the final answer visible when a completed tool event arrives after the
   render(<Timeline />);
   expect(screen.getByText("项目文件已列出。")).toBeVisible();
 });
-it("keeps the same reply bubble from the first streamed text through completion", () => {
+it("grows the streamed reply as commentary and promotes it to the answer at completion", () => {
   const user = {
     id: "user",
     kind: "message",
@@ -87,7 +87,7 @@ it("keeps the same reply bubble from the first streamed text through completion"
     createdAt: 1,
     turnId: "turn-1",
   } as const;
-  const answer = {
+  const reply = {
     id: "answer",
     kind: "message",
     role: "assistant",
@@ -97,25 +97,36 @@ it("keeps the same reply bubble from the first streamed text through completion"
     streaming: true,
   } as const;
   useTimelineStore.setState({
-    items: [user, answer],
+    items: [user, reply],
     activeTurnId: user.turnId,
     isStreaming: true,
   });
   render(<Timeline />);
-  const bubble = screen.getByTestId("final-answer-bubble");
-  expect(bubble).toHaveTextContent("项目文件");
+  // While the turn streams, the reply stays a commentary bubble: one stable
+  // node that grows with the text, never masquerading as the final answer.
+  const streamed = screen.getByTestId("message-bubble");
+  expect(streamed).toHaveTextContent("项目文件");
+  expect(screen.queryByTestId("final-answer-bubble")).toBeNull();
+
+  act(() => {
+    useTimelineStore.setState({
+      items: [user, { ...reply, text: "项目文件已列出。" }],
+    });
+  });
+  expect(screen.getByTestId("message-bubble")).toBe(streamed);
 
   act(() => {
     useTimelineStore.setState({
       items: [
         { ...user, turnOutcome: "completed" },
-        { ...answer, text: "项目文件已列出。", streaming: false },
+        { ...reply, text: "项目文件已列出。", streaming: false },
       ],
       activeTurnId: null,
       isStreaming: false,
     });
   });
-  expect(screen.getByTestId("final-answer-bubble")).toBe(bubble);
+  // Completion promotes the finished text into the answer bubble exactly once.
+  const bubble = screen.getByTestId("final-answer-bubble");
   expect(bubble).toHaveTextContent("项目文件已列出。");
   expect(within(bubble).queryByRole("button", { name: "复制答复" })).toBeNull();
 });

@@ -98,10 +98,13 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   });
   // A completed turn always ends with its last assistant message. Live event
   // delivery can interleave a tool completion after the final message; do not
-  // hide the answer in that case. While the turn is active, only a message after
-  // the last operation counts as final.
+  // hide the answer in that case. While the turn is active nothing counts as
+  // final yet: process text stays in commentary style and only upgrades to the
+  // answer style once the turn settles, so mid-turn bubbles never flicker.
   const answer =
-    lastAssistant >= 0 && (lastAssistant > lastOperation || user?.turnOutcome === "completed")
+    lastAssistant >= 0 &&
+    !turnActive &&
+    (lastAssistant > lastOperation || user?.turnOutcome === "completed")
       ? items[lastAssistant]
       : undefined;
   const latestCommentary =
@@ -147,11 +150,13 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   ]
     .filter(Boolean)
     .join(" · ");
-  // Once the turn produced its answer, failures stay inside the collapsible
-  // record. Without an answer they stay visible, because they explain the stop.
+  // While the turn is running, failures stay inside the collapsible record; the
+  // summary count keeps surfacing them without interrupting the flow. After the
+  // turn ends they stay collapsed when there is an answer, and surface without
+  // one, because then they explain the stop.
   const visibleProcess = expanded
     ? process
-    : answer === undefined
+    : !turnActive && answer === undefined
       ? process.filter((item) => item.kind === "tool" && item.status === "error")
       : [];
   const targets = new Map<string, NonNullable<ToolItem["resourceTarget"]>>();
