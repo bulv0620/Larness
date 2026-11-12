@@ -12,6 +12,7 @@ import {
   ProjectError,
   type ProjectSettings,
   ProjectSettingsSchema,
+  reorderProjects,
   updateProject,
 } from "../modules/projects/service.js";
 
@@ -30,6 +31,12 @@ const UpdateProjectSchema = z
   .strict();
 
 const ProjectIdSchema = z.string().min(1).max(128);
+
+const ReorderProjectsSchema = z
+  .object({
+    projectIds: z.array(ProjectIdSchema).min(1).max(1_000),
+  })
+  .strict();
 
 export interface ProjectApiDeps {
   db: Database;
@@ -81,6 +88,24 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
         },
       );
       return reply.code(201).send(project);
+    } catch (error) {
+      throwProject(error);
+    }
+  });
+
+  app.put("/api/projects/order", async (request) => {
+    const body = parse(ReorderProjectsSchema, request.body);
+
+    try {
+      return {
+        projects: reorderProjects(
+          { db: deps.db, now: deps.now, dataDir: deps.dataDir },
+          {
+            projectIds: body.projectIds,
+            clientSessionId: request.clientSession?.id,
+          },
+        ),
+      };
     } catch (error) {
       throwProject(error);
     }

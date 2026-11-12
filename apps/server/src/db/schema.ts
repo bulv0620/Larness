@@ -62,10 +62,15 @@ export const projects = sqliteTable(
     realPath: text("real_path").notNull().unique(),
     settingsJson: text("settings_json").notNull().default("{}"),
     gitDetected: integer("git_detected", { mode: "boolean" }).notNull().default(false),
+    /** User-defined project list order; lower values appear first. */
+    sortOrder: integer("sort_order").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
-  (table) => [index("idx_projects_updated").on(table.updatedAt)],
+  (table) => [
+    index("idx_projects_updated").on(table.updatedAt),
+    index("idx_projects_order").on(table.sortOrder, table.updatedAt),
+  ],
 );
 
 export const sessions = sqliteTable(

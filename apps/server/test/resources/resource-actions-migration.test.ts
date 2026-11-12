@@ -5,7 +5,6 @@ import { z } from "zod";
 import { openDatabase } from "../../src/db/client.js";
 import { appliedMigrationCount, migrationsDirectory, runMigrations } from "../../src/db/migrate.js";
 import { acquireResourceLock } from "../../src/modules/locks/service.js";
-import { createProjectRow } from "../../src/modules/projects/repository.js";
 import { withTempDir } from "../helpers.js";
 
 it("upgrades v7 with an empty resource_actions table and preserves projects, locks and streams", async () => {
@@ -37,14 +36,14 @@ it("upgrades v7 with an empty resource_actions table and preserves projects, loc
       expect(appliedMigrationCount(opened.sqlite)).toBe(7);
       const root = path.join(dir, "project");
       await mkdir(root);
-      const project = createProjectRow(opened.db, {
-        name: "Git migration fixture",
-        rootPath: root,
-        realPath: await realpath(root),
-        settingsJson: '{"ignore":[]}',
-        gitDetected: false,
-        now: Date.now(),
-      });
+      const realPath = await realpath(root);
+      const project = { id: "prj_migration_fixture", realPath };
+      const now = Date.now();
+      opened.sqlite
+        .prepare(
+          "INSERT INTO projects (id, name, root_path, real_path, settings_json, git_detected, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
+        )
+        .run(project.id, "Git migration fixture", root, realPath, '{"ignore":[]}', now, now);
       acquireResourceLock(
         { db: opened.db },
         {
@@ -67,8 +66,13 @@ it("upgrades v7 with an empty resource_actions table and preserves projects, loc
       journal.entries = complete;
       await writeFile(journalPath, JSON.stringify(journal));
       runMigrations(opened.db, old);
-      expect(appliedMigrationCount(opened.sqlite)).toBe(26);
-      expect(opened.sqlite.prepare("SELECT * FROM projects").all()).toEqual(previous.projects);
+      expect(appliedMigrationCount(opened.sqlite)).toBe(27);
+      expect(opened.sqlite.prepare("SELECT * FROM projects").all()).toEqual(
+        (previous.projects as Record<string, unknown>[]).map((row) => ({
+          ...row,
+          sort_order: 0,
+        })),
+      );
       expect(opened.sqlite.prepare("SELECT * FROM resource_locks").all()).toEqual(previous.locks);
       expect(opened.sqlite.prepare("SELECT * FROM resource_streams").all()).toEqual(
         previous.streams,

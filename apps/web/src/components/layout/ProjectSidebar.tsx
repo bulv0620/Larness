@@ -1,4 +1,4 @@
-import { DEFAULT_PROJECT_ID, type SessionSummary } from "@larness/shared";
+import { DEFAULT_PROJECT_ID, type GatewaySnapshot, type SessionSummary } from "@larness/shared";
 import {
   Button,
   cn,
@@ -29,7 +29,7 @@ import {
   UserRound,
   Zap,
 } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
 import { useLogout } from "@/features/auth/useAuth";
 import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
@@ -42,14 +42,23 @@ import { ServiceOpsDialog } from "@/features/serviceOps/ServiceOpsDialog";
 import { operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { relativeTime } from "@/lib/format";
+import { applyProjectOrder, moveProjectId } from "@/lib/projectOrder";
 import { useSnapshot } from "@/lib/queries";
 import { useNewSession } from "@/lib/useNewSession";
-import { archiveSession, deleteProject } from "@/lib/workspaceApi";
+import { archiveSession, deleteProject, reorderProjects } from "@/lib/workspaceApi";
 import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 
 const PROJECT_SESSION_LIMIT = 5;
+
+interface ProjectDragState {
+  id: string;
+  pointerId: number;
+  startY: number;
+  moved: boolean;
+  targetIndex: number;
+}
 
 type ContextTarget =
   | { kind: "project"; id: string; title: string; x: number; y: number }
@@ -105,6 +114,11 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
   const [context, setContext] = useState<ContextTarget | null>(null);
   const [dialog, setDialog] = useState<SidebarDialog>(null);
+  const [dragState, setDragState] = useState<ProjectDragState | null>(null);
+  const [reorderError, setReorderError] = useState<string | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const previousUserSelectRef = useRef("");
+  const suppressProjectClickRef = useRef(false);
 
   useEffect(() => {
     if (context === null) return;
@@ -186,6 +200,135 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
             .includes(normalized)),
     )
     .slice(0, 6);
+  const regularProjects = projects.filter((project) => project.kind !== "default");
+  const canReorder = !USE_MOCKS && normalized.length === 0 && regularProjects.length > 1;
+  const regularProjectIndex = new Map(
+    regularProjects.map((project, index) => [project.id, index] as const),
+  );
+  const dragFromIndex = dragState
+    ? regularProjects.findIndex((project) => project.id === dragState.id)
+    : -1;
+  const showInsertion =
+    dragState?.moved === true &&
+    dragState.targetIndex !== dragFromIndex &&
+    dragState.targetIndex !== dragFromIndex + 1;
+
+  const restoreUserSelect = (): void => {
+    document.body.style.userSelect = previousUserSelectRef.current;
+  };
+
+  const commitProjectOrder = async (orderedIds: string[]): Promise<void> => {
+    const previous = queryClient.getQueryData<GatewaySnapshot>(["workspace"]);
+
+    if (previous) {
+      queryClient.setQueryData<GatewaySnapshot>(["workspace"], {
+        ...previous,
+        projects: applyProjectOrder(previous.projects, orderedIds),
+      });
+    }
+
+    try {
+      await reorderProjects(orderedIds);
+      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+      setReorderError(null);
+    } catch (error) {
+      if (previous) queryClient.setQueryData(["workspace"], previous);
+      setReorderError(operationError(error, "调整项目顺序失败"));
+      void queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    }
+  };
+
+  const beginProjectDrag = (
+    event: React.PointerEvent<HTMLButtonElement>,
+    projectId: string,
+  ): void => {
+    if (!canReorder || projectId === DEFAULT_PROJECT_ID || event.button !== 0) return;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is best-effort; dragging still works while over the project row.
+    }
+    previousUserSelectRef.current = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+    const index = regularProjects.findIndex((project) => project.id === projectId);
+    setDragState({
+      id: projectId,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      moved: false,
+      targetIndex: Math.max(0, index),
+    });
+  };
+
+  const moveProjectDrag = (event: React.PointerEvent<HTMLButtonElement>): void => {
+    if (dragState === null || dragState.pointerId !== event.pointerId) return;
+    const rects = listRef.current
+      ? Array.from(listRef.current.querySelectorAll<HTMLElement>("[data-project-drop-index]")).map(
+          (element) => {
+            const rect = element.getBoundingClientRect();
+            return { top: rect.top, bottom: rect.bottom };
+          },
+        )
+      : [];
+
+    setDragState((current) => {
+      if (current === null || current.pointerId !== event.pointerId) return current;
+      if (!current.moved && Math.abs(event.clientY - current.startY) < 4) return current;
+      const target = rects.findIndex((rect) => event.clientY < (rect.top + rect.bottom) / 2);
+      const targetIndex = target === -1 ? rects.length : target;
+      if (current.moved && current.targetIndex === targetIndex) return current;
+      return { ...current, moved: true, targetIndex };
+    });
+  };
+
+  const endProjectDrag = (event: React.PointerEvent<HTMLButtonElement>): void => {
+    if (dragState === null || dragState.pointerId !== event.pointerId) return;
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Capture may already be released by the browser.
+    }
+    restoreUserSelect();
+    const current = dragState;
+    setDragState(null);
+    if (!current.moved) return;
+    suppressProjectClickRef.current = true;
+    window.setTimeout(() => {
+      suppressProjectClickRef.current = false;
+    }, 0);
+    const ids = regularProjects.map((project) => project.id);
+    const nextIds = moveProjectId(ids, current.id, current.targetIndex);
+    if (nextIds === ids) return;
+    void commitProjectOrder(nextIds);
+  };
+
+  const cancelProjectDrag = (): void => {
+    restoreUserSelect();
+    setDragState(null);
+  };
+
+  const handleReorderKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    projectId: string,
+  ): void => {
+    if (!canReorder || projectId === DEFAULT_PROJECT_ID) return;
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    const ids = regularProjects.map((project) => project.id);
+    const index = ids.indexOf(projectId);
+    const target = index + (event.key === "ArrowUp" ? -1 : 1);
+    if (index < 0 || target < 0 || target >= ids.length) return;
+    const nextIds = [...ids];
+    [nextIds[index], nextIds[target]] = [nextIds[target], nextIds[index]];
+    void commitProjectOrder(nextIds);
+  };
+
+  useEffect(
+    () => () => {
+      document.body.style.userSelect = previousUserSelectRef.current;
+    },
+    [],
+  );
 
   return (
     <aside
@@ -241,121 +384,167 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
           ) : null}
         </div>
 
-        {visibleProjects.map((project) => {
-          const expanded = expandedProjects[project.id] ?? true;
-          const isDefault = project.kind === "default";
-          const navigationProjectId = isDefault ? null : project.id;
-          const hasDraft = !normalized && draftSession?.projectId === navigationProjectId;
-          const sessionLimit = PROJECT_SESSION_LIMIT - Number(hasDraft);
-          const canExpandSessions = !normalized && project.sessions.length > sessionLimit;
-          const allSessionsShown = expandedSessionLists[project.id] ?? false;
-          let visibleSessions = project.sessions;
-          if (canExpandSessions && !allSessionsShown) {
-            const preferred = new Set(
-              [...visibleSessions]
-                .sort((a, b) => sessionPriority(b) - sessionPriority(a))
-                .slice(0, sessionLimit),
-            );
-            visibleSessions = visibleSessions.filter((session) => preferred.has(session));
-          }
-          return (
-            <div key={project.id} data-project-id={project.id} className="mb-0.5">
-              <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  aria-label={isDefault ? "默认工作区" : undefined}
-                  aria-pressed={isDefault ? defaultSelected : undefined}
-                  onClick={() => {
-                    if (isDefault && !defaultSelected) {
-                      startDraft(null);
-                      focusComposer();
-                    } else toggleProject(project.id);
-                  }}
-                  onContextMenu={(event) => openContext(event, "project", project.id, project.name)}
-                  aria-expanded={expanded}
-                  className="flex h-[27px] min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 text-left text-[11.5px] text-ink-2 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"
+        <div ref={listRef} data-project-list>
+          {visibleProjects.map((project) => {
+            const expanded = expandedProjects[project.id] ?? true;
+            const isDefault = project.kind === "default";
+            const regularIndex = isDefault ? -1 : (regularProjectIndex.get(project.id) ?? -1);
+            const isDragging = dragState?.id === project.id && dragState.moved;
+            const navigationProjectId = isDefault ? null : project.id;
+            const hasDraft = !normalized && draftSession?.projectId === navigationProjectId;
+            const sessionLimit = PROJECT_SESSION_LIMIT - Number(hasDraft);
+            const canExpandSessions = !normalized && project.sessions.length > sessionLimit;
+            const allSessionsShown = expandedSessionLists[project.id] ?? false;
+            let visibleSessions = project.sessions;
+            if (canExpandSessions && !allSessionsShown) {
+              const preferred = new Set(
+                [...visibleSessions]
+                  .sort((a, b) => sessionPriority(b) - sessionPriority(a))
+                  .slice(0, sessionLimit),
+              );
+              visibleSessions = visibleSessions.filter((session) => preferred.has(session));
+            }
+            return (
+              <div
+                key={project.id}
+                data-project-id={project.id}
+                className={cn("relative mb-0.5", isDragging ? "opacity-60" : null)}
+              >
+                {showInsertion &&
+                dragState &&
+                !isDefault &&
+                dragState.targetIndex === regularIndex ? (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -top-px left-1 right-1 z-10 h-0.5 rounded-full bg-accent"
+                  />
+                ) : null}
+                <div
+                  className="flex items-center gap-0.5"
+                  data-project-drop-index={isDefault ? undefined : regularIndex}
                 >
-                  {expanded ? (
-                    <ChevronDown size={11} className="text-ink-3" />
-                  ) : (
-                    <ChevronRight size={11} className="text-ink-3" />
-                  )}
-                  <span
-                    className="flex h-4 w-4 items-center justify-center rounded-[4px]"
-                    style={{ backgroundColor: `${project.accent}18`, color: project.accent }}
-                  >
-                    <Folder size={10} />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
-                  {isDefault ? (
-                    <span className="text-[9px] text-ink-3">内置</span>
-                  ) : project.git ? (
-                    <span className="font-mono text-[9px] text-ink-3">
-                      {project.branch ?? "git"}
-                    </span>
-                  ) : (
-                    <span className="text-[9px] text-ink-3">no git</span>
-                  )}
-                </button>
-                {!USE_MOCKS ? (
                   <button
                     type="button"
-                    aria-label={`在 ${project.name} 中新建会话`}
-                    onClick={() => newProjectSession(project.id)}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 hover:bg-black/[.06] hover:text-ink dark:hover:bg-white/[.08]"
+                    aria-label={isDefault ? "默认工作区" : undefined}
+                    aria-keyshortcuts={canReorder && !isDefault ? "ArrowUp ArrowDown" : undefined}
+                    aria-pressed={isDefault ? defaultSelected : undefined}
+                    title={
+                      canReorder && !isDefault
+                        ? "拖拽调整项目顺序；聚焦后可按上下方向键"
+                        : undefined
+                    }
+                    onClick={() => {
+                      if (suppressProjectClickRef.current) {
+                        suppressProjectClickRef.current = false;
+                        return;
+                      }
+                      if (isDefault && !defaultSelected) {
+                        startDraft(null);
+                        focusComposer();
+                      } else toggleProject(project.id);
+                    }}
+                    onPointerDown={(event) => beginProjectDrag(event, project.id)}
+                    onPointerMove={moveProjectDrag}
+                    onPointerUp={endProjectDrag}
+                    onPointerCancel={cancelProjectDrag}
+                    onKeyDown={(event) => handleReorderKeyDown(event, project.id)}
+                    onContextMenu={(event) =>
+                      openContext(event, "project", project.id, project.name)
+                    }
+                    aria-expanded={expanded}
+                    className={cn(
+                      "flex h-[27px] min-w-0 flex-1 items-center gap-1.5 rounded-md px-1.5 text-left text-[11.5px] text-ink-2 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]",
+                      canReorder && !isDefault ? "cursor-grab" : null,
+                      dragState?.id === project.id ? "cursor-grabbing" : null,
+                    )}
                   >
-                    <Plus size={11} />
+                    {expanded ? (
+                      <ChevronDown size={11} className="text-ink-3" />
+                    ) : (
+                      <ChevronRight size={11} className="text-ink-3" />
+                    )}
+                    <span
+                      className="flex h-4 w-4 items-center justify-center rounded-[4px]"
+                      style={{ backgroundColor: `${project.accent}18`, color: project.accent }}
+                    >
+                      <Folder size={10} />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
+                    {isDefault ? (
+                      <span className="text-[9px] text-ink-3">内置</span>
+                    ) : project.git ? (
+                      <span className="font-mono text-[9px] text-ink-3">
+                        {project.branch ?? "git"}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-ink-3">no git</span>
+                    )}
                   </button>
-                ) : null}
-              </div>
-
-              {expanded ? (
-                <div className="ml-[13px] border-l border-line/70 pl-1">
-                  {hasDraft ? (
-                    <SessionRow
-                      title="新会话"
-                      draft
-                      active={draftSession?.id === sessionId}
-                      running={false}
-                      onClick={() => startDraft(navigationProjectId)}
-                    />
-                  ) : null}
-                  {visibleSessions.length ? (
-                    visibleSessions.map((session) => (
-                      <SessionRow
-                        key={session.id}
-                        title={session.title}
-                        active={session.id === sessionId}
-                        running={isRunning(session)}
-                        onClick={() => selectSession(session.id, navigationProjectId)}
-                        onContextMenu={(event) =>
-                          openContext(event, "session", session.id, session.title)
-                        }
-                      />
-                    ))
-                  ) : hasDraft ? null : (
-                    <div className="px-2 py-1 text-[10.5px] text-ink-3">暂无会话</div>
-                  )}
-                  {canExpandSessions ? (
+                  {!USE_MOCKS ? (
                     <button
                       type="button"
-                      aria-expanded={allSessionsShown}
-                      onClick={() =>
-                        setExpandedSessionLists((state) => ({
-                          ...state,
-                          [project.id]: !allSessionsShown,
-                        }))
-                      }
-                      className="flex h-6 w-full items-center rounded-md pl-5 pr-2 text-left text-[10.5px] text-ink-3 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"
+                      aria-label={`在 ${project.name} 中新建会话`}
+                      onClick={() => newProjectSession(project.id)}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-ink-3 hover:bg-black/[.06] hover:text-ink dark:hover:bg-white/[.08]"
                     >
-                      {allSessionsShown ? "收起" : "展开更多"}
+                      <Plus size={11} />
                     </button>
                   ) : null}
                 </div>
-              ) : null}
+
+                {expanded ? (
+                  <div className="ml-[22px] border-l border-line/70 pl-1.5">
+                    {hasDraft ? (
+                      <SessionRow
+                        title="新会话"
+                        draft
+                        active={draftSession?.id === sessionId}
+                        running={false}
+                        onClick={() => startDraft(navigationProjectId)}
+                      />
+                    ) : null}
+                    {visibleSessions.length ? (
+                      visibleSessions.map((session) => (
+                        <SessionRow
+                          key={session.id}
+                          title={session.title}
+                          active={session.id === sessionId}
+                          running={isRunning(session)}
+                          onClick={() => selectSession(session.id, navigationProjectId)}
+                          onContextMenu={(event) =>
+                            openContext(event, "session", session.id, session.title)
+                          }
+                        />
+                      ))
+                    ) : hasDraft ? null : (
+                      <div className="px-2 py-1 text-[10.5px] text-ink-3">暂无会话</div>
+                    )}
+                    {canExpandSessions ? (
+                      <button
+                        type="button"
+                        aria-expanded={allSessionsShown}
+                        onClick={() =>
+                          setExpandedSessionLists((state) => ({
+                            ...state,
+                            [project.id]: !allSessionsShown,
+                          }))
+                        }
+                        className="flex h-6 w-full items-center rounded-md pl-5 pr-2 text-left text-[10.5px] text-ink-3 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"
+                      >
+                        {allSessionsShown ? "收起" : "展开更多"}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+          {showInsertion && dragState && dragState.targetIndex === regularProjects.length ? (
+            <div className="relative h-0" aria-hidden="true">
+              <div className="absolute inset-x-1 -top-px h-0.5 rounded-full bg-accent" />
             </div>
-          );
-        })}
+          ) : null}
+        </div>
 
         {visibleProjects.length === 0 ? (
           <div className="mx-1 rounded-lg border border-dashed border-line px-2.5 py-3 text-[10.5px] text-ink-3">
@@ -493,6 +682,8 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
           </button>
         </div>
       ) : null}
+
+      <ErrorMessage message={reorderError} onDismiss={() => setReorderError(null)} />
 
       <RenameSessionDialog
         session={dialog?.kind === "rename-session" ? { id: dialog.id, title: dialog.title } : null}

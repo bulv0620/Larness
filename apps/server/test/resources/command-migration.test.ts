@@ -5,7 +5,6 @@ import { z } from "zod";
 import { openDatabase } from "../../src/db/client.js";
 import { appliedMigrationCount, migrationsDirectory, runMigrations } from "../../src/db/migrate.js";
 import { acquireResourceLock } from "../../src/modules/locks/service.js";
-import { createProjectRow } from "../../src/modules/projects/repository.js";
 import { withTempDir } from "../helpers.js";
 
 it("upgrades v5 without changing projects, lock fencing or existing resource stream sequences", async () => {
@@ -37,14 +36,14 @@ it("upgrades v5 without changing projects, lock fencing or existing resource str
       expect(appliedMigrationCount(opened.sqlite)).toBe(5);
       const root = path.join(dir, "project");
       await mkdir(root);
-      const project = createProjectRow(opened.db, {
-        name: "Migration fixture",
-        rootPath: root,
-        realPath: await realpath(root),
-        settingsJson: '{"ignore":[]}',
-        gitDetected: false,
-        now: Date.now(),
-      });
+      const realPath = await realpath(root);
+      const project = { id: "prj_migration_fixture", realPath };
+      const now = Date.now();
+      opened.sqlite
+        .prepare(
+          "INSERT INTO projects (id, name, root_path, real_path, settings_json, git_detected, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
+        )
+        .run(project.id, "Migration fixture", root, realPath, '{"ignore":[]}', now, now);
       acquireResourceLock(
         { db: opened.db },
         {

@@ -19,7 +19,9 @@ import {
   findProjectByRealPath,
   getProjectById,
   listProjects,
+  nextProjectSortOrder,
   updateProjectRow,
+  updateProjectSortOrders,
 } from "./repository.js";
 
 export const ProjectSettingsSchema = z
@@ -40,6 +42,7 @@ export interface ProjectDto {
   realPath: string;
   settings: ProjectSettings;
   gitDetected: boolean;
+  sortOrder: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -92,6 +95,7 @@ function rowToDto(row: ProjectRow): ProjectDto {
     realPath: row.realPath,
     settings: parseProjectSettings(row.settingsJson),
     gitDetected: row.gitDetected,
+    sortOrder: row.sortOrder,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -107,6 +111,7 @@ export async function getDefaultProjectDto(dataDir: string): Promise<ProjectDto>
     realPath: root,
     settings: defaultProjectSettings(),
     gitDetected: false,
+    sortOrder: 0,
     createdAt: 0,
     updatedAt: 0,
   };
@@ -206,6 +211,7 @@ export async function createProject(
       realPath,
       settingsJson,
       gitDetected,
+      sortOrder: nextProjectSortOrder(tx),
       now,
     });
 
@@ -280,6 +286,50 @@ export function updateProject(
   });
 
   return rowToDto(updated);
+}
+
+export function reorderProjects(
+  options: ProjectServiceOptions,
+  input: { projectIds: string[]; clientSessionId?: string },
+): ProjectDto[] {
+  const ids = input.projectIds;
+
+  if (ids.includes(DEFAULT_PROJECT_ID)) {
+    throw new ProjectError("FORBIDDEN", "Default project cannot be reordered");
+  }
+  if (new Set(ids).size !== ids.length) {
+    throw new ProjectError("VALIDATION_ERROR", "projectIds must be unique");
+  }
+
+  const now = options.now?.() ?? Date.now();
+  immediateTransaction(options.db, (tx) => {
+    const current = listProjects(tx).map((project) => project.id);
+    const currentIds = new Set(current);
+    const requestedIds = new Set(ids);
+
+    if (
+      current.length !== ids.length ||
+      current.some((id) => !requestedIds.has(id)) ||
+      ids.some((id) => !currentIds.has(id))
+    ) {
+      throw new ProjectError("CONFLICT", "project list changed; refresh and retry");
+    }
+
+    const changed = current.some((id, index) => id !== ids[index]);
+    if (!changed) return;
+
+    updateProjectSortOrders(tx, ids);
+    appendAudit(tx, {
+      action: "project.reordered",
+      decision: "allow",
+      clientSessionId: input.clientSessionId,
+      resourceType: "project",
+      details: { projectIds: ids },
+      now,
+    });
+  });
+
+  return listProjectDtos(options.db);
 }
 
 export function deleteProject(

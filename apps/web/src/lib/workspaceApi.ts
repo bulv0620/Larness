@@ -19,6 +19,7 @@ export interface ApiProject {
     ignore: string[];
   };
   gitDetected: boolean;
+  sortOrder: number;
   createdAt: number;
   updatedAt: number;
 }
@@ -175,6 +176,14 @@ export async function createProject(input: {
   return apiFetch<ApiProject>("/api/projects", {
     method: "POST",
     body: input,
+    csrf: true,
+  });
+}
+
+export async function reorderProjects(projectIds: string[]): Promise<void> {
+  await apiFetch("/api/projects/order", {
+    method: "PUT",
+    body: { projectIds },
     csrf: true,
   });
 }

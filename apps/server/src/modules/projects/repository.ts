@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq, max } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { type ProjectRow, projects } from "../../db/schema.js";
@@ -9,11 +9,24 @@ export interface CreateProjectInput {
   realPath: string;
   settingsJson: string;
   gitDetected: boolean;
+  sortOrder?: number;
   now: number;
 }
 
 export function listProjects(db: DbExecutor): ProjectRow[] {
-  return db.select().from(projects).orderBy(desc(projects.updatedAt), desc(projects.id)).all();
+  return db
+    .select()
+    .from(projects)
+    .orderBy(asc(projects.sortOrder), desc(projects.updatedAt), desc(projects.id))
+    .all();
+}
+
+export function nextProjectSortOrder(db: DbExecutor): number {
+  const row = db
+    .select({ value: max(projects.sortOrder) })
+    .from(projects)
+    .get();
+  return (row?.value ?? -1) + 1;
 }
 
 export function getProjectById(db: DbExecutor, id: string): ProjectRow | null {
@@ -32,6 +45,7 @@ export function createProjectRow(db: DbExecutor, input: CreateProjectInput): Pro
     realPath: input.realPath,
     settingsJson: input.settingsJson,
     gitDetected: input.gitDetected,
+    sortOrder: input.sortOrder ?? 0,
     createdAt: input.now,
     updatedAt: input.now,
   };
@@ -54,6 +68,12 @@ export function updateProjectRow(
 
   db.update(projects).set(changes).where(eq(projects.id, id)).run();
   return getProjectById(db, id);
+}
+
+export function updateProjectSortOrders(db: DbExecutor, orderedIds: string[]): void {
+  for (const [index, id] of orderedIds.entries()) {
+    db.update(projects).set({ sortOrder: index }).where(eq(projects.id, id)).run();
+  }
 }
 
 export function deleteProjectRow(db: DbExecutor, id: string): boolean {
