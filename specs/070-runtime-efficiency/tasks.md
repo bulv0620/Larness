@@ -103,6 +103,7 @@
 - 终态推导集中在 `#finalize`：`budgetExhausted` → `budget`，`finishReason=length` → `output_truncated`，取消 / 中断 / Provider 错误码前缀分别映射；事件、REST DTO、审计 detail 三处同值。
 - Job 判定：`AgentJobExecutor` 把非 `normal` 的 `COMPLETED` 记为 `failed` + `JOB_AGENT_INCOMPLETE`（新增到 `ScheduledJobRunErrorCode`），旧 Turn 的 `NULL` 仍按 `normal` 兼容。
 - UI：时间线在 `completed` 但 `terminalReason` 为 `budget` / `output_truncated` 时显示「预算停止」「输出被截断」；**视觉验收待用户确认**（本环境无浏览器）。
+- UI 补充（2026-11-12，用户反馈）：轮次已有最终答案时，失败的工具步骤不再自动展开，统一折叠进「执行过程」记录，摘要追加「失败 N 项」保留信号；没有答案时（失败/中断/取消）仍直接显示失败条目，因为它们解释了为什么停。新增 1 个组件测试。
 - 验证：`apps/server` `turnRunner + repair + agentRunner` 26 通过；`apps/web` 158 通过；`test/agent` 63 通过 / 9 个既有环境性失败；全包 typecheck 与 biome 通过。
 
 ### HX-4 工具结果结构裁剪

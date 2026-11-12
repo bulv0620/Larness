@@ -119,10 +119,21 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         : truncated
           ? "输出被截断"
           : "";
-  const summary = [outcomeLabel, summarizeTools(tools) + seconds].filter(Boolean).join(" · ");
+  const failures = tools.filter((tool) => tool.status === "error").length;
+  const summary = [
+    outcomeLabel,
+    [summarizeTools(tools), failures > 0 ? `失败 ${failures} 项` : ""].filter(Boolean).join(" · ") +
+      seconds,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  // Once the turn produced its answer, failures stay inside the collapsible
+  // record. Without an answer they stay visible, because they explain the stop.
   const visibleProcess = expanded
     ? process
-    : process.filter((item) => item.kind === "tool" && item.status === "error");
+    : answer === undefined
+      ? process.filter((item) => item.kind === "tool" && item.status === "error")
+      : [];
   const targets = new Map<string, NonNullable<ToolItem["resourceTarget"]>>();
   for (const tool of tools) {
     const target = tool.resourceTarget;

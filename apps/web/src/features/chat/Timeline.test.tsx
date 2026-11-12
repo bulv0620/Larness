@@ -206,6 +206,54 @@ it("summarizes tool calls and opens individual command output directly from a fa
   expect(screen.getAllByLabelText("命令输出")).toHaveLength(2);
 });
 
+it("folds failed steps into the record once the turn has an answer", () => {
+  const failedTool: ToolItem = {
+    id: "failed-step",
+    kind: "tool",
+    name: "run_command",
+    summary: "运行命令（本机账户权限）",
+    commandId: "failed-command",
+    args: "",
+    status: "error",
+    createdAt: 2,
+    turnId: "t1",
+  };
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "u",
+        kind: "message",
+        role: "user",
+        text: "生成一个 SVG",
+        createdAt: 1,
+        turnId: "t1",
+        turnOutcome: "completed",
+        durationMs: 317_000,
+      },
+      failedTool,
+      {
+        id: "a",
+        kind: "message",
+        role: "assistant",
+        text: "已创建 pelican-on-bicycle.svg。",
+        createdAt: 3,
+        turnId: "t1",
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  const summary = screen.getByRole("button", {
+    name: /执行过程 · 命令 1 条 · 失败 1 项/,
+  });
+  expect(summary).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByRole("button", { name: /运行命令.*失败/ })).toBeNull();
+
+  fireEvent.click(summary);
+  expect(screen.getByRole("button", { name: /运行命令.*失败/ })).toBeTruthy();
+});
+
 it.each(["completed", "cancelled"] as const)(
   "holds results until the current turn is %s",
   (outcome) => {
