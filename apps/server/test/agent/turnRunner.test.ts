@@ -18,7 +18,7 @@ import { runMigrations } from "../../src/db/migrate.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
-import { toolMessageContent } from "../../src/modules/agent/turn/toolResults.js";
+import { toolFailureIssues, toolMessageContent } from "../../src/modules/agent/turn/toolResults.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -74,6 +74,30 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2_000): Promise<voi
 
   throw new Error("condition not met in time");
 }
+
+describe("tool failure detail", () => {
+  it("keeps bounded, value-free validation issues", () => {
+    const issues = toolFailureIssues({
+      issues: [
+        { path: "cwd", message: "Expected a relative path inside the authorized root" },
+        { path: "args", message: "Too big" },
+      ],
+    });
+
+    expect(issues).toEqual([
+      { path: "cwd", message: "Expected a relative path inside the authorized root" },
+      { path: "args", message: "Too big" },
+    ]);
+    expect(toolFailureIssues({})).toBeUndefined();
+    expect(toolFailureIssues(undefined)).toBeUndefined();
+    expect(
+      toolFailureIssues({ issues: Array.from({ length: 9 }, () => ({ path: "p", message: "m" })) }),
+    ).toHaveLength(5);
+    expect(
+      toolFailureIssues({ issues: [{ path: "x", message: "y".repeat(900) }] })?.[0]?.message,
+    ).toHaveLength(300);
+  });
+});
 
 describe("tool result serialization", () => {
   it("keeps oversized tool results as valid JSON with a truncation page", () => {

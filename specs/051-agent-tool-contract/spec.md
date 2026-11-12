@@ -23,6 +23,8 @@ created: 2026-11-06
 
    M6-4（2026-11-11）起，工具结果先按内容值裁剪再序列化，超大结果附 `page: { truncated, omittedChars }`；`read_file` 额外返回 `offset` / `nextOffset` 支持续读。任何实现都不得对已序列化的 JSON 做字符截断。
 
+   M6 收口补充（2026-11-12）：`run_command` 描述明确「参数对象是 strict，只接受 executable/args/cwd/timeoutMs，cwd 必须是项目内相对路径」；`git_status` 等只读 Git 工具明确「非 Git 仓库或缺少 Git 时返回 GIT_UNAVAILABLE，不要用同一调用重试」；`tool.failed` 事件补 `issues`（字段路径 + 校验消息，不含参数值，最多 5 条）。
+
    M6-8（2026-11-11）`search_code` 增加 `contextLines` / `glob` / `maxFiles`，结果新增 `scanBudgetExhausted`，用于缩小扫描范围并以上下文替代重复读文件。
 
    M6-5（2026-11-11）新增只读工具 `refresh_observations`（L0、无参数、不申请项目锁），用于在系统快照过时后读取当前临时服务 / 终端 / PM2 观察；系统上下文改为 Turn 起点快照，不再每步重写。

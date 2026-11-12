@@ -1,6 +1,44 @@
 const MAX_TOOL_MESSAGE_CHARS = 20_000;
 const MAX_TOOL_MESSAGE_LINES = 1_000;
 
+export interface ToolIssue {
+  path: string;
+  message: string;
+}
+
+/**
+ * Bounded, value-free validation issues. Without them a `tool.failed` event
+ * only says "invalid tool arguments" and the cause is unrecoverable.
+ */
+export function toolFailureIssues(data: unknown, limit = 5): ToolIssue[] | undefined {
+  if (typeof data !== "object" || data === null) {
+    return undefined;
+  }
+
+  const issues = (data as { issues?: unknown }).issues;
+
+  if (!Array.isArray(issues) || issues.length === 0) {
+    return undefined;
+  }
+
+  const bounded = issues.slice(0, limit).flatMap((issue) => {
+    if (typeof issue !== "object" || issue === null) {
+      return [];
+    }
+
+    const record = issue as { path?: unknown; message?: unknown };
+
+    return [
+      {
+        path: typeof record.path === "string" ? record.path.slice(0, 200) : "",
+        message: typeof record.message === "string" ? record.message.slice(0, 300) : "",
+      },
+    ];
+  });
+
+  return bounded.length > 0 ? bounded : undefined;
+}
+
 export interface ToolResultLike {
   ok: boolean;
   summary: string;

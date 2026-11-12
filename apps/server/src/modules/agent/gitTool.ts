@@ -66,7 +66,7 @@ export function createGitTools(): ToolDefinition[] {
     read(
       "git_status",
       "status",
-      "Read structured Git branch, staged / unstaged / untracked files and snapshot version for the current project.",
+      "Read structured Git branch, staged / unstaged / untracked files and snapshot version for the current project. Fails with GIT_UNAVAILABLE when the project is not a Git repository or Git is missing; do not retry with the same call.",
       Empty,
       () => "读取 Git 状态",
     ),

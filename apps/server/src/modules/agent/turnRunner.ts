@@ -67,6 +67,7 @@ import { createSecretLoader } from "./turn/secrets.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
 import {
   boundedTerminalOutput,
+  toolFailureIssues,
   toolMessageContent,
   truncateToolMessage,
 } from "./turn/toolResults.js";
@@ -1689,11 +1690,13 @@ export class TurnRunner {
             const repeatCount = (repeatFailures.get(repeatKey) ?? 0) + 1;
             repeatFailures.set(repeatKey, repeatCount);
             facts.recordToolFailure(result.result.errorCode ?? "TOOL_ERROR", result.result.summary);
+            const issues = toolFailureIssues(result.result.data);
             this.#emit(turn, session, "tool.failed", {
               turnId: turn.id,
               toolCallId: request.id,
               errorCode: result.result.errorCode ?? "TOOL_ERROR",
               message: result.result.summary,
+              ...(issues === undefined ? {} : { issues }),
               ...(repeatCount > 1 ? { repeatCount } : {}),
             });
           }
