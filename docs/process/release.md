@@ -1,7 +1,7 @@
 # 本地发布与升级清单
 
 > 仓库不配置 CI；发布由维护者在本机执行。目标是可重复、可回滚，不把未验证平台写成支持。
-> 当前已发布：`larness@0.2.1`（公共 npm，MIT）。相关：[安装指南](../guides/install.md)、[已知限制](../known-limitations.md)、[安全复核](../security/review.md)。
+> 当前已发布：`larness@0.1.0`（公共 npm，MIT）。`0.2.1` 已 stage，待 2FA 批准。相关：[安装指南](../guides/install.md)、[已知限制](../known-limitations.md)、[安全复核](../security/review.md)。
 
 ## 1. 发布前
 
