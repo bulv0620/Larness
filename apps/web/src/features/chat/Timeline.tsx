@@ -181,9 +181,9 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   );
   const results =
     !turnActive && (targets.size > 0 || artifacts.length > 0) ? (
-      <div className="mt-3 space-y-2 border-t border-line pt-2">
+      <div className="mt-2 space-y-2">
         {targets.size > 0 ? (
-          <section aria-label="本次成果" className="flex flex-wrap gap-1.5 pt-0.5">
+          <section aria-label="本次成果" className="flex flex-wrap gap-1.5">
             {[...targets.entries()].map(([key, target]) =>
               target.kind === "file" ? (
                 <FileResultCard key={key} target={target} />
