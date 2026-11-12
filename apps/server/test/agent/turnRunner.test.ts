@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   createFakeProvider,
@@ -1293,6 +1293,16 @@ describe("TurnRunner", () => {
         expect(await readFile(path.join(session.workspacePath, "src/hello.txt"), "utf8")).toBe(
           "hello\n",
         );
+
+        const completed = listSessionEvents(opened.db, session.id).items.find(
+          (event) => event.type === "tool.completed",
+        );
+        expect(
+          (completed?.payload as { resourceTarget?: unknown } | undefined)?.resourceTarget,
+        ).toMatchObject({
+          kind: "file",
+          path: "src/hello.txt",
+        });
       } finally {
         opened.close();
       }
@@ -1916,6 +1926,215 @@ it("honors the project ignore list in search_code and list_files", async () => {
       );
       expect(summaries).toContain("1 matches in 1 files");
       expect(summaries).toContain("1 entries");
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("reports deliverables and process files when the turn ends", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "write files" });
+      const provider = createFakeProvider([
+        toolStep({
+          id: "call_report",
+          name: "write_file",
+          args: { path: "docs/report.md", content: "# report\n" },
+        }),
+        toolStep({
+          id: "call_probe",
+          name: "write_file",
+          args: { path: "tmp/probe.mjs", content: "console.log(1)\n" },
+        }),
+        textStep("done"),
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry: createFileToolRegistry(),
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+      const terminal = listSessionEvents(opened.db, session.id).items.find(
+        (event) => event.type === "turn.completed",
+      );
+      const fileResults = (terminal?.payload as { fileResults?: unknown } | undefined)?.fileResults;
+      expect(fileResults).toEqual([
+        expect.objectContaining({
+          path: "docs/report.md",
+          changeType: "created",
+          existed: true,
+          category: "deliverable",
+        }),
+        expect.objectContaining({
+          path: "tmp/probe.mjs",
+          changeType: "created",
+          existed: true,
+          category: "process",
+        }),
+      ]);
+      for (const result of fileResults as Array<{ version: string }>) {
+        expect(result.version).toHaveLength(64);
+      }
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("marks a file deleted before the turn ended as process", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "cleanup" });
+      const registry = createFileToolRegistry();
+      registry.register(
+        defineTool({
+          name: "remove_file",
+          description: "test-only remover",
+          riskLevel: "L0",
+          schema: z.object({ filePath: z.string() }).strict(),
+          async handler(args) {
+            await rm(path.join(session.workspacePath, args.filePath));
+            return { ok: true, summary: `removed ${args.filePath}` };
+          },
+        }),
+      );
+      const provider = createFakeProvider([
+        toolStep({
+          id: "call_create",
+          name: "write_file",
+          args: { path: "tmp/probe.mjs", content: "console.log(1)\n" },
+        }),
+        toolStep({
+          id: "call_remove",
+          name: "remove_file",
+          args: { filePath: "tmp/probe.mjs" },
+        }),
+        textStep("cleaned up"),
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry,
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+      const terminal = listSessionEvents(opened.db, session.id).items.find(
+        (event) => event.type === "turn.completed",
+      );
+      expect((terminal?.payload as { fileResults?: unknown } | undefined)?.fileResults).toEqual([
+        expect.objectContaining({
+          path: "tmp/probe.mjs",
+          existed: false,
+          category: "process",
+        }),
+      ]);
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("classifies project-ignored files as process", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const root = path.join(dir, "repo");
+      await mkdir(root, { recursive: true });
+      const project = await createProject(
+        { db: opened.db, detectGit: async () => false },
+        { rootPath: root },
+      );
+      updateProject({ db: opened.db }, { id: project.id, settings: { ignore: ["generated"] } });
+
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, { projectId: project.id });
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "generate" });
+      const provider = createFakeProvider([
+        toolStep({
+          id: "call_generated",
+          name: "write_file",
+          args: { path: "generated/out.ts", content: "export {}\n" },
+        }),
+        textStep("done"),
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry: createFileToolRegistry(),
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+      const terminal = listSessionEvents(opened.db, session.id).items.find(
+        (event) => event.type === "turn.completed",
+      );
+      expect((terminal?.payload as { fileResults?: unknown } | undefined)?.fileResults).toEqual([
+        expect.objectContaining({
+          path: "generated/out.ts",
+          existed: true,
+          category: "process",
+        }),
+      ]);
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("reports produced files on a failed turn", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "fail later" });
+      const provider = createFakeProvider([
+        toolStep({
+          id: "call_report",
+          name: "write_file",
+          args: { path: "docs/report.md", content: "# report\n" },
+        }),
+        {
+          chunks: [
+            {
+              type: "error",
+              error: new ProviderError("PROVIDER_CONTEXT_LIMIT", "context limit exceeded"),
+            },
+          ],
+        },
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry: createFileToolRegistry(),
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("FAILED");
+
+      const terminal = listSessionEvents(opened.db, session.id).items.find(
+        (event) => event.type === "turn.failed",
+      );
+      expect((terminal?.payload as { fileResults?: unknown } | undefined)?.fileResults).toEqual([
+        expect.objectContaining({
+          path: "docs/report.md",
+          existed: true,
+          category: "deliverable",
+        }),
+      ]);
     } finally {
       opened.close();
     }

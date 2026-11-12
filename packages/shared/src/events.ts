@@ -74,6 +74,18 @@ export type TurnTerminalReason =
   | "cancelled"
   | "interrupted";
 
+export const TurnFileResultSchema = z.object({
+  path: z.string().min(1),
+  changeType: z.enum(["created", "modified"]),
+  version: z.string().min(1),
+  existed: z.boolean(),
+  category: z.enum(["deliverable", "process"]),
+});
+
+export type TurnFileResult = z.infer<typeof TurnFileResultSchema>;
+
+export const TurnFileResultsSchema = z.array(TurnFileResultSchema);
+
 export interface MessageItem {
   id: string;
   kind: "message";
@@ -85,6 +97,10 @@ export interface MessageItem {
   turnOutcome?: "completed" | "failed" | "cancelled" | "interrupted";
   terminalReason?: TurnTerminalReason;
   durationMs?: number;
+  /** Per-file disposition emitted with the terminal event; absent on old turns. */
+  fileResults?: TurnFileResult[];
+  /** Files beyond the per-turn cap that were not listed. */
+  fileResultsOmitted?: number;
 }
 
 export interface PlanStep {

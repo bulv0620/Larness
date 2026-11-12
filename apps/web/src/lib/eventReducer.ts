@@ -8,7 +8,12 @@ import type {
   ToolItem,
   TurnTerminalReason,
 } from "@larness/shared";
-import { CommandParamsSchema, PlanItemSchema, ResourceTargetSchema } from "@larness/shared";
+import {
+  CommandParamsSchema,
+  PlanItemSchema,
+  ResourceTargetSchema,
+  TurnFileResultsSchema,
+} from "@larness/shared";
 
 type Payload = Record<string, unknown>;
 
@@ -303,6 +308,8 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
           ? "cancelled"
           : "interrupted";
   const terminalReason = terminalReasonField(data);
+  const fileResults = TurnFileResultsSchema.safeParse(data.fileResults);
+  const omittedResults = numberField(data, "fileResultsOmitted");
   return next.map((item) =>
     item.turnId === turnId && item.kind === "message"
       ? {
@@ -313,6 +320,10 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
                 turnOutcome: outcome,
                 durationMs: numberField(data, "durationMs"),
                 ...(terminalReason === undefined ? {} : { terminalReason }),
+                ...(fileResults.success ? { fileResults: fileResults.data } : {}),
+                ...(omittedResults === undefined
+                  ? {}
+                  : { fileResultsOmitted: omittedResults }),
               }
             : {}),
         }

@@ -226,7 +226,7 @@ WebSocket 输入最大 1 MiB，控制消息串行处理且待处理最多 64 条
 
 文件订阅使用 §12 契约，展开目录与全部已开文件分别按 scope 订阅，隐藏窗口的文件仍订阅。确认 / 重连 / 缺口使 Query 失效并重取快照；补拉每页 500、每次最多 10 页，长历史转快照恢复而非无限循环。每个订阅最多 128 路径、超出显示部分监听；连接失败 / 降级有提示及手动刷新。通知与补拉均以 shared Zod schema 验证，不用通知正文替代权威 GET。
 
-`tool.completed` 增可选 `resourceTarget: { kind: "file", scope: { projectId } | { sessionId }, path, version? }`，当前由成功 apply_patch 的真实执行上下文 / 结果生成；模型不能选择授权 scope。目标不含正文 / 绝对路径 / 执行命令。卡片在工具组折叠时也可点击；点击只重新授权读取并打开 / 聚焦文件，不重复执行修改。文件已变化则打开当前版本并提示，已失效 / 无权访问显示错误。
+`tool.completed` 增可选 `resourceTarget: { kind: "file", scope: { projectId } | { sessionId }, path, version? }`，当前由成功 apply_patch / `write_file` 的真实执行上下文 / 结果生成（074）；模型不能选择授权 scope。目标不含正文 / 绝对路径 / 执行命令。卡片在工具组折叠时也可点击；点击只重新授权读取并打开 / 聚焦文件，不重复执行修改。文件已变化则打开当前版本并提示，已失效 / 无权访问显示错误。
 
 无 REST 路径、数据库迁移、配置键、认证 / IPC 或依赖变更；Monaco / Query / Zustand 复用已冻结依赖。完整资源布局 schema 升级及其他资源窗口在 M2-6，不将文件接线视为终端 / Git / 服务已完成。
 

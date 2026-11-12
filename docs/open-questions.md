@@ -41,6 +41,7 @@
 
 ## 已解决
 
+- 成果区分类已落地：Turn 终态服务端输出 `fileResults`（交付 / 过程、存在性、同路径去重、上限 200 + `fileResultsOmitted`），Web 成果区只显示交付文件，临时 / 生成 / 忽略 / 已删除文件折叠为「过程文件」行；`write_file` 与 `apply_patch` 统一文件结果卡，历史 Turn 回退原渲染（Q-037 关闭，2026-11-12）。
 - 受管文件创建已落地：新增 `write_file`（项目内相对路径、1 MiB 上限、仅创建、已存在返回 `VERSION_CONFLICT`），成功后发 `file.changed`（`changeType=created`），检查点事实与「本次成果」卡片可见（Q-036 关闭，2026-11-12）。
 - Turn 内资源观察改为「Turn 起点快照 + 显式 `refresh_observations`」，不再每步刷新 system；命令上下文契约的每步刷新条款由 [ADR-057](adr/ADR-057-runtime-efficiency.md) 替换（Q-031 关闭，2026-11-11）。
 - 更新规范已按 [ADR-055](adr/ADR-055-npm-update-security.md) 对齐 npm 手动升级、迁移前备份与人工恢复。

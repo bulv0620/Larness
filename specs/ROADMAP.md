@@ -474,6 +474,18 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | UI-F15 | [项目列表拖拽排序](068-ui-fixes/spec.md#ui-f15-项目列表拖拽排序) | UI-F14 done；用户直接要求 | `done` |
 | UI-F16 | [默认工作区点击不创建会话](068-ui-fixes/spec.md#ui-f16-默认工作区点击不创建会话) | UI-F15 done；用户直接反馈 | `done` |
 
+### 2026-11-12 成果展示与临时文件折叠（074，done）
+
+用户确认「临时脚本折叠进过程」方向，[074 规格](074-result-presentation/spec.md) 已按 D-1～D-5 实现并验证（2026-11-12）。验收记录见 [任务清单](074-result-presentation/tasks.md#验收记录)；真实数据浏览器视觉验收待用户确认。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| RS-1 | [服务端成果分类与终态 `fileResults`](074-result-presentation/spec.md#7-接口与契约变更) | — | `done` |
+| RS-2 | [write_file 统一文件结果卡](074-result-presentation/spec.md#7-接口与契约变更) | — | `done` |
+| RS-3 | [成果区与过程行渲染](074-result-presentation/spec.md#5-验收场景) | RS-1、RS-2 | `done` |
+| RS-4 | [契约与文档同步](074-result-presentation/spec.md#7-接口与契约变更) | RS-1～RS-3 | `done` |
+| RS-5 | [验收与状态回填](074-result-presentation/spec.md#11-测试计划) | RS-4 | `done` |
+
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
 - 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。
 - 阻塞：`blocked` + 原因 + 需要谁决策；解除后回到 `todo`。

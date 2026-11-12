@@ -69,6 +69,10 @@
 - [072 工具调用错误预算：补丁容错、参数修复与命令用法](072-agent-error-budget/spec.md)
 - [073 上下文预算：读文件分页与结果裁剪](073-context-budget/spec.md)
 
+### 发布后
+
+- [074 成果展示与临时文件折叠](074-result-presentation/spec.md)
+
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 
 新增切片沿用三位编号，选择可用编号并在路线图登记所属阶段。模板见 [spec](_templates/spec.md)、[plan](_templates/plan.md)、[tasks](_templates/tasks.md)。

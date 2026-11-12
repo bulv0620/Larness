@@ -361,3 +361,51 @@ it("keeps the latest single-request usage per model", () => {
     contextWindow: 128_000,
   });
 });
+
+describe("turn file results", () => {
+  it("attaches per-file dispositions from the terminal event", () => {
+    let items = applyServerEvent([], event("user.message", { turnId: "trn_1", text: "go" }));
+    const fileResults = [
+      {
+        path: "docs/report.md",
+        changeType: "created" as const,
+        version: "v1",
+        existed: true,
+        category: "deliverable" as const,
+      },
+      {
+        path: "tmp/probe.mjs",
+        changeType: "created" as const,
+        version: "v2",
+        existed: false,
+        category: "process" as const,
+      },
+    ];
+
+    items = applyServerEvent(
+      items,
+      event("turn.completed", { turnId: "trn_1", fileResults, fileResultsOmitted: 3 }),
+    );
+
+    expect(items[0]).toMatchObject({
+      turnOutcome: "completed",
+      fileResults,
+      fileResultsOmitted: 3,
+    });
+  });
+
+  it("ignores malformed file results", () => {
+    let items = applyServerEvent([], event("user.message", { turnId: "trn_1", text: "go" }));
+
+    items = applyServerEvent(
+      items,
+      event("turn.completed", {
+        turnId: "trn_1",
+        fileResults: [{ path: "x", changeType: "moved", category: "deliverable" }],
+      }),
+    );
+
+    expect(items[0]).toMatchObject({ turnOutcome: "completed" });
+    expect(items[0]).not.toHaveProperty("fileResults");
+  });
+});

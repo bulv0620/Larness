@@ -669,3 +669,181 @@ it("does not offer resume for a cancelled turn", () => {
 
   expect(screen.queryByRole("button", { name: "继续这个任务" })).toBeNull();
 });
+
+it("shows deliverables and folds process files into one collapsed row", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "写文件",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "completed",
+        fileResults: [
+          {
+            path: "docs/report.md",
+            changeType: "created",
+            version: "v1",
+            existed: true,
+            category: "deliverable",
+          },
+          {
+            path: "tmp/probe.mjs",
+            changeType: "created",
+            version: "v2",
+            existed: true,
+            category: "process",
+          },
+        ],
+      },
+      {
+        id: "tool-report",
+        kind: "tool",
+        name: "write_file",
+        summary: "create docs/report.md",
+        args: "",
+        status: "done",
+        createdAt: 2,
+        turnId: "turn-1",
+        resourceTarget: {
+          kind: "file",
+          scope: { projectId: "project" },
+          path: "docs/report.md",
+          version: "v1",
+        },
+      },
+      {
+        id: "tool-probe",
+        kind: "tool",
+        name: "write_file",
+        summary: "create tmp/probe.mjs",
+        args: "",
+        status: "done",
+        createdAt: 3,
+        turnId: "turn-1",
+        resourceTarget: {
+          kind: "file",
+          scope: { projectId: "project" },
+          path: "tmp/probe.mjs",
+          version: "v2",
+        },
+      },
+      {
+        id: "artifact",
+        kind: "artifact",
+        title: "已创建 docs/report.md",
+        description: "文件变更 · created",
+        meta: "v1",
+        createdAt: 4,
+        turnId: "turn-1",
+      },
+      {
+        id: "answer",
+        kind: "message",
+        role: "assistant",
+        text: "完成",
+        createdAt: 5,
+        turnId: "turn-1",
+      },
+    ],
+  });
+  render(<Timeline />);
+
+  const results = screen.getByRole("region", { name: "本次成果" });
+  expect(within(results).getByRole("button", { name: "查看文件 · docs/report.md" })).toBeVisible();
+  expect(
+    within(results).queryByRole("button", { name: "查看文件 · tmp/probe.mjs" }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText("已创建 docs/report.md")).not.toBeInTheDocument();
+
+  const process = screen.getByRole("button", { name: "过程文件 1 个" });
+  expect(process).toHaveAttribute("aria-expanded", "false");
+
+  fireEvent.click(process);
+
+  expect(process).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("button", { name: "查看文件 · tmp/probe.mjs" })).toBeVisible();
+});
+
+it("keeps deleted scratch files in the process row without an open action", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "清理",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "completed",
+        fileResults: [
+          {
+            path: "tmp/probe.mjs",
+            changeType: "created",
+            version: "v1",
+            existed: false,
+            category: "process",
+          },
+        ],
+      },
+      {
+        id: "answer",
+        kind: "message",
+        role: "assistant",
+        text: "已清理",
+        createdAt: 2,
+        turnId: "turn-1",
+      },
+    ],
+  });
+  render(<Timeline />);
+
+  expect(screen.queryByRole("region", { name: "本次成果" })).not.toBeInTheDocument();
+  const process = screen.getByRole("button", { name: "过程文件 1 个 · 已清理 1 个" });
+  fireEvent.click(process);
+
+  expect(screen.getByText("tmp/probe.mjs")).toBeVisible();
+  expect(screen.getByText("已创建 · 已删除")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "查看文件 · tmp/probe.mjs" }),
+  ).not.toBeInTheDocument();
+});
+
+it("notes files beyond the per-turn result cap", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "写很多文件",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "completed",
+        fileResultsOmitted: 3,
+        fileResults: [
+          {
+            path: "docs/report.md",
+            changeType: "created",
+            version: "v1",
+            existed: true,
+            category: "deliverable",
+          },
+        ],
+      },
+      {
+        id: "answer",
+        kind: "message",
+        role: "assistant",
+        text: "完成",
+        createdAt: 2,
+        turnId: "turn-1",
+      },
+    ],
+  });
+  render(<Timeline />);
+
+  expect(screen.getByText("另有 3 个文件未列出")).toBeVisible();
+});
