@@ -1,6 +1,5 @@
 import type { HostMetrics } from "@larness/shared";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { expect, it } from "vitest";
 import { HostMetricsIndicator } from "./HostMetricsIndicator";
 
@@ -10,7 +9,7 @@ function renderIndicator(metrics: HostMetrics | null) {
   return render(<HostMetricsIndicator metrics={metrics} />);
 }
 
-it("shows CPU, RAM and ROM ring gauges for the server host", () => {
+it("shows CPU percent and RAM used/total with icons instead of ring gauges", () => {
   renderIndicator({
     cpuPercent: 23.4,
     memoryUsedBytes: 10 * GIB,
@@ -20,62 +19,61 @@ it("shows CPU, RAM and ROM ring gauges for the server host", () => {
     sampledAt: 1_000,
   });
 
-  expect(screen.getByRole("button", { name: "服务端资源占用" })).toBeInTheDocument();
+  expect(screen.getByText("服务端资源占用")).toBeInTheDocument();
+  expect(screen.queryByRole("button")).toBeNull();
   expect(screen.getByText("23%")).toBeInTheDocument();
-  expect(screen.getByText("63%")).toBeInTheDocument();
-  expect(screen.getByText("65%")).toBeInTheDocument();
-  expect(screen.getByText(/CPU.*23%/)).toBeInTheDocument();
-  expect(screen.getByText(/RAM.*10\.0 \/ 16 GB（63%）/)).toBeInTheDocument();
-  expect(screen.getByText(/ROM.*300 \/ 460 GB（65%）/)).toBeInTheDocument();
+
+  const ramUsed = screen.getByText("10.0");
+  expect(ramUsed.parentElement?.textContent).toBe("10.0 / 16 GB");
+  expect(screen.queryByText(/ROM/)).toBeNull();
 });
 
 it("shows dashes until the first server sample arrives", () => {
   renderIndicator(null);
 
-  expect(screen.getAllByText("—")).toHaveLength(3);
+  expect(screen.getAllByText("—")).toHaveLength(2);
 });
 
-it("keeps exact byte values in the accessible summary", () => {
-  const terabyte = 1024 * GIB;
+it("keeps TB formatting for large memory values", () => {
+  const tib = 1024 * GIB;
 
   renderIndicator({
     cpuPercent: 0,
-    memoryUsedBytes: 32 * GIB,
-    memoryTotalBytes: 64 * GIB,
-    diskUsedBytes: 1.5 * terabyte,
-    diskTotalBytes: 4 * terabyte,
-    sampledAt: 1_000,
-  });
-
-  expect(screen.getByText(/ROM.*1\.5 \/ 4\.0 TB（38%）/)).toBeInTheDocument();
-  expect(screen.getByText(/RAM.*32\.0 \/ 64 GB（50%）/)).toBeInTheDocument();
-});
-
-it("opens the detailed card on click and closes it with Escape", async () => {
-  const user = userEvent.setup();
-
-  renderIndicator({
-    cpuPercent: 38,
-    memoryUsedBytes: 9.6 * GIB,
-    memoryTotalBytes: 16 * GIB,
-    diskUsedBytes: 284 * GIB,
+    memoryUsedBytes: 1.5 * tib,
+    memoryTotalBytes: 4 * tib,
+    diskUsedBytes: 0,
     diskTotalBytes: 460 * GIB,
     sampledAt: 1_000,
   });
 
-  const trigger = screen.getByRole("button", { name: "服务端资源占用" });
-  expect(trigger).toHaveClass("cursor-pointer");
-  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(screen.getByText("1.5").parentElement?.textContent).toBe("1.5 / 4.0 TB");
+});
 
-  await user.click(trigger);
+it("turns CPU percent and RAM used text red above 90 percent", () => {
+  renderIndicator({
+    cpuPercent: 96,
+    memoryUsedBytes: 15.2 * GIB, // 95%
+    memoryTotalBytes: 16 * GIB,
+    diskUsedBytes: 0,
+    diskTotalBytes: 460 * GIB,
+    sampledAt: 1_000,
+  });
 
-  expect(trigger).toHaveAttribute("aria-expanded", "true");
-  expect(await screen.findByText("9.6 / 16 GB")).toBeInTheDocument();
-  expect(screen.getByText("284 / 460 GB")).toBeInTheDocument();
-  expect(screen.queryByText("服务端资源")).toBeNull();
+  expect(screen.getByText("96%")).toHaveClass("text-danger");
+  expect(screen.getByText("15.2")).toHaveClass("text-danger");
+  expect(screen.getByText("15.2").parentElement).toHaveClass("text-ink");
+});
 
-  await user.keyboard("{Escape}");
+it("keeps normal ink color at exactly 90 percent", () => {
+  renderIndicator({
+    cpuPercent: 90,
+    memoryUsedBytes: 14.4 * GIB, // 90%
+    memoryTotalBytes: 16 * GIB,
+    diskUsedBytes: 0,
+    diskTotalBytes: 460 * GIB,
+    sampledAt: 1_000,
+  });
 
-  expect(trigger).toHaveAttribute("aria-expanded", "false");
-  expect(screen.queryByText("9.6 / 16 GB")).toBeNull();
+  expect(screen.getByText("90%")).toHaveClass("text-ink");
+  expect(screen.getByText("14.4").parentElement).toHaveClass("text-ink");
 });

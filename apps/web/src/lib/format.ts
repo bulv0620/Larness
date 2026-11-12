@@ -16,10 +16,15 @@ export function uptime(seconds: number): string {
   return `${hours}h ${minutes % 60}m`;
 }
 
-/** Formats a used / total byte pair in the largest unit shared by both values. */
-export function formatBytesPair(usedBytes: number, totalBytes: number): string {
+export interface BytesPairParts {
+  used: string;
+  total: string;
+}
+
+/** Formats used / total bytes into separate display strings sharing the largest common unit. */
+export function formatBytesPairParts(usedBytes: number, totalBytes: number): BytesPairParts | null {
   if (!Number.isFinite(usedBytes) || !Number.isFinite(totalBytes) || totalBytes <= 0) {
-    return "—";
+    return null;
   }
 
   const used = Math.max(0, usedBytes);
@@ -27,15 +32,24 @@ export function formatBytesPair(usedBytes: number, totalBytes: number): string {
 
   if (totalBytes >= 1024 * gib) {
     const tib = 1024 * gib;
-    return `${(used / tib).toFixed(1)} / ${(totalBytes / tib).toFixed(1)} TB`;
+    return { used: `${(used / tib).toFixed(1)}`, total: `${(totalBytes / tib).toFixed(1)} TB` };
   }
 
   if (totalBytes >= 100 * gib) {
-    return `${Math.round(used / gib)} / ${Math.round(totalBytes / gib)} GB`;
+    return { used: `${Math.round(used / gib)}`, total: `${Math.round(totalBytes / gib)} GB` };
   }
 
   const totalDecimals = totalBytes >= 10 * gib ? 0 : 1;
-  return `${(used / gib).toFixed(1)} / ${(totalBytes / gib).toFixed(totalDecimals)} GB`;
+  return {
+    used: `${(used / gib).toFixed(1)}`,
+    total: `${(totalBytes / gib).toFixed(totalDecimals)} GB`,
+  };
+}
+
+/** Formats a used / total byte pair in the largest unit shared by both values. */
+export function formatBytesPair(usedBytes: number, totalBytes: number): string {
+  const parts = formatBytesPairParts(usedBytes, totalBytes);
+  return parts === null ? "—" : `${parts.used} / ${parts.total}`;
 }
 
 export function usedPercent(usedBytes: number, totalBytes: number): number {
