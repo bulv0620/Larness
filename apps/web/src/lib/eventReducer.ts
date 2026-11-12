@@ -321,9 +321,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
                 durationMs: numberField(data, "durationMs"),
                 ...(terminalReason === undefined ? {} : { terminalReason }),
                 ...(fileResults.success ? { fileResults: fileResults.data } : {}),
-                ...(omittedResults === undefined
-                  ? {}
-                  : { fileResultsOmitted: omittedResults }),
+                ...(omittedResults === undefined ? {} : { fileResultsOmitted: omittedResults }),
               }
             : {}),
         }
