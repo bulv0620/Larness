@@ -81,6 +81,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     sidebarWidth,
     expandedProjects,
     toggleProject,
+    setExpandedProjects,
     selectSession,
     startDraft,
   } = useNavigationStore();
@@ -119,6 +120,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const listRef = useRef<HTMLDivElement>(null);
   const previousUserSelectRef = useRef("");
   const suppressProjectClickRef = useRef(false);
+  const dragExpandedSnapshotRef = useRef<Record<string, boolean> | null>(null);
 
   useEffect(() => {
     if (context === null) return;
@@ -217,6 +219,19 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     document.body.style.userSelect = previousUserSelectRef.current;
   };
 
+  const collapseProjectsForDrag = (): void => {
+    if (dragExpandedSnapshotRef.current !== null) return;
+    dragExpandedSnapshotRef.current = expandedProjects;
+    setExpandedProjects(Object.fromEntries(projects.map((project) => [project.id, false])));
+  };
+
+  const restoreProjectsAfterDrag = (): void => {
+    const snapshot = dragExpandedSnapshotRef.current;
+    if (snapshot === null) return;
+    dragExpandedSnapshotRef.current = null;
+    setExpandedProjects(snapshot);
+  };
+
   const commitProjectOrder = async (orderedIds: string[]): Promise<void> => {
     const previous = queryClient.getQueryData<GatewaySnapshot>(["workspace"]);
 
@@ -242,7 +257,8 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     event: React.PointerEvent<HTMLButtonElement>,
     projectId: string,
   ): void => {
-    if (!canReorder || projectId === DEFAULT_PROJECT_ID || event.button !== 0) return;
+    if (dragState !== null || !canReorder || projectId === DEFAULT_PROJECT_ID) return;
+    if (event.button !== 0) return;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -262,6 +278,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
   const moveProjectDrag = (event: React.PointerEvent<HTMLButtonElement>): void => {
     if (dragState === null || dragState.pointerId !== event.pointerId) return;
+    if (!dragState.moved && Math.abs(event.clientY - dragState.startY) >= 4) {
+      collapseProjectsForDrag();
+    }
     const rects = listRef.current
       ? Array.from(listRef.current.querySelectorAll<HTMLElement>("[data-project-drop-index]")).map(
           (element) => {
@@ -289,6 +308,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       // Capture may already be released by the browser.
     }
     restoreUserSelect();
+    restoreProjectsAfterDrag();
     const current = dragState;
     setDragState(null);
     if (!current.moved) return;
@@ -304,6 +324,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
 
   const cancelProjectDrag = (): void => {
     restoreUserSelect();
+    restoreProjectsAfterDrag();
     setDragState(null);
   };
 
@@ -326,8 +347,13 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   useEffect(
     () => () => {
       document.body.style.userSelect = previousUserSelectRef.current;
+      const snapshot = dragExpandedSnapshotRef.current;
+      if (snapshot !== null) {
+        dragExpandedSnapshotRef.current = null;
+        setExpandedProjects(snapshot);
+      }
     },
-    [],
+    [setExpandedProjects],
   );
 
   return (
@@ -493,7 +519,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                 </div>
 
                 {expanded ? (
-                  <div className="ml-[22px] border-l border-line/70 pl-1.5">
+                  <div className="ml-[10px] border-l border-line/70 pl-1">
                     {hasDraft ? (
                       <SessionRow
                         title="新会话"

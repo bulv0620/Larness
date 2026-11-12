@@ -115,13 +115,22 @@ describe("ProjectSidebar project ordering", () => {
   it("moves a project to the end by dragging the project itself", async () => {
     renderSidebar();
     const project = screen.getByRole("button", { name: "Alpha no git" });
+    const beta = screen.getByRole("button", { name: "Beta no git" });
+    const defaultProject = screen.getByRole("button", { name: "默认工作区" });
 
     fireEvent.pointerDown(project, { pointerId: 1, button: 0, clientY: 10 });
     fireEvent.pointerMove(project, { pointerId: 1, clientY: 120 });
+
+    expect(project).toHaveAttribute("aria-expanded", "false");
+    expect(beta).toHaveAttribute("aria-expanded", "false");
+    expect(defaultProject).toHaveAttribute("aria-expanded", "false");
+
     fireEvent.pointerUp(project, { pointerId: 1, clientY: 120 });
     fireEvent.click(project);
 
     expect(project).toHaveAttribute("aria-expanded", "true");
+    expect(beta).toHaveAttribute("aria-expanded", "true");
+    expect(defaultProject).toHaveAttribute("aria-expanded", "true");
     await waitFor(() =>
       expect(mocks.reorderProjects).toHaveBeenCalledWith(["prj_beta", "prj_alpha"]),
     );
