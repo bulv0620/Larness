@@ -102,16 +102,17 @@ export function MessageBubble({
         commentary ? "text-[12px] text-ink-2" : "text-[13px] text-ink",
       )}
     >
-      {finalAnswer && item.text ? (
+      {item.text ? (
         <div
-          data-testid="final-answer-bubble"
-          className="w-fit min-w-0 max-w-full rounded-2xl rounded-tl-md border border-line bg-surface px-3.5 py-2.5"
+          data-testid={finalAnswer ? "final-answer-bubble" : "message-bubble"}
+          className={cn(
+            "w-fit min-w-0 max-w-full rounded-2xl rounded-tl-md border border-line bg-surface",
+            commentary ? "px-3 py-2" : "px-3.5 py-2.5",
+          )}
         >
           <MarkdownText text={item.text} />
         </div>
-      ) : (
-        <MarkdownText text={item.text} />
-      )}
+      ) : null}
       {children}
       {!item.streaming && item.text ? (
         <div className="mt-1 flex items-center gap-2 px-0.5">

@@ -206,6 +206,48 @@ it("summarizes tool calls and opens individual command output directly from a fa
   expect(screen.getAllByLabelText("命令输出")).toHaveLength(2);
 });
 
+it("wraps each step's commentary in the same bubble as the answer", () => {
+  useTimelineStore.setState({
+    isStreaming: true,
+    activeTurnId: "t1",
+    items: [
+      {
+        id: "u",
+        kind: "message",
+        role: "user",
+        text: "重构 todo 页面",
+        createdAt: 1,
+        turnId: "t1",
+      },
+      {
+        id: "c1",
+        kind: "message",
+        role: "assistant",
+        text: "现在让我看看当前详细视觉设计。",
+        createdAt: 2,
+        turnId: "t1",
+      },
+      {
+        id: "tool",
+        kind: "tool",
+        name: "read_file",
+        summary: "读取 style.css",
+        args: "",
+        status: "done",
+        createdAt: 3,
+        turnId: "t1",
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  const bubble = screen.getByTestId("message-bubble");
+  expect(bubble).toHaveTextContent("现在让我看看当前详细视觉设计。");
+  // The final answer slot is only used once the turn ends with an answer.
+  expect(screen.queryByTestId("final-answer-bubble")).toBeNull();
+});
+
 it("folds failed steps into the record once the turn has an answer", () => {
   const failedTool: ToolItem = {
     id: "failed-step",
