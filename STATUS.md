@@ -5,7 +5,7 @@
 
 ## 当前任务
 
-- **T0-5 概览“活跃会话”口径与命名修正（2026-11-12，用户反馈）**：`done`，分支 `task/t0-5-online-sessions`。原统计只排除已撤销和已绝对过期（默认 12 小时）的会话行，关浏览器后仍显示在线。改为与认证一致的“有效会话”——未撤销、未绝对过期、且 `last_seen_at` 在 `idleTtlMinutes`（默认 30 分钟）内；一个有效会话行算一个；显示文案同步由“在线会话”改为“活跃会话”。不引入 WS 实时连接、不轮询、不改 schema/字段；CLI `status` 仍不显示活跃会话数。验证：新增用例先失败后通过（收到 4/1，期望 2/0），定向 32 项通过，server typecheck 与改动文件 biome 通过；未运行完整 `pnpm check`（本机 PATH 无 node/pnpm）、未做真实 TUI 人工复核。详见 [016 T0-5](specs/016-tui-experience/tasks.md#t0-5-活跃会话口径与命名)。
+- **T0-5 概览“活跃会话”口径与命名修正（2026-11-12，用户反馈）**：`done`，分支 `task/t0-5-online-sessions`。原统计只排除已撤销和已绝对过期（默认 12 小时）的会话行，关浏览器后仍显示在线。改为与认证一致的“有效会话”——未撤销、未绝对过期、且 `last_seen_at` 在 `idleTtlMinutes`（默认 30 分钟）内；一个有效会话行算一个；显示文案同步由“在线会话”改为“活跃会话”。不引入 WS 实时连接、不轮询、不改 schema/字段；CLI `status` 仍不显示活跃会话数。验证：新增用例先失败后通过（收到 4/1，期望 2/0），定向 32 项通过，server typecheck 与改动文件 biome 通过；未运行完整 `pnpm check`（本机 PATH 无 node/pnpm）、未做真实 TUI 人工复核。**2026-11-12 人类验收通过，合并 `main` 并推送。** 详见 [016 T0-5](specs/016-tui-experience/tasks.md#t0-5-活跃会话口径与命名)。
 
 - **UI-F16 默认工作区点击不创建会话（2026-11-12，用户反馈）**：`done`。默认工作区条目的点击改为与普通项目一致，只切换展开 / 折叠，不再创建草稿或后端会话；右侧 `+`（`在 默认工作区 中新建会话`）继续创建默认工作区草稿并聚焦输入区。验证：`ProjectSidebar` 5 项（含正反例）、Web 全量 39 文件 178 项、认证 E2E `default-workspace`、Web typecheck、`pnpm build`、`biome ci .`（0 error）与 `git diff --check` 通过。无 API / 数据库 / 权限变更。详见 [068 验收记录](specs/068-ui-fixes/tasks.md#ui-f162026-11-12macos)。
 

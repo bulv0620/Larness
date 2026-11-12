@@ -68,3 +68,4 @@
 - [x] 实现后定向测试通过（stats 2 + IPC 10 + TUI 20，共 32），server typecheck 与改动文件 biome 通过；文案改用“活跃会话”，`screen-dashboard` 断言已更新；
 - [x] 契约 `sessions.online` 口径已写入 [ipc.md](../../docs/contracts/ipc.md)；STATUS 已更新并单任务提交。
 - 验证范围：未运行完整 `pnpm check`（本机 PATH 无 node/pnpm，仅用 Electron 内置 Node 跑定向套件），未做真实 TUI 人工复核。
+- 2026-11-12 人类明确“验收通过”；按用户指示合并 `main` 并推送。
