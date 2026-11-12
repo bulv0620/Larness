@@ -26,7 +26,6 @@ const STATUS_ALIASES: Record<string, string> = {
   finished: "done",
   failed: "failed",
   error: "failed",
-  blocked: "failed",
 };
 
 function repairPlanArgs(raw: unknown): unknown {
