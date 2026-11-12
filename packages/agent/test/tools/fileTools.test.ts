@@ -42,6 +42,16 @@ describe("file tools", () => {
       expect(readData.content).toBe("one\ntwo\n");
       expect(readData.version).toMatch(/^[a-f0-9]{64}$/);
 
+      await writeFile(
+        path.join(dir, "big.txt"),
+        Array.from({ length: 400 }, (_, index) => `row ${index} ${"q".repeat(60)}`).join("\n"),
+      );
+      const paged = await registry.execute("read_file", { path: "big.txt" }, { projectRoot: dir });
+      expect(paged).toMatchObject({ ok: true, truncated: true });
+      expect(paged.summary).toMatch(/lines 1–\d+ of 400/);
+      expect(paged.summary).toMatch(/next offset=\d+/);
+      expect((paged.data as { content: string }).content).not.toContain("chars omitted");
+
       const search = await registry.execute(
         "search_code",
         { query: "needle" },

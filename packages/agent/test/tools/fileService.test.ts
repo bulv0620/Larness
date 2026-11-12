@@ -271,6 +271,48 @@ describe("file service", () => {
     });
   });
 
+  it("pages a large read by characters and reports the true next offset", async () => {
+    await withTempDir(async (dir) => {
+      const lines = Array.from({ length: 725 }, (_, index) => `line ${index} ${"y".repeat(90)}`);
+      await writeFile(path.join(dir, "big.txt"), lines.join("\n"));
+
+      const first = await readTextFile(dir, { path: "big.txt", maxChars: 5_000 });
+
+      expect(first.content.length).toBeLessThanOrEqual(5_000);
+      expect(first.content).not.toContain("chars omitted");
+      expect(first.truncated).toBe(true);
+      expect(first.offset).toBe(1);
+      expect(first.nextOffset).toBeGreaterThan(1);
+      expect(first.nextOffset).toBeLessThan(726);
+      expect(first.content).toBe(lines.slice(0, first.nextOffset - 1).join("\n"));
+
+      const second = await readTextFile(dir, {
+        path: "big.txt",
+        offset: first.nextOffset,
+        maxChars: 5_000,
+      });
+
+      expect(second.offset).toBe(first.nextOffset);
+      expect(second.content).toBe(lines.slice(second.offset - 1, second.nextOffset - 1).join("\n"));
+      expect(`${first.content}\n${second.content}`).toBe(
+        lines.slice(0, second.nextOffset - 1).join("\n"),
+      );
+    });
+  });
+
+  it("cuts a single over-budget line, flags it and advances past it", async () => {
+    await withTempDir(async (dir) => {
+      const longLine = "z".repeat(9_000);
+      await writeFile(path.join(dir, "minified.js"), `${longLine}\nnext\n`);
+
+      const page = await readTextFile(dir, { path: "minified.js", maxChars: 5_000 });
+
+      expect(page.content).toBe(longLine.slice(0, 5_000));
+      expect(page.truncated).toBe(true);
+      expect(page.nextOffset).toBe(2);
+    });
+  });
+
   it("caps read output at 2000 lines", async () => {
     await withTempDir(async (dir) => {
       const content = Array.from({ length: 2_001 }, (_, index) => `line ${index}`).join("\n");

@@ -239,6 +239,11 @@ export interface ReadFileOptions {
   path: string;
   offset?: number;
   limit?: number;
+  /**
+   * Return only whole lines that fit this many characters. One line is always
+   * returned even when it alone exceeds the budget, so the caller can advance.
+   */
+  maxChars?: number;
 }
 
 export interface ReadFileResult {
@@ -285,10 +290,15 @@ export async function readTextFile(
     MAX_TOOL_OUTPUT_LINES,
   );
   const selected = lines.slice(offset - 1, offset - 1 + limit);
-  const content = selected.join("\n");
+  const fitted =
+    options.maxChars === undefined
+      ? { lines: selected, clipped: false }
+      : fitLines(selected, options.maxChars);
+  const kept = fitted.lines;
+  const content = kept.join("\n");
   const byteLength = Buffer.byteLength(content, "utf8");
   const truncated =
-    offset - 1 + selected.length < lines.length || byteLength > MAX_TOOL_OUTPUT_BYTES;
+    fitted.clipped || offset - 1 + kept.length < lines.length || byteLength > MAX_TOOL_OUTPUT_BYTES;
 
   return {
     path: toPosix(path.relative(rootReal, target)),
@@ -302,8 +312,42 @@ export async function readTextFile(
     offset,
     // Line-based so a caller can always continue; a byte-truncated final line
     // still counts as consumed.
-    nextOffset: Math.min(lines.length + 1, offset + selected.length),
+    nextOffset: Math.min(lines.length + 1, offset + kept.length),
   };
+}
+
+/**
+ * Whole-line page that fits `maxChars` (joined with newlines). At least one
+ * line is returned; a single line longer than the budget is cut and counted as
+ * consumed, so paging always advances. A cut line is reported as `clipped`.
+ */
+function fitLines(lines: string[], maxChars: number): { lines: string[]; clipped: boolean } {
+  const budget = Math.max(1_000, Math.trunc(maxChars));
+  let used = 0;
+  let count = 0;
+  let clipped = false;
+
+  for (const line of lines) {
+    if (count === 0) {
+      used = Math.min(line.length, budget);
+      clipped = line.length > budget;
+      count = 1;
+      continue;
+    }
+
+    const next = used + 1 + line.length;
+
+    if (next > budget) break;
+
+    used = next;
+    count += 1;
+  }
+
+  const kept = lines.slice(0, Math.max(1, count));
+
+  if (clipped && kept[0] !== undefined) kept[0] = kept[0].slice(0, budget);
+
+  return { lines: kept, clipped };
 }
 
 export interface SearchCodeOptions {

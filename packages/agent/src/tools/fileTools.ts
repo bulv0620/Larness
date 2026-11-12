@@ -11,6 +11,8 @@ import { ToolRegistry } from "./registry.js";
 import { defineTool, type ToolResult } from "./types.js";
 
 const PathSchema = z.string().min(1).max(4_096);
+/** Keep a read page below the tool-result budget so it is never re-truncated. */
+const READ_PAGE_CHARS = 12_000;
 
 const ListFilesSchema = z
   .object({
@@ -126,7 +128,7 @@ export function createFileTools() {
     defineTool({
       name: "read_file",
       description:
-        "Read a UTF-8 text file inside the project. Returns content and a sha256 version for later patches.",
+        "Read a UTF-8 text file inside the project. Returns a contiguous page (long files are paged; continue with `nextOffset`) and a sha256 version for later patches.",
       riskLevel: "L0",
       schema: ReadFileSchema,
       summarize: (args) => `read ${args.path}`,
@@ -134,13 +136,17 @@ export function createFileTools() {
         try {
           const result = await readTextFile(context.projectRoot, {
             path: args.path,
+            maxChars: READ_PAGE_CHARS,
             ...(args.offset === undefined ? {} : { offset: args.offset }),
             ...(args.limit === undefined ? {} : { limit: args.limit }),
           });
+          const page = result.truncated
+            ? `; lines ${result.offset}–${Math.max(result.offset, result.nextOffset - 1)} of ${result.totalLines}, next offset=${result.nextOffset}`
+            : "";
 
           return {
             ok: true,
-            summary: `read ${result.path} (${result.totalLines} lines, version ${result.version.slice(0, 12)})`,
+            summary: `read ${result.path} (${result.totalLines} lines, version ${result.version.slice(0, 12)})${page}`,
             data: result,
             truncated: result.truncated,
           };
