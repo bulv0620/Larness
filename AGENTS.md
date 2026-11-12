@@ -84,11 +84,15 @@ pnpm --filter @larness/web dev
 pnpm --filter @larness/web test:file src/features/models/ModelSettingsDialog.test.tsx
 pnpm --filter @larness/web exec biome check src/features/models/ModelSettingsDialog.tsx
 pnpm --filter @larness/web typecheck
+
+# biome 是独立 CLI：ci/check 是 biome 的子命令，不是 pnpm 的子命令
+pnpm exec biome check packages/ui/src/tabs.tsx
+pnpm exec biome ci packages/ui/src/tabs.tsx   # 只读、CI 用；写作 `pnpm ci …` 会报 ERR_PNPM_CI_NOT_IMPLEMENTED
 ```
 
 根脚本、Server 与跨包构建已落地。当前在本地运行检查与发布验证。
 
-> 已知误用：`pnpm check <files>` 会把路径透传给 `vitest`，在 `apps/web` 下找不到文件而以 1 退出；`pnpm test -- <pattern>` 也不会按文件过滤（会跑全量）。单文件验证只用上面的 `test:file`。
+> 已知误用：`pnpm check <files>` 会把路径透传给 `vitest`，在 `apps/web` 下找不到文件而以 1 退出；`pnpm test -- <pattern>` 也不会按文件过滤（会跑全量）；`pnpm ci <file>` 是 pnpm 的安装子命令，不是 biome。单文件验证只用上面的 `test:file`。
 
 ## 8. 提交与分支
 

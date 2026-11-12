@@ -90,7 +90,12 @@ export function defineTool<Schema extends z.ZodType>(
     requiresProjectLock: input.requiresProjectLock ?? true,
     ...(input.summarize === undefined
       ? {}
-      : { summarize: (args: unknown) => input.summarize?.(args as z.infer<Schema>) ?? "" }),
+      : {
+          summarize: (args: unknown) => {
+            const repaired = input.repairArgs === undefined ? args : input.repairArgs(args);
+            return input.summarize?.(repaired as z.infer<Schema>) ?? "";
+          },
+        }),
     async execute(rawArgs: unknown, context: ToolContext): Promise<ToolResult> {
       const repairedArgs = input.repairArgs === undefined ? rawArgs : input.repairArgs(rawArgs);
       const parsed = input.schema.safeParse(repairedArgs);

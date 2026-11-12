@@ -30,6 +30,10 @@ describe("file tools", () => {
         { name: "apply_patch", description: expect.any(String), riskLevel: "L1" },
       ]);
 
+      const listTool = registry.get("list_files");
+      expect(listTool?.summarize?.({})).toBe("list .");
+      expect(listTool?.summarize?.({ path: "src" })).toBe("list src");
+
       const list = await registry.execute("list_files", { path: "." }, { projectRoot: dir });
       expect(list).toMatchObject({ ok: true, truncated: false });
       expect((list.data as { files: { path: string }[] }).files.map((entry) => entry.path)).toEqual(

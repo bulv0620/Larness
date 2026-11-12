@@ -42,6 +42,7 @@ describe("ToolRegistry", () => {
         const mapped = typeof args.status === "string" ? aliases[args.status] : undefined;
         return mapped === undefined ? raw : { status: mapped };
       },
+      summarize: (args) => `status ${args.status}`,
       async handler(args) {
         return { ok: true, summary: args.status };
       },
@@ -53,6 +54,8 @@ describe("ToolRegistry", () => {
     await expect(
       statusTool.execute({ status: "invented" }, { projectRoot: "/tmp" }),
     ).resolves.toMatchObject({ ok: false, errorCode: "VALIDATION_ERROR" });
+    // The runner summarizes the raw call; it must see the same repaired args.
+    expect(statusTool.summarize?.({ status: "in_progress" })).toBe("status running");
   });
 
   it("rejects duplicate registrations and unknown tools", async () => {

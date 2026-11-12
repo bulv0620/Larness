@@ -104,7 +104,7 @@ export function createFileTools() {
       description: "List files and directories inside the authorized project root.",
       riskLevel: "L0",
       schema: ListFilesSchema,
-      summarize: (args) => `list ${args.path}`,
+      summarize: (args) => `list ${args.path ?? "."}`,
       async handler(args, context) {
         try {
           const result = await listFiles(context.projectRoot, {
