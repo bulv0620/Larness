@@ -1,6 +1,7 @@
 import { defineTool, type ToolDefinition, type ToolRiskLevel } from "@larness/agent";
 import { CommandParamsSchema } from "@larness/shared";
 import type { SecretStore } from "../../security/secretStore.js";
+import { secretVerdict } from "./secretGuard.js";
 
 // Classification changes approval only. Project scripts still execute host code.
 export function commandRisk(input: unknown): ToolRiskLevel {
@@ -18,33 +19,7 @@ export function commandRisk(input: unknown): ToolRiskLevel {
   }
   return "L2";
 }
-type SecretVerdict = "ok" | "blocked" | "unavailable";
-
-/**
- * Credentials must never appear in command arguments. The secret rows are read
- * once per Turn by the runner (D8); this check still decrypts on every call and
- * never caches plaintext.
- */
-export function commandSecretVerdict(
-  values: string[],
-  secrets: { ciphertext: string; nonce: string; tag: string }[],
-  secretStore: SecretStore | undefined,
-): SecretVerdict {
-  if (secrets.length === 0) {
-    return "ok";
-  }
-
-  if (secretStore === undefined) {
-    return "unavailable";
-  }
-
-  const blocked = secrets.some((secret) => {
-    const plaintext = secretStore.decrypt(secret);
-    return plaintext.length > 0 && values.some((value) => value.includes(plaintext));
-  });
-
-  return blocked ? "blocked" : "ok";
-}
+export const commandSecretVerdict = secretVerdict;
 
 export function createCommandTool(options: { secretStore?: SecretStore }): ToolDefinition {
   return {

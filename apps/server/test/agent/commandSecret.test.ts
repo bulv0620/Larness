@@ -40,6 +40,42 @@ describe("command secret verdict", () => {
   });
 });
 
+describe("plan secret guard", () => {
+  it("blocks a plan that contains a credential and fails closed without a store", async () => {
+    const { createPlanTool } = await import("../../src/modules/agent/planTool.js");
+    const counter = { decrypts: 0 };
+    const store = stubStore({ c1: "sk-live-123" }, counter);
+    const plan = {
+      title: "任务",
+      steps: [{ id: "s1", title: "复制 sk-live-123 到配置", status: "pending" }],
+    };
+    const context = {
+      projectRoot: "/tmp",
+      loadSecrets: () => [secretRow("c1")],
+      updatePlan: vi.fn(async () => ({ ok: true as const, summary: "plan" })),
+    };
+
+    const blocked = await createPlanTool({ db: {} as never, secretStore: store }).execute(
+      plan,
+      context,
+    );
+    expect(blocked).toMatchObject({ ok: false, errorCode: "FORBIDDEN" });
+    expect(context.updatePlan).not.toHaveBeenCalled();
+
+    const withoutStore = await createPlanTool({ db: {} as never }).execute(plan, context);
+    expect(withoutStore).toMatchObject({
+      ok: false,
+      summary: "Plan protection unavailable",
+    });
+
+    const clean = await createPlanTool({ db: {} as never, secretStore: store }).execute(
+      { title: "任务", steps: [{ id: "s1", title: "正常步骤", status: "pending" }] },
+      context,
+    );
+    expect(clean).toMatchObject({ ok: true });
+  });
+});
+
 describe("per-turn secret loading", () => {
   it("reads the secret rows once per Turn", () => {
     const load = vi.fn(() => [secretRow("c1")]);

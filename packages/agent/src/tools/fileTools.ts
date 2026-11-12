@@ -137,8 +137,8 @@ export function createFileTools() {
           return {
             ok: true,
             summary: `${result.matches.length} matches in ${result.scannedFiles} files${
-              result.truncated ? " (truncated)" : ""
-            }`,
+              result.scanBudgetExhausted ? " (scan budget reached; results may be incomplete)" : ""
+            }${result.truncated ? " (truncated)" : ""}`,
             data: result,
             truncated: result.truncated,
           };

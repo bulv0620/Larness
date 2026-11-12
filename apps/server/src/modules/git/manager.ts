@@ -27,6 +27,8 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import { type ResourceActionRow, resourceActions } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { ProjectWriteLock } from "../agent/projectWriteLock.js";
+import { getResourceLockRow } from "../locks/repository.js";
+import type { ResourceLockHandle } from "../locks/service.js";
 import { getProjectById } from "../projects/repository.js";
 import { insertOperation, updateOperation } from "../resources/repository.js";
 
@@ -44,6 +46,8 @@ export interface AgentGitContext {
   toolCallId: string;
   assertAuthorized: () => void;
   signal?: AbortSignal;
+  /** Project lock already held by the caller (the Turn); verified, not re-acquired. */
+  inheritedLock?: ResourceLockHandle;
 }
 
 function fail(
@@ -406,7 +410,23 @@ export class GitManager {
       });
       throw error;
     } finally {
-      lock.release();
+      // The caller owns the inherited lock; release only what we acquired.
+      lock?.release();
+    }
+  }
+
+  #assertInheritedLock(lock: ResourceLockHandle, rootRealPath: string, turnId: string): void {
+    const current = getResourceLockRow(this.options.db, lock.resourceType, lock.resourceId);
+
+    if (
+      current === null ||
+      current.id !== lock.id ||
+      current.fencingToken !== lock.fencingToken ||
+      current.executionId !== turnId ||
+      current.rootRealPath !== rootRealPath ||
+      current.expiresAt <= this.#now()
+    ) {
+      throw new GitError("GIT_CONFLICT", "Inherited project lock no longer matches this Turn");
     }
   }
   async runAgentAction(projectId: string, input: unknown, context: AgentGitContext) {
@@ -414,16 +434,29 @@ export class GitManager {
     if (!action.success) fail("FORBIDDEN", "Invalid Git action");
     const project = this.#project(projectId);
     const before = await this.status(projectId);
-    const lock = new ProjectWriteLock({
-      db: this.options.db,
-      projectId: project.id,
-      rootRealPath: project.realPath,
-      owner: context.turnId,
-      executionId: `git:${context.turnId}:${context.toolCallId}`,
-      ttlMs: this.options.lockTtlMs,
-      now: this.options.now,
-    });
-    if (!lock.acquire()) throw new GitError("GIT_CONFLICT", "Project is locked by another writer");
+    const inherited = context.inheritedLock;
+
+    if (inherited !== undefined) {
+      this.#assertInheritedLock(inherited, project.realPath, context.turnId);
+    }
+
+    const lock =
+      inherited === undefined
+        ? new ProjectWriteLock({
+            db: this.options.db,
+            projectId: project.id,
+            rootRealPath: project.realPath,
+            owner: context.turnId,
+            executionId: `git:${context.turnId}:${context.toolCallId}`,
+            ttlMs: this.options.lockTtlMs,
+            now: this.options.now,
+          })
+        : null;
+
+    if (lock !== null && !lock.acquire()) {
+      throw new GitError("GIT_CONFLICT", "Project is locked by another writer");
+    }
+
     try {
       context.assertAuthorized();
       const current = await this.status(projectId);
@@ -444,9 +477,11 @@ export class GitManager {
       });
       return result;
     } finally {
-      lock.release();
+      // The caller owns the inherited lock; release only what we acquired.
+      lock?.release();
     }
   }
+
   async #actionSnapshot(projectId: string, action: GitAction) {
     const snapshot = await this.status(projectId);
     if (action.action !== "discard") return snapshot;

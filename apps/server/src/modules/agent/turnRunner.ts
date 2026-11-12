@@ -1028,6 +1028,9 @@ export class TurnRunner {
                 turnId: turn.id,
                 toolCallId: request.id,
                 signal: controller.signal,
+                ...(projectLock?.handle === null || projectLock === null
+                  ? {}
+                  : { inheritedLock: projectLock.handle }),
                 assertAuthorized: () => {
                   assertAuthorized();
                   if (checkBudget() !== "ok" || lockLost)

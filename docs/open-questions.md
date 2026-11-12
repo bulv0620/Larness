@@ -36,6 +36,7 @@
 | Q-029 | 正式服务如何接收 `secretRef`，避免 PM2 将明文写入元数据、dump 或日志？ | M4-3 已验证守护/应用不继承 `LARNESS_*` 合成秘密，dump/pm2.log/服务日志无标记；正式 secretRef 注入与所有落盘路径仍需在产品注入前专项验证 | PM2 正式服务注入与脱敏 | M4-3b 产品秘密注入前 |
 | Q-032 | 缓存命中率的发布门槛怎么定？ | 已确认先只观测、不设门槛；真实数值与门槛在 HX-1 基线后按 Provider 设定（官方也说明缓存是尽力而为，不保证 100% 命中） | 发布门槛、性能验收口径 | [070 spec](../specs/070-runtime-efficiency/spec.md) D6 |
 | Q-033 | `agent_events` / `turns` / `session_context_summaries` 的保留期与体积上限默认值？ | 建议 events 90 天、turns 180 天、摘要 90 天，另有 `maxBytes`；先由 TR-1 体积报告支撑再定；清理默认关闭、只 dry-run | 数据保留、备份体积、历史可追溯性 | [071 spec](../specs/071-turn-recovery/spec.md) D2、[ADR-058](adr/ADR-058-turn-recovery-retention.md) |
+| Q-036 | 是否新增受管的文件创建工具（`write_file`）？ | 当前只能对已存在文件 `apply_patch`；新建文件必须走 `run_command` 的 shell 重定向，因此不会产生 `file.changed` 事件，检查点事实与「本次成果」卡片看不到新文件。建议新增受管创建：限制项目内相对路径、大小上限、创建后返回版本，并补 `file.changed` | 编码任务完整性、事实可核实性 | [070 tasks](../specs/070-runtime-efficiency/tasks.md)、未排期 |
 | Q-035 | TypeScript 7.0.2 对 JSDoc 中的某些文本会产生假诊断（例如注释里写 `**/test/*.ts` 会报 `TS7008 Member 'test' implicitly has an 'any' type`）。 | 已观测：改写注释即可消除；暂不改注释规范，遇到时按误报处理并记录 | 开发体验、误导性报错 | [HX-8 记录](../specs/070-runtime-efficiency/tasks.md) |
 | Q-034 | 开启清理前是否强制备份，备份保留几份？ | 建议强制备份一次并复用 ADR-055 的备份路径；份数与周期沿用 Q-010 | 删除不可逆风险 | [071 spec](../specs/071-turn-recovery/spec.md) TR-4、Q-010 |
 

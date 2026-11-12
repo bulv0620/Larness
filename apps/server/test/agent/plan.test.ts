@@ -1,11 +1,12 @@
 import path from "node:path";
 import { createFakeProvider, createFileToolRegistry } from "@larness/agent";
 import type { ServerEvent } from "@larness/shared";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
+import { listEncryptedSecrets } from "../../src/modules/models/repository.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -133,15 +134,23 @@ it("does not write a plan after cancellation and refuses known credentials", asy
         },
       );
       const tool = createPlanTool({ db: opened.db, secretStore: store });
+      const updatePlan = vi.fn(async () => ({ ok: true as const, summary: "plan" }));
+      // The credential guard runs in the handler (D8: rows read per Turn),
+      // so a blocked plan is a FORBIDDEN tool result, not a schema error.
       expect(
         await tool.execute(
           {
             title: "sk-plan-private-value",
             steps: [{ id: "a", title: "check", status: "running" }],
           },
-          { projectRoot: dir },
+          {
+            projectRoot: dir,
+            loadSecrets: () => listEncryptedSecrets(opened.db),
+            updatePlan,
+          },
         ),
-      ).toMatchObject({ errorCode: "VALIDATION_ERROR" });
+      ).toMatchObject({ ok: false, errorCode: "FORBIDDEN", summary: "Protected plan content" });
+      expect(updatePlan).not.toHaveBeenCalled();
       const session = await createSession({ db: opened.db, dataDir: dir }, {});
       const turn = createTurn({ db: opened.db }, { sessionId: session.id, text: "cancel" });
       const registry = createFileToolRegistry();
