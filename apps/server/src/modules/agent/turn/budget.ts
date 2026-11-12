@@ -2,7 +2,7 @@ import type { ProviderFinishReason, ProviderUsage } from "@larness/agent";
 import type { TurnStatus, TurnTerminalReason } from "../../../db/schema.js";
 
 export const DEFAULT_BUDGET = {
-  maxSteps: 30,
+  maxSteps: 50,
   maxToolCalls: 50,
   maxDurationMs: 10 * 60_000,
   contextRatio: 0.8,

@@ -339,6 +339,7 @@ export class TurnRunner {
     };
     let anchoredHeuristicTokens: number | undefined;
     let anchoredProviderTokens: number | undefined;
+    let wrapUpRequested = false;
     const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
     const repeatFailures = new Map<string, number>();
     // One secret table read per Turn (D8); plaintext is still decrypted per call.
@@ -1184,6 +1185,19 @@ export class TurnRunner {
           });
         }
 
+        // Ask the model to land the turn before the budget cuts it mid-sentence.
+        if (!wrapUpRequested && this.#shouldRequestWrapUp(steps, startedAt)) {
+          wrapUpRequested = true;
+          messages.push({
+            role: "user",
+            content: `You have used ${steps} of ${this.#budget.maxSteps} steps for this turn. Stop exploring: finish the operation in progress, update the plan to match reality, and reply with a concise summary of what changed, what was verified, and what remains unfinished. Do not start new work.`,
+          });
+          this.#options.logger?.info(
+            { turnId, sessionId: session.id, steps, maxSteps: this.#budget.maxSteps },
+            "turn wrap-up requested",
+          );
+        }
+
         steps += 1;
         const assistantMessageId = newId("msg");
         let text = "";
@@ -1996,6 +2010,14 @@ export class TurnRunner {
     } catch {
       // Broadcasting is best effort; the event is already durable.
     }
+  }
+
+  /** True when the remaining step or time budget is about to end the turn. */
+  #shouldRequestWrapUp(steps: number, startedAt: number): boolean {
+    const nearSteps = this.#budget.maxSteps >= 8 && steps >= this.#budget.maxSteps - 4;
+    const nearTime = this.#now() - startedAt >= this.#budget.maxDurationMs * 0.8;
+
+    return nearSteps || nearTime;
   }
 
   #now(): number {

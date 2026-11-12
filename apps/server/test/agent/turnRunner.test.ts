@@ -1169,6 +1169,54 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("asks the model to wrap up before the step budget runs out", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "long task" });
+        // Six tool steps then a text answer: maxSteps 8 puts the wrap-up at step 4.
+        const script = Array.from({ length: 6 }, (_, index) => ({
+          chunks: [
+            {
+              type: "tool-call" as const,
+              toolCall: { id: `call_${index}`, name: "list_files", args: {} },
+            },
+            { type: "finish" as const, finishReason: "tool-calls" as const },
+          ],
+        }));
+        const provider = createFakeProvider([...script, textStep("done")]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          budget: { maxSteps: 8 },
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const isWrapUp = (message: { role: string; content: string }) =>
+          message.role === "user" && message.content.includes("steps for this turn");
+
+        // Injected once, then carried along like any other message.
+        const lastCall = provider.calls.at(-1);
+        const hints = lastCall?.messages.filter((message) => isWrapUp(message)) ?? [];
+        expect(hints).toHaveLength(1);
+
+        // The hint is appended at the tail so the request prefix stays intact.
+        const hinted = provider.calls.find((call) => {
+          const tail = call.messages.at(-1);
+          return tail !== undefined && isWrapUp(tail);
+        });
+        expect(hinted?.messages.at(-1)?.content).toContain("Do not start new work.");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("keeps reasoning in memory for the tool loop and never persists it", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

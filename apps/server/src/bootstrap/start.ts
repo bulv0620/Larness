@@ -445,6 +445,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         resolveProvider:
           options.providerResolver ?? createDefaultProviderResolver(opened.db, secretStore),
         publish: publishAgentEvent,
+        logger: activeLogger,
       });
       turnQueue = new TurnQueue({
         runner,
