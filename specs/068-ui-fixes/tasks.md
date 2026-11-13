@@ -20,8 +20,16 @@
 | UI-F14 | Header 服务端资源 | Header 右侧显示 Server 主机 CPU / ROM / RAM 占用 | UI-F13 | done |
 | UI-F15 | 项目拖拽排序 | 项目条目直接拖拽（及键盘）调整顺序，顺序服务端持久化，会话层级加深缩进 | UI-F14 | done |
 | UI-F16 | 默认工作区点击 | 点击默认工作区条目只切换展开；仅 `+` 创建默认会话 | UI-F15 | done |
+| UI-F17 | 首屏白屏 | Web HTML 加载画面、首页首次认证等待及 Chromium 回归 | UI-F16 | done |
 
 ## 验收记录
+
+### UI-F17（2026-11-13，Windows）
+
+- 生产 Chromium 先复现三项失败。实现后，开发和生产 Chromium 各 3 项通过，覆盖主模块加载前可见、认证检查期间持续显示、配对页面出现后退场、320px 深色与减少动态效果、认证重试和主模块下载失败后的重新加载。生产版真实配对、Passkey 登录和撤销流程通过。
+- `pnpm build` 通过。Mock Chromium 三栏、主题持久化和窄屏定向用例单 worker 复跑 3 项通过，首次并行运行有两项等待应用就绪超时。目视核对了浅色和深色波浪均限制在字形内。未运行整套浏览器测试。
+- `VITEST_MAX_WORKERS=2 pnpm check` 的 Biome、全仓类型检查、Web 189 项和 Agent 57 项通过。Server 646 通过、3 失败、31 跳过。在独立检出的 `main`（`6fa957d`）复跑，`commands.test.ts` 和 `terminals.test.ts` 的恢复锁断言以及 `service-ops.test.ts` 的预览状态码断言均以相同原因失败。
+- 2026-11-13 用户确认首屏验收通过并授权合并推送。
 
 ### UI-F16（2026-11-12，macOS）
 

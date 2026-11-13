@@ -6,10 +6,81 @@
     <meta name="color-scheme" content="light dark" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Larness</title>
-    <script type="module" src="/src/theme-init.ts"></script>
+    <style>
+      .startup {
+        position: fixed;
+        inset: 0;
+        display: none;
+        place-content: center;
+        text-align: center;
+        background: var(--canvas, #f4f4f6);
+        color: var(--ink, #1d1d1f);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --startup-muted: var(--ink-3, #8a8a91);
+        --startup-fill: var(--accent, #0a84ff);
+      }
+
+      [data-theme="dark"] .startup {
+        background: var(--canvas, #161618);
+        color: var(--ink, #f2f2f5);
+        --startup-muted: var(--ink-3, #7e7e87);
+        --startup-fill: var(--accent, #3d9bff);
+      }
+
+      #root:empty + .startup {
+        display: grid;
+      }
+
+      .startup-wordmark {
+        font-size: clamp(2rem, 9vw, 3.5rem);
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: 0.06em;
+        color: transparent;
+        background:
+          radial-gradient(ellipse 25% 100% at center bottom, var(--startup-fill) 97%, transparent) 0
+            calc(50% - 0.12em) / 1.5em 0.24em repeat-x,
+          radial-gradient(ellipse 25% 100% at center top, var(--startup-muted) 97%, transparent)
+            -0.75em calc(50% + 0.12em) / 1.5em 0.24em repeat-x,
+          linear-gradient(var(--startup-muted) 50%, var(--startup-fill) 50%);
+        background-clip: text;
+        animation: startup-wave 1.6s linear infinite;
+      }
+
+      .startup a {
+        color: var(--startup-fill);
+      }
+
+      @keyframes startup-wave {
+        to {
+          background-position-x: -1.5em, -2.25em, 0;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce), (forced-colors: active) {
+        .startup-wordmark {
+          animation: none;
+        }
+      }
+
+      @media (forced-colors: active) {
+        .startup-wordmark {
+          color: CanvasText;
+        }
+      }
+    </style>
+    <script type="module" src="/src/startup.ts"></script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <div class="startup">
+      <div id="startup-status" role="status" aria-label="正在加载 Larness">
+        <div class="startup-wordmark" aria-hidden="true">LARNESS</div>
+      </div>
+      <div id="startup-error" hidden>
+        <p role="alert">页面加载失败，请重新加载。</p>
+        <a href="">重新加载</a>
+      </div>
+    </div>
   </body>
 </html>

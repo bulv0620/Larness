@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F17 首屏波浪加载**（`done`，`task/ui-f17-startup-wave`，2026-11-13 用户验收）：`LARNESS` 字内波浪覆盖 HTML 首屏与首页首次认证检查。生产构建、开发与生产 Chromium 首屏回归、生产 Passkey 认证及 Web 189 项测试通过。`pnpm check` 的 3 项 Server 失败在 `main` 上复现。用户确认首屏验收通过并授权合并推送。详见 [验收记录](specs/068-ui-fixes/tasks.md#ui-f172026-11-13windows)。
+
 - **M3-12 本机预览默认开启**（`done`，`task/m3-12-preview-default`，2026-11-13 用户验收）：新配置和缺省字段采用 `preview.enabled: true`，显式关闭继续生效。Windows 配置、初始化、预览 API 定向测试 27 项通过，省略 `enabled` 的 Chromium 生产页面预览与 HMR 用例独立运行通过，Biome 与全仓类型检查通过。`pnpm check` 的 Server 套件 642 通过、7 失败、31 跳过，其中 3 项命令与终端测试在改动前的配置上也失败。用户确认按专项验收放行，授权合并推送。
 
 - **桌面侧栏动效微调**（`done`，`task/sidebar-motion-polish`，2026-11-13）：展开 200ms、收起 160ms，内容跟随栏宽，右栏向右缘收起，修正侧栏高度和折叠分隔条。Web 186/186、Web 构建、全仓类型检查与 Chromium 侧栏相关用例通过。合并前复跑 `pnpm check`，Server 629 通过、15 失败、31 跳过，涉及命令、Git、终端、服务预览及 Vite。用户确认按侧栏专项检查放行并授权合并推送。

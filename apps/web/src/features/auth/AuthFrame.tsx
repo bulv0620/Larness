@@ -1,18 +1,5 @@
 import type { ReactNode } from "react";
 
-export function AuthLoading({ label = "正在加载…" }: { label?: string }) {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-canvas text-ink">
-      <div className="flex items-center gap-2 text-sm text-ink-2">
-        <span className="inline-flex size-7 items-center justify-center rounded-md bg-accent text-[13px] font-semibold text-accent-ink">
-          L
-        </span>
-        {label}
-      </div>
-    </main>
-  );
-}
-
 export function AuthErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas px-6 text-ink">

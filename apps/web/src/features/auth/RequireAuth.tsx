@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
-import { AuthLoading } from "./AuthFrame";
 import { useSession } from "./useAuth";
 
 export function RequireAuth({
@@ -13,9 +12,7 @@ export function RequireAuth({
   const session = useSession();
   const location = useLocation();
 
-  if (session.isPending) {
-    return <AuthLoading />;
-  }
+  if (session.isPending) return null;
 
   if (!session.data) {
     const target =

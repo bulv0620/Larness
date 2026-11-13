@@ -474,6 +474,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | UI-F14 | [Header 服务端资源占用](068-ui-fixes/spec.md#ui-f14-header-服务端资源占用) | UI-F13 done | `done` |
 | UI-F15 | [项目列表拖拽排序](068-ui-fixes/spec.md#ui-f15-项目列表拖拽排序) | UI-F14 done；用户直接要求 | `done` |
 | UI-F16 | [默认工作区点击不创建会话](068-ui-fixes/spec.md#ui-f16-默认工作区点击不创建会话) | UI-F15 done；用户直接反馈 | `done` |
+| UI-F17 | [首屏波浪加载](068-ui-fixes/spec.md#ui-f17-首屏波浪加载) | UI-F16 done；用户直接要求 | `done`（用户验收通过，整仓检查有既有失败） |
 
 ### 2026-11-12 成果展示与临时文件折叠（074，done）
 

@@ -28,7 +28,9 @@ function storedTheme(): ThemeSetting {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeSetting>(storedTheme);
-  const [prefersDark, setPrefersDark] = useState(false);
+  const [prefersDark, setPrefersDark] = useState(
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+  );
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");

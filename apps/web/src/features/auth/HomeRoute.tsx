@@ -1,14 +1,12 @@
 import { WorkspaceHome } from "@/features/workspace/WorkspaceHome";
-import { AuthErrorState, AuthLoading } from "./AuthFrame";
+import { AuthErrorState } from "./AuthFrame";
 import { RequireAuth } from "./RequireAuth";
 import { useBootstrap } from "./useAuth";
 
 export function HomeRoute() {
   const bootstrap = useBootstrap();
 
-  if (bootstrap.isPending) {
-    return <AuthLoading label="正在检查工作空间…" />;
-  }
+  if (bootstrap.isPending) return null;
 
   if (bootstrap.isError || !bootstrap.data) {
     return (
