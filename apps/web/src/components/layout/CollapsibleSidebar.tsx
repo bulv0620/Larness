@@ -1,7 +1,16 @@
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
-const TRANSITION_MS = 200;
-const SETTLE_MS = TRANSITION_MS + 20;
+// Collapse accelerates out, expand decelerates into place: the asymmetric
+// curves read as snappier than a symmetric ease-out even at the same duration.
+const COLLAPSE_MS = 150;
+const EXPAND_MS = 150;
+const EASE_COLLAPSE = "cubic-bezier(0.4, 0, 1, 1)";
+const EASE_EXPAND = "cubic-bezier(0.22, 1, 0.36, 1)";
+// Content fades on its own (shorter) timeline so it clearly reads as a fade
+// while the panel is collapsing, and re-appears early during expand.
+const FADE_OUT_MS = 90;
+const FADE_IN_MS = 120;
+const SETTLE_MS = Math.max(COLLAPSE_MS, EXPAND_MS, FADE_OUT_MS, FADE_IN_MS) + 20;
 
 /**
  * Animated container for collapsible sidebars.
@@ -43,11 +52,16 @@ export const CollapsibleSidebar = ({
   }, [collapsed]);
 
   const innerWidth = `${Math.max(width, 0)}px`;
-  // Transitioning `visibility` keeps the panel visible for the whole collapse
-  // animation and flips it hidden exactly at the end; on expand it becomes
-  // visible immediately.
-  const transition = animate
-    ? `width ${TRANSITION_MS}ms ease-out, visibility ${TRANSITION_MS}ms`
+  // Transitioning `visibility` with a discrete 0s step keeps the panel
+  // visible for the whole collapse animation and flips it hidden exactly at
+  // the end; on expand it becomes visible immediately.
+  const outerTransition = animate
+    ? collapsed
+      ? `width ${COLLAPSE_MS}ms ${EASE_COLLAPSE}, visibility 0s linear ${COLLAPSE_MS}ms`
+      : `width ${EXPAND_MS}ms ${EASE_EXPAND}, visibility 0s linear 0s`
+    : undefined;
+  const innerTransition = animate
+    ? `opacity ${collapsed ? FADE_OUT_MS : FADE_IN_MS}ms ease-out`
     : undefined;
 
   const outerStyle: CSSProperties = {
@@ -55,13 +69,13 @@ export const CollapsibleSidebar = ({
     width: collapsed ? 0 : innerWidth,
     overflow: "hidden",
     visibility: collapsed ? "hidden" : "visible",
-    transition,
+    transition: outerTransition,
   };
 
   const innerStyle: CSSProperties = {
     width: innerWidth,
     opacity: collapsed ? 0 : 1,
-    transition: animate ? `opacity ${TRANSITION_MS}ms ease-out` : undefined,
+    transition: innerTransition,
   };
 
   return (
