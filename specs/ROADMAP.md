@@ -215,6 +215,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M3-9 | [任务结束后显示成果](036-conversation-experience/spec.md#m3-9-任务结束后显示成果) | M2-15、M3-8 done，用户直接指令 | `done` |
 | M3-10 | [Agent 工具描述与执行契约](051-agent-tool-contract/spec.md) | G3 done，用户直接指令 | `done` |
 | M3-11 | [工作区前端交互优化](052-workspace-polish/spec.md) | M3-10 done，用户直接指令 | `done` |
+| M3-12 | [本机预览默认开启](040-services-preview/spec.md#m3-12-本机预览默认开启) | M3-6 done，用户直接确认 | `done`（2026-11-13 用户验收） |
 
 ## 7. M4 持久运行与版本发布
 

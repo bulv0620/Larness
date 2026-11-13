@@ -12,6 +12,7 @@ describe("loadConfig", () => {
       expect(loaded.source).toBe("defaults");
       expect(loaded.config.server.host).toBe("127.0.0.1");
       expect(loaded.config.server.port).toBe(3210);
+      expect(loaded.config.preview).toEqual({ enabled: true, port: 3211 });
       expect(loaded.webAuthn).toMatchObject({
         enabled: true,
         origin: "http://localhost:3210",
@@ -20,6 +21,16 @@ describe("loadConfig", () => {
         reason: null,
       });
       expect(loaded.config.webauthn.origin).toBe("http://localhost:3210");
+    });
+  });
+
+  it("enables preview when a config file omits preview settings", async () => {
+    await withTempDir(async (dir) => {
+      const { preview: _preview, ...config } = testConfig();
+      await writeConfig(dir, config);
+
+      const loaded = await loadConfig({ dataDir: dir, env: {} });
+      expect(loaded.config.preview).toEqual({ enabled: true, port: 3211 });
     });
   });
 

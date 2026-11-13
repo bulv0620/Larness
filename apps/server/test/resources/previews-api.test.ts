@@ -8,7 +8,7 @@ import { listeningSockets } from "../../src/modules/services/identity.js";
 import { updateTurnRow } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
-import { withTempDir } from "../helpers.js";
+import { testConfig, withTempDir, writeConfig } from "../helpers.js";
 import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -35,9 +35,9 @@ async function waitFor(check: () => Promise<boolean>, label: string, timeoutMs =
 }
 
 async function fixture(dir: string, previewPort: number) {
-  const f = await startAuthorizedServer(path.join(dir, "data"), {
-    preview: { enabled: true, port: previewPort },
-  });
+  const dataDir = path.join(dir, "data");
+  await writeConfig(dataDir, { ...testConfig(), preview: { port: previewPort } });
+  const f = await startAuthorizedServer(dataDir);
   const root = path.join(dir, "project");
   await mkdir(root);
   const project = await createProject({ db: f.running.db }, { rootPath: root });
@@ -91,7 +91,7 @@ async function fixture(dir: string, previewPort: number) {
   return { f, project, session, client, service, port };
 }
 
-it("resolves a preview ticket through the authenticated API and fails closed when disabled", async () => {
+it("resolves a preview ticket through the authenticated API with preview enabled by default", async () => {
   await withTempDir(async (dir) => {
     const previewPort = await freePort();
     const data = await fixture(dir, previewPort);
@@ -139,7 +139,7 @@ it("resolves a preview ticket through the authenticated API and fails closed whe
 
 it("returns PREVIEW_DISABLED when preview is disabled", async () => {
   await withTempDir(async (dir) => {
-    const f = await startAuthorizedServer(path.join(dir, "data"));
+    const f = await startAuthorizedServer(path.join(dir, "data"), { preview: { enabled: false } });
     try {
       const headers = { cookie: f.cookie, origin: f.origin, "x-csrf-token": f.csrf };
       const response = await f.running.app.inject({
@@ -149,6 +149,7 @@ it("returns PREVIEW_DISABLED when preview is disabled", async () => {
         payload: { serviceId: "svc_00000000-0000-0000-0000-000000000000" },
       });
       expect(response.statusCode).toBe(503);
+      expect(response.json()).toMatchObject({ error: { code: "PREVIEW_DISABLED" } });
     } finally {
       await stopAuthorizedServer(f);
     }

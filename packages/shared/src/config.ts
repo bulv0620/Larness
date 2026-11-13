@@ -60,9 +60,11 @@ export const UpdatesConfigSchema = z.strictObject({
 });
 
 export const PreviewConfigSchema = z.strictObject({
-  enabled: z.boolean(),
+  enabled: z.boolean().default(true),
   port: z.number().int().min(1).max(65535).default(3211),
 });
+
+const DEFAULT_PREVIEW_CONFIG = PreviewConfigSchema.parse({});
 
 export const CleanupRetentionSchema = z.strictObject({
   events: z.number().int().min(1).max(3650).default(90),
@@ -93,7 +95,7 @@ export const AppConfigSchema = z.strictObject({
   webauthn: WebAuthnConfigSchema,
   logging: LoggingConfigSchema,
   updates: UpdatesConfigSchema,
-  preview: PreviewConfigSchema,
+  preview: PreviewConfigSchema.default(DEFAULT_PREVIEW_CONFIG),
   cleanup: CleanupConfigSchema.default(DEFAULT_CLEANUP_CONFIG),
 });
 
@@ -135,10 +137,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     autoCheck: true,
     autoInstall: false,
   },
-  preview: {
-    enabled: false,
-    port: 3211,
-  },
+  preview: DEFAULT_PREVIEW_CONFIG,
   cleanup: DEFAULT_CLEANUP_CONFIG,
 };
 

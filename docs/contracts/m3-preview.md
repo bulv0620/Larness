@@ -47,8 +47,11 @@ M3-1一份新增services迁移，包含上述temporary字段、scope引用、sou
 
 候选资源预算（M3-0需实测，变化须更新候选/评审）：每client每service最多32个活动HTTP和8个WS，全实例最多256个上游连接；connect/身份探测2秒、普通HTTP首响应头10秒、空闲60秒；非流式请求/响应各16MiB，SSE/WS按64KiB单帧或chunk、1MiB排队上限与背压处理，WS最长grant剩余寿命；取消/超限断开并稳定反馈。不得为支持Vite关闭身份/授权/预算；上传、大资源/特殊流式兼容性按实测披露。
 
-## 5. 配置候选与支持矩阵
-现有`preview.enabled=false`默认不变。拟新增可选`preview.mode:"local"|"remote"`（默认local）、`preview.listenHost`（仅loopback，默认127.0.0.1）、`preview.port`（默认3211，可改、端口冲突报不可用，禁止静默抢占）、`preview.baseDomain`（local固定preview.localhost；remote必填独立注册域）、`preview.publicOrigin`（remote为baseDomain的HTTPS基础origin，用于导出各grant子域的scheme/port，local由已核验host/port推导）；remote公网入口由外部DNS/TLS/反代显式配置。字段仅候选、旧配置兼容迁移不在本次执行。remote模式与管理端共享注册域、未知域、IP/publicOrigin含path/userinfo/query、反代未配置均拒绝启用。
+## 5. 配置与支持矩阵
+
+按 [ADR-060](../adr/ADR-060-local-preview-default.md)，新配置或省略 `preview.enabled` 时，本机预览默认开启。网关监听 `127.0.0.1`，`preview.port` 默认 3211，预览来源使用 `*.preview.localhost`。显式设置 `preview.enabled: false` 后重启可关闭网关。端口冲突时，管理端继续启动并记录预览不可用的警告。
+
+远程预览的候选配置为 `preview.mode`、`preview.listenHost`、`preview.baseDomain` 和 `preview.publicOrigin`，尚未实现。远程入口设计要求由外部 DNS、TLS 和反代配置独立注册域。
 
 | 场景 | 推荐行为/验收 |
 |---|---|

@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **M3-12 本机预览默认开启**（`done`，`task/m3-12-preview-default`，2026-11-13 用户验收）：新配置和缺省字段采用 `preview.enabled: true`，显式关闭继续生效。Windows 配置、初始化、预览 API 定向测试 27 项通过，省略 `enabled` 的 Chromium 生产页面预览与 HMR 用例独立运行通过，Biome 与全仓类型检查通过。`pnpm check` 的 Server 套件 642 通过、7 失败、31 跳过，其中 3 项命令与终端测试在改动前的配置上也失败。用户确认按专项验收放行，授权合并推送。
+
 - **桌面侧栏动效微调**（`done`，`task/sidebar-motion-polish`，2026-11-13）：展开 200ms、收起 160ms，内容跟随栏宽，右栏向右缘收起，修正侧栏高度和折叠分隔条。Web 186/186、Web 构建、全仓类型检查与 Chromium 侧栏相关用例通过。合并前复跑 `pnpm check`，Server 629 通过、15 失败、31 跳过，涉及命令、Git、终端、服务预览及 Vite。用户确认按侧栏专项检查放行并授权合并推送。
 
 - **锁争用不再中断 Turn（2026-11-13，用户反馈）**：用户明确要求“锁不能直接中断一轮 Turn，可以等一轮或采用其他方式”。改动三项：(1) TurnRunner 新增 `ensureProjectLock()`，写工具在项目锁被占用时按 250ms 轮询、最多等待 10 秒（`lockWaitMs` / `lockPollMs` 可配），等待期间响应用户取消与 Turn 预算；仍不可用才把该次工具标为 `RESOURCE_LOCKED`，Turn 继续。(2) 已持有租约丢失（续租失败 / 被接管 / 被释放）不再 `finalize(FAILED)`，心跳只标记 `lockLost` 并释放自身行；Turn 可继续只读步骤，下一次写工具重新申请锁（新 fencing），并向模型追加一次“锁曾丢失，重新读取文件并核对仓库状态”的提示。(3) `rootHasWriter` 不再把 `expires_at=0` 的释放 tombstone 当作活跃写者，因此释放后同一 Turn 或新写者可用更高 fencing 接管；`ProjectWriteLock.#markLost()` 会尽力释放自身行，避免过期/释放的旧行继续挡住重试。验证：新增“等待 200ms 后成功写入”“持续占用时工具失败但 Turn 完成”“锁丢失后重新取得并完成补丁”三组回归（在旧实现上均为 FAILED），`turnRunner` 49、`projectWriteLock` 2、`locks/service` 6、`cross-resource-locks` 1、`file-manager` 4、`api/files` 4 共 66 项通过；server typecheck、改动文件 biome 通过。**边界**：真正并发的写者仍会让该次工具在等待超时后返回 `RESOURCE_LOCKED`（这是背压），但不会再结束整轮；命令/终端的真实进程用例仍受本机既有环境失败影响，未计为通过。

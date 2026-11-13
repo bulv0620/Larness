@@ -76,9 +76,11 @@ describe("applyInit", () => {
 
         const config = JSON.parse(await readFile(file, "utf8")) as {
           server: { host: string; port: number };
+          preview: { enabled: boolean; port: number };
           webauthn: { origin: string; rpId: string };
         };
         expect(config.server).toMatchObject({ host: "127.0.0.1", port: 3210 });
+        expect(config.preview).toEqual({ enabled: true, port: 3211 });
         expect(config.webauthn).toMatchObject({
           origin: "http://localhost:3210",
           rpId: "localhost",
@@ -182,7 +184,7 @@ describe("applyInit", () => {
           auth: { idleTtlMinutes: 55 },
           logging: { level: "warn", retentionDays: 30 },
           updates: { channel: "beta", autoCheck: false },
-          preview: { enabled: true },
+          preview: { enabled: false },
         });
         await writeConfig(dir, original);
         const current = await loadConfig({ dataDir: dir, env: { LARNESS_LOG_LEVEL: "debug" } });

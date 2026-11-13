@@ -17,11 +17,7 @@ const dataDir = mkdtempSync(path.join(tmpdir(), "larness-e2e-"));
 const previewPort = Number(process.env.LARNESS_E2E_PREVIEW_PORT ?? 3211);
 writeFileSync(
   path.join(dataDir, "config.json"),
-  `${JSON.stringify(
-    { ...DEFAULT_APP_CONFIG, preview: { enabled: true, port: previewPort } },
-    null,
-    2,
-  )}\n`,
+  `${JSON.stringify({ ...DEFAULT_APP_CONFIG, preview: { port: previewPort } }, null, 2)}\n`,
   { mode: 0o600 },
 );
 const port = Number(process.env.LARNESS_E2E_PORT ?? 3210);
