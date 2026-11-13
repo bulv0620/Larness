@@ -36,6 +36,7 @@ export class ProjectWriteLock {
   readonly #ttlMs: number;
   readonly #now: (() => number) | undefined;
   #handle: ResourceLockHandle | null = null;
+  #lost = false;
   readonly #rootRealPath: string | undefined;
 
   constructor(options: ProjectWriteLockOptions) {
@@ -52,9 +53,31 @@ export class ProjectWriteLock {
     return this.#handle;
   }
 
+  /** True once a lock we held was lost to another writer or a release. */
+  get lost(): boolean {
+    return this.#lost;
+  }
+
   acquire(): ResourceLockHandle | null {
-    if (this.#handle !== null && this.#isCurrent(this.#handle)) {
-      return this.#handle;
+    if (this.#lost) {
+      return null;
+    }
+
+    if (this.#handle !== null) {
+      if (this.#isCurrent(this.#handle)) {
+        return this.#handle;
+      }
+
+      // The lease may have expired while this writer still owned it (for
+      // example a stalled event loop). Revival only succeeds while the row
+      // still carries our fencing token; a takeover clears that.
+      const renewed = this.#renewHandle();
+      if (renewed !== null) {
+        return renewed;
+      }
+
+      this.#markLost();
+      return null;
     }
 
     this.#handle = acquireResourceLock(
@@ -77,16 +100,25 @@ export class ProjectWriteLock {
       return null;
     }
 
-    this.#handle = renewResourceLock(
-      { db: this.#db, now: this.#now },
-      {
-        id: this.#handle.id,
-        fencingToken: this.#handle.fencingToken,
-        ttlMs: this.#ttlMs,
-      },
-    );
+    const renewed = this.#renewHandle();
+    if (renewed === null) {
+      this.#markLost();
+    }
+    return renewed;
+  }
 
-    return this.#handle;
+  /**
+   * Renew only an already-held lease. A writer that never got the lock (for
+   * example because another Turn holds it) has nothing to lose yet.
+   */
+  renewIfHeld(): boolean {
+    if (this.#lost) {
+      return false;
+    }
+    if (this.#handle === null) {
+      return true;
+    }
+    return this.renew() !== null;
   }
 
   release(): boolean {
@@ -129,5 +161,31 @@ export class ProjectWriteLock {
   #isCurrent(handle: ResourceLockHandle): boolean {
     const current = this.current();
     return current?.id === handle.id && current.fencingToken === handle.fencingToken;
+  }
+
+  #renewHandle(): ResourceLockHandle | null {
+    if (this.#handle === null) {
+      return null;
+    }
+
+    const renewed = renewResourceLock(
+      { db: this.#db, now: this.#now },
+      {
+        id: this.#handle.id,
+        fencingToken: this.#handle.fencingToken,
+        ttlMs: this.#ttlMs,
+      },
+    );
+
+    if (renewed !== null) {
+      this.#handle = renewed;
+    }
+
+    return renewed;
+  }
+
+  #markLost(): void {
+    this.#lost = true;
+    this.#handle = null;
   }
 }

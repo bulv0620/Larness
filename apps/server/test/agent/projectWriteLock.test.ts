@@ -70,4 +70,67 @@ describe("ProjectWriteLock", () => {
       }
     });
   });
+
+  it("revives an expired lease it still owns and reports a takeover as lost", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const clock = { value: 1_000 };
+        const now = () => clock.value;
+        const first = new ProjectWriteLock({
+          db: opened.db,
+          projectId: "prj_1",
+          owner: "ses_1",
+          executionId: "trn_1",
+          ttlMs: 1_000,
+          now,
+        });
+        const second = new ProjectWriteLock({
+          db: opened.db,
+          projectId: "prj_1",
+          owner: "ses_2",
+          executionId: "trn_2",
+          ttlMs: 1_000,
+          now,
+        });
+
+        expect(first.acquire()).toMatchObject({ fencingToken: 1, expiresAt: 2_000 });
+
+        clock.value = 5_000;
+        expect(first.renew()).toMatchObject({ fencingToken: 1, expiresAt: 6_000 });
+        expect(first.lost).toBe(false);
+        expect(second.acquire()).toBeNull();
+
+        clock.value = 7_000;
+        expect(first.acquire()).toMatchObject({ fencingToken: 1, expiresAt: 8_000 });
+        expect(second.acquire()).toBeNull();
+
+        clock.value = 9_000;
+        expect(second.acquire()).toMatchObject({ fencingToken: 2, expiresAt: 10_000 });
+        expect(first.renew()).toBeNull();
+        expect(first.lost).toBe(true);
+        expect(first.acquire()).toBeNull();
+        expect(first.release()).toBe(false);
+
+        const never = new ProjectWriteLock({
+          db: opened.db,
+          projectId: "prj_1",
+          owner: "ses_3",
+          executionId: "trn_3",
+          ttlMs: 1_000,
+          now,
+        });
+        expect(never.acquire()).toBeNull();
+        expect(never.lost).toBe(false);
+        expect(never.renewIfHeld()).toBe(true);
+
+        expect(second.release()).toBe(true);
+        expect(never.acquire()).toMatchObject({ fencingToken: 3 });
+        expect(never.release()).toBe(true);
+      } finally {
+        opened.close();
+      }
+    });
+  });
 });

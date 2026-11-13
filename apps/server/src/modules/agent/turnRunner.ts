@@ -427,7 +427,7 @@ export class TurnRunner {
       return projectLock.acquire() !== null;
     };
 
-    const renewProjectLock = (): boolean => projectLock === null || projectLock.renew() !== null;
+    const renewProjectLock = (): boolean => projectLock === null || projectLock.renewIfHeld();
 
     let lockLost = false;
     const heartbeat = setInterval(

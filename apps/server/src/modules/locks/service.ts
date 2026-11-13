@@ -5,6 +5,7 @@ import { immediateTransaction } from "../../db/transaction.js";
 import { getProjectById } from "../projects/repository.js";
 import {
   getResourceLockRow,
+  getResourceLockRowById,
   insertResourceLockRow,
   releaseResourceLockRow,
   renewResourceLockRow,
@@ -104,15 +105,30 @@ export function renewResourceLock(
 
   const now = options.now?.() ?? Date.now();
 
-  return immediateTransaction(options.db, (tx) =>
-    renewResourceLockRow(tx, {
+  return immediateTransaction(options.db, (tx) => {
+    const current = getResourceLockRowById(tx, input.id);
+
+    if (current === null || current.fencingToken !== input.fencingToken || current.expiresAt <= 0) {
+      return null;
+    }
+
+    // Reviving an expired lease is only safe while no other writer has taken
+    // an overlapping root. Active leases cannot coexist with another writer.
+    if (
+      current.expiresAt <= now &&
+      current.rootRealPath !== null &&
+      rootHasWriter(tx, current.rootRealPath, now, current.id)
+    ) {
+      return null;
+    }
+
+    return renewResourceLockRow(tx, {
       id: input.id,
       fencingToken: input.fencingToken,
       expiresAt: now + input.ttlMs,
       heartbeatAt: now,
-      now,
-    }),
-  );
+    });
+  });
 }
 
 export function releaseResourceLock(

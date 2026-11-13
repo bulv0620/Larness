@@ -27,6 +27,7 @@ import {
   toolMessageContent,
 } from "../../src/modules/agent/turn/toolResults.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
+import { acquireResourceLock } from "../../src/modules/locks/service.js";
 import { getProjectById } from "../../src/modules/projects/repository.js";
 import { createProject, updateProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -1402,6 +1403,131 @@ describe("TurnRunner", () => {
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
         expect(await readFile(path.join(projectRoot, "a.txt"), "utf8")).toBe("new\n");
 
+        const lock = opened.sqlite
+          .prepare(
+            "SELECT fencing_token, expires_at FROM resource_locks WHERE resource_type = 'project'",
+          )
+          .get() as { fencing_token: number; expires_at: number };
+        expect(lock.fencing_token).toBe(1);
+        expect(lock.expires_at).toBe(0);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("keeps a Turn alive when another writer holds the project lock", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const projectRoot = path.join(dir, "project");
+        await mkdir(projectRoot);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false, now: () => 1 },
+          { rootPath: projectRoot },
+        );
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, { projectId: project.id });
+        await writeFile(path.join(projectRoot, "a.txt"), "old\n");
+        const version = createHash("sha256").update("old\n").digest("hex");
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "patch" });
+        const other = acquireResourceLock(
+          { db: opened.db },
+          {
+            resourceType: "project",
+            resourceId: project.id,
+            rootRealPath: projectRoot,
+            owner: "other-session",
+            executionId: "other-turn",
+            ttlMs: 60_000,
+          },
+        );
+        expect(other).not.toBeNull();
+        const provider = createFakeProvider([
+          toolStep({
+            id: "call_patch",
+            name: "apply_patch",
+            args: { path: "a.txt", expectedVersion: version, patch: patchFor("old\n", "new\n") },
+          }),
+          textStep("done"),
+        ]);
+        const events: ServerEvent[] = [];
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          publish: (event) => {
+            if ("sequence" in event) events.push(event);
+          },
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+        expect(provider.calls).toHaveLength(2);
+        expect(await readFile(path.join(projectRoot, "a.txt"), "utf8")).toBe("old\n");
+        expect(
+          events.find(
+            (event) =>
+              event.type === "tool.failed" &&
+              (event.payload as { errorCode?: unknown }).errorCode === "RESOURCE_LOCKED",
+          ),
+        ).toMatchObject({
+          payload: { message: "project is locked by another writer" },
+        });
+        expect(events.some((event) => event.type === "turn.failed")).toBe(false);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("revives its own expired project lease instead of failing the Turn", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const projectRoot = path.join(dir, "project");
+        await mkdir(projectRoot);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false, now: () => 1 },
+          { rootPath: projectRoot },
+        );
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, { projectId: project.id });
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "stall" });
+        const clock = { value: 1_000 };
+        const registry = createFileToolRegistry();
+        registry.register(
+          defineTool({
+            name: "advance_clock",
+            description: "Advance the test clock past the project lease.",
+            riskLevel: "L1",
+            schema: z.object({}),
+            handler: async () => {
+              clock.value += 60_000;
+              return { ok: true, summary: "clock advanced" };
+            },
+          }),
+        );
+        const provider = createFakeProvider([
+          toolStep({ id: "call_stall", name: "advance_clock", args: {} }),
+          textStep("done"),
+        ]);
+        const events: ServerEvent[] = [];
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry,
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          publish: (event) => {
+            if ("sequence" in event) events.push(event);
+          },
+          now: () => clock.value,
+          lockTtlMs: 30_000,
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+        expect(provider.calls).toHaveLength(2);
+        expect(events.some((event) => event.type === "turn.failed")).toBe(false);
         const lock = opened.sqlite
           .prepare(
             "SELECT fencing_token, expires_at FROM resource_locks WHERE resource_type = 'project'",

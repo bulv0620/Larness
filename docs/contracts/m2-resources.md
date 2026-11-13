@@ -184,7 +184,7 @@ G-PoC-M2 已随人类“开始m2-1”确认通过。本节覆盖本任务已实�
 - 保存先在同一事务获取共同根冲突锁、写 PREPARED 意图和审计，再记 WRITING。锁内重新读取完整版本与文件身份，同目录 wx 临时文件写入 / fsync / 保留普通权限位，最终复核 scope / 客户端 / fencing 后 rename。临时名称为 .larness-save-<operationId>，不会把正文存进数据库或事件。
 - 文件落盘后，同一事务提交版本缓存、file.changed 事件与递增 seq、COMPLETED 结果及审计；失败不返回成功。本任务只持久化资源事件，通知 / 补拉 / 事件保留清理在 M2-1b 接线，不能据此认为完整 A2 通知已交付。
 - 状态为 PREPARED → WRITING → COMPLETED / FAILED / RECONCILIATION_REQUIRED。落盘或临时清理结果不确定时保留待对账，阻塞重叠根，不能仅按锁 TTL 开放新写作业。启动在监听前对账：目标等于目标版本则补记结果 / 事件，仍为原版本则标失败；其他内容 / 授权不明保持受阻，绝不自动回写。只清理该持久操作的确定临时文件名且字节哈希匹配的文件，不扫描清理用户源码；部分写入 / 文件不明需要本机核实。
-- root_real_path 加到既有 resource_locks；migration 0005 将既有项目锁从 projects.real_path 回填。同根或祖先包含互斥；独立 workspace 同规则；不重叠根可并发。M1 Turn / 文件保存复用同一锁，写前检查有效 fencing；存在活跃写者时登记重叠根或解除项目关联返回 RESOURCE_LOCKED。
+- root_real_path 加到既有 resource_locks；migration 0005 将既有项目锁从 projects.real_path 回填。同根或祖先包含互斥；独立 workspace 同规则；不重叠根可并发。M1 Turn / 文件保存复用同一锁，写前检查有效 fencing；存在活跃写者时登记重叠根或解除项目关联返回 RESOURCE_LOCKED。租约过期但 fencing 未被接管、且没有其他重叠根写者时，原持有者可续租恢复（自身进行中的操作不算竞争写者，待对账操作仍是屏障；释放后 expires_at=0 的 tombstone 不可复活）；写工具未取得锁时返回 RESOURCE_LOCKED，但不终止 Turn，后续步骤可重试；已持有租约被接管或释放则 Turn 以 RESOURCE_LOCKED 失败。
 
 0005_resources 为唯一新增迁移：file_versions、resource_streams、resource_events 与 resource_operations，并增加锁的根字段。resource_operations 在 §7 摘要之外增加 root_real_path、path、expected_version、target_version、lock_id、fencing_token、error_code 用于对账 / fencing；不存正文。mtime 记录 Unix ms。无破坏性迁移，不修改 0001–0004；应用回滚保留表 / 数据，需先确认写操作已结束并清理不确定项，不执行 down migration。
 
