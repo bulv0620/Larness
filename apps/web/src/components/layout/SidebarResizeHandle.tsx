@@ -10,6 +10,7 @@ export function SidebarResizeHandle({
   max,
   defaultValue,
   onChange,
+  collapsed = false,
   className,
 }: {
   side: "left" | "right";
@@ -19,6 +20,7 @@ export function SidebarResizeHandle({
   max: number;
   defaultValue: number;
   onChange: (width: number) => void;
+  collapsed?: boolean;
   className?: string;
 }) {
   const startDrag = (event: PointerEvent<HTMLDivElement>) => {
@@ -61,14 +63,17 @@ export function SidebarResizeHandle({
       role="separator"
       aria-orientation="vertical"
       aria-label={label}
+      aria-hidden={collapsed || undefined}
       aria-valuenow={Math.round(value)}
       aria-valuemin={min}
       aria-valuemax={max}
-      tabIndex={0}
+      tabIndex={collapsed ? -1 : 0}
       onPointerDown={startDrag}
       onDoubleClick={() => onChange(defaultValue)}
       onKeyDown={onKeyDown}
-      className={`relative z-30 w-px shrink-0 cursor-col-resize bg-line transition-colors hover:bg-accent/45 focus-visible:bg-accent/60 focus-visible:outline-none ${className ?? ""}`}
+      className={`relative z-30 w-px shrink-0 cursor-col-resize bg-line transition-[width,opacity,background-color] duration-200 hover:bg-accent/45 focus-visible:bg-accent/60 focus-visible:outline-none ${
+        collapsed ? "pointer-events-none w-0 opacity-0" : ""
+      } ${className ?? ""}`}
     >
       {/* Wider invisible hit area; the visible line stays 1px so it does not create a colored strip. */}
       <span aria-hidden className="absolute inset-y-0 -left-2 -right-2" />

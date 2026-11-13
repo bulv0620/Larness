@@ -1,6 +1,7 @@
 import type { GatewaySnapshot } from "@larness/shared";
-import { ErrorMessage } from "@larness/ui";
+import { cn, ErrorMessage } from "@larness/ui";
 import { useEffect, useState } from "react";
+import { CollapsibleSidebar } from "@/components/layout/CollapsibleSidebar";
 import { ProjectResourceSidebar } from "@/components/layout/ProjectResourceSidebar";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
 import { SidebarResizeHandle } from "@/components/layout/SidebarResizeHandle";
@@ -14,6 +15,27 @@ import { useNewSession } from "@/lib/useNewSession";
 import { activeWindowScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
+
+const useAnimatedPresence = (
+  open: boolean,
+  closeDelayMs = 220,
+): { mounted: boolean; visible: boolean } => {
+  const [mounted, setMounted] = useState(open);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true);
+      const frame = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(frame);
+    }
+    setVisible(false);
+    const timer = window.setTimeout(() => setMounted(false), closeDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [open, closeDelayMs]);
+
+  return { mounted, visible };
+};
 
 export function AppShell({ version }: { version?: string }) {
   const { data, isPending, isError } = useSnapshot();
@@ -30,6 +52,7 @@ export function AppShell({ version }: { version?: string }) {
   const setMobileSidebar = useNavigationStore((state) => state.setMobileSidebar);
   const newSession = useNewSession();
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const mobileDrawer = useAnimatedPresence(mobileSidebarOpen);
 
   useSessionEvents(sessionId);
 
@@ -95,49 +118,67 @@ export function AppShell({ version }: { version?: string }) {
     >
       <TopBar version={version} />
       <div className="relative flex min-h-0 flex-1">
-        {!sidebarCollapsed ? <ProjectSidebar /> : null}
-        {!sidebarCollapsed ? (
-          <SidebarResizeHandle
-            side="left"
-            label="调整项目侧栏宽度"
-            value={sidebarWidth}
-            min={220}
-            max={360}
-            defaultValue={268}
-            onChange={setSidebarWidth}
-            className="hidden md:block"
-          />
-        ) : null}
+        <CollapsibleSidebar
+          collapsed={sidebarCollapsed}
+          side="left"
+          width={sidebarWidth}
+          className="hidden md:flex"
+        >
+          <ProjectSidebar />
+        </CollapsibleSidebar>
+        <SidebarResizeHandle
+          side="left"
+          label="调整项目侧栏宽度"
+          value={sidebarWidth}
+          min={220}
+          max={360}
+          defaultValue={268}
+          onChange={setSidebarWidth}
+          collapsed={sidebarCollapsed}
+          className="hidden md:block"
+        />
         <ConversationWorkspace />
-        {!resourceCollapsed ? (
-          <>
-            <SidebarResizeHandle
-              side="right"
-              label="调整资源侧栏宽度"
-              value={resourceWidth}
-              min={280}
-              max={460}
-              defaultValue={340}
-              onChange={setResourceWidth}
-              className="hidden xl:block"
-            />
-            <ProjectResourceSidebar />
-          </>
-        ) : null}
+        <SidebarResizeHandle
+          side="right"
+          label="调整资源侧栏宽度"
+          value={resourceWidth}
+          min={280}
+          max={460}
+          defaultValue={340}
+          onChange={setResourceWidth}
+          collapsed={resourceCollapsed}
+          className="hidden xl:block"
+        />
+        <CollapsibleSidebar
+          collapsed={resourceCollapsed}
+          side="right"
+          width={resourceWidth}
+          className="hidden xl:flex"
+        >
+          <ProjectResourceSidebar />
+        </CollapsibleSidebar>
         <WindowLayer />
       </div>
 
       <ErrorMessage message={workspaceError} onDismiss={() => setWorkspaceError(null)} />
 
-      {mobileSidebarOpen ? (
+      {mobileDrawer.mounted ? (
         <div className="fixed inset-0 z-[150] md:hidden">
           <button
             type="button"
             aria-label="关闭导航"
             onClick={() => setMobileSidebar(false)}
-            className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
+            className={cn(
+              "absolute inset-0 bg-black/30 backdrop-blur-[2px] transition-opacity duration-200",
+              mobileDrawer.visible ? "opacity-100" : "pointer-events-none opacity-0",
+            )}
           />
-          <div className="absolute inset-y-0 left-0 w-[280px] shadow-[var(--shadow-window)]">
+          <div
+            className={cn(
+              "absolute inset-y-0 left-0 w-[280px] shadow-[var(--shadow-window)] transition-transform duration-200 ease-out",
+              mobileDrawer.visible ? "translate-x-0" : "pointer-events-none -translate-x-full",
+            )}
+          >
             <ProjectSidebar mobile />
           </div>
         </div>
