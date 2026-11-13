@@ -1,4 +1,4 @@
-import type { ServerEvent } from "@larness/shared";
+import type { ServerEvent, TimelineItem } from "@larness/shared";
 import { describe, expect, it } from "vitest";
 import {
   applyAssistantDelta,
@@ -160,6 +160,49 @@ describe("event reducer", () => {
       event("tool.approval.resolved", { approvalId: "apv_1", decision: "denied" }),
     );
     expect(items[0]).toMatchObject({ status: "rejected" });
+  });
+
+  it("resolves stale pending approvals when the turn reaches a terminal state", () => {
+    let items = applyServerEvent(
+      [],
+      event("tool.approval.required", {
+        turnId: "trn_1",
+        toolCallId: "call_1",
+        approvalId: "apv_1",
+        summary: "patch README.md",
+        risk: "L1",
+      }),
+    );
+    expect(items[0]).toMatchObject({ kind: "approval", id: "apv_1", status: "pending" });
+
+    // 取消回合时服务器不会补发 tool.approval.resolved：滞留的待批准项应落为终态。
+    items = applyServerEvent(items, event("turn.cancelled", { turnId: "trn_1", reason: "user" }));
+    expect(items.find((item) => item.kind === "approval")).toMatchObject({ status: "rejected" });
+
+    items = applyServerEvent(
+      [],
+      event("tool.approval.required", {
+        turnId: "trn_2",
+        toolCallId: "call_2",
+        approvalId: "apv_2",
+        summary: "deploy web-prod",
+        risk: "L3",
+      }),
+    );
+    items = applyServerEvent(items, event("turn.completed", { turnId: "trn_2" }));
+    expect(items.find((item) => item.kind === "approval")).toMatchObject({ status: "rejected" });
+
+    // 已有终态的批准项不应被改动，其它回合的待批准项也不应被误伤。
+    items = applyServerEvent(
+      [
+        { id: "apv_3", kind: "approval", status: "approved", turnId: "trn_3", createdAt: 1 },
+        { id: "apv_4", kind: "approval", status: "pending", turnId: "trn_4", createdAt: 2 },
+      ] as TimelineItem[],
+      event("turn.cancelled", { turnId: "trn_3", reason: "user" }),
+    );
+    const approvals = items.filter((item) => item.kind === "approval");
+    expect(approvals.find((item) => item.id === "apv_3")).toMatchObject({ status: "approved" });
+    expect(approvals.find((item) => item.id === "apv_4")).toMatchObject({ status: "pending" });
   });
 
   it("turns file changes, failures and cancellations into timeline items", () => {

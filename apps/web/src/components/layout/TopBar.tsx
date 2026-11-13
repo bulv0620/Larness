@@ -1,3 +1,4 @@
+import type { ApprovalItem } from "@larness/shared";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,8 +25,9 @@ export function TopBar({ version }: { version?: string }) {
   const { theme, resolved, setTheme } = useTheme();
   const { projectId, sessionId, toggleSidebar, setMobileSidebar } = useNavigationStore();
   const mobile = useMediaQuery("(max-width: 767px)");
-  const hasPendingApproval = useTimelineStore((state) =>
-    state.items.some((item) => item.kind === "approval" && item.status === "pending"),
+  const timelineItems = useTimelineStore((state) => state.items);
+  const pendingApprovals = timelineItems.filter(
+    (item): item is ApprovalItem => item.kind === "approval" && item.status === "pending",
   );
   const isStreaming = useTimelineStore((state) => state.isStreaming);
   const metrics = useHostMetrics(data.host);
@@ -108,23 +110,31 @@ export function TopBar({ version }: { version?: string }) {
           <DropdownMenuTrigger asChild>
             <IconButton label="通知" className="relative">
               <Bell size={15} />
-              {hasPendingApproval ? (
+              {pendingApprovals.length > 0 ? (
                 <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-danger ring-2 ring-surface" />
               ) : null}
             </IconButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[280px]">
             <DropdownMenuLabel>通知</DropdownMenuLabel>
-            {hasPendingApproval ? (
-              <DropdownMenuItem className="items-start gap-2 py-2">
-                <StatusDot tone="waiting" className="mt-1" />
-                <span>
-                  <span className="block text-[12px] font-medium text-ink">部署待批准</span>
-                  <span className="mt-0.5 block text-[11px] text-ink-3">
-                    web-prod 计划切换到 c0f3a2d，等待你的批准。
+            {pendingApprovals.length > 0 ? (
+              pendingApprovals.map((approval) => (
+                <DropdownMenuItem key={approval.id} className="items-start gap-2 py-2">
+                  <StatusDot tone="waiting" className="mt-1" />
+                  <span>
+                    <span className="block text-[12px] font-medium text-ink">
+                      {approval.serviceName
+                        ? `${approval.serviceName} 部署待批准`
+                        : approval.toolName
+                          ? `${approval.toolName} 待批准`
+                          : "操作待批准"}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-ink-3">
+                      {approval.summary ?? "等待你的批准。"}
+                    </span>
                   </span>
-                </span>
-              </DropdownMenuItem>
+                </DropdownMenuItem>
+              ))
             ) : (
               <DropdownMenuItem disabled>暂无新通知</DropdownMenuItem>
             )}

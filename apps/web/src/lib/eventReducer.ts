@@ -310,23 +310,34 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
   const terminalReason = terminalReasonField(data);
   const fileResults = TurnFileResultsSchema.safeParse(data.fileResults);
   const omittedResults = numberField(data, "fileResultsOmitted");
-  return next.map((item) =>
-    item.turnId === turnId && item.kind === "message"
-      ? {
-          ...item,
-          streaming: false,
-          ...(item.role === "user"
-            ? {
-                turnOutcome: outcome,
-                durationMs: numberField(data, "durationMs"),
-                ...(terminalReason === undefined ? {} : { terminalReason }),
-                ...(fileResults.success ? { fileResults: fileResults.data } : {}),
-                ...(omittedResults === undefined ? {} : { fileResultsOmitted: omittedResults }),
-              }
-            : {}),
-        }
-      : item,
-  );
+  return next.map((item) => {
+    if (item.kind === "message" && item.turnId === turnId) {
+      return {
+        ...item,
+        streaming: false,
+        ...(item.role === "user"
+          ? {
+              turnOutcome: outcome,
+              durationMs: numberField(data, "durationMs"),
+              ...(terminalReason === undefined ? {} : { terminalReason }),
+              ...(fileResults.success ? { fileResults: fileResults.data } : {}),
+              ...(omittedResults === undefined ? {} : { fileResultsOmitted: omittedResults }),
+            }
+          : {}),
+      };
+    }
+    if (
+      item.kind === "approval" &&
+      item.status === "pending" &&
+      turnId !== null &&
+      item.turnId === turnId
+    ) {
+      // 回合已到终态但缺少 tool.approval.resolved（例如回合被取消）：
+      // 把滞留的待批准项落为终态，避免通知区一直挂着失效的批准提示。
+      return { ...item, status: "rejected" };
+    }
+    return item;
+  });
 }
 
 export interface ModelUsageEntry {
