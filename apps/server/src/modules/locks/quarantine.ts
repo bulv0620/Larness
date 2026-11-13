@@ -14,3 +14,6 @@ export function rootIsQuarantined(root: string) {
     (other) => isInsideRoot(root, other) || isInsideRoot(other, root),
   );
 }
+export function quarantinedRoots(): string[] {
+  return [...new Set(roots.values())];
+}

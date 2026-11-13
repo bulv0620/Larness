@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { access, stat } from "node:fs/promises";
 import { createServer } from "node:net";
 import path from "node:path";
+import BetterSqlite3 from "better-sqlite3";
 import { satisfies } from "semver";
 import { type LoadedConfig, loadConfig } from "./bootstrap/config.js";
 import { inspectInstanceLock } from "./bootstrap/lock.js";
@@ -42,6 +43,48 @@ function checkPort(host: string, port: number): Promise<{ ok: boolean; detail: s
       server.close(() => resolve({ ok: true, detail: `available on ${host}:${port}` }));
     });
   });
+}
+
+interface PendingOperationGroup {
+  kind: string;
+  status: string;
+  errorCode: string | null;
+  count: number;
+}
+
+// Read-only peek at durable write barriers. Safe against a running instance.
+function inspectPendingResourceOperations(
+  file: string,
+): { groups: PendingOperationGroup[]; locks: number } | null {
+  let sqlite: BetterSqlite3.Database | null = null;
+  try {
+    sqlite = new BetterSqlite3(file, { readonly: true, fileMustExist: true });
+    if (
+      !sqlite
+        .prepare(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'resource_operations'",
+        )
+        .get()
+    ) {
+      return null;
+    }
+    const groups = sqlite
+      .prepare(
+        "SELECT kind, status, error_code AS errorCode, COUNT(*) AS count FROM resource_operations WHERE status IN ('PREPARED', 'WRITING', 'RECONCILIATION_REQUIRED') GROUP BY kind, status, error_code ORDER BY kind, status",
+      )
+      .all() as PendingOperationGroup[];
+    const locks =
+      (
+        sqlite.prepare("SELECT COUNT(*) AS count FROM resource_locks WHERE expires_at > 0").get() as
+          | { count: number }
+          | undefined
+      )?.count ?? 0;
+    return { groups, locks };
+  } catch {
+    return null;
+  } finally {
+    sqlite?.close();
+  }
 }
 
 export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorReport> {
@@ -213,6 +256,29 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
         ? `applied ${database.schemaVersion} of ${expected}`
         : `${pending} pending of ${expected}`,
     );
+
+    const barriers = inspectPendingResourceOperations(path.join(dataDir, "larness.db"));
+    if (barriers === null) {
+      add("resource-operations", "写屏障（资源操作/锁）", "skip", "schema not available");
+    } else if (barriers.groups.length === 0) {
+      add("resource-operations", "写屏障（资源操作/锁）", "ok", "no pending operations");
+    } else {
+      const summary = barriers.groups
+        .map(
+          (group) =>
+            `${group.kind} ${group.status}${group.errorCode ? ` (${group.errorCode})` : ""} ×${group.count}`,
+        )
+        .join("; ");
+      const instance = await inspectInstanceLock(dataDir);
+      add(
+        "resource-operations",
+        "写屏障（资源操作/锁）",
+        "warn",
+        instance?.alive
+          ? `server running; ${summary} may be live (non-tombstone locks: ${barriers.locks}); GET /api/system/resource-state for details`
+          : `stale after shutdown; next startup finalizes non-file.save rows (${summary}; non-tombstone locks: ${barriers.locks})`,
+      );
+    }
   }
 
   add("clock", "时钟偏移", "skip", "requires a trusted time reference (not implemented)");

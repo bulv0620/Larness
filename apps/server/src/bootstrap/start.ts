@@ -53,6 +53,10 @@ import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/mod
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { PreviewRegistry } from "../modules/previews/registry.js";
 import { ResourceEventBus } from "../modules/resources/events.js";
+import {
+  finalizeUnreconciledOperations,
+  markOperationsInterrupted,
+} from "../modules/resources/recovery.js";
 import { DeploymentAuthorizationService } from "../modules/service-ops/authorization.js";
 import { pm2CommandContext, pm2CommandEnvironment } from "../modules/service-ops/commandContext.js";
 import { DeploymentManager } from "../modules/service-ops/deployments.js";
@@ -364,6 +368,20 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       db: opened.db,
     });
     serviceActionAuthorizations.recoverExpired();
+    // Last recovery pass: every module has now had its chance. Whatever is
+    // still non-terminal has no live owner (single instance, turns repaired),
+    // so finalize it instead of leaving a write barrier behind forever.
+    const swept = finalizeUnreconciledOperations({ db: opened.db, logger: activeLogger });
+    if (swept.finalizedOperations > 0 || swept.releasedLocks > 0) {
+      activeLogger.warn(
+        {
+          finalizedOperations: swept.finalizedOperations,
+          releasedLocks: swept.releasedLocks,
+          retainedFileOperations: swept.retainedFileOperations,
+        },
+        "startup sweep finalized stale resource operations",
+      );
+    }
     if (options.pm2Global !== undefined) {
       pm2Global = options.pm2Global;
     } else if (env.LARNESS_PM2_AUTO_INSTALL === "1") {
@@ -608,6 +626,19 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         await deployments.close();
         cleanupScheduler.stop();
         await retention.stop();
+        // Final drain: the executors above were aborted, so any operation that
+        // is still non-terminal was deterministically interrupted. file.save
+        // rows are left for the next boot's file reconcile on purpose.
+        try {
+          const interruptedOperations = markOperationsInterrupted({ db: opened.db });
+          if (interruptedOperations > 0)
+            activeLogger.warn(
+              { interruptedOperations },
+              "marked in-flight operations interrupted during shutdown",
+            );
+        } catch {
+          // Shutdown must proceed even if the drain fails.
+        }
         opened.close();
       },
     });
