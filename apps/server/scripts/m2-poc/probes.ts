@@ -142,6 +142,20 @@ export async function probeProcesses(migrations?: string) {
                 },
               );
               assert(handle);
+              // Expired-but-owned leases can be revived; simulate a real
+              // lease loss by letting another writer take the row over.
+              const replacement = acquireResourceLock(
+                { db: opened.db, now: () => 1_200 },
+                {
+                  resourceType: "project",
+                  resourceId: root,
+                  owner: "replacement",
+                  executionId: "replacement",
+                  ttlMs: 100,
+                },
+              );
+              assert(replacement);
+              assert(replacement.fencingToken > handle.fencingToken);
               const renewed = renewResourceLock(
                 { db: opened.db, now: () => 1_200 },
                 {

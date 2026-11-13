@@ -95,6 +95,20 @@ export async function probeRoots(migrations?: string) {
       assert(coordinator.acquire(path.join(root, "project-sibling"), "prefix-sibling"));
       assert.equal(coordinator.acquire(path.join(root, "sessions"), "workspace-ancestor"), null);
       clock = 2_000;
+      // An expired lease is revivable by its owner; a real stale writer only
+      // appears after a takeover raises the fencing token.
+      const replacement = acquireResourceLock(
+        { db: opened.db, now: () => clock },
+        {
+          resourceType: "project",
+          resourceId: project,
+          owner: "poc",
+          executionId: "replacement",
+          ttlMs: 100,
+        },
+      );
+      assert(replacement);
+      assert(replacement.fencingToken > old.fencingToken);
       assert.equal(
         renewResourceLock(
           { db: opened.db, now: () => clock },
@@ -108,6 +122,7 @@ export async function probeRoots(migrations?: string) {
       );
       assert.equal(coordinator.acquire(nested, "expired-but-writing"), null);
       assert.throws(() => coordinator.assertWritable(old), /STALE_FENCE/);
+      clock = 4_000;
       opened.close();
       opened = openDatabase(dbPath);
       coordinator = new RootCoordinator(opened, () => clock);
