@@ -151,6 +151,7 @@ export function AppShell({ version }: { version?: string }) {
         <CollapsibleSidebar
           collapsed={resourceCollapsed}
           width={resourceWidth}
+          side="right"
           className="hidden xl:flex"
         >
           <ProjectResourceSidebar />

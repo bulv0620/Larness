@@ -1,16 +1,10 @@
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
-// Collapse accelerates out, expand decelerates into place: the asymmetric
-// curves read as snappier than a symmetric ease-out even at the same duration.
-const COLLAPSE_MS = 150;
-const EXPAND_MS = 150;
-const EASE_COLLAPSE = "cubic-bezier(0.4, 0, 1, 1)";
-const EASE_EXPAND = "cubic-bezier(0.22, 1, 0.36, 1)";
-// Content fades on its own (shorter) timeline so it clearly reads as a fade
-// while the panel is collapsing, and re-appears early during expand.
-const FADE_OUT_MS = 90;
-const FADE_IN_MS = 120;
-const SETTLE_MS = Math.max(COLLAPSE_MS, EXPAND_MS, FADE_OUT_MS, FADE_IN_MS) + 20;
+const COLLAPSE_MS = 160;
+const EXPAND_MS = 200;
+const EASE_COLLAPSE = "cubic-bezier(0.32, 0, 0.8, 1)";
+const EASE_EXPAND = "cubic-bezier(0.25, 0.65, 0.35, 1)";
+const FADE_OUT_DELAY_MS = 40;
 
 /**
  * Animated container for collapsible sidebars.
@@ -30,11 +24,13 @@ const SETTLE_MS = Math.max(COLLAPSE_MS, EXPAND_MS, FADE_OUT_MS, FADE_IN_MS) + 20
 export const CollapsibleSidebar = ({
   collapsed,
   width,
+  side = "left",
   children,
   className,
 }: {
   collapsed: boolean;
   width: number;
+  side?: "left" | "right";
   children: ReactNode;
   className?: string;
 }) => {
@@ -47,7 +43,8 @@ export const CollapsibleSidebar = ({
     }
     previousCollapsed.current = collapsed;
     setAnimate(true);
-    const timer = window.setTimeout(() => setAnimate(false), SETTLE_MS);
+    const duration = collapsed ? COLLAPSE_MS : EXPAND_MS;
+    const timer = window.setTimeout(() => setAnimate(false), duration + 20);
     return () => window.clearTimeout(timer);
   }, [collapsed]);
 
@@ -61,7 +58,9 @@ export const CollapsibleSidebar = ({
       : `width ${EXPAND_MS}ms ${EASE_EXPAND}, visibility 0s linear 0s`
     : undefined;
   const innerTransition = animate
-    ? `opacity ${collapsed ? FADE_OUT_MS : FADE_IN_MS}ms ease-out`
+    ? collapsed
+      ? `opacity ${COLLAPSE_MS - FADE_OUT_DELAY_MS}ms ease-in ${FADE_OUT_DELAY_MS}ms`
+      : `opacity ${EXPAND_MS}ms ${EASE_EXPAND}`
     : undefined;
 
   const outerStyle: CSSProperties = {
@@ -79,8 +78,13 @@ export const CollapsibleSidebar = ({
   };
 
   return (
-    <div aria-hidden={collapsed || undefined} className={className} style={outerStyle}>
-      <div className="shrink-0" style={innerStyle}>
+    <div
+      aria-hidden={collapsed || undefined}
+      inert={collapsed}
+      className={`${side === "right" ? "justify-end" : ""} motion-reduce:transition-none! ${className ?? ""}`}
+      style={outerStyle}
+    >
+      <div className="flex min-h-0 shrink-0 motion-reduce:transition-none!" style={innerStyle}>
         {children}
       </div>
     </div>

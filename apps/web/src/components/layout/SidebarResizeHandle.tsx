@@ -71,8 +71,8 @@ export function SidebarResizeHandle({
       onPointerDown={startDrag}
       onDoubleClick={() => onChange(defaultValue)}
       onKeyDown={onKeyDown}
-      className={`relative z-30 w-px shrink-0 cursor-col-resize bg-line transition-[width,opacity,background-color] duration-150 hover:bg-accent/45 focus-visible:bg-accent/60 focus-visible:outline-none ${
-        collapsed ? "pointer-events-none w-0 opacity-0" : ""
+      className={`relative z-30 shrink-0 cursor-col-resize bg-line transition-[width,opacity,background-color] hover:bg-accent/45 focus-visible:bg-accent/60 focus-visible:outline-none ${
+        collapsed ? "pointer-events-none w-0 opacity-0 duration-160" : "w-px duration-200"
       } ${className ?? ""}`}
     >
       {/* Wider invisible hit area; the visible line stays 1px so it does not create a colored strip. */}

@@ -48,9 +48,10 @@ describe("CollapsibleSidebar", () => {
     // adding the transition in a later effect would snap instead of animate.
     expect(outer.style.width).toBe("0px");
     expect(transitionStyle(outer)).toContain("width");
-    expect(transitionStyle(outer)).toContain("150ms");
-    // Content fade runs on its own shorter timeline, synced with the collapse.
-    expect(transitionStyle(inner)).toContain("90ms");
+    expect(transitionStyle(outer)).toContain("160ms");
+    // Keep content visible at the start and finish the fade with the width.
+    expect(transitionStyle(inner)).toContain("120ms");
+    expect(inner.style.transition + inner.style.transitionDelay).toContain("40ms");
     expect(inner.style.opacity).toBe("0");
     expect(inner.style.width).toBe("260px");
     expect(getByText("panel content")).toBeTruthy();
@@ -68,13 +69,13 @@ describe("CollapsibleSidebar", () => {
     rerender(sidebarUi(false));
     expect(outer.style.width).toBe("260px");
     expect(outer.style.visibility).toBe("visible");
-    expect(transitionStyle(outer)).toContain("150ms");
-    expect(transitionStyle(inner)).toContain("120ms");
+    expect(transitionStyle(outer)).toContain("200ms");
+    expect(transitionStyle(inner)).toContain("200ms");
 
     act(() => {
       vi.advanceTimersByTime(300);
     });
     expect(outer.style.width).toBe("260px");
-    expect(transitionStyle(outer)).not.toContain("150ms");
+    expect(transitionStyle(outer)).not.toContain("200ms");
   });
 });
