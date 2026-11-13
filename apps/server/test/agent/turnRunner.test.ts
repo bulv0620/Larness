@@ -27,7 +27,7 @@ import {
   toolMessageContent,
 } from "../../src/modules/agent/turn/toolResults.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
-import { acquireResourceLock } from "../../src/modules/locks/service.js";
+import { acquireResourceLock, releaseResourceLock } from "../../src/modules/locks/service.js";
 import { getProjectById } from "../../src/modules/projects/repository.js";
 import { createProject, updateProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -1460,6 +1460,7 @@ describe("TurnRunner", () => {
           publish: (event) => {
             if ("sequence" in event) events.push(event);
           },
+          lockWaitMs: 0,
         });
 
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
@@ -1475,6 +1476,146 @@ describe("TurnRunner", () => {
           payload: { message: "project is locked by another writer" },
         });
         expect(events.some((event) => event.type === "turn.failed")).toBe(false);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("waits for a busy project lock instead of failing the write tool", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const projectRoot = path.join(dir, "project");
+        await mkdir(projectRoot);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false, now: () => 1 },
+          { rootPath: projectRoot },
+        );
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, { projectId: project.id });
+        await writeFile(path.join(projectRoot, "a.txt"), "old\n");
+        const version = createHash("sha256").update("old\n").digest("hex");
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "patch" });
+        const other = acquireResourceLock(
+          { db: opened.db },
+          {
+            resourceType: "project",
+            resourceId: project.id,
+            rootRealPath: projectRoot,
+            owner: "other-session",
+            executionId: "other-turn",
+            ttlMs: 60_000,
+          },
+        );
+        expect(other).not.toBeNull();
+        const releaseTimer = setTimeout(() => {
+          if (other) {
+            releaseResourceLock(
+              { db: opened.db },
+              { id: other.id, fencingToken: other.fencingToken },
+            );
+          }
+        }, 200);
+        const provider = createFakeProvider([
+          toolStep({
+            id: "call_patch",
+            name: "apply_patch",
+            args: { path: "a.txt", expectedVersion: version, patch: patchFor("old\n", "new\n") },
+          }),
+          textStep("done"),
+        ]);
+        const events: ServerEvent[] = [];
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          publish: (event) => {
+            if ("sequence" in event) events.push(event);
+          },
+          lockWaitMs: 1_000,
+          lockPollMs: 20,
+        });
+
+        let result: Awaited<ReturnType<typeof runner.run>>;
+        try {
+          result = await runner.run(turn.turnId);
+        } finally {
+          clearTimeout(releaseTimer);
+        }
+        expect(result.status).toBe("COMPLETED");
+        expect(provider.calls).toHaveLength(2);
+        expect(await readFile(path.join(projectRoot, "a.txt"), "utf8")).toBe("new\n");
+        expect(
+          events.some(
+            (event) =>
+              event.type === "tool.failed" &&
+              (event.payload as { errorCode?: unknown }).errorCode === "RESOURCE_LOCKED",
+          ),
+        ).toBe(false);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("recovers a lost project lock without failing the Turn", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const projectRoot = path.join(dir, "project");
+        await mkdir(projectRoot);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false, now: () => 1 },
+          { rootPath: projectRoot },
+        );
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, { projectId: project.id });
+        await writeFile(path.join(projectRoot, "a.txt"), "old\n");
+        const version = createHash("sha256").update("old\n").digest("hex");
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "patch" });
+        const registry = createFileToolRegistry();
+        registry.register(
+          defineTool({
+            name: "drop_lock",
+            description: "Simulate another writer releasing the project lock.",
+            riskLevel: "L1",
+            schema: z.object({}),
+            handler: async () => {
+              opened.sqlite
+                .prepare("UPDATE resource_locks SET expires_at = 0 WHERE resource_type = 'project'")
+                .run();
+              return { ok: true, summary: "lock dropped" };
+            },
+          }),
+        );
+        const provider = createFakeProvider([
+          toolStep({ id: "call_drop", name: "drop_lock", args: {} }),
+          toolStep({
+            id: "call_patch",
+            name: "apply_patch",
+            args: { path: "a.txt", expectedVersion: version, patch: patchFor("old\n", "new\n") },
+          }),
+          textStep("done"),
+        ]);
+        const events: ServerEvent[] = [];
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry,
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          publish: (event) => {
+            if ("sequence" in event) events.push(event);
+          },
+          lockWaitMs: 0,
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+        expect(provider.calls).toHaveLength(3);
+        expect(await readFile(path.join(projectRoot, "a.txt"), "utf8")).toBe("new\n");
+        expect(events.some((event) => event.type === "turn.failed")).toBe(false);
+        expect(JSON.stringify(provider.calls[1])).toContain("project write lock was lost");
       } finally {
         opened.close();
       }

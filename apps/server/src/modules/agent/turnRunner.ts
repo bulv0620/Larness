@@ -99,6 +99,8 @@ function commandDisplay(params: unknown) {
 
 const APPROVAL_POLL_MS = 100;
 const CHECKPOINT_MIN_GAIN = 200;
+const DEFAULT_LOCK_WAIT_MS = 10_000;
+const DEFAULT_LOCK_POLL_MS = 250;
 
 export interface ResolvedProvider {
   adapter: ProviderAdapter;
@@ -125,6 +127,9 @@ export interface TurnRunnerOptions {
   approvalPollMs?: number;
   approvalTtlMs?: number;
   lockTtlMs?: number;
+  /** How long a write tool waits for a busy project lock before failing. */
+  lockWaitMs?: number;
+  lockPollMs?: number;
   commands?: CommandManager;
   terminals?: TerminalManager;
   git?: GitManager;
@@ -372,14 +377,6 @@ export class TurnRunner {
         finishReason?: ProviderFinishReason;
       },
     ): Promise<TurnRunResult> => {
-      if (lockLost && status === "CANCELLED") {
-        status = "FAILED";
-        options = {
-          eventType: "turn.failed",
-          errorCode: "RESOURCE_LOCKED",
-          message: "Project write lock was lost",
-        };
-      }
       const fileResults = await this.#collectFileResults(projectRoot, projectIgnore, fileChanges);
       const omitted = fileChanges.size - fileResults.length;
       finalized = true;
@@ -430,13 +427,26 @@ export class TurnRunner {
     const renewProjectLock = (): boolean => projectLock === null || projectLock.renewIfHeld();
 
     let lockLost = false;
+    let lockWasLost = false;
+    let lockNoticeSent = false;
+    const dropLock = () => {
+      try {
+        // Best effort: clear our own row so it cannot keep blocking retries.
+        // A takeover keeps its higher fencing token and release does nothing.
+        projectLock?.release();
+      } catch {
+        /* The lease still expires; the Turn can continue read-only. */
+      }
+      lockLost = true;
+      lockWasLost = true;
+      projectLock = null;
+    };
     const heartbeat = setInterval(
       () => {
         try {
-          if (!renewProjectLock()) throw new Error("Lock lost");
+          if (!renewProjectLock()) dropLock();
         } catch {
-          lockLost = true;
-          controller.abort();
+          dropLock();
         }
       },
       Math.max(10, Math.min(1000, (this.#options.lockTtlMs ?? 30_000) / 3)),
@@ -1192,6 +1202,66 @@ export class TurnRunner {
         }
       }
 
+      const ensureProjectLock = async (): Promise<boolean> => {
+        if (controller.signal.aborted) {
+          return false;
+        }
+
+        if (projectLock?.lost) {
+          projectLock = null;
+        }
+
+        if (acquireProjectLock()) {
+          lockLost = false;
+          return true;
+        }
+
+        const waitMs = this.#options.lockWaitMs ?? DEFAULT_LOCK_WAIT_MS;
+
+        if (waitMs <= 0) {
+          return false;
+        }
+
+        const until = Date.now() + waitMs;
+        const pollMs = Math.max(10, this.#options.lockPollMs ?? DEFAULT_LOCK_POLL_MS);
+
+        while (Date.now() < until) {
+          if (controller.signal.aborted || checkBudget() !== "ok") {
+            return false;
+          }
+
+          await delay(Math.min(pollMs, Math.max(1, until - Date.now())), controller.signal);
+
+          if (controller.signal.aborted) {
+            return false;
+          }
+
+          if (projectLock?.lost) {
+            projectLock = null;
+          }
+
+          if (acquireProjectLock()) {
+            lockLost = false;
+            return true;
+          }
+        }
+
+        return false;
+      };
+
+      const appendLockNotice = () => {
+        if (!lockWasLost || lockNoticeSent) {
+          return;
+        }
+
+        lockNoticeSent = true;
+        messages.push({
+          role: "user",
+          content:
+            "The project write lock was lost at least once during this turn. Another writer may have changed files while it was not held. Re-read files and verify repository state before writing; do not rely on earlier reads. Write tools may be rejected while another writer holds the lock.",
+        });
+      };
+
       while (this.#budget.maxSteps === 0 || steps < this.#budget.maxSteps) {
         const budgetState = checkBudget();
 
@@ -1208,12 +1278,10 @@ export class TurnRunner {
         }
 
         if (!renewProjectLock()) {
-          return await finalize("FAILED", {
-            eventType: "turn.failed",
-            errorCode: "RESOURCE_LOCKED",
-            message: "project write lock was lost",
-          });
+          dropLock();
         }
+
+        appendLockNotice();
 
         // Ask the model to land the turn before the budget cuts it mid-sentence.
         const spentTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
@@ -1550,7 +1618,7 @@ export class TurnRunner {
             session.projectId !== null;
 
           if (needsProjectLock && access === "allow") {
-            if (!acquireProjectLock() || !renewProjectLock()) {
+            if (!(await ensureProjectLock())) {
               const result = {
                 ok: false,
                 errorCode: "RESOURCE_LOCKED",
@@ -1637,7 +1705,7 @@ export class TurnRunner {
 
           if (outcome.status === "approval_required") {
             if (approvalId !== undefined) {
-              if (needsProjectLock && (!acquireProjectLock() || !renewProjectLock())) {
+              if (needsProjectLock && !(await ensureProjectLock())) {
                 result = {
                   status: "completed",
                   result: {

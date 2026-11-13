@@ -185,6 +185,19 @@ export class ProjectWriteLock {
   }
 
   #markLost(): void {
+    if (this.#handle !== null) {
+      try {
+        // Clear our own row so a released lease cannot keep blocking the root
+        // while this Turn retries. A takeover keeps its higher fencing token.
+        releaseResourceLock(
+          { db: this.#db, now: this.#now },
+          { id: this.#handle.id, fencingToken: this.#handle.fencingToken },
+        );
+      } catch {
+        /* Best effort; the row still expires and the Turn can continue read-only. */
+      }
+    }
+
     this.#lost = true;
     this.#handle = null;
   }

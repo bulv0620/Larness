@@ -35,6 +35,8 @@ export function rootHasWriter(
     .some((lock) => {
       if (lock.id === excludeLockId) return false;
       if (lock.rootRealPath === null || !overlaps(lock.rootRealPath)) return false;
+      // expiresAt = 0 is an explicit release tombstone, not an active writer.
+      if (lock.expiresAt <= 0) return false;
       if (lock.expiresAt > now) return true;
       const turn = db.select().from(turns).where(eq(turns.id, lock.executionId)).get();
       return (
