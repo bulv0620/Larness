@@ -53,18 +53,27 @@ const components: Components = {
     </code>
   ),
   table: ({ children }) => (
-    <div className="my-2 overflow-x-auto rounded-lg border border-line">
-      <table className="w-full border-collapse text-left text-[11.5px]">{children}</table>
+    <div className="my-2 overscroll-x-contain overflow-x-auto rounded-lg border border-line">
+      <table className="w-full min-w-max border-collapse text-left text-[11.5px] [overflow-wrap:anywhere]">
+        {children}
+      </table>
     </div>
   ),
   thead: ({ children }) => <thead className="bg-surface-2 text-ink-2">{children}</thead>,
-  th: ({ children }) => (
-    <th className="border-b border-line px-2.5 py-1.5 font-medium">{children}</th>
+  th: ({ children, style }) => (
+    <th
+      style={style}
+      className="whitespace-nowrap border-b border-line-strong px-3 py-1.5 font-medium"
+    >
+      {children}
+    </th>
   ),
-  td: ({ children }) => (
-    <td className="border-b border-line/70 px-2.5 py-1.5 align-top last:border-b-0">{children}</td>
+  td: ({ children, style }) => (
+    <td style={style} className="max-w-[320px] border-b border-line/70 px-3 py-1.5 align-middle">
+      {children}
+    </td>
   ),
-  tr: ({ children }) => <tr className="last:[&>td]:border-b-0">{children}</tr>,
+  tr: ({ children }) => <tr className="even:bg-ink/[.04] last:[&>td]:border-b-0">{children}</tr>,
 };
 
 export function MarkdownText({ text }: { text: string }) {

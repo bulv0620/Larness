@@ -19,4 +19,21 @@ describe("MarkdownText", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
     expect(screen.queryByText("| 文件 | 作用 |")).not.toBeInTheDocument();
   });
+
+  it("renders tables in a horizontal scroll container with natural width", () => {
+    render(<MarkdownText text={"| 名称 | 状态 |\n| --- | --- |\n| 构建 | 通过 |"} />);
+
+    const table = screen.getByRole("table");
+    expect(table).toHaveClass("min-w-max");
+    expect(table.parentElement).toHaveClass("overflow-x-auto");
+    expect(table.parentElement).toHaveClass("overscroll-x-contain");
+  });
+
+  it("forwards GFM column alignment to header cells", () => {
+    render(<MarkdownText text={"| 名称 | 状态 |\n| :---: | --- |\n| 构建 | 通过 |"} />);
+
+    expect(screen.getByRole("columnheader", { name: "名称" })).toHaveStyle({
+      textAlign: "center",
+    });
+  });
 });
