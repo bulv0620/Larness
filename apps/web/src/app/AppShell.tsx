@@ -120,7 +120,6 @@ export function AppShell({ version }: { version?: string }) {
       <div className="relative flex min-h-0 flex-1">
         <CollapsibleSidebar
           collapsed={sidebarCollapsed}
-          side="left"
           width={sidebarWidth}
           className="hidden md:flex"
         >
@@ -151,7 +150,6 @@ export function AppShell({ version }: { version?: string }) {
         />
         <CollapsibleSidebar
           collapsed={resourceCollapsed}
-          side="right"
           width={resourceWidth}
           className="hidden xl:flex"
         >
