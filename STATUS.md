@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **MC-0 模型连接与平台接入方案**（`done`，`task/mc-0-model-connections-design`，2026-11-14）：交付 [077 评审包](specs/077-model-connections/spec.md)。ADR-062 `proposed`，077 `draft`。待确认目录信任边界、模型选择与账单绑定后执行 MC-1。文档链接与 `pnpm check` 通过。方案未含产品实现或真实 Key 推理验收。
+
 - **FR-15 文件树重命名失焦提交**（`done`，`task/fr-15-rename-on-blur`，2026-11-14）：文件与目录重命名与新建共享失焦收尾。整仓检查及认证 Chromium 通过。
 
 - **FR-14 文件与目录统一右键操作**（`done`，`task/fr-14-file-context-actions`，2026-11-14）：统一右键菜单、聊天插入与目录移动，移除提示区域。整仓检查、构建及认证 Chromium 通过。

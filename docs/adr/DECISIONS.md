@@ -166,3 +166,7 @@ accepted，用户直接确认。`preview.enabled` 缺省为 `true`，显式关�
 ## ADR-061 · Windows 交互终端默认 Shell（2026-11-13）
 
 accepted，用户确认 PowerShell 7 → Windows PowerShell 5.1 → CMD 的选择顺序并授权实施。见 [ADR-061](ADR-061-windows-terminal-shell.md)。
+
+## ADR-062 · 模型连接与能力目录（2026-11-14）
+
+proposed。连接预设及版本管理、会话按模型选择、目录数据独立更新与可追踪的字段来源。见 [ADR-062](ADR-062-model-connections-and-capabilities.md) 和 [077 规格](../../specs/077-model-connections/spec.md)。

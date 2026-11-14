@@ -1,0 +1,53 @@
+# 任务 · 模型连接与平台接入
+
+| ID | 工作 | 依赖 | 状态 |
+|---|---|---|---|
+| MC-0 | 规格、计划、ADR 和契约草案 | 061、063、UI-F18 | done |
+| MC-1 | 官方预设、凭据版本和存量迁移 | MC-0、077 ready、ADR-062 accepted | todo |
+| MC-2 | 能力来源、目录同步与预算接线 | MC-1 | todo |
+| MC-3 | 设置与会话选择器 | MC-2 | todo |
+| MC-4 | OpenCode Go | MC-3 | todo |
+| MC-5 | 阿里云百炼 | MC-4 | todo |
+| MC-6 | Kimi | MC-5 | todo |
+| MC-7 | MiniMax | MC-6 | todo |
+| MC-8 | 截图输入与能力校验 | MC-7 | todo |
+
+## MC-0 规格与评审包
+
+交付 [规格](spec.md)、[实施计划](plan.md)、[拟议契约](../../docs/contracts/model-connections-draft.md) 与 [ADR-062](../../docs/adr/ADR-062-model-connections-and-capabilities.md)。核对引用、上游接入条件、迁移和门禁。当前提交只包含方案。
+
+## MC-1 预设与迁移
+
+涉及 `apps/server/src/modules/models`、Drizzle 和 API 合同。覆盖现有 GLM 四端点、DeepSeek、兼容 URL 迁入，保留凭据、默认值、历史和已有绑定。并发换 Key 测试新旧 Turn 的版本边界。执行 A1、A7、A9。
+
+## MC-2 目录与预算
+
+涉及 Provider 目录解析、Turn 上下文预算与持久化缓存。逐字段同步 DeepSeek，合并 GLM 目录，开放按模型覆盖或登记。先测未知状态、上游数值口径、缓存竞争、预算和输入长度，再接入远程补充。执行 A5–A7、A9。
+
+## MC-3 设置与选择
+
+涉及 `ModelSettingsDialog`、`ModelControl`、Composer、Web API 客户端与相关认证 E2E。增加连接和模型两页；支持搜索、默认、可见性、测试状态与连接二级选择。验证两种主题、键盘和窄屏，以及默认值和计费线路。执行 A1、A4–A6。
+
+## MC-4 OpenCode Go
+
+固定套餐目录、推理端点与会话请求头，按 Go 预设匹配能力。目录 mock 校验字段和认证失败；报文 mock 锁定稳定会话 ID、工具格式和上下文预算。用真实 Go Key 跑列表、一次流式工具调用及续步。执行 A2、A9。
+
+## MC-5 阿里云百炼
+
+按量地域与业务空间、Coding Plan、Token Plan。解析原生目录分页并区分套餐额度与限流。逐预设跑 A3、A9、A10，记录未验证线路。
+
+## MC-6 Kimi
+
+开放平台与 Kimi Code 国内／国际。验证模型目录或候选来源，保持真实客户端身份，验证流式工具回传。逐预设跑 A3、A9、A10。
+
+## MC-7 MiniMax
+
+开放平台国内／国际与 M Plan。按官方格式编码同 Turn 工具续跑和思考参数，处理流中业务错误。逐预设跑 A3、A7、A9、A10。
+
+## MC-8 截图
+
+端到端覆盖受管附件、历史回放、权限、图片额度、切换纯文本模型和草稿保留。用已经验证支持图片与工具的线路跑 A8、A9，并同步 Agent 工具契约中受影响的模型上下文与执行验收。
+
+## 完成条件
+
+真实验收证据按平台和预设逐项记录。单任务门禁包括对应专项与 `pnpm check`，最终运行构建、认证及生产 E2E。进度同步到路线图和 STATUS。

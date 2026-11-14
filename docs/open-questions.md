@@ -38,6 +38,7 @@
 | Q-032 | 缓存命中率的发布门槛怎么定？ | 已确认先只观测、不设门槛；真实数值与门槛在 HX-1 基线后按 Provider 设定（官方也说明缓存是尽力而为，不保证 100% 命中） | 发布门槛、性能验收口径 | [070 spec](../specs/070-runtime-efficiency/spec.md) D6 |
 | Q-033 | `agent_events` / `turns` / `session_context_summaries` 的保留期与体积上限默认值？ | 建议 events 90 天、turns 180 天、摘要 90 天，另有 `maxBytes`；先由 TR-1 体积报告支撑再定；清理默认关闭、只 dry-run | 数据保留、备份体积、历史可追溯性 | [071 spec](../specs/071-turn-recovery/spec.md) D2、[ADR-058](adr/ADR-058-turn-recovery-retention.md) |
 | Q-035 | TypeScript 7.0.2 对 JSDoc 中的某些文本会产生假诊断（例如注释里写 `**/test/*.ts` 会报 `TS7008 Member 'test' implicitly has an 'any' type`）。 | 已观测：改写注释即可消除；暂不改注释规范，遇到时按误报处理并记录 | 开发体验、误导性报错 | [HX-8 记录](../specs/070-runtime-efficiency/tasks.md) |
+| Q-038 | 模型能力目录更新的来源和信任范围如何定？ | 建议包内快照和受校验的独立更新，仅导入能力字段；目录地址、认证及调用规则由 Larness 管理 | 新模型上架、远程依赖及预算 | [ADR-062 评审](adr/ADR-062-model-connections-and-capabilities.md) |
 | Q-034 | 开启清理前是否强制备份，备份保留几份？ | 建议强制备份一次并复用 ADR-055 的备份路径；份数与周期沿用 Q-010 | 删除不可逆风险 | [071 spec](../specs/071-turn-recovery/spec.md) TR-4、Q-010 |
 
 ## 已解决
