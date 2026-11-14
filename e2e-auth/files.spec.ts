@@ -31,6 +31,7 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
   mkdirSync(path.join(root, "sub"));
   const child = path.join(root, "sub", "child.txt");
   writeFileSync(child, "child\n");
+  for (let i = 0; i < 36; i++) writeFileSync(path.join(root, `z-scroll-${i}.txt`), "");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   try {
@@ -98,6 +99,27 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await composer.fill("");
     await page.getByRole("button", { name: "展开项目资源" }).click();
     await resources.getByRole("tab", { name: "文件" }).click();
+    const filePanel = resources.getByRole("tabpanel", { name: "文件" });
+    const tools = filePanel.getByRole("toolbar", { name: "文件操作" });
+    const newFileButton = tools.getByRole("button", { name: "新建文件" });
+    await expect(newFileButton).toBeVisible();
+    const top = (await tools.boundingBox())?.y;
+    await filePanel.evaluate((panel) => {
+      panel.scrollTop = 180;
+    });
+    await expect.poll(() => filePanel.evaluate((panel) => panel.scrollTop)).toBeGreaterThan(100);
+    await expect.poll(async () => (await tools.boundingBox())?.y).toBeCloseTo(top ?? -1, 0);
+    await expect(tools).toHaveCSS("position", "sticky");
+    const blur = await tools.evaluate(
+      (element) => getComputedStyle(element, "::before").backdropFilter,
+    );
+    expect(blur).toContain("blur(");
+    await expect(newFileButton).toBeEnabled();
+    await page.screenshot({ path: path.join(tmpdir(), "larness-fr-8-sticky-toolbar.png") });
+    await filePanel.evaluate((panel) => {
+      panel.scrollTop = 0;
+    });
+
     await resources.getByRole("button", { name: "快速打开文件" }).click();
     await search.press("Escape");
     await expect(quickOpen).toHaveCount(0);

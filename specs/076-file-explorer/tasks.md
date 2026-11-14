@@ -10,6 +10,7 @@
 | FR-6 | 快速打开结果列表留白 | FR-5 | `done` |
 | FR-7 | Material 文件类型图标 | FR-6 | `done` |
 | FR-7-R1 | 统一入口加载文件图标 | FR-7、U0-3 | `done` |
+| FR-8 | 文件树工具栏吸顶与磨砂 | FR-7-R1 | `done` |
 
 ## FR-1
 
@@ -67,3 +68,8 @@
 - [x] 在本机 3210 复现图标 JSON 返回 404，并确认新增白名单回归先失败。
 - [x] 将浏览器直接请求的图标包移入 Web dependencies，路径授权规则照旧。
 - [x] 校正统一入口冒烟夹具的 AppShell 版本属性，验证 HTTP dev → built → dev 与 HTTPS dev → built。整仓 `pnpm check` 通过。
+
+## FR-8
+
+- [x] 认证 Chromium 先确认旧实现缺少工具栏。实现后真实滚动超过 100px，工具栏顶部位置保持，磨砂样式生效，按钮可用，核对截图。
+- [x] 整仓 `pnpm check` 和认证 Chromium 文件流程通过。

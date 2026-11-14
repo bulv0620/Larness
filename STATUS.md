@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **FR-8 文件树工具栏吸顶与磨砂**（`done`，`task/fr-8-sticky-file-toolbar`，2026-11-14）：文件区操作栏吸顶，磨砂下缘渐隐。整仓检查及认证 Chromium 文件流程通过。
+
 - **FR-7-R1 统一入口加载文件图标**（`done`，`task/fr-7-r1-managed-icon-assets`，2026-11-14）：修复统一入口加载 Material 图标时的 404。授权专项、整仓检查、真实统一入口 HTTP/HTTPS 冒烟通过；已启动的 TUI 需重新启动以重建白名单。
 
 - **FR-7 Material 文件类型图标**（`done`，`task/fr-7-file-type-icons`，2026-11-14）：文件树、搜索和 Tab 共用 Material Icon Theme 5.40.0 文件映射及明暗图标。整仓检查、构建和认证 Chromium 通过。

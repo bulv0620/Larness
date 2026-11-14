@@ -232,7 +232,8 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
         return;
     }
     event.preventDefault();
-    next?.focus();
+    next?.focus({ preventScroll: true });
+    next?.scrollIntoView?.({ block: "nearest" });
   };
 
   const copyPath = async () => {
@@ -249,7 +250,11 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
 
   return (
     <div className="p-1.5 text-[11px] text-ink-2">
-      <div className="mb-1 flex items-center justify-end gap-0.5">
+      <div
+        role="toolbar"
+        aria-label="文件操作"
+        className="file-tree-toolbar sticky top-0 isolate z-10 -mx-1.5 -mt-1.5 mb-1 flex min-h-9 items-center justify-end gap-0.5 px-1.5"
+      >
         <span className="mr-auto text-ink-3" role="status">
           {status}
         </span>

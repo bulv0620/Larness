@@ -63,7 +63,7 @@ export function ProjectResourceSidebar({ onQuickOpen }: { onQuickOpen?: () => vo
           id="resource-files"
           aria-labelledby="resource-tab-files"
           hidden={active !== "files"}
-          className="min-h-0 flex-1 overflow-y-auto px-2 pb-2"
+          className="min-h-0 flex-1 scroll-pt-11 overflow-y-auto px-2 pb-2"
         >
           <FileTreePanel projectId={projectId} onQuickOpen={onQuickOpen} />
         </div>
