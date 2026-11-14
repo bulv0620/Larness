@@ -1,6 +1,12 @@
 import type { ProviderError } from "./errors.js";
 
-export type ProviderId = "deepseek" | "glm" | "openai-compatible" | "opencode-go" | "fake";
+export type ProviderId =
+  | "deepseek"
+  | "glm"
+  | "openai-compatible"
+  | "opencode-go"
+  | "bailian"
+  | "fake";
 
 export type ProviderFinishReason =
   | "stop"

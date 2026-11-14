@@ -247,6 +247,13 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       }
     }
 
+    if (session.origin === "scheduled" && selection?.interactiveOnly) {
+      throw new SessionError(
+        "MODEL_UNSUPPORTED",
+        "this connection only supports interactive sessions",
+      );
+    }
+
     if (session.title === DEFAULT_SESSION_TITLE) {
       updateSessionRow(tx, session.id, {
         title: deriveSessionTitle(validated.text),

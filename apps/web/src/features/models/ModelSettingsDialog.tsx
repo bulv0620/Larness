@@ -66,6 +66,7 @@ function thinkingLabel(model: ApiCatalogModel): string {
 }
 
 function syncLabel(group: ApiCatalogGroup): string {
+  if (group.candidatesOnly && group.syncedAt !== null) return "候选目录 · 调用待验证";
   return group.syncedAt === null
     ? "尚未同步"
     : `同步于 ${new Date(group.syncedAt).toLocaleString("zh-CN", { hour12: false })}`;

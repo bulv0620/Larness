@@ -5,6 +5,7 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { CredentialProfileRow, ModelProviderId } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
+import { bailianWorkspaceCatalog } from "./bailianCatalog.js";
 import {
   type CapabilityOverride,
   type CapabilitySources,
@@ -65,6 +66,7 @@ export interface CatalogGroup {
   credentialProfileId: string;
   credentialLabel: string;
   billing?: "usage" | "subscription" | "unknown";
+  candidatesOnly?: boolean;
   syncedAt: number | null;
   stale: boolean;
   lastRefreshError: string | null;
@@ -93,6 +95,7 @@ export interface CatalogSelection {
   provider: ModelProviderId;
   maxInputTokens?: number;
   maxOutputTokens?: number;
+  interactiveOnly: boolean;
   connectionRevision: number;
   connectionEndpoint: string | null;
   connectionSecretRef: string;
@@ -492,7 +495,8 @@ function parseModels(json: string): CatalogModel[] {
 function catalogCredentials(db: DbExecutor) {
   return listCredentialRows(db).filter(
     (credential) =>
-      presetForCredential(credential.provider, credential.endpoint) !== undefined &&
+      presetForCredential(credential.provider, credential.endpoint, credential.presetId) !==
+        undefined &&
       (credential.provider !== "openai-compatible" || Boolean(credential.endpoint)),
   );
 }
@@ -510,7 +514,11 @@ function groupFor(db: DbExecutor, credential: CredentialProfileRow): CatalogGrou
     provider: credential.provider,
     credentialProfileId: credential.id,
     credentialLabel: credential.label,
-    billing: presetForCredential(credential.provider, credential.endpoint)?.billing,
+    billing: presetForCredential(credential.provider, credential.endpoint, credential.presetId)
+      ?.billing,
+    candidatesOnly:
+      presetForCredential(credential.provider, credential.endpoint, credential.presetId)
+        ?.candidateDirectory ?? false,
     syncedAt: row?.syncedAt ?? null,
     stale: row === null || row.syncedAt === null || row.lastErrorCode !== null,
     lastRefreshError: row?.lastErrorCode ?? null,
@@ -655,10 +663,11 @@ export function setCatalogCapabilityOverride(
 
 async function catalogPayload(
   options: CatalogOptions,
-  provider: ModelProviderId,
+  credential: CredentialProfileRow,
   apiKey: string,
-  endpoint?: string | null,
+  directory: unknown,
 ): Promise<unknown> {
+  const { provider, endpoint, presetId } = credential;
   if (provider === "deepseek") {
     const fetcher =
       options.fetcher ??
@@ -669,24 +678,47 @@ async function catalogPayload(
   if (provider === "openai-compatible") {
     await assertSafeEndpoint(endpoint ?? "", options.endpointResolver);
   }
-  const url = catalogUrl(provider, endpoint ?? null);
-  const response = await fetch(url, {
-    headers: { authorization: `Bearer ${apiKey}`, accept: "application/json" },
-    redirect: "error",
-    signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_CATALOG_TIMEOUT_MS),
-  });
-  if (!response.ok) throw new CatalogHttpError(response.status);
-  return (await response.json()) as unknown;
+  const preset = presetForCredential(provider, endpoint, presetId);
+  if (!preset) throw new ModelError("VALIDATION_ERROR", "unsupported connection endpoint");
+  const signal = AbortSignal.timeout(options.timeoutMs ?? DEFAULT_CATALOG_TIMEOUT_MS);
+  const fetchPage = async (url: string): Promise<unknown> => {
+    const response = await fetch(url, {
+      headers: { authorization: `Bearer ${apiKey}`, accept: "application/json" },
+      redirect: "error",
+      signal,
+    });
+    if (!response.ok) throw new CatalogHttpError(response.status);
+    return (await response.json()) as unknown;
+  };
+  if (preset.workspaceRegion !== undefined && endpoint !== null) {
+    return bailianWorkspaceCatalog(new URL(endpoint), fetchPage);
+  }
+  if (preset.candidateDirectory)
+    return {
+      data: [...publicModels(directory, preset.directoryId ?? "").entries()]
+        .filter(
+          ([, entry]) => entry.tool_call === true && entry.modalities?.output?.includes("text"),
+        )
+        .slice(0, 200)
+        .map(([id]) => ({ id })),
+    };
+  return fetchPage(catalogUrl(credential));
 }
 
-function catalogUrl(provider: ModelProviderId, endpoint: string | null): string {
+function catalogUrl(
+  credential: Pick<CredentialProfileRow, "provider" | "endpoint" | "presetId">,
+): string {
+  const { provider, endpoint, presetId } = credential;
   if (provider === "deepseek") return DEEPSEEK_CATALOG_URL;
-  const preset = presetForCredential(provider, endpoint);
+  const preset = presetForCredential(provider, endpoint, presetId);
   if (!preset) throw new ModelError("VALIDATION_ERROR", "unsupported connection endpoint");
+  if (preset.candidateDirectory) return "https://models.dev/api.json";
   if (preset.catalogUrl) return preset.catalogUrl;
   const base = endpoint ?? preset.endpoint;
   if (!base) throw new ModelError("VALIDATION_ERROR", "connection endpoint is missing");
-  return `${base}/models`;
+  return preset.workspaceRegion === undefined
+    ? `${base}/models`
+    : new URL("/api/v1/models", base).toString();
 }
 
 async function refreshCredential(
@@ -716,7 +748,7 @@ async function refreshCredential(
   let payload: unknown;
 
   try {
-    payload = await catalogPayload(options, credential.provider, apiKey, credential.endpoint);
+    payload = await catalogPayload(options, credential, apiKey, directory);
   } catch (error) {
     const code =
       error instanceof CatalogHttpError
@@ -777,7 +809,7 @@ async function refreshCredential(
     saveModelCatalog(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
-      endpoint: catalogUrl(credential.provider, credential.endpoint),
+      endpoint: catalogUrl(credential),
       modelsJson: JSON.stringify(models),
       now,
     });
@@ -806,7 +838,7 @@ function supplementFromPublicDirectory(
   credential: CredentialProfileRow,
   payload: unknown,
 ): void {
-  const preset = presetForCredential(credential.provider, credential.endpoint);
+  const preset = presetForCredential(credential.provider, credential.endpoint, credential.presetId);
   const provider =
     preset?.directoryId ?? (preset === undefined ? undefined : publicProviderIds.get(preset.id));
   if (provider === undefined) return;
@@ -854,7 +886,7 @@ export async function refreshModelCatalog(
           if (credential === null) {
             throw new ModelError("NOT_FOUND", "credential not found");
           }
-          if (!presetForCredential(credential.provider, credential.endpoint)) {
+          if (!presetForCredential(credential.provider, credential.endpoint, credential.presetId)) {
             throw new ModelError("MODEL_UNSUPPORTED", "catalog is not available for this provider");
           }
           return [credential];
@@ -866,7 +898,14 @@ export async function refreshModelCatalog(
 
   let directory: unknown;
   let directoryStatus: "synced" | "unavailable" | undefined;
-  if (input.includePublicDirectory === true) {
+  if (
+    input.includePublicDirectory === true ||
+    credentials.some(
+      (credential) =>
+        presetForCredential(credential.provider, credential.endpoint, credential.presetId)
+          ?.candidateDirectory,
+    )
+  ) {
     try {
       directory = await (options.publicDirectoryFetcher ?? fetchPublicModelDirectory)();
       if (typeof directory !== "object" || directory === null || Array.isArray(directory)) {
@@ -887,7 +926,7 @@ export async function refreshModelCatalog(
 
 function recordFailure(
   options: CatalogOptions,
-  credential: { id: string; provider: ModelProviderId; endpoint: string | null; revision: number },
+  credential: CredentialProfileRow,
   errorCode: string,
   now: number,
 ): void {
@@ -897,7 +936,7 @@ function recordFailure(
     recordModelCatalogFailure(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
-      endpoint: catalogUrl(credential.provider, credential.endpoint),
+      endpoint: catalogUrl(credential),
       errorCode,
       now,
     });
@@ -1010,6 +1049,9 @@ export function resolveCatalogSelection(
     ...(model.capabilities?.maxOutputTokens === undefined
       ? {}
       : { maxOutputTokens: model.capabilities.maxOutputTokens }),
+    interactiveOnly:
+      presetForCredential(credential.provider, credential.endpoint, credential.presetId)
+        ?.interactiveOnly ?? false,
     connectionRevision: credential.revision,
     connectionEndpoint: credential.endpoint,
     connectionSecretRef: credential.secretRef,

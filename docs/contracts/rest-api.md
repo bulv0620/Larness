@@ -491,6 +491,8 @@ Turn 创建成功返回 `202`：
 
 PATCH 接受 `{ revision?, label?, apiKey?, endpoint?, contextWindow? }`。换 Key 需要提交当前 revision，且不能同时改地址；版本冲突返回 `409 CONFLICT`。保留既有 `endpoint`、`contextWindow` 调用，已创建的 Turn 继续使用快照。删除仍保护旧模型档案引用。Key 明文只写，使用本地 Secret Store 加密。
 
+百炼支持标准地域、业务空间、Coding Plan 和 Token Plan 预设。业务空间预设提交 `workspaceId`，地址由固定地域后缀构造。原生目录分页读取能力。候选目录连接返回 `candidatesOnly: true`，目录仅用于模型发现，实际调用由连接 Key 验证。交互套餐禁止从调度会话发送。
+
 OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模型列表决定套餐候选。能力解析 Go 的 `limit`、`modalities` 和工具声明；推理地址与 `x-opencode-session` 由服务端生成。
 
 连接测试使用 `POST /api/credentials/:id/test` 和 `{ model }`，需认证与 CSRF。向该连接发送有界的合成文本请求，成功返回 `{ ok: true }`，独立于目录同步结果。测试使用真实线路额度，失败只返回稳定错误。

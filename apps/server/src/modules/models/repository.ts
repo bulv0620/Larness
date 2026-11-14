@@ -118,6 +118,7 @@ export function createCredentialRows(
     provider: ModelProviderId;
     label: string;
     endpoint?: string | null;
+    presetId?: string | null;
     contextWindow?: number | null;
     now: number;
   },
@@ -130,6 +131,7 @@ export function createCredentialRows(
     label: input.label,
     secretRef: secret.id,
     revision: 1,
+    presetId: input.presetId ?? null,
     capabilityOverridesJson: "{}",
     endpoint: input.endpoint ?? null,
     contextWindow: input.contextWindow ?? null,
@@ -157,6 +159,7 @@ export function updateCredentialRow(db: DbExecutor, row: CredentialProfileRow): 
       endpoint: row.endpoint,
       contextWindow: row.contextWindow,
       revision: row.revision,
+      presetId: row.presetId,
       capabilityOverridesJson: row.capabilityOverridesJson,
       secretRef: row.secretRef,
     })

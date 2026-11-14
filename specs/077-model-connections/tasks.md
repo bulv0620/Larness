@@ -7,7 +7,7 @@
 | MC-2 | 能力来源、目录同步与预算接线 | MC-1 | done |
 | MC-3 | 设置与会话选择器 | MC-2 | done |
 | MC-4 | OpenCode Go | MC-3 | done |
-| MC-5 | 阿里云百炼 | MC-4 | todo |
+| MC-5 | 阿里云百炼 | MC-4 | done |
 | MC-6 | Kimi | MC-5 | todo |
 | MC-7 | MiniMax | MC-6 | todo |
 | MC-8 | 截图输入与能力校验 | MC-7 | todo |
@@ -46,6 +46,8 @@ Go 公开目录实测 200，包含模型 ID、限制、模态和工具能力。�
 ## MC-5 阿里云百炼
 
 按量地域与业务空间、Coding Plan、Token Plan。解析原生目录分页并区分套餐额度与限流。逐预设跑 A3、A9、A10，记录未验证线路。
+
+完成标准地域与工作空间预设、原生目录分页、Coding Plan 与 Token Plan 独立连接、候选目录与调度限制。整仓检查通过，真实账号调用待验收。
 
 ## MC-6 Kimi
 

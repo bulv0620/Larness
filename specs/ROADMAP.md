@@ -379,7 +379,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | MC-2 | 能力来源、目录同步与预算接线 | MC-1 | `done` |
 | MC-3 | 设置与会话选择器 | MC-2 | `done` |
 | MC-4 | OpenCode Go | MC-3 | `done` |
-| MC-5 | 阿里云百炼 | MC-4 | `todo` |
+| MC-5 | 阿里云百炼 | MC-4 | `done` |
 | MC-6 | Kimi | MC-5 | `todo` |
 | MC-7 | MiniMax | MC-6 | `todo` |
 | MC-8 | 截图输入与能力校验 | MC-7 | `todo` |

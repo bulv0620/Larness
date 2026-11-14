@@ -38,7 +38,7 @@ const COMPATIBLE_CAPABILITIES: ProviderCapabilities = {
 };
 
 export interface CompatibleProviderOptions {
-  id: "glm" | "openai-compatible" | "opencode-go";
+  id: "glm" | "openai-compatible" | "opencode-go" | "bailian";
   headers?: Record<string, string>;
   name: string;
   baseURL: string;
@@ -93,7 +93,9 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
         const providerOptions =
           options.id === "glm"
             ? toCompatibleProviderOptions(options.name, input.thinking)
-            : undefined;
+            : options.id === "bailian" && input.thinking?.enabled
+              ? { [options.name]: { enable_thinking: true } }
+              : undefined;
         const result = streamText({
           model: provider(input.model),
           // The runtime assembles system messages from trusted instruction sources.

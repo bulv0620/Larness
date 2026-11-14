@@ -32,7 +32,13 @@ export type ContextSummaryScope = "session" | "turn";
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ResourceLockType = "project" | "service" | "file" | "git" | "global-maintenance";
-export const MODEL_PROVIDER_IDS = ["deepseek", "glm", "openai-compatible", "opencode-go"] as const;
+export const MODEL_PROVIDER_IDS = [
+  "deepseek",
+  "glm",
+  "openai-compatible",
+  "opencode-go",
+  "bailian",
+] as const;
 export type ModelProviderId = (typeof MODEL_PROVIDER_IDS)[number];
 export type ScheduledJobKind = "script" | "agent";
 export type ScheduledJobScheduleType = "cron" | "interval";
@@ -213,6 +219,7 @@ export const credentialProfiles = sqliteTable(
     provider: text("provider").$type<ModelProviderId>().notNull(),
     label: text("label").notNull(),
     revision: integer("revision").notNull().default(1),
+    presetId: text("preset_id"),
     capabilityOverridesJson: text("capability_overrides_json").notNull().default("{}"),
     secretRef: text("secret_ref")
       .notNull()

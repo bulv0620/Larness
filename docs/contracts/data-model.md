@@ -388,3 +388,7 @@ CREATE INDEX idx_sessions_origin ON sessions(origin, updated_at);
 ### 0029 · 模型能力与预算（MC-2）
 
 `schemaVersion 28 → 29`。凭据增加 `capability_overrides_json TEXT NOT NULL DEFAULT '{}'`，按确切模型 ID 保存手工配置，换同一个连接的 Key 时保留，旧接口更改上游地址时清空。目录缓存的 `models_json` 向后兼容读取，追加能力和字段来源；新 Turn 快照所用 `max_input_tokens` 与 `max_output_tokens`，旧 Turn 保持空值。
+
+### 0030 · 接入预设（MC-5）
+
+`schemaVersion 29 → 30`。凭据新增可空 `preset_id`，将同地址的标准和套餐 Key 与各自的目录和账单用途绑定。旧记录继续按原服务商与地址解析。

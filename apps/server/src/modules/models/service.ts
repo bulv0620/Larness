@@ -84,6 +84,7 @@ export interface ModelServiceOptions {
 export interface CreateCredentialInput {
   provider?: ModelProviderId;
   presetId?: string;
+  workspaceId?: string;
   label: string;
   apiKey: string;
   endpoint?: string | null;
@@ -116,7 +117,7 @@ function parseCapabilities(json: string): ModelCapabilities {
 }
 
 function credentialDto(row: CredentialProfileRow): CredentialDto {
-  const preset = presetForCredential(row.provider, row.endpoint);
+  const preset = presetForCredential(row.provider, row.endpoint, row.presetId);
   return {
     id: row.id,
     provider: row.provider,
@@ -164,7 +165,7 @@ export function createCredential(
   options: ModelServiceOptions,
   input: CreateCredentialInput,
 ): CredentialDto {
-  const { provider, endpoint } = resolveCredentialRoute(input);
+  const { provider, endpoint, presetId } = resolveCredentialRoute(input);
   const label = normalizeLabel(input.label);
   const contextWindow = normalizeCredentialContextWindow(provider, input.contextWindow);
   validateApiKey(input.apiKey);
@@ -177,6 +178,7 @@ export function createCredential(
       secretId: newId("sec"),
       encrypted,
       provider,
+      presetId,
       label,
       endpoint,
       contextWindow,
@@ -200,8 +202,9 @@ export function createCredential(
 export function resolveCredentialRoute(input: {
   provider?: ModelProviderId;
   presetId?: string;
+  workspaceId?: string;
   endpoint?: string | null;
-}): { provider: ModelProviderId; endpoint: string | null } {
+}): { provider: ModelProviderId; endpoint: string | null; presetId: string | null } {
   const preset = input.presetId === undefined ? undefined : findConnectionPreset(input.presetId);
   if (input.presetId !== undefined && preset === undefined) {
     throw new ModelError("VALIDATION_ERROR", "unsupported connection preset");
@@ -211,11 +214,27 @@ export function resolveCredentialRoute(input: {
     throw new ModelError("VALIDATION_ERROR", "connection provider does not match preset");
   }
 
+  if (preset?.workspaceRegion !== undefined) {
+    if (
+      !input.workspaceId ||
+      !/^[a-z0-9][a-z0-9-]{0,62}$/.test(input.workspaceId) ||
+      input.endpoint !== undefined
+    ) {
+      throw new ModelError("VALIDATION_ERROR", "official workspace ID is required");
+    }
+    return {
+      provider,
+      presetId: preset.id,
+      endpoint: `https://${input.workspaceId}.${preset.workspaceRegion}.maas.aliyuncs.com/compatible-mode/v1`,
+    };
+  }
+  if (input.workspaceId !== undefined)
+    throw new ModelError("VALIDATION_ERROR", "workspace ID is not used on this preset");
   const endpoint = normalizeCredentialEndpoint(provider, input.endpoint ?? preset?.endpoint);
   if (preset !== undefined && provider !== "openai-compatible" && endpoint !== preset.endpoint) {
     throw new ModelError("VALIDATION_ERROR", "connection endpoint does not match preset");
   }
-  return { provider, endpoint };
+  return { provider, endpoint, presetId: preset?.id ?? null };
 }
 
 function validateApiKey(apiKey: string): void {
@@ -348,6 +367,7 @@ export function updateCredentialSettings(
 
     const updated = {
       ...credential,
+      presetId: endpoint === credential.endpoint ? credential.presetId : null,
       capabilityOverridesJson:
         endpoint === credential.endpoint ? credential.capabilityOverridesJson : "{}",
       label,

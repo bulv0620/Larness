@@ -79,6 +79,7 @@ const CreateCredentialSchema = z
   .object({
     provider: ProviderSchema.optional(),
     presetId: IdSchema.optional(),
+    workspaceId: z.string().max(63).optional(),
     label: z.string().min(1).max(64),
     apiKey: z.string().min(1).max(8_192),
     endpoint: z.string().max(512).optional(),
@@ -265,7 +266,8 @@ export function registerModelRoutes(app: FastifyInstance, deps: ModelApiDeps): v
         presetId: body.presetId,
         label: body.label,
         apiKey: body.apiKey,
-        endpoint,
+        workspaceId: body.workspaceId,
+        endpoint: body.workspaceId === undefined ? endpoint : undefined,
         contextWindow: body.contextWindow,
         clientSessionId: request.clientSession?.id,
       });

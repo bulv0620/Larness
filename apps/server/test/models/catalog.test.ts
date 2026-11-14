@@ -388,6 +388,7 @@ describe("deepseek model catalog", () => {
           contextWindow: 1_048_576,
           credentialProfileId,
           provider: "deepseek",
+          interactiveOnly: false,
           connectionRevision: 1,
           connectionEndpoint: null,
           connectionSecretRef: expect.stringMatching(/^sec_/),
