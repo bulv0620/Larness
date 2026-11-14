@@ -162,3 +162,7 @@ accepted，2026-11-12 人类直接确认 D1–D4 全部采用推荐方案。恢�
 ## ADR-060 · 本机预览默认开启（2026-11-13）
 
 accepted，用户直接确认。`preview.enabled` 缺省为 `true`，显式关闭继续生效。见 [ADR-060](ADR-060-local-preview-default.md)。
+
+## ADR-061 · Windows 交互终端默认 Shell（2026-11-13）
+
+accepted，用户确认 PowerShell 7 → Windows PowerShell 5.1 → CMD 的选择顺序并授权实施。见 [ADR-061](ADR-061-windows-terminal-shell.md)。

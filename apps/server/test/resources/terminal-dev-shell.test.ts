@@ -26,10 +26,11 @@ async function contents(file: string) {
     return "";
   }
 }
-function shellWrite(file: string, value: string): string {
-  return process.platform === "win32"
+function shellWrite(shell: string, file: string, value: string): string {
+  if (process.platform !== "win32") return `printf '${value}' > ${file}\r`;
+  return path.basename(shell).toLowerCase() === "cmd.exe"
     ? `>${file} echo ${value}\r`
-    : `printf '${value}' > ${file}\r`;
+    : `Set-Content -LiteralPath '${file}' -Value '${value}' -Encoding ASCII\r`;
 }
 async function written(file: string, value: string): Promise<boolean> {
   return (await contents(file)).trim() === value;
@@ -122,7 +123,7 @@ it("Ctrl+C stops the agent's foreground service but preserves the PTY for later 
         status: "RUNNING",
         exitCode: null,
       });
-      await input(shellWrite("resumed.txt", "resumed"));
+      await input(shellWrite(row.shell, "resumed.txt", "resumed"));
       await until(async () => written(path.join(f.root, "resumed.txt"), "resumed"));
       const events = f.f.running.sqlite
         .prepare("SELECT type FROM resource_events WHERE stream_id = ?")
@@ -157,7 +158,7 @@ it.each([0, 9])(
         await until(async () => !!(await contents(path.join(f.root, "args.json"))));
         expect(JSON.parse(await readFile(path.join(f.root, "args.json"), "utf8"))).toEqual(args);
         const input = await f.input(row.id);
-        await input(shellWrite("usable.txt", "usable"));
+        await input(shellWrite(row.shell, "usable.txt", "usable"));
         await until(async () => written(path.join(f.root, "usable.txt"), "usable"));
         await expect(readFile(path.join(f.root, "injected"))).rejects.toMatchObject({
           code: "ENOENT",
@@ -184,7 +185,7 @@ it.each(["missing-program", "eval"])(
         ]);
         expect((await f.manager.read(row.id)).status).toBe("RUNNING");
         const input = await f.input(row.id);
-        await input(shellWrite("recovery.txt", "recover"));
+        await input(shellWrite(row.shell, "recovery.txt", "recover"));
         await expect(readFile(path.join(f.root, "unexpected"))).rejects.toMatchObject({
           code: "ENOENT",
         });

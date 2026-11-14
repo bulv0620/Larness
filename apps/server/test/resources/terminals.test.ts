@@ -83,7 +83,35 @@ it("creates one real PTY by idempotency key, lists shared resources, and termina
       ).toBe(true);
       releaseResourceLock({ db: f.running.db }, { id: lock.id, fencingToken: lock.fencingToken });
 
-      expect((await create()).json().id).toBe(terminal.id);
+      if (process.platform === "win32") {
+        const originalPath = process.env.PATH;
+        const originalRoot = process.env.SystemRoot;
+        try {
+          process.env.PATH = dir;
+          process.env.SystemRoot = dir;
+          expect((await create()).json().id).toBe(terminal.id);
+          await mkdir(path.join(root, "different"));
+          const changed = await f.running.app.inject({
+            method: "POST",
+            url: "/api/terminals",
+            headers,
+            payload: { scope: { projectId: p.id }, cwd: "different", riskAcknowledged: true },
+          });
+          expect(changed.statusCode).toBe(409);
+          const unavailable = await f.running.app.inject({
+            method: "POST",
+            url: "/api/terminals",
+            headers: { ...headers, "idempotency-key": "terminal-unavailable" },
+            payload: { scope: { projectId: p.id }, riskAcknowledged: true },
+          });
+          expect(unavailable.json().error.code).toBe("RESOURCE_UNAVAILABLE");
+        } finally {
+          process.env.PATH = originalPath;
+          process.env.SystemRoot = originalRoot;
+        }
+      } else {
+        expect((await create()).json().id).toBe(terminal.id);
+      }
       expect(
         (await f.running.app.inject({ url: "/api/terminals", headers }))
           .json()
@@ -239,8 +267,14 @@ it("binds input and resize to one of two authenticated connections, fences repla
       const gen = first.json().lease.generation;
       expect((await lease(secondHeaders, b.connectionId)).statusCode).toBe(409);
       expect((await lease(headers, b.connectionId)).statusCode).toBe(403);
-      const appendMarker = (value: string) =>
-        process.platform === "win32" ? `>>marker echo ${value}\r` : `printf '${value}' >> marker\r`;
+      const usesPowerShell =
+        process.platform === "win32" && path.basename(created.shell).toLowerCase() !== "cmd.exe";
+      const appendMarker = (value: string) => {
+        if (usesPowerShell)
+          return `Add-Content -LiteralPath marker -Value '${value}' -Encoding ASCII\r`;
+        if (process.platform === "win32") return `>>marker echo ${value}\r`;
+        return `printf '${value}' >> marker\r`;
+      };
       const markerIs = async (value: string) => {
         try {
           return (await readFile(path.join(root, "marker"), "utf8")).replace(/\s+/g, "") === value;
@@ -269,7 +303,7 @@ it("binds input and resize to one of two authenticated connections, fences repla
         gen,
         2,
         process.platform === "win32"
-          ? `"${process.execPath}" -e "require('fs').writeFileSync('dimensions',process.stdout.columns+' '+process.stdout.rows)"\r`
+          ? `${usesPowerShell ? "& " : ""}"${process.execPath}" -e "require('fs').writeFileSync('dimensions',process.stdout.columns+' '+process.stdout.rows)"\r`
           : "stty size > dimensions\r",
       );
       await until(async () => {

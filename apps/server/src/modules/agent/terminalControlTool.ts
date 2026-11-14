@@ -52,7 +52,7 @@ export function createTerminalControlTools(options: {
     defineTool({
       name: "send_terminal_input",
       description:
-        "Type bounded input into the controlled workspace terminal. Requires the current agent lease generation and the next input sequence. The input audit records metadata only. The shell or program may echo input into recorded terminal output. Never type credentials. Retries with the same sequence are not replayed. Use interrupt_terminal for Ctrl-C.",
+        "Type bounded input into the controlled workspace terminal. Requires the current agent lease generation and the next input sequence. Read the prompt and use the active shell's syntax before sending shell commands. The input audit records metadata only. The shell or program may echo input into recorded terminal output. Never type credentials. Retries with the same sequence are not replayed. Use interrupt_terminal for Ctrl-C.",
       riskLevel: "L2",
       requiresProjectLock: false,
       schema: inputSchema,

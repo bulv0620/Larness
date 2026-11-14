@@ -261,8 +261,12 @@ it("registers a verified temporary service, replays events and unregisters when 
       expect(endedReplay.items.at(-1)).toMatchObject({ type: "service.unregistered" });
 
       await delay(200);
+      const invocation =
+        process.platform === "win32" && path.basename(terminal.shell).toLowerCase() !== "cmd.exe"
+          ? "& "
+          : "";
       await write(
-        `"${process.execPath}" "${serverPath}" ${port}${process.platform === "win32" ? "\r" : "\n"}`,
+        `${invocation}"${process.execPath}" "${serverPath}" ${port}${process.platform === "win32" ? "\r" : "\n"}`,
       );
       await waitFor(async () => (await listeningSockets(port)).length > 0, "restarted listener");
       const restarted = await services.register(

@@ -29,6 +29,8 @@ larness
 
 Windows Terminal 或系统自带的 conhost 均可；建议使用 Windows Terminal 获得更好的 Unicode 与缩放体验。
 
+Larness 内新开的 Windows 交互终端依次尝试 PowerShell 7、Windows PowerShell 5.1 和 CMD。若已安装 PowerShell 7，请让 `pwsh.exe` 出现在启动 Larness 的进程 PATH 中。
+
 ```bash
 larness --version   # 当前版本
 larness status      # 只读状态快照

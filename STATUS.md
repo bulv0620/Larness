@@ -1,9 +1,11 @@
 # STATUS
 
-> 最后更新：2026-11-13 (+08:00)
+> 最后更新：2026-11-14 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。下方的阶段交付与变更记录保留当时状态。
 
 ## 当前任务
+
+- **M5-F1-SHELL Windows 交互终端自动选择 Shell**（`done`，`task/m5-f1-shell-windows`，2026-11-13 22:12 +08:00 开始）：新终端按 PowerShell 7 → PowerShell 5.1 → CMD 回退。Windows 11 ConPTY、Agent 前台退出和中断、幂等重试、服务重启及 6 项认证浏览器回归通过。整仓检查未通过，用户确认本次 Shell 修改验收通过并授权合并推送。见 [规格](specs/075-windows-terminal-shell/spec.md)与[验收](specs/075-windows-terminal-shell/tasks.md#验收)。
 
 - **UI-F17 首屏波浪加载**（`done`，`task/ui-f17-startup-wave`，2026-11-13 用户验收）：`LARNESS` 字内波浪覆盖 HTML 首屏与首页首次认证检查。生产构建、开发与生产 Chromium 首屏回归、生产 Passkey 认证及 Web 189 项测试通过。`pnpm check` 的 3 项 Server 失败在 `main` 上复现。用户确认首屏验收通过并授权合并推送。详见 [验收记录](specs/068-ui-fixes/tasks.md#ui-f172026-11-13windows)。
 

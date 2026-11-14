@@ -79,6 +79,9 @@ describe("context assembler", () => {
             expect(byName.get("send_terminal_input")?.description).toMatch(
               /echo.*terminal output/i,
             );
+            expect(byName.get("send_terminal_input")?.description).toContain(
+              "Read the prompt and use the active shell's syntax",
+            );
             for (const name of [
               ...projectTools.map((tool) => tool.name),
               "start_project_terminal",
@@ -88,6 +91,7 @@ describe("context assembler", () => {
             if (projectId) {
               const start = byName.get("start_project_terminal");
               expect(start?.description).toMatch(/project.*scripts.*cwd/i);
+              expect(start?.description).toContain("PowerShell 7, Windows PowerShell 5.1, or CMD");
               expect(start?.description).not.toMatch(/requires per-call approval/i);
               expect(start?.parameters).toMatchObject({
                 properties: {

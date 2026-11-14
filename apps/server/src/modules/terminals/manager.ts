@@ -749,7 +749,23 @@ export class TerminalManager {
       )
         fail("FORBIDDEN", "Terminal source does not match scope");
     }
-    const shell = await resolveManualShell();
+    dev?.context.assertAuthorized();
+    const existing = findOperation(this.options.db, client, key, "terminal.create");
+    const selectedShell = existing ? undefined : await resolveManualShell().catch(() => undefined);
+    const existingRow = existing
+      ? allTerminals(this.options.db).find((row) => row.operationId === existing.id)
+      : undefined;
+    if (existing && !existingRow) fail("RESOURCE_UNAVAILABLE", "Terminal result unavailable");
+    const active = dev
+      ? activeTerminals(this.options.db).find(
+          (row) => row.projectId === dev.context.projectId && row.role === dev.params.role,
+        )
+      : undefined;
+    const shell =
+      existingRow?.shell ??
+      active?.shell ??
+      selectedShell ??
+      fail("RESOURCE_UNAVAILABLE", "No supported terminal shell is available");
     const executable = dev?.params.executable ?? shell,
       args = dev?.params.args ?? ["-i"];
     const secrets = listEncryptedSecrets(this.options.db).map(
@@ -759,7 +775,7 @@ export class TerminalManager {
     );
     if (
       secrets.some((secret) =>
-        [executable, params.cwd, dev?.params.role ?? "", ...args].some((value) =>
+        [shell, executable, params.cwd, dev?.params.role ?? "", ...args].some((value) =>
           value.includes(secret),
         ),
       )
@@ -778,23 +794,15 @@ export class TerminalManager {
       policy: dev?.context.policySnapshotId ?? "human-terminal-v1",
     };
     const hash = createHash("sha256").update(JSON.stringify(normalized)).digest("hex");
-    const existing = findOperation(this.options.db, client, key, "terminal.create");
-    if (existing) {
+    if (existing && existingRow) {
       if (existing.paramsHash !== hash) fail("CONFLICT", "Terminal retry parameters changed");
-      const row = allTerminals(this.options.db).find((row) => row.operationId === existing.id);
-      if (!row) fail("RESOURCE_UNAVAILABLE", "Terminal result unavailable");
-      return this.dto(row);
+      return this.dto(existingRow);
     }
-    if (dev) {
-      const active = activeTerminals(this.options.db).find(
-        (row) => row.projectId === dev.context.projectId && row.role === dev.params.role,
-      );
-      if (active) {
-        if (active.launchParamsHash !== launchHash)
-          fail("CONFLICT", "Terminal role is already active with different parameters");
-        dev.context.assertAuthorized();
-        return this.dto(active);
-      }
+    if (dev && active) {
+      if (active.launchParamsHash !== launchHash)
+        fail("CONFLICT", "Terminal role is already active with different parameters");
+      dev.context.assertAuthorized();
+      return this.dto(active);
     }
     this.#client(client);
     dev?.context.assertAuthorized();

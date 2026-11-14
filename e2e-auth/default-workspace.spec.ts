@@ -72,7 +72,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
       .locator(".xterm-helper-textarea")
       .pressSequentially(
         process.platform === "win32"
-          ? "echo seed> default-note.txt"
+          ? `node -e "require('fs').writeFileSync('default-note.txt','seed')"`
           : "printf 'seed\\n' > default-note.txt",
       );
     await terminal.locator(".xterm-helper-textarea").press("Enter");

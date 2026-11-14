@@ -49,7 +49,7 @@ FileEntry 为 `{ path, name, type: "file" | "directory", size? }`。稳定排序
 | 方法 / 路径 | 输入 / 输出 |
 |---|---|
 | GET `/api/terminals` | 按 projectId / workspaceSessionId / 全局过滤；返回分页资源，不读取客户端 Tab |
-| POST `/api/terminals` | `{ scope?, cwd?: ".", sourceSessionId?, riskAcknowledged: true }`；服务端选择本机账户默认 Shell（ADR-033）；201 Terminal |
+| POST `/api/terminals` | `{ scope?, cwd?: ".", sourceSessionId?, riskAcknowledged: true }`，服务端选择默认交互 Shell，201 Terminal |
 | GET `/api/terminals/:id` | Terminal 与当前租约元数据 |
 | POST `/api/terminals/:id/terminate` | `{ confirmed: true }`；主动关闭终端 Tab 或显式终止都经此能力，幂等停止；窗口关闭不调用 |
 | POST `/api/terminals/:id/resize` | `{ connectionId, leaseGeneration, cols, rows }`；cols 2–500、rows 1–300 |
@@ -65,6 +65,8 @@ Terminal：`{ id, projectId, workspaceSessionId, sourceSessionId, executionId, c
 ```
 
 服务端按当前连接验证持有者与 generation；inputSequence 在该租约内递增，重复不重放按键，未来跳号拒绝并要求重同步。每条 ≤ 8 KiB，单连接 ≤ 64 KiB/s；粘贴也受同一限制。禁止把输入正文记日志。身份过期 / 撤销 / 断线立即释放输入租约，PTY 仍运行；输入租约与源码写锁不绑定。不提供人工之间的 force takeover；人工显式接管 AI 控制按 §10 原子交接。
+
+Windows 按 [ADR-061](../adr/ADR-061-windows-terminal-shell.md) 依次探测 PowerShell 7（Larness 进程 PATH）、系统 Windows PowerShell 5.1、系统 CMD。新建人工终端直接进入所选 Shell。Agent 开发终端的前台命令退出后，在同一 PTY 进入所选 Shell。`shell` 字段记录该绝对路径。同幂等键沿用原记录，候选耗尽返回 `RESOURCE_UNAVAILABLE`。PowerShell 禁用 profile 和 PSReadLine 历史保存。
 
 ### 4.1 Agent 项目开发终端工具（设计已批准）
 

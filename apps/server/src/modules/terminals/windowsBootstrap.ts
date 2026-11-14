@@ -12,7 +12,7 @@ import path from "node:path";
  */
 export const WINDOWS_TERMINAL_BOOTSTRAP = `import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
-const [readyFile, shell, program, ...args] = process.argv.slice(2);
+const [readyFile, shell, shellArgs, program, ...args] = process.argv.slice(2);
 function markReady() { try { writeFileSync(readyFile, "ready"); } catch {} }
 process.on("SIGINT", () => {});
 process.on("SIGHUP", () => {});
@@ -20,8 +20,7 @@ let handedOver = false;
 function startShell(code) {
   if (handedOver) return;
   handedOver = true;
-  const interactive = shell.toLowerCase().endsWith("cmd.exe") ? ["/d"] : [];
-  const child = spawn(shell, interactive, { stdio: "inherit", windowsHide: false });
+  const child = spawn(shell, JSON.parse(shellArgs), { stdio: "inherit", windowsHide: false });
   child.on("error", () => process.exit(code ?? 1));
   child.on("exit", (value) => process.exit(value ?? code ?? 0));
 }

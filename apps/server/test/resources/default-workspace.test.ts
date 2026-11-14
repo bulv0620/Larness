@@ -235,6 +235,15 @@ it("runs approved Agent control and file tools in the default workspace while is
         scope: { workspace: "default" },
         riskAcknowledged: true,
       });
+      if (process.platform === "win32") {
+        const prefix = path.basename(terminal.shell).toLowerCase() === "cmd.exe" ? "" : "PS ";
+        await until(async () =>
+          (await f.running.terminals.output(terminal.id, 0, 100)).chunks
+            .map((chunk) => chunk.data)
+            .join("")
+            .includes(`${prefix}${terminal.cwd}>`),
+        );
+      }
       await writeFile(path.join(session.workspacePath, "agent.txt"), "old\n");
       const registry = createFileToolRegistry();
       for (const tool of [
@@ -304,11 +313,14 @@ it("runs approved Agent control and file tools in the default workspace while is
       expect((await run).status).toBe("COMPLETED");
       expect(await readFile(path.join(session.workspacePath, "agent.txt"), "utf8")).toBe("new\n");
       expect(JSON.stringify(events)).toContain('"workspace":"default"');
-      expect(JSON.stringify(provider.calls[0]?.messages[0])).toContain(terminal.id);
+      const systemPrompt = JSON.stringify(provider.calls[0]?.messages[0]);
+      expect(systemPrompt).toContain(terminal.id);
+      expect(systemPrompt).toContain("identify PowerShell or CMD from the actual prompt");
       await until(async () =>
-        (await f.running.terminals.output(terminal.id, 0, 100)).chunks.some((chunk) =>
-          chunk.data.includes("DEFAULT_AI_ok"),
-        ),
+        (await f.running.terminals.output(terminal.id, 0, 100)).chunks
+          .map((chunk) => chunk.data)
+          .join("")
+          .includes("DEFAULT_AI_ok"),
       );
       expect((await f.running.terminals.read(terminal.id)).lease).toBeNull();
       const legacy = await createSession({ db: f.running.db, dataDir: f.running.dataDir }, {});
