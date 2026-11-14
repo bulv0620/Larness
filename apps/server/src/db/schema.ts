@@ -38,6 +38,7 @@ export const MODEL_PROVIDER_IDS = [
   "openai-compatible",
   "opencode-go",
   "bailian",
+  "kimi",
 ] as const;
 export type ModelProviderId = (typeof MODEL_PROVIDER_IDS)[number];
 export type ScheduledJobKind = "script" | "agent";

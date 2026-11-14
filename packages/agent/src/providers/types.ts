@@ -6,6 +6,7 @@ export type ProviderId =
   | "openai-compatible"
   | "opencode-go"
   | "bailian"
+  | "kimi"
   | "fake";
 
 export type ProviderFinishReason =

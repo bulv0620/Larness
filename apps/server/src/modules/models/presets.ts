@@ -135,6 +135,42 @@ export const MODEL_CONNECTION_PRESETS: readonly ConnectionPreset[] = [
     candidateDirectory: true,
     interactiveOnly: true,
   },
+  {
+    id: "kimi-api-cn",
+    provider: "kimi",
+    label: "Kimi 开放平台 · 国内",
+    billing: "usage",
+    endpoint: "https://api.moonshot.cn/v1",
+    directoryId: "moonshotai-cn",
+  },
+  {
+    id: "kimi-api-intl",
+    provider: "kimi",
+    label: "Kimi 开放平台 · 国际",
+    billing: "usage",
+    endpoint: "https://api.moonshot.ai/v1",
+    directoryId: "moonshotai",
+  },
+  {
+    id: "kimi-code-cn",
+    provider: "kimi",
+    label: "Kimi Code · 国内",
+    billing: "subscription",
+    endpoint: "https://api.kimi.com/coding/v1",
+    directoryId: "kimi-code-plan-cn",
+    candidateDirectory: true,
+    interactiveOnly: true,
+  },
+  {
+    id: "kimi-code-intl",
+    provider: "kimi",
+    label: "Kimi Code · 国际",
+    billing: "subscription",
+    endpoint: "https://api.kimi.ai/coding/v1",
+    directoryId: "kimi-code-plan-global",
+    candidateDirectory: true,
+    interactiveOnly: true,
+  },
 ];
 
 export function findConnectionPreset(id: string): ConnectionPreset | undefined {

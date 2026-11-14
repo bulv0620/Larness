@@ -38,7 +38,7 @@ const COMPATIBLE_CAPABILITIES: ProviderCapabilities = {
 };
 
 export interface CompatibleProviderOptions {
-  id: "glm" | "openai-compatible" | "opencode-go" | "bailian";
+  id: "glm" | "openai-compatible" | "opencode-go" | "bailian" | "kimi";
   headers?: Record<string, string>;
   name: string;
   baseURL: string;

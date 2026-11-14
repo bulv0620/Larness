@@ -286,7 +286,13 @@ export function ModelSettingsDialog({
       });
       setApiKey("");
       await reload();
-      await refresh(saved.id, true, selectedPreset.provider === "opencode-go");
+      await refresh(
+        saved.id,
+        true,
+        selectedPreset.provider === "opencode-go" ||
+          selectedPreset.provider === "kimi" ||
+          selectedPreset.provider === "bailian",
+      );
       setView({ kind: "list" });
     } catch (saveError) {
       setError(operationError(saveError, "保存 Key 失败"));

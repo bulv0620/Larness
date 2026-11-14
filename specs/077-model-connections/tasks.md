@@ -8,7 +8,7 @@
 | MC-3 | 设置与会话选择器 | MC-2 | done |
 | MC-4 | OpenCode Go | MC-3 | done |
 | MC-5 | 阿里云百炼 | MC-4 | done |
-| MC-6 | Kimi | MC-5 | todo |
+| MC-6 | Kimi | MC-5 | done |
 | MC-7 | MiniMax | MC-6 | todo |
 | MC-8 | 截图输入与能力校验 | MC-7 | todo |
 
@@ -52,6 +52,8 @@ Go 公开目录实测 200，包含模型 ID、限制、模态和工具能力。�
 ## MC-6 Kimi
 
 开放平台与 Kimi Code 国内／国际。验证模型目录或候选来源，保持真实客户端身份，验证流式工具回传。逐预设跑 A3、A9、A10。
+
+开放平台与 Kimi Code 的四个预设已接入。独立地址、目录命名空间及计费来源测试通过，整仓检查通过。真实 Key 和工具续跑待验收。
 
 ## MC-7 MiniMax
 

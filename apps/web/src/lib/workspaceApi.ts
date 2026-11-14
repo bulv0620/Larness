@@ -88,7 +88,7 @@ export interface WorkspaceData {
 export interface ApiModelProfile {
   id: string;
   label: string;
-  provider: "deepseek" | "glm" | "openai-compatible" | "opencode-go" | "bailian";
+  provider: "deepseek" | "glm" | "openai-compatible" | "opencode-go" | "bailian" | "kimi";
   model: string;
   credentialProfileId: string | null;
   credentialLabel: string | null;
@@ -132,7 +132,7 @@ export interface ApiCatalogModel {
 }
 
 export interface ApiCatalogGroup {
-  provider: "deepseek" | "glm" | "openai-compatible" | "opencode-go" | "bailian";
+  provider: "deepseek" | "glm" | "openai-compatible" | "opencode-go" | "bailian" | "kimi";
   credentialProfileId: string;
   credentialLabel: string;
   billing?: "usage" | "subscription" | "unknown";
@@ -157,7 +157,7 @@ export interface ApiModelCatalog extends ApiCatalogGroup {
 
 export interface ApiCredential {
   id: string;
-  provider: "deepseek" | "glm" | "openai-compatible" | "opencode-go" | "bailian";
+  provider: "deepseek" | "glm" | "openai-compatible" | "opencode-go" | "bailian" | "kimi";
   label: string;
   secretRef: string;
   masked: string;

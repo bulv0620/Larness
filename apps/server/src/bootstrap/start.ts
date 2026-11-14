@@ -186,6 +186,9 @@ export function createDefaultProviderResolver(
                   name:
                     resolved.provider === "openai-compatible" ? "compatible" : resolved.provider,
                   baseURL: resolved.endpoint ?? "",
+                  ...(resolved.provider === "kimi"
+                    ? { headers: { "user-agent": `Larness/${SERVER_VERSION}` } }
+                    : {}),
                   ...(resolved.provider === "opencode-go"
                     ? {
                         headers: {
