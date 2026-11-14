@@ -42,6 +42,7 @@ import { createTerminalControlTools } from "../modules/agent/terminalControlTool
 import { createTerminalTools } from "../modules/agent/terminalTool.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
 import { CommandManager } from "../modules/commands/manager.js";
+import { reconcileFileActions } from "../modules/files/actions.js";
 import { reconcileFileOperations } from "../modules/files/service.js";
 import { GitManager } from "../modules/git/manager.js";
 import { AgentJobExecutor } from "../modules/jobs/agentRunner.js";
@@ -307,6 +308,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
     const secretStore = await SecretStore.open(dataDir, listEncryptedSecrets(opened.db));
     await reconcileFileOperations({ db: opened.db, dataDir });
+    await reconcileFileActions({ db: opened.db, dataDir });
     const resourceEvents = new ResourceEventBus();
     let pm2Global: Pm2Global = { status: "missing" };
     const commands = new CommandManager({

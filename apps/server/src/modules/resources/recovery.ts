@@ -84,6 +84,10 @@ function lockOwnerIsActive(db: Database, lock: ResourceLockRow): boolean {
   return turn !== undefined && ACTIVE_TURN_STATUSES.has(turn.status);
 }
 
+function isFileOperation(operation: ResourceOperationRow) {
+  return operation.kind === "file.save" || operation.kind === "file.action";
+}
+
 function requiresProcessReconciliation(db: Database, operation: ResourceOperationRow): boolean {
   const execution =
     operation.kind === "command.run"
@@ -104,7 +108,7 @@ export function finalizeUnreconciledOperations(options: RecoveryOptions): SweepS
   const pending = pendingOperations(options.db);
   const retained = pending.filter(
     (operation) =>
-      operation.kind === "file.save" || requiresProcessReconciliation(options.db, operation),
+      isFileOperation(operation) || requiresProcessReconciliation(options.db, operation),
   );
   const retainedIds = new Set(retained.map((operation) => operation.id));
   const retainedLockIds = new Set(retained.map((operation) => operation.lockId));
@@ -157,7 +161,7 @@ export function finalizeUnreconciledOperations(options: RecoveryOptions): SweepS
   return {
     finalizedOperations,
     releasedLocks,
-    retainedFileOperations: retained.filter((operation) => operation.kind === "file.save").length,
+    retainedFileOperations: retained.filter(isFileOperation).length,
   };
 }
 
@@ -166,7 +170,7 @@ export function markOperationsInterrupted(options: RecoveryOptions): number {
   const now = options.now?.() ?? Date.now();
   let interrupted = 0;
   for (const operation of pendingOperations(options.db)) {
-    if (operation.kind === "file.save" || requiresProcessReconciliation(options.db, operation))
+    if (isFileOperation(operation) || requiresProcessReconciliation(options.db, operation))
       continue;
     finalizeOperation(options, operation, "INTERRUPTED", "shutdown", now);
     releaseOperationLock(options, operation);

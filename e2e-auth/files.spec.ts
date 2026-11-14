@@ -16,6 +16,7 @@ async function replaceEditor(page: Page, text: string) {
 
 test("M2 files edit real bytes, retain conflicting drafts, confirm close and restore local views", async ({
   page,
+  browser,
 }) => {
   const root = mkdtempSync(path.join(tmpdir(), "larness-files-e2e-"));
   const file = path.join(root, "note.txt");
@@ -223,6 +224,74 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await expect(confirm.getByRole("alert")).toContainText("文件不可用");
     await expect(confirm).toBeVisible();
     await confirm.getByRole("button", { name: "放弃改动", exact: true }).click();
+    const observerContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    try {
+      const observer = await observerContext.newPage();
+      await observer.goto(new URL("/pair", page.url()).toString());
+      const observerPanel = observer.locator("[data-request-id]");
+      await expect(observerPanel).toHaveAttribute("data-stage", "waiting");
+      const observerId = await observerPanel.getAttribute("data-request-id");
+      const observerApproval = JSON.parse(
+        execFileSync(
+          "pnpm",
+          [
+            "--silent",
+            "--filter",
+            "@larness/server",
+            "exec",
+            "tsx",
+            "../../scripts/e2e-ipc.ts",
+            "approve",
+            observerId ?? "",
+            "allow_once",
+          ],
+          { encoding: "utf8" },
+        ),
+      );
+      await observer.getByLabel("配对码").fill(observerApproval.code);
+      await observer.getByRole("button", { name: "兑换配对码" }).click();
+      await expect(observer.getByTestId("workspace-home")).toBeVisible();
+      await observer.getByRole("button", { name: `在 ${path.basename(root)} 中新建会话` }).click();
+      await expect(observer.getByRole("button", { name: "目录 sub" })).toBeVisible();
+      await resources.getByRole("button", { name: "目录 sub" }).focus();
+      await resources.getByRole("button", { name: "新建目录" }).click();
+      const newDir = resources.getByRole("textbox", { name: "新目录名" });
+      await newDir.fill("destination");
+      await newDir.press("Enter");
+      const destination = resources.getByRole("button", { name: "目录 destination" });
+      await expect(destination).toBeFocused();
+      await resources.getByRole("button", { name: "新建文件" }).click();
+      const newFile = resources.getByRole("textbox", { name: "新文件名" });
+      await newFile.fill("draft.txt");
+      await newFile.press("Enter");
+      await expect(editor).toBeVisible();
+      await replaceEditor(page, "draft follows rename and move");
+      const fileRow = resources.getByRole("button", { name: "打开文件 draft.txt" });
+      await fileRow.click({ button: "right" });
+      await page.getByRole("menuitem", { name: "重命名" }).click();
+      const rename = resources.getByRole("textbox", { name: "新名称" });
+      await rename.fill("moved.txt");
+      await rename.press("Enter");
+      await expect(page.getByRole("tab", { name: /^moved\.txt/ })).toBeVisible();
+      await resources.getByRole("button", { name: "moved.txt 的文件操作" }).click();
+      await page.getByRole("menuitem", { name: "移动到…" }).click();
+      const move = page.getByRole("dialog", { name: "移动文件" });
+      await move.getByRole("button", { name: "移到这里" }).click();
+      await expect(move).toHaveCount(0);
+      await expect(page.locator(".view-lines").first()).toContainText(
+        "draft follows rename and move",
+      );
+      await saveButton.click();
+      await expect
+        .poll(() => readFileSync(path.join(root, "moved.txt"), "utf8"))
+        .toBe("draft follows rename and move");
+      const movedRow = observer.getByRole("button", { name: "打开文件 moved.txt" });
+      await expect(movedRow).toBeVisible();
+      await movedRow.click();
+      await expect(observer.locator(".view-lines")).toContainText("draft follows rename and move");
+    } finally {
+      await observerContext.close();
+    }
     // Monaco reports a benign console error when the diff model is disposed after merge.
     expect(errors.filter((error) => !error.includes("no diff result available"))).toEqual([]);
   } finally {

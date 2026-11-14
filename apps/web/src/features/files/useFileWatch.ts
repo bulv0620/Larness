@@ -25,7 +25,9 @@ export function useFileWatch(scope: FileScope, paths: string[]) {
     let replaying = false;
     const streamId = `file:${id}`;
     const invalidate = () => {
-      if (!disposed) void queryClient.invalidateQueries({ queryKey: ["files", id] });
+      if (disposed) return;
+      void queryClient.invalidateQueries({ queryKey: ["files", id] });
+      void queryClient.invalidateQueries({ queryKey: ["file-search", id] });
     };
     const replay = async () => {
       if (replaying || disposed) return;

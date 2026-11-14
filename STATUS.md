@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **FR-3 新建、重命名与移动**（`done`，`task/fr-3-file-operations`，2026-11-14）：完成树内新建、改名和同工作区移动，草稿随 Tab 迁移。整仓 check、build、认证 Chromium 文件/Git 2 项通过，含双客户端验证。见 [076 验收记录](specs/076-file-explorer/tasks.md#fr-3)。
+
 - **FR-2 文件名与路径快速打开**（`done`，`task/fr-2-quick-open`，2026-11-14 11:50 +08:00 开始）：当前工作区有界模糊查询、快速打开和键盘选择已验收，整仓 check、build 与认证 Chromium 通过。见 [076 规格](specs/076-file-explorer/spec.md#fr-2-文件名与路径快速打开)。
 
 - **M2-R1 保留未核实进程的写入屏障**（`done`，2026-11-14）：按既有契约保留命令和终端待核实操作，解除 FR-1 门禁。专项 31 项及整仓检查通过。

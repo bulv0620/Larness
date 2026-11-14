@@ -1,5 +1,6 @@
 import { FileManagerError } from "@larness/resources";
 import {
+  FileActionSchema,
   FileListQuerySchema,
   FileReadQuerySchema,
   FileSaveSchema,
@@ -12,6 +13,7 @@ import type { AppServices } from "../app.js";
 import { resolveActiveSession } from "../auth/sessions.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { HttpError } from "../errors.js";
+import { applyFileAction } from "../modules/files/actions.js";
 import { knownCredentialGuard } from "../modules/files/credentials.js";
 import {
   type FileServiceOptions,
@@ -96,6 +98,14 @@ export function registerFileRoutes(
       const client = request.clientSession;
       if (!client) throw new HttpError("UNAUTHENTICATED", "Authentication required");
       return saveFile(options(request), body, client.id, idempotencyKey);
+    }),
+  );
+  app.post("/api/files/actions", async (request) =>
+    run(request, async () => {
+      const input = parse(FileActionSchema, request.body);
+      const key = parse(z.string().trim().min(1).max(128), request.headers["idempotency-key"]);
+      if (!request.clientSession) throw new HttpError("UNAUTHENTICATED", "Authentication required");
+      return applyFileAction(options(request), input, request.clientSession.id, key);
     }),
   );
   for (const kind of ["projects", "sessions", "workspaces"] as const) {

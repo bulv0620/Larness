@@ -101,3 +101,25 @@ export const FileSearchResultSchema = z.object({
   partial: z.boolean(),
 });
 export type FileSearchResult = z.infer<typeof FileSearchResultSchema>;
+
+const fileActionTarget = { scope: FileScopeSchema, path: FilePathSchema };
+export const FileActionSchema = z.discriminatedUnion("action", [
+  z.object({ ...fileActionTarget, action: z.literal("createFile") }).strict(),
+  z.object({ ...fileActionTarget, action: z.literal("createDirectory") }).strict(),
+  z
+    .object({
+      ...fileActionTarget,
+      action: z.literal("move"),
+      destination: FilePathSchema,
+      expectedVersion: FileVersionSchema,
+    })
+    .strict(),
+]);
+export type FileAction = z.infer<typeof FileActionSchema>;
+export const FileActionResultSchema = z.object({
+  path: FilePathSchema,
+  realPath: z.string(),
+  previousPath: FilePathSchema.optional(),
+  previousRealPath: z.string().optional(),
+});
+export type FileActionResult = z.infer<typeof FileActionResultSchema>;

@@ -1,8 +1,8 @@
-import type { FileScope } from "@larness/shared";
+import type { FileActionResult, FileScope } from "@larness/shared";
 import { queryClient } from "@/lib/queries";
 import type { TabOrigin, WindowTab } from "@/lib/windowTypes";
 import { useWindowStore } from "@/stores/windowStore";
-import { fileKey, readFile, writeFile } from "./api";
+import { fileKey, readFile, scopeId, writeFile } from "./api";
 import { useFileDraftStore } from "./drafts";
 export async function openFile(
   scope: FileScope,
@@ -67,4 +67,51 @@ export function saveDraft(tab: WindowTab): Promise<void> {
   })();
   inFlight.set(tab.resourceId, action);
   return action;
+}
+
+export function relocateOpenFile(scope: FileScope, result: FileActionResult) {
+  const previous = result.previousRealPath;
+  const previousPath = result.previousPath;
+  if (!previous || !previousPath) return;
+  const id = scopeId(scope);
+  const windows = useWindowStore.getState().windows;
+  const matching = (tab: WindowTab) =>
+    tab.resourceId === previous && tab.file && scopeId(tab.file.scope) === id;
+  if (!windows.some((win) => win.tabs.some(matching))) return;
+
+  const target = result.realPath;
+  const state = useFileDraftStore.getState();
+  const draft = state.drafts[previous];
+  if (draft && state.drafts[target]) return;
+  if (draft) {
+    state.edit(target, draft.text, draft.baseVersion);
+    if (
+      !windows.some((win) => win.tabs.some((tab) => tab.resourceId === previous && !matching(tab)))
+    )
+      state.discard(previous);
+  }
+
+  useWindowStore.setState({
+    windows: windows.map((win) => {
+      const moved = win.tabs.find(matching);
+      if (!moved) return win;
+      const tabs = win.tabs.filter((tab) => tab.id === moved.id || tab.resourceId !== target);
+      return {
+        ...win,
+        activeTabId: tabs.some((tab) => tab.id === win.activeTabId) ? win.activeTabId : moved.id,
+        tabs: tabs.map((tab) =>
+          tab.id === moved.id
+            ? {
+                ...tab,
+                resourceId: target,
+                viewKey: `file:${target}`,
+                title: result.path.split("/").at(-1) ?? result.path,
+                file: { scope, path: result.path },
+                preview: false,
+              }
+            : tab,
+        ),
+      };
+    }),
+  });
 }

@@ -344,3 +344,137 @@ it("quick-opens matching files from the authorized root and excludes ignored pat
     }
   });
 });
+
+it("creates and moves real files without overwriting or accepting stale versions", async () => {
+  await withTempDir(async (dir) => {
+    const started = await startAuthorizedServer(path.join(dir, "data"));
+    try {
+      const root = path.join(dir, "project");
+      await mkdir(root);
+      await writeFile(path.join(root, "source.txt"), "seed");
+      const headers = {
+        cookie: started.cookie,
+        origin: started.origin,
+        "x-csrf-token": started.csrf,
+      };
+      const created = await started.running.app.inject({
+        method: "POST",
+        url: "/api/projects",
+        headers,
+        payload: { rootPath: root },
+      });
+      expect(created.statusCode).toBe(201);
+      const projectId = created.json().id;
+      const act = (key: string, action: Record<string, unknown>) =>
+        started.running.app.inject({
+          method: "POST",
+          url: "/api/files/actions",
+          headers: { ...headers, "idempotency-key": key },
+          payload: { scope: { projectId }, ...action },
+        });
+      expect((await act("dir", { action: "createDirectory", path: "sub" })).statusCode).toBe(200);
+      expect((await act("empty", { action: "createFile", path: "sub/empty.txt" })).statusCode).toBe(
+        200,
+      );
+      expect(await readFile(path.join(root, "sub/empty.txt"), "utf8")).toBe("");
+      const source = await started.running.app.inject({
+        url: `/api/files?projectId=${projectId}&path=source.txt`,
+        headers,
+      });
+      const move = {
+        action: "move",
+        path: "source.txt",
+        destination: "sub/renamed.txt",
+        expectedVersion: source.json().version,
+      };
+      expect((await act("existing", { ...move, destination: "sub/empty.txt" })).statusCode).toBe(
+        409,
+      );
+      expect(
+        (await act("stale", { ...move, expectedVersion: "a".repeat(64) })).json().error.code,
+      ).toBe("VERSION_CONFLICT");
+      const moved = await act("move", move);
+      expect(moved.statusCode).toBe(200);
+      expect((await act("move", move)).json()).toEqual(moved.json());
+      expect(await readFile(path.join(root, "sub/renamed.txt"), "utf8")).toBe("seed");
+      await expect(readFile(path.join(root, "source.txt"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      expect((await act("outside", { action: "createFile", path: "../outside" })).statusCode).toBe(
+        400,
+      );
+    } finally {
+      await stopAuthorizedServer(started);
+    }
+  });
+});
+
+it("reconciles a move whose disk change completed before the result transaction failed", async () => {
+  await withTempDir(async (dir) => {
+    const started = await startAuthorizedServer(path.join(dir, "data"));
+    try {
+      const root = path.join(dir, "project");
+      await mkdir(root);
+      await writeFile(path.join(root, "before.txt"), "original");
+      const headers = {
+        cookie: started.cookie,
+        origin: started.origin,
+        "x-csrf-token": started.csrf,
+      };
+      const project = await started.running.app.inject({
+        method: "POST",
+        url: "/api/projects",
+        headers,
+        payload: { rootPath: root },
+      });
+      expect(project.statusCode).toBe(201);
+      const projectId = project.json().id;
+      const opened = await started.running.app.inject({
+        url: `/api/files?projectId=${projectId}&path=before.txt`,
+        headers,
+      });
+      started.running.sqlite.exec(`
+        CREATE TRIGGER fail_file_action_commit BEFORE UPDATE ON resource_operations
+        WHEN NEW.kind = 'file.action' AND NEW.status = 'COMPLETED'
+        BEGIN SELECT RAISE(ABORT, 'fixture failure'); END
+      `);
+      const request = () =>
+        started.running.app.inject({
+          method: "POST",
+          url: "/api/files/actions",
+          headers: { ...headers, "idempotency-key": "move-recover" },
+          payload: {
+            scope: { projectId },
+            action: "move",
+            path: "before.txt",
+            destination: "after.txt",
+            expectedVersion: opened.json().version,
+          },
+        });
+      expect((await request()).statusCode).toBeGreaterThanOrEqual(400);
+      expect(await readFile(path.join(root, "after.txt"), "utf8")).toBe("original");
+      await expect(readFile(path.join(root, "before.txt"), "utf8")).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      const options = { db: started.running.db, dataDir: started.running.dataDir };
+      const writer = new ProjectWriteLock({
+        db: options.db,
+        projectId,
+        owner: "fixture",
+        executionId: "fixture",
+      });
+      expect(writer.acquire()).toBeNull();
+      started.running.sqlite.exec("DROP TRIGGER fail_file_action_commit");
+      const { reconcileFileActions } = await import("../../src/modules/files/actions.js");
+      await reconcileFileActions(options);
+      expect((await request()).json()).toMatchObject({
+        previousPath: "before.txt",
+        path: "after.txt",
+      });
+      expect(writer.acquire()).not.toBeNull();
+      writer.release();
+    } finally {
+      await stopAuthorizedServer(started);
+    }
+  });
+});

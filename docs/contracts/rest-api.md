@@ -719,3 +719,9 @@ type JobInput = {
 `GET /api/{projects|sessions|workspaces}/:id/files/search?q=`，工作区只接受 `default`。需认证，复用目录列表的授权根、忽略策略、保护目录和凭据检测。q 去首尾空白后长度 1–128，正反斜杠按统一相对路径匹配；未知参数拒绝。
 
 返回 `{ items: [{ path, name }], partial }`，路径均为当前根内相对路径。只扫描常规文件和目录，不追踪软链接，不打开文件正文。每次最多检查 10,000 个目录项、25 层（包括根层）、扫描约 2 秒时停止调度，最多返回 60 项。因预算、不可读后代或结果数量截断时 `partial=true`。根不可用返回原有文件错误。返回前重验认证与范围，结果项执行路径凭据检查。此接口不授予打开文件权限，打开仍调用已有文件读取接口。
+
+### FR-3 单项文件操作
+
+`POST /api/files/actions` 需认证、Origin、CSRF 和 `Idempotency-Key`。请求含 `scope` 及 `action`，`createFile|createDirectory` 携带 `path`，`move` 携带 `path`、`destination`、`expectedVersion`。路径均为同范围内相对路径，结果为 `{ path, realPath, previousPath?, previousRealPath? }`。重名返回 CONFLICT，源版本变化返回 VERSION_CONFLICT。只允许常规可读文本文件移动，现有 512 KiB 上限、路径防护和敏感内容校验适用；同卷硬链接独占目标名后删除来源，平台或文件系统不支持时明确失败。跨卷和当前磁盘视为同名的大小写变化按失败处理。目标必须符合文件树的忽略规则。
+
+共同根锁和持久操作意图涵盖磁盘写入。完成事务写入事件、结果及审计，移动发原路径删除和新路径创建。若结果不确定则保留待对账操作与写入屏障。启动仅核对实际状态并补记可验证结果；保留不确定的源与目标，禁止用回滚覆盖用户文件。无数据迁移。

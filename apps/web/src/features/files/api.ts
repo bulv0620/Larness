@@ -1,4 +1,6 @@
 import {
+  type FileAction,
+  FileActionResultSchema,
   FileListResultSchema,
   FileReadResultSchema,
   FileSaveResultSchema,
@@ -50,10 +52,22 @@ export async function searchFiles(scope: FileScope, q: string, signal: AbortSign
     await apiFetch(`${directoryUrl(scope)}/search?${new URLSearchParams({ q })}`, { signal }),
   );
 }
+export async function applyFileAction(input: FileAction, idempotencyKey: string) {
+  return FileActionResultSchema.parse(
+    await apiFetch("/api/files/actions", {
+      method: "POST",
+      csrf: true,
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: input,
+    }),
+  );
+}
 export function fileError(error: unknown): string {
   if (error instanceof ApiError) {
     if (["FILE_NOT_EDITABLE", "PAYLOAD_TOO_LARGE"].includes(error.code))
       return "不支持编辑：仅支持 512 KiB 以内的普通 UTF-8 文本。";
+    if (error.code === "CONFLICT") return "名称已存在或路径已变化，请核对后重试。";
+    if (error.code === "VALIDATION_ERROR") return "请使用有效的文件名和工作区内路径。";
     if (error.code === "VERSION_CONFLICT") return "磁盘文件已变化，草稿已保留。";
     if (error.code === "RESOURCE_LOCKED") return "项目正在写入，请稍后重试；草稿已保留。";
     if (["NOT_FOUND", "FORBIDDEN", "PATH_OUTSIDE_PROJECT"].includes(error.code))

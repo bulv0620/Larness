@@ -1,12 +1,24 @@
-import type { FileScope } from "@larness/shared";
+import type { FileAction, FileScope } from "@larness/shared";
 import { cn, ErrorMessage } from "@larness/ui";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, ChevronsDownUp, Copy, FileText, Folder } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  Copy,
+  FilePlus2,
+  FileText,
+  Folder,
+  FolderPlus,
+} from "lucide-react";
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from "react";
-import { openFile } from "@/features/files/actions";
-import { fileError, listDirectory, scopeId } from "@/features/files/api";
+import { openFile, relocateOpenFile } from "@/features/files/actions";
+import { applyFileAction, fileError, listDirectory, readFile, scopeId } from "@/features/files/api";
+import { useFileDraftStore } from "@/features/files/drafts";
+import { FileNameInput, FileRowActions, MoveFileDialog } from "@/features/files/FileTreeActions";
 import { QuickOpenFiles } from "@/features/files/QuickOpenFiles";
 import { useFileWatch } from "@/features/files/useFileWatch";
+import { ApiError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { queryClient, useSnapshot } from "@/lib/queries";
 import { activeWorkspaceScope } from "@/lib/workspaceScope";
@@ -14,6 +26,9 @@ import { useNavigationStore } from "@/stores/navigationStore";
 import { DemoFileTreePanel } from "./DemoFileTreePanel";
 
 const root = ["."];
+type Edit = { action: "createFile" | "createDirectory" | "rename" | "move"; path: string };
+const parentPath = (path: string) => path.split("/").slice(0, -1).join("/") || ".";
+const childPath = (parent: string, name: string) => (parent === "." ? name : `${parent}/${name}`);
 
 export function FileTreePanel({ projectId }: { projectId: string | null }) {
   const sessionId = useNavigationStore((state) => state.sessionId);
@@ -31,11 +46,23 @@ function RealFileTree({ scope }: { scope: FileScope }) {
     state.fileReveal?.scope === id ? state.fileReveal : null,
   );
   const [selected, setSelected] = useState<string | null>(null);
+  const [edit, setEdit] = useState<Edit | null>(null);
+  const [menu, setMenu] = useState<string | null>(null);
+  const mutation = useRef(false);
+  const request = useRef<{ value: string; input: FileAction; key: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const tree = useRef<HTMLFieldSetElement>(null);
   const pendingOpen = useRef<AbortController | null>(null);
-  useLayoutEffect(() => () => pendingOpen.current?.abort(), []);
+  const mounted = useRef(false);
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      pendingOpen.current?.abort();
+    };
+  }, []);
   useFileWatch(scope, expanded);
 
   const open = (path: string, preview: boolean) => {
@@ -51,6 +78,91 @@ function RealFileTree({ scope }: { scope: FileScope }) {
     ).catch((error: unknown) => {
       if (!signal.aborted) setError(fileError(error));
     });
+  };
+
+  const begin = (next: Edit) => {
+    if (mutation.current) return;
+    setError(null);
+    request.current = null;
+    setEdit(next);
+  };
+
+  const startCreate = (action: "createFile" | "createDirectory") => {
+    const selectedRow = [
+      ...(tree.current?.querySelectorAll<HTMLButtonElement>("[data-file-path]") ?? []),
+    ].find((row) => row.dataset.filePath === selected);
+    const path =
+      selected && selectedRow
+        ? selectedRow.hasAttribute("aria-expanded")
+          ? selected
+          : parentPath(selected)
+        : ".";
+    useNavigationStore.getState().setExpandedFileDirectories(id, [...new Set([...expanded, path])]);
+    begin({ action, path });
+  };
+
+  const submit = async (value: string) => {
+    if (!edit || mutation.current) return;
+    if (
+      edit.action !== "move" &&
+      (!value || /[\\/:]/.test(value) || value === "." || value === "..")
+    ) {
+      setError("请输入一个有效的名称。");
+      return;
+    }
+    mutation.current = true;
+    setBusy(true);
+    setError(null);
+    const action = edit.action;
+    try {
+      let input: FileAction;
+      if (request.current?.value === value) input = request.current.input;
+      else if (action === "rename" || action === "move") {
+        const file = await readFile(scope, edit.path);
+        const drafts = useFileDraftStore.getState();
+        if (drafts.saving[file.realPath]) {
+          setError("正在保存该文件，请稍后重试。");
+          return;
+        }
+        const destination =
+          action === "rename"
+            ? childPath(parentPath(edit.path), value)
+            : childPath(value, edit.path.split("/").at(-1) ?? edit.path);
+        const portablePath = file.realPath.replaceAll("\\", "/");
+        const target = `${portablePath.slice(0, -file.path.length)}${destination}`;
+        if (destination === edit.path) {
+          setEdit(null);
+          return;
+        }
+        if (Object.keys(drafts.drafts).some((key) => key.replaceAll("\\", "/") === target)) {
+          setError("目标路径有未保存的草稿，请先处理该草稿。");
+          return;
+        }
+        input = {
+          scope,
+          action: "move",
+          path: edit.path,
+          destination,
+          expectedVersion: drafts.drafts[file.realPath]?.baseVersion ?? file.version,
+        };
+      } else input = { scope, action, path: childPath(edit.path, value) };
+      if (request.current?.value !== value)
+        request.current = { value, input, key: crypto.randomUUID() };
+      const result = await applyFileAction(input, request.current.key);
+      if (input.action === "move") relocateOpenFile(scope, result);
+      await queryClient.resetQueries({ queryKey: ["files", id, "directory"] });
+      void queryClient.invalidateQueries({ queryKey: ["file-search", id] });
+      if (!mounted.current) return;
+      setEdit(null);
+      useNavigationStore.getState().revealFile(id, result.path);
+      if (action === "createFile") open(result.path, false);
+    } catch (error) {
+      if (error instanceof ApiError && error.status < 500) request.current = null;
+      if (mounted.current) setError(fileError(error));
+    } finally {
+      mutation.current = false;
+      if (mounted.current) setBusy(false);
+    }
   };
 
   const toggle = (path: string) => {
@@ -136,6 +248,26 @@ function RealFileTree({ scope }: { scope: FileScope }) {
         <span className="mr-auto text-ink-3" role="status">
           {status}
         </span>
+        <button
+          type="button"
+          aria-label="新建文件"
+          title="新建文件"
+          disabled={busy}
+          className="rounded p-1.5 hover:bg-surface-2"
+          onClick={() => startCreate("createFile")}
+        >
+          <FilePlus2 size={13} />
+        </button>
+        <button
+          type="button"
+          aria-label="新建目录"
+          title="新建目录"
+          disabled={busy}
+          className="rounded p-1.5 hover:bg-surface-2"
+          onClick={() => startCreate("createDirectory")}
+        >
+          <FolderPlus size={13} />
+        </button>
         <QuickOpenFiles scope={scope} treeWidth={treeWidth} />
         <button
           type="button"
@@ -161,7 +293,20 @@ function RealFileTree({ scope }: { scope: FileScope }) {
           <ChevronsDownUp size={13} />
         </button>
       </div>
-      <ErrorMessage message={error} onDismiss={() => setError(null)} />
+      <ErrorMessage
+        message={edit?.action === "move" ? null : error}
+        onDismiss={() => setError(null)}
+      />
+      {edit?.action === "move" ? (
+        <MoveFileDialog
+          scope={scope}
+          source={edit.path}
+          busy={busy}
+          error={error}
+          move={(path) => void submit(path)}
+          close={() => setEdit(null)}
+        />
+      ) : null}
       <fieldset ref={tree} aria-label="文件树" className="min-w-0" onKeyDown={handleKeys}>
         <Directory
           scope={scope}
@@ -177,6 +322,13 @@ function RealFileTree({ scope }: { scope: FileScope }) {
           open={open}
           reveal={reveal?.path ?? null}
           finishReveal={finishReveal}
+          edit={edit}
+          busy={busy}
+          menu={menu}
+          setMenu={setMenu}
+          begin={begin}
+          submit={(value) => void submit(value)}
+          cancel={() => setEdit(null)}
         />
       </fieldset>
     </div>
@@ -194,11 +346,35 @@ interface DirectoryProps {
   open: (path: string, preview: boolean) => void;
   reveal: string | null;
   finishReveal: (path: string | null) => void;
+  edit: Edit | null;
+  busy: boolean;
+  menu: string | null;
+  setMenu: (path: string | null) => void;
+  begin: (edit: Edit) => void;
+  submit: (name: string) => void;
+  cancel: () => void;
 }
 
 function Directory(props: DirectoryProps) {
-  const { scope, path, depth, expanded, toggle, selected, select, open, reveal, finishReveal } =
-    props;
+  const {
+    scope,
+    path,
+    depth,
+    expanded,
+    toggle,
+    selected,
+    select,
+    open,
+    reveal,
+    finishReveal,
+    edit,
+    busy,
+    menu,
+    setMenu,
+    begin,
+    submit,
+    cancel,
+  } = props;
   const queryKey = ["files", scopeId(scope), "directory", path];
   const query = useInfiniteQuery({
     queryKey,
@@ -234,45 +410,90 @@ function Directory(props: DirectoryProps) {
           run: () => void queryClient.resetQueries({ queryKey }),
         }}
       />
+      {edit?.path === path &&
+      (edit.action === "createFile" || edit.action === "createDirectory") ? (
+        <div style={{ paddingLeft: 6 + depth * 12 }}>
+          <FileNameInput
+            key={edit.action}
+            label={edit.action === "createFile" ? "新文件名" : "新目录名"}
+            initial=""
+            busy={busy}
+            submit={submit}
+            cancel={cancel}
+          />
+        </div>
+      ) : null}
       {entries.map((entry) => {
         const directory = entry.type === "directory";
         const isExpanded = directory && expanded.includes(entry.path);
         return (
           <div key={entry.path}>
-            <button
-              type="button"
-              data-file-path={entry.path}
-              data-parent-path={path}
-              title={entry.path}
-              aria-label={directory ? `目录 ${entry.name}` : `打开文件 ${entry.name}`}
-              aria-expanded={directory ? isExpanded : undefined}
-              aria-current={selected === entry.path ? true : undefined}
-              className={cn(
-                "flex h-[26px] w-full items-center gap-1.5 rounded px-1.5 text-left hover:bg-accent-soft",
-                selected === entry.path && "bg-accent-soft text-accent",
-              )}
-              style={{ paddingLeft: 6 + depth * 12 }}
-              onFocus={() => select(entry.path)}
-              onClick={() => {
-                select(entry.path);
-                if (directory) toggle(entry.path);
-                else open(entry.path, true);
-              }}
-              onDoubleClick={directory ? undefined : () => open(entry.path, false)}
-            >
-              {directory ? (
-                <>
-                  {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                  <Folder size={13} className="text-warning" />
-                </>
+            <div className="group flex min-w-0 items-center">
+              {edit?.action === "rename" && edit.path === entry.path ? (
+                <div className="min-w-0 flex-1" style={{ paddingLeft: 6 + depth * 12 }}>
+                  <FileNameInput
+                    label="新名称"
+                    initial={entry.name}
+                    busy={busy}
+                    submit={submit}
+                    cancel={cancel}
+                  />
+                </div>
               ) : (
-                <>
-                  <span className="w-[11px]" />
-                  <FileText size={13} className="text-ink-3" />
-                </>
+                <button
+                  type="button"
+                  data-file-path={entry.path}
+                  data-parent-path={path}
+                  title={entry.path}
+                  aria-label={directory ? `目录 ${entry.name}` : `打开文件 ${entry.name}`}
+                  aria-expanded={directory ? isExpanded : undefined}
+                  aria-current={selected === entry.path ? true : undefined}
+                  className={cn(
+                    "flex h-[26px] w-full items-center gap-1.5 rounded px-1.5 text-left hover:bg-accent-soft",
+                    selected === entry.path && "bg-accent-soft text-accent",
+                  )}
+                  style={{ paddingLeft: 6 + depth * 12 }}
+                  onFocus={() => select(entry.path)}
+                  onClick={() => {
+                    select(entry.path);
+                    if (directory) toggle(entry.path);
+                    else open(entry.path, true);
+                  }}
+                  onContextMenu={
+                    directory
+                      ? undefined
+                      : (event) => {
+                          event.preventDefault();
+                          select(entry.path);
+                          setMenu(entry.path);
+                        }
+                  }
+                  onDoubleClick={directory ? undefined : () => open(entry.path, false)}
+                >
+                  {directory ? (
+                    <>
+                      {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                      <Folder size={13} className="text-warning" />
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-[11px]" />
+                      <FileText size={13} className="text-ink-3" />
+                    </>
+                  )}
+                  <span className="truncate">{entry.name}</span>
+                </button>
               )}
-              <span className="truncate">{entry.name}</span>
-            </button>
+              {!directory && !(edit?.action === "rename" && edit.path === entry.path) ? (
+                <FileRowActions
+                  name={entry.name}
+                  open={menu === entry.path}
+                  setOpen={(open) => setMenu(open ? entry.path : null)}
+                  rename={() => begin({ action: "rename", path: entry.path })}
+                  move={() => begin({ action: "move", path: entry.path })}
+                />
+              ) : null}
+            </div>
             {isExpanded ? <Directory {...props} path={entry.path} depth={depth + 1} /> : null}
           </div>
         );
