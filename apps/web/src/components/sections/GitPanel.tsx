@@ -1,15 +1,5 @@
 import type { GitAction, GitActionView } from "@larness/shared";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  ErrorMessage,
-  FormSelect,
-  Input,
-  Textarea,
-} from "@larness/ui";
+import { ConfirmDialog, ErrorMessage, FormSelect, Input, Textarea } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDown,
@@ -330,48 +320,30 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
         ) : null}
       </div>
 
-      <Dialog
+      <ConfirmDialog
         open={discardTarget !== null}
-        onOpenChange={(open) => {
-          if (!open && !busy) closeDiscard();
+        title="放弃更改？"
+        description={
+          discardTarget?.status === "untracked"
+            ? "该文件尚未被 Git 跟踪，确认后将删除，无法通过 Git 恢复。"
+            : "该文件的未暂存修改将丢失，恢复为暂存区版本；已暂存内容会保留。"
+        }
+        confirmLabel="确认放弃"
+        danger
+        pending={busy}
+        confirmDisabled={pending !== null || status.isError}
+        error={error}
+        onDismissError={() => setError("")}
+        onCancel={closeDiscard}
+        onConfirm={() => {
+          if (discardTarget)
+            void runL1({ action: "discard", path: discardTarget.path, confirmed: true });
         }}
       >
-        <DialogContent
-          className="space-y-4 text-sm"
-          onEscapeKeyDown={(event) => {
-            if (busy) event.preventDefault();
-          }}
-          onPointerDownOutside={(event) => {
-            if (busy) event.preventDefault();
-          }}
-        >
-          <DialogTitle>放弃更改？</DialogTitle>
-          <DialogDescription>
-            {discardTarget?.status === "untracked"
-              ? "该文件尚未被 Git 跟踪，确认后将删除，无法通过 Git 恢复。"
-              : "该文件的未暂存修改将丢失，恢复为暂存区版本；已暂存内容会保留。"}
-          </DialogDescription>
-          <p className="break-all rounded bg-surface-2 p-2 font-mono text-xs">
-            {discardTarget?.path}
-          </p>
-          <ErrorMessage message={error} onDismiss={() => setError("")} />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" disabled={busy} onClick={closeDiscard}>
-              取消
-            </Button>
-            <Button
-              className="bg-danger text-white"
-              disabled={busy || pending !== null || status.isError}
-              onClick={() => {
-                if (discardTarget)
-                  void runL1({ action: "discard", path: discardTarget.path, confirmed: true });
-              }}
-            >
-              确认放弃
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        <p className="break-all rounded bg-surface-2 p-2 font-mono text-xs">
+          {discardTarget?.path}
+        </p>
+      </ConfirmDialog>
       {discardTarget === null ? (
         <ErrorMessage
           message={

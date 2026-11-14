@@ -1,6 +1,7 @@
 import type { FileScope } from "@larness/shared";
 import {
   Button,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -239,36 +240,22 @@ export function DeleteFileDialog({
   close: () => void;
 }) {
   return (
-    <Dialog
+    <ConfirmDialog
       open
-      onOpenChange={(open) => {
-        if (!open && !busy) close();
-      }}
-    >
-      <DialogContent className="space-y-3">
-        <DialogTitle>删除文件</DialogTitle>
-        <DialogDescription>
+      title="删除文件"
+      description={
+        <>
           将永久删除 <span className="break-all font-mono text-ink">{path}</span>。
-        </DialogDescription>
-        {error ? (
-          <p role="alert" className="text-xs text-danger">
-            {error}
-          </p>
-        ) : null}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" disabled={busy} onClick={close}>
-            取消
-          </Button>
-          <Button
-            type="button"
-            className="bg-danger text-white"
-            disabled={busy || stale}
-            onClick={remove}
-          >
-            {busy ? "正在删除…" : "确认删除"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+      confirmLabel="确认删除"
+      pendingLabel="正在删除…"
+      danger
+      pending={busy}
+      confirmDisabled={stale}
+      error={error}
+      onConfirm={remove}
+      onCancel={close}
+    />
   );
 }

@@ -1,15 +1,5 @@
 import { DEFAULT_PROJECT_ID, type GatewaySnapshot, type SessionSummary } from "@larness/shared";
-import {
-  Button,
-  cn,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  ErrorMessage,
-  Input,
-  Kbd,
-} from "@larness/ui";
+import { ConfirmDialog, cn, ErrorMessage, Input, Kbd } from "@larness/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
@@ -879,20 +869,17 @@ function ConfirmActionDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? undefined : onCancel())}>
-      <DialogContent>
-        <DialogTitle>{title}</DialogTitle>
-        <DialogDescription>{description}</DialogDescription>
-        <ErrorMessage message={error} onDismiss={() => setError(null)} />
-        <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
-            取消
-          </Button>
-          <Button variant="danger" size="sm" disabled={busy} onClick={() => void submit()}>
-            {busy ? "处理中…" : confirmLabel}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      title={title}
+      description={description}
+      confirmLabel={confirmLabel}
+      danger
+      pending={busy}
+      error={error}
+      onDismissError={() => setError(null)}
+      onCancel={onCancel}
+      onConfirm={() => void submit()}
+    />
   );
 }

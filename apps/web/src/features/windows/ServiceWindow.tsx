@@ -1,6 +1,7 @@
 import type { ServiceDto } from "@larness/shared";
 import {
   Button,
+  ConfirmDialog,
   cn,
   Dialog,
   DialogContent,
@@ -346,48 +347,38 @@ function ServiceDetail({
         </div>
       ) : null}
       <ErrorMessage message={terminalError} onDismiss={() => setTerminalError("")} />
-      <Dialog
+      <ConfirmDialog
         open={action !== null}
-        onOpenChange={(value) => (!value && !actionBusy ? setAction(null) : undefined)}
-      >
-        <DialogContent className="w-[400px] space-y-3 text-sm">
-          <DialogTitle>{action === "stop" ? "停止服务？" : "删除登记？"}</DialogTitle>
-          <DialogDescription>
-            {action === "stop"
-              ? "会终止该监听进程及其子进程，并撤销预览；终端 Shell 和无关进程不受影响。共享同一进程的其他服务也会失效。"
-              : "只删除登记并撤销预览，不会停止正在运行的进程；终端可继续使用。"}
-          </DialogDescription>
-          <ErrorMessage message={actionError} onDismiss={() => setActionError("")} />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" disabled={actionBusy} onClick={() => setAction(null)}>
-              取消
-            </Button>
-            <Button
-              variant={action === "stop" ? "danger" : "primary"}
-              disabled={actionBusy}
-              onClick={() => {
-                if (!action) return;
-                setActionBusy(true);
-                setActionError("");
-                void (action === "stop" ? stopService(service.id) : deleteService(service.id))
-                  .then(async () => {
-                    await client.invalidateQueries({ queryKey: servicesKey(service.projectId) });
-                    setAction(null);
-                    onBack();
-                  })
-                  .catch((cause: unknown) => {
-                    setActionError(
-                      operationError(cause, action === "stop" ? "停止服务失败" : "删除登记失败"),
-                    );
-                  })
-                  .finally(() => setActionBusy(false));
-              }}
-            >
-              {action === "stop" ? "停止" : "删除"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        title={action === "stop" ? "停止服务？" : "删除登记？"}
+        description={
+          action === "stop"
+            ? "会终止该监听进程及其子进程，并撤销预览；终端 Shell 和无关进程不受影响。共享同一进程的其他服务也会失效。"
+            : "只删除登记并撤销预览，不会停止正在运行的进程；终端可继续使用。"
+        }
+        confirmLabel={action === "stop" ? "停止" : "删除"}
+        danger
+        pending={actionBusy}
+        error={actionError}
+        onDismissError={() => setActionError("")}
+        onCancel={() => setAction(null)}
+        onConfirm={() => {
+          if (!action) return;
+          setActionBusy(true);
+          setActionError("");
+          void (action === "stop" ? stopService(service.id) : deleteService(service.id))
+            .then(async () => {
+              await client.invalidateQueries({ queryKey: servicesKey(service.projectId) });
+              setAction(null);
+              onBack();
+            })
+            .catch((cause: unknown) => {
+              setActionError(
+                operationError(cause, action === "stop" ? "停止服务失败" : "删除登记失败"),
+              );
+            })
+            .finally(() => setActionBusy(false));
+        }}
+      />
       <div className="grid shrink-0 grid-cols-2 gap-2 px-3 py-2 md:grid-cols-4">
         <Info label="终端" value={service.terminalId.slice(-6)} mono />
         <Info label="执行" value={service.terminalExecutionId.slice(-6)} mono />

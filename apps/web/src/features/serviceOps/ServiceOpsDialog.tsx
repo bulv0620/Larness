@@ -1,6 +1,7 @@
 import type { ServiceOpsDeploymentDto, ServiceOpsServiceDto } from "@larness/shared";
 import {
   Button,
+  ConfirmDialog,
   cn,
   Dialog,
   DialogClose,
@@ -372,52 +373,32 @@ export function ServiceOpsDialog({
             </code>
           </details>
         )}
-        <Dialog
+        <ConfirmDialog
           open={open && !!confirmation}
-          onOpenChange={(value) => {
-            if (!value && !control.isPending) setConfirmation(null);
+          title={`${confirmation ? ACTIONS[confirmation.action] : "操作"}服务？`}
+          description={
+            confirmation?.action === "stop"
+              ? "停止后服务将无法访问，可随时重新启动。"
+              : "重启期间服务会短暂中断。"
+          }
+          confirmLabel={`确认${confirmation ? ACTIONS[confirmation.action] : "操作"}`}
+          danger={confirmation?.action === "stop"}
+          pending={control.isPending}
+          onCancel={() => setConfirmation(null)}
+          onConfirm={() => {
+            if (confirmation) control.mutate(confirmation);
           }}
         >
-          <DialogContent className="w-[min(400px,calc(100vw-32px))] space-y-3">
-            <DialogTitle>{confirmation ? ACTIONS[confirmation.action] : "操作"}服务？</DialogTitle>
-            <DialogDescription className="text-[12px] leading-relaxed">
-              {confirmation?.action === "stop"
-                ? "停止后服务将无法访问，可随时重新启动。"
-                : "重启期间服务会短暂中断。"}
-            </DialogDescription>
-            <div className="rounded-lg border border-line bg-surface-2/50 p-2.5">
-              <p className="text-[12px] font-medium">{confirmation?.service.name}</p>
-              <p className="mt-1 text-[11px] text-ink-3">
-                {confirmation?.service.projectName ?? confirmation?.service.projectId}
-              </p>
-              <p className="mt-1 break-all font-mono text-[10px] text-ink-3">
-                {confirmation?.service.pm2Name}
-              </p>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={control.isPending}
-                onClick={() => setConfirmation(null)}
-              >
-                取消
-              </Button>
-              <Button
-                size="sm"
-                variant={confirmation?.action === "stop" ? "danger" : "primary"}
-                disabled={control.isPending}
-                onClick={() => {
-                  if (confirmation) control.mutate(confirmation);
-                }}
-              >
-                {control.isPending
-                  ? "处理中…"
-                  : `确认${confirmation ? ACTIONS[confirmation.action] : "操作"}`}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+          <div className="rounded-lg border border-line bg-surface-2/50 p-2.5">
+            <p className="text-[12px] font-medium">{confirmation?.service.name}</p>
+            <p className="mt-1 text-[11px] text-ink-3">
+              {confirmation?.service.projectName ?? confirmation?.service.projectId}
+            </p>
+            <p className="mt-1 break-all font-mono text-[10px] text-ink-3">
+              {confirmation?.service.pm2Name}
+            </p>
+          </div>
+        </ConfirmDialog>
       </DialogContent>
     </Dialog>
   );

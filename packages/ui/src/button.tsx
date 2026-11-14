@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn } from "./cn";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "soft" | "danger";
@@ -11,7 +11,8 @@ const variants: Record<ButtonVariant, string> = {
     "border border-line bg-surface text-ink shadow-[0_1px_1px_rgba(0,0,0,.03)] hover:bg-surface-2",
   ghost: "text-ink-2 hover:bg-black/[.045] hover:text-ink dark:hover:bg-white/[.06]",
   soft: "bg-accent-soft text-accent hover:bg-accent/20",
-  danger: "bg-danger text-white shadow-[0_1px_2px_rgba(0,0,0,.12)] hover:brightness-110",
+  danger:
+    "bg-danger text-white shadow-[0_1px_2px_rgba(0,0,0,.12)] hover:brightness-110 active:brightness-95",
 };
 
 const sizes: Record<ButtonSize, string> = {
@@ -19,7 +20,7 @@ const sizes: Record<ButtonSize, string> = {
   md: "h-8 gap-2 rounded-[9px] px-3 text-[12.5px]",
 };
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends ComponentPropsWithRef<"button"> {
   variant?: ButtonVariant;
   size?: ButtonSize;
   leading?: ReactNode;

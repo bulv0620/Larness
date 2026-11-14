@@ -1,5 +1,6 @@
 import {
   Button,
+  ConfirmDialog,
   Dialog,
   DialogClose,
   DialogContent,
@@ -547,40 +548,22 @@ export function ModelSettingsDialog({
             <footer className="shrink-0 border-t border-line px-4 py-2 text-[10.5px] text-ink-3">
               点可见模型的名称可设为新会话默认。隐藏默认模型会取消默认设置。
             </footer>
-            <Dialog
+            <ConfirmDialog
               open={confirmRemove}
-              onOpenChange={(value) => (!value && !busy ? setConfirmRemove(false) : undefined)}
-            >
-              <DialogContent
-                overlayClassName="z-[310]"
-                className="z-[311] w-[min(400px,calc(100vw-40px))] space-y-3 text-sm"
-              >
-                <DialogTitle>删除 Key？</DialogTitle>
-                <DialogDescription>
-                  {activeGroup
-                    ? `${providerLabel(activeGroup.provider)} · ${activeGroup.credentialLabel}`
-                    : "该 Key"}{" "}
-                  会从本机移除，对应模型也会从选择器中消失；此操作不可撤销。
-                </DialogDescription>
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={() => setConfirmRemove(false)}
-                  >
-                    取消
-                  </Button>
-                  <Button
-                    variant="danger"
-                    disabled={busy}
-                    onClick={() => void removeKey(view.credentialId)}
-                  >
-                    {busy ? <Loader2 size={12} className="animate-spin" /> : null}
-                    删除
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+              overlayClassName="z-[310]"
+              className="z-[311]"
+              title="删除 Key？"
+              description={`${
+                activeGroup
+                  ? `${providerLabel(activeGroup.provider)} · ${activeGroup.credentialLabel}`
+                  : "该 Key"
+              } 会从本机移除，对应模型也会从选择器中消失；此操作不可撤销。`}
+              confirmLabel="删除"
+              danger
+              pending={busy}
+              onCancel={() => setConfirmRemove(false)}
+              onConfirm={() => void removeKey(view.credentialId)}
+            />
           </>
         ) : null}
 

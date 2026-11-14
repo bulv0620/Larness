@@ -1,10 +1,6 @@
 import {
-  Button,
+  ConfirmDialog,
   cn,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -434,34 +430,18 @@ export function Composer({
           </button>
         )}
       </div>
-      <Dialog
+      <ConfirmDialog
         open={confirmAutonomous}
-        onOpenChange={(open) => {
-          if (!open) setAutonomousSession(null);
+        title="启用完全自主？"
+        description="Agent 将不再逐次请求工具审批，可自行修改或删除文件、执行命令、进行 Git 推送等操作。程序以本机账户权限运行，可访问项目外文件和网络。请仅在信任当前任务时启用。此设置从下一轮起在当前会话持续生效，随时可以切回标准审批。"
+        confirmLabel="确认启用"
+        danger
+        onCancel={() => setAutonomousSession(null)}
+        onConfirm={() => {
+          if (confirmAutonomous) void selectPolicy("autonomous");
+          setAutonomousSession(null);
         }}
-      >
-        <DialogContent className="space-y-4 text-sm">
-          <DialogTitle>启用完全自主？</DialogTitle>
-          <DialogDescription>
-            Agent 将不再逐次请求工具审批，可自行修改或删除文件、执行命令、进行 Git
-            推送等操作。程序以本机账户权限运行，可访问项目外文件和网络。请仅在信任当前任务时启用。此设置从下一轮起在当前会话持续生效，随时可以切回标准审批。
-          </DialogDescription>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setAutonomousSession(null)}>
-              取消
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => {
-                if (confirmAutonomous) void selectPolicy("autonomous");
-                setAutonomousSession(null);
-              }}
-            >
-              确认启用
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      />
     </div>
   );
 }

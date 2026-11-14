@@ -303,6 +303,14 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await expect(deleteDialog).toContainText("sub/child.txt");
     const cancelDelete = deleteDialog.getByRole("button", { name: "取消" });
     await expect(cancelDelete).toBeFocused();
+    const confirmDelete = deleteDialog.getByRole("button", { name: "确认删除" });
+    const dangerFill = await confirmDelete.evaluate(
+      (button) => getComputedStyle(button).backgroundColor,
+    );
+    await expect(confirmDelete).not.toHaveClass(/hover:bg-surface-2/);
+    await confirmDelete.hover();
+    await expect(confirmDelete).toHaveCSS("background-color", dangerFill);
+    await expect(confirmDelete).toHaveCSS("color", "rgb(255, 255, 255)");
     await cancelDelete.click();
     expect(readFileSync(child, "utf8")).toBe("external child\n");
     await childRow.click({ button: "right" });
