@@ -12,7 +12,7 @@ import {
   Search,
 } from "lucide-react";
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from "react";
-import { openFile, relocateOpenFile } from "@/features/files/actions";
+import { openFile, relocateOpenDirectory, relocateOpenFile } from "@/features/files/actions";
 import {
   applyFileAction,
   fileError,
@@ -34,12 +34,17 @@ import { ApiError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { queryClient, useSnapshot } from "@/lib/queries";
 import { activeWorkspaceScope } from "@/lib/workspaceScope";
+import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { DemoFileTreePanel } from "./DemoFileTreePanel";
 
 const root = ["."];
 type Edit =
-  | { action: "createFile" | "createDirectory" | "rename" | "move"; path: string }
+  | {
+      action: "createFile" | "createDirectory" | "rename" | "move";
+      path: string;
+      directoryVersion?: string;
+    }
   | { action: "deleteFile" | "deleteDirectory"; path: string; expectedVersion: string };
 const parentPath = (path: string) => path.split("/").slice(0, -1).join("/") || ".";
 const childPath = (parent: string, name: string) => (parent === "." ? name : `${parent}/${name}`);
@@ -72,7 +77,6 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
   const request = useRef<{ value: string; input: FileAction; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState("");
   const tree = useRef<HTMLFieldSetElement>(null);
   const pendingOpen = useRef<AbortController | null>(null);
   const mounted = useRef(false);
@@ -151,38 +155,52 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           expectedVersion: edit.expectedVersion,
         };
       } else if (edit.action === "rename" || edit.action === "move") {
-        const file = await readFile(scope, edit.path);
-        const drafts = useFileDraftStore.getState();
-        if (drafts.saving[file.realPath]) {
-          setError("正在保存该文件，请稍后重试。");
-          return;
-        }
         const destination =
           action === "rename"
             ? childPath(parentPath(edit.path), value)
             : childPath(value, edit.path.split("/").at(-1) ?? edit.path);
-        const portablePath = file.realPath.replaceAll("\\", "/");
-        const target = `${portablePath.slice(0, -file.path.length)}${destination}`;
         if (destination === edit.path) {
           setEdit(null);
           return;
         }
-        if (Object.keys(drafts.drafts).some((key) => key.replaceAll("\\", "/") === target)) {
-          setError("目标路径有未保存的草稿，请先处理该草稿。");
-          return;
+        if (edit.directoryVersion) {
+          input = {
+            scope,
+            action: "moveDirectory",
+            path: edit.path,
+            destination,
+            expectedVersion: edit.directoryVersion,
+          };
+        } else {
+          const file = await readFile(scope, edit.path);
+          const drafts = useFileDraftStore.getState();
+          if (drafts.saving[file.realPath]) {
+            setError("正在保存该文件，请稍后重试。");
+            return;
+          }
+          const portablePath = file.realPath.replaceAll("\\", "/");
+          const target = `${portablePath.slice(0, -file.path.length)}${destination}`;
+          if (Object.keys(drafts.drafts).some((key) => key.replaceAll("\\", "/") === target)) {
+            setError("目标路径有未保存的草稿，请先处理该草稿。");
+            return;
+          }
+          input = {
+            scope,
+            action: "move",
+            path: edit.path,
+            destination,
+            expectedVersion: drafts.drafts[file.realPath]?.baseVersion ?? file.version,
+          };
         }
-        input = {
-          scope,
-          action: "move",
-          path: edit.path,
-          destination,
-          expectedVersion: drafts.drafts[file.realPath]?.baseVersion ?? file.version,
-        };
       } else input = { scope, action: edit.action, path: childPath(edit.path, value) };
       if (request.current?.value !== value)
         request.current = { value, input, key: crypto.randomUUID() };
       const result = await applyFileAction(input, request.current.key);
       if (input.action === "move") relocateOpenFile(scope, result);
+      if (input.action === "moveDirectory") {
+        relocateOpenDirectory(scope, result);
+        void queryClient.invalidateQueries({ queryKey: ["files", id, "content"] });
+      }
       if (deleting) {
         void queryClient.invalidateQueries({
           queryKey:
@@ -203,10 +221,22 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
             paths.filter((path) => path !== result.path && !path.startsWith(`${result.path}/`)),
           );
         }
-        setStatus(action === "deleteDirectory" ? "已删除目录" : "已删除文件");
         return;
       }
-      useNavigationStore.getState().revealFile(id, result.path);
+      const navigation = useNavigationStore.getState();
+      if (input.action === "moveDirectory" && result.previousPath) {
+        const previous = result.previousPath;
+        const paths = navigation.expandedFileDirectories[id] ?? root;
+        navigation.setExpandedFileDirectories(
+          id,
+          paths.map((path) =>
+            path === previous || path.startsWith(`${previous}/`)
+              ? result.path + path.slice(previous.length)
+              : path,
+          ),
+        );
+      }
+      navigation.revealFile(id, result.path);
       if (action === "createFile") open(result.path, false);
     } catch (error) {
       if (error instanceof ApiError && error.status < 500) request.current = null;
@@ -298,13 +328,9 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     next?.scrollIntoView?.({ block: "nearest" });
   };
 
-  const copyPath = async () => {
-    if (!selected) return;
-    setError(null);
-    setStatus("");
+  const copyPath = async (path: string) => {
     try {
-      await navigator.clipboard.writeText(selected);
-      setStatus("已复制相对路径");
+      await navigator.clipboard.writeText(path);
     } catch {
       setError("无法复制路径，请检查浏览器的剪贴板权限。");
     }
@@ -312,11 +338,6 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
 
   return (
     <div className="p-1.5 text-[11px] text-ink-2">
-      <div className="relative">
-        <span className="absolute top-2.5 left-0 text-ink-3" role="status">
-          {status}
-        </span>
-      </div>
       <div
         role="toolbar"
         aria-label="文件操作"
@@ -360,7 +381,9 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           title="复制相对路径"
           disabled={!selected}
           className="rounded p-1.5 hover:bg-surface-2 disabled:opacity-40"
-          onClick={() => void copyPath()}
+          onClick={() => {
+            if (selected) void copyPath(selected);
+          }}
         >
           <Copy size={13} />
         </button>
@@ -392,6 +415,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
         <MoveFileDialog
           scope={scope}
           source={edit.path}
+          directorySource={!!edit.directoryVersion}
           busy={busy}
           error={error}
           move={(path) => void submit(path)}
@@ -417,9 +441,12 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           expanded={expanded}
           toggle={toggle}
           selected={selected}
-          select={(path) => {
-            setSelected(path);
-            setStatus("");
+          select={setSelected}
+          copy={(path) => void copyPath(path)}
+          chat={(path) => {
+            const { draft, setDraft } = useComposerStore.getState();
+            setDraft(`${draft}${draft && !/\s$/.test(draft) ? " " : ""}${path} `);
+            useNavigationStore.getState().focusComposer();
           }}
           open={open}
           reveal={reveal?.path ?? null}
@@ -443,6 +470,8 @@ interface DirectoryProps {
   toggle: (path: string) => void;
   selected: string | null;
   select: (path: string) => void;
+  copy: (path: string) => void;
+  chat: (path: string) => void;
   open: (path: string, preview: boolean) => void;
   reveal: string | null;
   finishReveal: (path: string | null) => void;
@@ -462,6 +491,8 @@ function Directory(props: DirectoryProps) {
     toggle,
     selected,
     select,
+    copy,
+    chat,
     open,
     reveal,
     finishReveal,
@@ -576,8 +607,22 @@ function Directory(props: DirectoryProps) {
               row
             ) : (
               <FileRowActions
-                rename={directory ? undefined : () => begin({ action: "rename", path: entry.path })}
-                move={directory ? undefined : () => begin({ action: "move", path: entry.path })}
+                copy={() => copy(entry.path)}
+                chat={() => chat(entry.path)}
+                rename={() =>
+                  begin({
+                    action: "rename",
+                    path: entry.path,
+                    directoryVersion: directory ? entryVersion : undefined,
+                  })
+                }
+                move={() =>
+                  begin({
+                    action: "move",
+                    path: entry.path,
+                    directoryVersion: directory ? entryVersion : undefined,
+                  })
+                }
                 remove={
                   entryVersion
                     ? () =>

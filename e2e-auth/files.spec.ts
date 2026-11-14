@@ -401,11 +401,11 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
       const renamedRow = resources.getByRole("button", { name: "打开文件 moved.txt" });
       await expect(resources.getByRole("button", { name: "moved.txt 的文件操作" })).toHaveCount(0);
       await renamedRow.press("Shift+F10");
-      await expect(page.getByRole("menuitem", { name: "移动到…" })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "移动", exact: true })).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(page.getByRole("menu")).toHaveCount(0);
       await renamedRow.click({ button: "right" });
-      await page.getByRole("menuitem", { name: "移动到…" }).click();
+      await page.getByRole("menuitem", { name: "移动", exact: true }).click();
       const move = page.getByRole("dialog", { name: "移动文件" });
       await move.getByRole("button", { name: "移到这里" }).click();
       await expect(move).toHaveCount(0);
@@ -423,14 +423,43 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     } finally {
       await observerContext.close();
     }
-    const folderRow = resources.getByRole("button", { name: "目录 remove-folder", exact: true });
+    const originalFolder = resources.getByRole("button", {
+      name: "目录 remove-folder",
+      exact: true,
+    });
+    await originalFolder.click({ button: "right" });
+    await expect(page.getByRole("menuitem")).toHaveText([
+      "复制相对路径",
+      "发送到聊天框",
+      "重命名",
+      "移动",
+      "删除…",
+    ]);
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.getByRole("menuitem", { name: "复制相对路径" }).click();
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()))
+      .toBe("remove-folder");
+    await expect(resources.getByText("已复制相对路径")).toHaveCount(0);
+    await originalFolder.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "发送到聊天框" }).click();
+    await expect(composer).toHaveValue("remove-folder ");
+    await expect(composer).toBeFocused();
+    await composer.fill("");
+    await originalFolder.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "重命名" }).click();
+    const folderName = resources.getByRole("textbox", { name: "新名称" });
+    await folderName.fill("renamed-folder");
+    await folderName.press("Enter");
+    await expect(originalFolder).toHaveCount(0);
+    const folderRow = resources.getByRole("button", { name: "目录 renamed-folder", exact: true });
     await folderRow.click({ button: "right" });
     await page.getByRole("menuitem", { name: "删除…" }).click();
     const folderDialog = page.getByRole("dialog", { name: "删除目录" });
     await expect(folderDialog).toContainText("所有文件和子目录");
     await folderDialog.getByRole("button", { name: "取消" }).click();
     expect(
-      readFileSync(path.join(deleteFolder, "nested", "keep-until-confirmed.txt"), "utf8"),
+      readFileSync(path.join(root, "renamed-folder", "nested", "keep-until-confirmed.txt"), "utf8"),
     ).toBe("nested");
     await folderRow.click({ button: "right" });
     await page.getByRole("menuitem", { name: "删除…" }).click();
@@ -438,7 +467,7 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await expect(folderRow).toHaveCount(0);
     await expect(folderDialog).toHaveCount(0);
     expect(() =>
-      readFileSync(path.join(deleteFolder, "nested", "keep-until-confirmed.txt")),
+      readFileSync(path.join(root, "renamed-folder", "nested", "keep-until-confirmed.txt")),
     ).toThrow();
     // Monaco reports a benign console error when the diff model is disposed after merge.
     expect(errors.filter((error) => !error.includes("no diff result available"))).toEqual([]);

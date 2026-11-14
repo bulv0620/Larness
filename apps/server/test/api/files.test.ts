@@ -616,7 +616,44 @@ it("recursively deletes the confirmed directory and leaves symlink destinations 
             path,
           },
         });
-      const version = entries.find((entry) => entry.path === "remove")?.entryVersion ?? "";
+      const moveDirectory = (key: string, destination: string) =>
+        started.running.app.inject({
+          method: "POST",
+          url: "/api/files/actions",
+          headers: { ...headers, "idempotency-key": key },
+          payload: {
+            scope: { projectId },
+            action: "moveDirectory",
+            path: "remove",
+            destination,
+            expectedVersion: entries.find((entry) => entry.path === "remove")?.entryVersion,
+          },
+        });
+      expect((await moveDirectory("into-self", "remove/nested/moved")).statusCode).toBe(400);
+      expect((await moveDirectory("occupied", "protected")).statusCode).toBe(409);
+      expect((await moveDirectory("move-directory", "renamed")).statusCode).toBe(200);
+      expect(await readFile(path.join(root, "renamed", "nested", ".hidden"), "utf8")).toBe(
+        "delete",
+      );
+      expect((await moveDirectory("move-directory", "renamed")).statusCode).toBe(200);
+      const renamed = (
+        await started.running.app.inject({ url: `/api/projects/${projectId}/files`, headers })
+      )
+        .json()
+        .items.find((entry: { path: string }) => entry.path === "renamed");
+      expect(
+        (await deleteDirectory("delete-renamed", "renamed", renamed.entryVersion)).statusCode,
+      ).toBe(200);
+      expect(await readFile(path.join(outside, "keep"), "utf8")).toBe("keep");
+      await mkdir(path.join(root, "remove", "nested"), { recursive: true });
+      await writeFile(path.join(root, "remove", "nested", ".hidden"), "delete");
+      const updatedList = await started.running.app.inject({
+        url: `/api/projects/${projectId}/files`,
+        headers,
+      });
+      const version =
+        updatedList.json().items.find((entry: { path: string }) => entry.path === "remove")
+          ?.entryVersion ?? "";
       expect(version).toMatch(/^[a-f0-9]{64}$/);
       expect((await deleteDirectory("root", ".", version)).statusCode).toBe(400);
       expect(

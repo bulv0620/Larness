@@ -115,3 +115,23 @@ export function relocateOpenFile(scope: FileScope, result: FileActionResult) {
     }),
   });
 }
+
+export function relocateOpenDirectory(scope: FileScope, result: FileActionResult) {
+  const { previousPath, previousRealPath } = result;
+  if (!previousPath || !previousRealPath) return;
+  const previous = previousRealPath.replaceAll("\\", "/");
+  const separator = result.realPath.includes("\\") ? "\\" : "/";
+  const tabs = useWindowStore.getState().windows.flatMap((win) => win.tabs);
+  for (const tab of tabs) {
+    if (!tab.file || scopeId(tab.file.scope) !== scopeId(scope)) continue;
+    if (!tab.file.path.startsWith(`${previousPath}/`)) continue;
+    if (!tab.resourceId.replaceAll("\\", "/").startsWith(`${previous}/`)) continue;
+    const suffix = tab.file.path.slice(previousPath.length + 1);
+    relocateOpenFile(scope, {
+      path: `${result.path}/${suffix}`,
+      realPath: `${result.realPath}${separator}${suffix.replaceAll("/", separator)}`,
+      previousPath: tab.file.path,
+      previousRealPath: tab.resourceId,
+    });
+  }
+}

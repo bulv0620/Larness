@@ -118,7 +118,7 @@ export const FileActionSchema = z.discriminatedUnion("action", [
   z
     .object({
       ...fileActionTarget,
-      action: z.literal("move"),
+      action: z.enum(["move", "moveDirectory"]),
       destination: FilePathSchema,
       expectedVersion: FileVersionSchema,
     })

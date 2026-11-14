@@ -1,4 +1,4 @@
-import { link, lstat, mkdir, open, rm, unlink } from "node:fs/promises";
+import { link, lstat, mkdir, open, rename, rm, unlink } from "node:fs/promises";
 import path from "node:path";
 import {
   FileManagerError,
@@ -41,7 +41,14 @@ import type { FileServiceOptions } from "./service.js";
 
 const kind = "file.action";
 const intentSchema = z.object({
-  action: z.enum(["createFile", "createDirectory", "move", "deleteFile", "deleteDirectory"]),
+  action: z.enum([
+    "createFile",
+    "createDirectory",
+    "move",
+    "moveDirectory",
+    "deleteFile",
+    "deleteDirectory",
+  ]),
   target: FilePathSchema,
   identity: z.string().optional(),
 });
@@ -74,7 +81,7 @@ async function snapshot(absolute: string) {
 
 type Snapshot = Awaited<ReturnType<typeof snapshot>>;
 function identity(info: Snapshot): string | undefined {
-  return info?.isFile() ? `${info.dev}:${info.ino}` : undefined;
+  return info && (info.isFile() || info.isDirectory()) ? `${info.dev}:${info.ino}` : undefined;
 }
 
 function replay(operation: ResourceOperationRow, digest: string) {
@@ -143,7 +150,7 @@ export async function applyFileAction(
 ) {
   const resolved = await resolveFileScope(options.db, options.dataDir, input.scope);
   const source = normalizeFilePath(input.path);
-  const target = input.action === "move" ? normalizeFilePath(input.destination) : source;
+  const target = "destination" in input ? normalizeFilePath(input.destination) : source;
   const deleting = input.action === "deleteFile" || input.action === "deleteDirectory";
   const expectedVersion = "expectedVersion" in input ? input.expectedVersion : "";
   options.assertContent?.(source);
@@ -226,8 +233,7 @@ export async function applyFileAction(
   };
   try {
     const absolute = await destinationPath(resolved, target);
-    if (target === source && input.action === "move")
-      fail("CONFLICT", "Destination already exists");
+    if (target === source && "destination" in input) fail("CONFLICT", "Destination already exists");
     if (
       input.action === "deleteDirectory" &&
       "projectId" in resolved.scope &&
@@ -236,6 +242,21 @@ export async function applyFileAction(
       fail("FORBIDDEN", "Larness runtime data is protected");
     if (!deleting && (await snapshot(absolute))) fail("CONFLICT", "Destination already exists");
     const result: FileActionResult = { path: target, realPath: absolute };
+    if (input.action === "moveDirectory") {
+      const previous = await destinationPath(resolved, source);
+      if (isInsideRoot(previous, absolute))
+        fail("VALIDATION_ERROR", "Cannot move a directory into itself");
+      if ("projectId" in resolved.scope && isInsideRoot(previous, resolved.protectedRoot))
+        fail("FORBIDDEN", "Larness runtime data is protected");
+      await authorizeFileTarget(resolved, source);
+      const entry = await snapshot(previous);
+      if (!entry?.isDirectory()) fail("VALIDATION_ERROR", "Expected a directory");
+      if (fileEntryVersion(entry) !== expectedVersion)
+        fail("VERSION_CONFLICT", "Directory changed");
+      intent.identity = identity(entry);
+      result.previousPath = source;
+      result.previousRealPath = previous;
+    }
     if (input.action === "move") {
       await authorizeFileTarget(resolved, source);
       const file = await readEditableFile(resolved.root, source);
@@ -294,6 +315,16 @@ export async function applyFileAction(
       const handle = await open(absolute, "wx", 0o666);
       diskChanged = true;
       await handle.close();
+    } else if (input.action === "moveDirectory") {
+      await authorizeFileTarget(resolved, source);
+      if (await snapshot(absolute)) fail("CONFLICT", "Destination already exists");
+      const previous = path.join(resolved.root, source);
+      const entry = await snapshot(previous);
+      if (!entry?.isDirectory() || fileEntryVersion(entry) !== expectedVersion)
+        fail("VERSION_CONFLICT", "Directory changed");
+      check();
+      await rename(previous, absolute);
+      diskChanged = true;
     } else {
       const previous = path.join(resolved.root, source);
       await link(previous, absolute);
@@ -393,7 +424,7 @@ export async function reconcileFileActions(options: FileServiceOptions) {
         )
           failed();
         else throw new Error("Delete outcome unknown");
-      } else if (intent.action !== "move") {
+      } else if (intent.action !== "move" && intent.action !== "moveDirectory") {
         if (targetInfo) throw new Error("Creation identity unknown");
         failed();
       } else {
@@ -404,8 +435,10 @@ export async function reconcileFileActions(options: FileServiceOptions) {
         else if (
           !fromInfo &&
           identity(targetInfo) === intent.identity &&
-          (await readEditableFile(resolved.root, intent.target)).version ===
-            operation.expectedVersion
+          (intent.action === "moveDirectory"
+            ? targetInfo?.isDirectory()
+            : (await readEditableFile(resolved.root, intent.target)).version ===
+              operation.expectedVersion)
         ) {
           complete(options, operation, {
             path: intent.target,

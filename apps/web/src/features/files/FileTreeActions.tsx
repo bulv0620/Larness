@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
 } from "@larness/ui";
@@ -20,11 +21,15 @@ import { fileError, listDirectory, scopeId } from "./api";
 export function FileRowActions({
   children,
   rename,
+  copy,
+  chat,
   move,
   remove,
 }: {
   children: ReactElement<ComponentPropsWithoutRef<"button">>;
   rename?: () => void;
+  copy: () => void;
+  chat: () => void;
   move?: () => void;
   remove?: () => void;
 }) {
@@ -63,8 +68,11 @@ export function FileRowActions({
           sideOffset={0}
           onCloseAutoFocus={(event) => event.preventDefault()}
         >
+          <DropdownMenuItem onSelect={copy}>复制相对路径</DropdownMenuItem>
+          <DropdownMenuItem onSelect={chat}>发送到聊天框</DropdownMenuItem>
+          <DropdownMenuSeparator />
           {rename ? <DropdownMenuItem onSelect={rename}>重命名</DropdownMenuItem> : null}
-          {move ? <DropdownMenuItem onSelect={move}>移动到…</DropdownMenuItem> : null}
+          {move ? <DropdownMenuItem onSelect={move}>移动</DropdownMenuItem> : null}
           {remove ? (
             <DropdownMenuItem onSelect={remove} className="text-danger">
               删除…
@@ -142,6 +150,7 @@ export function FileNameInput({
 export function MoveFileDialog({
   scope,
   source,
+  directorySource = false,
   busy,
   error,
   move,
@@ -149,6 +158,7 @@ export function MoveFileDialog({
 }: {
   scope: FileScope;
   source: string;
+  directorySource?: boolean;
   busy: boolean;
   error: string | null;
   move: (directory: string) => void;
@@ -170,7 +180,7 @@ export function MoveFileDialog({
       }}
     >
       <DialogContent className="space-y-3">
-        <DialogTitle>移动文件</DialogTitle>
+        <DialogTitle>{directorySource ? "移动目录" : "移动文件"}</DialogTitle>
         <DialogDescription className="break-all">{source}</DialogDescription>
         <div className="flex items-center justify-between gap-2 text-xs">
           <span className="truncate">{directory === "." ? "工作区根目录" : directory}</span>
@@ -188,7 +198,9 @@ export function MoveFileDialog({
         <div className="max-h-[40vh] overflow-auto">
           {query.data?.pages
             .flatMap((page) => page.items)
-            .filter((item) => item.type === "directory")
+            .filter(
+              (item) => item.type === "directory" && (!directorySource || item.path !== source),
+            )
             .map((item) => (
               <button
                 key={item.path}
