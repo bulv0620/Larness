@@ -10,13 +10,13 @@ import {
   FileText,
   Folder,
   FolderPlus,
+  Search,
 } from "lucide-react";
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from "react";
 import { openFile, relocateOpenFile } from "@/features/files/actions";
 import { applyFileAction, fileError, listDirectory, readFile, scopeId } from "@/features/files/api";
 import { useFileDraftStore } from "@/features/files/drafts";
 import { FileNameInput, FileRowActions, MoveFileDialog } from "@/features/files/FileTreeActions";
-import { QuickOpenFiles } from "@/features/files/QuickOpenFiles";
 import { useFileWatch } from "@/features/files/useFileWatch";
 import { ApiError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
@@ -30,15 +30,21 @@ type Edit = { action: "createFile" | "createDirectory" | "rename" | "move"; path
 const parentPath = (path: string) => path.split("/").slice(0, -1).join("/") || ".";
 const childPath = (parent: string, name: string) => (parent === "." ? name : `${parent}/${name}`);
 
-export function FileTreePanel({ projectId }: { projectId: string | null }) {
+export function FileTreePanel({
+  projectId,
+  onQuickOpen,
+}: {
+  projectId: string | null;
+  onQuickOpen?: () => void;
+}) {
   const sessionId = useNavigationStore((state) => state.sessionId);
   const { data } = useSnapshot();
   if (USE_MOCKS) return <DemoFileTreePanel projectId={projectId} />;
   const scope = activeWorkspaceScope(projectId, sessionId, data.sessions);
-  return <RealFileTree key={scopeId(scope)} scope={scope} />;
+  return <RealFileTree key={scopeId(scope)} scope={scope} onQuickOpen={onQuickOpen} />;
 }
 
-function RealFileTree({ scope }: { scope: FileScope }) {
+function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: () => void }) {
   const id = scopeId(scope);
   const treeWidth = useNavigationStore((state) => state.resourceWidth);
   const expanded = useNavigationStore((state) => state.expandedFileDirectories[id] ?? root);
@@ -267,7 +273,18 @@ function RealFileTree({ scope }: { scope: FileScope }) {
         >
           <FolderPlus size={13} />
         </button>
-        <QuickOpenFiles scope={scope} treeWidth={treeWidth} />
+        {onQuickOpen ? (
+          <button
+            type="button"
+            aria-label="快速打开文件"
+            aria-keyshortcuts="Meta+P Control+P"
+            title="快速打开文件（⌘P / Ctrl+P）"
+            className="rounded p-1.5 hover:bg-surface-2"
+            onClick={onQuickOpen}
+          >
+            <Search size={13} />
+          </button>
+        ) : null}
         <button
           type="button"
           aria-label="复制相对路径"

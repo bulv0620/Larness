@@ -1,6 +1,6 @@
 import type { GatewaySnapshot } from "@larness/shared";
 import { cn, ErrorMessage } from "@larness/ui";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CollapsibleSidebar } from "@/components/layout/CollapsibleSidebar";
 import { ProjectResourceSidebar } from "@/components/layout/ProjectResourceSidebar";
 import { ProjectSidebar } from "@/components/layout/ProjectSidebar";
@@ -9,10 +9,12 @@ import { TopBar } from "@/components/layout/TopBar";
 import { WindowLayer } from "@/components/windows/WindowLayer";
 import { ConversationWorkspace } from "@/features/chat/ConversationWorkspace";
 import { useSessionEvents } from "@/features/chat/useSessionEvents";
+import { scopeId } from "@/features/files/api";
+import { QuickOpenFiles } from "@/features/files/QuickOpenFiles";
 import { USE_MOCKS } from "@/lib/env";
 import { queryClient, useSnapshot } from "@/lib/queries";
 import { useNewSession } from "@/lib/useNewSession";
-import { activeWindowScope } from "@/lib/workspaceScope";
+import { activeWindowScope, activeWorkspaceScope } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore, windowScopeKey } from "@/stores/windowStore";
 
@@ -39,6 +41,7 @@ const useAnimatedPresence = (
 
 export function AppShell({ version }: { version?: string }) {
   const { data, isPending, isError } = useSnapshot();
+  const projectId = useNavigationStore((state) => state.projectId);
   const sessionId = useNavigationStore((state) => state.sessionId);
   const reconcileWorkspace = useNavigationStore((state) => state.reconcileWorkspace);
   const sidebarCollapsed = useNavigationStore((state) => state.sidebarCollapsed);
@@ -52,6 +55,17 @@ export function AppShell({ version }: { version?: string }) {
   const setMobileSidebar = useNavigationStore((state) => state.setMobileSidebar);
   const newSession = useNewSession();
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [quickOpenScope, setQuickOpenScope] = useState<string | null>(null);
+  const quickOpenOrigin = useRef<HTMLElement | null>(null);
+  const scope = activeWorkspaceScope(projectId, sessionId, data.sessions);
+  const fileScopeId = scopeId(scope);
+  const quickOpen = quickOpenScope === fileScopeId;
+  if (quickOpenScope !== null && !quickOpen) setQuickOpenScope(null);
+  const openQuickSearch = useCallback(() => {
+    quickOpenOrigin.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setQuickOpenScope(fileScopeId);
+  }, [fileScopeId]);
   const mobileDrawer = useAnimatedPresence(mobileSidebarOpen);
 
   useSessionEvents(sessionId);
@@ -79,6 +93,18 @@ export function AppShell({ version }: { version?: string }) {
       if (event.defaultPrevented) return;
       const modifier = event.metaKey || event.ctrlKey;
       const key = event.key.toLowerCase();
+
+      if (!USE_MOCKS && modifier && key === "p" && !event.shiftKey && !event.altKey) {
+        if (
+          !quickOpen &&
+          document.querySelector('[aria-modal="true"], [role="dialog"][data-state="open"]')
+        )
+          return;
+        event.preventDefault();
+        if (!quickOpen && !event.repeat) openQuickSearch();
+        return;
+      }
+      if (quickOpen) return;
 
       if (modifier && key === "k") {
         event.preventDefault();
@@ -109,7 +135,7 @@ export function AppShell({ version }: { version?: string }) {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [newSession, toggleSidebar]);
+  }, [newSession, openQuickSearch, quickOpen, toggleSidebar]);
 
   return (
     <div
@@ -154,11 +180,23 @@ export function AppShell({ version }: { version?: string }) {
           side="right"
           className="hidden xl:flex"
         >
-          <ProjectResourceSidebar />
+          <ProjectResourceSidebar onQuickOpen={openQuickSearch} />
         </CollapsibleSidebar>
         <WindowLayer />
       </div>
 
+      {!USE_MOCKS ? (
+        <QuickOpenFiles
+          scope={scope}
+          treeWidth={resourceCollapsed || window.innerWidth < 1280 ? undefined : resourceWidth}
+          open={quickOpen}
+          close={() => setQuickOpenScope(null)}
+          restoreFocus={() => {
+            quickOpenOrigin.current?.focus({ preventScroll: true });
+            quickOpenOrigin.current = null;
+          }}
+        />
+      ) : null}
       <ErrorMessage message={workspaceError} onDismiss={() => setWorkspaceError(null)} />
 
       {mobileDrawer.mounted ? (

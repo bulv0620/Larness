@@ -13,7 +13,7 @@ const resources = [
 
 type ResourceId = (typeof resources)[number]["id"];
 
-export function ProjectResourceSidebar() {
+export function ProjectResourceSidebar({ onQuickOpen }: { onQuickOpen?: () => void } = {}) {
   const { data } = useSnapshot();
   const projectId = useNavigationStore((state) => state.projectId);
   const resourceWidth = useNavigationStore((state) => state.resourceWidth);
@@ -65,7 +65,7 @@ export function ProjectResourceSidebar() {
           hidden={active !== "files"}
           className="min-h-0 flex-1 overflow-y-auto px-2 pb-2"
         >
-          <FileTreePanel projectId={projectId} />
+          <FileTreePanel projectId={projectId} onQuickOpen={onQuickOpen} />
         </div>
         <div
           role="tabpanel"

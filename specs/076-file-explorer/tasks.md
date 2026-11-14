@@ -6,6 +6,7 @@
 | FR-2 | 文件名与路径快速打开 | FR-1 | `done` |
 | FR-3 | 新建、重命名与移动 | FR-2 | `done` |
 | FR-4 | [文件行仅保留右键菜单](#fr-4) | FR-3 | `done` |
+| FR-5 | [会话快捷键与聚焦搜索](#fr-5) | FR-2、FR-4 | `done` |
 
 ## FR-1
 
@@ -39,4 +40,10 @@
 
 - [x] 更新认证 Chromium 用例，先在旧实现确认键盘菜单缺失。
 - [x] 移除行尾按钮，沿用现有菜单样式。验证右键重命名和移动、Shift+F10 打开及 Escape 关闭。
+- [x] macOS 通过 `pnpm check`、`pnpm build`、认证 Chromium 文件流程 1/1。
+
+## FR-5
+
+- [x] 认证 Chromium 红测试确认旧实现无法从会话输入框打开快速搜索。
+- [x] 键盘与侧栏入口共用工作区浮层。真实会话验证资源栏折叠时 Command+P / Ctrl+P 打开，Esc 恢复焦点并保留输入，查找并打开真实文件；检查桌面截图。
 - [x] macOS 通过 `pnpm check`、`pnpm build`、认证 Chromium 文件流程 1/1。

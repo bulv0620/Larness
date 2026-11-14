@@ -1,35 +1,33 @@
 import type { FileScope } from "@larness/shared";
-import {
-  cn,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  DialogTrigger,
-  Input,
-} from "@larness/ui";
+import { cn, Dialog, DialogContent, DialogDescription, DialogTitle, Input } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import { FileText, Search } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { openFile } from "./actions";
 import { fileError, scopeId, searchFiles } from "./api";
 
-export function QuickOpenFiles({ scope, treeWidth }: { scope: FileScope; treeWidth: number }) {
-  const [open, setOpen] = useState(false);
+export function QuickOpenFiles({
+  scope,
+  treeWidth,
+  open,
+  close,
+  restoreFocus,
+}: {
+  scope: FileScope;
+  treeWidth?: number;
+  open: boolean;
+  close: () => void;
+  restoreFocus: () => void;
+}) {
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button
-          type="button"
-          aria-label="快速打开文件"
-          title="快速打开文件"
-          className="rounded p-1.5 hover:bg-surface-2"
-        >
-          <Search size={13} />
-        </button>
-      </DialogTrigger>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) close();
+      }}
+    >
       {open ? (
-        <FileSearch scope={scope} treeWidth={treeWidth} close={() => setOpen(false)} />
+        <FileSearch scope={scope} treeWidth={treeWidth} close={close} restoreFocus={restoreFocus} />
       ) : null}
     </Dialog>
   );
@@ -39,10 +37,12 @@ function FileSearch({
   scope,
   treeWidth,
   close,
+  restoreFocus,
 }: {
   scope: FileScope;
-  treeWidth: number;
+  treeWidth?: number;
   close: () => void;
+  restoreFocus: () => void;
 }) {
   const [input, setInput] = useState("");
   const [term, setTerm] = useState("");
@@ -97,47 +97,68 @@ function FileSearch({
   };
 
   return (
-    <DialogContent className="top-[12vh] bottom-auto mx-auto max-h-[76vh] p-3">
+    <DialogContent
+      overlayClassName="bg-black/10 backdrop-blur-[3px] dark:bg-black/30"
+      className="top-[min(15dvh,140px)] bottom-auto mx-auto max-h-[76dvh] w-[min(640px,calc(100vw-28px))] overflow-hidden rounded-[22px] border-white/60 bg-surface/90 p-0 shadow-[0_24px_80px_-16px_rgb(0_0_0/0.38)] backdrop-blur-2xl dark:border-white/12"
+      onCloseAutoFocus={(event) => {
+        event.preventDefault();
+        restoreFocus();
+      }}
+    >
       <DialogTitle className="sr-only">快速打开文件</DialogTitle>
       <DialogDescription className="sr-only">
         搜索当前工作区。使用方向键选择，Enter 打开。
       </DialogDescription>
-      <Input
-        role="combobox"
-        aria-label="文件名或相对路径"
-        aria-autocomplete="list"
-        aria-controls={listId}
-        aria-expanded={items.length > 0}
-        aria-activedescendant={optionId}
-        placeholder="输入文件名或相对路径"
-        maxLength={128}
-        readOnly={opening}
-        value={input}
-        onChange={(event) => {
-          setInput(event.target.value);
-          setSelected(0);
-          setError("");
-        }}
-        onKeyDown={(event) => {
-          if (!active || event.nativeEvent.isComposing) return;
-          switch (event.key) {
-            case "ArrowDown":
-              setSelected((index + 1) % items.length);
-              break;
-            case "ArrowUp":
-              setSelected((index + items.length - 1) % items.length);
-              break;
-            case "Enter":
-              choose(active.path);
-              break;
-            default:
-              return;
-          }
-          event.preventDefault();
-        }}
-      />
+      <div className="flex h-16 items-center gap-3 px-4 sm:h-[72px] sm:px-5">
+        <Search size={24} aria-hidden="true" className="shrink-0 text-ink-3" />
+        <Input
+          variant="bare"
+          className="h-full min-w-0 flex-1 bg-transparent text-base text-ink outline-none sm:text-xl"
+          role="combobox"
+          aria-label="文件名或相对路径"
+          aria-autocomplete="list"
+          aria-controls={listId}
+          aria-expanded={items.length > 0}
+          aria-activedescendant={optionId}
+          placeholder="输入文件名或相对路径"
+          maxLength={128}
+          readOnly={opening}
+          value={input}
+          onChange={(event) => {
+            setInput(event.target.value);
+            setSelected(0);
+            setError("");
+          }}
+          onKeyDown={(event) => {
+            if (!active || event.nativeEvent.isComposing) return;
+            switch (event.key) {
+              case "ArrowDown":
+                setSelected((index + 1) % items.length);
+                break;
+              case "ArrowUp":
+                setSelected((index + items.length - 1) % items.length);
+                break;
+              case "Enter":
+                choose(active.path);
+                break;
+              default:
+                return;
+            }
+            event.preventDefault();
+          }}
+        />
+        <button
+          type="button"
+          aria-label="关闭快速打开"
+          title="关闭快速打开"
+          onClick={close}
+          className="shrink-0 rounded-md border border-line bg-surface-2/70 px-1.5 py-0.5 font-mono text-[10px] text-ink-3 hover:text-ink"
+        >
+          Esc
+        </button>
+      </div>
       {error || (current === term && query.isError) ? (
-        <p className="px-2 pt-2 text-xs text-danger" role="alert">
+        <p className="border-t border-line px-5 py-3 text-xs text-danger" role="alert">
           {error || "搜索文件失败，请修改关键词或重试。"}
           {!error ? (
             <button type="button" className="ml-2 text-accent" onClick={() => void query.refetch()}>
@@ -150,7 +171,10 @@ function FileSearch({
         id={listId}
         role="listbox"
         aria-label="匹配的文件"
-        className="mt-1 max-h-[55vh] overflow-y-auto"
+        className={cn(
+          "max-h-[min(55dvh,420px)] overflow-y-auto",
+          items.length > 0 && "border-t border-line p-2",
+        )}
       >
         {items.map((item, row) => (
           <button
@@ -163,32 +187,45 @@ function FileSearch({
             aria-disabled={opening}
             title={item.path}
             className={cn(
-              "flex w-full min-w-0 items-center gap-2 rounded px-2 py-1.5 text-left text-xs",
+              "flex w-full min-w-0 items-center gap-3 rounded-xl px-3 py-2 text-left",
               row === index ? "bg-accent-soft text-accent" : "hover:bg-surface-2",
             )}
             onPointerMove={() => setSelected(row)}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => choose(item.path)}
           >
-            <FileText size={14} className="shrink-0 text-ink-3" />
-            <span className="min-w-0 truncate">{item.name}</span>
-            <span className="ml-auto min-w-0 truncate text-ink-3">
-              {item.path.split("/").slice(0, -1).join("/") || "."}
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-surface-2 text-ink-3">
+              <FileText size={16} aria-hidden="true" />
             </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-sm font-medium">{item.name}</span>
+              <span className="truncate text-[11px] text-ink-3">
+                {item.path.split("/").slice(0, -1).join("/") || "."}
+              </span>
+            </span>
+            {row === index ? (
+              <span aria-hidden="true" className="text-xs text-ink-3">
+                ↵
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
-      {current ? (
-        <p role="status" className="px-2 text-[11px] text-ink-3">
+      {current &&
+      !error &&
+      (opening ||
+        current !== term ||
+        query.isFetching ||
+        query.data?.partial ||
+        (query.isSuccess && !items.length)) ? (
+        <p role="status" className="border-t border-line px-5 py-2.5 text-[11px] text-ink-3">
           {opening
             ? "正在打开文件…"
             : current !== term || query.isFetching
               ? "正在搜索…"
               : query.data?.partial
                 ? "结果受限，请缩小关键词。"
-                : query.isSuccess && !items.length
-                  ? "没有匹配的文件。"
-                  : ""}
+                : "没有匹配的文件。"}
         </p>
       ) : null}
     </DialogContent>
