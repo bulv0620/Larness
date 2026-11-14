@@ -341,6 +341,8 @@ export function updateCredentialSettings(
 
     const updated = {
       ...credential,
+      capabilityOverridesJson:
+        endpoint === credential.endpoint ? credential.capabilityOverridesJson : "{}",
       label,
       endpoint,
       contextWindow,

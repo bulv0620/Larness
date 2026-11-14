@@ -112,6 +112,8 @@ export interface ApiCatalogModel {
   id: string;
   label: string;
   contextWindow: number | null;
+  capabilities?: { maxInputTokens?: number };
+  agentSelectable?: boolean;
   thinking: {
     supported: boolean;
     mode?: "toggle" | "levels" | "mandatory-levels";

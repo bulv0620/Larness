@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **MC-2 模型能力目录与预算**（`done`，`task/mc-2-model-capabilities`，2026-11-14）：交付字段来源、逐连接模型覆盖、可选目录补充和 Turn 输入／输出预算；`pnpm check` 和 `pnpm build` 通过。Models.dev 实际请求返回 403，合并由测试夹具验证。下一项 MC-3。
+
 - **MC-1 官方预设与凭据版本**（`done`，`task/mc-1-connection-presets`，2026-11-14）：交付既有连接预设、兼容迁移、改名、版本化换 Key 与 Turn 快照。迁移、接口与并发竞态专项通过，`pnpm check` 复跑与 `pnpm build` 通过。下一项是 MC-2 能力目录。
 
 - **MC-0 模型连接与平台接入方案**（`done`，`task/mc-0-model-connections-design`，2026-11-14）：交付 [077 评审包](specs/077-model-connections/spec.md)。交付时 ADR-062 为 `proposed`，077 为 `draft`，后续按用户要求开始实施。文档链接与 `pnpm check` 通过。方案未含产品实现或真实 Key 推理验收。

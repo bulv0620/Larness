@@ -139,6 +139,8 @@ export interface CreateTurnRowInput {
   model: string | null;
   thinking?: string | null;
   contextWindow?: number | null;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
   status: TurnStatus;
   inputJson: string;
   idempotencyKey: string | null;
@@ -158,6 +160,8 @@ export function createTurnRow(db: DbExecutor, input: CreateTurnRowInput): TurnRo
     model: input.model,
     thinking: input.thinking ?? null,
     contextWindow: input.contextWindow ?? null,
+    maxInputTokens: input.maxInputTokens ?? null,
+    maxOutputTokens: input.maxOutputTokens ?? null,
     status: input.status,
     inputJson: input.inputJson,
     usageJson: null,

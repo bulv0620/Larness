@@ -928,6 +928,39 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("enforces separate model input and output limits on provider requests", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      try {
+        const options = { db: opened.db, dataDir: dir };
+        const session = await createSession(options, {});
+        const provider = createFakeProvider([textStep("ok")]);
+        let maxInputTokens = 50;
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({
+            adapter: provider,
+            model: "fake",
+            contextWindow: 128_000,
+            maxInputTokens,
+            maxOutputTokens: 123,
+          }),
+        });
+        const blocked = createTurn(options, { sessionId: session.id, text: "blocked" });
+        expect(await runner.run(blocked.turnId)).toMatchObject({ budgetCause: "context" });
+        expect(provider.calls).toHaveLength(0);
+        maxInputTokens = 100_000;
+        const allowed = createTurn(options, { sessionId: session.id, text: "allowed" });
+        expect(await runner.run(allowed.turnId)).toMatchObject({ status: "COMPLETED" });
+        expect(provider.calls).toHaveLength(1);
+        expect(provider.calls[0]?.maxOutputTokens).toBe(123);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("stops before sending a request that would exceed the context window", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

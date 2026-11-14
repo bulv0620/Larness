@@ -6,7 +6,18 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { CredentialProfileRow, ModelProviderId } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
+import {
+  type CapabilityOverride,
+  type CapabilitySources,
+  capabilitySchema,
+  type ModelCapabilities,
+  readCapabilityOverrides,
+  sourcesSchema,
+  tokenLimitSchema,
+} from "./capabilities.js";
 import { assertSafeEndpoint, EndpointError, type HostResolver } from "./endpoint.js";
+import { presetForCredential } from "./presets.js";
+import { fetchPublicModelDirectory, publicModels } from "./publicDirectory.js";
 import {
   clearModelDefaultRow,
   findLatestCredentialForProvider,
@@ -20,6 +31,7 @@ import {
   saveModelCatalog,
   setModelDefaultRow,
   setModelVisibilityRow,
+  updateCredentialRow,
 } from "./repository.js";
 import { ModelError } from "./service.js";
 
@@ -40,6 +52,9 @@ export interface CatalogModel {
   label: string;
   contextWindow: number | null;
   thinking: { supported: boolean; mode?: CatalogThinkingMode; levels: CatalogThinkingLevel[] };
+  capabilities?: ModelCapabilities;
+  agentSelectable?: boolean;
+  sources?: CapabilitySources;
   default: boolean;
   /** Whether the model appears in the conversation picker; defaults to true. */
   visible?: boolean;
@@ -52,6 +67,7 @@ export interface CatalogGroup {
   syncedAt: number | null;
   stale: boolean;
   lastRefreshError: string | null;
+  directoryStatus?: "synced" | "unavailable";
   models: CatalogModel[];
 }
 
@@ -74,6 +90,8 @@ export interface CatalogSelection {
   contextWindow: number | null;
   credentialProfileId: string;
   provider: ModelProviderId;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
   connectionRevision: number;
   connectionEndpoint: string | null;
   connectionSecretRef: string;
@@ -86,6 +104,7 @@ export interface CatalogOptions {
   fetcher?: DeepSeekCatalogFetcher;
   timeoutMs?: number;
   endpointResolver?: HostResolver;
+  publicDirectoryFetcher?: () => Promise<unknown>;
 }
 
 export type DeepSeekCatalogFetcher = (apiKey: string, signal: AbortSignal) => Promise<unknown>;
@@ -240,8 +259,18 @@ const upstreamModelSchema = z
   .object({
     id: z.string().min(1).max(128),
     name: z.string().min(1).max(128).optional(),
-    context_window: z.number().int().positive().max(100_000_000).optional(),
-    contextWindow: z.number().int().positive().max(100_000_000).optional(),
+    context_window: z.unknown().optional(),
+    contextWindow: z.unknown().optional(),
+    max_input_tokens: z.unknown().optional(),
+    max_output_tokens: z.unknown().optional(),
+    input_modalities: z.unknown().optional(),
+    output_modalities: z.unknown().optional(),
+    tool_calls: z.unknown().optional(),
+    streaming: z.unknown().optional(),
+    effort: z
+      .object({ supported_levels: z.array(z.string()).max(16) })
+      .optional()
+      .catch(undefined),
     thinking: z
       .object({
         supported: z.boolean().optional(),
@@ -320,7 +349,8 @@ export function createDeepSeekCatalogFetcher(
 }
 
 function builtinCatalog(provider: ModelProviderId): readonly CatalogModel[] {
-  return provider === "glm" ? GLM_BUILTIN_CATALOG : DEEPSEEK_BUILTIN_CATALOG;
+  if (provider === "glm") return GLM_BUILTIN_CATALOG;
+  return provider === "deepseek" ? DEEPSEEK_BUILTIN_CATALOG : [];
 }
 
 function mergeCatalog(
@@ -331,20 +361,60 @@ function mergeCatalog(
   const builtins = builtinCatalog(provider);
   const models = payload.data.map((entry) => {
     const builtin = builtins.find((item) => item.id === entry.id);
-    const supported = entry.thinking?.supported ?? builtin?.thinking.supported ?? false;
-    const mode = builtin?.thinking.mode ?? "levels";
-    const levels = supported
-      ? mode === "toggle"
-        ? []
-        : THINKING_LEVELS.map((level) => ({ ...level }))
-      : [];
-    const thinking = { supported, mode, levels };
+    const hasUpstreamEffort = provider === "deepseek" && entry.effort !== undefined;
+    const levels = hasUpstreamEffort
+      ? THINKING_LEVELS.filter((level) =>
+          entry.effort?.supported_levels.includes(PROVIDER_EFFORT[level.id]),
+        )
+      : THINKING_LEVELS;
+    const supported = hasUpstreamEffort
+      ? levels.length > 0
+      : (entry.thinking?.supported ?? builtin?.thinking.supported ?? false);
+    const mode = hasUpstreamEffort ? "levels" : (builtin?.thinking.mode ?? "levels");
+    const thinking = { supported, mode, levels: supported && mode !== "toggle" ? [...levels] : [] };
+    const upstreamWindow = tokenLimitSchema.safeParse(
+      entry.context_window ?? entry.contextWindow,
+    ).data;
+    const contextWindow = upstreamWindow ?? builtin?.contextWindow ?? fallbackWindow;
+    const sources: CapabilitySources = {};
+    if (contextWindow !== null)
+      sources.contextWindow =
+        upstreamWindow !== undefined
+          ? "upstream"
+          : builtin?.contextWindow != null
+            ? "bundled"
+            : "legacy";
+    if (hasUpstreamEffort || entry.thinking?.supported !== undefined) sources.thinking = "upstream";
+    else if (builtin) sources.thinking = "bundled";
+
+    const capabilities = {
+      maxInputTokens: tokenLimitSchema.safeParse(entry.max_input_tokens).data,
+      maxOutputTokens: tokenLimitSchema.safeParse(entry.max_output_tokens).data,
+      inputModalities: capabilitySchema.shape.inputModalities.safeParse(entry.input_modalities)
+        .data,
+      outputModalities: capabilitySchema.shape.outputModalities.safeParse(entry.output_modalities)
+        .data,
+      tools:
+        capabilitySchema.shape.tools.safeParse(entry.tool_calls).data ??
+        builtin?.capabilities?.tools,
+      streaming:
+        capabilitySchema.shape.streaming.safeParse(entry.streaming).data ??
+        builtin?.capabilities?.streaming,
+    };
+    for (const key of Object.keys(capabilities) as (keyof ModelCapabilities)[]) {
+      if (capabilities[key] !== undefined) sources[key] = "upstream";
+    }
+    if (capabilities.tools !== undefined && typeof entry.tool_calls !== "boolean")
+      sources.tools = "bundled";
+    if (capabilities.streaming !== undefined && typeof entry.streaming !== "boolean")
+      sources.streaming = "bundled";
 
     return {
       id: entry.id,
       label: entry.name ?? builtin?.label ?? entry.id,
-      contextWindow:
-        entry.context_window ?? entry.contextWindow ?? builtin?.contextWindow ?? fallbackWindow,
+      contextWindow,
+      capabilities,
+      sources,
       thinking,
       default: false,
     };
@@ -373,6 +443,8 @@ function parseModels(json: string): CatalogModel[] {
             mode: z.enum(["toggle", "levels", "mandatory-levels"]).optional(),
             levels: z.array(levelSchema),
           }),
+          capabilities: capabilitySchema.optional(),
+          sources: sourcesSchema.optional(),
           default: z.boolean(),
         })
         .safeParse(entry);
@@ -380,21 +452,7 @@ function parseModels(json: string): CatalogModel[] {
         return [];
       }
 
-      return [
-        {
-          ...result.data,
-          thinking: result.data.thinking.supported
-            ? {
-                supported: true,
-                mode: result.data.thinking.mode ?? "levels",
-                levels:
-                  (result.data.thinking.mode ?? "levels") === "toggle"
-                    ? []
-                    : THINKING_LEVELS.map((level) => ({ ...level })),
-              }
-            : { supported: false, levels: [] },
-        },
-      ];
+      return [result.data];
     });
   } catch {
     return [];
@@ -412,24 +470,13 @@ function catalogCredentials(db: DbExecutor) {
   );
 }
 
-function groupFor(
-  db: DbExecutor,
-  credential: {
-    id: string;
-    label: string;
-    provider: ModelProviderId;
-    contextWindow: number | null;
-  },
-): CatalogGroup {
+function groupFor(db: DbExecutor, credential: CredentialProfileRow): CatalogGroup {
   const row = getModelCatalogCache(db, credential.id);
-
   const visibility = getModelVisibility(db, credential.id);
-  const models = (row === null ? [] : parseModels(row.modelsJson)).map((model) => ({
+  const models = modelsForCredential(db, credential).map((model) => ({
     ...model,
-    contextWindow:
-      model.contextWindow ??
-      (credential.provider === "openai-compatible" ? credential.contextWindow : null),
     visible: visibility.get(model.id) ?? true,
+    agentSelectable: agentWindow(model) !== null,
   }));
 
   return {
@@ -457,7 +504,7 @@ export function getModelCatalog(options: CatalogOptions): CatalogDto {
       ? undefined
       : groups.find((group) => group.credentialProfileId === row.credentialProfileId);
   const defaultModel = defaultGroup?.models.find(
-    (model) => model.id === row?.model && model.contextWindow !== null && model.visible !== false,
+    (model) => model.id === row?.model && model.agentSelectable && model.visible !== false,
   );
 
   return {
@@ -479,16 +526,103 @@ function cachedModelsFor(db: DbExecutor, credentialId: string): CatalogModel[] {
   return row === null ? [] : parseModels(row.modelsJson);
 }
 
-function modelsForCredential(
-  db: DbExecutor,
-  credential: { id: string; provider: ModelProviderId; contextWindow: number | null },
-): CatalogModel[] {
-  return cachedModelsFor(db, credential.id).map((model) => ({
+function applyCapabilityOverride(model: CatalogModel, override: CapabilityOverride): CatalogModel {
+  const { contextWindow, thinking, ...capabilities } = override;
+  const sources = { ...model.sources };
+  for (const key of Object.keys(override) as (keyof CapabilityOverride)[]) {
+    sources[key] = "user";
+  }
+  return {
     ...model,
-    contextWindow:
-      model.contextWindow ??
-      (credential.provider === "openai-compatible" ? credential.contextWindow : null),
-  }));
+    sources,
+    contextWindow: contextWindow ?? model.contextWindow,
+    capabilities: { ...model.capabilities, ...capabilities },
+    thinking:
+      thinking === undefined
+        ? model.thinking
+        : {
+            supported: thinking !== "off",
+            ...(thinking === "off" ? {} : { mode: thinking }),
+            levels:
+              thinking === "levels" || thinking === "mandatory-levels" ? [...THINKING_LEVELS] : [],
+          },
+  };
+}
+
+function modelsForCredential(db: DbExecutor, credential: CredentialProfileRow): CatalogModel[] {
+  const overrides = new Map(
+    Object.entries(readCapabilityOverrides(credential.capabilityOverridesJson)),
+  );
+  const models = cachedModelsFor(db, credential.id).map((model) => {
+    const override = overrides.get(model.id);
+    overrides.delete(model.id);
+    const fallbackWindow =
+      credential.provider === "openai-compatible" ? credential.contextWindow : null;
+    const withFallback: CatalogModel = {
+      ...model,
+      contextWindow: model.contextWindow ?? fallbackWindow,
+      sources: {
+        ...(model.contextWindow !== null || fallbackWindow !== null
+          ? { contextWindow: "legacy" }
+          : {}),
+        ...model.sources,
+      },
+    };
+    return override === undefined ? withFallback : applyCapabilityOverride(withFallback, override);
+  });
+  for (const [id, override] of overrides) {
+    models.push(
+      applyCapabilityOverride(
+        {
+          id,
+          label: id,
+          contextWindow: null,
+          thinking: { supported: false, levels: [] },
+          default: false,
+        },
+        override,
+      ),
+    );
+  }
+  return models;
+}
+
+export function setCatalogCapabilityOverride(
+  options: CatalogOptions,
+  input: {
+    credentialProfileId: string;
+    modelId: string;
+    override: CapabilityOverride | null;
+    clientSessionId?: string;
+  },
+): void {
+  immediateTransaction(options.db, (tx) => {
+    const credential = getCredentialRow(tx, input.credentialProfileId);
+    if (credential === null) throw new ModelError("NOT_FOUND", "credential not found");
+    const overrides = new Map(
+      Object.entries(readCapabilityOverrides(credential.capabilityOverridesJson)),
+    );
+    if (input.override === null) overrides.delete(input.modelId);
+    else {
+      if (!overrides.has(input.modelId) && overrides.size >= 200) {
+        throw new ModelError("VALIDATION_ERROR", "too many model overrides for this connection");
+      }
+      overrides.set(input.modelId, input.override);
+    }
+    updateCredentialRow(tx, {
+      ...credential,
+      capabilityOverridesJson: JSON.stringify(Object.fromEntries(overrides)),
+    });
+    appendAudit(tx, {
+      action: "model.capabilities.changed",
+      decision: "allow",
+      clientSessionId: input.clientSessionId,
+      resourceType: "model",
+      resourceId: input.modelId,
+      details: { credentialProfileId: credential.id, fields: Object.keys(input.override ?? {}) },
+      now: options.now?.() ?? Date.now(),
+    });
+  });
 }
 
 async function catalogPayload(
@@ -545,7 +679,9 @@ async function refreshCredential(
   options: CatalogOptions,
   credential: CredentialProfileRow,
   clientSessionId: string | undefined,
+  directory: unknown,
 ): Promise<void> {
+  if (getCredentialRow(options.db, credential.id)?.revision !== credential.revision) return;
   const now = options.now?.() ?? Date.now();
   const secret = getSecretRow(options.db, credential.secretRef);
 
@@ -593,6 +729,27 @@ async function refreshCredential(
     credential.provider === "openai-compatible" ? (credential.contextWindow ?? 128_000) : null,
   );
 
+  const previous = new Map(
+    cachedModelsFor(options.db, credential.id).map((model) => [model.id, model]),
+  );
+  for (const model of models) {
+    const cached = previous.get(model.id);
+    if (
+      cached?.sources?.contextWindow === "directory" &&
+      model.sources?.contextWindow !== "upstream"
+    ) {
+      model.contextWindow = cached.contextWindow;
+      model.sources = { ...model.sources, contextWindow: "directory" };
+    }
+    for (const key of Object.keys(cached?.capabilities ?? {}) as (keyof ModelCapabilities)[]) {
+      if (cached?.sources?.[key] === "directory" && model.sources?.[key] !== "upstream") {
+        model.capabilities = { ...model.capabilities, [key]: cached.capabilities?.[key] };
+        model.sources = { ...model.sources, [key]: "directory" };
+      }
+    }
+  }
+  supplementFromPublicDirectory(models, credential, directory);
+
   if (models.length === 0) {
     recordFailure(options, credential, "MODEL_CATALOG_INVALID", now);
     return;
@@ -600,6 +757,7 @@ async function refreshCredential(
 
   immediateTransaction(options.db, (tx) => {
     if (getCredentialRow(tx, credential.id)?.revision !== credential.revision) return;
+    if ((getModelCatalogCache(tx, credential.id)?.lastAttemptAt ?? -1) > now) return;
     saveModelCatalog(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
@@ -622,9 +780,57 @@ async function refreshCredential(
   });
 }
 
+const publicProviderIds = new Map([
+  ["deepseek-api", "deepseek"],
+  ["glm-standard-cn", "zhipuai"],
+  ["glm-coding-cn", "zhipuai-coding-plan"],
+  ["glm-standard-intl", "zai"],
+  ["glm-coding-intl", "zai-coding-plan"],
+]);
+
+function supplementFromPublicDirectory(
+  models: CatalogModel[],
+  credential: CredentialProfileRow,
+  payload: unknown,
+): void {
+  const preset = presetForCredential(credential.provider, credential.endpoint);
+  const provider = preset === undefined ? undefined : publicProviderIds.get(preset.id);
+  if (provider === undefined) return;
+  const directory = publicModels(payload, provider);
+  for (const model of models) {
+    const entry = directory.get(model.id);
+    if (entry === undefined) continue;
+    const sources: CapabilitySources = { ...model.sources };
+    if (entry.limit?.context !== undefined && sources.contextWindow !== "upstream") {
+      model.contextWindow = entry.limit.context;
+      sources.contextWindow = "directory";
+    }
+    const fromDirectory: ModelCapabilities = {
+      maxInputTokens: entry.limit?.input,
+      maxOutputTokens: entry.limit?.output,
+      inputModalities: entry.modalities?.input,
+      outputModalities: entry.modalities?.output,
+      tools: entry.tool_call,
+    };
+    const capabilities = { ...model.capabilities };
+    for (const key of Object.keys(fromDirectory) as (keyof ModelCapabilities)[]) {
+      if (fromDirectory[key] !== undefined && sources[key] !== "upstream") {
+        Object.assign(capabilities, { [key]: fromDirectory[key] });
+        sources[key] = "directory";
+      }
+    }
+    model.capabilities = capabilities;
+    model.sources = sources;
+  }
+}
+
 export async function refreshModelCatalog(
   options: CatalogOptions,
-  input: { clientSessionId?: string; credentialProfileId?: string } = {},
+  input: {
+    clientSessionId?: string;
+    credentialProfileId?: string;
+    includePublicDirectory?: boolean;
+  } = {},
 ): Promise<CatalogDto> {
   const credentials =
     input.credentialProfileId === undefined
@@ -648,11 +854,25 @@ export async function refreshModelCatalog(
     throw new ModelError("MODEL_CREDENTIAL_MISSING", "configure a catalog credential first");
   }
 
+  let directory: unknown;
+  let directoryStatus: "synced" | "unavailable" | undefined;
+  if (input.includePublicDirectory === true) {
+    try {
+      directory = await (options.publicDirectoryFetcher ?? fetchPublicModelDirectory)();
+      if (typeof directory !== "object" || directory === null || Array.isArray(directory)) {
+        throw new Error("invalid public model directory");
+      }
+      directoryStatus = "synced";
+    } catch {
+      directoryStatus = "unavailable";
+    }
+  }
   for (const credential of credentials) {
-    await refreshCredential(options, credential, input.clientSessionId);
+    await refreshCredential(options, credential, input.clientSessionId, directory);
   }
 
-  return getModelCatalog(options);
+  const catalog = getModelCatalog(options);
+  return directoryStatus === undefined ? catalog : { ...catalog, directoryStatus };
 }
 
 function recordFailure(
@@ -663,6 +883,7 @@ function recordFailure(
 ): void {
   immediateTransaction(options.db, (tx) => {
     if (getCredentialRow(tx, credential.id)?.revision !== credential.revision) return;
+    if ((getModelCatalogCache(tx, credential.id)?.lastAttemptAt ?? -1) > now) return;
     recordModelCatalogFailure(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
@@ -679,8 +900,12 @@ function recordFailure(
 export function defaultThinking(model: CatalogModel): string {
   if (!model.thinking.supported) return "off";
   if (model.thinking.mode === "toggle") return "on";
-  if (model.thinking.mode === "mandatory-levels") return "high";
-  return "medium";
+  const preferred = model.thinking.mode === "mandatory-levels" ? "high" : "medium";
+  return (
+    model.thinking.levels.find((level) => level.id === preferred)?.id ??
+    model.thinking.levels[0]?.id ??
+    "off"
+  );
 }
 
 function normalizeThinking(model: CatalogModel, thinking: string | null | undefined): string {
@@ -705,16 +930,18 @@ function normalizeThinking(model: CatalogModel, thinking: string | null | undefi
     throw new ModelError("MODEL_UNSUPPORTED", "thinking level is not supported by this model");
   }
 
-  if (mode === "mandatory-levels") {
-    if (["low", "medium", "high"].includes(thinking)) return thinking;
-    if (thinking === "default" || thinking === "on") return "high";
+  if (thinking === "default" || thinking === "on") return defaultThinking(model);
+  if (thinking === "off" && mode !== "mandatory-levels") return "off";
+  if (model.thinking.levels.some((level) => level.id === thinking)) return thinking;
+  if (mode === "mandatory-levels")
     throw new ModelError("MODEL_UNSUPPORTED", "this model requires a thinking level");
-  }
-
-  if (thinking === "off") return "off";
-  if (thinking === "default" || thinking === "on") return "medium";
-  if (["low", "medium", "high"].includes(thinking)) return thinking;
   throw new ModelError("MODEL_UNSUPPORTED", "thinking level is not supported by this model");
+}
+
+function agentWindow(model: CatalogModel): number | null {
+  return model.capabilities?.tools === false || model.capabilities?.streaming === false
+    ? null
+    : (model.contextWindow ?? model.capabilities?.maxInputTokens ?? null);
 }
 
 export function resolveCatalogSelection(
@@ -756,16 +983,26 @@ export function resolveCatalogSelection(
     model = matches[0]?.model;
   }
 
-  if (credential === undefined || model === undefined || model.contextWindow === null) {
-    throw new ModelError("MODEL_UNSUPPORTED", "model is not available in the official catalog");
+  const contextWindow = model === undefined ? null : agentWindow(model);
+  if (credential === undefined || model === undefined || contextWindow === null) {
+    throw new ModelError(
+      "MODEL_UNSUPPORTED",
+      "model needs a known context or input limit and must support streaming tool calls",
+    );
   }
 
   return {
     model: model.id,
     thinking: normalizeThinking(model, input.thinking),
-    contextWindow: model.contextWindow,
+    contextWindow,
     credentialProfileId: credential.id,
     provider: credential.provider,
+    ...(model.capabilities?.maxInputTokens === undefined
+      ? {}
+      : { maxInputTokens: model.capabilities.maxInputTokens }),
+    ...(model.capabilities?.maxOutputTokens === undefined
+      ? {}
+      : { maxOutputTokens: model.capabilities.maxOutputTokens }),
     connectionRevision: credential.revision,
     connectionEndpoint: credential.endpoint,
     connectionSecretRef: credential.secretRef,
@@ -971,7 +1208,7 @@ export function setCatalogDefault(
   const groupModels = modelsForCredential(options.db, credential);
   const model = groupModels.find((item) => item.id === input.model);
 
-  if (model === undefined || model.contextWindow === null) {
+  if (model === undefined || agentWindow(model) === null) {
     throw new ModelError("MODEL_UNSUPPORTED", "model is not available in the catalog");
   }
 

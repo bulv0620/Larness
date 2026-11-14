@@ -530,10 +530,12 @@ PATCH 接受 `{ revision?, label?, apiKey?, endpoint?, contextWindow? }`。换 K
 }
 ```
 
-`thinking.mode` 为 `levels`（关/低/中/高）、`toggle`（关/开）或 `mandatory-levels`（低/中/高，不能关）；未知窗口的模型 `contextWindow: null`，不可选。
+`thinking.mode` 为 `levels`（关/低/中/高）、`toggle`（关/开）或 `mandatory-levels`（低/中/高，不能关）；`contextWindow` 表示已知总窗口；未知时为 `null`。有独立最大输入值时可按保守预算运行。以 `agentSelectable` 判断 Agent 可选性。
 
 - 从未成功同步时 `syncedAt: null`、`models: []`、`stale: true`；无凭据返回 `409 MODEL_CREDENTIAL_MISSING`。
-- 窗口或档位缺失时按未知展示，不猜值，也不把该模型当作可选。
+- 模型可带 `capabilities`（`maxInputTokens`、`maxOutputTokens`、`inputModalities`、`outputModalities`、`tools`、`streaming`）和逐字段 `sources`（`upstream`、`directory`、`bundled`、`user`、`legacy`）。未提供的能力为未知；保留前版兼容连接的历史行为。
+- 刷新可提交 `{ credentialProfileId?, includePublicDirectory? }`。显式请求公共目录时，无凭据读取固定的 Models.dev，仅按已登记预设和确切模型 ID 补充该连接已发现的模型字段。返回本次公共目录状态 `directoryStatus: synced | unavailable`；目录不可用保留上次已取得的数据。
+- `PUT /api/models/catalog/overrides` 接收 `{ credentialProfileId, modelId, override }`，替换该模型的手动配置，并允许登记未发现的 ID。覆盖接受能力字段、`contextWindow` 和 `thinking: off | toggle | levels | mandatory-levels`。DELETE 接收同一标识对并移除覆盖。二者返回 `{ ok: true }`，经认证、CSRF 和审计。
 - 每个模型带 `visible`（默认 `true`）；`PATCH /api/models/catalog/visibility` 保存用户筛选。隐藏全局默认模型会在同一事务清除默认设置，重新显示后需手动设为默认；已保存的会话选择仍可使用。
 - 响应顶层 `defaultSelection` 为全局默认模型（`model / thinking / credentialProfileId`，未设置或已失效为 `null`）；隐藏的历史默认按未设置处理。将隐藏模型设为默认返回 `MODEL_UNSUPPORTED`。设置页只管理 Key、显示与默认。
 - 目录响应不合规返回 `502 MODEL_CATALOG_INVALID`，不写入缓存；缓存按 `credential_profile_id` 隔离。
@@ -542,7 +544,7 @@ PATCH 接受 `{ revision?, label?, apiKey?, endpoint?, contextWindow? }`。换 K
 Session / Turn 的模型选择：
 
 - `model` 为目录中的模型 id；`thinking` 为 `off` / `low` / `medium` / `high`（旧 `default` 读取归一为 `medium`）。Provider 侧按 `low`→`low`、`medium`→`high`、`high`→`max` 发送。`PATCH /api/sessions/:id` 保存选择，`POST /api/sessions/:id/turns` 可覆盖本轮选择。
-- Turn 创建时快照 `provider`、`model`、`thinking`、`context_window` 与凭据引用；运行中改选只影响下一 Turn。
+- Turn 创建时快照 `provider`、`model`、`thinking`、预算（总窗口或保守窗口、最大输入／输出）与连接版本；运行中改选只影响下一 Turn。
 - 模型不在目录内或档位不属于该模型时返回 `400 MODEL_UNSUPPORTED`，不创建 Turn，也不调用上游。
 - 旧客户端传 `modelProfileId` 仍按快照兼容解析；档案已忽略或凭据缺失时失败关闭。`GET /api/models` 保留兼容但不再被 UI 使用。
 

@@ -109,6 +109,8 @@ export const turns = sqliteTable(
       .references(() => sessions.id, { onDelete: "cascade" }),
     modelProfileId: text("model_profile_id"),
     credentialProfileId: text("credential_profile_id"),
+    maxInputTokens: integer("max_input_tokens"),
+    maxOutputTokens: integer("max_output_tokens"),
     connectionRevision: integer("connection_revision"),
     connectionEndpoint: text("connection_endpoint"),
     connectionSecretRef: text("connection_secret_ref"),
@@ -210,6 +212,7 @@ export const credentialProfiles = sqliteTable(
     provider: text("provider").$type<ModelProviderId>().notNull(),
     label: text("label").notNull(),
     revision: integer("revision").notNull().default(1),
+    capabilityOverridesJson: text("capability_overrides_json").notNull().default("{}"),
     secretRef: text("secret_ref")
       .notNull()
       .references(() => secrets.id, { onDelete: "cascade" }),

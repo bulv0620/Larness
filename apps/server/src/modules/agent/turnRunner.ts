@@ -108,6 +108,8 @@ export interface ResolvedProvider {
   apiKey?: string;
   endpoint?: string;
   contextWindow?: number;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
   thinking?: ProviderThinking;
 }
 
@@ -1140,10 +1142,19 @@ export class TurnRunner {
       });
       const contextWindow =
         resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens;
+      const inputWindow = Math.min(contextWindow, resolved.maxInputTokens ?? contextWindow);
+      const configuredOutputCap = this.#budget.maxOutputTokens;
+      const maxOutputTokens =
+        resolved.maxOutputTokens === undefined
+          ? configuredOutputCap
+          : Math.min(
+              configuredOutputCap > 0 ? configuredOutputCap : Infinity,
+              resolved.maxOutputTokens,
+            );
       const contextOptions = {
         db: this.#options.db,
         registry: this.#options.registry,
-        maxContextTokens: contextWindow,
+        maxContextTokens: inputWindow,
         policy,
         contextRatio: this.#budget.contextRatio,
         workspaceRoot: projectRoot,
@@ -1164,7 +1175,7 @@ export class TurnRunner {
 
       this.#transition(turn, session, "RUNNING");
 
-      if (shouldCompress(context.estimatedTokens, contextWindow)) {
+      if (shouldCompress(context.estimatedTokens, inputWindow)) {
         const summaryStarted = this.#now();
 
         try {
@@ -1177,6 +1188,8 @@ export class TurnRunner {
             ...(resolved.apiKey === undefined ? {} : { apiKey: resolved.apiKey }),
             ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
             contextWindow,
+            inputWindow,
+            maxOutputTokens,
             tokensBefore: context.estimatedTokens,
             now: () => this.#now(),
             signal: controller.signal,
@@ -1316,11 +1329,14 @@ export class TurnRunner {
           anchoredProviderTokens,
         });
         const reservedOutput = reservedOutputTokens({
-          maxOutputTokens: this.#budget.maxOutputTokens,
+          maxOutputTokens,
           contextWindow,
         });
         let projectedTokens = estimatedInputTokens + reservedOutput;
-        const watermark = contextWatermark(projectedTokens, contextWindow);
+        const watermark = contextWatermark(
+          estimatedInputTokens,
+          Math.min(inputWindow, contextWindow - reservedOutput),
+        );
 
         if (steps > 0 && watermark !== "ok") {
           this.#options.logger?.info(
@@ -1387,7 +1403,7 @@ export class TurnRunner {
           }
         }
 
-        if (projectedTokens > contextWindow) {
+        if (projectedTokens > contextWindow || estimatedInputTokens > inputWindow) {
           // Stop honestly instead of letting the provider reject the request.
           return await finalize("COMPLETED", {
             eventType: "turn.completed",
@@ -1428,8 +1444,13 @@ export class TurnRunner {
           tools,
           signal: controller.signal,
           timeoutMs: remainingMs,
-          ...(this.#budget.maxOutputTokens > 0
-            ? { maxOutputTokens: this.#budget.maxOutputTokens }
+          ...(maxOutputTokens > 0
+            ? {
+                maxOutputTokens: Math.min(
+                  maxOutputTokens,
+                  Math.max(1, contextWindow - estimatedInputTokens),
+                ),
+              }
             : {}),
           maxRetries: 1,
           ...(resolved.apiKey === undefined ? {} : { apiKey: resolved.apiKey }),

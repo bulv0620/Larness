@@ -13,6 +13,7 @@ import {
   refreshModelCatalog,
   resolveCatalogProvider,
   resolveCatalogSelection,
+  setCatalogCapabilityOverride,
   setCatalogDefault,
   setCatalogModelVisibility,
 } from "../../src/modules/models/catalog.js";
@@ -46,6 +47,115 @@ function catalogResponse(ids: string[]): unknown {
 }
 
 describe("deepseek model catalog", () => {
+  it("keeps upstream token ceilings and modalities separate", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+      try {
+        const credential = createCredential(options, {
+          provider: "deepseek",
+          label: "DeepSeek",
+          apiKey: "test",
+        });
+        const catalog = await refreshModelCatalog({
+          ...options,
+          fetcher: async () => ({
+            data: [
+              {
+                id: "deepseek-flash",
+                context_window: 200_000,
+                max_input_tokens: 180_000,
+                max_output_tokens: 32_000,
+                input_modalities: ["text", "image"],
+                output_modalities: ["text"],
+                effort: { supported_levels: ["high"], default_level: "high" },
+              },
+            ],
+          }),
+        });
+        expect(catalog.models[0]).toMatchObject({
+          contextWindow: 200_000,
+          capabilities: {
+            maxInputTokens: 180_000,
+            maxOutputTokens: 32_000,
+            inputModalities: ["text", "image"],
+            outputModalities: ["text"],
+          },
+          thinking: { levels: [{ id: "medium" }] },
+          sources: { contextWindow: "upstream", maxInputTokens: "upstream", thinking: "upstream" },
+        });
+        const selection = { model: "deepseek-flash", credentialProfileId: credential.id };
+        expect(() =>
+          resolveCatalogSelection(options.db, { ...selection, thinking: "high" }),
+        ).toThrow();
+        expect(resolveCatalogSelection(options.db, selection)).toMatchObject({
+          thinking: "medium",
+          maxInputTokens: 180_000,
+          maxOutputTokens: 32_000,
+        });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("uses public fields only for matching upstream IDs and retains user overrides", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+      try {
+        const credential = createCredential(options, {
+          provider: "deepseek",
+          label: "DeepSeek",
+          apiKey: "test",
+        });
+        const key = { credentialProfileId: credential.id, modelId: "new-model" };
+        const upstream = async () => ({
+          data: [{ id: key.modelId, input_modalities: ["text"], max_output_tokens: "unknown" }],
+        });
+        const directory = await refreshModelCatalog(
+          {
+            ...options,
+            fetcher: upstream,
+            publicDirectoryFetcher: async () => ({
+              deepseek: {
+                api: "https://unused.example",
+                models: {
+                  [key.modelId]: {
+                    limit: { context: 200_000, output: 10_000 },
+                    modalities: { input: ["text", "image"] },
+                    tool_call: true,
+                  },
+                  "directory-only": { limit: { context: 300_000 } },
+                },
+              },
+            }),
+          },
+          { includePublicDirectory: true },
+        );
+        expect(directory.models).toHaveLength(1);
+        expect(directory.models[0]).toMatchObject({
+          id: key.modelId,
+          contextWindow: 200_000,
+          agentSelectable: true,
+          capabilities: { maxOutputTokens: 10_000, inputModalities: ["text"] },
+          sources: { contextWindow: "directory", inputModalities: "upstream" },
+        });
+        setCatalogCapabilityOverride(options, { ...key, override: { contextWindow: 50_000 } });
+        await refreshModelCatalog({ ...options, fetcher: upstream });
+        expect(getModelCatalog(options).models[0]).toMatchObject({
+          contextWindow: 50_000,
+          sources: { contextWindow: "user" },
+        });
+        setCatalogCapabilityOverride(options, { ...key, override: null });
+        expect(getModelCatalog(options).models[0]).toMatchObject({
+          contextWindow: 200_000,
+          sources: { contextWindow: "directory" },
+        });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("discards a catalog refresh completed after key replacement", async () => {
     await withTempDir(async (dir) => {
       const { opened, options } = await fixture(dir);

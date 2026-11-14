@@ -279,7 +279,9 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
           }),
       model: selection === null ? null : selection.model,
       thinking: selection === null ? null : selection.thinking,
-      contextWindow: selection === null ? null : selection.contextWindow,
+      contextWindow: selection?.contextWindow ?? null,
+      maxInputTokens: selection?.maxInputTokens,
+      maxOutputTokens: selection?.maxOutputTokens,
       status: "QUEUED",
       inputJson: JSON.stringify({
         text: validated.text,

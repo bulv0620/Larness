@@ -192,6 +192,8 @@ export function createDefaultProviderResolver(
           apiKey: resolved.apiKey,
           ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
           contextWindow: resolved.contextWindow,
+          maxInputTokens: turn.maxInputTokens ?? undefined,
+          maxOutputTokens: turn.maxOutputTokens ?? undefined,
           thinking: resolved.thinking,
         };
       } catch (error) {

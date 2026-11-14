@@ -3,10 +3,12 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Database } from "../db/client.js";
 import { HttpError } from "../errors.js";
+import { overrideSchema } from "../modules/models/capabilities.js";
 import {
   type DeepSeekCatalogFetcher,
   getModelCatalog,
   refreshModelCatalog,
+  setCatalogCapabilityOverride,
   setCatalogDefault,
   setCatalogModelVisibility,
 } from "../modules/models/catalog.js";
@@ -37,6 +39,22 @@ const UpdateCredentialSchema = z
     apiKey: z.string().min(1).max(8_192).optional(),
   })
   .strict();
+
+const CatalogRefreshSchema = z
+  .object({
+    credentialProfileId: IdSchema.optional(),
+    includePublicDirectory: z.boolean().optional(),
+  })
+  .strict();
+const ModelOverrideKeySchema = z
+  .object({ credentialProfileId: IdSchema, modelId: IdSchema })
+  .strict();
+const ModelOverrideSchema = ModelOverrideKeySchema.extend({
+  override: overrideSchema.refine(
+    (value) => Object.keys(value).length > 0,
+    "provide at least one capability",
+  ),
+});
 
 const DefaultSchema = z
   .object({
@@ -158,10 +176,39 @@ export function registerModelRoutes(app: FastifyInstance, deps: ModelApiDeps): v
   });
 
   app.post("/api/models/catalog/refresh", async (request) => {
+    const body = parse(CatalogRefreshSchema, request.body ?? {});
     try {
       return await refreshModelCatalog(catalogOptions, {
+        ...body,
         clientSessionId: request.clientSession?.id,
       });
+    } catch (error) {
+      throwModel(error);
+    }
+  });
+
+  app.put("/api/models/catalog/overrides", async (request) => {
+    const body = parse(ModelOverrideSchema, request.body);
+    try {
+      setCatalogCapabilityOverride(catalogOptions, {
+        ...body,
+        clientSessionId: request.clientSession?.id,
+      });
+      return { ok: true };
+    } catch (error) {
+      throwModel(error);
+    }
+  });
+
+  app.delete("/api/models/catalog/overrides", async (request) => {
+    const body = parse(ModelOverrideKeySchema, request.body);
+    try {
+      setCatalogCapabilityOverride(catalogOptions, {
+        ...body,
+        override: null,
+        clientSessionId: request.clientSession?.id,
+      });
+      return { ok: true };
     } catch (error) {
       throwModel(error);
     }

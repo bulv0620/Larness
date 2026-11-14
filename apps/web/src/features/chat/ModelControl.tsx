@@ -49,6 +49,17 @@ export function ModelControl({
 
   const thinkingEnabled = model?.thinking.supported === true;
   const currentThinking = thinkingEnabled ? levelLabel(thinking) : "不支持";
+  const mode = model?.thinking.mode;
+  const levels =
+    mode === "toggle"
+      ? [
+          { id: "off", label: "关闭" },
+          { id: "on", label: "开启" },
+        ]
+      : [
+          ...(mode === "mandatory-levels" ? [] : [{ id: "off", label: "关闭" }]),
+          ...(model?.thinking.levels ?? []),
+        ];
 
   useEffect(() => {
     if (!open) return;
@@ -186,6 +197,8 @@ export function ModelControl({
                       </p>
                     ) : (
                       group.models.map((item) => {
+                        const selectable = item.agentSelectable ?? item.contextWindow !== null;
+                        const window = item.contextWindow ?? item.capabilities?.maxInputTokens;
                         const selected =
                           item.id === model?.id &&
                           group.credentialProfileId === credentialProfileId;
@@ -194,11 +207,11 @@ export function ModelControl({
                             key={`${group.credentialProfileId}:${item.id}`}
                             type="button"
                             aria-pressed={selected}
-                            disabled={item.contextWindow === null}
+                            disabled={!selectable}
                             onClick={() => selectModel(item.id, group.credentialProfileId)}
                             className={cn(
                               "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] transition-colors",
-                              item.contextWindow === null
+                              !selectable
                                 ? "cursor-not-allowed text-ink-3 opacity-50"
                                 : selected
                                   ? "bg-black/[.04] text-ink dark:bg-white/[.06]"
@@ -207,9 +220,7 @@ export function ModelControl({
                           >
                             <span className="min-w-0 flex-1 truncate">{item.label}</span>
                             <span className="shrink-0 text-[9.5px] text-ink-3">
-                              {item.contextWindow === null
-                                ? "窗口未知"
-                                : `${Math.round(item.contextWindow / 1024)}K`}
+                              {window == null ? "窗口未知" : `${Math.round(window / 1024)}K`}
                             </span>
                             {selected ? <Check size={13} className="shrink-0 text-accent" /> : null}
                           </button>
@@ -235,7 +246,7 @@ export function ModelControl({
                 </button>
                 <span className="text-[10.5px] font-semibold text-ink-3">思考等级</span>
               </div>
-              {THINKING_LEVELS.map((level) => {
+              {levels.map((level) => {
                 const selected = level.id === thinking;
                 return (
                   <button

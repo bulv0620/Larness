@@ -9,6 +9,7 @@ import {
   sessionContextSummaries,
   type TurnRow,
 } from "../../db/schema.js";
+import { estimateRequestTokens, reservedOutputTokens } from "./tokenEstimator.js";
 
 export const COMPRESSION_RATIO = 0.7;
 const KEEP_RECENT = 12;
@@ -149,6 +150,8 @@ export async function compressContext(options: {
   apiKey?: string;
   endpoint?: string;
   contextWindow: number;
+  inputWindow?: number;
+  maxOutputTokens?: number;
   tokensBefore: number;
   now?: () => number;
   signal?: AbortSignal;
@@ -182,9 +185,30 @@ export async function compressContext(options: {
   try {
     const chunks: ProviderChunk[] = [];
 
+    const messages = summaryPrompt(previous?.summary ?? null, summarized);
+    const estimatedInput = estimateRequestTokens(messages, []);
+    const outputCeiling = options.maxOutputTokens ?? 0;
+    const remaining = options.contextWindow - estimatedInput;
+    if (
+      options.inputWindow !== undefined &&
+      (estimatedInput > options.inputWindow ||
+        remaining <
+          Math.max(
+            1,
+            reservedOutputTokens({
+              maxOutputTokens: outputCeiling,
+              contextWindow: options.contextWindow,
+            }),
+          ))
+    ) {
+      throw new Error("summary prompt exceeds model budget");
+    }
     for await (const chunk of options.adapter.streamStep({
       model: options.model,
-      messages: summaryPrompt(previous?.summary ?? null, summarized),
+      messages,
+      ...(outputCeiling > 0
+        ? { maxOutputTokens: Math.min(outputCeiling, Math.max(1, remaining)) }
+        : {}),
       tools: [],
       signal: controller.signal,
       ...(options.apiKey === undefined ? {} : { apiKey: options.apiKey }),

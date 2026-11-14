@@ -70,8 +70,12 @@ function defaultThinkingFor(model: {
 }): string {
   if (!model.thinking.supported) return "off";
   if (model.thinking.mode === "toggle") return "on";
-  if (model.thinking.mode === "mandatory-levels") return "high";
-  return "medium";
+  const preferred = model.thinking.mode === "mandatory-levels" ? "high" : "medium";
+  return (
+    model.thinking.levels.find((level) => level.id === preferred)?.id ??
+    model.thinking.levels[0]?.id ??
+    "off"
+  );
 }
 
 function thinkingAllowed(
@@ -83,8 +87,10 @@ function thinkingAllowed(
   if (!model.thinking.supported) return thinking === "off";
   const mode = model.thinking.mode ?? "levels";
   if (mode === "toggle") return thinking === "off" || thinking === "on";
-  if (mode === "mandatory-levels") return ["low", "medium", "high"].includes(thinking);
-  return ["off", "low", "medium", "high"].includes(thinking);
+  return (
+    (mode !== "mandatory-levels" && thinking === "off") ||
+    model.thinking.levels.some((level) => level.id === thinking)
+  );
 }
 
 export function Composer({
@@ -153,12 +159,15 @@ export function Composer({
   const groups: ApiCatalogGroup[] = catalog?.groups ?? (catalog ? [catalog] : []);
   const visibleGroups = groups.map((group) => ({
     ...group,
-    models: group.models.filter((item) => item.visible !== false && item.contextWindow !== null),
+    models: group.models.filter(
+      (item) => item.visible !== false && (item.agentSelectable ?? item.contextWindow !== null),
+    ),
   }));
-  const pairs = groups.flatMap((group) =>
-    group.models.filter((model) => model.contextWindow !== null).map((model) => ({ group, model })),
+  const pairs = groups.flatMap((group) => group.models.map((model) => ({ group, model })));
+  const selectable = pairs.filter(
+    ({ model }) =>
+      model.visible !== false && (model.agentSelectable ?? model.contextWindow !== null),
   );
-  const selectable = pairs.filter(({ model }) => model.visible !== false);
   const saved = USE_MOCKS ? mockSelection : isDraftSession ? draftSession.selection : sessionDetail;
   const matches = (selection: Pick<ApiSessionDetail, "model" | "credentialProfileId">) =>
     pairs.find(
@@ -187,7 +196,12 @@ export function Composer({
       : model
         ? defaultThinkingFor(model)
         : "off";
-  const canSend = hasSession && model !== undefined && !savingSettings && !isStreaming;
+  const canSend =
+    hasSession &&
+    model !== undefined &&
+    (model.agentSelectable ?? model.contextWindow !== null) &&
+    !savingSettings &&
+    !isStreaming;
   const currentPolicy = policies.find((item) => item.id === policy) ?? standardPolicy;
   const PolicyIcon = currentPolicy.icon;
   const modelUsage = useTimelineStore((state) => state.modelUsage);

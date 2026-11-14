@@ -130,6 +130,7 @@ export function createCredentialRows(
     label: input.label,
     secretRef: secret.id,
     revision: 1,
+    capabilityOverridesJson: "{}",
     endpoint: input.endpoint ?? null,
     contextWindow: input.contextWindow ?? null,
     createdAt: input.now,
@@ -156,6 +157,7 @@ export function updateCredentialRow(db: DbExecutor, row: CredentialProfileRow): 
       endpoint: row.endpoint,
       contextWindow: row.contextWindow,
       revision: row.revision,
+      capabilityOverridesJson: row.capabilityOverridesJson,
       secretRef: row.secretRef,
     })
     .where(eq(credentialProfiles.id, row.id))

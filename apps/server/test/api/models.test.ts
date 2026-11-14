@@ -3,6 +3,67 @@ import { withTempDir } from "../helpers.js";
 import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
 describe("models and credentials API", () => {
+  it("registers a model per connection and restricts capability changes to authenticated writes", async () => {
+    await withTempDir(async (dir) => {
+      const started = await startAuthorizedServer(dir);
+      const app = started.running.app;
+      const headers = {
+        cookie: started.cookie,
+        origin: started.origin,
+        "x-csrf-token": started.csrf,
+      };
+      try {
+        const created = await app.inject({
+          method: "POST",
+          url: "/api/credentials",
+          headers,
+          payload: { presetId: "glm-coding-cn", label: "GLM", apiKey: "fixture" },
+        });
+        const { id } = created.json<{ id: string }>();
+        const key = { credentialProfileId: id, modelId: "glm-new" };
+        const url = "/api/models/catalog/overrides";
+        const payload = {
+          ...key,
+          override: { maxInputTokens: 90_000, tools: true, thinking: "toggle" },
+        };
+        const { "x-csrf-token": csrf, ...withoutCsrf } = headers;
+        expect(csrf).toBeTruthy();
+        expect(
+          (await app.inject({ method: "PUT", url, headers: withoutCsrf, payload })).statusCode,
+        ).toBe(403);
+        expect(
+          (
+            await app.inject({
+              method: "PUT",
+              url,
+              headers,
+              payload: { ...key, override: { contextWindow: -1 } },
+            })
+          ).statusCode,
+        ).toBe(400);
+        expect((await app.inject({ method: "PUT", url, headers, payload })).statusCode).toBe(200);
+        const catalog = () => app.inject({ url: "/api/models/catalog", headers });
+        expect((await catalog()).json()).toMatchObject({
+          models: [
+            {
+              id: "glm-new",
+              contextWindow: null,
+              agentSelectable: true,
+              capabilities: { maxInputTokens: 90_000, tools: true },
+              sources: { maxInputTokens: "user" },
+            },
+          ],
+        });
+        expect(
+          (await app.inject({ method: "DELETE", url, headers, payload: key })).statusCode,
+        ).toBe(200);
+        expect((await catalog()).json()).toMatchObject({ models: [] });
+      } finally {
+        await stopAuthorizedServer(started);
+      }
+    });
+  });
+
   it("lists official presets and creates a connection from a preset", async () => {
     await withTempDir(async (dir) => {
       const started = await startAuthorizedServer(dir);

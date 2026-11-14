@@ -384,3 +384,7 @@ CREATE INDEX idx_sessions_origin ON sessions(origin, updated_at);
 `schemaVersion 27 → 28`。为 `credential_profiles` 添加 `revision INTEGER NOT NULL DEFAULT 1`。现有连接 ID、加密密钥、端点、模型默认、隐藏、会话和历史均沿用原行。接入预设由现有 provider 与地址解析。
 
 `turns` 增加可空的 `connection_revision`、`connection_endpoint` 与 `connection_secret_ref`，用于固定已选目录模型的连接及凭据。既有 Turn 不回填。终态事务清除内部凭据引用；旧密文仅在没有连接和活跃 Turn 引用时删除。REST 和 WS 不公开该快照的凭据引用。
+
+### 0029 · 模型能力与预算（MC-2）
+
+`schemaVersion 28 → 29`。凭据增加 `capability_overrides_json TEXT NOT NULL DEFAULT '{}'`，按确切模型 ID 保存手工配置，换同一个连接的 Key 时保留，旧接口更改上游地址时清空。目录缓存的 `models_json` 向后兼容读取，追加能力和字段来源；新 Turn 快照所用 `max_input_tokens` 与 `max_output_tokens`，旧 Turn 保持空值。

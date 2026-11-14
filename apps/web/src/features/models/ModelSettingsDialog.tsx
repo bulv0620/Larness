@@ -60,7 +60,9 @@ function providerLabel(provider: ApiCatalogGroup["provider"]): string {
 
 function windowLabel(model: ApiCatalogModel): string {
   return model.contextWindow === null
-    ? "窗口未知"
+    ? model.capabilities?.maxInputTokens === undefined
+      ? "窗口未知"
+      : `${Math.round(model.capabilities.maxInputTokens / 1024)}K 最大输入`
     : `${Math.round(model.contextWindow / 1024)}K 上下文`;
 }
 
@@ -68,8 +70,8 @@ function thinkingLabel(model: ApiCatalogModel): string {
   if (!model.thinking.supported) return "不支持思考档位";
   const mode = model.thinking.mode ?? "levels";
   if (mode === "toggle") return "思考 开 / 关";
-  if (mode === "mandatory-levels") return "思考 低 / 中 / 高（强制）";
-  return "思考 低 / 中 / 高";
+  const levels = model.thinking.levels.map((level) => level.label).join(" / ");
+  return mode === "mandatory-levels" ? `思考 ${levels}（强制）` : `思考 ${levels}`;
 }
 
 function syncLabel(group: ApiCatalogGroup): string {
@@ -111,10 +113,13 @@ export function ModelSettingsDialog({
       ? groups.find((group) => group.credentialProfileId === view.credentialId)
       : undefined;
   const models = activeGroup
-    ? activeGroup.models.filter((model) => showUnavailable || model.contextWindow !== null)
+    ? activeGroup.models.filter(
+        (model) => showUnavailable || (model.agentSelectable ?? model.contextWindow !== null),
+      )
     : [];
   const unavailableCount = activeGroup
-    ? activeGroup.models.filter((model) => model.contextWindow === null).length
+    ? activeGroup.models.filter((model) => !(model.agentSelectable ?? model.contextWindow !== null))
+        .length
     : 0;
   const credentialMask = (credentialId: string) =>
     credentials.find((credential) => credential.id === credentialId)?.masked ?? "";
@@ -194,7 +199,7 @@ export function ModelSettingsDialog({
 
   const makeDefault = async (group: ApiCatalogGroup, model: ApiCatalogModel) => {
     if (model.visible === false) return;
-    if (model.contextWindow === null) {
+    if (!(model.agentSelectable ?? model.contextWindow !== null)) {
       setError("该模型未声明上下文窗口，暂时不能设为默认。");
       return;
     }
@@ -504,7 +509,9 @@ export function ModelSettingsDialog({
                     model.visible !== false &&
                     model.id === defaultSelection?.model &&
                     activeGroup.credentialProfileId === defaultSelection.credentialProfileId;
-                  const disabled = model.contextWindow === null || model.visible === false;
+                  const disabled =
+                    !(model.agentSelectable ?? model.contextWindow !== null) ||
+                    model.visible === false;
                   return (
                     <div
                       key={model.id}
