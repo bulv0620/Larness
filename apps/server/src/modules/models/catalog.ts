@@ -64,6 +64,7 @@ export interface CatalogGroup {
   provider: ModelProviderId;
   credentialProfileId: string;
   credentialLabel: string;
+  billing?: "usage" | "subscription" | "unknown";
   syncedAt: number | null;
   stale: boolean;
   lastRefreshError: string | null;
@@ -483,6 +484,7 @@ function groupFor(db: DbExecutor, credential: CredentialProfileRow): CatalogGrou
     provider: credential.provider,
     credentialProfileId: credential.id,
     credentialLabel: credential.label,
+    billing: presetForCredential(credential.provider, credential.endpoint)?.billing,
     syncedAt: row?.syncedAt ?? null,
     stale: row === null || row.syncedAt === null || row.lastErrorCode !== null,
     lastRefreshError: row?.lastErrorCode ?? null,

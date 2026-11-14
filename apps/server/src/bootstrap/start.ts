@@ -50,6 +50,7 @@ import { JobRuntime } from "../modules/jobs/runtime.js";
 import { JobService } from "../modules/jobs/service.js";
 import { type DeepSeekCatalogFetcher, resolveCatalogProvider } from "../modules/models/catalog.js";
 import { assertSafeEndpoint } from "../modules/models/endpoint.js";
+import type { ModelProbeResolver } from "../modules/models/probe.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { PreviewRegistry } from "../modules/previews/registry.js";
@@ -126,7 +127,7 @@ export interface RunningServer {
 export function createDefaultProviderResolver(
   db: Database,
   secretStore: SecretStore,
-): ProviderResolver {
+): ModelProbeResolver {
   return async (session, turn) => {
     if (turn.model !== null && turn.model.length > 0) {
       try {
@@ -553,6 +554,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         webAuthn: loaded.webAuthn,
         csrfKey,
         secretStore,
+        modelProbeResolver: createDefaultProviderResolver(opened.db, secretStore),
         ...(options.catalogFetcher === undefined ? {} : { catalogFetcher: options.catalogFetcher }),
         commands,
         resourceEvents,

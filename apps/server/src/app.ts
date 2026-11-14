@@ -34,6 +34,7 @@ import { FileWatchManager } from "./modules/files/watcher.js";
 import { GitManager } from "./modules/git/manager.js";
 import type { JobService } from "./modules/jobs/service.js";
 import type { DeepSeekCatalogFetcher } from "./modules/models/catalog.js";
+import type { ModelProbeResolver } from "./modules/models/probe.js";
 import type { PreviewRegistry } from "./modules/previews/registry.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
 import type { DeploymentAuthorizationService } from "./modules/service-ops/authorization.js";
@@ -57,6 +58,7 @@ export interface AppServices {
   csrfKey: Buffer;
   secretStore?: SecretStore;
   catalogFetcher?: DeepSeekCatalogFetcher;
+  modelProbeResolver?: ModelProbeResolver;
   turnControls?: TurnControls;
   commands?: CommandManager;
   terminals?: TerminalManager;
@@ -165,6 +167,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         db: options.services.db,
         secretStore: options.services.secretStore,
         catalogFetcher: options.services.catalogFetcher,
+        modelProbeResolver: options.services.modelProbeResolver,
       });
     }
     registerApprovalRoutes(app, { db: options.services.db });

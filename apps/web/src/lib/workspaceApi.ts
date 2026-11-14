@@ -112,7 +112,15 @@ export interface ApiCatalogModel {
   id: string;
   label: string;
   contextWindow: number | null;
-  capabilities?: { maxInputTokens?: number };
+  capabilities?: {
+    maxInputTokens?: number;
+    maxOutputTokens?: number;
+    inputModalities?: string[];
+    outputModalities?: string[];
+    tools?: boolean;
+    streaming?: boolean;
+  };
+  sources?: Record<string, string>;
   agentSelectable?: boolean;
   thinking: {
     supported: boolean;
@@ -127,6 +135,7 @@ export interface ApiCatalogGroup {
   provider: "deepseek" | "glm" | "openai-compatible";
   credentialProfileId: string;
   credentialLabel: string;
+  billing?: "usage" | "subscription" | "unknown";
   syncedAt: number | null;
   stale: boolean;
   lastRefreshError: string | null;
@@ -142,6 +151,7 @@ export interface ModelSelection {
 export interface ApiModelCatalog extends ApiCatalogGroup {
   groups: ApiCatalogGroup[];
   defaultSelection?: ModelSelection | null;
+  directoryStatus?: "synced" | "unavailable";
 }
 
 export interface ApiCredential {
@@ -150,6 +160,9 @@ export interface ApiCredential {
   label: string;
   secretRef: string;
   masked: string;
+  presetId?: string | null;
+  revision?: number;
+  billing?: "usage" | "subscription" | "unknown";
   endpoint?: string | null;
   contextWindow?: number | null;
   createdAt: number;
@@ -247,10 +260,53 @@ export async function setModelVisibility(input: {
   });
 }
 
-export async function refreshModelCatalog(): Promise<ApiModelCatalog> {
+export async function refreshModelCatalog(
+  input: { credentialProfileId?: string; includePublicDirectory?: boolean } = {},
+): Promise<ApiModelCatalog> {
   return apiFetch<ApiModelCatalog>("/api/models/catalog/refresh", {
     method: "POST",
-    body: {},
+    body: input,
+    csrf: true,
+  });
+}
+
+export interface ApiModelPreset {
+  id: string;
+  provider: ApiCredential["provider"];
+  label: string;
+  endpoint: string | null;
+  billing: NonNullable<ApiCredential["billing"]>;
+  fields?: ("endpoint" | "workspaceId")[];
+}
+export async function listModelPresets(): Promise<ApiModelPreset[]> {
+  return (await apiFetch<{ presets: ApiModelPreset[] }>("/api/models/presets")).presets;
+}
+
+export interface ModelCapabilityOverride {
+  contextWindow?: number;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
+  thinking?: "off" | "toggle" | "levels" | "mandatory-levels";
+  tools?: boolean;
+  inputModalities?: string[];
+  outputModalities?: string[];
+  streaming?: boolean;
+}
+export async function setCapabilityOverride(
+  credentialProfileId: string,
+  modelId: string,
+  override: ModelCapabilityOverride | null,
+): Promise<void> {
+  await apiFetch("/api/models/catalog/overrides", {
+    method: override === null ? "DELETE" : "PUT",
+    body: { credentialProfileId, modelId, ...(override === null ? {} : { override }) },
+    csrf: true,
+  });
+}
+export async function testModelConnection(id: string, model: string): Promise<void> {
+  await apiFetch(`/api/credentials/${encodeURIComponent(id)}/test`, {
+    method: "POST",
+    body: { model },
     csrf: true,
   });
 }
@@ -261,7 +317,9 @@ export async function listCredentials(): Promise<ApiCredential[]> {
 }
 
 export async function createCredential(input: {
-  provider: "deepseek" | "glm" | "openai-compatible";
+  provider?: ApiCredential["provider"];
+  presetId?: string;
+  workspaceId?: string;
   label: string;
   apiKey: string;
   endpoint?: string;
@@ -280,7 +338,13 @@ export async function updateCredentialEndpoint(id: string, endpoint: string | nu
 
 export async function updateCredentialSettings(
   id: string,
-  input: { endpoint?: string | null; contextWindow?: number | null },
+  input: {
+    endpoint?: string | null;
+    contextWindow?: number | null;
+    label?: string;
+    apiKey?: string;
+    revision?: number;
+  },
 ): Promise<void> {
   await apiFetch(`/api/credentials/${encodeURIComponent(id)}`, {
     method: "PATCH",

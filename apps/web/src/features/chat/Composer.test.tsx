@@ -176,7 +176,7 @@ it("switches model and thinking from the two-level menu", async () => {
   await user.click(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 高" }));
   const reopened = screen.getByRole("dialog", { name: "模型与思考" });
   await user.click(within(reopened).getByRole("button", { name: "模型：DeepSeek Flash" }));
-  expect(within(reopened).getByText("DeepSeek · DeepSeek Key")).toBeVisible();
+  expect(within(reopened).getAllByText("DeepSeek · DeepSeek Key")).toHaveLength(2);
   expect(within(reopened).getByText("GLM · GLM Key")).toBeVisible();
   expect(within(reopened).queryByText("Hidden Model")).toBeNull();
   expect(within(reopened).queryByText("Unknown Window")).toBeNull();

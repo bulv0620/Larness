@@ -181,7 +181,8 @@ export function Composer({
     ? matches(catalog.defaultSelection)
     : undefined;
   const defaultPair = configuredDefault?.model.visible === false ? undefined : configuredDefault;
-  const pair = savedPair ?? defaultPair ?? selectable[0];
+  const missingBoundModel = Boolean(saved?.model && saved?.credentialProfileId && !savedPair);
+  const pair = savedPair ?? (missingBoundModel ? undefined : (defaultPair ?? selectable[0]));
   const model = sessionReady ? pair?.model : undefined;
   const credentialProfileId = pair?.group.credentialProfileId ?? null;
   const configuredThinking = savedPair
@@ -368,6 +369,7 @@ export function Composer({
           groups={visibleGroups}
           model={model}
           credentialProfileId={credentialProfileId}
+          credentialLabel={pair?.group.credentialLabel}
           thinking={thinking}
           catalogError={catalogError}
           disabled={settingsDisabled}

@@ -1,6 +1,7 @@
 import { cn } from "@larness/ui";
 import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { billingLabel, modelRows, providerLabel } from "@/features/models/catalogView";
 import type { ApiCatalogGroup, ApiCatalogModel } from "@/lib/workspaceApi";
 
 interface ModelControlProps {
@@ -27,17 +28,12 @@ function levelLabel(thinking: string): string {
   return THINKING_LEVELS.find((level) => level.id === thinking)?.label ?? "关闭";
 }
 
-function providerLabel(provider: ApiCatalogGroup["provider"]): string {
-  if (provider === "glm") return "GLM";
-  if (provider === "openai-compatible") return "兼容";
-  return "DeepSeek";
-}
-
 export function ModelControl({
   groups,
   model,
   credentialProfileId,
   thinking,
+  credentialLabel,
   catalogError,
   disabled,
   onSelectModel,
@@ -45,8 +41,12 @@ export function ModelControl({
 }: ModelControlProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<"root" | "models" | "thinking">("root");
+  const [view, setView] = useState<"root" | "models" | "thinking" | "connections">("root");
 
+  const [search, setSearch] = useState("");
+  const [routeKey, setRouteKey] = useState("");
+  const rows = modelRows(groups);
+  const routes = rows.find(([key]) => key === routeKey)?.[1] ?? [];
   const thinkingEnabled = model?.thinking.supported === true;
   const currentThinking = thinkingEnabled ? levelLabel(thinking) : "不支持";
   const mode = model?.thinking.mode;
@@ -119,6 +119,11 @@ export function ModelControl({
             </span>
           ) : null}
         </span>
+        {credentialLabel ? (
+          <span className="hidden max-w-24 truncate text-[10px] text-ink-3 sm:inline">
+            {credentialLabel}
+          </span>
+        ) : null}
         <ChevronDown size={11} className="shrink-0 text-ink-3" />
       </button>
 
@@ -178,58 +183,94 @@ export function ModelControl({
                 </button>
                 <span className="text-[10.5px] font-semibold text-ink-3">模型</span>
               </div>
+              <input
+                aria-label="搜索会话模型"
+                placeholder="搜索模型或平台"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="my-1 w-full rounded-md border border-line bg-surface px-2 py-1 text-xs"
+              />
               <div className="max-h-[300px] overflow-y-auto">
-                {groups.length === 0 ? (
-                  <p className="mx-1 rounded-lg border border-dashed border-line px-2 py-1.5 text-[10.5px] leading-relaxed text-ink-3">
-                    未配置凭据。先在设置中添加 Key 并刷新目录。
+                {rows.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-ink-3">
+                    {catalogError
+                      ? "目录不可用，请在模型设置中刷新。"
+                      : "没有可选模型，请在模型设置中添加连接。"}
                   </p>
                 ) : null}
-                {groups.map((group) => (
-                  <div key={group.credentialProfileId}>
-                    <div className="truncate px-2.5 pb-1 pt-1 text-[10px] text-ink-3">
-                      {providerLabel(group.provider)} · {group.credentialLabel}
-                    </div>
-                    {group.models.length === 0 ? (
-                      <p className="mx-1 mb-1 rounded-lg border border-dashed border-line px-2 py-1.5 text-[10.5px] leading-relaxed text-ink-3">
-                        {group.lastRefreshError || catalogError
-                          ? "该 Key 的目录读取失败，请在设置中刷新。"
-                          : "该 Key 还没有可用模型，请在设置中刷新目录。"}
-                      </p>
-                    ) : (
-                      group.models.map((item) => {
-                        const selectable = item.agentSelectable ?? item.contextWindow !== null;
-                        const window = item.contextWindow ?? item.capabilities?.maxInputTokens;
-                        const selected =
-                          item.id === model?.id &&
-                          group.credentialProfileId === credentialProfileId;
-                        return (
-                          <button
-                            key={`${group.credentialProfileId}:${item.id}`}
-                            type="button"
-                            aria-pressed={selected}
-                            disabled={!selectable}
-                            onClick={() => selectModel(item.id, group.credentialProfileId)}
-                            className={cn(
-                              "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] transition-colors",
-                              !selectable
-                                ? "cursor-not-allowed text-ink-3 opacity-50"
-                                : selected
-                                  ? "bg-black/[.04] text-ink dark:bg-white/[.06]"
-                                  : "text-ink-2 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]",
-                            )}
-                          >
-                            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                            <span className="shrink-0 text-[9.5px] text-ink-3">
-                              {window == null ? "窗口未知" : `${Math.round(window / 1024)}K`}
-                            </span>
-                            {selected ? <Check size={13} className="shrink-0 text-accent" /> : null}
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                ))}
+                {rows
+                  .filter(([, candidates]) =>
+                    candidates.some(({ group, model: item }) =>
+                      `${item.label} ${item.id} ${providerLabel(group.provider)} ${group.credentialLabel}`
+                        .toLowerCase()
+                        .includes(search.trim().toLowerCase()),
+                    ),
+                  )
+                  .map(([key, candidates]) => {
+                    const active = candidates.find(
+                      ({ group, model: item }) =>
+                        item.id === model?.id && group.credentialProfileId === credentialProfileId,
+                    );
+                    const first = active ?? candidates[0];
+                    if (!first) return null;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        aria-pressed={active !== undefined}
+                        onClick={() => {
+                          if (candidates.length === 1)
+                            selectModel(first.model.id, first.group.credentialProfileId);
+                          else {
+                            setRouteKey(key);
+                            setView("connections");
+                          }
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] hover:bg-surface-2"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{first.model.label}</span>
+                          <span className="block truncate text-[10px] text-ink-3">
+                            {providerLabel(first.group.provider)} · {first.group.credentialLabel}
+                          </span>
+                        </span>
+                        {candidates.length > 1 ? (
+                          <span className="text-[10px] text-ink-3">{candidates.length} 个连接</span>
+                        ) : null}
+                        {active ? <Check size={13} className="shrink-0 text-accent" /> : null}
+                      </button>
+                    );
+                  })}
               </div>
+            </>
+          ) : null}
+
+          {view === "connections" ? (
+            <>
+              <button
+                type="button"
+                className="flex items-center gap-1 px-2 py-1 text-xs"
+                onClick={() => setView("models")}
+              >
+                <ChevronLeft size={12} />
+                返回模型
+              </button>
+              {routes.map(({ group, model: item }) => (
+                <button
+                  key={group.credentialProfileId}
+                  type="button"
+                  aria-pressed={
+                    credentialProfileId === group.credentialProfileId && item.id === model?.id
+                  }
+                  onClick={() => selectModel(item.id, group.credentialProfileId)}
+                  className="block w-full rounded-lg px-2 py-1.5 text-left text-xs hover:bg-surface-2"
+                >
+                  {group.credentialLabel}
+                  <span className="block text-[10px] text-ink-3">
+                    {billingLabel(group.billing)}
+                  </span>
+                </button>
+              ))}
             </>
           ) : null}
 

@@ -9,6 +9,7 @@ import {
   deleteCredential,
   listCredentials,
   listModelCatalog,
+  listModelPresets,
   refreshModelCatalog,
   setModelDefault,
   setModelVisibility,
@@ -20,6 +21,10 @@ vi.mock("@/lib/workspaceApi", () => ({
   deleteCredential: vi.fn(),
   listCredentials: vi.fn(),
   listModelCatalog: vi.fn(),
+  listModelPresets: vi.fn(),
+  setCapabilityOverride: vi.fn(),
+  updateCredentialSettings: vi.fn(),
+  testModelConnection: vi.fn(),
   refreshModelCatalog: vi.fn(),
   setModelDefault: vi.fn(),
   setModelVisibility: vi.fn(),
@@ -61,6 +66,29 @@ const synced = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(listModelPresets).mockResolvedValue([
+    {
+      id: "deepseek-api",
+      provider: "deepseek",
+      label: "DeepSeek",
+      endpoint: null,
+      billing: "usage",
+    },
+    {
+      id: "glm-standard-cn",
+      provider: "glm",
+      label: "智谱国内 · 标准 API",
+      endpoint: "https://open.bigmodel.cn/api/paas/v4",
+      billing: "usage",
+    },
+    {
+      id: "glm-coding-intl",
+      provider: "glm",
+      label: "Z.AI · Coding Plan",
+      endpoint: "https://api.z.ai/api/coding/paas/v4",
+      billing: "subscription",
+    },
+  ]);
   vi.mocked(createCredential).mockResolvedValue(credential);
   vi.mocked(listCredentials).mockResolvedValueOnce([]).mockResolvedValue([credential]);
   vi.mocked(listModelCatalog)
@@ -94,14 +122,14 @@ it("selects a GLM endpoint through the shared dropdown", async () => {
   await screen.findByText("还没有 Key。添加后即可同步官方模型目录。");
   await user.click(screen.getByRole("button", { name: "添加 Key" }));
   await user.click(screen.getByRole("button", { name: "GLM" }));
-  await user.click(screen.getByRole("button", { name: "GLM 端点" }));
-  await user.click(screen.getByRole("menuitemradio", { name: "Coding Plan · 国际" }));
+  await user.click(screen.getByRole("button", { name: "Key 来源" }));
+  await user.click(screen.getByRole("menuitemradio", { name: "Z.AI · Coding Plan" }));
   await user.type(screen.getByLabelText("API Key"), "placeholder");
   await user.click(screen.getByRole("button", { name: "添加" }));
 
   expect(await screen.findByRole("button", { name: /测试凭据.*1 个模型/ })).toBeVisible();
   expect(createCredential).toHaveBeenCalledWith(
-    expect.objectContaining({ provider: "glm", endpoint: "https://api.z.ai/api/coding/paas/v4" }),
+    expect.objectContaining({ presetId: "glm-coding-intl" }),
   );
 });
 
@@ -110,7 +138,7 @@ it("synchronizes the official catalog after saving a Key", async () => {
   const invalidateQueries = await addKey();
 
   expect(await screen.findByRole("button", { name: /测试凭据.*1 个模型/ })).toBeVisible();
-  expect(refreshModelCatalog).toHaveBeenCalledTimes(1);
+  expect(refreshModelCatalog).toHaveBeenCalledWith({ credentialProfileId: credential.id });
   expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["model-catalog"] });
 });
 

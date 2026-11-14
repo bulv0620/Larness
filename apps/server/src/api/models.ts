@@ -1,3 +1,4 @@
+import { ProviderError } from "@larness/agent";
 import { ERROR_HTTP_STATUS } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import {
 } from "../modules/models/catalog.js";
 import { assertSafeEndpoint, EndpointError } from "../modules/models/endpoint.js";
 import { MODEL_CONNECTION_PRESETS } from "../modules/models/presets.js";
+import { type ModelProbeResolver, probeModelConnection } from "../modules/models/probe.js";
 import { getCredentialRow } from "../modules/models/repository.js";
 import {
   createCredential,
@@ -97,6 +99,7 @@ export interface ModelApiDeps {
   db: Database;
   secretStore: SecretStore;
   catalogFetcher?: DeepSeekCatalogFetcher;
+  modelProbeResolver?: ModelProbeResolver;
   now?: () => number;
 }
 
@@ -306,6 +309,28 @@ export function registerModelRoutes(app: FastifyInstance, deps: ModelApiDeps): v
         clientSessionId: request.clientSession?.id,
       });
     } catch (error) {
+      throwModel(error);
+    }
+  });
+
+  app.post<{ Params: { id: string } }>("/api/credentials/:id/test", async (request) => {
+    const id = parse(IdSchema, request.params.id);
+    const body = parse(z.object({ model: IdSchema }).strict(), request.body);
+    if (!deps.modelProbeResolver)
+      throw new HttpError("PROVIDER_UNAVAILABLE", "Model testing is unavailable");
+    try {
+      await probeModelConnection(catalogOptions, deps.modelProbeResolver, {
+        credentialProfileId: id,
+        model: body.model,
+      });
+      return { ok: true };
+    } catch (error) {
+      if (error instanceof ProviderError) {
+        throw new HttpError(
+          error.code === "PROVIDER_ABORTED" ? "PROVIDER_UNAVAILABLE" : error.code,
+          "Model test failed",
+        );
+      }
       throwModel(error);
     }
   });

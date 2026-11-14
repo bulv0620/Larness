@@ -5,7 +5,7 @@
 | MC-0 | 规格、计划、ADR 和契约草案 | 061、063、UI-F18 | done |
 | MC-1 | 官方预设、凭据版本和存量迁移 | MC-0、077 实施获准、ADR-062 accepted | done |
 | MC-2 | 能力来源、目录同步与预算接线 | MC-1 | done |
-| MC-3 | 设置与会话选择器 | MC-2 | todo |
+| MC-3 | 设置与会话选择器 | MC-2 | done |
 | MC-4 | OpenCode Go | MC-3 | todo |
 | MC-5 | 阿里云百炼 | MC-4 | todo |
 | MC-6 | Kimi | MC-5 | todo |
@@ -34,6 +34,8 @@
 ## MC-3 设置与选择
 
 涉及 `ModelSettingsDialog`、`ModelControl`、Composer、Web API 客户端与相关认证 E2E。增加连接和模型两页；支持搜索、默认、可见性、测试状态与连接二级选择。验证两种主题、键盘和窄屏，以及默认值和计费线路。执行 A1、A4–A6。
+
+已交付连接与模型两页、搜索、二级连接选择、预设、换 Key、测试调用和手动登记／覆盖。整仓检查通过，认证 Chromium 的新增 Key 和目录同步通过。
 
 ## MC-4 OpenCode Go
 
