@@ -10,6 +10,7 @@ import {
   normalizeFilePath,
   readEditableFile,
   saveEditableFile,
+  searchFiles,
 } from "@larness/resources";
 import {
   ERROR_CODES,
@@ -85,8 +86,26 @@ export async function getDirectory(
     ...input,
     ignore: resolved.ignore,
     exclude:
-      "projectId" in scope ? (target) => isInsideRoot(resolved.protectedRoot, target) : undefined,
+      "projectId" in resolved.scope
+        ? (target) => isInsideRoot(resolved.protectedRoot, target)
+        : undefined,
   });
+  options.assertClient?.();
+  assertFileScopeMetadata(options.db, resolved);
+  for (const entry of result.items) options.assertContent?.(entry.path);
+  return result;
+}
+export async function findFiles(options: FileServiceOptions, scope: FileScope, q: string) {
+  const resolved = await resolveFileScope(options.db, options.dataDir, scope);
+  const result = await searchFiles(resolved.root, {
+    q,
+    ignore: resolved.ignore,
+    exclude:
+      "projectId" in resolved.scope
+        ? (target) => isInsideRoot(resolved.protectedRoot, target)
+        : undefined,
+  });
+  await authorizeFileTarget(resolved, ".");
   options.assertClient?.();
   assertFileScopeMetadata(options.db, resolved);
   for (const entry of result.items) options.assertContent?.(entry.path);

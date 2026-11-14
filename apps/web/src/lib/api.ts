@@ -91,6 +91,7 @@ interface ApiOptions {
   body?: unknown;
   headers?: Record<string, string>;
   csrf?: boolean;
+  signal?: AbortSignal;
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -112,6 +113,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   const response = await fetch(`${API_BASE}${path}`, {
     method: options.method ?? "GET",
     credentials: "same-origin",
+    signal: options.signal,
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });

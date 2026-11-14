@@ -68,6 +68,18 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await expect(gitEmpty).not.toHaveClass(/text-danger/);
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-12-resource-sidebar.png") });
     await resources.getByRole("tab", { name: "文件" }).click();
+    await resources.getByRole("button", { name: "快速打开文件" }).click();
+    const quickOpen = page.getByRole("dialog", { name: "快速打开文件" });
+    const search = quickOpen.getByRole("combobox", { name: "文件名或相对路径" });
+    await search.fill("sub/chd");
+    await expect(quickOpen.getByRole("option", { name: /child.txt.*sub/ })).toBeVisible();
+    await search.press("Enter");
+    await expect(quickOpen).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "child.txt", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "关闭 child.txt" }).click();
+    await resources.getByRole("button", { name: "快速打开文件" }).click();
+    await search.press("Escape");
+    await expect(quickOpen).toHaveCount(0);
     await page.getByRole("button", { name: "打开文件 bom.txt", exact: true }).click();
     const bomTab = page.getByRole("tab", { name: /^bom\.txt/ });
     await expect(bomTab.locator("span.italic")).toHaveText("bom.txt");

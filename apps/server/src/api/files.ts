@@ -4,6 +4,7 @@ import {
   FileReadQuerySchema,
   FileSaveSchema,
   FileScopeSchema,
+  FileSearchQuerySchema,
 } from "@larness/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -14,6 +15,7 @@ import { HttpError } from "../errors.js";
 import { knownCredentialGuard } from "../modules/files/credentials.js";
 import {
   type FileServiceOptions,
+  findFiles,
   getDirectory,
   getFile,
   saveFile,
@@ -97,18 +99,25 @@ export function registerFileRoutes(
     }),
   );
   for (const kind of ["projects", "sessions", "workspaces"] as const) {
+    const scopeFor = (id: string) =>
+      parse(
+        FileScopeSchema,
+        kind === "projects"
+          ? { projectId: id }
+          : kind === "sessions"
+            ? { sessionId: id }
+            : { workspace: id },
+      );
     app.get<{ Params: { id: string } }>(`/api/${kind}/:id/files`, async (request) =>
       run(request, async () => {
         const query = parse(FileListQuerySchema, request.query);
-        const scope = parse(
-          FileScopeSchema,
-          kind === "projects"
-            ? { projectId: request.params.id }
-            : kind === "sessions"
-              ? { sessionId: request.params.id }
-              : { workspace: request.params.id },
-        );
-        return getDirectory(options(request), scope, query);
+        return getDirectory(options(request), scopeFor(request.params.id), query);
+      }),
+    );
+    app.get<{ Params: { id: string } }>(`/api/${kind}/:id/files/search`, async (request) =>
+      run(request, async () => {
+        const { q } = parse(FileSearchQuerySchema, request.query);
+        return findFiles(options(request), scopeFor(request.params.id), q);
       }),
     );
   }

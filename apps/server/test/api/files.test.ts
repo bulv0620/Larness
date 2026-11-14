@@ -277,3 +277,70 @@ describe("M2-1 files API", () => {
     });
   });
 });
+
+it("quick-opens matching files from the authorized root and excludes ignored paths and links", async () => {
+  await withTempDir(async (dir) => {
+    const root = path.join(dir, "project");
+    const data = path.join(root, "runtime");
+    await mkdir(root);
+    const started = await startAuthorizedServer(data);
+    try {
+      for (const folder of ["src/deep", "test", "node_modules", "hidden"]) {
+        await mkdir(path.join(root, folder), { recursive: true });
+        await writeFile(path.join(root, folder, "note.ts"), "");
+      }
+      await writeFile(path.join(data, "note.ts"), "");
+      await symlink(
+        path.join(root, "src"),
+        path.join(root, "linked"),
+        process.platform === "win32" ? "junction" : undefined,
+      );
+      const headers = {
+        cookie: started.cookie,
+        origin: started.origin,
+        "x-csrf-token": started.csrf,
+      };
+      const created = await started.running.app.inject({
+        method: "POST",
+        url: "/api/projects",
+        headers,
+        payload: { rootPath: root },
+      });
+      expect(created.statusCode).toBe(201);
+      const { id } = created.json();
+      const updated = await started.running.app.inject({
+        method: "PATCH",
+        url: `/api/projects/${id}`,
+        headers,
+        payload: { settings: { ignore: ["hidden"] } },
+      });
+      expect(updated.statusCode).toBe(200);
+      const prefix = `/api/projects/${id}/files/search`;
+      expect((await started.running.app.inject({ url: `${prefix}?q=note` })).statusCode).toBe(401);
+      const search = (q: string) =>
+        started.running.app.inject({
+          url: `${prefix}?q=${encodeURIComponent(q)}`,
+          headers,
+        });
+      expect((await search("note")).json()).toEqual({
+        items: [
+          { path: "src/deep/note.ts", name: "note.ts" },
+          { path: "test/note.ts", name: "note.ts" },
+        ],
+        partial: false,
+      });
+      expect((await search("src/nt")).json()).toEqual({
+        items: [{ path: "src/deep/note.ts", name: "note.ts" }],
+        partial: false,
+      });
+      expect((await search(" ")).statusCode).toBe(400);
+      for (let index = 0; index <= 60; index++)
+        await writeFile(path.join(root, `match-${index}.txt`), "");
+      const limited = (await search("match")).json();
+      expect(limited.items).toHaveLength(60);
+      expect(limited.partial).toBe(true);
+    } finally {
+      await stopAuthorizedServer(started);
+    }
+  });
+});

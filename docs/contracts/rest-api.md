@@ -713,3 +713,9 @@ type JobInput = {
 - 限额：最多 100 个任务；手动触发 10 秒限流，超出 `RATE_LIMITED`。运行中的手动触发返回 `CONFLICT`。
 - 错误沿用稳定码：`VALIDATION_ERROR` / `UNAUTHENTICATED` / `FORBIDDEN` / `CSRF_INVALID` / `NOT_FOUND` / `CONFLICT` / `RATE_LIMITED`。运行内部 `errorCode` 可为 `JOB_SCRIPT_FAILED` / `JOB_TIMEOUT` / `JOB_RUN_CANCELLED` / `JOB_AGENT_FAILED` / `JOB_INTERRUPTED` / `JOB_OVERLAP`，不作为 REST 错误码。
 - 任务定义不接受秘密；Agent 只存 `credentialProfileId`。增删改、立即执行、取消、启停写审计，审计不含提示词 / 脚本 / 输出正文。
+
+### FR-2 文件快速打开
+
+`GET /api/{projects|sessions|workspaces}/:id/files/search?q=`，工作区只接受 `default`。需认证，复用目录列表的授权根、忽略策略、保护目录和凭据检测。q 去首尾空白后长度 1–128，正反斜杠按统一相对路径匹配；未知参数拒绝。
+
+返回 `{ items: [{ path, name }], partial }`，路径均为当前根内相对路径。只扫描常规文件和目录，不追踪软链接，不打开文件正文。每次最多检查 10,000 个目录项、25 层（包括根层）、扫描约 2 秒时停止调度，最多返回 60 项。因预算、不可读后代或结果数量截断时 `partial=true`。根不可用返回原有文件错误。返回前重验认证与范围，结果项执行路径凭据检查。此接口不授予打开文件权限，打开仍调用已有文件读取接口。

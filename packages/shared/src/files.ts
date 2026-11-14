@@ -90,3 +90,14 @@ export const FileResultTargetSchema = z
   })
   .strict();
 export type FileResultTarget = z.infer<typeof FileResultTargetSchema>;
+
+export const FileSearchQuerySchema = z
+  .object({
+    q: z.string().trim().min(1).max(128),
+  })
+  .strict();
+export const FileSearchResultSchema = z.object({
+  items: z.array(FileEntrySchema.pick({ path: true, name: true })).max(60),
+  partial: z.boolean(),
+});
+export type FileSearchResult = z.infer<typeof FileSearchResultSchema>;

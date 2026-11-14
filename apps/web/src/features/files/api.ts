@@ -3,6 +3,7 @@ import {
   FileReadResultSchema,
   FileSaveResultSchema,
   type FileScope,
+  FileSearchResultSchema,
 } from "@larness/shared";
 import { ApiError, apiFetch } from "@/lib/api";
 export function scopeId(scope: FileScope) {
@@ -35,13 +36,18 @@ export async function writeFile(
     }),
   );
 }
-export async function listDirectory(scope: FileScope, path: string, cursor?: string) {
+function directoryUrl(scope: FileScope) {
   const [kind, id] = scopeId(scope).split(":");
+  const resource = kind === "project" ? "projects" : kind === "session" ? "sessions" : "workspaces";
+  return `/api/${resource}/${encodeURIComponent(id)}/files`;
+}
+export async function listDirectory(scope: FileScope, path: string, cursor?: string) {
   const params = new URLSearchParams({ path, ...(cursor ? { cursor } : {}) });
-  return FileListResultSchema.parse(
-    await apiFetch(
-      `/api/${kind === "project" ? "projects" : kind === "session" ? "sessions" : "workspaces"}/${encodeURIComponent(id)}/files?${params}`,
-    ),
+  return FileListResultSchema.parse(await apiFetch(`${directoryUrl(scope)}?${params}`));
+}
+export async function searchFiles(scope: FileScope, q: string, signal: AbortSignal) {
+  return FileSearchResultSchema.parse(
+    await apiFetch(`${directoryUrl(scope)}/search?${new URLSearchParams({ q })}`, { signal }),
   );
 }
 export function fileError(error: unknown): string {

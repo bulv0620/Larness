@@ -500,7 +500,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
 | FR-1 | [文件树与编辑器联动](076-file-explorer/tasks.md#fr-1) | M2-2、UI-F13、M2-R1 | `done` |
-| FR-2 | [文件名与路径快速打开](076-file-explorer/tasks.md) | FR-1 | `todo` |
+| FR-2 | [文件名与路径快速打开](076-file-explorer/tasks.md) | FR-1 | `done` |
 | FR-3 | [新建、重命名与移动](076-file-explorer/tasks.md) | FR-2 | `todo` |
 
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。

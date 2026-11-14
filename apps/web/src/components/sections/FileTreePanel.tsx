@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, ChevronsDownUp, Copy, FileText, Folder } fro
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from "react";
 import { openFile } from "@/features/files/actions";
 import { fileError, listDirectory, scopeId } from "@/features/files/api";
+import { QuickOpenFiles } from "@/features/files/QuickOpenFiles";
 import { useFileWatch } from "@/features/files/useFileWatch";
 import { USE_MOCKS } from "@/lib/env";
 import { queryClient, useSnapshot } from "@/lib/queries";
@@ -135,6 +136,7 @@ function RealFileTree({ scope }: { scope: FileScope }) {
         <span className="mr-auto text-ink-3" role="status">
           {status}
         </span>
+        <QuickOpenFiles scope={scope} treeWidth={treeWidth} />
         <button
           type="button"
           aria-label="复制相对路径"

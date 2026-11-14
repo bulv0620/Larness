@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { lstat, open, readdir, realpath, rename, rm, stat } from "node:fs/promises";
+import { lstat, open, opendir, readdir, realpath, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import {
   type ErrorCode,
   FilePathSchema,
   type FileReadResult,
+  type FileSearchResult,
   MAX_EDITABLE_FILE_BYTES,
 } from "@larness/shared";
 import { z } from "zod";
@@ -256,12 +257,7 @@ export async function listDirectory(
     const stamps: unknown[] = [];
     for (const entry of await readdir(target, { withFileTypes: true })) {
       const file = path.posix.join(relative, entry.name);
-      if (
-        (!entry.isFile() && !entry.isDirectory()) ||
-        isIgnoredFile(file, entry.name, input.ignore ?? [])
-      )
-        continue;
-      if (input.exclude?.(path.join(target, entry.name))) continue;
+      if (!visibleEntry(entry, file, target, input)) continue;
       const resolved = await resolveFilePath(root, file);
       const info = await lstat(resolved);
       const type = info.isDirectory() ? "directory" : info.isFile() ? "file" : null;
@@ -317,4 +313,81 @@ export async function listDirectory(
   } catch (error) {
     filesystemError(error);
   }
+}
+
+function visibleEntry(
+  entry: { name: string; isFile(): boolean; isDirectory(): boolean },
+  relative: string,
+  directory: string,
+  options: { ignore?: string[]; exclude?: (target: string) => boolean },
+): boolean {
+  return (
+    (entry.isFile() || entry.isDirectory()) &&
+    !isIgnoredFile(relative, entry.name, options.ignore ?? []) &&
+    !options.exclude?.(path.join(directory, entry.name))
+  );
+}
+
+function matchRank(query: string, name: string, relative: string): number | null {
+  if (name === query || relative === query) return 0;
+  if (name.startsWith(query)) return 1;
+  if (name.includes(query)) return 2;
+  if (relative.includes(query)) return 3;
+  let index = 0;
+  for (const char of relative) {
+    if (char === query[index] && ++index === query.length) return 4;
+  }
+  return null;
+}
+
+export async function searchFiles(
+  root: string,
+  input: { q: string; ignore?: string[]; exclude?: (target: string) => boolean },
+): Promise<FileSearchResult> {
+  const query = input.q.toLowerCase().replaceAll("\\", "/");
+  const directories = [{ relative: ".", depth: 0 }];
+  const matches: { path: string; name: string; rank: number }[] = [];
+  const deadline = performance.now() + 2000;
+  let checked = 0;
+  let partial = false;
+  scan: for (const { relative, depth } of directories) {
+    if (performance.now() >= deadline) {
+      partial = true;
+      break;
+    }
+    try {
+      const directory = await resolveFilePath(root, relative);
+      const entries = await opendir(directory);
+      for await (const entry of entries) {
+        if (checked++ >= 10_000 || performance.now() >= deadline) {
+          partial = true;
+          break scan;
+        }
+        const file = path.posix.join(relative, entry.name);
+        if (!visibleEntry(entry, file, directory, input)) continue;
+        if (entry.isDirectory()) {
+          if (depth < 24) directories.push({ relative: file, depth: depth + 1 });
+          else partial = true;
+          continue;
+        }
+        const rank = matchRank(query, entry.name.toLowerCase(), file.toLowerCase());
+        if (rank === null) continue;
+        try {
+          if (!(await lstat(await resolveFilePath(root, file))).isFile()) continue;
+          matches.push({ path: file, name: entry.name, rank });
+        } catch (error) {
+          if (!(error instanceof FileManagerError)) throw error;
+          partial = true;
+        }
+      }
+    } catch (error) {
+      if (relative === ".") filesystemError(error);
+      partial = true;
+    }
+  }
+  matches.sort((a, b) => a.rank - b.rank || a.path.localeCompare(b.path));
+  return {
+    items: matches.slice(0, 60).map(({ path, name }) => ({ path, name })),
+    partial: partial || matches.length > 60,
+  };
 }
