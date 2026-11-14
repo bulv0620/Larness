@@ -729,3 +729,7 @@ type JobInput = {
 ### FR-10 单文件删除
 
 目录列表的常规文件可携带 `entryVersion`，它绑定设备号、inode、大小、mtime 与 ctime，目录保持原形状。删除请求通过既有 `POST /api/files/actions` 提交 `{ scope, path, action: "deleteFile", confirmed: true, expectedVersion }`，其中 `expectedVersion` 来自对应条目。仅允许常规文件，版本不符返回 VERSION_CONFLICT，目录和符号链接拒绝。此操作永久移除该路径的目录项，响应沿用文件动作结果。提交事务清除版本缓存、持久化 `file.changed` 删除事件和审计后广播。重启时，来源不存在则补记删除，原条目未变则标失败，其他情况保留待对账。应用锁仅协调受管写入，外部进程仍可在最后一次检查后改变路径。
+
+### FR-13 目录递归删除
+
+目录列表的目录也携带 `entryVersion`。`POST /api/files/actions` 使用 `action: "deleteDirectory"`、`confirmed: true`、`scope`、`path` 和目录的 `expectedVersion`。版本绑定选中目录条目及其直接目录项的元数据变化。确认覆盖整棵子树的当前内容。拒绝根目录、受保护运行数据及其祖先、路径链接和普通文件。递归包含隐藏和忽略项，子链接仅删链接。共享锁、不确定结果的写屏障、幂等、审计与持久目录删除通知沿用 FR-10。递归写入可能部分完成，失败后从磁盘刷新，存在不确定结果时保留屏障并等待对账，重启不继续递归。

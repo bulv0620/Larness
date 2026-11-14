@@ -278,9 +278,8 @@ export async function listDirectory(
         name: entry.name,
         path: file,
         type,
-        ...(type === "file"
-          ? { size: Number(info.size), entryVersion: fileEntryVersion(info) }
-          : {}),
+        ...(type === "file" ? { size: Number(info.size) } : {}),
+        entryVersion: fileEntryVersion(info),
       });
       stamps.push([file, fileEntryVersion(info)]);
     }

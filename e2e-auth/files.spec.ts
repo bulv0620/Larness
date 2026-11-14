@@ -32,6 +32,9 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
   const child = path.join(root, "sub", "child.txt");
   writeFileSync(child, "child\n");
   for (let i = 0; i < 36; i++) writeFileSync(path.join(root, `z-scroll-${i}.txt`), "");
+  const deleteFolder = path.join(root, "remove-folder");
+  mkdirSync(path.join(deleteFolder, "nested"), { recursive: true });
+  writeFileSync(path.join(deleteFolder, "nested", "keep-until-confirmed.txt"), "nested");
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   try {
@@ -420,6 +423,23 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     } finally {
       await observerContext.close();
     }
+    const folderRow = resources.getByRole("button", { name: "目录 remove-folder", exact: true });
+    await folderRow.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "删除…" }).click();
+    const folderDialog = page.getByRole("dialog", { name: "删除目录" });
+    await expect(folderDialog).toContainText("所有文件和子目录");
+    await folderDialog.getByRole("button", { name: "取消" }).click();
+    expect(
+      readFileSync(path.join(deleteFolder, "nested", "keep-until-confirmed.txt"), "utf8"),
+    ).toBe("nested");
+    await folderRow.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "删除…" }).click();
+    await folderDialog.getByRole("button", { name: "确认删除" }).click();
+    await expect(folderRow).toHaveCount(0);
+    await expect(folderDialog).toHaveCount(0);
+    expect(() =>
+      readFileSync(path.join(deleteFolder, "nested", "keep-until-confirmed.txt")),
+    ).toThrow();
     // Monaco reports a benign console error when the diff model is disposed after merge.
     expect(errors.filter((error) => !error.includes("no diff result available"))).toEqual([]);
   } finally {

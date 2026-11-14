@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **FR-13 目录递归删除与确认**（`done`，`task/fr-13-delete-directory`，2026-11-14）：右键确认后删除目录全部内容，保护授权根和运行数据。整仓检查、构建及认证 Chromium 文件流程通过。
+
 - **FR-12 文件树新建输入与失焦提交**（`done`，`task/fr-12-inline-file-create`，2026-11-14）：新建输入融入树行，失焦自动创建或取消。整仓检查及认证 Chromium 文件流程通过。
 
 - **FR-11 公共确认弹窗**（`done`，`task/fr-11-shared-confirm-dialog`，2026-11-14）：公共 ConfirmDialog、危险按钮悬停、默认取消焦点和处理中关闭保护已交付；整仓检查、构建和认证 Chromium 回归通过。

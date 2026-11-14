@@ -1,4 +1,4 @@
-import { link, lstat, mkdir, open, unlink } from "node:fs/promises";
+import { link, lstat, mkdir, open, rm, unlink } from "node:fs/promises";
 import path from "node:path";
 import {
   FileManagerError,
@@ -41,7 +41,7 @@ import type { FileServiceOptions } from "./service.js";
 
 const kind = "file.action";
 const intentSchema = z.object({
-  action: z.enum(["createFile", "createDirectory", "move", "deleteFile"]),
+  action: z.enum(["createFile", "createDirectory", "move", "deleteFile", "deleteDirectory"]),
   target: FilePathSchema,
   identity: z.string().optional(),
 });
@@ -144,6 +144,7 @@ export async function applyFileAction(
   const resolved = await resolveFileScope(options.db, options.dataDir, input.scope);
   const source = normalizeFilePath(input.path);
   const target = input.action === "move" ? normalizeFilePath(input.destination) : source;
+  const deleting = input.action === "deleteFile" || input.action === "deleteDirectory";
   const expectedVersion = "expectedVersion" in input ? input.expectedVersion : "";
   options.assertContent?.(source);
   options.assertContent?.(target);
@@ -227,8 +228,13 @@ export async function applyFileAction(
     const absolute = await destinationPath(resolved, target);
     if (target === source && input.action === "move")
       fail("CONFLICT", "Destination already exists");
-    if (input.action !== "deleteFile" && (await snapshot(absolute)))
-      fail("CONFLICT", "Destination already exists");
+    if (
+      input.action === "deleteDirectory" &&
+      "projectId" in resolved.scope &&
+      isInsideRoot(absolute, resolved.protectedRoot)
+    )
+      fail("FORBIDDEN", "Larness runtime data is protected");
+    if (!deleting && (await snapshot(absolute))) fail("CONFLICT", "Destination already exists");
     const result: FileActionResult = { path: target, realPath: absolute };
     if (input.action === "move") {
       await authorizeFileTarget(resolved, source);
@@ -255,21 +261,32 @@ export async function applyFileAction(
         resultJson: JSON.stringify(intent),
         updatedAt: now(),
       });
-    if (input.action !== "deleteFile") markWriting();
+    if (!deleting) markWriting();
     await destinationPath(resolved, target);
     if (input.action === "move") await authorizeFileTarget(resolved, source);
     check();
-    if (input.action === "deleteFile") {
+    if (deleting) {
       await authorizeFileTarget(resolved, target);
       const entry = await snapshot(absolute);
       if (!entry) fail("NOT_FOUND", "File is unavailable");
-      if (!entry.isFile()) fail("VALIDATION_ERROR", "Only regular files can be deleted");
+      const directory = input.action === "deleteDirectory";
+      if (directory ? !entry.isDirectory() : !entry.isFile())
+        fail(
+          "VALIDATION_ERROR",
+          directory ? "Expected a directory" : "Only regular files can be deleted",
+        );
       if (fileEntryVersion(entry) !== expectedVersion)
         fail("VERSION_CONFLICT", "File changed before deletion");
       check();
       markWriting();
-      await unlink(absolute);
-      diskChanged = true;
+      if (directory) {
+        // Recursive removal may delete descendants before reporting an error.
+        diskChanged = true;
+        await rm(absolute, { recursive: true });
+      } else {
+        await unlink(absolute);
+        diskChanged = true;
+      }
     } else if (input.action === "createDirectory") {
       await mkdir(absolute);
       diskChanged = true;
@@ -293,7 +310,7 @@ export async function applyFileAction(
       check();
       await unlink(previous);
     }
-    complete(options, operation, result, input.action === "deleteFile" ? "deleted" : "created");
+    complete(options, operation, result, deleting ? "deleted" : "created");
     completed = true;
     return result;
   } catch (error) {
@@ -366,10 +383,14 @@ export async function reconcileFileActions(options: FileServiceOptions) {
       if (resolved.root !== operation.rootRealPath) throw new Error("Root changed");
       const target = await destinationPath(resolved, intent.target);
       const targetInfo = await snapshot(target);
-      if (intent.action === "deleteFile") {
+      if (intent.action === "deleteFile" || intent.action === "deleteDirectory") {
         if (!targetInfo)
           complete(options, operation, { path: intent.target, realPath: target }, "deleted");
-        else if (targetInfo.isFile() && fileEntryVersion(targetInfo) === operation.expectedVersion)
+        else if (
+          intent.action === "deleteFile" &&
+          targetInfo.isFile() &&
+          fileEntryVersion(targetInfo) === operation.expectedVersion
+        )
           failed();
         else throw new Error("Delete outcome unknown");
       } else if (intent.action !== "move") {

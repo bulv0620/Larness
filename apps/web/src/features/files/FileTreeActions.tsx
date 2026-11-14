@@ -24,8 +24,8 @@ export function FileRowActions({
   remove,
 }: {
   children: ReactElement<ComponentPropsWithoutRef<"button">>;
-  rename: () => void;
-  move: () => void;
+  rename?: () => void;
+  move?: () => void;
   remove?: () => void;
 }) {
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
@@ -63,8 +63,8 @@ export function FileRowActions({
           sideOffset={0}
           onCloseAutoFocus={(event) => event.preventDefault()}
         >
-          <DropdownMenuItem onSelect={rename}>重命名</DropdownMenuItem>
-          <DropdownMenuItem onSelect={move}>移动到…</DropdownMenuItem>
+          {rename ? <DropdownMenuItem onSelect={rename}>重命名</DropdownMenuItem> : null}
+          {move ? <DropdownMenuItem onSelect={move}>移动到…</DropdownMenuItem> : null}
           {remove ? (
             <DropdownMenuItem onSelect={remove} className="text-danger">
               删除…
@@ -245,6 +245,7 @@ export function MoveFileDialog({
 
 export function DeleteFileDialog({
   path,
+  directory,
   busy,
   error,
   stale,
@@ -252,6 +253,7 @@ export function DeleteFileDialog({
   close,
 }: {
   path: string;
+  directory: boolean;
   busy: boolean;
   error: string | null;
   stale: boolean;
@@ -261,10 +263,11 @@ export function DeleteFileDialog({
   return (
     <ConfirmDialog
       open
-      title="删除文件"
+      title={directory ? "删除目录" : "删除文件"}
       description={
         <>
-          将永久删除 <span className="break-all font-mono text-ink">{path}</span>。
+          将永久删除 <span className="break-all font-mono text-ink">{path}</span>
+          {directory ? " 及其下的所有文件和子目录，包括隐藏文件和忽略项。" : "。"}
         </>
       }
       confirmLabel="确认删除"

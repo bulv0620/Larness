@@ -40,7 +40,7 @@ import { DemoFileTreePanel } from "./DemoFileTreePanel";
 const root = ["."];
 type Edit =
   | { action: "createFile" | "createDirectory" | "rename" | "move"; path: string }
-  | { action: "deleteFile"; path: string; expectedVersion: string };
+  | { action: "deleteFile" | "deleteDirectory"; path: string; expectedVersion: string };
 const parentPath = (path: string) => path.split("/").slice(0, -1).join("/") || ".";
 const childPath = (parent: string, name: string) => (parent === "." ? name : `${parent}/${name}`);
 
@@ -126,9 +126,10 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     if (!edit || mutation.current) return;
     const creating = edit.action === "createFile" || edit.action === "createDirectory";
     if (creating) setEdit(null);
+    const deleting = edit.action === "deleteFile" || edit.action === "deleteDirectory";
     if (
       edit.action !== "move" &&
-      edit.action !== "deleteFile" &&
+      !deleting &&
       (!value || /[\\/:]/.test(value) || value === "." || value === "..")
     ) {
       setError("请输入一个有效的名称。");
@@ -141,7 +142,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     try {
       let input: FileAction;
       if (request.current?.value === value) input = request.current.input;
-      else if (edit.action === "deleteFile") {
+      else if ("expectedVersion" in edit) {
         input = {
           scope,
           action: edit.action,
@@ -182,16 +183,27 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
         request.current = { value, input, key: crypto.randomUUID() };
       const result = await applyFileAction(input, request.current.key);
       if (input.action === "move") relocateOpenFile(scope, result);
-      if (input.action === "deleteFile") {
-        void queryClient.invalidateQueries({ queryKey: fileKey(scope, result.path) });
+      if (deleting) {
+        void queryClient.invalidateQueries({
+          queryKey:
+            action === "deleteDirectory" ? ["files", id, "content"] : fileKey(scope, result.path),
+        });
       }
       await queryClient.resetQueries({ queryKey: ["files", id, "directory"] });
       void queryClient.invalidateQueries({ queryKey: ["file-search", id] });
       if (!mounted.current) return;
       setEdit(null);
-      if (action === "deleteFile") {
-        if (selected === result.path) setSelected(null);
-        setStatus("已删除文件");
+      if (deleting) {
+        if (selected === result.path || selected?.startsWith(`${result.path}/`)) setSelected(null);
+        if (action === "deleteDirectory") {
+          const navigation = useNavigationStore.getState();
+          const paths = navigation.expandedFileDirectories[id] ?? root;
+          navigation.setExpandedFileDirectories(
+            id,
+            paths.filter((path) => path !== result.path && !path.startsWith(`${result.path}/`)),
+          );
+        }
+        setStatus(action === "deleteDirectory" ? "已删除目录" : "已删除文件");
         return;
       }
       useNavigationStore.getState().revealFile(id, result.path);
@@ -200,14 +212,20 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
       if (error instanceof ApiError && error.status < 500) request.current = null;
       if (
         mounted.current &&
-        action === "deleteFile" &&
+        deleting &&
         error instanceof ApiError &&
         ["VERSION_CONFLICT", "NOT_FOUND", "PATH_OUTSIDE_PROJECT"].includes(error.code)
       ) {
         setStaleDelete(true);
         setError("文件已变化或不存在，请刷新后重新发起删除。");
         void queryClient.resetQueries({ queryKey: ["files", id, "directory"] });
-      } else if (mounted.current) setError(fileError(error));
+      } else if (mounted.current) {
+        setError(fileError(error));
+        if (action === "deleteDirectory") {
+          void queryClient.invalidateQueries({ queryKey: ["files", id] });
+          void queryClient.invalidateQueries({ queryKey: ["file-search", id] });
+        }
+      }
     } finally {
       mutation.current = false;
       if (mounted.current) setBusy(false);
@@ -361,7 +379,13 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
         </button>
       </div>
       <ErrorMessage
-        message={edit?.action === "move" || edit?.action === "deleteFile" ? null : error}
+        message={
+          edit?.action === "move" ||
+          edit?.action === "deleteFile" ||
+          edit?.action === "deleteDirectory"
+            ? null
+            : error
+        }
         onDismiss={() => setError(null)}
       />
       {edit?.action === "move" ? (
@@ -374,9 +398,10 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           close={() => setEdit(null)}
         />
       ) : null}
-      {edit?.action === "deleteFile" ? (
+      {edit?.action === "deleteFile" || edit?.action === "deleteDirectory" ? (
         <DeleteFileDialog
           path={edit.path}
+          directory={edit.action === "deleteDirectory"}
           busy={busy}
           error={error}
           stale={staleDelete}
@@ -547,17 +572,17 @@ function Directory(props: DirectoryProps) {
                   cancel={cancel}
                 />
               </div>
-            ) : directory ? (
+            ) : directory && !entryVersion ? (
               row
             ) : (
               <FileRowActions
-                rename={() => begin({ action: "rename", path: entry.path })}
-                move={() => begin({ action: "move", path: entry.path })}
+                rename={directory ? undefined : () => begin({ action: "rename", path: entry.path })}
+                move={directory ? undefined : () => begin({ action: "move", path: entry.path })}
                 remove={
                   entryVersion
                     ? () =>
                         begin({
-                          action: "deleteFile",
+                          action: directory ? "deleteDirectory" : "deleteFile",
                           path: entry.path,
                           expectedVersion: entryVersion,
                         })

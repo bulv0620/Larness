@@ -187,7 +187,14 @@ describe("M2-1 files API", () => {
           headers,
         });
         expect(first.statusCode).toBe(200);
-        expect(first.json().items).toEqual([{ name: "src", path: "src", type: "directory" }]);
+        expect(first.json().items).toEqual([
+          {
+            name: "src",
+            path: "src",
+            type: "directory",
+            entryVersion: expect.stringMatching(/^[a-f0-9]{64}$/),
+          },
+        ]);
         const next = await started.running.app.inject({
           url: `/api/projects/${id}/files?limit=1&cursor=${encodeURIComponent(first.json().nextCursor)}`,
           headers,
@@ -549,6 +556,89 @@ it("deletes only the confirmed file version, including binary files, and replays
       ).toContainEqual({
         payload_json: JSON.stringify({ path: "image.bin", changeType: "deleted" }),
       });
+    } finally {
+      await stopAuthorizedServer(started);
+    }
+  });
+});
+
+it("recursively deletes the confirmed directory and leaves symlink destinations intact", async () => {
+  await withTempDir(async (dir) => {
+    const root = path.join(dir, "project");
+    const parent = path.join(root, "protected");
+    const data = path.join(parent, "runtime");
+    await mkdir(parent, { recursive: true });
+    const started = await startAuthorizedServer(data);
+    try {
+      await mkdir(path.join(root, "remove", "nested"), { recursive: true });
+      await writeFile(path.join(root, "remove", "nested", ".hidden"), "delete");
+      const outside = path.join(dir, "outside");
+      await mkdir(outside);
+      await writeFile(path.join(outside, "keep"), "keep");
+      await symlink(
+        outside,
+        path.join(root, "remove", "link"),
+        process.platform === "win32" ? "junction" : undefined,
+      );
+      const headers = {
+        cookie: started.cookie,
+        origin: started.origin,
+        "x-csrf-token": started.csrf,
+      };
+      const project = await started.running.app.inject({
+        method: "POST",
+        url: "/api/projects",
+        headers,
+        payload: { rootPath: root },
+      });
+      expect(project.statusCode).toBe(201);
+      const projectId = project.json().id;
+      const listing = await started.running.app.inject({
+        url: `/api/projects/${projectId}/files`,
+        headers,
+      });
+      const entries = listing.json().items as { path: string; entryVersion: string }[];
+      const deleteDirectory = (
+        key: string,
+        path: string,
+        expectedVersion: string,
+        confirmed = true,
+      ) =>
+        started.running.app.inject({
+          method: "POST",
+          url: "/api/files/actions",
+          headers: { ...headers, "idempotency-key": key },
+          payload: {
+            scope: { projectId },
+            action: "deleteDirectory",
+            confirmed,
+            expectedVersion,
+            path,
+          },
+        });
+      const version = entries.find((entry) => entry.path === "remove")?.entryVersion ?? "";
+      expect(version).toMatch(/^[a-f0-9]{64}$/);
+      expect((await deleteDirectory("root", ".", version)).statusCode).toBe(400);
+      expect(
+        (
+          await deleteDirectory(
+            "unsafe",
+            "protected",
+            entries.find((entry) => entry.path === "protected")?.entryVersion ?? "",
+          )
+        ).statusCode,
+      ).toBe(403);
+      expect((await deleteDirectory("cancel", "remove", version, false)).statusCode).toBe(400);
+      expect((await deleteDirectory("stale", "remove", "a".repeat(64))).json().error.code).toBe(
+        "VERSION_CONFLICT",
+      );
+      const removed = await deleteDirectory("remove", "remove", version);
+      expect(removed.statusCode).toBe(200);
+      await expect(readFile(path.join(root, "remove", "nested", ".hidden"))).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+      expect(await readFile(path.join(outside, "keep"), "utf8")).toBe("keep");
+      expect((await deleteDirectory("remove", "remove", version)).json()).toEqual(removed.json());
     } finally {
       await stopAuthorizedServer(started);
     }

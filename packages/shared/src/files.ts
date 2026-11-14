@@ -110,7 +110,7 @@ export const FileActionSchema = z.discriminatedUnion("action", [
   z
     .object({
       ...fileActionTarget,
-      action: z.literal("deleteFile"),
+      action: z.enum(["deleteFile", "deleteDirectory"]),
       confirmed: z.literal(true),
       expectedVersion: FileVersionSchema,
     })
