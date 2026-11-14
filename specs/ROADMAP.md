@@ -508,6 +508,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | FR-7 | Material 文件类型图标 | FR-6 | `done` |
 | FR-7-R1 | 统一入口加载文件图标 | FR-7、U0-3 | `done` |
 | FR-8 | 文件树工具栏吸顶与磨砂 | FR-7-R1 | `done` |
+| FR-9 | 文件工具栏局部磨砂 | FR-8 | `done` |
 
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
 - 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。

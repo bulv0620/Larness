@@ -114,8 +114,14 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
       (element) => getComputedStyle(element, "::before").backdropFilter,
     );
     expect(blur).toContain("blur(");
+    const toolbarBounds = await tools.boundingBox();
+    const panelBounds = await filePanel.boundingBox();
+    expect(toolbarBounds?.width).toBeLessThan((panelBounds?.width ?? 0) * 0.6);
+    expect(
+      await tools.evaluate((element) => getComputedStyle(element, "::before").background),
+    ).toMatch(/^rgba\(0, 0, 0, 0\) /);
     await expect(newFileButton).toBeEnabled();
-    await page.screenshot({ path: path.join(tmpdir(), "larness-fr-8-sticky-toolbar.png") });
+    await page.screenshot({ path: path.join(tmpdir(), "larness-fr-9-compact-toolbar.png") });
     await filePanel.evaluate((panel) => {
       panel.scrollTop = 0;
     });

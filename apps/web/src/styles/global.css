@@ -210,12 +210,13 @@
 .file-tree-toolbar::before {
   content: "";
   position: absolute;
-  inset: 0 0 -12px;
+  inset: 0 0 -8px -12px;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(to bottom, var(--surface-2) 5%, var(--glass) 72%, transparent);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  -webkit-mask-image: linear-gradient(to bottom, black 72%, transparent);
-  mask-image: linear-gradient(to bottom, black 72%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  mask-image:
+    linear-gradient(to right, transparent, black 16px),
+    linear-gradient(to bottom, black 75%, transparent);
+  mask-composite: intersect;
 }

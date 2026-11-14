@@ -250,14 +250,16 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
 
   return (
     <div className="p-1.5 text-[11px] text-ink-2">
+      <div className="relative">
+        <span className="absolute top-2.5 left-0 text-ink-3" role="status">
+          {status}
+        </span>
+      </div>
       <div
         role="toolbar"
         aria-label="文件操作"
-        className="file-tree-toolbar sticky top-0 isolate z-10 -mx-1.5 -mt-1.5 mb-1 flex min-h-9 items-center justify-end gap-0.5 px-1.5"
+        className="file-tree-toolbar sticky top-0 isolate z-10 -mt-1.5 -mr-1.5 mb-1 ml-auto flex w-fit min-h-9 items-center gap-0.5 px-1.5"
       >
-        <span className="mr-auto text-ink-3" role="status">
-          {status}
-        </span>
         <button
           type="button"
           aria-label="新建文件"
