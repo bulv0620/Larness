@@ -47,7 +47,6 @@ function RealFileTree({ scope }: { scope: FileScope }) {
   );
   const [selected, setSelected] = useState<string | null>(null);
   const [edit, setEdit] = useState<Edit | null>(null);
-  const [menu, setMenu] = useState<string | null>(null);
   const mutation = useRef(false);
   const request = useRef<{ value: string; input: FileAction; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -324,8 +323,6 @@ function RealFileTree({ scope }: { scope: FileScope }) {
           finishReveal={finishReveal}
           edit={edit}
           busy={busy}
-          menu={menu}
-          setMenu={setMenu}
           begin={begin}
           submit={(value) => void submit(value)}
           cancel={() => setEdit(null)}
@@ -348,8 +345,6 @@ interface DirectoryProps {
   finishReveal: (path: string | null) => void;
   edit: Edit | null;
   busy: boolean;
-  menu: string | null;
-  setMenu: (path: string | null) => void;
   begin: (edit: Edit) => void;
   submit: (name: string) => void;
   cancel: () => void;
@@ -369,8 +364,6 @@ function Directory(props: DirectoryProps) {
     finishReveal,
     edit,
     busy,
-    menu,
-    setMenu,
     begin,
     submit,
     cancel,
@@ -426,74 +419,64 @@ function Directory(props: DirectoryProps) {
       {entries.map((entry) => {
         const directory = entry.type === "directory";
         const isExpanded = directory && expanded.includes(entry.path);
+        const row = (
+          <button
+            type="button"
+            data-file-path={entry.path}
+            data-parent-path={path}
+            title={entry.path}
+            aria-label={directory ? `目录 ${entry.name}` : `打开文件 ${entry.name}`}
+            aria-expanded={directory ? isExpanded : undefined}
+            aria-current={selected === entry.path ? true : undefined}
+            className={cn(
+              "flex h-[26px] w-full items-center gap-1.5 rounded px-1.5 text-left hover:bg-accent-soft",
+              selected === entry.path && "bg-accent-soft text-accent",
+            )}
+            style={{ paddingLeft: 6 + depth * 12 }}
+            onFocus={() => select(entry.path)}
+            onClick={() => {
+              select(entry.path);
+              if (directory) toggle(entry.path);
+              else open(entry.path, true);
+            }}
+            onDoubleClick={directory ? undefined : () => open(entry.path, false)}
+          >
+            {directory ? (
+              <>
+                {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                <Folder size={13} className="text-warning" />
+              </>
+            ) : (
+              <>
+                <span className="w-[11px]" />
+                <FileText size={13} className="text-ink-3" />
+              </>
+            )}
+            <span className="truncate">{entry.name}</span>
+          </button>
+        );
         return (
           <div key={entry.path}>
-            <div className="group flex min-w-0 items-center">
-              {edit?.action === "rename" && edit.path === entry.path ? (
-                <div className="min-w-0 flex-1" style={{ paddingLeft: 6 + depth * 12 }}>
-                  <FileNameInput
-                    label="新名称"
-                    initial={entry.name}
-                    busy={busy}
-                    submit={submit}
-                    cancel={cancel}
-                  />
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  data-file-path={entry.path}
-                  data-parent-path={path}
-                  title={entry.path}
-                  aria-label={directory ? `目录 ${entry.name}` : `打开文件 ${entry.name}`}
-                  aria-expanded={directory ? isExpanded : undefined}
-                  aria-current={selected === entry.path ? true : undefined}
-                  className={cn(
-                    "flex h-[26px] w-full items-center gap-1.5 rounded px-1.5 text-left hover:bg-accent-soft",
-                    selected === entry.path && "bg-accent-soft text-accent",
-                  )}
-                  style={{ paddingLeft: 6 + depth * 12 }}
-                  onFocus={() => select(entry.path)}
-                  onClick={() => {
-                    select(entry.path);
-                    if (directory) toggle(entry.path);
-                    else open(entry.path, true);
-                  }}
-                  onContextMenu={
-                    directory
-                      ? undefined
-                      : (event) => {
-                          event.preventDefault();
-                          select(entry.path);
-                          setMenu(entry.path);
-                        }
-                  }
-                  onDoubleClick={directory ? undefined : () => open(entry.path, false)}
-                >
-                  {directory ? (
-                    <>
-                      {isExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
-                      <Folder size={13} className="text-warning" />
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-[11px]" />
-                      <FileText size={13} className="text-ink-3" />
-                    </>
-                  )}
-                  <span className="truncate">{entry.name}</span>
-                </button>
-              )}
-              {!directory && !(edit?.action === "rename" && edit.path === entry.path) ? (
-                <FileRowActions
-                  name={entry.name}
-                  open={menu === entry.path}
-                  setOpen={(open) => setMenu(open ? entry.path : null)}
-                  rename={() => begin({ action: "rename", path: entry.path })}
-                  move={() => begin({ action: "move", path: entry.path })}
+            {edit?.action === "rename" && edit.path === entry.path ? (
+              <div className="min-w-0" style={{ paddingLeft: 6 + depth * 12 }}>
+                <FileNameInput
+                  label="新名称"
+                  initial={entry.name}
+                  busy={busy}
+                  submit={submit}
+                  cancel={cancel}
                 />
-              ) : null}
-            </div>
+              </div>
+            ) : directory ? (
+              row
+            ) : (
+              <FileRowActions
+                rename={() => begin({ action: "rename", path: entry.path })}
+                move={() => begin({ action: "move", path: entry.path })}
+              >
+                {row}
+              </FileRowActions>
+            )}
             {isExpanded ? <Directory {...props} path={entry.path} depth={depth + 1} /> : null}
           </div>
         );

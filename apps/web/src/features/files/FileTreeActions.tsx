@@ -12,39 +12,59 @@ import {
   Input,
 } from "@larness/ui";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Folder, MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { Folder } from "lucide-react";
+import { type ComponentPropsWithoutRef, cloneElement, type ReactElement, useState } from "react";
 import { fileError, listDirectory, scopeId } from "./api";
 
 export function FileRowActions({
-  name,
-  open,
-  setOpen,
+  children,
   rename,
   move,
 }: {
-  name: string;
-  open: boolean;
-  setOpen: (open: boolean) => void;
+  children: ReactElement<ComponentPropsWithoutRef<"button">>;
   rename: () => void;
   move: () => void;
 }) {
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [open, setOpen] = useState(false);
+  const show = (x: number, y: number) => {
+    setAnchor({ x, y });
+    setOpen(true);
+  };
+
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`${name} 的文件操作`}
-          className="shrink-0 rounded p-1 opacity-0 hover:bg-surface-2 group-hover:opacity-100 group-focus-within:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100"
+    <>
+      {cloneElement(children, {
+        onContextMenu: (event) => {
+          event.preventDefault();
+          event.currentTarget.focus({ preventScroll: true });
+          show(event.clientX, event.clientY);
+        },
+        onKeyDown: (event) => {
+          if (event.key !== "ContextMenu" && !(event.shiftKey && event.key === "F10")) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          event.preventDefault();
+          show(rect.left, rect.bottom);
+        },
+      })}
+      <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+        <DropdownMenuTrigger asChild>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none fixed size-px"
+            style={{ left: anchor?.x, top: anchor?.y }}
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          sideOffset={0}
+          onCloseAutoFocus={(event) => event.preventDefault()}
         >
-          <MoreHorizontal size={14} />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent>
-        <DropdownMenuItem onSelect={rename}>重命名</DropdownMenuItem>
-        <DropdownMenuItem onSelect={move}>移动到…</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuItem onSelect={rename}>重命名</DropdownMenuItem>
+          <DropdownMenuItem onSelect={move}>移动到…</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }
 

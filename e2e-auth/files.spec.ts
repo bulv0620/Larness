@@ -273,7 +273,13 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
       await rename.fill("moved.txt");
       await rename.press("Enter");
       await expect(page.getByRole("tab", { name: /^moved\.txt/ })).toBeVisible();
-      await resources.getByRole("button", { name: "moved.txt 的文件操作" }).click();
+      const renamedRow = resources.getByRole("button", { name: "打开文件 moved.txt" });
+      await expect(resources.getByRole("button", { name: "moved.txt 的文件操作" })).toHaveCount(0);
+      await renamedRow.press("Shift+F10");
+      await expect(page.getByRole("menuitem", { name: "移动到…" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("menu")).toHaveCount(0);
+      await renamedRow.click({ button: "right" });
       await page.getByRole("menuitem", { name: "移动到…" }).click();
       const move = page.getByRole("dialog", { name: "移动文件" });
       await move.getByRole("button", { name: "移到这里" }).click();

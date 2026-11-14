@@ -5,6 +5,7 @@
 | FR-1 | 文件树与编辑器联动 | M2-2、UI-F13、M2-R1 | `done` |
 | FR-2 | 文件名与路径快速打开 | FR-1 | `done` |
 | FR-3 | 新建、重命名与移动 | FR-2 | `done` |
+| FR-4 | [文件行仅保留右键菜单](#fr-4) | FR-3 | `done` |
 
 ## FR-1
 
@@ -33,3 +34,9 @@
 - [x] 认证 Chromium 文件与 Git 2/2。新建目录和文件，在原 Tab 编写草稿，右键重命名，经目录选择器移到根，保留草稿并成功保存。第二个独立配对浏览器自动看到新路径及保存内容。
 - [x] `pnpm check` 通过（Web 204，Agent 57，Server 673，15 跳过），`pnpm build` 通过。验证环境为 macOS，FR-3 未做 Windows/Linux 实机验收。
 - [x] 更新 REST/视图契约与状态，独立提交 FR-3。
+
+## FR-4
+
+- [x] 更新认证 Chromium 用例，先在旧实现确认键盘菜单缺失。
+- [x] 移除行尾按钮，沿用现有菜单样式。验证右键重命名和移动、Shift+F10 打开及 Escape 关闭。
+- [x] macOS 通过 `pnpm check`、`pnpm build`、认证 Chromium 文件流程 1/1。

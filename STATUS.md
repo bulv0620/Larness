@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **FR-4 文件行右键菜单**（`done`，`task/fr-4-file-context-menu`，2026-11-14 12:04 +08:00 开始）：移除行尾三个点，右键和键盘可打开原菜单。整仓检查、构建和认证 Chromium 文件流程通过。
+
 - **FR-3 新建、重命名与移动**（`done`，`task/fr-3-file-operations`，2026-11-14）：完成树内新建、改名和同工作区移动，草稿随 Tab 迁移。整仓 check、build、认证 Chromium 文件/Git 2 项通过，含双客户端验证。见 [076 验收记录](specs/076-file-explorer/tasks.md#fr-3)。
 
 - **FR-2 文件名与路径快速打开**（`done`，`task/fr-2-quick-open`，2026-11-14 11:50 +08:00 开始）：当前工作区有界模糊查询、快速打开和键盘选择已验收，整仓 check、build 与认证 Chromium 通过。见 [076 规格](specs/076-file-explorer/spec.md#fr-2-文件名与路径快速打开)。
