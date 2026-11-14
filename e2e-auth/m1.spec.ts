@@ -180,6 +180,10 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
 
     await page.getByRole("button", { name: /审批策略：/ }).click();
     await page.getByRole("menuitemradio", { name: /严格审批/ }).click();
+    const strictPolicy = page.getByRole("button", { name: "审批策略：严格审批" });
+    await expect(strictPolicy).toBeEnabled();
+    await page.reload();
+    await expect(strictPolicy).toBeVisible({ timeout: 15_000 });
 
     await composer.fill("approve");
     await page.getByRole("button", { name: "发送消息" }).click();

@@ -160,7 +160,7 @@ it("uses the global default for a draft and for its first turn", async () => {
   );
 });
 
-it("uses a draft override for the first turn", async () => {
+it("uses the draft model and approval overrides for the first turn", async () => {
   const user = userEvent.setup();
   useNavigationStore.getState().startDraft(null);
   useTimelineStore.setState({ sessionId: useNavigationStore.getState().sessionId });
@@ -169,6 +169,8 @@ it("uses a draft override for the first turn", async () => {
   renderComposer();
 
   await selectModel(user, "GLM-5.3", "DeepSeek Flash");
+  await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
+  await user.click(screen.getByRole("menuitemradio", { name: /只读/ }));
   expect(api.updateSession).not.toHaveBeenCalled();
   await user.type(screen.getByRole("textbox", { name: "对话输入" }), "首条改选消息");
   await user.click(screen.getByRole("button", { name: "发送消息" }));
@@ -179,6 +181,10 @@ it("uses a draft override for the first turn", async () => {
       expect.any(String),
     ),
   );
+  expect(api.updateSession).toHaveBeenCalledWith("ses_new", {
+    ...deepseek,
+    approvalPolicyId: "readonly",
+  });
 });
 
 it("persists thinking during an active turn and waits for saving before another send", async () => {
@@ -207,4 +213,75 @@ it("persists thinking during an active turn and waits for saving before another 
   await act(async () => finishSave({ ...session("ses_a"), ...glm, thinking: "off" }));
   expect(await screen.findByRole("button", { name: "模型与思考：GLM-5.3 · 关闭" })).toBeVisible();
   await waitFor(() => expect(screen.getByRole("button", { name: "发送消息" })).toBeEnabled());
+});
+
+it("saves approval policy without sending and restores it after a reload", async () => {
+  const user = userEvent.setup();
+  const view = renderComposer();
+  await user.click(await screen.findByRole("button", { name: "审批策略：标准审批" }));
+  await user.click(screen.getByRole("menuitemradio", { name: /严格审批/ }));
+  await waitFor(() =>
+    expect(api.updateSession).toHaveBeenCalledWith("ses_a", { approvalPolicyId: "strict" }),
+  );
+  expect(api.createTurn).not.toHaveBeenCalled();
+  view.unmount();
+  queryClient.clear();
+
+  renderComposer();
+  expect(await screen.findByRole("button", { name: "审批策略：严格审批" })).toBeVisible();
+  act(() => useNavigationStore.getState().selectSession("ses_b", null));
+  expect(await screen.findByRole("button", { name: "审批策略：标准审批" })).toBeVisible();
+});
+
+it("uses the session's stored approval policy when sending", async () => {
+  const user = userEvent.setup();
+  sessions.set("ses_a", { ...session("ses_a"), approvalPolicyId: "readonly" });
+  api.createTurn.mockResolvedValue({ turnId: "turn_1" });
+  renderComposer();
+  await user.type(screen.getByRole("textbox", { name: "对话输入" }), "只读检查");
+  await user.click(screen.getByRole("button", { name: "发送消息" }));
+  await waitFor(() => expect(api.createTurn).toHaveBeenCalled());
+  expect(api.updateSession).not.toHaveBeenCalled();
+  expect(sessions.get("ses_a")?.approvalPolicyId).toBe("readonly");
+});
+
+it("keeps the saved approval policy on a failed change", async () => {
+  const user = userEvent.setup();
+  sessions.set("ses_a", { ...session("ses_a"), approvalPolicyId: "strict" });
+  api.updateSession.mockRejectedValueOnce(new Error("request failed"));
+  renderComposer();
+  await user.click(await screen.findByRole("button", { name: "审批策略：严格审批" }));
+  await user.click(screen.getByRole("menuitemradio", { name: /只读/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("审批策略保存失败");
+  expect(screen.getByRole("button", { name: "审批策略：严格审批" })).toBeEnabled();
+});
+
+it("discards an open autonomous confirmation when changing sessions", async () => {
+  const user = userEvent.setup();
+  renderComposer();
+  await user.click(await screen.findByRole("button", { name: "审批策略：标准审批" }));
+  await user.click(screen.getByRole("menuitemradio", { name: /完全自主/ }));
+  expect(await screen.findByRole("dialog", { name: "启用完全自主？" })).toBeVisible();
+  act(() => useNavigationStore.getState().selectSession("ses_b", null));
+  act(() => useNavigationStore.getState().selectSession("ses_a", null));
+  expect(screen.queryByRole("dialog", { name: "启用完全自主？" })).toBeNull();
+  expect(api.updateSession).not.toHaveBeenCalled();
+});
+
+it("writes autonomous only after confirmation and restores it as a session setting", async () => {
+  const user = userEvent.setup();
+  const view = renderComposer();
+  await user.click(await screen.findByRole("button", { name: "审批策略：标准审批" }));
+  await user.click(screen.getByRole("menuitemradio", { name: /完全自主/ }));
+  expect(api.updateSession).not.toHaveBeenCalled();
+  await user.click(await screen.findByRole("button", { name: "确认启用" }));
+  await waitFor(() =>
+    expect(api.updateSession).toHaveBeenCalledWith("ses_a", { approvalPolicyId: "autonomous" }),
+  );
+  expect(await screen.findByRole("button", { name: "审批策略：完全自主" })).toBeVisible();
+  view.unmount();
+  queryClient.clear();
+  renderComposer();
+  expect(await screen.findByRole("button", { name: "审批策略：完全自主" })).toBeVisible();
+  expect(screen.queryByRole("dialog", { name: "启用完全自主？" })).toBeNull();
 });

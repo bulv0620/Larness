@@ -18,9 +18,10 @@ import {
   type ModelUsageEntry,
   modelUsageFromEvents,
 } from "@/lib/eventReducer";
-import { queryClient, saveSessionModelKey, sessionModelKey } from "@/lib/queries";
+import { queryClient, saveSessionSettingsKey, sessionDetailKey } from "@/lib/queries";
 import { appendAssistantMessage, applyReasoningDelta, applyTurnEvent } from "@/lib/timeline";
 import {
+  type ApiSession,
   cancelTurn,
   createSession,
   createTurn,
@@ -32,7 +33,6 @@ import {
   updateSession,
 } from "@/lib/workspaceApi";
 import { gateway } from "@/mocks/gateway";
-import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 
 let mockController: AbortController | null = null;
@@ -79,7 +79,11 @@ interface TimelineState {
   load: (sessionId: string) => Promise<void>;
   disconnect: () => void;
   syncEvents: () => Promise<void>;
-  send: (text: string, selection?: ModelSelection) => Promise<void>;
+  send: (
+    text: string,
+    selection?: ModelSelection,
+    draftPolicy?: ApiSession["approvalPolicyId"],
+  ) => Promise<void>;
   stop: () => void;
   resumeTurn: (turnId: string) => Promise<void>;
   resolveApproval: (approvalId: string, decision: "approve" | "reject") => Promise<void>;
@@ -444,7 +448,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }
   },
 
-  send: async (text, selection) => {
+  send: async (text, selection, draftPolicy) => {
     const trimmed = text.trim();
     if (!trimmed || get().isStreaming) return;
     const sessionId = get().sessionId;
@@ -499,9 +503,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     const navigation = useNavigationStore.getState();
     if (navigation.sessionId !== sessionId) return;
-    if (queryClient.isMutating({ mutationKey: saveSessionModelKey(sessionId) })) return;
+    if (queryClient.isMutating({ mutationKey: saveSessionSettingsKey(sessionId) })) return;
 
-    const { policy } = useComposerStore.getState();
     const draft = navigation.draftSession;
 
     if (draft !== null && draft.id === sessionId) {
@@ -513,7 +516,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         );
         await updateSession(real.id, {
           ...selection,
-          approvalPolicyId: policy,
+          approvalPolicyId: draftPolicy,
         });
         await createTurn(real.id, { input: trimmed, ...selection }, crypto.randomUUID());
         await queryClient.invalidateQueries({ queryKey: ["workspace"] });
@@ -545,15 +548,12 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }));
 
     try {
-      await updateSession(sessionId, {
-        approvalPolicyId: policy,
-      });
       const created = await createTurn(
         sessionId,
         { input: trimmed, ...selection },
         crypto.randomUUID(),
       );
-      void queryClient.invalidateQueries({ queryKey: sessionModelKey(sessionId) });
+      void queryClient.invalidateQueries({ queryKey: sessionDetailKey(sessionId) });
       if (get().sessionId !== sessionId) return;
       set({ activeTurnId: created.turnId });
       await queryClient.invalidateQueries({ queryKey: ["workspace"] });

@@ -60,7 +60,7 @@ vi.mock("@/lib/queries", async (importOriginal) => {
 
   return {
     ...(await importOriginal<typeof import("@/lib/queries")>()),
-    useSessionModel: () => null,
+    useSessionDetail: () => null,
     useModelCatalog: () => ({
       catalog: { ...deepseekGroup, groups: [deepseekGroup, glmGroup] },
       isPending: false,
@@ -72,7 +72,6 @@ vi.mock("@/lib/queries", async (importOriginal) => {
 beforeEach(() => {
   useComposerStore.setState({
     draft: "任务",
-    policy: "standard",
   });
   useNavigationStore.setState({ sessionId: "test" });
   useTimelineStore.setState({
@@ -92,14 +91,18 @@ it("offers the approval policies and reflects each selection on the shield", asy
   );
   await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
   const menu = screen.getByRole("menu");
-  expect(within(menu).getAllByRole("menuitemradio")).toHaveLength(4);
+  const options = within(menu).getAllByRole("menuitemradio");
+  expect(options).toEqual([
+    within(menu).getByRole("menuitemradio", { name: /^只读/ }),
+    within(menu).getByRole("menuitemradio", { name: /^严格审批/ }),
+    within(menu).getByRole("menuitemradio", { name: /^标准审批/ }),
+    within(menu).getByRole("menuitemradio", { name: /^完全自主/ }),
+  ]);
   expect(within(menu).queryByText(/上下文/)).toBeNull();
   await user.click(within(menu).getByRole("menuitemradio", { name: /严格审批/ }));
-  expect(useComposerStore.getState().policy).toBe("strict");
   await user.click(screen.getByRole("button", { name: "审批策略：严格审批" }));
   await user.click(screen.getByRole("menuitemradio", { name: /只读/ }));
   await waitFor(() => expect(screen.getByRole("button", { name: "审批策略：只读" })).toBeVisible());
-  expect(useComposerStore.getState().policy).toBe("readonly");
 });
 it("shows bounded context usage immediately before send/stop and distinguishes unknown usage", () => {
   render(
@@ -139,15 +142,18 @@ it("requires risk confirmation before switching to autonomous, with cancellation
   );
   await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
   await user.click(screen.getByRole("menuitemradio", { name: /完全自主/ }));
-  expect(useComposerStore.getState().policy).toBe("standard");
+  expect(
+    screen.getByRole("button", { name: "审批策略：标准审批", hidden: true }),
+  ).toBeInTheDocument();
   const dialog = await screen.findByRole("dialog", { name: "启用完全自主？" });
   expect(dialog).toHaveTextContent("程序以本机账户权限运行，可访问项目外文件和网络。");
   await user.click(within(dialog).getByRole("button", { name: "取消" }));
-  expect(useComposerStore.getState().policy).toBe("standard");
+  expect(
+    screen.getByRole("button", { name: "审批策略：标准审批", hidden: true }),
+  ).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
   await user.click(screen.getByRole("menuitemradio", { name: /完全自主/ }));
   await user.click(await screen.findByRole("button", { name: "确认启用" }));
-  expect(useComposerStore.getState().policy).toBe("autonomous");
   expect(screen.getByRole("button", { name: "审批策略：完全自主" })).toBeVisible();
 });
 

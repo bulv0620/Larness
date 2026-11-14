@@ -25,13 +25,14 @@ import { USE_MOCKS } from "@/lib/env";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import {
   queryClient,
-  saveSessionModelKey,
-  sessionModelKey,
+  saveSessionSettingsKey,
+  sessionDetailKey,
   useModelCatalog,
-  useSessionModel,
+  useSessionDetail,
 } from "@/lib/queries";
 import {
   type ApiCatalogGroup,
+  type ApiSession,
   type ApiSessionDetail,
   type ModelSelection,
   updateSession,
@@ -41,14 +42,16 @@ import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { ModelControl } from "./ModelControl";
 
+const standardPolicy = {
+  id: "standard",
+  label: "标准审批",
+  detail: "L0/L1 自动，L2 询问",
+  icon: ShieldCheck,
+  tone: "text-accent",
+} as const;
+
 const policies = [
-  {
-    id: "standard",
-    label: "标准审批",
-    detail: "L0/L1 自动，L2 询问",
-    icon: ShieldCheck,
-    tone: "text-accent",
-  },
+  { id: "readonly", label: "只读", detail: "禁止修改与执行", icon: Shield, tone: "text-success" },
   {
     id: "strict",
     label: "严格审批",
@@ -56,6 +59,7 @@ const policies = [
     icon: ShieldAlert,
     tone: "text-warning",
   },
+  standardPolicy,
   {
     id: "autonomous",
     label: "完全自主",
@@ -63,7 +67,6 @@ const policies = [
     icon: ShieldAlert,
     tone: "text-danger",
   },
-  { id: "readonly", label: "只读", detail: "禁止修改与执行", icon: Shield, tone: "text-success" },
 ] as const;
 
 function defaultThinkingFor(model: {
@@ -95,7 +98,11 @@ export function Composer({
   centered?: boolean;
   onSubmit?: () => void;
 }) {
-  const [confirmAutonomous, setConfirmAutonomous] = useState(false);
+  const [autonomousSession, setAutonomousSession] = useState<string | null>(null);
+  const [draftPolicy, setDraftPolicy] = useState<{
+    sessionId: string;
+    value: ApiSession["approvalPolicyId"];
+  }>();
   const [switchNotice, setSwitchNotice] = useState<{ sessionId: string; message: string } | null>(
     null,
   );
@@ -103,9 +110,7 @@ export function Composer({
   const [mockSelection, setMockSelection] = useState<ModelSelection>();
   const { catalog, error: catalogError } = useModelCatalog();
   const draft = useComposerStore((state) => state.draft);
-  const policy = useComposerStore((state) => state.policy);
   const setDraft = useComposerStore((state) => state.setDraft);
-  const setPolicy = useComposerStore((state) => state.setPolicy);
   const isStreaming = useTimelineStore((state) => state.isStreaming);
   const activeTurnId = useTimelineStore((state) => state.activeTurnId);
   const send = useTimelineStore((state) => state.send);
@@ -117,18 +122,29 @@ export function Composer({
   const hasSession = Boolean(sessionId);
   const draftSession = useNavigationStore((state) => state.draftSession);
   const isDraftSession = draftSession?.id === sessionId;
-  const sessionDetail = useSessionModel(hasSession && !isDraftSession ? sessionId : null);
+  const sessionDetail = useSessionDetail(hasSession && !isDraftSession ? sessionId : null);
   const sessionReady = USE_MOCKS || isDraftSession || sessionDetail?.id === sessionId;
-  const savingModel =
-    useIsMutating({ mutationKey: saveSessionModelKey(sessionId) }, queryClient) > 0;
-  const modelControlDisabled = !sessionReady || savingModel || (isStreaming && !activeTurnId);
-  const saveModel = useMutation(
+  const policy =
+    sessionDetail?.approvalPolicyId ??
+    (draftPolicy?.sessionId === sessionId ? draftPolicy.value : standardPolicy.id);
+  const savingSettings =
+    useIsMutating({ mutationKey: saveSessionSettingsKey(sessionId) }, queryClient) > 0;
+  const settingsDisabled =
+    !hasSession || !sessionReady || savingSettings || (isStreaming && !activeTurnId);
+  const confirmAutonomous = autonomousSession !== null && autonomousSession === sessionId;
+  const saveSettings = useMutation(
     {
-      mutationKey: saveSessionModelKey(sessionId),
-      mutationFn: async ({ id, selection }: { id: string; selection: ModelSelection }) => {
-        const key = sessionModelKey(id);
+      mutationKey: saveSessionSettingsKey(sessionId),
+      mutationFn: async ({
+        id,
+        patch,
+      }: {
+        id: string;
+        patch: ModelSelection | Pick<ApiSession, "approvalPolicyId">;
+      }) => {
+        const key = sessionDetailKey(id);
         await queryClient.cancelQueries({ queryKey: key });
-        const saved = await updateSession(id, selection);
+        const saved = await updateSession(id, patch);
         await queryClient.cancelQueries({ queryKey: key });
         queryClient.setQueryData<ApiSessionDetail>(key, (previous) =>
           previous ? { ...previous, ...saved } : { ...saved, activeTurn: null },
@@ -175,12 +191,20 @@ export function Composer({
       : model
         ? defaultThinkingFor(model)
         : "off";
-  const canSend = hasSession && model !== undefined && !savingModel && !isStreaming;
-  const currentPolicy = policies.find((item) => item.id === policy) ?? policies[0];
+  const canSend = hasSession && model !== undefined && !savingSettings && !isStreaming;
+  const currentPolicy = policies.find((item) => item.id === policy) ?? standardPolicy;
   const PolicyIcon = currentPolicy.icon;
   const modelUsage = useTimelineStore((state) => state.modelUsage);
   const usage = model ? modelUsage[model.id] : undefined;
   const pendingApproval = useTimelineStore((state) => pendingApprovals(state.items).length > 0);
+
+  useEffect(
+    () =>
+      useNavigationStore.subscribe((state, previous) => {
+        if (state.sessionId !== previous.sessionId) setAutonomousSession(null);
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (focusNonce > 0) textareaRef.current?.focus();
@@ -207,14 +231,14 @@ export function Composer({
   };
 
   const select = async (selection: ModelSelection, label?: string) => {
-    if (modelControlDisabled) return;
+    if (settingsDisabled) return;
     setSaveError(null);
     setSwitchNotice(null);
 
     try {
       if (USE_MOCKS) setMockSelection(selection);
       else if (isDraftSession) useNavigationStore.getState().setDraftModel(sessionId, selection);
-      else await saveModel.mutateAsync({ id: sessionId, selection });
+      else await saveSettings.mutateAsync({ id: sessionId, patch: selection });
 
       if (label && useNavigationStore.getState().sessionId === sessionId) {
         setSwitchNotice({ sessionId, message: `已切换到 ${label}` });
@@ -240,13 +264,33 @@ export function Composer({
     );
   };
 
+  const selectPolicy = async (value: ApiSession["approvalPolicyId"]) => {
+    if (settingsDisabled || value === policy) return;
+    setSaveError(null);
+    if (USE_MOCKS || isDraftSession) {
+      setDraftPolicy({ sessionId, value });
+      return;
+    }
+
+    try {
+      await saveSettings.mutateAsync({ id: sessionId, patch: { approvalPolicyId: value } });
+    } catch (error) {
+      setSaveError({ sessionId, message: operationError(error, "审批策略保存失败，请重试。") });
+    }
+  };
+
   const submit = () => {
     if (!canSend || !model || !credentialProfileId || pendingApproval) return;
     const value = draft.trim();
     if (!value) return;
     onSubmit?.();
     if (USE_MOCKS) void send(value);
-    else void send(value, { model: model.id, credentialProfileId, thinking });
+    else
+      void send(
+        value,
+        { model: model.id, credentialProfileId, thinking },
+        isDraftSession ? policy : undefined,
+      );
     setDraft("");
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
@@ -316,7 +360,7 @@ export function Composer({
           credentialProfileId={credentialProfileId}
           thinking={thinking}
           catalogError={catalogError}
-          disabled={modelControlDisabled || !hasSession}
+          disabled={settingsDisabled}
           onSelectModel={selectModel}
           onSelectThinking={(nextThinking) => {
             if (model && credentialProfileId) {
@@ -325,9 +369,10 @@ export function Composer({
           }}
         />
 
-        <DropdownMenu>
+        <DropdownMenu key={`policy-${sessionId}`}>
           <DropdownMenuTrigger asChild>
             <IconButton
+              disabled={settingsDisabled}
               label={`审批策略：${currentPolicy.label}`}
               title={`${currentPolicy.label} · ${currentPolicy.detail}`}
               className="h-7 w-7"
@@ -340,9 +385,10 @@ export function Composer({
             <DropdownMenuRadioGroup
               value={policy}
               onValueChange={(value) => {
-                if (value === "autonomous" && policy !== "autonomous") setConfirmAutonomous(true);
-                else if (policies.some((item) => item.id === value))
-                  setPolicy(value as typeof policy);
+                const next = policies.find((item) => item.id === value);
+                if (!next || next.id === policy) return;
+                if (next.id === "autonomous") setAutonomousSession(sessionId);
+                else void selectPolicy(next.id);
               }}
             >
               {policies.map((item) => (
@@ -388,22 +434,27 @@ export function Composer({
           </button>
         )}
       </div>
-      <Dialog open={confirmAutonomous} onOpenChange={setConfirmAutonomous}>
+      <Dialog
+        open={confirmAutonomous}
+        onOpenChange={(open) => {
+          if (!open) setAutonomousSession(null);
+        }}
+      >
         <DialogContent className="space-y-4 text-sm">
           <DialogTitle>启用完全自主？</DialogTitle>
           <DialogDescription>
             Agent 将不再逐次请求工具审批，可自行修改或删除文件、执行命令、进行 Git
-            推送等操作。程序以本机账户权限运行，可访问项目外文件和网络。请仅在信任当前任务时启用。下一轮生效，随时可以切回标准审批。
+            推送等操作。程序以本机账户权限运行，可访问项目外文件和网络。请仅在信任当前任务时启用。此设置从下一轮起在当前会话持续生效，随时可以切回标准审批。
           </DialogDescription>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setConfirmAutonomous(false)}>
+            <Button variant="secondary" onClick={() => setAutonomousSession(null)}>
               取消
             </Button>
             <Button
               variant="danger"
               onClick={() => {
-                setPolicy("autonomous");
-                setConfirmAutonomous(false);
+                if (confirmAutonomous) void selectPolicy("autonomous");
+                setAutonomousSession(null);
               }}
             >
               确认启用

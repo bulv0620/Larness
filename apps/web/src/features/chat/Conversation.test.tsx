@@ -11,7 +11,7 @@ import { Timeline } from "./Timeline";
 vi.mock("@/lib/env", () => ({ USE_MOCKS: true }));
 vi.mock("@/lib/queries", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/queries")>()),
-  useSessionModel: () => null,
+  useSessionDetail: () => null,
   useSnapshot: () => ({
     data: {
       models: [{ id: "deepseek-flash", label: "DeepSeek Flash", maxContextTokens: 128000 }],

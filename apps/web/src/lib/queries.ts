@@ -133,12 +133,12 @@ export function useModelCatalog(): ModelCatalogResult {
   };
 }
 
-export const sessionModelKey = (sessionId: string | null) => ["session-model", sessionId];
-export const saveSessionModelKey = (sessionId: string) => ["save-session-model", sessionId];
+export const sessionDetailKey = (sessionId: string | null) => ["session-detail", sessionId];
+export const saveSessionSettingsKey = (sessionId: string) => ["save-session-settings", sessionId];
 
-export function useSessionModel(sessionId: string | null) {
+export function useSessionDetail(sessionId: string | null) {
   const query = useQuery({
-    queryKey: sessionModelKey(sessionId),
+    queryKey: sessionDetailKey(sessionId),
     queryFn: () => getSession(sessionId ?? ""),
     enabled: !USE_MOCKS && sessionId !== null,
     staleTime: 0,
