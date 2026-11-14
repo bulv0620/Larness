@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **FR-12 文件树新建输入与失焦提交**（`done`，`task/fr-12-inline-file-create`，2026-11-14）：新建输入融入树行，失焦自动创建或取消。整仓检查及认证 Chromium 文件流程通过。
+
 - **FR-11 公共确认弹窗**（`done`，`task/fr-11-shared-confirm-dialog`，2026-11-14）：公共 ConfirmDialog、危险按钮悬停、默认取消焦点和处理中关闭保护已交付；整仓检查、构建和认证 Chromium 回归通过。
 
 - **FR-10 单文件删除与确认**（`done`，`task/fr-10-delete-file`，2026-11-14）：右键确认删除常规文件，保留草稿，校验条目版本并发送持久事件。整仓检查、构建和认证 Chromium 文件流程通过。

@@ -124,6 +124,8 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
 
   const submit = async (value: string) => {
     if (!edit || mutation.current) return;
+    const creating = edit.action === "createFile" || edit.action === "createDirectory";
+    if (creating) setEdit(null);
     if (
       edit.action !== "move" &&
       edit.action !== "deleteFile" &&
@@ -486,6 +488,7 @@ function Directory(props: DirectoryProps) {
             key={edit.action}
             label={edit.action === "createFile" ? "新文件名" : "新目录名"}
             initial=""
+            createKind={edit.action === "createFile" ? "file" : "directory"}
             busy={busy}
             submit={submit}
             cancel={cancel}

@@ -13,7 +13,7 @@ import {
   Input,
 } from "@larness/ui";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Folder } from "lucide-react";
+import { FilePlus2, Folder } from "lucide-react";
 import { type ComponentPropsWithoutRef, cloneElement, type ReactElement, useState } from "react";
 import { fileError, listDirectory, scopeId } from "./api";
 
@@ -79,36 +79,55 @@ export function FileRowActions({
 export function FileNameInput({
   label,
   initial,
+  createKind,
   busy,
   submit,
   cancel,
 }: {
   label: string;
   initial: string;
+  createKind?: "file" | "directory";
   busy: boolean;
   submit: (name: string) => void;
   cancel: () => void;
 }) {
   const [name, setName] = useState(initial);
+  const Icon = createKind === "directory" ? Folder : FilePlus2;
   return (
     <form
-      className="min-w-0 flex-1 px-1"
+      className="flex h-[26px] min-w-0 items-center gap-1.5 pr-1"
       onSubmit={(event) => {
         event.preventDefault();
         if (!busy && name.trim()) submit(name.trim());
       }}
     >
+      {createKind ? (
+        <>
+          <span className="w-[11px]" />
+          <Icon size={14} className="shrink-0 text-ink-3" />
+        </>
+      ) : null}
       <Input
         ref={(node) => {
           if (node) node.focus();
         }}
-        className="h-7 px-1.5 text-xs"
+        variant="bare"
+        className="h-6 w-full rounded-sm border border-accent/45 bg-surface px-1.5 text-[11px] text-ink outline-none"
         aria-label={label}
         placeholder={label}
         value={name}
         maxLength={255}
         readOnly={busy}
         onChange={(event) => setName(event.target.value)}
+        onBlur={
+          createKind
+            ? () => {
+                if (busy) return;
+                if (name.trim()) submit(name.trim());
+                else cancel();
+              }
+            : undefined
+        }
         onKeyDown={(event) => {
           if (event.key === "Escape" && !busy) {
             event.stopPropagation();
