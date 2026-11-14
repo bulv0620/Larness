@@ -74,6 +74,15 @@ test("M2-5b real Git panel shows status, stages, commits, diffs and approves a p
     await gitPanel.getByText("a.txt").first().click();
     const diffWindow = page.getByRole("dialog", { name: "a.txt", exact: true });
     await expect(diffWindow).toContainText("+changed in ui", { timeout: 15000 });
+    await diffWindow.getByRole("button", { name: "打开工作区文件" }).click();
+    const editor = page.getByRole("textbox", { name: "文件内容" });
+    await expect(editor).toBeVisible();
+    await expect(page.locator(".view-lines")).toContainText("changed in ui");
+    await page
+      .getByRole("dialog")
+      .filter({ has: editor })
+      .getByRole("button", { name: "关闭 a.txt" })
+      .click();
     await diffWindow.getByRole("button", { name: "隐藏窗口" }).click();
     await expect(diffWindow).toHaveCount(0);
 

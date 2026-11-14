@@ -2,6 +2,9 @@ import type { GitDiffView } from "@larness/shared";
 import { cn, ErrorMessage } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Check, GitCompare, Loader2, Plus, Trash2 } from "lucide-react";
+import { type ReactNode, useState } from "react";
+import { openFile } from "@/features/files/actions";
+import { fileError } from "@/features/files/api";
 import { readGitDiff } from "@/features/git/api";
 import { USE_MOCKS } from "@/lib/env";
 import type { WindowTab } from "@/lib/windowTypes";
@@ -13,6 +16,7 @@ export function DiffView({ tab }: { tab: WindowTab }) {
 }
 
 function RealDiffView({ tab }: { tab: WindowTab }) {
+  const [error, setError] = useState<string | null>(null);
   const projectId = tab.projectId;
   const git = tab.git;
   const query = useQuery({
@@ -37,10 +41,26 @@ function RealDiffView({ tab }: { tab: WindowTab }) {
       />
     );
   const data: GitDiffView = query.data;
-  return <DiffBody data={data} />;
+  return (
+    <DiffBody data={data}>
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
+      <button
+        type="button"
+        className="shrink-0 rounded px-1 py-0.5 text-ink-2 hover:bg-surface-2"
+        onClick={() => {
+          setError(null);
+          void openFile({ projectId }, git.path, "project").catch((error: unknown) =>
+            setError(fileError(error)),
+          );
+        }}
+      >
+        打开工作区文件
+      </button>
+    </DiffBody>
+  );
 }
 
-function DiffBody({ data }: { data: GitDiffView }) {
+function DiffBody({ data, children }: { data: GitDiffView; children?: ReactNode }) {
   const lines = data.binary ? [] : data.diff.split("\n");
   return (
     <div className="flex h-full flex-col bg-surface">
@@ -52,6 +72,7 @@ function DiffBody({ data }: { data: GitDiffView }) {
         <span className="rounded-full border border-line bg-surface-2 px-1.5 py-[1px] text-[9px] text-ink-3">
           {data.staged ? "已暂存" : "工作区"}
         </span>
+        {children}
       </div>
       {data.binary ? (
         <p className="p-4 text-xs text-ink-3">

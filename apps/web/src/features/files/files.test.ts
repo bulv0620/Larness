@@ -59,3 +59,55 @@ it("preserves a draft on VERSION_CONFLICT, and only a deliberate merge adopts th
   expect(save.mock.calls[1]?.[3]).toBe(nextVersion);
   expect(useFileDraftStore.getState().drafts[document.realPath]).toBeUndefined();
 });
+
+it("replaces only the clean preview and keeps one tab for explicit opens of the same file", async () => {
+  const scope = { projectId: "project-a" };
+  vi.spyOn(api, "readFile").mockImplementation(async (_scope, path) => ({
+    ...document,
+    path,
+    realPath: `/project/${path}`,
+  }));
+  await openFile(scope, "note.txt", "project", { preview: true });
+  expect(useWindowStore.getState().windows[0]?.tabs[0]).toMatchObject({
+    title: "note.txt",
+    preview: true,
+  });
+  await openFile(scope, "another.txt", "project", { preview: true });
+  const preview = useWindowStore.getState().windows[0]?.tabs[0];
+  expect(useWindowStore.getState().windows[0]?.tabs.map((tab) => tab.title)).toEqual([
+    "another.txt",
+  ]);
+  await openFile(scope, "another.txt", "agent");
+  expect(useWindowStore.getState().windows[0]?.tabs[0]).toMatchObject({
+    id: preview?.id,
+    preview: false,
+  });
+  await openFile(scope, "note.txt", "project", { preview: true });
+  useFileDraftStore.getState().edit(document.realPath, "keep this", version);
+  await openFile(scope, "third.txt", "project", { preview: true });
+  expect(
+    useWindowStore.getState().windows[0]?.tabs.map(({ title, preview }) => [title, preview]),
+  ).toEqual([
+    ["another.txt", false],
+    ["note.txt", false],
+    ["third.txt", true],
+  ]);
+  expect(useFileDraftStore.getState().drafts[document.realPath]?.text).toBe("keep this");
+});
+
+it("leaves the current preview in place when another file fails authorization", async () => {
+  const scope = { projectId: "project-a" };
+  vi.spyOn(api, "readFile")
+    .mockResolvedValueOnce(document)
+    .mockRejectedValueOnce(new ApiError(403, "FORBIDDEN", "forbidden"));
+  await openFile(scope, document.path, "project", { preview: true });
+  await expect(
+    openFile(scope, "forbidden.txt", "project", { preview: true }),
+  ).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  expect(useWindowStore.getState().windows[0]?.tabs[0]).toMatchObject({
+    title: document.path,
+    preview: true,
+  });
+});

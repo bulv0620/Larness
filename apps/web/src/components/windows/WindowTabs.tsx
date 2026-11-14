@@ -160,6 +160,7 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
                     role="tab"
                     aria-selected={active}
                     onDoubleClick={() => {
+                      if (tab.preview) useWindowStore.getState().keepFileTab(tab.id);
                       if (tab.kind === "terminal" && tab.resourceId.startsWith("term_"))
                         setRename({ id: tab.id, title: tab.title });
                     }}
@@ -174,11 +175,11 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
                       }
                     }}
                     onClick={() => setActiveTab(win.id, tab.id)}
-                    title={`${label} · ${tab.title}${tab.kind === "terminal" ? " · 双击或 F2 改名" : ""}`}
+                    title={`${label} · ${tab.title}${tab.kind === "terminal" ? " · 双击或 F2 改名" : tab.preview ? " · 预览，双击保留" : ""}`}
                     className="flex min-w-0 flex-1 items-center gap-1.5 focus-visible:outline-none"
                   >
                     <TabIcon kind={tab.kind} />
-                    <span className="truncate">
+                    <span className={cn("truncate", tab.preview && "italic")}>
                       {tab.title}
                       {drafts[tab.resourceId] ? " ●" : ""}
                     </span>

@@ -1,6 +1,5 @@
 import { Tabs, TabsList, TabsTrigger } from "@larness/ui";
 import { Files, GitBranch } from "lucide-react";
-import { useState } from "react";
 import { FileTreePanel } from "@/components/sections/FileTreePanel";
 import { GitPanel } from "@/components/sections/GitPanel";
 import { USE_MOCKS } from "@/lib/env";
@@ -18,7 +17,8 @@ export function ProjectResourceSidebar() {
   const { data } = useSnapshot();
   const projectId = useNavigationStore((state) => state.projectId);
   const resourceWidth = useNavigationStore((state) => state.resourceWidth);
-  const [active, setActive] = useState<ResourceId>("files");
+  const active = useNavigationStore((state) => state.resourceTab);
+  const setActive = useNavigationStore((state) => state.setResourceTab);
   const projectChanges = projectId === "prj_larness" ? data.gitChanges : [];
   const counts: Record<ResourceId, number | undefined> = {
     files: USE_MOCKS ? (projectId === "prj_larness" ? 22 : 0) : undefined,

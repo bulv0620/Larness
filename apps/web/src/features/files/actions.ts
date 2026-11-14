@@ -4,14 +4,30 @@ import type { TabOrigin, WindowTab } from "@/lib/windowTypes";
 import { useWindowStore } from "@/stores/windowStore";
 import { fileKey, readFile, writeFile } from "./api";
 import { useFileDraftStore } from "./drafts";
-export async function openFile(scope: FileScope, path: string, source: TabOrigin) {
+export async function openFile(
+  scope: FileScope,
+  path: string,
+  source: TabOrigin,
+  {
+    preview = false,
+    signal,
+    treeWidth,
+  }: {
+    preview?: boolean;
+    signal?: AbortSignal;
+    treeWidth?: number;
+  } = {},
+) {
   const doc = await queryClient.fetchQuery({
     queryKey: fileKey(scope, path),
     queryFn: () => readFile(scope, path),
     staleTime: 0,
   });
+  if (signal?.aborted) return doc;
   useWindowStore.getState().open({
     kind: "files",
+    preview,
+    treeWidth,
     resourceId: doc.realPath,
     title: doc.path.split("/").at(-1) ?? doc.path,
     projectId: "projectId" in scope ? scope.projectId : null,

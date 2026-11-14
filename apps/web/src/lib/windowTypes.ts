@@ -18,6 +18,7 @@ export interface WindowTab {
   projectId: string | null;
   sourceSessionId: string | null;
   originType: TabOrigin;
+  preview?: boolean;
   file?: { scope: FileScope; path: string };
   git?: { path: string; staged: boolean };
   browser?: { serviceId: string; path: string };

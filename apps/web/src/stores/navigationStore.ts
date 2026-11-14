@@ -20,6 +20,12 @@ interface NavigationState {
   resourceCollapsed: boolean;
   mobileSidebarOpen: boolean;
   expandedProjects: Record<string, boolean>;
+  expandedFileDirectories: Record<string, string[]>;
+  resourceTab: "files" | "git";
+  fileReveal: { scope: string; path: string } | null;
+  setResourceTab: (tab: "files" | "git") => void;
+  revealFile: (scope: string, path: string) => void;
+  setExpandedFileDirectories: (scope: string, paths: string[]) => void;
   focusComposerNonce: number;
   reconcileWorkspace: (
     projectIds: string[],
@@ -54,6 +60,37 @@ export const useNavigationStore = create<NavigationState>()(
       mobileSidebarOpen: false,
       expandedProjects: { prj_larness: true, prj_docs: true },
       focusComposerNonce: 0,
+      expandedFileDirectories: {},
+      resourceTab: "files",
+      fileReveal: null,
+
+      setResourceTab: (resourceTab) => set({ resourceTab, fileReveal: null }),
+
+      revealFile: (scope, path) =>
+        set((state) => {
+          const parents = path.split("/").slice(0, -1);
+          return {
+            resourceTab: "files",
+            resourceCollapsed: false,
+            fileReveal: { scope, path },
+            expandedFileDirectories: {
+              ...state.expandedFileDirectories,
+              [scope]: [
+                ...new Set([
+                  ".",
+                  ...(state.expandedFileDirectories[scope] ?? []),
+                  ...parents.map((_, index) => parents.slice(0, index + 1).join("/")),
+                ]),
+              ],
+            },
+          };
+        }),
+
+      setExpandedFileDirectories: (scope, paths) =>
+        set((state) => ({
+          expandedFileDirectories: { ...state.expandedFileDirectories, [scope]: paths },
+          fileReveal: null,
+        })),
 
       reconcileWorkspace: (projectIds, sessions) => {
         const state = get();
@@ -85,6 +122,7 @@ export const useNavigationStore = create<NavigationState>()(
         set({
           sessionId,
           projectId,
+          fileReveal: null,
           pinnedSessionId: null,
           draftSession: null,
           mobileSidebarOpen: false,
@@ -94,6 +132,7 @@ export const useNavigationStore = create<NavigationState>()(
         set({
           sessionId,
           projectId,
+          fileReveal: null,
           pinnedSessionId: sessionId,
           draftSession: null,
           mobileSidebarOpen: false,
@@ -105,6 +144,7 @@ export const useNavigationStore = create<NavigationState>()(
             return {
               sessionId: state.draftSession.id,
               projectId,
+              fileReveal: null,
               mobileSidebarOpen: false,
             };
           }
@@ -114,6 +154,7 @@ export const useNavigationStore = create<NavigationState>()(
             draftSession: { id, projectId },
             sessionId: id,
             projectId,
+            fileReveal: null,
             mobileSidebarOpen: false,
           };
         }),
@@ -166,6 +207,7 @@ export const useNavigationStore = create<NavigationState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         resourceCollapsed: state.resourceCollapsed,
         expandedProjects: state.expandedProjects,
+        expandedFileDirectories: state.expandedFileDirectories,
       }),
     },
   ),

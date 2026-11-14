@@ -68,7 +68,17 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await expect(gitEmpty).not.toHaveClass(/text-danger/);
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-12-resource-sidebar.png") });
     await resources.getByRole("tab", { name: "文件" }).click();
-    await page.getByRole("button", { name: "打开文件 note.txt", exact: true }).click();
+    await page.getByRole("button", { name: "打开文件 bom.txt", exact: true }).click();
+    const bomTab = page.getByRole("tab", { name: /^bom\.txt/ });
+    await expect(bomTab.locator("span.italic")).toHaveText("bom.txt");
+    const noteRow = page.getByRole("button", { name: "打开文件 note.txt", exact: true });
+    await noteRow.click();
+    await expect(bomTab).toHaveCount(0);
+    const noteTab = page.getByRole("tab", { name: /^note\.txt/ });
+    await expect(noteTab.locator("span.italic")).toHaveText("note.txt");
+    await noteRow.dblclick();
+    await expect(noteTab.locator("span.italic")).toHaveCount(0);
+    await expect(noteTab).toBeVisible();
     const editor = page.getByRole("textbox", { name: "文件内容", exact: true });
     await expect(editor).toBeVisible({ timeout: 30_000 });
     await editor.focus();
@@ -170,12 +180,27 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await page.getByRole("button", { name: "关闭 bom.txt", exact: true }).click();
     await confirm.getByRole("button", { name: "放弃改动", exact: true }).click();
     await expect(page.locator(".view-lines").first()).toContainText("child");
+    await resources.getByRole("button", { name: "全部折叠" }).click();
+    await resources.getByRole("tab", { name: "Git" }).click();
+    await page.getByRole("button", { name: "在文件树中定位" }).click();
+    const childRow = resources.getByRole("button", { name: "打开文件 child.txt" });
+    await expect(childRow).toBeFocused();
+    await expect(childRow).toHaveAttribute("aria-current", "true");
+    await page.screenshot({ path: path.join(tmpdir(), "larness-fr-1-file-tree.png") });
+    await childRow.press("ArrowLeft");
+    await expect(resources.getByRole("button", { name: "目录 sub" })).toBeFocused();
+    await expect(page.getByRole("tab", { name: /^child\.txt/ }).locator("span.italic")).toHaveText(
+      "child.txt",
+    );
     expect(readFileSync(path.join(root, "bom.txt"), "utf8")).toBe("\uFEFFBOM saved\r\n");
     writeFileSync(child, "external child\n");
     await expect(page.locator(".view-lines").first()).toContainText("external child", {
       timeout: 10_000,
     });
     await replaceEditor(page, "retain on deletion\n");
+    await expect(page.getByRole("tab", { name: /^child\.txt/ }).locator("span.italic")).toHaveCount(
+      0,
+    );
     rmSync(child);
     await expect(page.getByRole("alert").filter({ hasText: "文件不可用" })).toBeVisible({
       timeout: 10_000,

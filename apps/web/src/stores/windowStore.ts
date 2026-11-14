@@ -1,9 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { useFileDraftStore } from "@/features/files/drafts";
 import { USE_MOCKS } from "@/lib/env";
 import { animateMinimize, cancelMinimize } from "@/lib/minimizeWindow";
 import { activeWindowTab, filterTabs, insertIntoTabGroup, isTabVisible } from "@/lib/windowFilters";
-import { clampRect, defaultRect } from "@/lib/windowGeometry";
+import { clampRect, defaultRect, type Viewport } from "@/lib/windowGeometry";
 import type {
   ManagedWindow,
   ProjectFilter,
@@ -34,6 +35,8 @@ interface OpenInput {
   sessionId?: string | null;
   source?: OpenSource;
   file?: WindowTab["file"];
+  preview?: boolean;
+  treeWidth?: number;
   git?: WindowTab["git"];
   browser?: WindowTab["browser"];
   /** Agent-created resources are inserted without taking focus unless explicitly opened. */
@@ -55,6 +58,8 @@ interface WindowState {
   toggleMaximize: (id: string) => void;
   togglePin: (id: string) => void;
   setActiveTab: (windowId: string, tabId: string) => void;
+  keepFileTab: (tabId: string) => void;
+  fitFileWindowBesideTree: (tabId: string, resourceWidth: number) => void;
   closeTab: (windowId: string, tabId: string) => void;
   setBounds: (id: string, rect: Rect) => void;
   setFilter: (windowId: string, filter: ProjectFilter) => void;
@@ -62,6 +67,10 @@ interface WindowState {
 
 function viewport() {
   return { width: window.innerWidth, height: Math.max(480, window.innerHeight - 48) };
+}
+
+function besideTree(bounds: Viewport, resourceWidth: number): Viewport {
+  return { ...bounds, width: bounds.width - resourceWidth };
 }
 
 function uid(prefix: string): string {
@@ -168,6 +177,8 @@ export const useWindowStore = create<WindowState>()(
         sessionId = null,
         source = "header",
         file,
+        preview = false,
+        treeWidth,
         git,
         browser,
         activate = true,
@@ -205,7 +216,7 @@ export const useWindowStore = create<WindowState>()(
             tab && (file || git || browser)
               ? {
                   ...tab,
-                  ...(file ? { file } : {}),
+                  ...(file ? { file, preview: preview && tab.preview === true } : {}),
                   ...(git ? { git } : {}),
                   ...(browser ? { browser } : {}),
                   projectId,
@@ -245,6 +256,7 @@ export const useWindowStore = create<WindowState>()(
             zCounter: activate ? z : state.zCounter,
             lastFilters: { ...state.lastFilters, [kind]: nextFilter },
           });
+          if (tab && treeWidth) get().fitFileWindowBesideTree(tab.id, treeWidth);
           return;
         }
 
@@ -258,7 +270,7 @@ export const useWindowStore = create<WindowState>()(
           projectId,
           sourceSessionId: sessionId,
           originType: originFor(source),
-          ...(file ? { file } : {}),
+          ...(file ? { file, preview } : {}),
           ...(git ? { git } : {}),
           ...(browser ? { browser } : {}),
         };
@@ -268,7 +280,17 @@ export const useWindowStore = create<WindowState>()(
         );
         if (sameKind) {
           if (activate) cancelMinimize(sameKind.id);
-          const tabs = insertIntoTabGroup(sameKind.tabs, tab);
+          let tabs = sameKind.tabs;
+          if (tab.preview) {
+            const { drafts, saving } = useFileDraftStore.getState();
+            tabs = tabs.flatMap((item) => {
+              if (!item.preview) return [item];
+              return drafts[item.resourceId] || saving[item.resourceId]
+                ? [{ ...item, preview: false }]
+                : [];
+            });
+          }
+          tabs = insertIntoTabGroup(tabs, tab);
           let filter = preferred ?? sameKind.filter;
           if (!isTabVisible(tab, filter)) filter = { mode: "all" };
           set({
@@ -286,12 +308,18 @@ export const useWindowStore = create<WindowState>()(
             zCounter: activate ? z : state.zCounter,
             lastFilters: { ...state.lastFilters, [kind]: filter },
           });
+          if (treeWidth) get().fitFileWindowBesideTree(tab.id, treeWidth);
           return;
         }
 
         let filter = preferred ?? state.lastFilters[kind] ?? ({ mode: "all" } as ProjectFilter);
         if (!isTabVisible(tab, filter)) filter = { mode: "all" };
-        const rect = defaultRect(kind, state.windows.length, viewport());
+        const bounds = viewport();
+        const rect = defaultRect(
+          kind,
+          state.windows.length,
+          kind === "files" && treeWidth ? besideTree(bounds, treeWidth) : bounds,
+        );
         const managed: ManagedWindow = {
           id: uid("win"),
           tabs: [tab],
@@ -398,6 +426,40 @@ export const useWindowStore = create<WindowState>()(
         set({
           windows: get().windows.map((win) =>
             win.id === windowId ? { ...win, activeTabId: tabId } : win,
+          ),
+        });
+      },
+
+      keepFileTab: (tabId) => {
+        const { windows } = get();
+        const win = windows.find((item) =>
+          item.tabs.some((tab) => tab.id === tabId && tab.preview),
+        );
+        if (!win) return;
+        set({
+          windows: windows.map((item) =>
+            item.id === win.id
+              ? {
+                  ...item,
+                  tabs: item.tabs.map((tab) =>
+                    tab.id === tabId ? { ...tab, preview: false } : tab,
+                  ),
+                }
+              : item,
+          ),
+        });
+      },
+
+      fitFileWindowBesideTree: (tabId, resourceWidth) => {
+        const { windows } = get();
+        const bounds = besideTree(viewport(), resourceWidth);
+        const win = windows.find((item) => item.tabs.some((tab) => tab.id === tabId && tab.file));
+        if (!win || (!win.maximized && win.x + win.width <= bounds.width)) return;
+        set({
+          windows: windows.map((item) =>
+            item.id === win.id
+              ? { ...win, ...clampRect(win, bounds), maximized: false, restore: null }
+              : item,
           ),
         });
       },

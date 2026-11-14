@@ -479,9 +479,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | UI-F18 | [会话模型与全局默认](068-ui-fixes/spec.md#ui-f18-会话模型与全局默认) | UI-F17 done；用户要求 | `done`（用户验收通过，整仓检查有既有失败） |
 | UI-F19 | [会话审批策略恢复](068-ui-fixes/spec.md#ui-f19-会话审批策略恢复) | UI-F18 done；用户反馈 | `done`（用户验收通过，整仓检查有既有失败） |
 
-### 2026-11-12 成果展示与临时文件折叠（074，done）
+### 2026-11-14 资源恢复回归
 
 - **M2-R1** [保留未核实进程的写入屏障](030-dev-resources/tasks.md#m2-r1-保留未核实进程的写入屏障)（`done`，依赖 M2-7，2026-11-14）。
+
+### 2026-11-12 成果展示与临时文件折叠（074，done）
 
 用户确认「临时脚本折叠进过程」方向，[074 规格](074-result-presentation/spec.md) 已按 D-1～D-5 实现并验证（2026-11-12）。验收记录见 [任务清单](074-result-presentation/tasks.md#验收记录)；真实数据浏览器视觉验收待用户确认。
 
@@ -492,6 +494,14 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | RS-3 | [成果区与过程行渲染](074-result-presentation/spec.md#5-验收场景) | RS-1、RS-2 | `done` |
 | RS-4 | [契约与文档同步](074-result-presentation/spec.md#7-接口与契约变更) | RS-1～RS-3 | `done` |
 | RS-5 | [验收与状态回填](074-result-presentation/spec.md#11-测试计划) | RS-4 | `done` |
+
+### 2026-11-14 项目资源文件管理器
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| FR-1 | [文件树与编辑器联动](076-file-explorer/tasks.md#fr-1) | M2-2、UI-F13、M2-R1 | `done` |
+| FR-2 | [文件名与路径快速打开](076-file-explorer/tasks.md) | FR-1 | `todo` |
+| FR-3 | [新建、重命名与移动](076-file-explorer/tasks.md) | FR-2 | `todo` |
 
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
 - 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。

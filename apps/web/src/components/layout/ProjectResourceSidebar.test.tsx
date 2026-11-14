@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
+import { useNavigationStore } from "@/stores/navigationStore";
 import { ProjectResourceSidebar } from "./ProjectResourceSidebar";
 
 vi.mock("@/lib/queries", () => ({
@@ -9,6 +10,8 @@ vi.mock("@/components/sections/FileTreePanel", () => ({
   FileTreePanel: () => <span>file body</span>,
 }));
 vi.mock("@/components/sections/GitPanel", () => ({ GitPanel: () => <span>git body</span> }));
+
+beforeEach(() => useNavigationStore.getState().setResourceTab("files"));
 
 function panel(id: "files" | "git"): HTMLElement {
   const panel = document.getElementById(`resource-${id}`);

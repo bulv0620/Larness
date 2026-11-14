@@ -6,6 +6,8 @@ import { fileError, fileKey, readFile, scopeId } from "@/features/files/api";
 import { useFileDraftStore } from "@/features/files/drafts";
 import { USE_MOCKS } from "@/lib/env";
 import type { WindowTab } from "@/lib/windowTypes";
+import { useNavigationStore } from "@/stores/navigationStore";
+import { useWindowStore } from "@/stores/windowStore";
 import { DemoFileWindow } from "./DemoFileWindow";
 
 const FileEditor = lazy(() => import("@/features/files/FileEditor"));
@@ -37,8 +39,10 @@ function EditableFile({ tab, target }: { tab: WindowTab; target: NonNullable<Win
     if (!doc) return;
     if (value === doc.content && (!draft || draft.baseVersion === doc.version))
       useFileDraftStore.getState().discard(tab.resourceId);
-    else
+    else {
+      useWindowStore.getState().keepFileTab(tab.id);
       useFileDraftStore.getState().edit(tab.resourceId, value, draft?.baseVersion ?? doc.version);
+    }
   };
   const save = () => {
     setError(null);
@@ -64,6 +68,16 @@ function EditableFile({ tab, target }: { tab: WindowTab; target: NonNullable<Win
           {target.path}
           {draft ? " ●" : ""}
         </span>
+        <button
+          type="button"
+          title="在文件树中定位"
+          className="hidden xl:inline"
+          onClick={() =>
+            useNavigationStore.getState().revealFile(scopeId(target.scope), target.path)
+          }
+        >
+          在文件树中定位
+        </button>
         <button
           type="button"
           aria-label="刷新文件"
