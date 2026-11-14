@@ -87,34 +87,36 @@ export function FileRowActions({
 export function FileNameInput({
   label,
   initial,
-  createKind,
+  kind,
   busy,
   submit,
   cancel,
 }: {
   label: string;
   initial: string;
-  createKind?: "file" | "directory";
+  kind: "file" | "directory";
   busy: boolean;
   submit: (name: string) => void;
   cancel: () => void;
 }) {
   const [name, setName] = useState(initial);
-  const Icon = createKind === "directory" ? Folder : FilePlus2;
+  const Icon = kind === "directory" ? Folder : FilePlus2;
+  const finish = () => {
+    if (busy) return;
+    const value = name.trim();
+    if (!value || name === initial) cancel();
+    else submit(value);
+  };
   return (
     <form
       className="flex h-[26px] min-w-0 items-center gap-1.5 pr-1"
       onSubmit={(event) => {
         event.preventDefault();
-        if (!busy && name.trim()) submit(name.trim());
+        finish();
       }}
     >
-      {createKind ? (
-        <>
-          <span className="w-[11px]" />
-          <Icon size={14} className="shrink-0 text-ink-3" />
-        </>
-      ) : null}
+      <span className="w-[11px]" />
+      <Icon size={14} className="shrink-0 text-ink-3" />
       <Input
         ref={(node) => {
           if (node) node.focus();
@@ -127,15 +129,7 @@ export function FileNameInput({
         maxLength={255}
         readOnly={busy}
         onChange={(event) => setName(event.target.value)}
-        onBlur={
-          createKind
-            ? () => {
-                if (busy) return;
-                if (name.trim()) submit(name.trim());
-                else cancel();
-              }
-            : undefined
-        }
+        onBlur={finish}
         onKeyDown={(event) => {
           if (event.key === "Escape" && !busy) {
             event.stopPropagation();
