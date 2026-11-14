@@ -83,7 +83,10 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await expect(search).toBeFocused();
     await search.fill("sub/chd");
     await expect(quickOpen.getByRole("option", { name: /child.txt.*sub/ })).toBeVisible();
-    await page.screenshot({ path: path.join(tmpdir(), "larness-fr-5-quick-open.png") });
+    const results = quickOpen.getByRole("listbox");
+    await expect(results).toHaveCSS("margin-top", "8px");
+    await expect(results).toHaveCSS("margin-bottom", "8px");
+    await page.screenshot({ path: path.join(tmpdir(), "larness-fr-6-quick-open.png") });
     await search.press("Enter");
     await expect(quickOpen).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "child.txt", exact: true })).toBeVisible();

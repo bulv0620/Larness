@@ -173,7 +173,7 @@ function FileSearch({
         aria-label="匹配的文件"
         className={cn(
           "max-h-[min(55dvh,420px)] overflow-y-auto",
-          items.length > 0 && "border-t border-line p-2",
+          items.length > 0 && "my-2 border-t border-line px-2 pt-2",
         )}
       >
         {items.map((item, row) => (
