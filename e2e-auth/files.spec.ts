@@ -297,7 +297,31 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await expect(page.getByRole("tab", { name: /^child\.txt/ }).locator("span.italic")).toHaveCount(
       0,
     );
-    rmSync(child);
+    await childRow.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "删除…" }).click();
+    const deleteDialog = page.getByRole("dialog", { name: "删除文件" });
+    await expect(deleteDialog).toContainText("sub/child.txt");
+    const cancelDelete = deleteDialog.getByRole("button", { name: "取消" });
+    await expect(cancelDelete).toBeFocused();
+    await cancelDelete.click();
+    expect(readFileSync(child, "utf8")).toBe("external child\n");
+    await childRow.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "删除…" }).click();
+    await deleteDialog.getByRole("button", { name: "确认删除" }).click();
+    await expect(deleteDialog).toHaveCount(0);
+    await expect(childRow).toHaveCount(0);
+    await expect
+      .poll(() => {
+        try {
+          readFileSync(child);
+          return true;
+        } catch {
+          return false;
+        }
+      })
+      .toBe(false);
+    await expect(page.locator(".view-lines").first()).toContainText("retain on deletion");
+
     await expect(page.getByRole("alert").filter({ hasText: "文件不可用" })).toBeVisible({
       timeout: 10_000,
     });

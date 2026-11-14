@@ -13,9 +13,21 @@ import {
 } from "lucide-react";
 import { type KeyboardEvent, useLayoutEffect, useRef, useState } from "react";
 import { openFile, relocateOpenFile } from "@/features/files/actions";
-import { applyFileAction, fileError, listDirectory, readFile, scopeId } from "@/features/files/api";
+import {
+  applyFileAction,
+  fileError,
+  fileKey,
+  listDirectory,
+  readFile,
+  scopeId,
+} from "@/features/files/api";
 import { useFileDraftStore } from "@/features/files/drafts";
-import { FileNameInput, FileRowActions, MoveFileDialog } from "@/features/files/FileTreeActions";
+import {
+  DeleteFileDialog,
+  FileNameInput,
+  FileRowActions,
+  MoveFileDialog,
+} from "@/features/files/FileTreeActions";
 import { FileTypeIcon } from "@/features/files/FileTypeIcon";
 import { useFileWatch } from "@/features/files/useFileWatch";
 import { ApiError } from "@/lib/api";
@@ -26,7 +38,9 @@ import { useNavigationStore } from "@/stores/navigationStore";
 import { DemoFileTreePanel } from "./DemoFileTreePanel";
 
 const root = ["."];
-type Edit = { action: "createFile" | "createDirectory" | "rename" | "move"; path: string };
+type Edit =
+  | { action: "createFile" | "createDirectory" | "rename" | "move"; path: string }
+  | { action: "deleteFile"; path: string; expectedVersion: string };
 const parentPath = (path: string) => path.split("/").slice(0, -1).join("/") || ".";
 const childPath = (parent: string, name: string) => (parent === "." ? name : `${parent}/${name}`);
 
@@ -53,6 +67,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
   );
   const [selected, setSelected] = useState<string | null>(null);
   const [edit, setEdit] = useState<Edit | null>(null);
+  const [staleDelete, setStaleDelete] = useState(false);
   const mutation = useRef(false);
   const request = useRef<{ value: string; input: FileAction; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -89,6 +104,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     if (mutation.current) return;
     setError(null);
     request.current = null;
+    setStaleDelete(false);
     setEdit(next);
   };
 
@@ -110,6 +126,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     if (!edit || mutation.current) return;
     if (
       edit.action !== "move" &&
+      edit.action !== "deleteFile" &&
       (!value || /[\\/:]/.test(value) || value === "." || value === "..")
     ) {
       setError("请输入一个有效的名称。");
@@ -122,7 +139,15 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     try {
       let input: FileAction;
       if (request.current?.value === value) input = request.current.input;
-      else if (action === "rename" || action === "move") {
+      else if (edit.action === "deleteFile") {
+        input = {
+          scope,
+          action: edit.action,
+          path: edit.path,
+          confirmed: true,
+          expectedVersion: edit.expectedVersion,
+        };
+      } else if (edit.action === "rename" || edit.action === "move") {
         const file = await readFile(scope, edit.path);
         const drafts = useFileDraftStore.getState();
         if (drafts.saving[file.realPath]) {
@@ -150,20 +175,37 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           destination,
           expectedVersion: drafts.drafts[file.realPath]?.baseVersion ?? file.version,
         };
-      } else input = { scope, action, path: childPath(edit.path, value) };
+      } else input = { scope, action: edit.action, path: childPath(edit.path, value) };
       if (request.current?.value !== value)
         request.current = { value, input, key: crypto.randomUUID() };
       const result = await applyFileAction(input, request.current.key);
       if (input.action === "move") relocateOpenFile(scope, result);
+      if (input.action === "deleteFile") {
+        void queryClient.invalidateQueries({ queryKey: fileKey(scope, result.path) });
+      }
       await queryClient.resetQueries({ queryKey: ["files", id, "directory"] });
       void queryClient.invalidateQueries({ queryKey: ["file-search", id] });
       if (!mounted.current) return;
       setEdit(null);
+      if (action === "deleteFile") {
+        if (selected === result.path) setSelected(null);
+        setStatus("已删除文件");
+        return;
+      }
       useNavigationStore.getState().revealFile(id, result.path);
       if (action === "createFile") open(result.path, false);
     } catch (error) {
       if (error instanceof ApiError && error.status < 500) request.current = null;
-      if (mounted.current) setError(fileError(error));
+      if (
+        mounted.current &&
+        action === "deleteFile" &&
+        error instanceof ApiError &&
+        ["VERSION_CONFLICT", "NOT_FOUND", "PATH_OUTSIDE_PROJECT"].includes(error.code)
+      ) {
+        setStaleDelete(true);
+        setError("文件已变化或不存在，请刷新后重新发起删除。");
+        void queryClient.resetQueries({ queryKey: ["files", id, "directory"] });
+      } else if (mounted.current) setError(fileError(error));
     } finally {
       mutation.current = false;
       if (mounted.current) setBusy(false);
@@ -317,7 +359,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
         </button>
       </div>
       <ErrorMessage
-        message={edit?.action === "move" ? null : error}
+        message={edit?.action === "move" || edit?.action === "deleteFile" ? null : error}
         onDismiss={() => setError(null)}
       />
       {edit?.action === "move" ? (
@@ -327,6 +369,16 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           busy={busy}
           error={error}
           move={(path) => void submit(path)}
+          close={() => setEdit(null)}
+        />
+      ) : null}
+      {edit?.action === "deleteFile" ? (
+        <DeleteFileDialog
+          path={edit.path}
+          busy={busy}
+          error={error}
+          stale={staleDelete}
+          remove={() => void submit("")}
           close={() => setEdit(null)}
         />
       ) : null}
@@ -443,6 +495,7 @@ function Directory(props: DirectoryProps) {
       {entries.map((entry) => {
         const directory = entry.type === "directory";
         const isExpanded = directory && expanded.includes(entry.path);
+        const entryVersion = entry.entryVersion;
         const row = (
           <button
             type="button"
@@ -497,6 +550,16 @@ function Directory(props: DirectoryProps) {
               <FileRowActions
                 rename={() => begin({ action: "rename", path: entry.path })}
                 move={() => begin({ action: "move", path: entry.path })}
+                remove={
+                  entryVersion
+                    ? () =>
+                        begin({
+                          action: "deleteFile",
+                          path: entry.path,
+                          expectedVersion: entryVersion,
+                        })
+                    : undefined
+                }
               >
                 {row}
               </FileRowActions>

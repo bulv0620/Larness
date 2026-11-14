@@ -478,3 +478,79 @@ it("reconciles a move whose disk change completed before the result transaction 
     }
   });
 });
+
+it("deletes only the confirmed file version, including binary files, and replays the result", async () => {
+  await withTempDir(async (dir) => {
+    const started = await startAuthorizedServer(path.join(dir, "data"));
+    try {
+      const root = path.join(dir, "project");
+      await mkdir(root);
+      const file = path.join(root, "image.bin");
+      await writeFile(file, Buffer.from([0, 1]));
+      const headers = {
+        cookie: started.cookie,
+        origin: started.origin,
+        "x-csrf-token": started.csrf,
+      };
+      const project = await started.running.app.inject({
+        method: "POST",
+        url: "/api/projects",
+        headers,
+        payload: { rootPath: root },
+      });
+      expect(project.statusCode).toBe(201);
+      const projectId = project.json().id;
+      const version = async () => {
+        const result = await started.running.app.inject({
+          url: `/api/projects/${projectId}/files`,
+          headers,
+        });
+        const entry = result
+          .json()
+          .items.find((item: { name: string }) => item.name === "image.bin");
+        expect(entry.entryVersion).toMatch(/^[a-f0-9]{64}$/);
+        return entry.entryVersion;
+      };
+      const remove = (
+        key: string,
+        expectedVersion: string,
+        confirmed: boolean,
+        path = "image.bin",
+      ) =>
+        started.running.app.inject({
+          method: "POST",
+          url: "/api/files/actions",
+          headers: { ...headers, "idempotency-key": key },
+          payload: { scope: { projectId }, action: "deleteFile", confirmed, expectedVersion, path },
+        });
+      await mkdir(path.join(root, "sub"));
+      await symlink(
+        path.join(root, "sub"),
+        path.join(root, "alias"),
+        process.platform === "win32" ? "junction" : undefined,
+      );
+      const before = await version();
+      expect((await remove("unconfirmed", before, false)).statusCode).toBe(400);
+      expect((await remove("root", before, true, ".")).statusCode).toBe(400);
+      expect((await remove("directory", before, true, "sub")).statusCode).toBe(400);
+      expect((await remove("link", before, true, "alias")).statusCode).toBe(403);
+      await writeFile(file, Buffer.from([0, 1, 2]));
+      expect((await remove("stale", before, true)).json().error.code).toBe("VERSION_CONFLICT");
+      expect(await readFile(file)).toEqual(Buffer.from([0, 1, 2]));
+      const current = await version();
+      const removed = await remove("delete", current, true);
+      expect(removed.statusCode).toBe(200);
+      await expect(readFile(file)).rejects.toMatchObject({ code: "ENOENT" });
+      await writeFile(file, "replacement");
+      expect((await remove("delete", current, true)).json()).toEqual(removed.json());
+      expect(await readFile(file, "utf8")).toBe("replacement");
+      expect(
+        started.running.sqlite.prepare("SELECT payload_json FROM resource_events").all(),
+      ).toContainEqual({
+        payload_json: JSON.stringify({ path: "image.bin", changeType: "deleted" }),
+      });
+    } finally {
+      await stopAuthorizedServer(started);
+    }
+  });
+});

@@ -20,10 +20,12 @@ export function FileRowActions({
   children,
   rename,
   move,
+  remove,
 }: {
   children: ReactElement<ComponentPropsWithoutRef<"button">>;
   rename: () => void;
   move: () => void;
+  remove?: () => void;
 }) {
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [open, setOpen] = useState(false);
@@ -62,6 +64,11 @@ export function FileRowActions({
         >
           <DropdownMenuItem onSelect={rename}>重命名</DropdownMenuItem>
           <DropdownMenuItem onSelect={move}>移动到…</DropdownMenuItem>
+          {remove ? (
+            <DropdownMenuItem onSelect={remove} className="text-danger">
+              删除…
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     </>
@@ -209,6 +216,56 @@ export function MoveFileDialog({
             onClick={() => move(directory)}
           >
             {busy ? "正在移动…" : "移到这里"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function DeleteFileDialog({
+  path,
+  busy,
+  error,
+  stale,
+  remove,
+  close,
+}: {
+  path: string;
+  busy: boolean;
+  error: string | null;
+  stale: boolean;
+  remove: () => void;
+  close: () => void;
+}) {
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !busy) close();
+      }}
+    >
+      <DialogContent className="space-y-3">
+        <DialogTitle>删除文件</DialogTitle>
+        <DialogDescription>
+          将永久删除 <span className="break-all font-mono text-ink">{path}</span>。
+        </DialogDescription>
+        {error ? (
+          <p role="alert" className="text-xs text-danger">
+            {error}
+          </p>
+        ) : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" disabled={busy} onClick={close}>
+            取消
+          </Button>
+          <Button
+            type="button"
+            className="bg-danger text-white"
+            disabled={busy || stale}
+            onClick={remove}
+          >
+            {busy ? "正在删除…" : "确认删除"}
           </Button>
         </div>
       </DialogContent>

@@ -725,3 +725,7 @@ type JobInput = {
 `POST /api/files/actions` 需认证、Origin、CSRF 和 `Idempotency-Key`。请求含 `scope` 及 `action`，`createFile|createDirectory` 携带 `path`，`move` 携带 `path`、`destination`、`expectedVersion`。路径均为同范围内相对路径，结果为 `{ path, realPath, previousPath?, previousRealPath? }`。重名返回 CONFLICT，源版本变化返回 VERSION_CONFLICT。只允许常规可读文本文件移动，现有 512 KiB 上限、路径防护和敏感内容校验适用；同卷硬链接独占目标名后删除来源，平台或文件系统不支持时明确失败。跨卷和当前磁盘视为同名的大小写变化按失败处理。目标必须符合文件树的忽略规则。
 
 共同根锁和持久操作意图涵盖磁盘写入。完成事务写入事件、结果及审计，移动发原路径删除和新路径创建。若结果不确定则保留待对账操作与写入屏障。启动仅核对实际状态并补记可验证结果；保留不确定的源与目标，禁止用回滚覆盖用户文件。无数据迁移。
+
+### FR-10 单文件删除
+
+目录列表的常规文件可携带 `entryVersion`，它绑定设备号、inode、大小、mtime 与 ctime，目录保持原形状。删除请求通过既有 `POST /api/files/actions` 提交 `{ scope, path, action: "deleteFile", confirmed: true, expectedVersion }`，其中 `expectedVersion` 来自对应条目。仅允许常规文件，版本不符返回 VERSION_CONFLICT，目录和符号链接拒绝。此操作永久移除该路径的目录项，响应沿用文件动作结果。提交事务清除版本缓存、持久化 `file.changed` 删除事件和审计后广播。重启时，来源不存在则补记删除，原条目未变则标失败，其他情况保留待对账。应用锁仅协调受管写入，外部进程仍可在最后一次检查后改变路径。

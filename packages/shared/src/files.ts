@@ -73,6 +73,7 @@ export const FileEntrySchema = z.object({
   name: z.string(),
   type: z.enum(["file", "directory"]),
   size: z.number().int().nonnegative().optional(),
+  entryVersion: FileVersionSchema.optional(),
 });
 export const FileListResultSchema = z.object({
   items: z.array(FileEntrySchema),
@@ -106,6 +107,14 @@ const fileActionTarget = { scope: FileScopeSchema, path: FilePathSchema };
 export const FileActionSchema = z.discriminatedUnion("action", [
   z.object({ ...fileActionTarget, action: z.literal("createFile") }).strict(),
   z.object({ ...fileActionTarget, action: z.literal("createDirectory") }).strict(),
+  z
+    .object({
+      ...fileActionTarget,
+      action: z.literal("deleteFile"),
+      confirmed: z.literal(true),
+      expectedVersion: FileVersionSchema,
+    })
+    .strict(),
   z
     .object({
       ...fileActionTarget,

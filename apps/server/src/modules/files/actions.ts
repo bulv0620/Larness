@@ -2,6 +2,7 @@ import { link, lstat, mkdir, open, unlink } from "node:fs/promises";
 import path from "node:path";
 import {
   FileManagerError,
+  fileEntryVersion,
   hashContent,
   isIgnoredFile,
   isInsideRoot,
@@ -40,7 +41,7 @@ import type { FileServiceOptions } from "./service.js";
 
 const kind = "file.action";
 const intentSchema = z.object({
-  action: z.enum(["createFile", "createDirectory", "move"]),
+  action: z.enum(["createFile", "createDirectory", "move", "deleteFile"]),
   target: FilePathSchema,
   identity: z.string().optional(),
 });
@@ -92,6 +93,7 @@ function complete(
   options: FileServiceOptions,
   operation: ResourceOperationRow,
   result: FileActionResult,
+  changeType: "created" | "deleted" = "created",
 ) {
   const now = options.now?.() ?? Date.now();
   const events = immediateTransaction(options.db, (tx) => {
@@ -106,7 +108,7 @@ function complete(
     const events = result.previousPath ? [event(result.previousPath, "deleted")] : [];
     if (result.previousPath) deleteCachedFile(tx, operation.scopeKey, result.previousPath);
     deleteCachedFile(tx, operation.scopeKey, result.path);
-    events.push(event(result.path, "created"));
+    events.push(event(result.path, changeType));
     updateOperation(tx, operation.id, {
       status: "COMPLETED",
       resultJson: JSON.stringify(result),
@@ -142,7 +144,7 @@ export async function applyFileAction(
   const resolved = await resolveFileScope(options.db, options.dataDir, input.scope);
   const source = normalizeFilePath(input.path);
   const target = input.action === "move" ? normalizeFilePath(input.destination) : source;
-  const expectedVersion = input.action === "move" ? input.expectedVersion : "";
+  const expectedVersion = "expectedVersion" in input ? input.expectedVersion : "";
   options.assertContent?.(source);
   options.assertContent?.(target);
   if (
@@ -225,7 +227,8 @@ export async function applyFileAction(
     const absolute = await destinationPath(resolved, target);
     if (target === source && input.action === "move")
       fail("CONFLICT", "Destination already exists");
-    if (await snapshot(absolute)) fail("CONFLICT", "Destination already exists");
+    if (input.action !== "deleteFile" && (await snapshot(absolute)))
+      fail("CONFLICT", "Destination already exists");
     const result: FileActionResult = { path: target, realPath: absolute };
     if (input.action === "move") {
       await authorizeFileTarget(resolved, source);
@@ -246,15 +249,28 @@ export async function applyFileAction(
       result.previousPath = source;
       result.previousRealPath = file.realPath;
     }
-    updateOperation(options.db, id, {
-      status: "WRITING",
-      resultJson: JSON.stringify(intent),
-      updatedAt: now(),
-    });
+    const markWriting = () =>
+      updateOperation(options.db, id, {
+        status: "WRITING",
+        resultJson: JSON.stringify(intent),
+        updatedAt: now(),
+      });
+    if (input.action !== "deleteFile") markWriting();
     await destinationPath(resolved, target);
     if (input.action === "move") await authorizeFileTarget(resolved, source);
     check();
-    if (input.action === "createDirectory") {
+    if (input.action === "deleteFile") {
+      await authorizeFileTarget(resolved, target);
+      const entry = await snapshot(absolute);
+      if (!entry) fail("NOT_FOUND", "File is unavailable");
+      if (!entry.isFile()) fail("VALIDATION_ERROR", "Only regular files can be deleted");
+      if (fileEntryVersion(entry) !== expectedVersion)
+        fail("VERSION_CONFLICT", "File changed before deletion");
+      check();
+      markWriting();
+      await unlink(absolute);
+      diskChanged = true;
+    } else if (input.action === "createDirectory") {
       await mkdir(absolute);
       diskChanged = true;
     } else if (input.action === "createFile") {
@@ -277,7 +293,7 @@ export async function applyFileAction(
       check();
       await unlink(previous);
     }
-    complete(options, operation, result);
+    complete(options, operation, result, input.action === "deleteFile" ? "deleted" : "created");
     completed = true;
     return result;
   } catch (error) {
@@ -350,7 +366,13 @@ export async function reconcileFileActions(options: FileServiceOptions) {
       if (resolved.root !== operation.rootRealPath) throw new Error("Root changed");
       const target = await destinationPath(resolved, intent.target);
       const targetInfo = await snapshot(target);
-      if (intent.action !== "move") {
+      if (intent.action === "deleteFile") {
+        if (!targetInfo)
+          complete(options, operation, { path: intent.target, realPath: target }, "deleted");
+        else if (targetInfo.isFile() && fileEntryVersion(targetInfo) === operation.expectedVersion)
+          failed();
+        else throw new Error("Delete outcome unknown");
+      } else if (intent.action !== "move") {
         if (targetInfo) throw new Error("Creation identity unknown");
         failed();
       } else {

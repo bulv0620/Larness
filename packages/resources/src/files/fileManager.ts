@@ -238,6 +238,12 @@ export async function saveEditableFile(
 const CursorSchema = z
   .object({ directory: z.string(), revision: z.string(), offset: z.number().int().nonnegative() })
   .strict();
+export function fileEntryVersion(info: import("node:fs").BigIntStats): string {
+  return hashContent(
+    Buffer.from([info.dev, info.ino, info.size, info.mtimeNs, info.ctimeNs].join(":")),
+  );
+}
+
 export async function listDirectory(
   root: string,
   input: {
@@ -253,22 +259,30 @@ export async function listDirectory(
     const target = await resolveFilePath(root, relative);
     if (!(await stat(target)).isDirectory()) reject("VALIDATION_ERROR", "Expected directory");
     const identity = await stat(target);
-    const entries: { name: string; path: string; type: "file" | "directory"; size?: number }[] = [];
+    const entries: {
+      name: string;
+      path: string;
+      type: "file" | "directory";
+      size?: number;
+      entryVersion?: string;
+    }[] = [];
     const stamps: unknown[] = [];
     for (const entry of await readdir(target, { withFileTypes: true })) {
       const file = path.posix.join(relative, entry.name);
       if (!visibleEntry(entry, file, target, input)) continue;
       const resolved = await resolveFilePath(root, file);
-      const info = await lstat(resolved);
+      const info = await lstat(resolved, { bigint: true });
       const type = info.isDirectory() ? "directory" : info.isFile() ? "file" : null;
       if (type === null) continue;
       entries.push({
         name: entry.name,
         path: file,
         type,
-        ...(type === "file" ? { size: info.size } : {}),
+        ...(type === "file"
+          ? { size: Number(info.size), entryVersion: fileEntryVersion(info) }
+          : {}),
       });
-      stamps.push([file, info.ino, info.size, info.mtimeMs]);
+      stamps.push([file, fileEntryVersion(info)]);
     }
     const after = await stat(await resolveFilePath(root, relative));
     if (
