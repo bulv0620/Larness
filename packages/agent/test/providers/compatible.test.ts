@@ -61,6 +61,56 @@ describe("compatible providers", () => {
       glm: { thinking: { type: "enabled" }, reasoning_effort: "max" },
     });
   });
+
+  it("serializes a screenshot as an OpenAI-compatible image content part", async () => {
+    const provider = createCompatibleProvider({
+      id: "openai-compatible",
+      name: "compatible",
+      baseURL: "https://api.example.com/v1",
+    });
+    const original = globalThis.fetch;
+    const bodies: unknown[] = [];
+    try {
+      globalThis.fetch = async (_url, init) => {
+        bodies.push(JSON.parse(String(init?.body)));
+        return new Response("data: [DONE]\n\n", {
+          headers: { "content-type": "text/event-stream" },
+        });
+      };
+      for await (const _chunk of provider.streamStep({
+        model: "image-model",
+        apiKey: "placeholder",
+        signal: new AbortController().signal,
+        tools: [],
+        messages: [
+          {
+            role: "user",
+            content: "inspect this screenshot",
+            images: [
+              { bytes: new Uint8Array([1, 2, 3]), mediaType: "image/png", width: 1, height: 1 },
+            ],
+          },
+        ],
+      })) {
+        // Consume the stream to let the request run.
+      }
+      expect(bodies).toMatchObject([
+        {
+          messages: [
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "inspect this screenshot" },
+                { type: "image_url", image_url: { url: "data:image/png;base64,AQID" } },
+              ],
+            },
+          ],
+        },
+      ]);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
 });
 
 it("maps MiniMax output limits and preserves reasoning on tool continuations", async () => {

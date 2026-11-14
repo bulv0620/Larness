@@ -372,6 +372,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 目标：以连接预设和独立能力目录支撑模型选择，接入 OpenCode Go、百炼、Kimi、MiniMax。验收按 [077 规格](077-model-connections/spec.md) 与 [任务卡](077-model-connections/tasks.md)。
 
+任务实现已交付。真实账号验收与全套浏览器回归见[验收记录](077-model-connections/acceptance.md)。
+
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
 | MC-0 | 规格、计划、ADR 与契约草案 | 061、063、UI-F18 | `done` |
@@ -382,7 +384,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | MC-5 | 阿里云百炼 | MC-4 | `done` |
 | MC-6 | Kimi | MC-5 | `done` |
 | MC-7 | MiniMax | MC-6 | `done` |
-| MC-8 | 截图输入与能力校验 | MC-7 | `todo` |
+| MC-8 | 截图输入与能力校验 | MC-7 | `done` |
 
 ## 9. 门禁
 

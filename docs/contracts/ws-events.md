@@ -252,3 +252,7 @@ registered/status/unregistered拟含kind/status/terminalId/terminalExecutionId/e
 - 客户端收到后重拉 `/api/jobs`、`/api/jobs/summary` 与当前任务详情；失败角标来自 `failedLast24h`。
 - 通知不携带脚本、提示词、输出、错误正文或秘密；不是权威状态，丢失时可轮询或重连后重拉。
 - 任务运行历史与详情只经认证 REST 读取；任务专用会话的事件仍走既有 `agent` 主题与序号。
+
+### 用户消息的会话截图
+
+`user.message` 的 payload 可含 `attachmentIds: string[]`。客户端使用事件的会话标识与附件 ID，从认证 REST 地址读取图片。回放和广播均只传引用。

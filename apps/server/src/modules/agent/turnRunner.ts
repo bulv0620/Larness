@@ -1361,9 +1361,13 @@ export class TurnRunner {
           // the reported "before/after" volume is like-for-like.
           const tokensBefore = heuristicTokens;
           const snapshot = facts.snapshot();
-          const candidate = [
+          const screenshots = messages.flatMap((message) =>
+            message.role === "user" ? (message.images ?? []) : [],
+          );
+          const checkpoint = checkpointMessage(snapshot, checkpointAt);
+          const candidate: ModelMessage[] = [
             messages[0] as ModelMessage,
-            checkpointMessage(snapshot, checkpointAt),
+            { ...checkpoint, ...(screenshots.length > 0 ? { images: screenshots } : {}) },
           ];
           const after = estimateRequestTokens(candidate, tools);
 

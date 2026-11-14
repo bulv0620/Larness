@@ -31,6 +31,7 @@ import {
   type ModelSelection,
   resumeTurn as requestResumeTurn,
   updateSession,
+  uploadScreenshots,
 } from "@/lib/workspaceApi";
 import { gateway } from "@/mocks/gateway";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -83,6 +84,8 @@ interface TimelineState {
     text: string,
     selection?: ModelSelection,
     draftPolicy?: ApiSession["approvalPolicyId"],
+    screenshots?: File[],
+    onAccepted?: () => void,
   ) => Promise<void>;
   stop: () => void;
   resumeTurn: (turnId: string) => Promise<void>;
@@ -448,9 +451,9 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }
   },
 
-  send: async (text, selection, draftPolicy) => {
+  send: async (text, selection, draftPolicy, screenshots = [], onAccepted) => {
     const trimmed = text.trim();
-    if (!trimmed || get().isStreaming) return;
+    if ((!trimmed && screenshots.length === 0) || get().isStreaming) return;
     const sessionId = get().sessionId;
 
     if (!sessionId) return;
@@ -518,7 +521,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
           ...selection,
           approvalPolicyId: draftPolicy,
         });
-        await createTurn(real.id, { input: trimmed, ...selection }, crypto.randomUUID());
+        const attachmentIds = screenshots.length
+          ? await uploadScreenshots(real.id, screenshots)
+          : undefined;
+        await createTurn(
+          real.id,
+          { input: trimmed, ...selection, ...(attachmentIds ? { attachmentIds } : {}) },
+          crypto.randomUUID(),
+        );
+        onAccepted?.();
         await queryClient.invalidateQueries({ queryKey: ["workspace"] });
         useNavigationStore.getState().commitDraft(draft.id, real.id, real.projectId);
       } catch (error) {
@@ -548,11 +559,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }));
 
     try {
+      const attachmentIds = screenshots.length
+        ? await uploadScreenshots(sessionId, screenshots)
+        : undefined;
       const created = await createTurn(
         sessionId,
-        { input: trimmed, ...selection },
+        { input: trimmed, ...selection, ...(attachmentIds ? { attachmentIds } : {}) },
         crypto.randomUUID(),
       );
+      onAccepted?.();
       void queryClient.invalidateQueries({ queryKey: sessionDetailKey(sessionId) });
       if (get().sessionId !== sessionId) return;
       set({ activeTurnId: created.turnId });

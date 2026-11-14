@@ -392,3 +392,7 @@ CREATE INDEX idx_sessions_origin ON sessions(origin, updated_at);
 ### 0030 · 接入预设（MC-5）
 
 `schemaVersion 29 → 30`。凭据新增可空 `preset_id`，将同地址的标准和套餐 Key 与各自的目录和账单用途绑定。旧记录继续按原服务商与地址解析。
+
+### 0031 · 会话截图（MC-8）
+
+`schemaVersion 30 → 31`。新增 `session_attachments`，保存会话外键、图片 MIME、尺寸、摘要、字节与时间，按会话级联删除。Turn 输入和用户消息事件仅保存截图 ID。

@@ -501,6 +501,12 @@ OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模
 
 连接测试使用 `POST /api/credentials/:id/test` 和 `{ model }`，需认证与 CSRF。向该连接发送有界的合成文本请求，成功返回 `{ ok: true }`，独立于目录同步结果。测试使用真实线路额度，失败只返回稳定错误。
 
+### 会话截图
+
+- `POST /api/sessions/:id/attachments` 接收 `{ mime, data }`，其中 data 为规范 Base64，返回 `201 { id }`。只接受 PNG/JPEG，每张最多 4 MiB、边长最多 8192、最多 2000 万像素，每会话最多 64 张。相同会话按内容去重。要求认证与 CSRF。
+- `GET /api/sessions/:id/attachments/:attachmentId` 要求认证，按会话与附件 ID 精确查找并返回图片字节。响应禁用缓存和 MIME 嗅探。
+- Turn 创建可带 `attachmentIds`（最多 4 个）。文本与截图至少有一项。后端检查当前连接的图片输入能力与会话归属。历史事件只保存附件 ID。普通后续 Turn 以文本标记此前截图，已发图片仍可在会话显示；同一 Turn 内的工具续步保留图片。
+
 ### 7.1 官方模型目录（M5-1，061 / ADR-053）
 
 `GET /api/models/catalog` 返回所有可目录化凭据（DeepSeek / GLM）的分组缓存；`POST /api/models/catalog/refresh` 逐组刷新，失败只更新该组的 `stale` / `lastRefreshError`，不覆盖旧模型列表。两者都要求已认证会话，刷新还校验 CSRF；未认证不调用上游。

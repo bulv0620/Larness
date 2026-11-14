@@ -9,6 +9,7 @@ import {
   sessionContextSummaries,
   type TurnRow,
 } from "../../db/schema.js";
+import { screenshotIds } from "../sessions/attachments.js";
 import { estimateRequestTokens, reservedOutputTokens } from "./tokenEstimator.js";
 
 export const COMPRESSION_RATIO = 0.7;
@@ -103,7 +104,10 @@ function compressibleHistory(
   for (const row of rows) {
     if (row.seq <= coveredUpToSeq) continue;
 
-    const text = parseText(row.payloadJson);
+    const count = row.type === "user.message" ? screenshotIds(row.payloadJson).length : 0;
+    const text =
+      parseText(row.payloadJson) +
+      (count ? `\n[${count} screenshot attachment(s); only text is summarized.]` : "");
 
     if (text.length > 0) {
       entries.push({

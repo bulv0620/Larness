@@ -93,6 +93,7 @@ export interface MessageItem {
   text: string;
   createdAt: number;
   turnId?: string;
+  screenshots?: { sessionId: string; ids: string[] };
   streaming?: boolean;
   turnOutcome?: "completed" | "failed" | "cancelled" | "interrupted";
   terminalReason?: TurnTerminalReason;

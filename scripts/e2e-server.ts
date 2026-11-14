@@ -392,7 +392,10 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
 };
 
 const catalogFetcher = async () => ({
-  data: [{ id: "deepseek-flash" }, { id: "deepseek-chat" }],
+  data: [
+    { id: "deepseek-flash", input_modalities: ["text", "image"] },
+    { id: "deepseek-chat", input_modalities: ["text"] },
+  ],
 });
 
 running = await startServer({

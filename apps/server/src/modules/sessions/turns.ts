@@ -6,6 +6,7 @@ import { immediateTransaction } from "../../db/transaction.js";
 import { appendAgentEvent } from "../agent/events.js";
 import { resolveCatalogSelection } from "../models/catalog.js";
 import { ModelError } from "../models/service.js";
+import { attachmentIdsSchema, readScreenshots, screenshotIds } from "./attachments.js";
 import { SessionError } from "./errors.js";
 import {
   createTurnRow,
@@ -42,7 +43,7 @@ export interface TurnDto {
   model: string | null;
   thinking: string | null;
   contextWindow: number | null;
-  input: { text: string };
+  input: { text: string; attachmentIds?: string[] };
   usage: unknown;
   error: unknown;
   terminalReason: TurnTerminalReason | null;
@@ -60,6 +61,7 @@ export interface TurnServiceOptions {
 export interface CreateTurnInput {
   sessionId: string;
   text: string;
+  attachmentIds?: string[];
   modelProfileId?: string;
   model?: string | null;
   thinking?: string | null;
@@ -98,6 +100,7 @@ function parseJson(json: string | null): unknown {
 
 export function turnDto(row: TurnRow): TurnDto {
   const input = parseJson(row.inputJson);
+  const attachmentIds = screenshotIds(row.inputJson);
   return {
     id: row.id,
     sessionId: row.sessionId,
@@ -112,7 +115,10 @@ export function turnDto(row: TurnRow): TurnDto {
       typeof input === "object" &&
       input !== null &&
       typeof (input as { text?: unknown }).text === "string"
-        ? { text: (input as { text: string }).text }
+        ? {
+            text: (input as { text: string }).text,
+            ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
+          }
         : { text: "" },
     usage: parseJson(row.usageJson),
     error: parseJson(row.errorJson),
@@ -131,6 +137,7 @@ export function activeTurnForSession(db: Database, sessionId: string): TurnDto |
 
 function validateCreateTurn(input: CreateTurnInput): {
   text: string;
+  attachmentIds: string[];
   modelProfileId: string | null;
   model: string | null;
   thinking: string | null;
@@ -139,7 +146,11 @@ function validateCreateTurn(input: CreateTurnInput): {
 } {
   const text = input.text.trim();
 
-  if (text.length === 0) {
+  const attachments = attachmentIdsSchema.safeParse(input.attachmentIds ?? []);
+  if (!attachments.success)
+    throw new SessionError("VALIDATION_ERROR", "invalid screenshot references");
+  const attachmentIds = [...new Set(attachments.data)];
+  if (text.length === 0 && attachmentIds.length === 0) {
     throw new SessionError("VALIDATION_ERROR", "turn input must not be empty");
   }
 
@@ -186,7 +197,15 @@ function validateCreateTurn(input: CreateTurnInput): {
     );
   }
 
-  return { text, modelProfileId, model, thinking, credentialProfileId, idempotencyKey };
+  return {
+    text,
+    attachmentIds,
+    modelProfileId,
+    model,
+    thinking,
+    credentialProfileId,
+    idempotencyKey,
+  };
 }
 
 export function createTurn(options: TurnServiceOptions, input: CreateTurnInput): CreateTurnResult {
@@ -247,6 +266,15 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       }
     }
 
+    if (validated.attachmentIds.length > 0) {
+      if (!selection?.acceptsImages || session.origin !== "user") {
+        throw new SessionError("MODEL_UNSUPPORTED", "selected model does not accept screenshots");
+      }
+      readScreenshots(tx, session.id, validated.attachmentIds);
+    }
+    const attachmentFields =
+      validated.attachmentIds.length === 0 ? {} : { attachmentIds: validated.attachmentIds };
+
     if (session.origin === "scheduled" && selection?.interactiveOnly) {
       throw new SessionError(
         "MODEL_UNSUPPORTED",
@@ -256,7 +284,7 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
 
     if (session.title === DEFAULT_SESSION_TITLE) {
       updateSessionRow(tx, session.id, {
-        title: deriveSessionTitle(validated.text),
+        title: deriveSessionTitle(validated.text || "截图"),
         updatedAt: now,
         lastActivityAt: now,
       });
@@ -292,6 +320,7 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       status: "QUEUED",
       inputJson: JSON.stringify({
         text: validated.text,
+        ...attachmentFields,
         executionContext: {
           clientSessionId: input.clientSessionId,
           policySnapshotId: newId("pol"),
@@ -306,7 +335,7 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       sessionId: row.sessionId,
       turnId: row.id,
       type: "user.message",
-      payload: { turnId: row.id, text: validated.text },
+      payload: { turnId: row.id, text: validated.text, ...attachmentFields },
       now,
     });
     appendAgentEvent(tx, {

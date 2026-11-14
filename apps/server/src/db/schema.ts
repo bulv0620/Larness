@@ -1,6 +1,14 @@
 import type { TurnTerminalReason } from "@larness/shared";
 import { sql } from "drizzle-orm";
-import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  blob,
+  check,
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 
 export type DeviceRequestStatus =
   | "pending"
@@ -107,6 +115,23 @@ export const sessions = sqliteTable(
     index("idx_sessions_updated").on(table.updatedAt),
     index("idx_sessions_origin").on(table.origin, table.updatedAt),
   ],
+);
+
+export const sessionAttachments = sqliteTable(
+  "session_attachments",
+  {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    mime: text("mime").$type<"image/png" | "image/jpeg">().notNull(),
+    digest: text("digest").notNull(),
+    bytes: blob("bytes", { mode: "buffer" }).notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [uniqueIndex("idx_session_attachments_digest").on(table.sessionId, table.digest)],
 );
 
 export const turns = sqliteTable(

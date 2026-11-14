@@ -5,6 +5,13 @@ import type { Database } from "../db/client.js";
 import { HttpError } from "../errors.js";
 import { listSessionEvents } from "../modules/agent/events.js";
 import { ResumeError, resumeInterruptedTurn } from "../modules/agent/recovery/resume.js";
+import {
+  attachmentIdsSchema,
+  imageUploadSchema,
+  MAX_IMAGE_REQUEST,
+  readScreenshots,
+  storeScreenshot,
+} from "../modules/sessions/attachments.js";
 import { SessionError } from "../modules/sessions/errors.js";
 import {
   archiveSession,
@@ -38,7 +45,8 @@ const UpdateSessionSchema = z
 
 const CreateTurnSchema = z
   .object({
-    input: z.string().min(1).max(100_000),
+    input: z.string().max(100_000),
+    attachmentIds: attachmentIdsSchema.optional(),
     modelProfileId: z.string().min(1).max(128).optional(),
     model: z.string().min(1).max(128).optional(),
     thinking: z.string().min(1).max(32).optional(),
@@ -181,6 +189,38 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
     }
   });
 
+  app.post<{ Params: { id: string } }>(
+    "/api/sessions/:id/attachments",
+    { bodyLimit: MAX_IMAGE_REQUEST },
+    async (request, reply) => {
+      const id = parse(SessionIdSchema, request.params.id);
+      const body = parse(imageUploadSchema, request.body);
+      try {
+        return reply.code(201).send(storeScreenshot(options.db, id, body));
+      } catch (error) {
+        throwSession(error);
+      }
+    },
+  );
+  app.get<{ Params: { id: string; attachmentId: string } }>(
+    "/api/sessions/:id/attachments/:attachmentId",
+    async (request, reply) => {
+      const id = parse(SessionIdSchema, request.params.id);
+      const ids = parse(attachmentIdsSchema, [request.params.attachmentId]);
+      try {
+        const row = readScreenshots(options.db, id, ids)[0];
+        if (!row) throw new SessionError("NOT_FOUND", "screenshot not found");
+        return reply
+          .type(row.mime)
+          .header("Cache-Control", "private, no-store")
+          .header("X-Content-Type-Options", "nosniff")
+          .send(row.bytes);
+      } catch (error) {
+        throwSession(error);
+      }
+    },
+  );
+
   app.post<{ Params: { id: string } }>("/api/sessions/:id/turns", async (request, reply) => {
     const id = parse(SessionIdSchema, request.params.id);
     const body = parse(CreateTurnSchema, request.body);
@@ -190,6 +230,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
       const turn = createTurn(options, {
         sessionId: id,
         text: body.input,
+        attachmentIds: body.attachmentIds,
         modelProfileId: body.modelProfileId,
         model: body.model,
         thinking: body.thinking,

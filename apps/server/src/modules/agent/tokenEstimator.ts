@@ -47,8 +47,15 @@ function messageTokens(message: ModelMessage): number {
   let tokens = MESSAGE_OVERHEAD_TOKENS;
 
   switch (message.role) {
-    case "system":
     case "user":
+      tokens += (message.images ?? []).reduce(
+        (sum, image) =>
+          sum + 512 + Math.ceil(image.width / 256) * Math.ceil(image.height / 256) * 256,
+        0,
+      );
+      tokens += estimateTextTokens(message.content);
+      break;
+    case "system":
       tokens += estimateTextTokens(message.content);
       break;
     case "assistant":

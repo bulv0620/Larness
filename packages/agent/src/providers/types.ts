@@ -38,9 +38,16 @@ export interface ToolCallRequest {
   args: unknown;
 }
 
+export interface ModelImage {
+  bytes: Uint8Array;
+  mediaType: "image/png" | "image/jpeg";
+  width: number;
+  height: number;
+}
+
 export type ModelMessage =
   | { role: "system"; content: string }
-  | { role: "user"; content: string }
+  | { role: "user"; content: string; images?: ModelImage[] }
   | { role: "assistant"; content: string; toolCalls?: ToolCallRequest[]; reasoning?: string }
   | {
       role: "tool";

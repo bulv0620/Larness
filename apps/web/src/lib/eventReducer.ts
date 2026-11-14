@@ -110,6 +110,11 @@ function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineI
   switch (event.type) {
     case "user.message": {
       const text = stringField(data, "text") ?? "";
+      const ids = Array.isArray(data.attachmentIds)
+        ? data.attachmentIds
+            .filter((id): id is string => typeof id === "string" && /^att_[a-f0-9-]{36}$/.test(id))
+            .slice(0, 4)
+        : [];
       const withoutOptimistic = items.filter((item) => !item.id.startsWith("optimistic_user_"));
       return upsert(withoutOptimistic, {
         id: `msg_${turnId}_user`,
@@ -117,6 +122,7 @@ function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineI
         role: "user",
         text,
         createdAt: event.timestamp,
+        ...(ids.length ? { screenshots: { sessionId: event.streamId, ids } } : {}),
         turnId,
       });
     }

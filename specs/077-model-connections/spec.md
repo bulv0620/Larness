@@ -6,7 +6,7 @@ status: active
 depends_on: [061-deepseek-integration, 063-multi-provider, 068-ui-fixes]
 owners: [human]
 created: 2026-11-14
-updated: 2026-11-14
+updated: 2026-11-15
 ---
 
 # 模型连接、能力目录与平台接入
@@ -91,3 +91,5 @@ OpenCode 需求按此前明确的 Go 订阅纳入。OpenCode Console 按量付�
 先写会失败的单元、集成测试。主路径覆盖数据库迁移、服务端校验、组装报文、预算、工具续步和真实认证 UI。每个宣称支持的线路用合法持有的真实 Key 验证，记录地区、预设、模型、协议、交互范围与结果。没有真实 Key 的线路保留待验证，测试夹具模拟的通过单独记录。
 
 [ADR-062 草案](../../docs/adr/ADR-062-model-connections-and-capabilities.md) 已确认开始实施，目录来源与信任范围见 [Q-038](../../docs/open-questions.md#已解决)。方案首批覆盖上述标准及订阅预设，OpenCode 按 Go 处理；图片接入在管理和平台任务后交付。账号不可用或平台规则待查的具体路径见 [实施计划](plan.md)。
+
+自动化、公开目录和真实账号待验收范围见[验收记录](acceptance.md)。

@@ -68,3 +68,8 @@ M4 当前按 [ADR-050](../../docs/adr/ADR-050-pm2-cli-deployment.md) 使用通�
 Git 解析不到有效上游时返回 GIT_CONFLICT，拒绝非快进。无工作区授权、无终端租约、服务归属无法验证仍按原规则拒绝。定向运行 Agent 上下文、策略、终端、Git、真实服务/预览和服务窗口测试，然后执行 pnpm check、pnpm build 和涉及登记表单的 E2E。记录复现、红测、通过项和未验证项。
 
 M4-R3 进一步统一既有服务生命周期契约：系统固定注入 development_preview/persistent_pm2 的 owner、ID、路径和退出行为；临时资源按真实项目查询，工具描述/schema/登记结果标明 temporary。无专用部署工具/新权限/新迁移，实际上下文与真实服务登记正反例纳入定向验收，见 [050 spec](../050-deploy/spec.md#m4-r3-系统服务生命周期契约)。
+
+
+### 截图输入
+
+用户随 Turn 发送的截图作为不可信输入进入已组装的模型上下文。同一 Turn 工具续步保留截图，图片内的指令不改变已有工具权限。旧会话消息的图片由 UI 显示，普通后续 Turn 接收附件标记。验收在 [077 MC-8](../077-model-connections/tasks.md#mc-8-截图) 验证实际上下文、工具续步及纯文本模型的拒绝。

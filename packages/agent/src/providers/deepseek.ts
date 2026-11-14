@@ -260,7 +260,20 @@ export function toAiSdkMessages(messages: ModelMessage[]): AiModelMessage[] {
       case "system":
         return { role: "system", content: message.content };
       case "user":
-        return { role: "user", content: message.content };
+        return {
+          role: "user",
+          content:
+            message.images === undefined
+              ? message.content
+              : [
+                  ...(message.content ? [{ type: "text" as const, text: message.content }] : []),
+                  ...message.images.map((image) => ({
+                    type: "file" as const,
+                    data: image.bytes,
+                    mediaType: image.mediaType,
+                  })),
+                ],
+        };
       case "assistant": {
         if (
           (message.toolCalls === undefined || message.toolCalls.length === 0) &&

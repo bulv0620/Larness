@@ -79,6 +79,54 @@ test("synchronizes models after a Key is added", async ({ page }) => {
   await expect(dialog.getByRole("button", { name: /目录同步测试/ })).toHaveCount(0);
 });
 
+test("keeps a screenshot draft across model switches and replays the sent image", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/pair");
+  const pairPanel = page.locator("[data-request-id]");
+  await expect(pairPanel).toHaveAttribute("data-stage", "waiting");
+  const approved = ipc(
+    "approve",
+    (await pairPanel.getAttribute("data-request-id")) ?? "",
+    "allow_once",
+  );
+  await page.getByLabel("配对码").fill(approved.code ?? "");
+  await page.getByRole("button", { name: "兑换配对码" }).click();
+  await expect(page.getByTestId("workspace-home")).toBeVisible();
+  await page.getByRole("button", { name: "在 默认工作区 中新建会话" }).click({ timeout: 10_000 });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const input = page.getByLabel("对话输入");
+  await input.evaluate((element) => {
+    const png =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a44QAAAAASUVORK5CYII=";
+    const bytes = Uint8Array.from(atob(png), (character) => character.charCodeAt(0));
+    const data = new DataTransfer();
+    data.items.add(new File([bytes], "fixture.png", { type: "image/png" }));
+    element.dispatchEvent(
+      new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }),
+    );
+  });
+  await expect(page.getByRole("img", { name: "fixture.png" })).toBeVisible();
+  const select = async (name: string) => {
+    await page.getByRole("button", { name: /^模型与思考：/ }).click();
+    await page.getByRole("button", { name: /^模型：/ }).click();
+    await page.getByRole("button", { name: new RegExp(`^${name} ·|^${name} DeepSeek`) }).click();
+  };
+  await select("DeepSeek Chat");
+  await expect(page.getByRole("button", { name: "发送消息" })).toBeDisabled();
+  await expect(page.getByRole("img", { name: "fixture.png" })).toBeVisible();
+  await select("DeepSeek Flash");
+  await page.getByRole("button", { name: "发送消息" }).click();
+  await expect(page.getByRole("img", { name: "用户截图" })).toBeVisible();
+  await page.reload();
+  const screenshot = page.getByRole("img", { name: "用户截图" });
+  await expect(screenshot).toBeVisible();
+  await expect
+    .poll(() => screenshot.evaluate((element) => (element as HTMLImageElement).naturalWidth))
+    .toBe(1);
+});
+
 test("M1 runs a real turn, approves a patch, restores after refresh, switches model and cancels", async ({
   page,
   request,

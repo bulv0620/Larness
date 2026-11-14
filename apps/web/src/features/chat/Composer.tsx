@@ -36,6 +36,7 @@ import {
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
+import { DraftScreenshot } from "./DraftScreenshot";
 import { ModelControl } from "./ModelControl";
 
 const standardPolicy = {
@@ -100,6 +101,8 @@ export function Composer({
   centered?: boolean;
   onSubmit?: () => void;
 }) {
+  const [attachments, setAttachments] = useState<{ sessionId: string; files: File[] }>();
+  const [attachmentError, setAttachmentError] = useState("");
   const [autonomousSession, setAutonomousSession] = useState<string | null>(null);
   const [draftPolicy, setDraftPolicy] = useState<{
     sessionId: string;
@@ -203,6 +206,27 @@ export function Composer({
     (model.agentSelectable ?? model.contextWindow !== null) &&
     !savingSettings &&
     !isStreaming;
+  const screenshots = attachments?.sessionId === sessionId ? attachments.files : [];
+  const imageAllowed = model?.capabilities?.inputModalities?.includes("image") === true;
+  const screenshotBlocked = screenshots.length > 0 && !imageAllowed;
+
+  const addScreenshots = (files: File[]) => {
+    if (USE_MOCKS || !hasSession || !sessionId || isStreaming || files.length === 0) return;
+    if (
+      files.some(
+        (file) => !["image/png", "image/jpeg"].includes(file.type) || file.size > 4 * 1024 * 1024,
+      )
+    ) {
+      setAttachmentError("截图需为 PNG 或 JPEG，每张最多 4 MiB。");
+      return;
+    }
+    if (files.length + screenshots.length > 4) {
+      setAttachmentError("每轮最多添加 4 张截图。");
+      return;
+    }
+    setAttachmentError("");
+    setAttachments({ sessionId, files: [...screenshots, ...files] });
+  };
   const currentPolicy = policies.find((item) => item.id === policy) ?? standardPolicy;
   const PolicyIcon = currentPolicy.icon;
   const modelUsage = useTimelineStore((state) => state.modelUsage);
@@ -291,18 +315,27 @@ export function Composer({
   };
 
   const submit = () => {
-    if (!canSend || !model || !credentialProfileId || pendingApproval) return;
+    if (!canSend || !model || !credentialProfileId || pendingApproval || screenshotBlocked) return;
     const value = draft.trim();
-    if (!value) return;
+    if (!value && !screenshots.length) return;
     onSubmit?.();
+    const selection = { model: model.id, credentialProfileId, thinking };
+    const initialPolicy = isDraftSession ? policy : undefined;
     if (USE_MOCKS) void send(value);
-    else
-      void send(
-        value,
-        { model: model.id, credentialProfileId, thinking },
-        isDraftSession ? policy : undefined,
-      );
-    setDraft("");
+    else if (screenshots.length === 0) void send(value, selection, initialPolicy);
+    else {
+      void send(value, selection, initialPolicy, screenshots, () => {
+        setAttachments((current) =>
+          current?.sessionId === sessionId && current.files === screenshots ? undefined : current,
+        );
+        if (
+          useNavigationStore.getState().sessionId === sessionId &&
+          useComposerStore.getState().draft === draft
+        )
+          setDraft("");
+      });
+    }
+    if (screenshots.length === 0) setDraft("");
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
@@ -320,6 +353,30 @@ export function Composer({
         message={saveError?.sessionId === sessionId ? saveError.message : null}
         onDismiss={() => setSaveError(null)}
       />
+      {screenshots.length > 0 ? (
+        <div className="flex flex-wrap gap-2 px-3 pt-3">
+          {screenshots.map((file, index) => (
+            <DraftScreenshot
+              key={`${file.name}:${file.lastModified}:${index}`}
+              file={file}
+              disabled={isStreaming}
+              onRemove={() => {
+                setAttachmentError("");
+                setAttachments(
+                  sessionId
+                    ? { sessionId, files: screenshots.filter((_, position) => index !== position) }
+                    : undefined,
+                );
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
+      {attachmentError || screenshotBlocked ? (
+        <p role="status" className="px-3 pt-2 text-xs text-warning">
+          {attachmentError || "当前模型连接未声明图片输入。请切换模型或移除截图。"}
+        </p>
+      ) : null}
       <Textarea
         variant="bare"
         ref={textareaRef}
@@ -332,6 +389,24 @@ export function Composer({
               : "继续对话，或提出新的任务…"
             : "新建或选择一个会话…"
         }
+        onPaste={(event) => {
+          const files = [...event.clipboardData.files].filter((file) =>
+            file.type.startsWith("image/"),
+          );
+          if (!USE_MOCKS && files.length > 0) {
+            event.preventDefault();
+            addScreenshots(files);
+          }
+        }}
+        onDragOver={(event) => {
+          if (!USE_MOCKS && event.dataTransfer.types.includes("Files")) event.preventDefault();
+        }}
+        onDrop={(event) => {
+          if (!USE_MOCKS && event.dataTransfer.files.length) {
+            event.preventDefault();
+            addScreenshots([...event.dataTransfer.files]);
+          }
+        }}
         aria-label="对话输入"
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -433,11 +508,19 @@ export function Composer({
           <button
             type="button"
             onClick={submit}
-            disabled={!draft.trim() || !canSend || pendingApproval}
+            disabled={
+              (!draft.trim() && screenshots.length === 0) ||
+              !canSend ||
+              pendingApproval ||
+              screenshotBlocked
+            }
             aria-label="发送消息"
             className={cn(
               "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
-              draft.trim() && canSend && !pendingApproval
+              (draft.trim() || screenshots.length > 0) &&
+                canSend &&
+                !pendingApproval &&
+                !screenshotBlocked
                 ? "bg-accent text-white shadow-[var(--shadow-card)] hover:brightness-110 active:brightness-95"
                 : "bg-black/[.06] text-ink-3 dark:bg-white/[.08]",
             )}

@@ -95,6 +95,8 @@ export function ModelSettingsDialog({
     modelId: string;
     window: string;
     tools: string;
+    thinking?: ModelCapabilityOverride["thinking"];
+    pictures?: string;
     original?: ModelCapabilityOverride;
     existing?: boolean;
   }>();
@@ -328,10 +330,7 @@ export function ModelSettingsDialog({
       original.maxInputTokens = model.capabilities?.maxInputTokens;
     if (model.sources?.maxOutputTokens === "user")
       original.maxOutputTokens = model.capabilities?.maxOutputTokens;
-    if (model.sources?.thinking === "user")
-      original.thinking = model.thinking.supported ? (model.thinking.mode ?? "levels") : "off";
-    if (model.sources?.inputModalities === "user")
-      original.inputModalities = model.capabilities?.inputModalities;
+
     if (model.sources?.outputModalities === "user")
       original.outputModalities = model.capabilities?.outputModalities;
     if (model.sources?.streaming === "user") original.streaming = model.capabilities?.streaming;
@@ -340,6 +339,18 @@ export function ModelSettingsDialog({
       modelId: model.id,
       existing: true,
       original,
+      thinking:
+        model.sources?.thinking === "user"
+          ? model.thinking.supported
+            ? (model.thinking.mode ?? "levels")
+            : "off"
+          : undefined,
+      pictures:
+        model.sources?.inputModalities === "user"
+          ? model.capabilities?.inputModalities?.includes("image")
+            ? "yes"
+            : "no"
+          : "",
       window: model.sources?.contextWindow === "user" ? String(model.contextWindow) : "",
       tools: model.sources?.tools === "user" ? (model.capabilities?.tools ? "yes" : "no") : "",
     });
@@ -357,6 +368,10 @@ export function ModelSettingsDialog({
           ? null
           : {
               ...editing.original,
+              ...(editing.thinking ? { thinking: editing.thinking } : {}),
+              ...(editing.pictures
+                ? { inputModalities: editing.pictures === "yes" ? ["text", "image"] : ["text"] }
+                : {}),
               ...(editing.window ? { contextWindow: Number(editing.window) } : {}),
               ...(editing.tools ? { tools: editing.tools === "yes" } : {}),
             },
@@ -985,6 +1000,32 @@ export function ModelSettingsDialog({
                   { value: "no", label: "不支持" },
                 ]}
               />
+              <FormSelect
+                label="截图输入"
+                value={editing.pictures ?? ""}
+                onValueChange={(pictures) => setEditing({ ...editing, pictures })}
+                options={[
+                  { value: "", label: "按目录" },
+                  { value: "yes", label: "支持截图" },
+                  { value: "no", label: "仅文本输入" },
+                ]}
+              />
+              <FormSelect
+                label="思考模式"
+                value={editing.thinking ?? ""}
+                onValueChange={(thinking) =>
+                  setEditing({ ...editing, thinking: thinking || undefined })
+                }
+                options={
+                  [
+                    { value: "", label: "按目录" },
+                    { value: "off", label: "无档位" },
+                    { value: "toggle", label: "开 / 关" },
+                    { value: "levels", label: "可关闭的档位" },
+                    { value: "mandatory-levels", label: "必选档位" },
+                  ] as const
+                }
+              />
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="primary"
@@ -994,6 +1035,8 @@ export function ModelSettingsDialog({
                     !editing.modelId.trim() ||
                     (!editing.window &&
                       !editing.tools &&
+                      !editing.thinking &&
+                      !editing.pictures &&
                       Object.keys(editing.original ?? {}).length === 0)
                   }
                   onClick={() => void saveOverride()}

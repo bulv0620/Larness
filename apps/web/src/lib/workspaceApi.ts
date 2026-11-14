@@ -51,7 +51,7 @@ export interface ApiTurn {
   model: string | null;
   thinking?: string | null;
   contextWindow?: number | null;
-  input: { text: string };
+  input: { text: string; attachmentIds?: string[] };
   usage: unknown;
   error: unknown;
   createdAt: number;
@@ -427,10 +427,40 @@ export async function archiveSession(id: string): Promise<void> {
   });
 }
 
+export function screenshotUrl(sessionId: string, id: string): string {
+  return `/api/sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(id)}`;
+}
+
+export async function uploadScreenshots(sessionId: string, files: File[]): Promise<string[]> {
+  return Promise.all(
+    files.map(async (file) => {
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("读取截图失败"));
+        reader.onload = () =>
+          typeof reader.result === "string"
+            ? resolve(reader.result.slice(reader.result.indexOf(",") + 1))
+            : reject(new Error("读取截图失败"));
+        reader.readAsDataURL(file);
+      });
+      const result = await apiFetch<{ id: string }>(
+        `/api/sessions/${encodeURIComponent(sessionId)}/attachments`,
+        {
+          method: "POST",
+          csrf: true,
+          body: { mime: file.type, data },
+        },
+      );
+      return result.id;
+    }),
+  );
+}
+
 export async function createTurn(
   sessionId: string,
   input: {
     input: string;
+    attachmentIds?: string[];
     model?: string;
     thinking?: string;
     credentialProfileId?: string;

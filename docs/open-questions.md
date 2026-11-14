@@ -13,6 +13,7 @@
 | 远程预览 | 验证独立域、通配 DNS、HTTPS 反代与浏览器行为；预览连接身份存在竞态边界。多客户端布局、外部打开和模型自主选择预览仍缺专门端到端覆盖。 | [M3 收尾](../specs/040-services-preview/closure.md) |
 | 正式服务 | 核实主机重启后恢复与 PM2 运行时升级行为；正式服务秘密注入及落盘边界见 Q-029。 | [M4 收尾](../specs/050-deploy/closure.md) |
 | 模型 | 实测真实第三方兼容端点与接近窗口阈值的长会话压缩质量及 UI。真实 GLM Coding 文本、推理和工具调用已有证据。 | [多模型验收](../specs/063-multi-provider/closure-d4.md) |
+| 模型连接与截图 | 使用合法持有的 Key 逐预设验收真实模型发现、流式工具调用、续步和用量。使用支持图片与工具的真实线路验证截图输入。 | [077 验收记录](../specs/077-model-connections/acceptance.md) |
 | 调度 | 补真实 Provider 定时任务、取消到终态的时延、实际重启和休眠唤醒、失败角标、任务数满额和视觉记录。 | [调度验收](../specs/064-scheduler/acceptance.md) |
 | npm | 真实 registry 出现新版本时验证 TUI 提示；全局安装的交互 TUI 缺独立验收。npm 11 脚本策略可能影响原生模块安装。 | [分发验收](../specs/065-launcher-updater/acceptance.md)、[安装指南](guides/install.md) |
 | 全量回归 | auth E2E 有批量时序抖动，终端用例可单独通过；对话用例仍有旧计划选择器失败记录。预览验收也记录过 PTY 测试时序抖动。 | [调度验收](../specs/064-scheduler/acceptance.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
@@ -42,7 +43,7 @@
 
 ## 已解决
 
-- Q-038：MC-2 使用包内能力与显式刷新 Models.dev，公共目录只补已经发现的模型的允许字段；调用地址、授权头和协议由 Larness 管理。真实公共目录在当前环境未取得成功响应，离线合并和失败路径以测试覆盖。
+- Q-038：MC-2 使用包内能力与显式刷新 Models.dev，公共目录只补已经发现的模型的允许字段；调用地址、授权头和协议由 Larness 管理。后续复查公共目录返回 HTTP 200，离线合并和失败路径以测试覆盖。见 [077 验收记录](../specs/077-model-connections/acceptance.md)。
 
 - 成果区分类已落地：Turn 终态服务端输出 `fileResults`（交付 / 过程、存在性、同路径去重、上限 200 + `fileResultsOmitted`），Web 成果区只显示交付文件，临时 / 生成 / 忽略 / 已删除文件折叠为「过程文件」行；`write_file` 与 `apply_patch` 统一文件结果卡，历史 Turn 回退原渲染（Q-037 关闭，2026-11-12）。
 - 受管文件创建已落地：新增 `write_file`（项目内相对路径、1 MiB 上限、仅创建、已存在返回 `VERSION_CONFLICT`），成功后发 `file.changed`（`changeType=created`），检查点事实与「本次成果」卡片可见（Q-036 关闭，2026-11-12）。

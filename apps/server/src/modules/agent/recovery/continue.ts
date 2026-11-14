@@ -1,6 +1,7 @@
 import type { Database } from "../../../db/client.js";
 import { appendAudit } from "../../../db/repositories/audit.js";
 import { immediateTransaction } from "../../../db/transaction.js";
+import { screenshotIds } from "../../sessions/attachments.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../../sessions/repository.js";
 import { createTurn } from "../../sessions/turns.js";
 import { appendAgentEvent } from "../events.js";
@@ -90,6 +91,7 @@ export function continueBudgetedTurn(
       {
         sessionId: turn.sessionId,
         text: checkpointMessage(facts, now).content,
+        attachmentIds: screenshotIds(turn.inputJson),
         model: turn.model,
         thinking: turn.thinking,
         credentialProfileId: turn.credentialProfileId,

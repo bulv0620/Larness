@@ -1,9 +1,11 @@
 # STATUS
 
-> 最后更新：2026-11-14 (+08:00)
+> 最后更新：2026-11-15 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。下方的阶段交付与变更记录保留当时状态。
 
 ## 当前任务
+
+- **MC-8 截图输入**（`done`，`task/mc-8-screenshot-attachments`，2026-11-15）：交付会话截图附件、按连接校验图片输入、当轮工具续步与历史回放。`pnpm check`、`pnpm build`、认证与生产 M1 截图用例通过。077 实现已交付，全套浏览器回归和真实账号验证边界见[验收记录](specs/077-model-connections/acceptance.md)。
 
 - **MC-7 MiniMax 接入**（`done`，2026-11-15）。
 

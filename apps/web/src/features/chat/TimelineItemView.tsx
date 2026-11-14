@@ -5,6 +5,7 @@ import { type ReactNode, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
 import { PreviewResultCard } from "@/features/services/PreviewResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
+import { screenshotUrl } from "@/lib/workspaceApi";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore } from "@/stores/windowStore";
 import { CommandCard } from "./CommandCard";
@@ -95,10 +96,24 @@ export function MessageBubble({
       </div>
     );
   }
+  const screenshots = item.screenshots;
   if (item.role === "user")
     return (
       <div className="mb-5 flex justify-end">
         <div className="max-w-[91%] rounded-[18px] bg-accent-soft px-3.5 py-2.5 text-[13px] leading-[1.65] text-ink sm:max-w-[82%]">
+          {screenshots ? (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {screenshots.ids.map((id) => (
+                <img
+                  key={id}
+                  src={screenshotUrl(screenshots.sessionId, id)}
+                  alt="用户截图"
+                  className="max-h-48 max-w-full rounded-lg object-contain"
+                  loading="lazy"
+                />
+              ))}
+            </div>
+          ) : null}
           <div
             className={cn(
               "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",

@@ -95,6 +95,7 @@ export interface CatalogSelection {
   provider: ModelProviderId;
   maxInputTokens?: number;
   maxOutputTokens?: number;
+  acceptsImages?: boolean;
   interactiveOnly: boolean;
   connectionRevision: number;
   connectionEndpoint: string | null;
@@ -1067,6 +1068,7 @@ export function resolveCatalogSelection(
     ...(model.capabilities?.maxOutputTokens === undefined
       ? {}
       : { maxOutputTokens: model.capabilities.maxOutputTokens }),
+    ...(model.capabilities?.inputModalities?.includes("image") ? { acceptsImages: true } : {}),
     interactiveOnly:
       presetForCredential(credential.provider, credential.endpoint, credential.presetId)
         ?.interactiveOnly ?? false,
