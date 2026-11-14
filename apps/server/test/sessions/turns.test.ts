@@ -1,14 +1,17 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { createDefaultProviderResolver } from "../../src/bootstrap/start.js";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { listRecentAudit } from "../../src/db/repositories/audit.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
+import { repairInterruptedTurns } from "../../src/modules/agent/repair.js";
 import { refreshModelCatalog, setCatalogDefault } from "../../src/modules/models/catalog.js";
-import { createCredential } from "../../src/modules/models/service.js";
+import { createCredential, updateCredentialSettings } from "../../src/modules/models/service.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { SessionError } from "../../src/modules/sessions/errors.js";
+import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
 import {
   archiveSession,
   createSession,
@@ -26,6 +29,67 @@ async function openWorkspace(dir: string): Promise<OpenedDatabase> {
 }
 
 describe("turn service", () => {
+  it("keeps a queued turn on its original key and budget across rotation", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      try {
+        const secretStore = await SecretStore.open(dir);
+        const options = { db: opened.db, dataDir: dir, secretStore };
+        const credential = createCredential(options, {
+          provider: "deepseek",
+          label: "DeepSeek",
+          apiKey: "fixture-original",
+        });
+        const sync = (contextWindow: number) =>
+          refreshModelCatalog({
+            ...options,
+            fetcher: async () => ({
+              data: [{ id: "deepseek-flash", context_window: contextWindow }],
+            }),
+          });
+        await sync(100_000);
+        const session = await createSession(options, {});
+        const input = {
+          sessionId: session.id,
+          text: "test",
+          model: "deepseek-flash",
+          credentialProfileId: credential.id,
+        };
+        const first = createTurn(options, input);
+        const resolver = createDefaultProviderResolver(opened.db, secretStore);
+        updateCredentialSettings(options, {
+          id: credential.id,
+          revision: credential.revision,
+          apiKey: "fixture-rotated",
+        });
+        await sync(200_000);
+
+        const storedSession = getSessionById(opened.db, session.id);
+        const firstTurn = getTurnById(opened.db, first.turnId);
+        if (!storedSession || !firstTurn) throw new Error("missing test rows");
+        expect(await resolver(storedSession, firstTurn)).toMatchObject({
+          apiKey: "fixture-original",
+          contextWindow: 100_000,
+        });
+        expect(JSON.stringify(getSessionDetail(options, session.id))).not.toContain(
+          credential.secretRef,
+        );
+        repairInterruptedTurns(options);
+        const secretCount = () => opened.sqlite.prepare("SELECT count(*) AS n FROM secrets").get();
+        expect(secretCount()).toEqual({ n: 1 });
+        const second = createTurn(options, input);
+        const secondTurn = getTurnById(opened.db, second.turnId);
+        if (!secondTurn) throw new Error("missing test turn");
+        expect(await resolver(storedSession, secondTurn)).toMatchObject({
+          apiKey: "fixture-rotated",
+          contextWindow: 200_000,
+        });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("creates a queued turn and persists the user message before turn.created", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

@@ -130,12 +130,30 @@ export function createDefaultProviderResolver(
   return async (session, turn) => {
     if (turn.model !== null && turn.model.length > 0) {
       try {
+        let snapshot: Parameters<typeof resolveCatalogProvider>[1]["snapshot"];
+        if (turn.connectionRevision != null) {
+          const { provider, connectionSecretRef, connectionEndpoint, contextWindow } = turn;
+          if (
+            (provider !== "deepseek" && provider !== "glm" && provider !== "openai-compatible") ||
+            connectionSecretRef === null ||
+            contextWindow === null
+          ) {
+            throw new ModelError("MODEL_UNSUPPORTED", "connection snapshot is incomplete");
+          }
+          snapshot = {
+            provider,
+            endpoint: connectionEndpoint,
+            secretRef: connectionSecretRef,
+            contextWindow,
+          };
+        }
         const resolved = resolveCatalogProvider(
           { db, secretStore },
           {
             model: turn.model,
             thinking: turn.thinking,
             credentialProfileId: turn.credentialProfileId,
+            snapshot,
           },
         );
 

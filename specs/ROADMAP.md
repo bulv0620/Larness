@@ -368,14 +368,14 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | RB-3 | [命令输出头尾保留](073-context-budget/tasks.md) | — | `done` |
 | RB-4 | [审查与状态回填](073-context-budget/tasks.md) | RB-1～RB-3 | `done` |
 
-### 8.5 发布后：模型连接与平台接入（077，draft）
+### 8.5 发布后：模型连接与平台接入（077，active）
 
 目标：以连接预设和独立能力目录支撑模型选择，接入 OpenCode Go、百炼、Kimi、MiniMax。验收按 [077 规格](077-model-connections/spec.md) 与 [任务卡](077-model-connections/tasks.md)。
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
 | MC-0 | 规格、计划、ADR 与契约草案 | 061、063、UI-F18 | `done` |
-| MC-1 | 官方预设、凭据版本和存量迁移 | MC-0、077 ready、ADR-062 accepted | `todo` |
+| MC-1 | 官方预设、凭据版本和存量迁移 | MC-0、077 实施获准、ADR-062 accepted | `done` |
 | MC-2 | 能力来源、目录同步与预算接线 | MC-1 | `todo` |
 | MC-3 | 设置与会话选择器 | MC-2 | `todo` |
 | MC-4 | OpenCode Go | MC-3 | `todo` |

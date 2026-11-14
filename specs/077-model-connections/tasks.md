@@ -3,7 +3,7 @@
 | ID | 工作 | 依赖 | 状态 |
 |---|---|---|---|
 | MC-0 | 规格、计划、ADR 和契约草案 | 061、063、UI-F18 | done |
-| MC-1 | 官方预设、凭据版本和存量迁移 | MC-0、077 ready、ADR-062 accepted | todo |
+| MC-1 | 官方预设、凭据版本和存量迁移 | MC-0、077 实施获准、ADR-062 accepted | done |
 | MC-2 | 能力来源、目录同步与预算接线 | MC-1 | todo |
 | MC-3 | 设置与会话选择器 | MC-2 | todo |
 | MC-4 | OpenCode Go | MC-3 | todo |
@@ -14,11 +14,15 @@
 
 ## MC-0 规格与评审包
 
-交付 [规格](spec.md)、[实施计划](plan.md)、[拟议契约](../../docs/contracts/model-connections-draft.md) 与 [ADR-062](../../docs/adr/ADR-062-model-connections-and-capabilities.md)。核对引用、上游接入条件、迁移和门禁。当前提交只包含方案。
+交付 [规格](spec.md)、[实施计划](plan.md)、[拟议契约](../../docs/contracts/model-connections-draft.md) 与 [ADR-062](../../docs/adr/ADR-062-model-connections-and-capabilities.md)。核对引用、上游接入条件、迁移和门禁。本任务提交只包含方案。
 
 ## MC-1 预设与迁移
 
-涉及 `apps/server/src/modules/models`、Drizzle 和 API 合同。覆盖现有 GLM 四端点、DeepSeek、兼容 URL 迁入，保留凭据、默认值、历史和已有绑定。并发换 Key 测试新旧 Turn 的版本边界。执行 A1、A7、A9。
+涉及 `apps/server/src/modules/models`、Drizzle 和 API 合同。覆盖现有 GLM 四端点、DeepSeek、兼容 URL 迁入，保留凭据、默认值、历史和已有绑定。并发换 Key 测试新旧 Turn 的版本边界。执行 A1、A7、A9 的连接层场景。
+
+- 2026-11-14 交付迁移 0028、经认证的预设 API、改名与带版本校验的换 Key。预设从既有 provider／端点推导。旧端点修改 API 保留兼容。已创建的目录 Turn 固定 Key、端点和预算。
+- 自动化验证旧版数据库引用保留、升级前备份、待执行 Turn 的旧 Key 与预算、终态清理旧密文、旧目录请求失效，以及 API 验证和鉴权。`pnpm check` 与 `pnpm build` 通过。整仓检查曾在文件监听 PoC 超时，单跑及整仓复跑通过。
+- 多平台接入、设置 UI、能力目录和真实 Key 回归由后续任务验收。
 
 ## MC-2 目录与预算
 

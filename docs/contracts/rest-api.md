@@ -353,13 +353,14 @@
 | GET | `/api/models` | **deprecated（061）**：旧模型 Profile 列表，UI 不再使用；数据保留 |
 | POST | `/api/models` | 新建 Profile（`secretRef` 或提交密钥到 SecretStore）；保留兼容 |
 | POST | `/api/models/:id/test` | 可选：连通性 / 工具调用冒烟 |
+| GET | `/api/models/presets` | 认证后读取接入预设和固定地址，返回 `{ presets }` |
 | GET | `/api/models/catalog` | M5-1：当前凭据范围的官方模型目录缓存（不含密钥） |
 | POST | `/api/models/catalog/refresh` | M5-1：服务端刷新官方目录；失败保留旧缓存 |
 | PATCH | `/api/models/catalog/visibility` | M5-1：`{ credentialProfileId, modelId, visible }`，控制模型是否出现在会话选择器 |
 | PUT | `/api/models/default` | M5-1：`{ model, credentialProfileId, thinking? }`，设置全局默认模型；新会话自动继承 |
 | GET | `/api/credentials` | 凭据元数据（掩码，不含明文） |
-| POST | `/api/credentials` | 新建凭据，密钥只写不读；GLM 可带 `endpoint`（官方标准 / Coding）；兼容 Provider 必须带 `endpoint` 与可选 `contextWindow` |
-| PATCH | `/api/credentials/:id` | `{ endpoint?, contextWindow? }`；GLM 只允许官方端点，兼容 Provider 端点经 SSRF 校验；修改后刷新目录 |
+| POST | `/api/credentials` | 按 `presetId` 或旧 `provider` 新建凭据，密钥只写；兼容 Provider 配置 `endpoint` 与可选 `contextWindow` |
+| PATCH | `/api/credentials/:id` | 支持改名与换 Key，兼容旧端点和窗口字段；线路或 Key 变化后需刷新目录 |
 | DELETE | `/api/credentials/:id` | 删除未被模型引用的凭据 |
 | GET | `/api/projects/:id/files` | M2-1：目录懒加载，`path / limit / cursor`；分页快照失效返回 CONFLICT |
 | GET | `/api/sessions/:id/files` | M2-1：仅真实独立会话 workspace；参数同项目目录 |
@@ -486,7 +487,9 @@ Turn 创建成功返回 `202`：
 { "credentials": [{ "id": "cred_…", "provider": "deepseek", "label": "DeepSeek", "secretRef": "sec_…", "masked": "••••••", "createdAt": 1790000000000 }] }
 ```
 
-`POST /api/credentials` 接受 `{ provider, label, apiKey }`；`DELETE /api/credentials/:id` 在被模型 Profile 引用时返回 `409 CONFLICT`。密钥使用本机 AES-256-GCM 加密存储，主密钥权限 0600。
+凭据读取和写入响应增加 `presetId`、`revision`、`billing`。预设的 `billing` 表示用途（`usage` / `subscription` / `unknown`），实际扣费由平台决定。POST 接受 `{ presetId?, provider?, label, apiKey, endpoint?, contextWindow? }`，须指定预设或旧版的 provider。预设提供 GLM 的固定端点，请求中若同时提供端点或 provider，值必须与预设一致。兼容连接需提供经 HTTPS 公网校验的端点。
+
+PATCH 接受 `{ revision?, label?, apiKey?, endpoint?, contextWindow? }`。换 Key 需要提交当前 revision，且不能同时改地址；版本冲突返回 `409 CONFLICT`。保留既有 `endpoint`、`contextWindow` 调用，已创建的 Turn 继续使用快照。删除仍保护旧模型档案引用。Key 明文只写，使用本地 Secret Store 加密。
 
 ### 7.1 官方模型目录（M5-1，061 / ADR-053）
 

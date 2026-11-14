@@ -269,7 +269,14 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       sessionId: input.sessionId,
       modelProfileId: selection === null ? validated.modelProfileId : null,
       credentialProfileId: selection === null ? null : selection.credentialProfileId,
-      provider: selection === null ? null : "deepseek",
+      provider: selection?.provider ?? null,
+      ...(selection === null
+        ? {}
+        : {
+            connectionRevision: selection.connectionRevision,
+            connectionEndpoint: selection.connectionEndpoint,
+            connectionSecretRef: selection.connectionSecretRef,
+          }),
       model: selection === null ? null : selection.model,
       thinking: selection === null ? null : selection.thinking,
       contextWindow: selection === null ? null : selection.contextWindow,

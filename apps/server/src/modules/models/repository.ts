@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, notExists, sql } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import {
@@ -12,6 +12,7 @@ import {
   modelVisibility,
   type SecretRow,
   secrets,
+  turns,
 } from "../../db/schema.js";
 
 export const DEFAULT_MODEL_PROFILE_ID = "deepseek-default";
@@ -121,26 +122,48 @@ export function createCredentialRows(
     now: number;
   },
 ): { secret: SecretRow; credential: CredentialProfileRow } {
-  const secret: SecretRow = {
-    id: input.secretId,
-    ciphertext: input.encrypted.ciphertext,
-    nonce: input.encrypted.nonce,
-    tag: input.encrypted.tag,
-    createdAt: input.now,
-  };
-  db.insert(secrets).values(secret).run();
+  const secret = createSecretRow(db, input.secretId, input.encrypted, input.now);
 
   const credential: CredentialProfileRow = {
     id: newId("cred"),
     provider: input.provider,
     label: input.label,
     secretRef: secret.id,
+    revision: 1,
     endpoint: input.endpoint ?? null,
     contextWindow: input.contextWindow ?? null,
     createdAt: input.now,
   };
   db.insert(credentialProfiles).values(credential).run();
   return { secret, credential };
+}
+
+export function createSecretRow(
+  db: DbExecutor,
+  id: string,
+  encrypted: Pick<SecretRow, "ciphertext" | "nonce" | "tag">,
+  now: number,
+): SecretRow {
+  const secret = { id, ...encrypted, createdAt: now };
+  db.insert(secrets).values(secret).run();
+  return secret;
+}
+
+export function updateCredentialRow(db: DbExecutor, row: CredentialProfileRow): void {
+  db.update(credentialProfiles)
+    .set({
+      label: row.label,
+      endpoint: row.endpoint,
+      contextWindow: row.contextWindow,
+      revision: row.revision,
+      secretRef: row.secretRef,
+    })
+    .where(eq(credentialProfiles.id, row.id))
+    .run();
+}
+
+export function clearModelCatalogCache(db: DbExecutor, id: string): void {
+  db.delete(modelCatalogCache).where(eq(modelCatalogCache.credentialProfileId, id)).run();
 }
 
 export function getSecretRow(db: DbExecutor, id: string): SecretRow | null {
@@ -160,7 +183,20 @@ export function deleteCredentialRow(db: DbExecutor, credential: CredentialProfil
 }
 
 export function deleteSecretRow(db: DbExecutor, id: string): void {
-  db.delete(secrets).where(eq(secrets.id, id)).run();
+  db.delete(secrets)
+    .where(
+      and(
+        eq(secrets.id, id),
+        notExists(
+          db
+            .select({ id: credentialProfiles.id })
+            .from(credentialProfiles)
+            .where(eq(credentialProfiles.secretRef, id)),
+        ),
+        notExists(db.select({ id: turns.id }).from(turns).where(eq(turns.connectionSecretRef, id))),
+      ),
+    )
+    .run();
 }
 
 export function listEncryptedSecrets(db: DbExecutor): SecretRow[] {

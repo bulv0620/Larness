@@ -1,21 +1,18 @@
 import { GLM_BASE_URL, GLM_ENDPOINTS } from "@larness/agent";
 import type { ErrorCode } from "@larness/shared";
-import { eq } from "drizzle-orm";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
-import {
-  type CredentialProfileRow,
-  credentialProfiles,
-  type ModelProfileRow,
-  type ModelProviderId,
-} from "../../db/schema.js";
+import type { CredentialProfileRow, ModelProfileRow, ModelProviderId } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
+import { findConnectionPreset, presetForCredential } from "./presets.js";
 import {
+  clearModelCatalogCache,
   countCredentialsInUse,
   createCredentialRows,
   createModelProfileRow,
+  createSecretRow,
   DEFAULT_MODEL_CAPABILITIES,
   DEFAULT_MODEL_PROFILE_ID,
   deleteCredentialRow,
@@ -27,6 +24,7 @@ import {
   getSecretRow,
   listCredentialRows,
   listModelProfileRows,
+  updateCredentialRow,
 } from "./repository.js";
 
 export const MASKED_SECRET = "••••••";
@@ -57,6 +55,9 @@ export interface CredentialDto {
   label: string;
   secretRef: string;
   masked: string;
+  presetId: string | null;
+  revision: number;
+  billing: "usage" | "subscription" | "unknown";
   endpoint: string | null;
   contextWindow: number | null;
   createdAt: number;
@@ -81,7 +82,8 @@ export interface ModelServiceOptions {
 }
 
 export interface CreateCredentialInput {
-  provider: ModelProviderId;
+  provider?: ModelProviderId;
+  presetId?: string;
   label: string;
   apiKey: string;
   endpoint?: string | null;
@@ -114,12 +116,16 @@ function parseCapabilities(json: string): ModelCapabilities {
 }
 
 function credentialDto(row: CredentialProfileRow): CredentialDto {
+  const preset = presetForCredential(row.provider, row.endpoint);
   return {
     id: row.id,
     provider: row.provider,
     label: row.label,
     secretRef: row.secretRef,
     masked: MASKED_SECRET,
+    presetId: preset?.id ?? null,
+    revision: row.revision,
+    billing: preset?.billing ?? "unknown",
     endpoint: row.endpoint,
     contextWindow: row.contextWindow,
     createdAt: row.createdAt,
@@ -158,21 +164,10 @@ export function createCredential(
   options: ModelServiceOptions,
   input: CreateCredentialInput,
 ): CredentialDto {
-  if (
-    input.provider !== "deepseek" &&
-    input.provider !== "glm" &&
-    input.provider !== "openai-compatible"
-  ) {
-    throw new ModelError("VALIDATION_ERROR", "unsupported credential provider");
-  }
-
+  const { provider, endpoint } = resolveCredentialRoute(input);
   const label = normalizeLabel(input.label);
-  const endpoint = normalizeCredentialEndpoint(input.provider, input.endpoint);
-  const contextWindow = normalizeCredentialContextWindow(input.provider, input.contextWindow);
-
-  if (input.apiKey.length === 0 || input.apiKey.length > 8_192) {
-    throw new ModelError("VALIDATION_ERROR", "apiKey must be 1-8192 characters");
-  }
+  const contextWindow = normalizeCredentialContextWindow(provider, input.contextWindow);
+  validateApiKey(input.apiKey);
 
   const now = options.now?.() ?? Date.now();
   const encrypted = options.secretStore.encrypt(input.apiKey);
@@ -181,7 +176,7 @@ export function createCredential(
     const created = createCredentialRows(tx, {
       secretId: newId("sec"),
       encrypted,
-      provider: input.provider,
+      provider,
       label,
       endpoint,
       contextWindow,
@@ -193,13 +188,40 @@ export function createCredential(
       clientSessionId: input.clientSessionId,
       resourceType: "credential",
       resourceId: created.credential.id,
-      details: { provider: input.provider, label, endpoint, secretRef: created.secret.id },
+      details: { provider, label, endpoint, secretRef: created.secret.id },
       now,
     });
     return created.credential;
   });
 
   return credentialDto(row);
+}
+
+export function resolveCredentialRoute(input: {
+  provider?: ModelProviderId;
+  presetId?: string;
+  endpoint?: string | null;
+}): { provider: ModelProviderId; endpoint: string | null } {
+  const preset = input.presetId === undefined ? undefined : findConnectionPreset(input.presetId);
+  if (input.presetId !== undefined && preset === undefined) {
+    throw new ModelError("VALIDATION_ERROR", "unsupported connection preset");
+  }
+  const provider = preset?.provider ?? input.provider;
+  if (provider === undefined || (input.provider !== undefined && input.provider !== provider)) {
+    throw new ModelError("VALIDATION_ERROR", "connection provider does not match preset");
+  }
+
+  const endpoint = normalizeCredentialEndpoint(provider, input.endpoint ?? preset?.endpoint);
+  if (preset !== undefined && provider !== "openai-compatible" && endpoint !== preset.endpoint) {
+    throw new ModelError("VALIDATION_ERROR", "connection endpoint does not match preset");
+  }
+  return { provider, endpoint };
+}
+
+function validateApiKey(apiKey: string): void {
+  if (apiKey.trim().length === 0 || apiKey.length > 8_192) {
+    throw new ModelError("VALIDATION_ERROR", "apiKey must be 1-8192 characters");
+  }
 }
 
 function normalizeCredentialEndpoint(
@@ -237,6 +259,9 @@ function normalizeCredentialEndpoint(
     );
   }
 
+  if (provider !== "deepseek") {
+    throw new ModelError("VALIDATION_ERROR", "unsupported credential provider");
+  }
   return null;
 }
 
@@ -263,21 +288,34 @@ export function updateCredentialSettings(
     id: string;
     endpoint?: string | null;
     contextWindow?: number | null;
+    revision?: number;
+    label?: string;
+    apiKey?: string;
     clientSessionId?: string;
   },
 ): CredentialDto {
   const now = options.now?.() ?? Date.now();
   const row = immediateTransaction(options.db, (tx) => {
     const credential = getCredentialRow(tx, input.id);
-
     if (credential === null) {
       throw new ModelError("NOT_FOUND", "credential not found");
     }
-
-    if (credential.provider !== "glm" && credential.provider !== "openai-compatible") {
+    if (input.revision !== undefined && input.revision !== credential.revision) {
+      throw new ModelError("CONFLICT", "connection has changed");
+    }
+    if (input.apiKey !== undefined && input.revision === undefined) {
+      throw new ModelError("VALIDATION_ERROR", "revision is required to replace the API key");
+    }
+    if (input.apiKey !== undefined && input.endpoint !== undefined) {
+      throw new ModelError("VALIDATION_ERROR", "replace the API key on its existing endpoint");
+    }
+    if (
+      credential.provider === "deepseek" &&
+      (input.endpoint !== undefined || input.contextWindow !== undefined)
+    ) {
       throw new ModelError(
         "VALIDATION_ERROR",
-        "endpoint is only supported for GLM or compatible credentials",
+        "DeepSeek uses its official endpoint and model limits",
       );
     }
 
@@ -289,18 +327,45 @@ export function updateCredentialSettings(
       input.contextWindow === undefined
         ? credential.contextWindow
         : normalizeCredentialContextWindow(credential.provider, input.contextWindow);
-    const updated = { ...credential, endpoint, contextWindow };
-    tx.update(credentialProfiles)
-      .set({ endpoint, contextWindow })
-      .where(eq(credentialProfiles.id, credential.id))
-      .run();
+    const label = input.label === undefined ? credential.label : normalizeLabel(input.label);
+    let secretRef = credential.secretRef;
+    if (input.apiKey !== undefined) {
+      validateApiKey(input.apiKey);
+      secretRef = createSecretRow(
+        tx,
+        newId("sec"),
+        options.secretStore.encrypt(input.apiKey),
+        now,
+      ).id;
+    }
+
+    const updated = {
+      ...credential,
+      label,
+      endpoint,
+      contextWindow,
+      secretRef,
+      revision: credential.revision + 1,
+    };
+    updateCredentialRow(tx, updated);
+    if (endpoint !== credential.endpoint || secretRef !== credential.secretRef) {
+      clearModelCatalogCache(tx, credential.id);
+    }
+    if (secretRef !== credential.secretRef) {
+      deleteSecretRow(tx, credential.secretRef);
+    }
     appendAudit(tx, {
-      action: "credential.endpoint.changed",
+      action:
+        input.apiKey !== undefined
+          ? "credential.key.replaced"
+          : input.label !== undefined
+            ? "credential.renamed"
+            : "credential.endpoint.changed",
       decision: "allow",
       clientSessionId: input.clientSessionId,
       resourceType: "credential",
       resourceId: credential.id,
-      details: { endpoint, contextWindow },
+      details: { endpoint, contextWindow, revision: updated.revision },
       now,
     });
     return updated;

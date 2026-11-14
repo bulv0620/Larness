@@ -377,3 +377,10 @@ CREATE INDEX idx_sessions_origin ON sessions(origin, updated_at);
 ## UI-F15 迁移 0027_project_sort_order（2026-11-12）
 
 `schemaVersion 26 → 27`。`projects` 增加 `sort_order INTEGER NOT NULL DEFAULT 0` 与索引 `idx_projects_order(sort_order, updated_at)`；只加列与索引，不回填、不删除旧数据。迁移后既有项目 `sort_order=0`，按 `updated_at` 倒序稳定排列；新建项目取当前最大值 +1，追加到末尾。`PUT /api/projects/order` 在一个事务内把数组下标写入全部登记项目并审计 `project.reordered`；默认工作区不落库、固定首位。
+
+
+### 0028 · 模型连接版本（MC-1）
+
+`schemaVersion 27 → 28`。为 `credential_profiles` 添加 `revision INTEGER NOT NULL DEFAULT 1`。现有连接 ID、加密密钥、端点、模型默认、隐藏、会话和历史均沿用原行。接入预设由现有 provider 与地址解析。
+
+`turns` 增加可空的 `connection_revision`、`connection_endpoint` 与 `connection_secret_ref`，用于固定已选目录模型的连接及凭据。既有 Turn 不回填。终态事务清除内部凭据引用；旧密文仅在没有连接和活跃 Turn 引用时删除。REST 和 WS 不公开该快照的凭据引用。

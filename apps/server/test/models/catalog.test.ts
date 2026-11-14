@@ -17,7 +17,12 @@ import {
   setCatalogModelVisibility,
 } from "../../src/modules/models/catalog.js";
 import { getModelDefaultRow, setModelVisibilityRow } from "../../src/modules/models/repository.js";
-import { createCredential, listModelDtos, ModelError } from "../../src/modules/models/service.js";
+import {
+  createCredential,
+  listModelDtos,
+  ModelError,
+  updateCredentialSettings,
+} from "../../src/modules/models/service.js";
 import { SecretStore } from "../../src/security/secretStore.js";
 import { withTempDir } from "../helpers.js";
 
@@ -41,6 +46,40 @@ function catalogResponse(ids: string[]): unknown {
 }
 
 describe("deepseek model catalog", () => {
+  it("discards a catalog refresh completed after key replacement", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+      try {
+        const credential = createCredential(options, {
+          provider: "deepseek",
+          label: "DeepSeek",
+          apiKey: "fixture-old",
+        });
+        let finishRefresh: (response: unknown) => void = () => {
+          throw new Error("catalog request did not start");
+        };
+        const upstream = new Promise<unknown>((resolve) => {
+          finishRefresh = resolve;
+        });
+        const oldRefresh = refreshModelCatalog({ ...options, fetcher: () => upstream });
+        updateCredentialSettings(options, {
+          id: credential.id,
+          revision: credential.revision,
+          apiKey: "fixture-new",
+        });
+        await refreshModelCatalog({
+          ...options,
+          fetcher: async () => catalogResponse(["deepseek-chat"]),
+        });
+        finishRefresh(catalogResponse(["deepseek-flash"]));
+        await oldRefresh;
+        expect(getModelCatalog(options).models.map((model) => model.id)).toEqual(["deepseek-chat"]);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("requires a credential and starts empty", async () => {
     await withTempDir(async (dir) => {
       const { opened, options } = await fixture(dir);
@@ -238,6 +277,10 @@ describe("deepseek model catalog", () => {
           thinking: "medium",
           contextWindow: 1_048_576,
           credentialProfileId,
+          provider: "deepseek",
+          connectionRevision: 1,
+          connectionEndpoint: null,
+          connectionSecretRef: expect.stringMatching(/^sec_/),
         });
         expect(
           resolveCatalogSelection(options.db, { model: "deepseek-flash", thinking: "medium" }),

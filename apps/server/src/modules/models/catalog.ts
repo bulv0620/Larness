@@ -3,7 +3,7 @@ import type { ErrorCode } from "@larness/shared";
 import { z } from "zod";
 import type { Database, DbExecutor } from "../../db/client.js";
 import { appendAudit } from "../../db/repositories/audit.js";
-import type { ModelProviderId } from "../../db/schema.js";
+import type { CredentialProfileRow, ModelProviderId } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
 import { assertSafeEndpoint, EndpointError, type HostResolver } from "./endpoint.js";
@@ -73,6 +73,10 @@ export interface CatalogSelection {
   thinking: string;
   contextWindow: number | null;
   credentialProfileId: string;
+  provider: ModelProviderId;
+  connectionRevision: number;
+  connectionEndpoint: string | null;
+  connectionSecretRef: string;
 }
 
 export interface CatalogOptions {
@@ -539,14 +543,7 @@ async function catalogPayload(
 
 async function refreshCredential(
   options: CatalogOptions,
-  credential: {
-    id: string;
-    label: string;
-    provider: ModelProviderId;
-    secretRef: string;
-    endpoint: string | null;
-    contextWindow: number | null;
-  },
+  credential: CredentialProfileRow,
   clientSessionId: string | undefined,
 ): Promise<void> {
   const now = options.now?.() ?? Date.now();
@@ -602,6 +599,7 @@ async function refreshCredential(
   }
 
   immediateTransaction(options.db, (tx) => {
+    if (getCredentialRow(tx, credential.id)?.revision !== credential.revision) return;
     saveModelCatalog(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
@@ -659,11 +657,12 @@ export async function refreshModelCatalog(
 
 function recordFailure(
   options: CatalogOptions,
-  credential: { id: string; provider: ModelProviderId; endpoint: string | null },
+  credential: { id: string; provider: ModelProviderId; endpoint: string | null; revision: number },
   errorCode: string,
   now: number,
 ): void {
   immediateTransaction(options.db, (tx) => {
+    if (getCredentialRow(tx, credential.id)?.revision !== credential.revision) return;
     recordModelCatalogFailure(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
@@ -766,6 +765,10 @@ export function resolveCatalogSelection(
     thinking: normalizeThinking(model, input.thinking),
     contextWindow: model.contextWindow,
     credentialProfileId: credential.id,
+    provider: credential.provider,
+    connectionRevision: credential.revision,
+    connectionEndpoint: credential.endpoint,
+    connectionSecretRef: credential.secretRef,
   };
 }
 
@@ -800,12 +803,23 @@ export function mapThinkingSetting(thinking: string | null | undefined): {
 
 export function resolveCatalogProvider(
   options: CatalogOptions,
-  input: { model: string; thinking: string | null; credentialProfileId?: string | null },
+  input: {
+    model: string;
+    thinking: string | null;
+    credentialProfileId?: string | null;
+    snapshot?: {
+      provider: ModelProviderId;
+      endpoint: string | null;
+      secretRef: string;
+      contextWindow: number;
+    };
+  },
 ): ResolvedCatalogProvider {
   const credential =
-    input.credentialProfileId !== undefined && input.credentialProfileId !== null
+    input.snapshot ??
+    (input.credentialProfileId != null
       ? getCredentialRow(options.db, input.credentialProfileId)
-      : findLatestCredentialForProvider(options.db, "deepseek");
+      : findLatestCredentialForProvider(options.db, "deepseek"));
 
   if (credential === null) {
     throw new ModelError("MODEL_CREDENTIAL_MISSING", "configure a catalog credential first");
@@ -825,9 +839,14 @@ export function resolveCatalogProvider(
     throw new ModelError("PROVIDER_AUTH_FAILED", "credential cannot be decrypted");
   }
 
-  const cached = cachedModelsFor(options.db, credential.id).find((item) => item.id === input.model);
-  const builtin = builtinCatalog(credential.provider).find((item) => item.id === input.model);
-  const contextWindow = cached?.contextWindow ?? builtin?.contextWindow ?? null;
+  const contextWindow =
+    "id" in credential
+      ? (modelsForCredential(options.db, credential).find((item) => item.id === input.model)
+          ?.contextWindow ??
+        builtinCatalog(credential.provider).find((item) => item.id === input.model)
+          ?.contextWindow ??
+        null)
+      : credential.contextWindow;
 
   if (contextWindow === null) {
     throw new ModelError("MODEL_UNSUPPORTED", "model is not available in the official catalog");

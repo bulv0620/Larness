@@ -169,4 +169,4 @@ accepted，用户确认 PowerShell 7 → Windows PowerShell 5.1 → CMD 的选�
 
 ## ADR-062 · 模型连接与能力目录（2026-11-14）
 
-proposed。连接预设及版本管理、会话按模型选择、目录数据独立更新与可追踪的字段来源。见 [ADR-062](ADR-062-model-connections-and-capabilities.md) 和 [077 规格](../../specs/077-model-connections/spec.md)。
+accepted，2026-11-14 用户要求按方案实施。连接预设及版本管理、会话按模型选择、目录数据独立更新与可追踪的字段来源。见 [ADR-062](ADR-062-model-connections-and-capabilities.md) 和 [077 规格](../../specs/077-model-connections/spec.md)。

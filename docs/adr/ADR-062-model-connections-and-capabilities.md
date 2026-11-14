@@ -1,6 +1,6 @@
 # ADR-062 · 模型连接与能力目录
 
-- 状态 `proposed`（2026-11-14）
+- 状态 `accepted`（2026-11-14，用户要求按方案实施）
 - 关联 [077 规格](../../specs/077-model-connections/spec.md)、[ADR-053](ADR-053-model-catalog-thinking.md) 与 [工程宪法](../../CONSTITUTION.md)
 
 ## 背景

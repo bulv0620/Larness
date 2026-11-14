@@ -11,6 +11,8 @@ import {
   turns,
 } from "../../db/schema.js";
 
+import { deleteSecretRow } from "../models/repository.js";
+
 export const ACTIVE_TURN_STATUSES: TurnStatus[] = [
   "QUEUED",
   "PREPARING",
@@ -130,6 +132,9 @@ export interface CreateTurnRowInput {
   sessionId: string;
   modelProfileId: string | null;
   credentialProfileId?: string | null;
+  connectionRevision?: number;
+  connectionEndpoint?: string | null;
+  connectionSecretRef?: string;
   provider: string | null;
   model: string | null;
   thinking?: string | null;
@@ -146,6 +151,9 @@ export function createTurnRow(db: DbExecutor, input: CreateTurnRowInput): TurnRo
     sessionId: input.sessionId,
     modelProfileId: input.modelProfileId,
     credentialProfileId: input.credentialProfileId ?? null,
+    connectionRevision: input.connectionRevision ?? null,
+    connectionEndpoint: input.connectionEndpoint ?? null,
+    connectionSecretRef: input.connectionSecretRef ?? null,
     provider: input.provider,
     model: input.model,
     thinking: input.thinking ?? null,
@@ -238,6 +246,17 @@ export function updateTurnRow(
       : { resumedFromTurnId: input.resumedFromTurnId }),
   };
 
-  db.update(turns).set(changes).where(eq(turns.id, id)).run();
+  const terminal = input.status !== undefined && !isActiveTurnStatus(input.status);
+  const secretRef = terminal ? getTurnById(db, id)?.connectionSecretRef : null;
+  db.update(turns)
+    .set({
+      ...changes,
+      ...(terminal ? { connectionSecretRef: null } : {}),
+    })
+    .where(eq(turns.id, id))
+    .run();
+  if (secretRef) {
+    deleteSecretRow(db, secretRef);
+  }
   return getTurnById(db, id);
 }

@@ -3,6 +3,77 @@ import { withTempDir } from "../helpers.js";
 import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
 describe("models and credentials API", () => {
+  it("lists official presets and creates a connection from a preset", async () => {
+    await withTempDir(async (dir) => {
+      const started = await startAuthorizedServer(dir);
+      const app = started.running.app;
+      const headers = {
+        cookie: started.cookie,
+        origin: started.origin,
+        "x-csrf-token": started.csrf,
+      };
+      try {
+        expect((await app.inject("/api/models/presets")).statusCode).toBe(401);
+        const presets = await app.inject({ url: "/api/models/presets", headers });
+        expect(presets.json()).toMatchObject({
+          presets: expect.arrayContaining([
+            expect.objectContaining({ id: "glm-coding-cn", provider: "glm" }),
+          ]),
+        });
+        const payload = {
+          presetId: "glm-coding-cn",
+          label: "Coding",
+          apiKey: "fixture-coding-secret",
+        };
+        const created = await app.inject({
+          method: "POST",
+          url: "/api/credentials",
+          headers,
+          payload,
+        });
+        expect(created.statusCode).toBe(201);
+        expect(created.json()).toMatchObject({
+          presetId: "glm-coding-cn",
+          revision: 1,
+          endpoint: "https://open.bigmodel.cn/api/coding/paas/v4",
+        });
+        expect(created.body).not.toContain(payload.apiKey);
+        const mismatch = await app.inject({
+          method: "POST",
+          url: "/api/credentials",
+          headers,
+          payload: { ...payload, endpoint: "https://open.bigmodel.cn/api/paas/v4" },
+        });
+        expect(mismatch.statusCode).toBe(400);
+        const { id } = created.json<{ id: string }>();
+        const url = `/api/credentials/${id}`;
+        const rotated = await app.inject({
+          method: "PATCH",
+          url,
+          headers,
+          payload: { revision: 1, apiKey: "fixture-replacement-secret", label: "New label" },
+        });
+        expect(rotated.statusCode).toBe(200);
+        expect(rotated.json()).toMatchObject({
+          id,
+          revision: 2,
+          label: "New label",
+          presetId: "glm-coding-cn",
+        });
+        expect(rotated.body).not.toContain("fixture-replacement-secret");
+        const stale = await app.inject({
+          method: "PATCH",
+          url,
+          headers,
+          payload: { revision: 1, apiKey: "fixture-stale-secret" },
+        });
+        expect(stale.statusCode).toBe(409);
+      } finally {
+        await stopAuthorizedServer(started);
+      }
+    });
+  });
+
   it("lists models, stores encrypted credentials and protects references", async () => {
     await withTempDir(async (dir) => {
       const started = await startAuthorizedServer(dir);
