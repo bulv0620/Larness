@@ -8,6 +8,9 @@ import {
 } from "../../db/schema.js";
 export const terminalRow = (db: DbExecutor, id: string) =>
   db.select().from(terminals).where(eq(terminals.id, id)).get() ?? null;
+export function terminalByOperation(db: DbExecutor, id: string) {
+  return db.select().from(terminals).where(eq(terminals.operationId, id)).get() ?? null;
+}
 export const leaseRow = (db: DbExecutor, id: string) =>
   db.select().from(terminalLeases).where(eq(terminalLeases.terminalId, id)).get() ?? null;
 export function insertTerminal(db: DbExecutor, row: TerminalRow) {

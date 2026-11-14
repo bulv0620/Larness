@@ -368,9 +368,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       db: opened.db,
     });
     serviceActionAuthorizations.recoverExpired();
-    // Last recovery pass: every module has now had its chance. Whatever is
-    // still non-terminal has no live owner (single instance, turns repaired),
-    // so finalize it instead of leaving a write barrier behind forever.
+    // Sweep orphan operations after resource recovery has recorded any
+    // process outcomes that still require reconciliation.
     const swept = finalizeUnreconciledOperations({ db: opened.db, logger: activeLogger });
     if (swept.finalizedOperations > 0 || swept.releasedLocks > 0) {
       activeLogger.warn(
@@ -626,9 +625,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         await deployments.close();
         cleanupScheduler.stop();
         await retention.stop();
-        // Final drain: the executors above were aborted, so any operation that
-        // is still non-terminal was deterministically interrupted. file.save
-        // rows are left for the next boot's file reconcile on purpose.
+        // Finalize interrupted operations and preserve those that still
+        // require file or process reconciliation.
         try {
           const interruptedOperations = markOperationsInterrupted({ db: opened.db });
           if (interruptedOperations > 0)

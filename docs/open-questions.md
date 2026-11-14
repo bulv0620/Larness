@@ -17,7 +17,7 @@
 | npm | 真实 registry 出现新版本时验证 TUI 提示；全局安装的交互 TUI 缺独立验收。npm 11 脚本策略可能影响原生模块安装。 | [分发验收](../specs/065-launcher-updater/acceptance.md)、[安装指南](guides/install.md) |
 | 全量回归 | auth E2E 有批量时序抖动，终端用例可单独通过；对话用例仍有旧计划选择器失败记录。预览验收也记录过 PTY 测试时序抖动。 | [调度验收](../specs/064-scheduler/acceptance.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
 | Windows 浏览器与测试基线 | M1 综合认证 E2E 在项目右键菜单步骤失败。Windows 终端测试 worker 曾以 0xC0000005 退出，复跑通过。 | [068 验收记录](../specs/068-ui-fixes/tasks.md#验收记录) |
-| Server 单测基线 | 当前 `main` 的命令与终端重启恢复测试可获取本应被阻止的锁，服务运维测试的预览解析请求得到 400、测试期望 503。 | [UI-F17 验收记录](../specs/068-ui-fixes/tasks.md#ui-f172026-11-13windows) |
+| Server 单测基线 | 命令与终端重启恢复的根屏障已在 M2-R1 修复。Windows 曾记录服务运维预览解析请求得到 400、测试期望 503。 | [UI-F17 验收记录](../specs/068-ui-fixes/tasks.md#ui-f172026-11-13windows) |
 | 前端与资源 | Monaco 生产 CSP 使用 `unsafe-eval`；Git 状态每 3 秒轮询，暂无 WS 失效接线。外部写入、进程脱组及磁盘满/数据库损坏仍是边界。 | [M2 收尾](../specs/030-dev-resources/closure.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
 | 发布与安全 | 本地发布无 CI / npm provenance；风险与检查证据保存在安全复核中。 | [安全复核](security/review.md) |
 | 源码包管理器 | pnpm 12.18.0 的默认发布年龄策略暂时拒绝 5 个新锁项；先固定 10.34.9。等锁项满足 24 小时门槛后可重新验证 12。 | [ADR-056](adr/ADR-056-dependency-major-upgrades.md)、[DEPS-7](../specs/067-release-hardening/tasks.md#deps-7-pnpm-包管理器升级) |

@@ -6,8 +6,10 @@ import {
   resourceLocks,
   turns,
 } from "../../db/schema.js";
+import { commandByOperation } from "../commands/repository.js";
 import { quarantinedRoots } from "../locks/quarantine.js";
 import { releaseResourceLock } from "../locks/service.js";
+import { terminalByOperation } from "../terminals/repository.js";
 import { pendingOperations, updateOperation } from "./repository.js";
 
 const ACTIVE_TURN_STATUSES = new Set([
@@ -82,27 +84,38 @@ function lockOwnerIsActive(db: Database, lock: ResourceLockRow): boolean {
   return turn !== undefined && ACTIVE_TURN_STATUSES.has(turn.status);
 }
 
-// Startup only: run AFTER every module recover() pass and BEFORE accepting traffic.
-// At that point the instance lock proves no other process owns anything, and
-// repairInterruptedTurns has already made every turn non-active, so any
-// non-terminal operation row has no live owner and its outcome is unknowable.
-// file.save rows are excluded: the file reconcile policy can still recover the
-// committed bytes from the durable draft, so they keep their barrier.
+function requiresProcessReconciliation(db: Database, operation: ResourceOperationRow): boolean {
+  const execution =
+    operation.kind === "command.run"
+      ? commandByOperation(db, operation.id)
+      : operation.kind === "terminal.create"
+        ? terminalByOperation(db, operation.id)
+        : null;
+  return (
+    execution !== null &&
+    (operation.status === "RECONCILIATION_REQUIRED" || execution.processIdentityJson !== null)
+  );
+}
+
+// Run after resource recovery and before serving requests. The instance lock
+// rules out another server, but it cannot prove an old child process stopped.
 export function finalizeUnreconciledOperations(options: RecoveryOptions): SweepSummary {
   const now = options.now?.() ?? Date.now();
   const pending = pendingOperations(options.db);
-  const fileLockIds = new Set(
-    pending
-      .filter((operation) => operation.kind === "file.save")
-      .map((operation) => operation.lockId),
+  const retained = pending.filter(
+    (operation) =>
+      operation.kind === "file.save" || requiresProcessReconciliation(options.db, operation),
   );
+  const retainedIds = new Set(retained.map((operation) => operation.id));
+  const retainedLockIds = new Set(retained.map((operation) => operation.lockId));
   let finalizedOperations = 0;
   let releasedLocks = 0;
 
   for (const operation of pending) {
-    if (operation.kind === "file.save") continue;
+    if (retainedIds.has(operation.id)) continue;
     finalizeOperation(options, operation, "OUTCOME_UNKNOWN", "startup-sweep", now);
-    if (releaseOperationLock(options, operation)) releasedLocks += 1;
+    if (!retainedLockIds.has(operation.lockId) && releaseOperationLock(options, operation))
+      releasedLocks += 1;
     options.logger?.warn(
       {
         operationId: operation.id,
@@ -117,12 +130,9 @@ export function finalizeUnreconciledOperations(options: RecoveryOptions): SweepS
     finalizedOperations += 1;
   }
 
-  // Orphan locks: non-tombstone locks that no longer guard a pending file.save
-  // row. rootHasWriter counts any non-expired lock as a writer even when its
-  // owning turn is dead, so releasing them here removes barriers that would
-  // otherwise persist until the lease TTL elapses.
+  // Only release orphan locks that have no retained operation or active turn.
   for (const lock of options.db.select().from(resourceLocks).all()) {
-    if (lock.expiresAt <= 0 || fileLockIds.has(lock.id)) continue;
+    if (lock.expiresAt <= 0 || retainedLockIds.has(lock.id)) continue;
     if (lockOwnerIsActive(options.db, lock)) {
       options.logger?.warn(
         { lockId: lock.id, executionId: lock.executionId },
@@ -144,18 +154,20 @@ export function finalizeUnreconciledOperations(options: RecoveryOptions): SweepS
     }
   }
 
-  return { finalizedOperations, releasedLocks, retainedFileOperations: fileLockIds.size };
+  return {
+    finalizedOperations,
+    releasedLocks,
+    retainedFileOperations: retained.filter((operation) => operation.kind === "file.save").length,
+  };
 }
 
-// Shutdown drain: the executors were aborted by close(), so anything still
-// non-terminal is deterministically interrupted (not "outcome unknown").
-// file.save rows stay pending on purpose: the next boot's file reconcile can
-// still recover committed bytes and finishing them here would destroy that.
+// Leave file recovery and unconfirmed process outcomes for startup recovery.
 export function markOperationsInterrupted(options: RecoveryOptions): number {
   const now = options.now?.() ?? Date.now();
   let interrupted = 0;
   for (const operation of pendingOperations(options.db)) {
-    if (operation.kind === "file.save") continue;
+    if (operation.kind === "file.save" || requiresProcessReconciliation(options.db, operation))
+      continue;
     finalizeOperation(options, operation, "INTERRUPTED", "shutdown", now);
     releaseOperationLock(options, operation);
     interrupted += 1;

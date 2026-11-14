@@ -548,7 +548,15 @@ it("keeps restart recovery from signalling a stored PID and preserves the confli
         turnRunner: false,
       });
       try {
-        expect((await restarted.commands.read(result.id)).status).toBe("INTERRUPTED");
+        expect(await restarted.commands.read(result.id)).toMatchObject({
+          status: "INTERRUPTED",
+          reasonCode: "RECOVERY_UNCONFIRMED",
+        });
+        expect(
+          restarted.sqlite
+            .prepare("SELECT status FROM resource_operations WHERE id=?")
+            .get(result.operationId),
+        ).toMatchObject({ status: "RECONCILIATION_REQUIRED" });
         const { acquireResourceLock } = await import("../../src/modules/locks/service.js");
         expect(
           acquireResourceLock(
