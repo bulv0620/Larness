@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +26,7 @@ import {
 import { assertSchemaCompatible, backupBeforeMigrations } from "../db/preUpgradeBackup.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { ensureInstanceId } from "../db/repositories/meta.js";
+import { MODEL_PROVIDER_IDS, type ModelProviderId } from "../db/schema.js";
 import { type DevWebTarget, DevWebTargetSchema } from "../dev-web/control.js";
 import { managedWebFiles } from "../dev-web/managed.js";
 import { recoverInitialization } from "../init/recovery.js";
@@ -50,6 +52,7 @@ import { JobRuntime } from "../modules/jobs/runtime.js";
 import { JobService } from "../modules/jobs/service.js";
 import { type DeepSeekCatalogFetcher, resolveCatalogProvider } from "../modules/models/catalog.js";
 import { assertSafeEndpoint } from "../modules/models/endpoint.js";
+import { presetForCredential } from "../modules/models/presets.js";
 import type { ModelProbeResolver } from "../modules/models/probe.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
@@ -135,14 +138,14 @@ export function createDefaultProviderResolver(
         if (turn.connectionRevision != null) {
           const { provider, connectionSecretRef, connectionEndpoint, contextWindow } = turn;
           if (
-            (provider !== "deepseek" && provider !== "glm" && provider !== "openai-compatible") ||
+            !MODEL_PROVIDER_IDS.some((id) => id === provider) ||
             connectionSecretRef === null ||
             contextWindow === null
           ) {
             throw new ModelError("MODEL_UNSUPPORTED", "connection snapshot is incomplete");
           }
           snapshot = {
-            provider,
+            provider: provider as ModelProviderId,
             endpoint: connectionEndpoint,
             secretRef: connectionSecretRef,
             contextWindow,
@@ -170,22 +173,29 @@ export function createDefaultProviderResolver(
           }
         }
 
+        if (!presetForCredential(resolved.provider, resolved.endpoint ?? null)) {
+          throw new ModelError("MODEL_UNSUPPORTED", "unsupported model connection");
+        }
         const adapter =
           resolved.provider === "deepseek"
             ? createDeepSeekProvider()
             : resolved.provider === "glm"
               ? createGlmProvider()
-              : resolved.provider === "openai-compatible"
-                ? createCompatibleProvider({
-                    id: "openai-compatible",
-                    name: "compatible",
-                    baseURL: resolved.endpoint ?? "",
-                  })
-                : null;
-
-        if (adapter === null) {
-          throw new ModelError("MODEL_UNSUPPORTED", "provider adapter is not configured");
-        }
+              : createCompatibleProvider({
+                  id: resolved.provider,
+                  name:
+                    resolved.provider === "openai-compatible" ? "compatible" : resolved.provider,
+                  baseURL: resolved.endpoint ?? "",
+                  ...(resolved.provider === "opencode-go"
+                    ? {
+                        headers: {
+                          "x-opencode-session": `ses_${createHash("sha256")
+                            .update(JSON.stringify([session.id, turn.credentialProfileId]))
+                            .digest("hex")}`,
+                        },
+                      }
+                    : {}),
+                });
 
         return {
           adapter,

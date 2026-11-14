@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **MC-4 OpenCode Go 接入**（`done`，2026-11-15）。
+
 - **MC-3 设置与会话选择器**（`done`，2026-11-14）。
 
 - **MC-2 模型能力目录与预算**（`done`，`task/mc-2-model-capabilities`，2026-11-14）：交付字段来源、逐连接模型覆盖、可选目录补充和 Turn 输入／输出预算；`pnpm check` 和 `pnpm build` 通过。Models.dev 实际请求返回 403，合并由测试夹具验证。下一项 MC-3。

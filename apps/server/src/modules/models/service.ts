@@ -6,7 +6,7 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { CredentialProfileRow, ModelProfileRow, ModelProviderId } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
-import { findConnectionPreset, presetForCredential } from "./presets.js";
+import { findConnectionPreset, MODEL_CONNECTION_PRESETS, presetForCredential } from "./presets.js";
 import {
   clearModelCatalogCache,
   countCredentialsInUse,
@@ -252,6 +252,15 @@ function normalizeCredentialEndpoint(
     return endpoint.trim().replace(/\/$/, "");
   }
 
+  if (provider !== "deepseek") {
+    const preset = MODEL_CONNECTION_PRESETS.find(
+      (entry) => entry.provider === provider && (endpoint == null || entry.endpoint === endpoint),
+    );
+    if (!preset?.endpoint)
+      throw new ModelError("VALIDATION_ERROR", "unsupported official endpoint");
+    return preset.endpoint;
+  }
+
   if (endpoint !== undefined && endpoint !== null && endpoint !== "") {
     throw new ModelError(
       "VALIDATION_ERROR",
@@ -259,9 +268,6 @@ function normalizeCredentialEndpoint(
     );
   }
 
-  if (provider !== "deepseek") {
-    throw new ModelError("VALIDATION_ERROR", "unsupported credential provider");
-  }
   return null;
 }
 
@@ -310,12 +316,13 @@ export function updateCredentialSettings(
       throw new ModelError("VALIDATION_ERROR", "replace the API key on its existing endpoint");
     }
     if (
-      credential.provider === "deepseek" &&
+      credential.provider !== "glm" &&
+      credential.provider !== "openai-compatible" &&
       (input.endpoint !== undefined || input.contextWindow !== undefined)
     ) {
       throw new ModelError(
         "VALIDATION_ERROR",
-        "DeepSeek uses its official endpoint and model limits",
+        "This connection uses its official endpoint and model limits",
       );
     }
 

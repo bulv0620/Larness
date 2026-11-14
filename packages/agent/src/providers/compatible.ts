@@ -38,7 +38,8 @@ const COMPATIBLE_CAPABILITIES: ProviderCapabilities = {
 };
 
 export interface CompatibleProviderOptions {
-  id: "glm" | "openai-compatible";
+  id: "glm" | "openai-compatible" | "opencode-go";
+  headers?: Record<string, string>;
   name: string;
   baseURL: string;
   capabilities?: Partial<ProviderCapabilities>;
@@ -85,6 +86,7 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
           name: options.name,
           baseURL: input.endpoint ?? options.baseURL,
           apiKey: input.apiKey,
+          ...(options.headers === undefined ? {} : { headers: options.headers }),
           fetch: noRedirectFetch,
         });
         const tools = toAiSdkTools(input.tools);

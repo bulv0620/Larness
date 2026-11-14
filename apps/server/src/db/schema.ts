@@ -32,7 +32,8 @@ export type ContextSummaryScope = "session" | "turn";
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ResourceLockType = "project" | "service" | "file" | "git" | "global-maintenance";
-export type ModelProviderId = "deepseek" | "glm" | "openai-compatible";
+export const MODEL_PROVIDER_IDS = ["deepseek", "glm", "openai-compatible", "opencode-go"] as const;
+export type ModelProviderId = (typeof MODEL_PROVIDER_IDS)[number];
 export type ScheduledJobKind = "script" | "agent";
 export type ScheduledJobScheduleType = "cron" | "interval";
 export type ScheduledJobRunTrigger = "scheduled" | "manual" | "catch_up";

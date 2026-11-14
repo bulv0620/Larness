@@ -285,7 +285,7 @@ export function ModelSettingsDialog({
       });
       setApiKey("");
       await reload();
-      await refresh(saved.id, true);
+      await refresh(saved.id, true, selectedPreset.provider === "opencode-go");
       setView({ kind: "list" });
     } catch (saveError) {
       setError(operationError(saveError, "保存 Key 失败"));

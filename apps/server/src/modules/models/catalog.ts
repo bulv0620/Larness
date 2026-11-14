@@ -1,4 +1,3 @@
-import { GLM_BASE_URL } from "@larness/agent";
 import type { ErrorCode } from "@larness/shared";
 import { z } from "zod";
 import type { Database, DbExecutor } from "../../db/client.js";
@@ -16,6 +15,7 @@ import {
   tokenLimitSchema,
 } from "./capabilities.js";
 import { assertSafeEndpoint, EndpointError, type HostResolver } from "./endpoint.js";
+import { normalizeGoCatalog } from "./goCatalog.js";
 import { presetForCredential } from "./presets.js";
 import { fetchPublicModelDirectory, publicModels } from "./publicDirectory.js";
 import {
@@ -349,8 +349,30 @@ export function createDeepSeekCatalogFetcher(
   };
 }
 
+// Go-specific limits for the initial offline snapshot. Only IDs the Go
+// inventory actually returns are advertised.
+const GO_BUILTIN_CATALOG: readonly CatalogModel[] = [
+  {
+    id: "glm-5.3-flash",
+    label: "GLM-5.3-Flash",
+    contextWindow: 1_000_000,
+    capabilities: { tools: true, streaming: true, maxOutputTokens: 131_072 },
+    thinking: { supported: false, levels: [] },
+    default: false,
+  },
+  {
+    id: "deepseek-v4.1-flash",
+    label: "DeepSeek V4.1 Flash",
+    contextWindow: 1_048_576,
+    capabilities: { tools: true, streaming: true, maxOutputTokens: 393_216 },
+    thinking: { supported: false, levels: [] },
+    default: false,
+  },
+];
+
 function builtinCatalog(provider: ModelProviderId): readonly CatalogModel[] {
   if (provider === "glm") return GLM_BUILTIN_CATALOG;
+  if (provider === "opencode-go") return GO_BUILTIN_CATALOG;
   return provider === "deepseek" ? DEEPSEEK_BUILTIN_CATALOG : [];
 }
 
@@ -390,7 +412,9 @@ function mergeCatalog(
 
     const capabilities = {
       maxInputTokens: tokenLimitSchema.safeParse(entry.max_input_tokens).data,
-      maxOutputTokens: tokenLimitSchema.safeParse(entry.max_output_tokens).data,
+      maxOutputTokens:
+        tokenLimitSchema.safeParse(entry.max_output_tokens).data ??
+        builtin?.capabilities?.maxOutputTokens,
       inputModalities: capabilitySchema.shape.inputModalities.safeParse(entry.input_modalities)
         .data,
       outputModalities: capabilitySchema.shape.outputModalities.safeParse(entry.output_modalities)
@@ -405,6 +429,11 @@ function mergeCatalog(
     for (const key of Object.keys(capabilities) as (keyof ModelCapabilities)[]) {
       if (capabilities[key] !== undefined) sources[key] = "upstream";
     }
+    if (
+      builtin?.capabilities?.maxOutputTokens !== undefined &&
+      !tokenLimitSchema.safeParse(entry.max_output_tokens).success
+    )
+      sources.maxOutputTokens = "bundled";
     if (capabilities.tools !== undefined && typeof entry.tool_calls !== "boolean")
       sources.tools = "bundled";
     if (capabilities.streaming !== undefined && typeof entry.streaming !== "boolean")
@@ -463,11 +492,8 @@ function parseModels(json: string): CatalogModel[] {
 function catalogCredentials(db: DbExecutor) {
   return listCredentialRows(db).filter(
     (credential) =>
-      credential.provider === "deepseek" ||
-      credential.provider === "glm" ||
-      (credential.provider === "openai-compatible" &&
-        credential.endpoint !== null &&
-        credential.endpoint.length > 0),
+      presetForCredential(credential.provider, credential.endpoint) !== undefined &&
+      (credential.provider !== "openai-compatible" || Boolean(credential.endpoint)),
   );
 }
 
@@ -640,41 +666,27 @@ async function catalogPayload(
     return fetcher(apiKey, new AbortController().signal);
   }
 
-  if (provider === "glm" || provider === "openai-compatible") {
-    const base = endpoint ?? (provider === "glm" ? GLM_BASE_URL : null);
-
-    if (base === null) {
-      throw new ModelError("VALIDATION_ERROR", "compatible endpoint is missing");
-    }
-
-    if (provider === "openai-compatible") {
-      await assertSafeEndpoint(base, options.endpointResolver);
-    }
-
-    const controller = new AbortController();
-    const timer = setTimeout(
-      () => controller.abort(),
-      options.timeoutMs ?? DEFAULT_CATALOG_TIMEOUT_MS,
-    );
-
-    try {
-      const response = await fetch(`${base}/models`, {
-        headers: { authorization: `Bearer ${apiKey}`, accept: "application/json" },
-        redirect: "error",
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new CatalogHttpError(response.status);
-      }
-
-      return (await response.json()) as unknown;
-    } finally {
-      clearTimeout(timer);
-    }
+  if (provider === "openai-compatible") {
+    await assertSafeEndpoint(endpoint ?? "", options.endpointResolver);
   }
+  const url = catalogUrl(provider, endpoint ?? null);
+  const response = await fetch(url, {
+    headers: { authorization: `Bearer ${apiKey}`, accept: "application/json" },
+    redirect: "error",
+    signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_CATALOG_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new CatalogHttpError(response.status);
+  return (await response.json()) as unknown;
+}
 
-  throw new ModelError("MODEL_UNSUPPORTED", "catalog is not available for this provider");
+function catalogUrl(provider: ModelProviderId, endpoint: string | null): string {
+  if (provider === "deepseek") return DEEPSEEK_CATALOG_URL;
+  const preset = presetForCredential(provider, endpoint);
+  if (!preset) throw new ModelError("VALIDATION_ERROR", "unsupported connection endpoint");
+  if (preset.catalogUrl) return preset.catalogUrl;
+  const base = endpoint ?? preset.endpoint;
+  if (!base) throw new ModelError("VALIDATION_ERROR", "connection endpoint is missing");
+  return `${base}/models`;
 }
 
 async function refreshCredential(
@@ -718,7 +730,9 @@ async function refreshCredential(
     return;
   }
 
-  const parsed = upstreamSchema.safeParse(payload);
+  const parsed = upstreamSchema.safeParse(
+    credential.provider === "opencode-go" ? normalizeGoCatalog(payload) : payload,
+  );
 
   if (!parsed.success) {
     recordFailure(options, credential, "MODEL_CATALOG_INVALID", now);
@@ -763,10 +777,7 @@ async function refreshCredential(
     saveModelCatalog(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
-      endpoint:
-        credential.provider === "deepseek"
-          ? DEEPSEEK_CATALOG_URL
-          : `${credential.endpoint ?? GLM_BASE_URL}/models`,
+      endpoint: catalogUrl(credential.provider, credential.endpoint),
       modelsJson: JSON.stringify(models),
       now,
     });
@@ -796,7 +807,8 @@ function supplementFromPublicDirectory(
   payload: unknown,
 ): void {
   const preset = presetForCredential(credential.provider, credential.endpoint);
-  const provider = preset === undefined ? undefined : publicProviderIds.get(preset.id);
+  const provider =
+    preset?.directoryId ?? (preset === undefined ? undefined : publicProviderIds.get(preset.id));
   if (provider === undefined) return;
   const directory = publicModels(payload, provider);
   for (const model of models) {
@@ -842,11 +854,7 @@ export async function refreshModelCatalog(
           if (credential === null) {
             throw new ModelError("NOT_FOUND", "credential not found");
           }
-          if (
-            credential.provider !== "deepseek" &&
-            credential.provider !== "glm" &&
-            credential.provider !== "openai-compatible"
-          ) {
+          if (!presetForCredential(credential.provider, credential.endpoint)) {
             throw new ModelError("MODEL_UNSUPPORTED", "catalog is not available for this provider");
           }
           return [credential];
@@ -889,10 +897,7 @@ function recordFailure(
     recordModelCatalogFailure(tx, {
       credentialProfileId: credential.id,
       provider: credential.provider,
-      endpoint:
-        credential.provider === "deepseek"
-          ? DEEPSEEK_CATALOG_URL
-          : `${credential.endpoint ?? GLM_BASE_URL}/models`,
+      endpoint: catalogUrl(credential.provider, credential.endpoint),
       errorCode,
       now,
     });
@@ -1118,16 +1123,8 @@ export function setCatalogModelVisibility(
     throw new ModelError("NOT_FOUND", "credential not found");
   }
 
-  if (
-    credential.provider !== "deepseek" &&
-    credential.provider !== "glm" &&
-    credential.provider !== "openai-compatible"
-  ) {
-    throw new ModelError("MODEL_UNSUPPORTED", "catalog is not available for this provider");
-  }
-
-  if (!cachedModelsFor(options.db, credential.id).some((model) => model.id === input.modelId)) {
-    throw new ModelError("NOT_FOUND", "model is not in the cached catalog");
+  if (!modelsForCredential(options.db, credential).some((model) => model.id === input.modelId)) {
+    throw new ModelError("NOT_FOUND", "model is not in the catalog");
   }
 
   const now = options.now?.() ?? Date.now();

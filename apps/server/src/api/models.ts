@@ -3,6 +3,7 @@ import { ERROR_HTTP_STATUS } from "@larness/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Database } from "../db/client.js";
+import { MODEL_PROVIDER_IDS } from "../db/schema.js";
 import { HttpError } from "../errors.js";
 import { overrideSchema } from "../modules/models/capabilities.js";
 import {
@@ -29,7 +30,7 @@ import {
 } from "../modules/models/service.js";
 import type { SecretStore } from "../security/secretStore.js";
 
-const ProviderSchema = z.enum(["deepseek", "glm", "openai-compatible"]);
+const ProviderSchema = z.enum(MODEL_PROVIDER_IDS);
 const IdSchema = z.string().min(1).max(128);
 
 const UpdateCredentialSchema = z

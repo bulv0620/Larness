@@ -6,7 +6,7 @@
 | MC-1 | 官方预设、凭据版本和存量迁移 | MC-0、077 实施获准、ADR-062 accepted | done |
 | MC-2 | 能力来源、目录同步与预算接线 | MC-1 | done |
 | MC-3 | 设置与会话选择器 | MC-2 | done |
-| MC-4 | OpenCode Go | MC-3 | todo |
+| MC-4 | OpenCode Go | MC-3 | done |
 | MC-5 | 阿里云百炼 | MC-4 | todo |
 | MC-6 | Kimi | MC-5 | todo |
 | MC-7 | MiniMax | MC-6 | todo |
@@ -40,6 +40,8 @@
 ## MC-4 OpenCode Go
 
 固定套餐目录、推理端点与会话请求头，按 Go 预设匹配能力。目录 mock 校验字段和认证失败；报文 mock 锁定稳定会话 ID、工具格式和上下文预算。用真实 Go Key 跑列表、一次流式工具调用及续步。执行 A2、A9。
+
+Go 公开目录实测 200，包含模型 ID、限制、模态和工具能力。自动化验证固定目录和推理地址、稳定会话头以及流式响应。整仓检查通过。真实套餐 Key 推理与工具续跑待验收。
 
 ## MC-5 阿里云百炼
 

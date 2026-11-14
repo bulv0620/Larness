@@ -378,7 +378,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | MC-1 | 官方预设、凭据版本和存量迁移 | MC-0、077 实施获准、ADR-062 accepted | `done` |
 | MC-2 | 能力来源、目录同步与预算接线 | MC-1 | `done` |
 | MC-3 | 设置与会话选择器 | MC-2 | `done` |
-| MC-4 | OpenCode Go | MC-3 | `todo` |
+| MC-4 | OpenCode Go | MC-3 | `done` |
 | MC-5 | 阿里云百炼 | MC-4 | `todo` |
 | MC-6 | Kimi | MC-5 | `todo` |
 | MC-7 | MiniMax | MC-6 | `todo` |
