@@ -7,7 +7,6 @@ import {
   ChevronsDownUp,
   Copy,
   FilePlus2,
-  FileText,
   Folder,
   FolderPlus,
   Search,
@@ -17,6 +16,7 @@ import { openFile, relocateOpenFile } from "@/features/files/actions";
 import { applyFileAction, fileError, listDirectory, readFile, scopeId } from "@/features/files/api";
 import { useFileDraftStore } from "@/features/files/drafts";
 import { FileNameInput, FileRowActions, MoveFileDialog } from "@/features/files/FileTreeActions";
+import { FileTypeIcon } from "@/features/files/FileTypeIcon";
 import { useFileWatch } from "@/features/files/useFileWatch";
 import { ApiError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
@@ -466,7 +466,7 @@ function Directory(props: DirectoryProps) {
             ) : (
               <>
                 <span className="w-[11px]" />
-                <FileText size={13} className="text-ink-3" />
+                <FileTypeIcon path={entry.path} />
               </>
             )}
             <span className="truncate">{entry.name}</span>

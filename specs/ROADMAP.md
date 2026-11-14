@@ -505,6 +505,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | FR-4 | [文件行仅保留右键菜单](076-file-explorer/tasks.md#fr-4) | FR-3 | `done` |
 | FR-5 | [会话快捷键与聚焦搜索](076-file-explorer/tasks.md#fr-5) | FR-2、FR-4 | `done` |
 | FR-6 | 快速打开结果列表留白 | FR-5 | `done` |
+| FR-7 | Material 文件类型图标 | FR-6 | `done` |
 
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
 - 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。

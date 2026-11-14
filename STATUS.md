@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **FR-7 Material 文件类型图标**（`done`，`task/fr-7-file-type-icons`，2026-11-14）：文件树、搜索和 Tab 共用 Material Icon Theme 5.40.0 文件映射及明暗图标。整仓检查、构建和认证 Chromium 通过。
+
 - **FR-6 快速打开结果列表留白**（`done`，`task/fr-6-search-result-spacing`，2026-11-14）：结果区上下各 8px 留白，整仓检查与认证 Chromium 文件流程通过。
 
 - **FR-5 会话快捷键与聚焦搜索**（`done`，`task/fr-5-quick-open-spotlight`，2026-11-14 12:15 +08:00 开始）：会话内 Command+P / Ctrl+P 和侧栏按钮共用聚焦搜索浮层，关闭恢复焦点。整仓检查、构建和认证 Chromium 文件流程通过。

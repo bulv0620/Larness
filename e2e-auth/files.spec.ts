@@ -23,6 +23,10 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
   const initial = Array.from({ length: 2500 }, (_, index) => `line ${index}`).join("\r\n");
   writeFileSync(file, initial);
   writeFileSync(path.join(root, "large.txt"), "x".repeat(512 * 1024 + 1));
+  writeFileSync(path.join(root, "syntax.ts"), "export const value = 1;\n");
+  writeFileSync(path.join(root, "syntax.tsx"), "");
+  writeFileSync(path.join(root, "syntax.js"), "");
+  writeFileSync(path.join(root, "vercel.json"), "{}");
   writeFileSync(path.join(root, "bom.txt"), "\uFEFFBOM seed\r\n");
   mkdirSync(path.join(root, "sub"));
   const child = path.join(root, "sub", "child.txt");
@@ -98,6 +102,41 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await search.press("Escape");
     await expect(quickOpen).toHaveCount(0);
     await page.getByRole("button", { name: "打开文件 bom.txt", exact: true }).click();
+    const vercelIcon = resources
+      .getByRole("button", { name: "打开文件 vercel.json" })
+      .locator("[style*='--file-icon']");
+    await expect(vercelIcon).toHaveCSS("background-image", /vercel_light.*\.svg/);
+    await page.evaluate(() => {
+      document.documentElement.dataset.theme = "dark";
+    });
+    await expect(vercelIcon).toHaveCSS("background-image", /vercel(?!_light).*\.svg/);
+    await page.evaluate(() => {
+      document.documentElement.dataset.theme = "light";
+    });
+    const syntaxRow = resources.getByRole("button", { name: "打开文件 syntax.ts", exact: true });
+    const treeIcon = syntaxRow.locator("[style*='--file-icon']");
+    await expect(treeIcon).toHaveCSS("background-image", /typescript.*\.svg/);
+    const iconUrl = await treeIcon.evaluate((element) =>
+      getComputedStyle(element).backgroundImage.slice(5, -2),
+    );
+    expect((await page.request.get(iconUrl)).ok()).toBe(true);
+    await resources.getByRole("button", { name: "快速打开文件" }).click();
+    await search.fill("syntax");
+    const resultIcon = quickOpen
+      .getByRole("option", { name: /^syntax\.ts / })
+      .locator("[style*='--file-icon']");
+    await expect(resultIcon).toHaveCSS("background-image", /typescript.*\.svg/);
+    await expect(
+      quickOpen.getByRole("option", { name: /^syntax\.tsx / }).locator("[style*='--file-icon']"),
+    ).toHaveCSS("background-image", /react_ts.*\.svg/);
+    await page.screenshot({ path: path.join(tmpdir(), "larness-fr-7-file-icons.png") });
+    await quickOpen.getByRole("option", { name: /^syntax\.ts / }).click();
+    const syntaxTab = page.getByRole("tab", { name: "syntax.ts", exact: true });
+    await expect(syntaxTab.locator("[style*='--file-icon']")).toHaveCSS(
+      "background-image",
+      /typescript.*\.svg/,
+    );
+    await page.getByRole("button", { name: "关闭 syntax.ts" }).click();
     const bomTab = page.getByRole("tab", { name: /^bom\.txt/ });
     await expect(bomTab.locator("span.italic")).toHaveText("bom.txt");
     const noteRow = page.getByRole("button", { name: "打开文件 note.txt", exact: true });

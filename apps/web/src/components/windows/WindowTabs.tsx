@@ -2,7 +2,6 @@ import { cn, ErrorMessage, Input } from "@larness/ui";
 import {
   ChevronLeft,
   ChevronRight,
-  FileCode2,
   GitCompare,
   Globe2,
   Plus,
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useFileDraftStore } from "@/features/files/drafts";
+import { FileTypeIcon } from "@/features/files/FileTypeIcon";
 import { ended, readTerminal, stopConfirmed, terminalAction } from "@/features/terminals/api";
 import { CreateTerminalButton } from "@/features/terminals/CreateTerminalButton";
 import { USE_MOCKS } from "@/lib/env";
@@ -20,7 +20,8 @@ import { activeWindowTab, filterTabs } from "@/lib/windowFilters";
 import type { ManagedWindow, WindowKind } from "@/lib/windowTypes";
 import { useWindowStore } from "@/stores/windowStore";
 
-function TabIcon({ kind }: { kind: WindowKind }) {
+function TabIcon({ kind, path }: { kind: WindowKind; path: string }) {
+  if (kind === "files") return <FileTypeIcon path={path} size={14} />;
   const Icon =
     kind === "terminal"
       ? SquareTerminal
@@ -28,9 +29,7 @@ function TabIcon({ kind }: { kind: WindowKind }) {
         ? Server
         : kind === "browser"
           ? Globe2
-          : kind === "git-diff"
-            ? GitCompare
-            : FileCode2;
+          : GitCompare;
   return <Icon size={11.5} className="shrink-0 text-ink-3" />;
 }
 
@@ -178,7 +177,7 @@ export function WindowTabs({ window: win }: { window: ManagedWindow }) {
                     title={`${label} · ${tab.title}${tab.kind === "terminal" ? " · 双击或 F2 改名" : tab.preview ? " · 预览，双击保留" : ""}`}
                     className="flex min-w-0 flex-1 items-center gap-1.5 focus-visible:outline-none"
                   >
-                    <TabIcon kind={tab.kind} />
+                    <TabIcon kind={tab.kind} path={tab.file?.path ?? tab.title} />
                     <span className={cn("truncate", tab.preview && "italic")}>
                       {tab.title}
                       {drafts[tab.resourceId] ? " ●" : ""}

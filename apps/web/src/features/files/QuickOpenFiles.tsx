@@ -1,10 +1,11 @@
 import type { FileScope } from "@larness/shared";
 import { cn, Dialog, DialogContent, DialogDescription, DialogTitle, Input } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
-import { FileText, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { openFile } from "./actions";
 import { fileError, scopeId, searchFiles } from "./api";
+import { FileTypeIcon } from "./FileTypeIcon";
 
 export function QuickOpenFiles({
   scope,
@@ -195,7 +196,7 @@ function FileSearch({
             onClick={() => choose(item.path)}
           >
             <span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-surface-2 text-ink-3">
-              <FileText size={16} aria-hidden="true" />
+              <FileTypeIcon path={item.path} size={18} />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-sm font-medium">{item.name}</span>
