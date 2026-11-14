@@ -514,12 +514,12 @@ register("data:text/javascript,"+encodeURIComponent('export async function resol
   await mkdir(path.join(root, "project"));
   const home = path.join(workspace, "apps/web/src/features/workspace/WorkspaceHome.tsx");
   const source = await readFile(home, "utf8");
-  check(source.includes("return <AppShell />;"), "workspace fixture changed");
+  check(source.includes("return <AppShell version={version} />;"), "workspace fixture changed");
   await writeFile(
     home,
     source.replace(
-      "return <AppShell />;",
-      'return <div data-unified-hmr="before"><AppShell /></div>;',
+      "return <AppShell version={version} />;",
+      'return <div data-unified-hmr="before"><AppShell version={version} /></div>;',
     ),
   );
   await writeFile(

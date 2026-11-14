@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
 import { expect, it } from "vitest";
+import { permittedPath, webRoots } from "../../src/dev-web/paths.js";
 import { registerDevWeb } from "../../src/dev-web/routes.js";
 import { registerErrorHandler } from "../../src/errors.js";
 import { testConfig, withTempDir } from "../helpers.js";
@@ -154,4 +157,14 @@ it("fails closed on redirects, oversized responses and a broken upstream without
       await new Promise<void>((done) => upstream.close(() => done()));
     }
   });
+});
+
+it("allows the managed browser to load Material file icon modules and images", () => {
+  const webRoot = fileURLToPath(new URL("../../../web", import.meta.url));
+  const packageRoot = realpathSync(path.join(webRoot, "node_modules", "material-icon-theme"));
+  const roots = webRoots(webRoot);
+  for (const asset of ["dist/material-icons.json", "icons/typescript.svg"]) {
+    const url = `/@fs/${path.join(packageRoot, asset).replaceAll("\\", "/")}?import`;
+    expect(permittedPath(url, webRoot, roots)).toBe(true);
+  }
 });

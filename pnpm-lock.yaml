@@ -240,6 +240,9 @@ importers:
       lucide-react:
         specifier: ^1.70.0
         version: 1.70.0(@types/react@19.3.0)(react@19.3.1)
+      material-icon-theme:
+        specifier: 5.40.0
+        version: 5.40.0
       monaco-editor:
         specifier: ^0.57.0
         version: 0.57.0
@@ -295,9 +298,6 @@ importers:
       happy-dom:
         specifier: ^21.0.4
         version: 21.0.4
-      material-icon-theme:
-        specifier: 5.40.0
-        version: 5.40.0
       tailwindcss:
         specifier: ^4.3.5
         version: 4.3.5

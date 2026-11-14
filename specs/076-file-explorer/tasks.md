@@ -9,6 +9,7 @@
 | FR-5 | [会话快捷键与聚焦搜索](#fr-5) | FR-2、FR-4 | `done` |
 | FR-6 | 快速打开结果列表留白 | FR-5 | `done` |
 | FR-7 | Material 文件类型图标 | FR-6 | `done` |
+| FR-7-R1 | 统一入口加载文件图标 | FR-7、U0-3 | `done` |
 
 ## FR-1
 
@@ -57,6 +58,12 @@
 
 ## FR-7
 
-- [x] 固定 Material Icon Theme 5.40.0 为 Web 构建依赖，保留上游 MIT 许可证并随应用静态资源分发。
+- [x] 固定 Material Icon Theme 5.40.0 为 Web 依赖，保留上游 MIT 许可证并随应用静态资源分发。
 - [x] 新增 20 项文件名、复合后缀、文档和浅色覆盖映射测试，验证未知类型回退。
 - [x] macOS 整仓 `pnpm check`、`pnpm build`、认证 Chromium 文件流程通过。验证三个界面一致显示 TS 图标、搜索区区分 TS/TSX，以及浅色和深色覆盖，并核对截图。
+
+## FR-7-R1
+
+- [x] 在本机 3210 复现图标 JSON 返回 404，并确认新增白名单回归先失败。
+- [x] 将浏览器直接请求的图标包移入 Web dependencies，路径授权规则照旧。
+- [x] 校正统一入口冒烟夹具的 AppShell 版本属性，验证 HTTP dev → built → dev 与 HTTPS dev → built。整仓 `pnpm check` 通过。
