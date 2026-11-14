@@ -141,7 +141,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `model_catalog_cache` | `credential_profile_id`（主键）, `provider, endpoint, models_json, synced_at, last_attempt_at, last_error_code` | M5-1 官方目录缓存，按凭据隔离；`models_json` 只含展示字段；`last_error_code` 只存稳定错误码 |
 | `session_context_summaries` | `id, session_id, covered_up_to_seq, summary, tokens_before, tokens_after, degraded, created_at` | 每个会话可有多条；只使用最近一条非降级且非空摘要；随会话级联删除；摘要正文不写事件 / 日志 |
 | `model_visibility` | `id, credential_profile_id, model_id, visible, updated_at` | 唯一键 `(credential_profile_id, model_id)`；默认 `visible=1`；只控制会话选择器，不改变 Provider 能力 |
-| `model_defaults` | `id, credential_profile_id, model, thinking, updated_at` | 单行 `id='default'`；全局默认模型，用于新会话；删除凭据级联删除；会话内仍可覆盖 |
+| `model_defaults` | `id, credential_profile_id, model, thinking, updated_at` | 单行 `id='default'`；全局默认模型，用于新会话；隐藏该凭据下的默认模型会清除该行；删除凭据级联删除；会话内仍可覆盖 |
 | `credential_profiles` | `id, provider, label, secret_ref, created_at` | 密钥在 SecretStore |
 | `secrets` | `id, ciphertext, nonce, tag, created_at` | AES-256-GCM；主密钥在文件系统 |
 | `approvals` | `id, turn_id, tool_call_id, tool_name, risk, status, scope_json, params_hash, expires_at, decided_at, decided_by, created_at` | `status`: `pending / approved / denied / expired`；审批参数绑定与审计 |

@@ -8,6 +8,7 @@ import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
 import { assertSafeEndpoint, EndpointError, type HostResolver } from "./endpoint.js";
 import {
+  clearModelDefaultRow,
   findLatestCredentialForProvider,
   getCredentialRow,
   getModelCatalogCache,
@@ -452,7 +453,7 @@ export function getModelCatalog(options: CatalogOptions): CatalogDto {
       ? undefined
       : groups.find((group) => group.credentialProfileId === row.credentialProfileId);
   const defaultModel = defaultGroup?.models.find(
-    (model) => model.id === row?.model && model.contextWindow !== null,
+    (model) => model.id === row?.model && model.contextWindow !== null && model.visible !== false,
   );
 
   return {
@@ -873,6 +874,24 @@ export function setCatalogModelVisibility(
 
   const now = options.now?.() ?? Date.now();
   immediateTransaction(options.db, (tx) => {
+    const currentDefault = getModelDefaultRow(tx);
+    if (
+      currentDefault?.credentialProfileId === credential.id &&
+      currentDefault.model === input.modelId &&
+      (!input.visible || getModelVisibility(tx, credential.id).get(input.modelId) === false)
+    ) {
+      clearModelDefaultRow(tx);
+      appendAudit(tx, {
+        action: "model.default.changed",
+        decision: "allow",
+        clientSessionId: input.clientSessionId,
+        resourceType: "model",
+        resourceId: input.modelId,
+        details: { credentialProfileId: credential.id, cleared: true },
+        now,
+      });
+    }
+
     setModelVisibilityRow(tx, {
       credentialProfileId: credential.id,
       modelId: input.modelId,
@@ -894,7 +913,9 @@ export function setCatalogModelVisibility(
 export function getModelDefaultSelection(db: DbExecutor): ModelDefaultSelection | null {
   const row = getModelDefaultRow(db);
 
-  if (row === null) return null;
+  if (row === null || getModelVisibility(db, row.credentialProfileId).get(row.model) === false) {
+    return null;
+  }
 
   try {
     const selection = resolveCatalogSelection(db, {
@@ -939,6 +960,10 @@ export function setCatalogDefault(
   const now = options.now?.() ?? Date.now();
 
   immediateTransaction(options.db, (tx) => {
+    if (getModelVisibility(tx, credential.id).get(model.id) === false) {
+      throw new ModelError("MODEL_UNSUPPORTED", "hidden models cannot be set as the default");
+    }
+
     setModelDefaultRow(tx, {
       credentialProfileId: input.credentialProfileId,
       model: model.id,

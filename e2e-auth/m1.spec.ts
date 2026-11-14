@@ -219,6 +219,11 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
       page.getByRole("button", { name: "模型与思考：DeepSeek Chat · 不支持" }),
     ).toBeVisible();
 
+    await page.reload();
+    await expect(
+      page.getByRole("button", { name: "模型与思考：DeepSeek Chat · 不支持" }),
+    ).toBeVisible({ timeout: 15_000 });
+
     await composer.fill("list again");
     await page.getByRole("button", { name: "发送消息" }).click();
     await expect(page.getByText("项目文件已列出。")).toHaveCount(2, { timeout: 20_000 });
@@ -229,11 +234,44 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await page.getByRole("button", { name: "停止执行" }).click({ timeout: 10_000 });
     await expect(page.getByText("已停止当前执行。")).toBeVisible({ timeout: 20_000 });
 
+    await page.getByRole("button", { name: "设置与模型" }).click();
+    const modelSettings = page.getByRole("dialog", { name: "模型与凭据" });
+    await modelSettings.getByRole("button", { name: /E2E.*2 个模型/ }).click();
+    const defaultModel = modelSettings.getByRole("button", { name: /^DeepSeek Flash/ }).first();
+    await defaultModel.click();
+    await expect(defaultModel).toContainText("默认");
+    await page.keyboard.press("Escape");
+    await expect(modelSettings).toBeHidden();
+
+    const modelControl = page.getByRole("button", { name: /^模型与思考：/ });
+    await expect(modelControl).toHaveAccessibleName(/DeepSeek Chat/);
     await page.getByText("新建会话", { exact: true }).first().click();
     await expect(page.getByText("草稿")).toHaveCount(1);
+    await expect(modelControl).toHaveAccessibleName(/DeepSeek Flash/);
     await sidebar.getByRole("button", { name: "Renamed chat", exact: true }).first().click();
+    await expect(modelControl).toHaveAccessibleName(/DeepSeek Chat/);
     await expect(page.getByText("草稿")).toHaveCount(0);
 
+    await page.getByRole("button", { name: "设置与模型" }).click();
+    await modelSettings.getByRole("button", { name: /E2E.*2 个模型/ }).click();
+    const showFlash = modelSettings.getByRole("button", { name: "DeepSeek Flash 在会话中显示" });
+    await showFlash.click();
+    await expect(defaultModel).toBeDisabled();
+    await expect(defaultModel).not.toContainText("默认");
+    await page.keyboard.press("Escape");
+    await expect(modelSettings).toBeHidden();
+
+    await page.getByText("新建会话", { exact: true }).first().click();
+    await expect(modelControl).toHaveAccessibleName(/DeepSeek Chat/);
+    await sidebar.getByRole("button", { name: "Renamed chat", exact: true }).first().click();
+
+    await page.getByRole("button", { name: "设置与模型" }).click();
+    await modelSettings.getByRole("button", { name: /E2E.*2 个模型/ }).click();
+    await showFlash.click();
+    await expect(defaultModel).toBeEnabled();
+    await expect(defaultModel).not.toContainText("默认");
+    await page.keyboard.press("Escape");
+    await expect(modelSettings).toBeHidden();
     await page.getByRole("button", { name: "设置与模型" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "添加 Key" }).click();
     await page.getByRole("dialog").getByLabel("凭据名称").fill("E2E secret");

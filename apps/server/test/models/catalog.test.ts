@@ -8,6 +8,7 @@ import {
   type CatalogOptions,
   GLM_BUILTIN_CATALOG,
   getModelCatalog,
+  getModelDefaultSelection,
   mapThinkingSetting,
   refreshModelCatalog,
   resolveCatalogProvider,
@@ -15,6 +16,7 @@ import {
   setCatalogDefault,
   setCatalogModelVisibility,
 } from "../../src/modules/models/catalog.js";
+import { getModelDefaultRow, setModelVisibilityRow } from "../../src/modules/models/repository.js";
 import { createCredential, listModelDtos, ModelError } from "../../src/modules/models/service.js";
 import { SecretStore } from "../../src/security/secretStore.js";
 import { withTempDir } from "../helpers.js";
@@ -495,6 +497,82 @@ describe("deepseek model catalog", () => {
       }
     });
   });
+  it("clears a hidden default and rejects setting it again until shown", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+
+      try {
+        const first = createCredential(options, {
+          provider: "deepseek",
+          label: "First",
+          apiKey: "sk-first",
+        });
+        const second = createCredential(options, {
+          provider: "deepseek",
+          label: "Second",
+          apiKey: "sk-second",
+        });
+        await refreshModelCatalog({
+          ...options,
+          fetcher: async () => catalogResponse(["deepseek-chat"]),
+        });
+        const selection = { model: "deepseek-chat", credentialProfileId: first.id };
+        const visibility = { modelId: selection.model, credentialProfileId: first.id };
+        setCatalogDefault(options, selection);
+
+        setCatalogModelVisibility(options, {
+          ...visibility,
+          credentialProfileId: second.id,
+          visible: false,
+        });
+        expect(getModelDefaultSelection(options.db)).toMatchObject(selection);
+        setCatalogModelVisibility(options, { ...visibility, visible: false });
+        expect(getModelDefaultRow(options.db)).toBeNull();
+        expect(getModelCatalog(options).defaultSelection).toBeNull();
+        expect(getModelDefaultSelection(options.db)).toBeNull();
+        expect(() => setCatalogDefault(options, selection)).toThrow(
+          expect.objectContaining({ code: "MODEL_UNSUPPORTED" }),
+        );
+
+        setCatalogModelVisibility(options, { ...visibility, visible: true });
+        expect(getModelDefaultSelection(options.db)).toBeNull();
+        expect(setCatalogDefault(options, selection)).toMatchObject(selection);
+      } finally {
+        opened.sqlite.close();
+      }
+    });
+  });
+
+  it("ignores a legacy hidden default and does not restore it when shown", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, options } = await fixture(dir);
+
+      try {
+        const credential = createCredential(options, {
+          provider: "deepseek",
+          label: "Key",
+          apiKey: "sk-test",
+        });
+        await refreshModelCatalog({
+          ...options,
+          fetcher: async () => catalogResponse(["deepseek-chat"]),
+        });
+        const selection = { model: "deepseek-chat", credentialProfileId: credential.id };
+        const visibility = { modelId: selection.model, credentialProfileId: credential.id };
+        setCatalogDefault(options, selection);
+        setModelVisibilityRow(options.db, { ...visibility, visible: false, now: 1 });
+
+        expect(getModelCatalog(options).defaultSelection).toBeNull();
+        expect(getModelDefaultSelection(options.db)).toBeNull();
+        expect(resolveCatalogSelection(options.db, selection)).toMatchObject(selection);
+        setCatalogModelVisibility(options, { ...visibility, visible: true });
+        expect(getModelDefaultRow(options.db)).toBeNull();
+      } finally {
+        opened.sqlite.close();
+      }
+    });
+  });
+
   it("loads models from a compatible endpoint with the credential window", async () => {
     await withTempDir(async (dir) => {
       const { opened, options } = await fixture(dir);

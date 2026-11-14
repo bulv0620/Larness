@@ -10,6 +10,8 @@ import {
   listCredentials,
   listModelCatalog,
   refreshModelCatalog,
+  setModelDefault,
+  setModelVisibility,
 } from "@/lib/workspaceApi";
 import { ModelSettingsDialog } from "./ModelSettingsDialog";
 
@@ -19,6 +21,8 @@ vi.mock("@/lib/workspaceApi", () => ({
   listCredentials: vi.fn(),
   listModelCatalog: vi.fn(),
   refreshModelCatalog: vi.fn(),
+  setModelDefault: vi.fn(),
+  setModelVisibility: vi.fn(),
 }));
 
 const credential: ApiCredential = {
@@ -172,4 +176,46 @@ it("asks for confirmation before deleting a Key", async () => {
   fireEvent.click(screen.getByRole("button", { name: "删除" }));
 
   await waitFor(() => expect(deleteCredential).toHaveBeenCalledWith("credential_test"));
+});
+
+it("removes the default marker and disables setting a model as default after hiding it", async () => {
+  const user = userEvent.setup();
+  const visible = {
+    ...synced,
+    groups: [synced],
+    defaultSelection: { model: "test-model", credentialProfileId: credential.id, thinking: "off" },
+  };
+  const hidden = {
+    ...synced,
+    models: synced.models.map((model) => ({ ...model, visible: false })),
+  };
+  vi.mocked(listCredentials).mockReset().mockResolvedValue([credential]);
+  vi.mocked(listModelCatalog)
+    .mockReset()
+    .mockResolvedValueOnce(visible)
+    .mockResolvedValue({
+      ...hidden,
+      groups: [hidden],
+      defaultSelection: null,
+    });
+
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <ModelSettingsDialog open onOpenChange={vi.fn()} />
+    </QueryClientProvider>,
+  );
+  await user.click(await screen.findByRole("button", { name: /测试凭据.*1 个模型/ }));
+  const model = screen.getByRole("button", { name: /^测试模型 默认/ });
+  expect(model).toBeEnabled();
+
+  await user.click(screen.getByRole("button", { name: "测试模型 在会话中显示" }));
+  expect(setModelVisibility).toHaveBeenCalledWith({
+    credentialProfileId: credential.id,
+    modelId: "test-model",
+    visible: false,
+  });
+  await waitFor(() => expect(model).not.toHaveTextContent("默认"));
+  expect(model).toBeDisabled();
+  await user.click(model);
+  expect(setModelDefault).not.toHaveBeenCalled();
 });

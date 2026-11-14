@@ -18,7 +18,7 @@ import {
   type ModelUsageEntry,
   modelUsageFromEvents,
 } from "@/lib/eventReducer";
-import { queryClient } from "@/lib/queries";
+import { queryClient, saveSessionModelKey, sessionModelKey } from "@/lib/queries";
 import { appendAssistantMessage, applyReasoningDelta, applyTurnEvent } from "@/lib/timeline";
 import {
   cancelTurn,
@@ -27,6 +27,7 @@ import {
   decideApproval,
   fetchAllEvents,
   getSession,
+  type ModelSelection,
   resumeTurn as requestResumeTurn,
   updateSession,
 } from "@/lib/workspaceApi";
@@ -78,7 +79,7 @@ interface TimelineState {
   load: (sessionId: string) => Promise<void>;
   disconnect: () => void;
   syncEvents: () => Promise<void>;
-  send: (text: string) => Promise<void>;
+  send: (text: string, selection?: ModelSelection) => Promise<void>;
   stop: () => void;
   resumeTurn: (turnId: string) => Promise<void>;
   resolveApproval: (approvalId: string, decision: "approve" | "reject") => Promise<void>;
@@ -443,7 +444,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }
   },
 
-  send: async (text) => {
+  send: async (text, selection) => {
     const trimmed = text.trim();
     if (!trimmed || get().isStreaming) return;
     const sessionId = get().sessionId;
@@ -496,8 +497,12 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       return;
     }
 
-    const composer = useComposerStore.getState();
-    const draft = useNavigationStore.getState().draftSession;
+    const navigation = useNavigationStore.getState();
+    if (navigation.sessionId !== sessionId) return;
+    if (queryClient.isMutating({ mutationKey: saveSessionModelKey(sessionId) })) return;
+
+    const { policy } = useComposerStore.getState();
+    const draft = navigation.draftSession;
 
     if (draft !== null && draft.id === sessionId) {
       set({ isStreaming: true, turnStartedAt: Date.now() });
@@ -507,26 +512,14 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
           draft.projectId === null ? {} : { projectId: draft.projectId },
         );
         await updateSession(real.id, {
-          model: composer.modelId,
-          thinking: composer.thinking,
-          credentialProfileId: composer.credentialProfileId,
-          approvalPolicyId: composer.policy,
+          ...selection,
+          approvalPolicyId: policy,
         });
-        await createTurn(
-          real.id,
-          {
-            input: trimmed,
-            model: composer.modelId,
-            thinking: composer.thinking,
-            ...(composer.credentialProfileId === null
-              ? {}
-              : { credentialProfileId: composer.credentialProfileId }),
-          },
-          crypto.randomUUID(),
-        );
+        await createTurn(real.id, { input: trimmed, ...selection }, crypto.randomUUID());
         await queryClient.invalidateQueries({ queryKey: ["workspace"] });
-        useNavigationStore.getState().commitDraft(real.id, real.projectId);
+        useNavigationStore.getState().commitDraft(draft.id, real.id, real.projectId);
       } catch (error) {
+        if (get().sessionId !== sessionId) return;
         const message = error instanceof Error ? error.message : "发送失败";
         set((state) => ({
           isStreaming: false,
@@ -553,27 +546,20 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     try {
       await updateSession(sessionId, {
-        model: composer.modelId,
-        thinking: composer.thinking,
-        credentialProfileId: composer.credentialProfileId,
-        approvalPolicyId: composer.policy,
+        approvalPolicyId: policy,
       });
       const created = await createTurn(
         sessionId,
-        {
-          input: trimmed,
-          model: composer.modelId,
-          thinking: composer.thinking,
-          ...(composer.credentialProfileId === null
-            ? {}
-            : { credentialProfileId: composer.credentialProfileId }),
-        },
+        { input: trimmed, ...selection },
         crypto.randomUUID(),
       );
+      void queryClient.invalidateQueries({ queryKey: sessionModelKey(sessionId) });
+      if (get().sessionId !== sessionId) return;
       set({ activeTurnId: created.turnId });
       await queryClient.invalidateQueries({ queryKey: ["workspace"] });
-      await get().syncEvents();
+      if (get().sessionId === sessionId) await get().syncEvents();
     } catch (error) {
+      if (get().sessionId !== sessionId) return;
       const message = error instanceof Error ? error.message : "发送失败";
       set((state) => ({
         isStreaming: false,

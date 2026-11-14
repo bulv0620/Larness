@@ -531,8 +531,8 @@ Turn 创建成功返回 `202`：
 
 - 从未成功同步时 `syncedAt: null`、`models: []`、`stale: true`；无凭据返回 `409 MODEL_CREDENTIAL_MISSING`。
 - 窗口或档位缺失时按未知展示，不猜值，也不把该模型当作可选。
-- 每个模型带 `visible`（默认 `true`）；`PATCH /api/models/catalog/visibility` 保存用户筛选，仅影响会话选择器，不改变 Provider 能力或鉴权。
-- 响应顶层 `defaultSelection` 为全局默认模型（`model / thinking / credentialProfileId`，未设置或已失效为 `null`）；设置页只管理 Key、显示与默认，不读写会话。
+- 每个模型带 `visible`（默认 `true`）；`PATCH /api/models/catalog/visibility` 保存用户筛选。隐藏全局默认模型会在同一事务清除默认设置，重新显示后需手动设为默认；已保存的会话选择仍可使用。
+- 响应顶层 `defaultSelection` 为全局默认模型（`model / thinking / credentialProfileId`，未设置或已失效为 `null`）；隐藏的历史默认按未设置处理。将隐藏模型设为默认返回 `MODEL_UNSUPPORTED`。设置页只管理 Key、显示与默认。
 - 目录响应不合规返回 `502 MODEL_CATALOG_INVALID`，不写入缓存；缓存按 `credential_profile_id` 隔离。
 - 不返回密钥、上游原始错误正文或请求头。
 

@@ -192,6 +192,7 @@ export function ModelSettingsDialog({
   };
 
   const makeDefault = async (group: ApiCatalogGroup, model: ApiCatalogModel) => {
+    if (model.visible === false) return;
     if (model.contextWindow === null) {
       setError("该模型未声明上下文窗口，暂时不能设为默认。");
       return;
@@ -499,9 +500,10 @@ export function ModelSettingsDialog({
               ) : (
                 models.map((model) => {
                   const selected =
+                    model.visible !== false &&
                     model.id === defaultSelection?.model &&
                     activeGroup.credentialProfileId === defaultSelection.credentialProfileId;
-                  const disabled = model.contextWindow === null;
+                  const disabled = model.contextWindow === null || model.visible === false;
                   return (
                     <div
                       key={model.id}
@@ -523,7 +525,7 @@ export function ModelSettingsDialog({
                         </span>
                         <span className="mt-0.5 block text-[10.5px] text-ink-3">
                           {windowLabel(model)} · {thinkingLabel(model)}
-                          {disabled ? " · 不可选" : ""}
+                          {model.visible === false ? " · 已隐藏" : disabled ? " · 不可选" : ""}
                         </span>
                       </button>
                       <button
@@ -543,7 +545,7 @@ export function ModelSettingsDialog({
               )}
             </div>
             <footer className="shrink-0 border-t border-line px-4 py-2 text-[10.5px] text-ink-3">
-              点模型名设为新会话默认；眼睛图标控制是否出现在输入框选择器。
+              点可见模型的名称可设为新会话默认。隐藏默认模型会取消默认设置。
             </footer>
             <Dialog
               open={confirmRemove}

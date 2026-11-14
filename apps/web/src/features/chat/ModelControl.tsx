@@ -9,6 +9,7 @@ interface ModelControlProps {
   credentialProfileId: string | null;
   thinking: string;
   catalogError: unknown;
+  disabled: boolean;
   credentialLabel?: string;
   onSelectModel: (modelId: string, credentialProfileId: string) => void;
   onSelectThinking: (thinking: string) => void;
@@ -38,6 +39,7 @@ export function ModelControl({
   credentialProfileId,
   thinking,
   catalogError,
+  disabled,
   onSelectModel,
   onSelectThinking,
 }: ModelControlProps) {
@@ -73,13 +75,6 @@ export function ModelControl({
 
   const selectModel = (modelId: string, nextCredentialProfileId: string) => {
     onSelectModel(modelId, nextCredentialProfileId);
-    const next = groups
-      .find((group) => group.credentialProfileId === nextCredentialProfileId)
-      ?.models.find((item) => item.id === modelId);
-
-    if (next !== undefined && !next.thinking.supported) {
-      onSelectThinking("off");
-    }
     setOpen(false);
   };
 
@@ -94,6 +89,7 @@ export function ModelControl({
         type="button"
         aria-label={`模型与思考：${model?.label ?? "未配置凭据"} · ${currentThinking}`}
         aria-expanded={open}
+        disabled={disabled}
         onClick={toggleOpen}
         className="flex h-7 min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
       >

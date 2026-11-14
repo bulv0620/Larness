@@ -8,7 +8,9 @@ import { Composer } from "./Composer";
 import { PendingApproval } from "./PendingApproval";
 import { Timeline } from "./Timeline";
 
-vi.mock("@/lib/queries", () => ({
+vi.mock("@/lib/env", () => ({ USE_MOCKS: true }));
+vi.mock("@/lib/queries", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/queries")>()),
   useSessionModel: () => null,
   useSnapshot: () => ({
     data: {

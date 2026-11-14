@@ -133,9 +133,12 @@ export function useModelCatalog(): ModelCatalogResult {
   };
 }
 
+export const sessionModelKey = (sessionId: string | null) => ["session-model", sessionId];
+export const saveSessionModelKey = (sessionId: string) => ["save-session-model", sessionId];
+
 export function useSessionModel(sessionId: string | null) {
   const query = useQuery({
-    queryKey: ["session-model", sessionId],
+    queryKey: sessionModelKey(sessionId),
     queryFn: () => getSession(sessionId ?? ""),
     enabled: !USE_MOCKS && sessionId !== null,
     staleTime: 0,

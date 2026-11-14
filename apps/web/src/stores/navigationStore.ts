@@ -1,10 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { USE_MOCKS } from "@/lib/env";
+import type { ModelSelection } from "@/lib/workspaceApi";
 
 interface DraftSession {
   id: string;
   projectId: string | null;
+  selection?: ModelSelection;
 }
 
 interface NavigationState {
@@ -26,7 +28,8 @@ interface NavigationState {
   selectSession: (sessionId: string, projectId: string | null) => void;
   openPinnedSession: (sessionId: string, projectId: string | null) => void;
   startDraft: (projectId: string | null) => void;
-  commitDraft: (sessionId: string, projectId: string | null) => void;
+  setDraftModel: (id: string, selection: ModelSelection) => void;
+  commitDraft: (draftId: string, sessionId: string, projectId: string | null) => void;
   setSidebarWidth: (width: number) => void;
   setResourceWidth: (width: number) => void;
   toggleSidebar: () => void;
@@ -115,8 +118,19 @@ export const useNavigationStore = create<NavigationState>()(
           };
         }),
 
-      commitDraft: (sessionId, projectId) =>
-        set({ sessionId, projectId, draftSession: null, mobileSidebarOpen: false }),
+      setDraftModel: (id, selection) =>
+        set((state) =>
+          state.draftSession?.id === id
+            ? { draftSession: { ...state.draftSession, selection } }
+            : state,
+        ),
+
+      commitDraft: (draftId, sessionId, projectId) =>
+        set((state) =>
+          state.sessionId === draftId
+            ? { sessionId, projectId, draftSession: null, mobileSidebarOpen: false }
+            : state,
+        ),
 
       setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
 

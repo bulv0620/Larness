@@ -131,13 +131,15 @@ export interface ApiCatalogGroup {
   models: ApiCatalogModel[];
 }
 
+export interface ModelSelection {
+  model: string;
+  thinking: string;
+  credentialProfileId: string;
+}
+
 export interface ApiModelCatalog extends ApiCatalogGroup {
   groups: ApiCatalogGroup[];
-  defaultSelection?: {
-    model: string;
-    thinking: string;
-    credentialProfileId: string;
-  } | null;
+  defaultSelection?: ModelSelection | null;
 }
 
 export interface ApiCredential {

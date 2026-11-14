@@ -7,7 +7,8 @@ import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { Composer } from "./Composer";
 
-vi.mock("@/lib/queries", () => {
+vi.mock("@/lib/env", () => ({ USE_MOCKS: true }));
+vi.mock("@/lib/queries", async (importOriginal) => {
   const deepseekGroup = {
     provider: "deepseek",
     credentialProfileId: "cred_mock",
@@ -58,6 +59,7 @@ vi.mock("@/lib/queries", () => {
   };
 
   return {
+    ...(await importOriginal<typeof import("@/lib/queries")>()),
     useSessionModel: () => null,
     useModelCatalog: () => ({
       catalog: { ...deepseekGroup, groups: [deepseekGroup, glmGroup] },
@@ -71,8 +73,6 @@ beforeEach(() => {
   useComposerStore.setState({
     draft: "任务",
     policy: "standard",
-    modelId: "deepseek-flash",
-    thinking: "medium",
   });
   useNavigationStore.setState({ sessionId: "test" });
   useTimelineStore.setState({
@@ -165,7 +165,6 @@ it("switches model and thinking from the two-level menu", async () => {
 
   await user.click(within(popover).getByRole("button", { name: "思考等级：中" }));
   await user.click(within(popover).getByRole("button", { name: "高" }));
-  expect(useComposerStore.getState().thinking).toBe("high");
   expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 高" })).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 高" }));
@@ -177,9 +176,6 @@ it("switches model and thinking from the two-level menu", async () => {
   expect(within(reopened).queryByText("Unknown Window")).toBeNull();
 
   await user.click(within(reopened).getByRole("button", { name: /GLM-4.6/ }));
-  expect(useComposerStore.getState().modelId).toBe("glm-4.6");
-  expect(useComposerStore.getState().credentialProfileId).toBe("cred_glm");
-  expect(useComposerStore.getState().thinking).toBe("on");
   const switchNotice = screen.getByText("已切换到 GLM-4.6");
   expect(switchNotice).toBeVisible();
   expect(switchNotice).toHaveClass("absolute", "bottom-full");
@@ -189,16 +185,12 @@ it("switches model and thinking from the two-level menu", async () => {
   await user.click(within(glmPopover).getByRole("button", { name: "思考等级：开启" }));
   expect(within(glmPopover).getByRole("button", { name: "关闭" })).toBeVisible();
   await user.click(within(glmPopover).getByRole("button", { name: "关闭" }));
-  expect(useComposerStore.getState().thinking).toBe("off");
   expect(screen.getByRole("button", { name: "模型与思考：GLM-4.6 · 关闭" })).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "模型与思考：GLM-4.6 · 关闭" }));
   const again = screen.getByRole("dialog", { name: "模型与思考" });
   await user.click(within(again).getByRole("button", { name: "模型：GLM-4.6" }));
   await user.click(within(again).getByRole("button", { name: /DeepSeek Chat/ }));
-  expect(useComposerStore.getState().modelId).toBe("deepseek-chat");
-  expect(useComposerStore.getState().credentialProfileId).toBe("cred_mock");
-  expect(useComposerStore.getState().thinking).toBe("off");
   expect(screen.getByText("已切换到 DeepSeek Chat")).toBeVisible();
   expect(screen.getByRole("button", { name: "模型与思考：DeepSeek Chat · 不支持" })).toBeVisible();
   expect(screen.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
