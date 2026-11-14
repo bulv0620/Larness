@@ -495,6 +495,8 @@ PATCH 接受 `{ revision?, label?, apiKey?, endpoint?, contextWindow? }`。换 K
 
 Kimi 开放平台与 Kimi Code 分别提供国内／国际预设，独立绑定 Key、目录与地址。Kimi Code 使用专属候选目录与交互式限制，发送真实 Larness 客户端标识。
 
+MiniMax 标准与 M Plan 分别绑定预设，即使同地域使用相同地址。M Plan 的候选目录独立且只允许交互调用。流式业务错误映射为稳定错误。
+
 OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模型列表决定套餐候选。能力解析 Go 的 `limit`、`modalities` 和工具声明；推理地址与 `x-opencode-session` 由服务端生成。
 
 连接测试使用 `POST /api/credentials/:id/test` 和 `{ model }`，需认证与 CSRF。向该连接发送有界的合成文本请求，成功返回 `{ ok: true }`，独立于目录同步结果。测试使用真实线路额度，失败只返回稳定错误。

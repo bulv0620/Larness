@@ -7,6 +7,7 @@ export type ProviderId =
   | "opencode-go"
   | "bailian"
   | "kimi"
+  | "minimax"
   | "fake";
 
 export type ProviderFinishReason =

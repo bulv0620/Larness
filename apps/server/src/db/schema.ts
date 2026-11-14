@@ -39,6 +39,7 @@ export const MODEL_PROVIDER_IDS = [
   "opencode-go",
   "bailian",
   "kimi",
+  "minimax",
 ] as const;
 export type ModelProviderId = (typeof MODEL_PROVIDER_IDS)[number];
 export type ScheduledJobKind = "script" | "agent";

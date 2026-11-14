@@ -7,6 +7,7 @@ import {
   toAiSdkTools,
 } from "./deepseek.js";
 import { ProviderError } from "./errors.js";
+import { miniMaxFetch, miniMaxRequest } from "./minimax.js";
 import type {
   ProviderAdapter,
   ProviderCapabilities,
@@ -38,7 +39,7 @@ const COMPATIBLE_CAPABILITIES: ProviderCapabilities = {
 };
 
 export interface CompatibleProviderOptions {
-  id: "glm" | "openai-compatible" | "opencode-go" | "bailian" | "kimi";
+  id: "glm" | "openai-compatible" | "opencode-go" | "bailian" | "kimi" | "minimax";
   headers?: Record<string, string>;
   name: string;
   baseURL: string;
@@ -87,7 +88,10 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
           baseURL: input.endpoint ?? options.baseURL,
           apiKey: input.apiKey,
           ...(options.headers === undefined ? {} : { headers: options.headers }),
-          fetch: noRedirectFetch,
+          fetch: options.id === "minimax" ? miniMaxFetch : noRedirectFetch,
+          ...(options.id === "minimax"
+            ? { transformRequestBody: miniMaxRequest, includeUsage: true }
+            : {}),
         });
         const tools = toAiSdkTools(input.tools);
         const providerOptions =
@@ -95,7 +99,18 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
             ? toCompatibleProviderOptions(options.name, input.thinking)
             : options.id === "bailian" && input.thinking?.enabled
               ? { [options.name]: { enable_thinking: true } }
-              : undefined;
+              : options.id === "minimax" && input.thinking !== undefined
+                ? {
+                    [options.name]: input.model.startsWith("MiniMax-M3.1-Flash")
+                      ? {
+                          thinking: { type: "adaptive" },
+                          ...(input.thinking.effort
+                            ? { reasoning_effort: input.thinking.effort }
+                            : {}),
+                        }
+                      : { thinking: { type: input.thinking.enabled ? "adaptive" : "disabled" } },
+                  }
+                : undefined;
         const result = streamText({
           model: provider(input.model),
           // The runtime assembles system messages from trusted instruction sources.

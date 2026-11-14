@@ -62,3 +62,51 @@ describe("compatible providers", () => {
     });
   });
 });
+
+it("maps MiniMax output limits and preserves reasoning on tool continuations", async () => {
+  const provider = createCompatibleProvider({
+    id: "minimax",
+    name: "minimax",
+    baseURL: "https://api.minimax.cn/v1",
+  });
+  const original = globalThis.fetch;
+  const bodies: unknown[] = [];
+  try {
+    globalThis.fetch = async (_url, init) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return new Response('data: {"base_resp":{"status_code":1008}}\n\ndata: [DONE]\n\n', {
+        headers: { "content-type": "text/event-stream" },
+      });
+    };
+    const chunks = [];
+    for await (const chunk of provider.streamStep({
+      model: "MiniMax-M3.1-Flash",
+      apiKey: "placeholder",
+      maxOutputTokens: 200,
+      signal: new AbortController().signal,
+      tools: [],
+      messages: [
+        { role: "user", content: "go" },
+        {
+          role: "assistant",
+          content: "",
+          reasoning: "prior reasoning",
+          toolCalls: [{ id: "one", name: "inspect", args: {} }],
+        },
+        { role: "tool", toolCallId: "one", toolName: "inspect", content: "done" },
+      ],
+    }))
+      chunks.push(chunk);
+    expect(bodies).toMatchObject([
+      {
+        max_completion_tokens: 200,
+        messages: expect.arrayContaining([
+          expect.objectContaining({ role: "assistant", reasoning_content: "prior reasoning" }),
+        ]),
+      },
+    ]);
+    expect(chunks).toMatchObject([{ type: "error", error: { code: "PROVIDER_QUOTA_EXHAUSTED" } }]);
+  } finally {
+    globalThis.fetch = original;
+  }
+});

@@ -80,7 +80,7 @@ interface RawStreamPart {
 const CONTEXT_LIMIT_PATTERN =
   /context (?:length|window)|maximum context|too many tokens|token limit|input is too long|context_length_exceeded/;
 const QUOTA_PATTERN =
-  /insufficient balance|insufficient quota|quota exceeded|no available resources?|余额不足|资源包|请充值|payment required|\b1113\b/i;
+  /insufficient balance|insufficient[_ ]quota|quota exceeded|no available resources?|余额不足|资源包|请充值|payment required|\b1113\b/i;
 const CONTENT_FILTER_PATTERN = /content filter|content_filter|safety|moderation|flagged/;
 
 function mapFinishReason(value: unknown): ProviderFinishReason {
@@ -176,6 +176,7 @@ function providerFailure(
 }
 
 export function classifyProviderError(error: unknown): ProviderError {
+  if (error instanceof ProviderError) return error;
   if (error instanceof ProviderError) {
     return error;
   }
@@ -201,6 +202,7 @@ export function classifyProviderError(error: unknown): ProviderError {
   }
 
   if (APICallError.isInstance(error)) {
+    if (error.cause instanceof ProviderError) return error.cause;
     const status = error.statusCode;
     const haystack = `${error.message} ${error.responseBody ?? ""}`.toLowerCase();
 

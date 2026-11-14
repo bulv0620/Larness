@@ -9,7 +9,7 @@
 | MC-4 | OpenCode Go | MC-3 | done |
 | MC-5 | 阿里云百炼 | MC-4 | done |
 | MC-6 | Kimi | MC-5 | done |
-| MC-7 | MiniMax | MC-6 | todo |
+| MC-7 | MiniMax | MC-6 | done |
 | MC-8 | 截图输入与能力校验 | MC-7 | todo |
 
 ## MC-0 规格与评审包
@@ -58,6 +58,8 @@ Go 公开目录实测 200，包含模型 ID、限制、模态和工具能力。�
 ## MC-7 MiniMax
 
 开放平台国内／国际与 M Plan。按官方格式编码同 Turn 工具续跑和思考参数，处理流中业务错误。逐预设跑 A3、A7、A9、A10。
+
+已接入国内／国际标准 API 与 M Plan。同 Turn 思考回传、请求输出上限和流中业务错误有自动化报文测试，整仓检查通过。真实 Key 待验收。
 
 ## MC-8 截图
 

@@ -373,8 +373,26 @@ const GO_BUILTIN_CATALOG: readonly CatalogModel[] = [
   },
 ];
 
+const MINIMAX_BUILTIN_CATALOG: readonly CatalogModel[] = [
+  {
+    id: "MiniMax-M3.1-Flash",
+    label: "MiniMax M3.1 Flash",
+    contextWindow: 1_000_000,
+    thinking: { supported: true, mode: "mandatory-levels", levels: [...THINKING_LEVELS] },
+    default: false,
+  },
+  {
+    id: "MiniMax-M3",
+    label: "MiniMax M3",
+    contextWindow: 1_000_000,
+    thinking: { supported: true, mode: "toggle", levels: [] },
+    default: false,
+  },
+];
+
 function builtinCatalog(provider: ModelProviderId): readonly CatalogModel[] {
   if (provider === "glm") return GLM_BUILTIN_CATALOG;
+  if (provider === "minimax") return MINIMAX_BUILTIN_CATALOG;
   if (provider === "opencode-go") return GO_BUILTIN_CATALOG;
   return provider === "deepseek" ? DEEPSEEK_BUILTIN_CATALOG : [];
 }
