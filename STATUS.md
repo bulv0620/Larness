@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **MC-13 模型行内操作与隐藏样式**（`done`，`task/mc-13-inline-model-actions`，2026-11-15）：将模型行操作收在可展开区，隐藏模型置灰。整仓检查与认证 M1 Chromium 4 项通过。
+
 - **MC-12 内置平台目录与推理能力校准**（`done`，`task/mc-12-official-model-catalog`，2026-11-15）：接入 Go 官方档位，更新官方模型能力、套餐候选和百炼区域工作空间。整仓检查、构建和认证／生产 M1 各 4 项通过。真实账号待验收。
 
 - **MC-11 能力标签和 Key 弹窗**（`done`，`task/mc-11-model-settings-dialogs`，2026-11-15）：统一设置子弹窗。

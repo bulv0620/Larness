@@ -304,14 +304,15 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await modelSettings.getByRole("button", { name: /E2E.*2 个模型/ }).click();
     const defaultModel = modelSettings.getByRole("button", { name: "DeepSeek Flash", exact: true });
     const defaultStar = modelSettings.getByLabel("新会话默认模型");
-    await defaultModel.click({ button: "right" });
-    await page.getByRole("menuitem", { name: "详情", exact: true }).click();
+    await defaultModel.click();
+    const actions = modelSettings.getByRole("group", { name: "DeepSeek Flash 操作" });
+    await expect(actions).toBeVisible();
+    await actions.getByRole("button", { name: "详情", exact: true }).click();
     const details = page.getByRole("dialog", { name: "模型能力" });
     await expect(details).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(details).toBeHidden();
-    await defaultModel.click({ button: "right" });
-    await page.getByRole("menuitem", { name: "设为默认" }).click();
+    await actions.getByRole("button", { name: "设为默认" }).click();
     await expect(defaultStar).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(modelSettings).toBeHidden();
@@ -331,9 +332,9 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await showFlash.click();
     await expect(showFlash).toHaveAttribute("aria-pressed", "false");
     await expect(defaultStar).toHaveCount(0);
-    await defaultModel.click({ button: "right" });
-    await expect(page.getByRole("menuitem", { name: "设为默认" })).toBeDisabled();
-    await page.keyboard.press("Escape");
+    await expect(defaultModel).toHaveAttribute("aria-expanded", "false");
+    await defaultModel.click();
+    await expect(actions.getByRole("button", { name: "设为默认" })).toBeDisabled();
     await page.keyboard.press("Escape");
     await expect(modelSettings).toBeHidden();
 
@@ -347,9 +348,10 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await expect(showFlash).toHaveAttribute("aria-pressed", "true");
     await expect(defaultStar).toHaveCount(0);
     await defaultModel.focus();
-    await page.keyboard.press("Shift+F10");
-    await expect(page.getByRole("menuitem", { name: "设为默认" })).toBeEnabled();
-    await page.keyboard.press("Escape");
+    await page.keyboard.press("Enter");
+    await expect(actions.getByRole("button", { name: "设为默认" })).toBeEnabled();
+    await defaultModel.click();
+    await expect(actions).toBeHidden();
     await page.keyboard.press("Escape");
     await expect(modelSettings).toBeHidden();
     await page.getByRole("button", { name: "设置与模型" }).click();

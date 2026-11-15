@@ -247,7 +247,18 @@ it("removes the default marker and disables setting a model as default after hid
   const model = screen.getByRole("button", { name: "测试模型" });
   expect(screen.getByLabelText("新会话默认模型")).toBeVisible();
   expect(screen.queryByRole("button", { name: "设为默认" })).toBeNull();
+  expect(model).toHaveAttribute("aria-expanded", "false");
+  await user.click(model);
+  const actions = screen.getByRole("group", { name: "测试模型 操作" });
+  expect(
+    within(actions)
+      .getAllByRole("button")
+      .map((button) => button.textContent),
+  ).toEqual(["设为默认", "详情", "测试调用"]);
+  await user.click(model);
+  expect(screen.queryByRole("group", { name: "测试模型 操作" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "测试模型 在会话中显示" }));
+  expect(model).toHaveAttribute("aria-expanded", "false");
   expect(setModelVisibility).toHaveBeenCalledWith({
     credentialProfileId: credential.id,
     modelId: "test-model",
@@ -255,9 +266,11 @@ it("removes the default marker and disables setting a model as default after hid
   });
   await waitFor(() => expect(screen.queryByLabelText("新会话默认模型")).toBeNull());
   expect(screen.queryByText("已隐藏")).toBeNull();
-  fireEvent.contextMenu(model);
-  const setDefault = await screen.findByRole("menuitem", { name: "设为默认" });
-  expect(setDefault).toHaveAttribute("aria-disabled", "true");
+  expect(model.closest("li")).toHaveClass("text-ink-3");
+  await user.click(model);
+  const setDefault = await screen.findByRole("button", { name: "设为默认" });
+  expect(setDefault).toBeDisabled();
+  expect(screen.getByRole("button", { name: "详情" })).toBeEnabled();
   await user.click(setDefault);
   expect(setModelDefault).not.toHaveBeenCalled();
 });
@@ -392,8 +405,8 @@ it("shows pending feedback for the model under test, then clears it on failure",
   const model = await screen.findByRole("button", { name: "测试模型" });
   expect(screen.queryByRole("button", { name: "测试调用" })).toBeNull();
   model.focus();
-  await user.keyboard("{Shift>}{F10}{/Shift}");
-  await user.click(await screen.findByRole("menuitem", { name: "测试调用" }));
+  await user.keyboard("{Enter}");
+  await user.click(await screen.findByRole("button", { name: "测试调用" }));
   expect(testModelConnection).toHaveBeenCalledWith(credential.id, "test-model");
   expect(screen.getByRole("status")).toHaveTextContent("测试中");
   rejectAttempt(new Error("unavailable"));
@@ -414,8 +427,8 @@ it("shows visible capability labels and keeps Key editing inside separate dialog
       </TooltipProvider>
     </QueryClientProvider>,
   );
-  fireEvent.contextMenu(await screen.findByRole("button", { name: "测试模型" }));
-  await user.click(screen.getByRole("menuitem", { name: "详情" }));
+  await user.click(await screen.findByRole("button", { name: "测试模型" }));
+  await user.click(screen.getByRole("button", { name: "详情" }));
   const details = screen.getByRole("dialog", { name: "模型能力" });
   for (const label of ["工具调用", "截图输入", "思考模式"]) {
     expect(within(details).getByText(label, { exact: true })).toBeVisible();
