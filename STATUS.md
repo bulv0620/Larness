@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **GX-3 差异树缩进对齐**（`done`，`task/gx-3-align-tree-indent`，2026-11-15）：同层文件和目录共享图标及名称列，子项增加 12px 缩进。Windows 11 认证 Chromium、整仓构建和低并发复跑的整仓检查通过。见 [078 验收记录](specs/078-git-workflow/tasks.md#gx-3-验收记录)。
+
 - **GX-2 目录行批量暂存和取消暂存**（`done`，`task/gx-2-directory-staging`，2026-11-15）：目录操作支持折叠和键盘，按点击快照处理精确文件路径。Windows 11 原生 `pnpm check`（3 个 worker）、`pnpm build`、认证 Chromium 真实 Git 通过。见 [078 验收记录](specs/078-git-workflow/tasks.md#gx-2-验收记录)。
 
 - **GX-1 人工一键拉取与推送**（`done`，`task/gx-1-direct-remote`，2026-11-15）：Windows 11 原生真实仓库与认证 Chromium 通过。修正 Composer 测试查询的类型错误，整仓检查以 3 个 worker 复跑通过，整仓构建通过。见 [078 验收记录](specs/078-git-workflow/tasks.md#gx-1-验收记录)。

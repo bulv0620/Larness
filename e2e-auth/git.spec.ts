@@ -72,6 +72,16 @@ test("real Git panel batches a collapsed folder, commits, pushes and pulls witho
     writeFileSync(path.join(repo, "src", "nested", "中文 空格.txt"), "nested\n");
     writeFileSync(path.join(repo, "src", "nested", "second.txt"), "second\n");
     const folder = gitPanel.getByRole("button", { name: "src/nested", exact: true });
+    const folderLabel = folder.getByText("src/nested", { exact: true });
+    const rootLabel = gitPanel.getByRole("button", { name: "查看差异 a.txt" }).getByText("a.txt");
+    const nestedLabel = gitPanel.getByText("second.txt", { exact: true });
+    await expect(nestedLabel).toBeVisible();
+    const folderBox = await folderLabel.boundingBox();
+    const rootBox = await rootLabel.boundingBox();
+    const nestedBox = await nestedLabel.boundingBox();
+    expect(folderBox?.x).toBe(rootBox?.x);
+    expect(nestedBox?.x).toBe((folderBox?.x ?? 0) + 12);
+    await page.screenshot({ path: path.join(tmpdir(), "larness-gx-3-git-indent.png") });
     await folder.click();
     const stageFolder = gitPanel.getByRole("button", { name: "暂存目录 src/nested" });
     await expect(folder).toHaveAttribute("aria-expanded", "false");

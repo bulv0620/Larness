@@ -35,6 +35,8 @@ const letters: Record<string, string> = {
   untracked: "U",
   conflicted: "!",
 };
+const rowLabelClass =
+  "grid min-h-6 min-w-0 flex-1 grid-cols-[11px_13px_minmax(0,1fr)] items-center gap-1.5 text-left";
 
 function collectPaths(current: Node, staged: boolean): string[] {
   return [
@@ -127,7 +129,7 @@ export function GitChangeTree({
                     type="button"
                     aria-expanded={!closed}
                     title={folderPath}
-                    className="flex min-h-6 min-w-0 flex-1 items-center gap-1.5 text-left"
+                    className={rowLabelClass}
                     onClick={() =>
                       setCollapsed((previous) => {
                         const next = new Set(previous);
@@ -176,9 +178,9 @@ export function GitChangeTree({
                 title={change.origPath ? `${change.origPath} → ${change.path}` : change.path}
                 aria-label={`查看差异 ${change.path}${change.staged ? "（已暂存）" : ""}`}
                 onClick={() => onOpen(change)}
-                className="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left text-[11px] text-ink-2"
+                className={`${rowLabelClass} py-1 text-[11px] text-ink-2`}
               >
-                <FileCode2 size={13} className="shrink-0 text-accent" />
+                <FileCode2 size={13} className="col-start-2 text-accent" />
                 <span className="truncate">{change.path.split("/").at(-1)}</span>
               </button>
               {!change.staged && change.status !== "conflicted" ? (
