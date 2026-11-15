@@ -1,5 +1,6 @@
+import { TooltipProvider } from "@larness/ui";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import {
@@ -101,7 +102,9 @@ async function addKey() {
   const invalidateQueries = vi.spyOn(client, "invalidateQueries");
   render(
     <QueryClientProvider client={client}>
-      <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   await screen.findByText("还没有 Key。添加后即可同步官方模型目录。");
@@ -116,7 +119,9 @@ it("selects a GLM endpoint through the shared dropdown", async () => {
   vi.mocked(refreshModelCatalog).mockResolvedValue({ ...synced, groups: [synced] });
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   await screen.findByText("还没有 Key。添加后即可同步官方模型目录。");
@@ -178,7 +183,9 @@ it("asks for confirmation before deleting a Key", async () => {
   vi.mocked(deleteCredential).mockResolvedValue(undefined);
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   fireEvent.click(await screen.findByRole("button", { name: /测试凭据/ }));
@@ -229,12 +236,15 @@ it("removes the default marker and disables setting a model as default after hid
 
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
     </QueryClientProvider>,
   );
   await user.click(await screen.findByRole("button", { name: /测试凭据.*1 个模型/ }));
-  const model = screen.getByRole("button", { name: /^测试模型 默认/ });
+  const model = screen.getByRole("button", { name: "测试模型 设为默认" });
   expect(model).toBeEnabled();
+  expect(model).toHaveAttribute("aria-pressed", "true");
 
   await user.click(screen.getByRole("button", { name: "测试模型 在会话中显示" }));
   expect(setModelVisibility).toHaveBeenCalledWith({
@@ -242,8 +252,74 @@ it("removes the default marker and disables setting a model as default after hid
     modelId: "test-model",
     visible: false,
   });
-  await waitFor(() => expect(model).not.toHaveTextContent("默认"));
+  await waitFor(() => expect(model).toHaveAttribute("aria-pressed", "false"));
   expect(model).toBeDisabled();
   await user.click(model);
   expect(setModelDefault).not.toHaveBeenCalled();
+});
+
+it("displays capabilities and actions inside the selected Key, with identical model IDs kept separate", async () => {
+  const other = {
+    ...credential,
+    id: "credential_other",
+    label: "套餐 Key",
+    billing: "subscription",
+  } as const;
+  const imageModel = {
+    ...synced.models[0],
+    contextWindow: 128_000,
+    capabilities: { inputModalities: ["text", "image"], tools: true },
+  };
+  const primary = { ...synced, models: [imageModel] };
+  const secondary = {
+    ...synced,
+    credentialProfileId: other.id,
+    credentialLabel: other.label,
+    models: [
+      {
+        ...imageModel,
+        capabilities: { inputModalities: ["text"], tools: false },
+        agentSelectable: false,
+      },
+    ],
+  };
+  const catalog = { ...primary, groups: [primary, secondary] };
+  vi.mocked(listCredentials).mockReset().mockResolvedValue([credential, other]);
+  vi.mocked(listModelCatalog).mockReset().mockResolvedValue(catalog);
+  const user = userEvent.setup();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  const panel = await screen.findByRole("region", { name: "测试凭据 模型" });
+  expect(within(panel).getByLabelText(/支持截图.*支持工具/)).toBeVisible();
+  expect(within(panel).getByText("128K")).toBeVisible();
+  await user.click(screen.getByRole("button", { name: /套餐 Key.*套餐额度/ }));
+  const secondPanel = screen.getByRole("region", { name: "套餐 Key 模型" });
+  expect(within(secondPanel).queryByLabelText(/^支持截图/)).toBeNull();
+  expect(within(secondPanel).getByText("不支持工具")).toBeVisible();
+  await user.click(within(secondPanel).getByRole("button", { name: "测试模型 在会话中显示" }));
+  expect(setModelVisibility).toHaveBeenCalledWith({
+    credentialProfileId: other.id,
+    modelId: "test-model",
+    visible: false,
+  });
+});
+
+it("keeps saved Keys selectable when the catalog is unavailable", async () => {
+  vi.mocked(listCredentials).mockReset().mockResolvedValue([credential]);
+  vi.mocked(listModelCatalog).mockReset().mockRejectedValue(new Error("unavailable"));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByRole("button", { name: /测试凭据/ })).toBeVisible();
+  expect(screen.getByText("目录不可用，请刷新。")).toBeVisible();
+  expect(screen.getByRole("button", { name: "刷新目录" })).toBeEnabled();
 });

@@ -72,8 +72,11 @@ test("synchronizes models after a Key is added", async ({ page }) => {
   await dialog.getByRole("button", { name: "添加", exact: true }).click();
   const syncedKey = dialog.getByRole("button", { name: /目录同步测试.*2 个模型/ });
   await expect(syncedKey).toBeVisible();
-  await syncedKey.click();
-  await dialog.getByRole("button", { name: "删除 Key" }).click();
+  await expect(syncedKey).toHaveAttribute("aria-pressed", "true");
+  const models = dialog.getByRole("region", { name: "目录同步测试 模型" });
+  await expect(models.getByText("DeepSeek Flash", { exact: true })).toBeVisible();
+  await dialog.screenshot({ path: test.info().outputPath("model-settings.png") });
+  await models.getByRole("button", { name: "删除 Key" }).click();
   const confirmDelete = page.getByRole("dialog", { name: "删除 Key？" });
   await confirmDelete.getByRole("button", { name: "删除" }).click();
   await expect(dialog.getByRole("button", { name: /目录同步测试/ })).toHaveCount(0);
@@ -82,6 +85,7 @@ test("synchronizes models after a Key is added", async ({ page }) => {
 test("keeps a screenshot draft across model switches and replays the sent image", async ({
   page,
 }) => {
+  await page.addInitScript(() => localStorage.setItem("larness.theme", "dark"));
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/pair");
   const pairPanel = page.locator("[data-request-id]");
@@ -94,6 +98,7 @@ test("keeps a screenshot draft across model switches and replays the sent image"
   await page.getByLabel("配对码").fill(approved.code ?? "");
   await page.getByRole("button", { name: "兑换配对码" }).click();
   await expect(page.getByTestId("workspace-home")).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "在 默认工作区 中新建会话" }).click({ timeout: 10_000 });
   await page.setViewportSize({ width: 390, height: 844 });
   const input = page.getByLabel("对话输入");
@@ -109,9 +114,19 @@ test("keeps a screenshot draft across model switches and replays the sent image"
   });
   await expect(page.getByRole("img", { name: "fixture.png" })).toBeVisible();
   const select = async (name: string) => {
-    await page.getByRole("button", { name: /^模型与思考：/ }).click();
-    await page.getByRole("button", { name: /^模型：/ }).click();
-    await page.getByRole("button", { name: new RegExp(`^${name} ·|^${name} DeepSeek`) }).click();
+    const trigger = page.getByRole("button", { name: /^模型与思考：/ });
+    await expect(trigger).not.toContainText("E2E Key");
+    await trigger.click();
+    const picker = page.getByRole("dialog", { name: "模型与思考" });
+    await expect(picker.getByRole("button", { name: /E2E Key/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await expect(picker.getByLabel(/^支持截图/)).toBeVisible();
+    if (name === "DeepSeek Chat") {
+      await picker.screenshot({ path: test.info().outputPath("mobile-model-picker.png") });
+    }
+    await picker.getByRole("button", { name, exact: true }).click();
   };
   await select("DeepSeek Chat");
   await expect(page.getByRole("button", { name: "发送消息" })).toBeDisabled();
@@ -264,17 +279,14 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
 
     await page.getByRole("button", { name: /模型与思考：/ }).click();
     const picker = page.getByRole("dialog", { name: "模型与思考" });
-    await picker.getByRole("button", { name: /模型：/ }).click();
     await picker.getByRole("button", { name: /DeepSeek Chat/ }).click();
     await expect(picker).toBeHidden();
-    await expect(
-      page.getByRole("button", { name: "模型与思考：DeepSeek Chat · 不支持" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "模型与思考：DeepSeek Chat" })).toBeVisible();
 
     await page.reload();
-    await expect(
-      page.getByRole("button", { name: "模型与思考：DeepSeek Chat · 不支持" }),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "模型与思考：DeepSeek Chat" })).toBeVisible({
+      timeout: 15_000,
+    });
 
     await composer.fill("list again");
     await page.getByRole("button", { name: "发送消息" }).click();
@@ -289,9 +301,9 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await page.getByRole("button", { name: "设置与模型" }).click();
     const modelSettings = page.getByRole("dialog", { name: "模型与凭据" });
     await modelSettings.getByRole("button", { name: /E2E.*2 个模型/ }).click();
-    const defaultModel = modelSettings.getByRole("button", { name: /^DeepSeek Flash/ }).first();
+    const defaultModel = modelSettings.getByRole("button", { name: "DeepSeek Flash 设为默认" });
     await defaultModel.click();
-    await expect(defaultModel).toContainText("默认");
+    await expect(defaultModel).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.press("Escape");
     await expect(modelSettings).toBeHidden();
 
@@ -309,7 +321,7 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     const showFlash = modelSettings.getByRole("button", { name: "DeepSeek Flash 在会话中显示" });
     await showFlash.click();
     await expect(defaultModel).toBeDisabled();
-    await expect(defaultModel).not.toContainText("默认");
+    await expect(defaultModel).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.press("Escape");
     await expect(modelSettings).toBeHidden();
 
@@ -321,16 +333,20 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await modelSettings.getByRole("button", { name: /E2E.*2 个模型/ }).click();
     await showFlash.click();
     await expect(defaultModel).toBeEnabled();
-    await expect(defaultModel).not.toContainText("默认");
+    await expect(defaultModel).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.press("Escape");
     await expect(modelSettings).toBeHidden();
     await page.getByRole("button", { name: "设置与模型" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "添加 Key" }).click();
     await page.getByRole("dialog").getByLabel("凭据名称").fill("E2E secret");
     await page.getByRole("dialog").getByLabel("API Key").fill("sk-e2e-secret-value");
-    await page.getByRole("dialog").getByRole("button", { name: "添加" }).click();
-    await expect(page.getByRole("dialog").getByText("sk-e2e-secret-value")).toHaveCount(0);
-    await expect(page.getByRole("dialog").getByText(/•+/).first()).toBeVisible({ timeout: 10_000 });
+    await modelSettings.getByRole("button", { name: "添加", exact: true }).click();
+    const newKey = modelSettings.getByRole("region", { name: "E2E secret 模型" });
+    await expect(newKey).toBeVisible();
+    await newKey.getByRole("button", { name: "管理 Key" }).click();
+    await expect(newKey.getByText(/•+/)).toBeVisible();
+    await expect(newKey.getByLabel("替换 API Key")).toHaveValue("");
+    await expect(modelSettings.getByText("sk-e2e-secret-value")).toHaveCount(0);
     await page.keyboard.press("Escape");
 
     expect(pageErrors).toEqual([]);

@@ -113,7 +113,9 @@ async function selectModel(
   await user.click(
     await screen.findByRole("button", { name: new RegExp(`模型与思考：${current}`) }),
   );
-  await user.click(screen.getByRole("button", { name: `模型：${current}` }));
+  await user.click(
+    screen.getByRole("button", { name: next.startsWith("GLM") ? /^GLM / : /^DeepSeek / }),
+  );
   await user.click(screen.getByRole("button", { name: new RegExp(next) }));
 }
 
@@ -201,7 +203,6 @@ it("persists thinking during an active turn and waits for saving before another 
   renderComposer();
 
   await user.click(await screen.findByRole("button", { name: "模型与思考：GLM-5.3 · 开启" }));
-  await user.click(screen.getByRole("button", { name: "思考等级：开启" }));
   await user.click(screen.getByRole("button", { name: "关闭" }));
   expect(api.updateSession).toHaveBeenCalledWith("ses_a", { ...glm, thinking: "off" });
   expect(api.createTurn).not.toHaveBeenCalled();
@@ -284,4 +285,32 @@ it("writes autonomous only after confirmation and restores it as a session setti
   renderComposer();
   expect(await screen.findByRole("button", { name: "审批策略：完全自主" })).toBeVisible();
   expect(screen.queryByRole("dialog", { name: "启用完全自主？" })).toBeNull();
+});
+
+it("binds an identical model to the Key selected inside the picker", async () => {
+  const secondKey = {
+    ...deepseekGroup,
+    credentialProfileId: "cred_other",
+    credentialLabel: "另一把 Key",
+    billing: "subscription",
+  };
+  api.listModelCatalog.mockResolvedValue({
+    ...deepseekGroup,
+    groups: [deepseekGroup, secondKey],
+    defaultSelection: deepseek,
+  });
+  const user = userEvent.setup();
+  renderComposer();
+  const trigger = await screen.findByRole("button", { name: "模型与思考：DeepSeek Flash" });
+  expect(trigger).not.toHaveTextContent("Key");
+  await user.click(trigger);
+  await user.click(screen.getByRole("button", { name: /另一把 Key.*套餐额度/ }));
+  await user.click(screen.getByRole("button", { name: "DeepSeek Flash" }));
+  await waitFor(() =>
+    expect(api.updateSession).toHaveBeenCalledWith("ses_a", {
+      ...deepseek,
+      credentialProfileId: "cred_other",
+    }),
+  );
+  expect(api.createTurn).not.toHaveBeenCalled();
 });

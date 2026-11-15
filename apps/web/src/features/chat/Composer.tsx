@@ -444,7 +444,6 @@ export function Composer({
           groups={visibleGroups}
           model={model}
           credentialProfileId={credentialProfileId}
-          credentialLabel={pair?.group.credentialLabel}
           thinking={thinking}
           catalogError={catalogError}
           disabled={settingsDisabled}

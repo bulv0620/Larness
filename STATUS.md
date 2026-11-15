@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **MC-9 Key 分组界面**（`done`，`task/mc-9-key-first-model-ui`，2026-11-15）：设置按 Key 管理与浏览模型，会话展开按 Key 选择，收起只显示模型和思考档位。整仓检查、构建、认证及生产 M1 Chromium（各 4 项）通过。
+
 - **MC-8 截图输入**（`done`，`task/mc-8-screenshot-attachments`，2026-11-15）：交付会话截图附件、按连接校验图片输入、当轮工具续步与历史回放。`pnpm check`、`pnpm build`、认证与生产 M1 截图用例通过。077 实现已交付，全套浏览器回归和真实账号验证边界见[验收记录](specs/077-model-connections/acceptance.md)。
 
 - **MC-7 MiniMax 接入**（`done`，2026-11-15）。

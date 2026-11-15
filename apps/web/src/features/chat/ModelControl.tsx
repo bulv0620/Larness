@@ -1,7 +1,8 @@
 import { cn } from "@larness/ui";
-import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { billingLabel, modelRows, providerLabel } from "@/features/models/catalogView";
+import { Check, ChevronDown, KeyRound, Search } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { billingLabel, providerLabel } from "@/features/models/catalogView";
+import { ModelCapabilities } from "@/features/models/ModelCapabilities";
 import type { ApiCatalogGroup, ApiCatalogModel } from "@/lib/workspaceApi";
 
 interface ModelControlProps {
@@ -11,21 +12,8 @@ interface ModelControlProps {
   thinking: string;
   catalogError: unknown;
   disabled: boolean;
-  credentialLabel?: string;
   onSelectModel: (modelId: string, credentialProfileId: string) => void;
   onSelectThinking: (thinking: string) => void;
-}
-
-const THINKING_LEVELS = [
-  { id: "off", label: "关闭" },
-  { id: "low", label: "低" },
-  { id: "medium", label: "中" },
-  { id: "high", label: "高" },
-];
-
-function levelLabel(thinking: string): string {
-  if (thinking === "on") return "开启";
-  return THINKING_LEVELS.find((level) => level.id === thinking)?.label ?? "关闭";
 }
 
 export function ModelControl({
@@ -33,281 +21,257 @@ export function ModelControl({
   model,
   credentialProfileId,
   thinking,
-  credentialLabel,
   catalogError,
   disabled,
   onSelectModel,
   onSelectThinking,
 }: ModelControlProps) {
+  const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<"root" | "models" | "thinking" | "connections">("root");
-
+  const [expandedKey, setExpandedKey] = useState<string | null>();
   const [search, setSearch] = useState("");
-  const [routeKey, setRouteKey] = useState("");
-  const rows = modelRows(groups);
-  const routes = rows.find(([key]) => key === routeKey)?.[1] ?? [];
-  const thinkingEnabled = model?.thinking.supported === true;
-  const currentThinking = thinkingEnabled ? levelLabel(thinking) : "不支持";
+  const query = search.trim().toLowerCase();
+  const availableGroups = groups.flatMap((group) => {
+    const provider = providerLabel(group.provider);
+    if (!query || `${group.credentialLabel} ${provider}`.toLowerCase().includes(query)) {
+      return [group];
+    }
+    const models = group.models.filter((item) =>
+      `${item.label} ${item.id}`.toLowerCase().includes(query),
+    );
+    return models.length ? [{ ...group, models }] : [];
+  });
+  const defaultExpandedKey =
+    availableGroups.find((group) => group.credentialProfileId === credentialProfileId)
+      ?.credentialProfileId ?? availableGroups[0]?.credentialProfileId;
   const mode = model?.thinking.mode;
-  const levels =
-    mode === "toggle"
+  const levels = !model?.thinking.supported
+    ? []
+    : mode === "toggle"
       ? [
           { id: "off", label: "关闭" },
           { id: "on", label: "开启" },
         ]
       : [
           ...(mode === "mandatory-levels" ? [] : [{ id: "off", label: "关闭" }]),
-          ...(model?.thinking.levels ?? []),
+          ...model.thinking.levels,
         ];
+  const thinkingLabel = levels.find((level) => level.id === thinking)?.label;
 
   useEffect(() => {
     if (!open) return;
+    panelRef.current?.focus();
     const handlePointerDown = (event: PointerEvent) => {
-      if (rootRef.current !== null && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
     };
     document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [open]);
 
-  const toggleOpen = () => {
-    setView("root");
-    setOpen((current) => !current);
-  };
-
-  const selectModel = (modelId: string, nextCredentialProfileId: string) => {
-    onSelectModel(modelId, nextCredentialProfileId);
+  const close = () => {
     setOpen(false);
-  };
-
-  const selectThinking = (level: string) => {
-    onSelectThinking(level);
-    setOpen(false);
+    triggerRef.current?.focus();
   };
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative min-w-0">
       <button
+        ref={triggerRef}
         type="button"
-        aria-label={`模型与思考：${model?.label ?? "未配置凭据"} · ${currentThinking}`}
-        aria-expanded={open}
+        aria-label={`模型与思考：${model?.label ?? "选择模型"}${thinkingLabel ? ` · ${thinkingLabel}` : ""}`}
+        aria-haspopup="dialog"
+        aria-expanded={open && !disabled}
+        aria-controls={open && !disabled ? panelId : undefined}
         disabled={disabled}
-        onClick={toggleOpen}
-        className="flex h-7 min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-black/[.045] hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 dark:hover:bg-white/[.06]"
+        onClick={() => {
+          setExpandedKey(undefined);
+          setSearch("");
+          setOpen((current) => !current);
+        }}
+        className="flex h-7 min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
       >
-        <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="max-w-[96px] truncate sm:max-w-[128px]">
-            {model?.label ?? "选择模型"}
-          </span>
-          {model ? (
-            <span
-              className={cn(
-                "shrink-0 text-[10px] font-semibold",
-                thinking === "off" || !thinkingEnabled ? "text-ink-3" : "text-accent",
-              )}
-            >
-              {currentThinking}
+        <span className="max-w-[96px] truncate sm:max-w-[144px]">{model?.label ?? "选择模型"}</span>
+        {thinkingLabel ? (
+          <span
+            className={cn(
+              "shrink-0 text-[10px] font-semibold",
+              thinking === "off" ? "text-ink-3" : "text-accent",
+            )}
+          >
+            <span aria-hidden="true" className="mr-1 text-ink-3">
+              ·
             </span>
-          ) : null}
-        </span>
-        {credentialLabel ? (
-          <span className="hidden max-w-24 truncate text-[10px] text-ink-3 sm:inline">
-            {credentialLabel}
+            {thinkingLabel}
           </span>
         ) : null}
-        <ChevronDown size={11} className="shrink-0 text-ink-3" />
+        <ChevronDown size={11} aria-hidden="true" className="shrink-0 text-ink-3" />
       </button>
 
-      {open ? (
+      {open && !disabled ? (
         <div
+          ref={panelRef}
+          id={panelId}
           role="dialog"
           aria-label="模型与思考"
-          className="absolute bottom-[calc(100%+8px)] left-0 z-40 w-[240px] rounded-xl border border-line bg-surface/95 p-1.5 text-ink shadow-[var(--shadow-pop)] backdrop-blur-xl"
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              close();
+            }
+          }}
+          className="absolute bottom-[calc(100%+8px)] -left-5 z-40 flex max-h-[min(400px,55dvh)] w-[min(318px,calc(100vw-44px))] flex-col overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-[var(--shadow-pop)] outline-none sm:left-0"
         >
-          {view === "root" ? (
-            <>
-              <button
-                type="button"
-                aria-label={`模型：${model?.label ?? "选择模型"}`}
-                onClick={() => setView("models")}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-black/[.05] dark:hover:bg-white/[.07]"
-              >
-                <span className="w-12 shrink-0 text-[10px] text-ink-3">模型</span>
-                <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink">
-                  {model?.label ?? "选择模型"}
-                </span>
-                <ChevronRight size={11} className="shrink-0 text-ink-3" />
-              </button>
-              <button
-                type="button"
-                aria-label={`思考等级：${currentThinking}`}
-                disabled={!thinkingEnabled}
-                onClick={() => setView("thinking")}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-black/[.05] disabled:opacity-50 dark:hover:bg-white/[.07]"
-              >
-                <span className="w-12 shrink-0 text-[10px] text-ink-3">思考等级</span>
-                <span
-                  className={cn(
-                    "min-w-0 flex-1 truncate text-[11.5px]",
-                    thinkingEnabled && thinking !== "off" ? "text-accent" : "text-ink",
-                  )}
-                >
-                  {currentThinking}
-                </span>
-                {thinkingEnabled ? (
-                  <ChevronRight size={11} className="shrink-0 text-ink-3" />
-                ) : null}
-              </button>
-            </>
-          ) : null}
-
-          {view === "models" ? (
-            <>
-              <div className="flex items-center gap-1 px-1 pb-1 pt-0.5">
-                <button
-                  type="button"
-                  aria-label="返回"
-                  onClick={() => setView("root")}
-                  className="flex h-5 w-5 items-center justify-center rounded-md text-ink-3 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]"
-                >
-                  <ChevronLeft size={12} />
-                </button>
-                <span className="text-[10.5px] font-semibold text-ink-3">模型</span>
-              </div>
-              <input
-                aria-label="搜索会话模型"
-                placeholder="搜索模型或平台"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="my-1 w-full rounded-md border border-line bg-surface px-2 py-1 text-xs"
-              />
-              <div className="max-h-[300px] overflow-y-auto">
-                {rows.length === 0 ? (
-                  <p className="px-2 py-1 text-xs text-ink-3">
-                    {catalogError
-                      ? "目录不可用，请在模型设置中刷新。"
-                      : "没有可选模型，请在模型设置中添加连接。"}
-                  </p>
-                ) : null}
-                {rows
-                  .filter(([, candidates]) =>
-                    candidates.some(({ group, model: item }) =>
-                      `${item.label} ${item.id} ${providerLabel(group.provider)} ${group.credentialLabel}`
-                        .toLowerCase()
-                        .includes(search.trim().toLowerCase()),
-                    ),
-                  )
-                  .map(([key, candidates]) => {
-                    const active = candidates.find(
-                      ({ group, model: item }) =>
-                        item.id === model?.id && group.credentialProfileId === credentialProfileId,
-                    );
-                    const first = active ?? candidates[0];
-                    if (!first) return null;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        aria-pressed={active !== undefined}
-                        onClick={() => {
-                          if (candidates.length === 1)
-                            selectModel(first.model.id, first.group.credentialProfileId);
-                          else {
-                            setRouteKey(key);
-                            setView("connections");
-                          }
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] hover:bg-surface-2"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate">{first.model.label}</span>
-                          <span className="block truncate text-[10px] text-ink-3">
-                            {providerLabel(first.group.provider)} · {first.group.credentialLabel}
-                          </span>
-                        </span>
-                        {candidates.length > 1 ? (
-                          <span className="text-[10px] text-ink-3">{candidates.length} 个连接</span>
-                        ) : null}
-                        {active ? <Check size={13} className="shrink-0 text-accent" /> : null}
-                      </button>
-                    );
-                  })}
-              </div>
-            </>
-          ) : null}
-
-          {view === "connections" ? (
-            <>
-              <button
-                type="button"
-                className="flex items-center gap-1 px-2 py-1 text-xs"
-                onClick={() => setView("models")}
-              >
-                <ChevronLeft size={12} />
-                返回模型
-              </button>
-              {routes.map(({ group, model: item }) => (
-                <button
+          <label className="m-2 flex shrink-0 items-center gap-2 rounded-lg border border-line bg-surface-2/50 px-2.5 focus-within:border-accent/60">
+            <Search size={13} aria-hidden="true" className="text-ink-3" />
+            <input
+              type="search"
+              aria-label="搜索 Key 或模型"
+              placeholder="搜索 Key 或模型"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setExpandedKey(undefined);
+              }}
+              className="h-8 w-full min-w-0 bg-transparent text-xs outline-none placeholder:text-ink-3"
+            />
+          </label>
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 pb-2">
+            {availableGroups.length === 0 ? (
+              <p className="px-2 py-3 text-xs text-ink-3">
+                {query
+                  ? "没有匹配的 Key 或模型。"
+                  : catalogError
+                    ? "目录不可用，请在模型设置中刷新。"
+                    : "请先在模型设置中添加 Key。"}
+              </p>
+            ) : null}
+            {availableGroups.map((group) => {
+              const currentKey = group.credentialProfileId === credentialProfileId;
+              const expanded =
+                expandedKey === undefined
+                  ? Boolean(query) || group.credentialProfileId === defaultExpandedKey
+                  : expandedKey === group.credentialProfileId;
+              const groupId = `${panelId}-${group.credentialProfileId}`;
+              return (
+                <div
                   key={group.credentialProfileId}
-                  type="button"
-                  aria-pressed={
-                    credentialProfileId === group.credentialProfileId && item.id === model?.id
-                  }
-                  onClick={() => selectModel(item.id, group.credentialProfileId)}
-                  className="block w-full rounded-lg px-2 py-1.5 text-left text-xs hover:bg-surface-2"
+                  className="rounded-lg border border-transparent has-[[aria-expanded=true]]:border-line"
                 >
-                  {group.credentialLabel}
-                  <span className="block text-[10px] text-ink-3">
-                    {billingLabel(group.billing)}
-                  </span>
-                </button>
-              ))}
-            </>
-          ) : null}
-
-          {view === "thinking" ? (
-            <>
-              <div className="flex items-center gap-1 px-1 pb-1 pt-0.5">
-                <button
-                  type="button"
-                  aria-label="返回"
-                  onClick={() => setView("root")}
-                  className="flex h-5 w-5 items-center justify-center rounded-md text-ink-3 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]"
-                >
-                  <ChevronLeft size={12} />
-                </button>
-                <span className="text-[10.5px] font-semibold text-ink-3">思考等级</span>
-              </div>
-              {levels.map((level) => {
-                const selected = level.id === thinking;
-                return (
                   <button
-                    key={level.id}
                     type="button"
-                    aria-pressed={selected}
-                    onClick={() => selectThinking(level.id)}
+                    id={`${groupId}-trigger`}
+                    aria-expanded={expanded}
+                    aria-controls={expanded ? groupId : undefined}
+                    onClick={() => setExpandedKey(expanded ? null : group.credentialProfileId)}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] transition-colors",
-                      selected
-                        ? "bg-black/[.04] text-ink dark:bg-white/[.06]"
-                        : "text-ink-2 hover:bg-black/[.05] hover:text-ink dark:hover:bg-white/[.07]",
+                      "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40",
+                      expanded && "rounded-b-none bg-surface-2/50",
                     )}
                   >
-                    <span className="min-w-0 flex-1 truncate">{level.label}</span>
-                    {selected ? <Check size={13} className="shrink-0 text-accent" /> : null}
+                    <span
+                      className={cn(
+                        "grid size-7 shrink-0 place-items-center rounded-md bg-surface-2 text-ink-3",
+                        currentKey && "bg-accent-soft text-accent",
+                      )}
+                    >
+                      <KeyRound size={13} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-semibold">
+                        {group.credentialLabel}
+                      </span>
+                      <span className="block truncate text-[10px] text-ink-3">
+                        {providerLabel(group.provider)} · {billingLabel(group.billing)}
+                      </span>
+                    </span>
+                    <ChevronDown
+                      size={12}
+                      aria-hidden="true"
+                      className={cn(
+                        "shrink-0 text-ink-3 transition-transform",
+                        !expanded && "-rotate-90",
+                      )}
+                    />
                   </button>
-                );
-              })}
-            </>
+
+                  {expanded ? (
+                    <ul
+                      id={groupId}
+                      aria-labelledby={`${groupId}-trigger`}
+                      className="space-y-0.5 p-1"
+                    >
+                      {group.models.length === 0 ? (
+                        <li className="px-2 py-2 text-[11px] text-ink-3">此 Key 暂无可选模型</li>
+                      ) : null}
+                      {group.models.map((item) => {
+                        const selected = currentKey && item.id === model?.id;
+                        return (
+                          <li
+                            key={item.id}
+                            className={cn(
+                              "flex items-center rounded-md pr-1",
+                              selected && "bg-accent-soft",
+                            )}
+                          >
+                            <button
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => {
+                                close();
+                                onSelectModel(item.id, group.credentialProfileId);
+                              }}
+                              className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-2 text-left text-[11.5px] outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
+                            >
+                              <span className="flex-1 truncate">{item.label}</span>
+                              {selected ? (
+                                <Check
+                                  size={13}
+                                  aria-hidden="true"
+                                  className="shrink-0 text-accent"
+                                />
+                              ) : null}
+                            </button>
+                            <ModelCapabilities model={item} />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+
+          {levels.length > 0 ? (
+            <fieldset
+              aria-label="思考档位"
+              className="flex shrink-0 flex-wrap items-center gap-1 border-t border-line px-2.5 py-2"
+            >
+              <span className="mr-auto text-[11px] text-ink-3">思考档位</span>
+              {levels.map((level) => (
+                <button
+                  key={level.id}
+                  type="button"
+                  aria-pressed={level.id === thinking}
+                  onClick={() => {
+                    close();
+                    if (level.id !== thinking) onSelectThinking(level.id);
+                  }}
+                  className={cn(
+                    "rounded-md px-2 py-1 text-[11px] outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent/40",
+                    level.id === thinking
+                      ? "bg-accent-soft font-semibold text-accent"
+                      : "text-ink-2",
+                  )}
+                >
+                  {level.label}
+                </button>
+              ))}
+            </fieldset>
           ) : null}
         </div>
       ) : null}
