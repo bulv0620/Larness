@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **GX-2 目录行批量暂存和取消暂存**（`done`，`task/gx-2-directory-staging`，2026-11-15）：目录操作支持折叠和键盘，按点击快照处理精确文件路径。Windows 11 原生 `pnpm check`（3 个 worker）、`pnpm build`、认证 Chromium 真实 Git 通过。见 [078 验收记录](specs/078-git-workflow/tasks.md#gx-2-验收记录)。
+
 - **GX-1 人工一键拉取与推送**（`done`，`task/gx-1-direct-remote`，2026-11-15）：Windows 11 原生真实仓库与认证 Chromium 通过。修正 Composer 测试查询的类型错误，整仓检查以 3 个 worker 复跑通过，整仓构建通过。见 [078 验收记录](specs/078-git-workflow/tasks.md#gx-1-验收记录)。
 
 - **MC-10 会话模型分组标题修正**（`done`，2026-11-15）：会话模型子菜单的小字标题只显示 Key 名称。组件专项 15 项及改动文件 Biome 通过，浏览器回归未重跑。用户验收通过并授权合并推送。

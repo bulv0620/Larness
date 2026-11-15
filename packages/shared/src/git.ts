@@ -10,13 +10,24 @@ const GitBranchNameSchema = z
   .min(1)
   .max(255)
   .refine((value) => !value.includes("\0") && !value.startsWith("-"), "Invalid branch name");
+const GitSnapshotSchema = z.string().regex(/^[a-f0-9]{64}$/);
+export const GIT_BATCH_PATH_LIMIT = 200;
+const GitActionPathsSchema = z.array(GitPathSchema).min(1).max(GIT_BATCH_PATH_LIMIT);
 
 export const GitAddActionSchema = z
-  .object({ action: z.literal("add"), paths: z.array(GitPathSchema).min(1).max(200) })
+  .object({ action: z.literal("add"), paths: GitActionPathsSchema })
   .strict();
 export const GitUnstageActionSchema = z
-  .object({ action: z.literal("unstage"), paths: z.array(GitPathSchema).min(1).max(200) })
+  .object({ action: z.literal("unstage"), paths: GitActionPathsSchema })
   .strict();
+const GitBatchActionSchema = z
+  .object({
+    action: z.enum(["stageFiles", "unstageFiles"]),
+    paths: GitActionPathsSchema,
+    expectedSnapshot: GitSnapshotSchema,
+  })
+  .strict();
+export type GitBatchAction = z.infer<typeof GitBatchActionSchema>;
 export const GitDiscardActionSchema = z
   .object({ action: z.literal("discard"), path: GitPathSchema, confirmed: z.literal(true) })
   .strict();
@@ -34,6 +45,7 @@ export const GitPushActionSchema = z.object({ action: z.literal("push") }).stric
 export const GitActionSchema = z.union([
   GitAddActionSchema,
   GitUnstageActionSchema,
+  GitBatchActionSchema,
   GitDiscardActionSchema,
   GitCommitActionSchema,
   GitCreateBranchActionSchema,
@@ -47,7 +59,7 @@ export type GitActionKind = GitAction["action"];
 export const GitRemoteActionRequestSchema = z
   .object({
     action: z.enum(["pull", "push"]),
-    expectedSnapshot: z.string().regex(/^[a-f0-9]{64}$/),
+    expectedSnapshot: GitSnapshotSchema,
     requestId: z.uuid(),
   })
   .strict();

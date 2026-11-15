@@ -38,7 +38,9 @@ async function pair(page: Page) {
   await expect(page.getByTestId("workspace-home")).toBeVisible();
 }
 
-test("GX-1 real Git panel stages, commits, pushes and pulls without approval", async ({ page }) => {
+test("real Git panel batches a collapsed folder, commits, pushes and pulls without approval", async ({
+  page,
+}) => {
   test.setTimeout(90000);
   const dir = mkdtempSync(path.join(tmpdir(), "larness-git-ui-"));
   const repo = path.join(dir, "repo");
@@ -66,7 +68,27 @@ test("GX-1 real Git panel stages, commits, pushes and pulls without approval", a
     await page.getByLabel("项目资源", { exact: true }).getByRole("tab", { name: "Git" }).click();
     const gitPanel = page.getByTestId("git-panel");
     await expect(gitPanel.getByText("a.txt").first()).toBeVisible();
-    await page.screenshot({ path: path.join(tmpdir(), "larness-m2-5b-git.png") });
+    mkdirSync(path.join(repo, "src", "nested"), { recursive: true });
+    writeFileSync(path.join(repo, "src", "nested", "中文 空格.txt"), "nested\n");
+    writeFileSync(path.join(repo, "src", "nested", "second.txt"), "second\n");
+    const folder = gitPanel.getByRole("button", { name: "src/nested", exact: true });
+    await folder.click();
+    const stageFolder = gitPanel.getByRole("button", { name: "暂存目录 src/nested" });
+    await expect(folder).toHaveAttribute("aria-expanded", "false");
+    await folder.hover();
+    await page.screenshot({ path: path.join(tmpdir(), "larness-gx-2-git.png") });
+    await stageFolder.focus();
+    await page.keyboard.press("Enter");
+    const unstageFolder = gitPanel.getByRole("button", { name: "取消暂存目录 src/nested" });
+    await expect(unstageFolder).toBeEnabled();
+    expect(git(repo, "diff", "--cached", "--name-only").split("\n")).toHaveLength(2);
+    await unstageFolder.click();
+    await expect(stageFolder).toBeEnabled();
+    await expect(folder).toHaveAttribute("aria-expanded", "false");
+    expect(git(repo, "diff", "--cached", "--name-only")).toBe("");
+    expect(git(repo, "ls-files", "--others", "--exclude-standard", "--", "src")).toContain(
+      "second.txt",
+    );
 
     await gitPanel.getByText("a.txt").first().click();
     const diffWindow = page.getByRole("dialog", { name: "a.txt", exact: true });
@@ -106,7 +128,11 @@ test("GX-1 real Git panel stages, commits, pushes and pulls without approval", a
     });
     await page.getByLabel("提交信息").fill("UI commit");
     await page.getByRole("button", { name: /提交已暂存/ }).click();
-    await expect(page.getByText("工作区干净", { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(
+      gitPanel.getByRole("button", { name: "提交已暂存 (0)", exact: true }),
+    ).toBeDisabled({ timeout: 15000 });
+    await expect(stageFolder).toBeVisible();
+    expect(git(repo, "status", "--short", "--untracked-files=no")).toBe("");
     expect(git(repo, "log", "-1", "--format=%s")).toBe("UI commit");
     expect(git(remote, "rev-parse", "main")).not.toBe(git(repo, "rev-parse", "HEAD"));
 

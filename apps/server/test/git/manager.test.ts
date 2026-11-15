@@ -231,6 +231,76 @@ it("authenticates a direct remote action, binds its snapshot and replays the sam
   });
 });
 
+it("batches status paths under one snapshot and unstages without changing the worktree", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    try {
+      const manager = f.started.running.git;
+      const root = path.join(f.repo, "src");
+      await mkdir(root);
+      const partial = "src/中文 空格.txt";
+      const removed = "src/removed.txt";
+      await writeFile(path.join(f.repo, partial), "initial\n");
+      await writeFile(path.join(f.repo, removed), "initial\n");
+      git(f.repo, "add", "src");
+      git(f.repo, "commit", "-qm", "add fixtures");
+      await writeFile(path.join(f.repo, partial), "staged\n");
+      git(f.repo, "add", partial);
+      await writeFile(path.join(f.repo, partial), "worktree\n");
+      await unlink(path.join(f.repo, removed));
+      const snapshot = await manager.status(f.projectId);
+      const batch = {
+        action: "stageFiles",
+        paths: [partial, removed],
+        expectedSnapshot: snapshot.snapshotVersion,
+      };
+      await writeFile(path.join(root, "arrived later.txt"), "new\n");
+      await expect(manager.createAction(f.projectId, batch, f.clientId)).rejects.toMatchObject({
+        code: "VERSION_CONFLICT",
+      });
+      const current = await manager.status(f.projectId);
+      const exact = { ...batch, expectedSnapshot: current.snapshotVersion };
+      await expect(
+        manager.createAction(f.projectId, { ...exact, paths: ["src"] }, f.clientId),
+      ).rejects.toMatchObject({ code: "GIT_CONFLICT" });
+      const prepared = await manager.createAction(f.projectId, exact, f.clientId);
+      await writeFile(path.join(root, "changed after prepare.txt"), "new\n");
+      await expect(manager.executeAction(prepared.id, f.clientId)).rejects.toMatchObject({
+        code: "VERSION_CONFLICT",
+      });
+      expect(git(f.repo, "show", `:${partial}`)).toBe("staged");
+      const refreshed = await manager.createAction(
+        f.projectId,
+        {
+          ...exact,
+          expectedSnapshot: (await manager.status(f.projectId)).snapshotVersion,
+        },
+        f.clientId,
+      );
+      expect((await manager.executeAction(refreshed.id, f.clientId)).status).toBe("COMPLETED");
+      expect(git(f.repo, "show", `:${partial}`)).toBe("worktree");
+      expect(git(f.repo, "diff", "--cached", "--name-only", "--", removed)).toBe(removed);
+      const staged = await manager.status(f.projectId);
+      expect(staged.untracked).toContain("src/arrived later.txt");
+      const undo = await manager.createAction(
+        f.projectId,
+        {
+          ...exact,
+          action: "unstageFiles",
+          expectedSnapshot: staged.snapshotVersion,
+        },
+        f.clientId,
+      );
+      expect((await manager.executeAction(undo.id, f.clientId)).status).toBe("COMPLETED");
+      expect((await manager.status(f.projectId)).staged).toEqual([]);
+      expect(await readFile(path.join(f.repo, partial), "utf8")).toBe("worktree\n");
+      await expect(readFile(path.join(f.repo, removed))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});
+
 it("stages only explicit paths, commits staged content, and handles special filenames", async () => {
   await withTempDir(async (dir) => {
     const f = await repoFixture(dir);

@@ -111,10 +111,10 @@ function classify(stderr: string, readOnly: boolean): GitError {
 export async function runGit(
   root: string,
   args: string[],
-  options: { readOnly?: boolean; timeoutMs?: number; maxBuffer?: number } = {},
+  options: { readOnly?: boolean; timeoutMs?: number; maxBuffer?: number; stdin?: string } = {},
 ): Promise<{ stdout: string; stderr: string }> {
   try {
-    const { stdout, stderr } = await exec("git", args, {
+    const execution = exec("git", args, {
       cwd: root,
       env: gitEnvironment(),
       timeout: options.timeoutMs ?? 15_000,
@@ -122,6 +122,13 @@ export async function runGit(
       encoding: "buffer",
       windowsHide: true,
     });
+    if (options.stdin !== undefined) {
+      const stdin = execution.child.stdin;
+      // A Git error can close stdin before all pathspecs have been written.
+      stdin?.on("error", () => {});
+      stdin?.end(options.stdin);
+    }
+    const { stdout, stderr } = await execution;
     return { stdout: stdout.toString("utf8"), stderr: stderr.toString("utf8") };
   } catch (error) {
     if (!(error instanceof Error)) throw new GitError("GIT_UNAVAILABLE", "Git command failed");
@@ -144,11 +151,12 @@ export async function gitAvailable(): Promise<boolean> {
   }
 }
 
-export function validateGitPath(root: string, value: string): string {
+export function validateGitPath(root: string, value: string, gitReported = false): string {
   if (!value || value.length > 4096 || value.includes("\0"))
     throw new GitError("GIT_CONFLICT", "Invalid Git path");
   if (path.isAbsolute(value)) throw new GitError("GIT_CONFLICT", "Git path must be relative");
-  const normalized = value.replaceAll("\\", "/");
+  const normalized =
+    gitReported && process.platform !== "win32" ? value : value.replaceAll("\\", "/");
   const segments = normalized.split("/");
   if (
     segments.some((segment) => segment === "" || segment === "." || segment === "..") ||

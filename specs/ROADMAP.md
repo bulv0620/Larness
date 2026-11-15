@@ -397,7 +397,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
 | GX-1 | [人工一键拉取与推送](078-git-workflow/tasks.md) | M2-5b、ADR-066 | `done` |
-| GX-2 | [目录行批量暂存和取消暂存](078-git-workflow/tasks.md) | GX-1 | `todo` |
+| GX-2 | [目录行批量暂存和取消暂存](078-git-workflow/tasks.md) | GX-1 | `done` |
 
 ## 9. 门禁
 

@@ -2,6 +2,39 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { GitChangeTree } from "./GitChangeTree";
 
+it("stages only eligible paths under a collapsed folder and restores its collapse state", () => {
+  const onStageFolder = vi.fn();
+  const changes = [
+    { path: "src/中文 空格.txt", status: "modified", staged: false },
+    { path: "src/nested/deleted.txt", status: "deleted", staged: false },
+    { path: "src/conflict.txt", status: "conflicted", staged: false },
+    { path: "src-other/keep.txt", status: "modified", staged: false },
+  ];
+  const props = {
+    disabled: false,
+    onOpen: vi.fn(),
+    onStage: vi.fn(),
+    onUnstage: vi.fn(),
+    onDiscard: vi.fn(),
+    onStageFolder,
+    onUnstageFolder: vi.fn(),
+  };
+  const { rerender } = render(<GitChangeTree {...props} changes={changes} />);
+  const folder = screen.getByRole("button", { name: "src" });
+  fireEvent.click(folder);
+  const button = screen.getByRole("button", { name: "暂存目录 src" });
+  expect(button).toHaveAttribute("title", "暂存此目录下 2 个文件");
+  fireEvent.click(button);
+  expect(onStageFolder).toHaveBeenCalledExactlyOnceWith([
+    "src/中文 空格.txt",
+    "src/nested/deleted.txt",
+  ]);
+  expect(folder).toHaveAttribute("aria-expanded", "false");
+  rerender(<GitChangeTree {...props} changes={[]} />);
+  rerender(<GitChangeTree {...props} changes={changes} />);
+  expect(screen.getByRole("button", { name: "src" })).toHaveAttribute("aria-expanded", "false");
+});
+
 it("offers discard on worktree rows and unstage on staged rows", () => {
   const discard = vi.fn(),
     unstage = vi.fn();
@@ -14,6 +47,8 @@ it("offers discard on worktree rows and unstage on staged rows", () => {
       disabled={false}
       onOpen={vi.fn()}
       onStage={vi.fn()}
+      onStageFolder={vi.fn()}
+      onUnstageFolder={vi.fn()}
       onDiscard={discard}
       onUnstage={unstage}
     />,
@@ -36,6 +71,8 @@ it("compacts directory chains while preserving exact paths and diff targets", ()
       disabled={false}
       onOpen={onOpen}
       onStage={onStage}
+      onStageFolder={vi.fn()}
+      onUnstageFolder={vi.fn()}
       onUnstage={vi.fn()}
       onDiscard={vi.fn()}
     />,
@@ -58,6 +95,8 @@ it("keeps conflict rows read-only and offers staged actions and exposes full ren
       disabled={false}
       onOpen={vi.fn()}
       onStage={vi.fn()}
+      onStageFolder={vi.fn()}
+      onUnstageFolder={vi.fn()}
       onUnstage={vi.fn()}
       onDiscard={vi.fn()}
     />,

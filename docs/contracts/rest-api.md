@@ -762,3 +762,7 @@ type JobInput = {
 ### GX-1 人工 Git 推拉
 
 `POST /api/projects/:id/git/remote-actions` 提交一次人工 `pull` 或 `push`，绑定 Git 状态快照和客户端请求标识。鉴权、幂等、返回状态及兼容规则见 [M2 资源契约](m2-resources.md#gx-1-人工一键-git-推拉adr-066)。
+
+### GX-2 Git 目录批量暂存
+
+现有 `POST /api/projects/:id/git/actions` 增加 `stageFiles`、`unstageFiles`，传精确 `paths` 与 `expectedSnapshot`。见 [M2 Git 批量契约](m2-resources.md#gx-2-目录行-git-批量动作)。

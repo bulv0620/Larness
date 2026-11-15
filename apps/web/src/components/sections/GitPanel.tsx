@@ -131,7 +131,9 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
     } catch (failure) {
       setError(
         kind === "local"
-          ? operationError(failure, "Git 操作失败，请核对状态后重试。")
+          ? failure instanceof ApiError && failure.code === "VERSION_CONFLICT"
+            ? "Git 状态已变化，请在列表刷新后重新选择。"
+            : operationError(failure, "Git 操作失败，请核对状态后重试。")
           : remoteError(failure),
       );
       await refresh();
@@ -214,29 +216,37 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
             { title: "已暂存", rows: staged },
             { title: "更改", rows: worktree },
           ] as const
-        ).map((group) =>
-          group.rows.length ? (
-            <details key={group.title} open className="mb-1">
-              <summary className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-[11px] font-medium text-ink-2">
-                <span>{group.title}</span>
-                <span className="ml-auto rounded-full bg-accent-soft px-1.5 text-[10px] text-accent">
-                  {group.rows.length}
-                </span>
-              </summary>
-              <GitChangeTree
-                changes={group.rows}
-                disabled={disabled}
-                onOpen={openDiff}
-                onStage={(path) => void runL1({ action: "add", paths: [path] })}
-                onUnstage={(path) => void runL1({ action: "unstage", paths: [path] })}
-                onDiscard={(change) => {
-                  setError("");
-                  setDiscardTarget(change);
-                }}
-              />
-            </details>
-          ) : null,
-        )}
+        ).map((group) => (
+          <details key={group.title} open hidden={!group.rows.length} className="mb-1">
+            <summary className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-[11px] font-medium text-ink-2">
+              <span>{group.title}</span>
+              <span className="ml-auto rounded-full bg-accent-soft px-1.5 text-[10px] text-accent">
+                {group.rows.length}
+              </span>
+            </summary>
+            <GitChangeTree
+              changes={group.rows}
+              disabled={disabled}
+              onOpen={openDiff}
+              onStage={(path) => void runL1({ action: "add", paths: [path] })}
+              onUnstage={(path) => void runL1({ action: "unstage", paths: [path] })}
+              onStageFolder={(paths) =>
+                void runL1({ action: "stageFiles", paths, expectedSnapshot: data.snapshotVersion })
+              }
+              onUnstageFolder={(paths) =>
+                void runL1({
+                  action: "unstageFiles",
+                  paths,
+                  expectedSnapshot: data.snapshotVersion,
+                })
+              }
+              onDiscard={(change) => {
+                setError("");
+                setDiscardTarget(change);
+              }}
+            />
+          </details>
+        ))}
         {!changes.length ? <p className="px-2 py-3 text-[11px] text-ink-3">工作区干净</p> : null}
       </div>
       <div

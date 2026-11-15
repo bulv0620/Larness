@@ -486,3 +486,9 @@ M2/G2已验收，代码不因本次文档改变。M3只消费终端真实执行/
 `POST /api/projects/:id/git/remote-actions` 仅接受 `{ action: "pull" | "push", expectedSnapshot, requestId }`。`expectedSnapshot` 取项目 Git status 的 `snapshotVersion`，`requestId` 为 UUID。后端鉴权、校验 Origin/CSRF，绑定同一会话内的请求标识、项目、动作与快照，持久化显式人工意图后执行。获取项目锁后重验快照，启动远端 Git 前复查会话和锁。推送使用当前 HEAD 与配置上游，拉取使用指定上游且仅允许快进。Git 凭据沿用 Server 主机配置。
 
 返回 `200` GitActionView。首次请求等待动作结果。相同请求标识重放时只返回该动作的当前状态（可为 `PREPARED` / `RUNNING`）或终态。不同参数复用标识返回 `GIT_CONFLICT`，执行失败返回稳定错误。运行中断后，通用恢复同步标记动作为 `INTERRUPTED`，重放只供核对。直接请求在审计中记录 `git.action.requested_directly`，`decidedBy` 为空。旧 `/git/actions` 审批流程与 Agent 会话策略沿用原规则。
+
+## GX-2 目录行 Git 批量动作
+
+`POST /api/projects/:id/git/actions` 支持 `{ action: "stageFiles" | "unstageFiles", paths, expectedSnapshot }`。`paths` 为同一 Git 状态分组中 1–200 个精确文件路径，`expectedSnapshot` 对应点击时的 Git status 结果。批量仅允许有对应状态的文件，冲突、目录参数和越界路径拒绝。准备与持锁执行时快照不符均返回 `VERSION_CONFLICT`。动作经原 `PREPARED` / execute 流程，校验、锁、审计和幂等同 L1。
+
+Git 通过 NUL 分隔的字面路径接收一个批次；删除和重命名按 Git 状态处理，重命名源随该条目一起更新。取消暂存只更新 index。刷新后的变更列表由 Git status 提供。已有单文件动作接口和 Agent 工具不变。

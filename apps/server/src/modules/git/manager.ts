@@ -15,6 +15,7 @@ import {
   type GitAction,
   GitActionSchema,
   type GitActionView,
+  type GitBatchAction,
   type GitBranchView,
   type GitDiffView,
   type GitLogView,
@@ -53,7 +54,7 @@ export interface AgentGitContext {
 }
 
 function fail(
-  code: "NOT_FOUND" | "FORBIDDEN" | "APPROVAL_INVALID" | "RESOURCE_LOCKED",
+  code: "NOT_FOUND" | "FORBIDDEN" | "APPROVAL_INVALID" | "RESOURCE_LOCKED" | "VERSION_CONFLICT",
   message: string,
 ): never {
   throw new HttpError(code, message);
@@ -165,10 +166,14 @@ export class GitManager {
     if (!action.success) fail("FORBIDDEN", "Invalid Git action");
     const project = this.#project(projectId);
     const payload = action.data;
-    return this.#actionSnapshot(projectId, payload).then(
-      (snapshot) =>
-        this.#prepareAction(project, payload, requestedBy, snapshot.snapshotVersion).action,
-    );
+    return this.#actionSnapshot(projectId, payload).then((snapshot) => {
+      if (payload.action === "stageFiles" || payload.action === "unstageFiles") {
+        if (snapshot.snapshotVersion !== payload.expectedSnapshot)
+          fail("VERSION_CONFLICT", "Git status changed since the batch was selected");
+        this.#batchPaths(project.realPath, payload, snapshot);
+      }
+      return this.#prepareAction(project, payload, requestedBy, snapshot.snapshotVersion).action;
+    });
   }
   async runRemoteAction(
     projectId: string,
@@ -372,6 +377,7 @@ export class GitManager {
     }
     const project = this.#project(action.projectId);
     const payload = GitActionSchema.parse(JSON.parse(action.paramsJson));
+    const batch = payload.action === "stageFiles" || payload.action === "unstageFiles";
     const lock = new ProjectWriteLock({
       db: this.options.db,
       projectId: project.id,
@@ -389,8 +395,10 @@ export class GitManager {
       const latest = this.#row(id);
       if (latest.status !== action.status) return this.#view(latest);
       const locked = await this.#actionSnapshot(project.id, payload);
-      if (locked.snapshotVersion !== action.snapshotHash)
+      if (locked.snapshotVersion !== action.snapshotHash) {
+        if (batch) fail("VERSION_CONFLICT", "Git status changed since the batch was selected");
         throw new GitError("GIT_CONFLICT", "Repository changed before the Git action executed");
+      }
       const authorizeRemote = assertAuthorized
         ? () => {
             assertAuthorized();
@@ -399,6 +407,7 @@ export class GitManager {
           }
         : undefined;
       authorizeRemote?.();
+      if (batch) lock.assertHeld();
       immediateTransaction(this.options.db, (tx) => {
         tx.update(resourceActions)
           .set({ status: "RUNNING", startedAt: this.#now() })
@@ -414,10 +423,8 @@ export class GitManager {
       const result = await this.#run(
         project.realPath,
         payload,
-        authorizeRemote && {
-          status: locked,
-          assertAuthorized: authorizeRemote,
-        },
+        batch || authorizeRemote ? locked : undefined,
+        authorizeRemote,
       );
       immediateTransaction(this.options.db, (tx) => {
         tx.update(resourceActions)
@@ -596,13 +603,35 @@ export class GitManager {
     }
     return { ...snapshot, snapshotVersion: hash.digest("hex") };
   }
+  #batchPaths(
+    root: string,
+    action: GitBatchAction,
+    status: Pick<GitStatusView, "staged" | "unstaged" | "untracked">,
+  ) {
+    const staging = action.action === "stageFiles";
+    const entries = new Map(
+      (staging ? status.unstaged : status.staged).map((item) => [item.path, item]),
+    );
+    const untracked = new Set(staging ? status.untracked : []);
+    const paths = new Set<string>();
+    for (const requested of action.paths) {
+      const entry = entries.get(requested);
+      if (!entry && !untracked.has(requested))
+        throw new GitError("GIT_CONFLICT", "Select exact paths from the current Git changes");
+      paths.add(validateGitPath(root, requested, true));
+      if (entry?.status === "renamed" && entry.origPath)
+        paths.add(validateGitPath(root, entry.origPath, true));
+    }
+    return [...paths];
+  }
   async #run(
     root: string,
     action: GitAction,
-    remoteRequest?: { status: GitStatusView; assertAuthorized: () => void },
+    lockedStatus?: GitStatusView,
+    authorizeRemote?: () => void,
   ) {
     const status =
-      remoteRequest?.status ??
+      lockedStatus ??
       parseStatus(
         (
           await runGit(
@@ -613,6 +642,25 @@ export class GitManager {
         ).stdout,
       );
     switch (action.action) {
+      case "stageFiles":
+      case "unstageFiles": {
+        const paths = this.#batchPaths(root, action, status);
+        const command =
+          action.action === "stageFiles"
+            ? ["add"]
+            : status.head && status.head !== "(initial)"
+              ? ["reset", "-q"]
+              : ["rm", "--cached", "-f"];
+        await runGit(
+          root,
+          ["--literal-pathspecs", ...command, "--pathspec-from-file=-", "--pathspec-file-nul"],
+          {
+            timeoutMs: WRITE_TIMEOUT_MS,
+            stdin: `${paths.join("\0")}\0`,
+          },
+        );
+        return { action: action.action, paths: paths.length };
+      }
       case "add": {
         const paths = action.paths.map((item) => validateGitPath(root, item));
         await runGit(root, ["--literal-pathspecs", "add", "--", ...paths], {
@@ -683,7 +731,7 @@ export class GitManager {
         if (action.action === "pull") this.#requireClean(status);
         if (!status.upstream || !status.head)
           throw new GitError("GIT_CONFLICT", "Current branch has no upstream");
-        if (action.action === "pull" && !remoteRequest) {
+        if (action.action === "pull" && !authorizeRemote) {
           await runGit(root, ["pull", "--ff-only"], { timeoutMs: WRITE_TIMEOUT_MS });
           return { action: "pull" };
         }
@@ -704,7 +752,7 @@ export class GitManager {
           extra !== undefined
         )
           throw new GitError("GIT_CONFLICT", "Current branch has no valid upstream branch");
-        remoteRequest?.assertAuthorized();
+        authorizeRemote?.();
         if (action.action === "pull") {
           await runGit(
             root,
