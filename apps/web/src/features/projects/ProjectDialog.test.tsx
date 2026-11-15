@@ -42,6 +42,7 @@ describe("ProjectDialog", () => {
             home: "/Users/me",
             entries: [],
             truncated: false,
+            roots: [{ name: "Backup", path: "/Volumes/Backup" }],
           }
         : {
             path: "/Users/me",
@@ -49,6 +50,7 @@ describe("ProjectDialog", () => {
             home: "/Users/me",
             entries: [{ name: "work", path: "/Users/me/work" }],
             truncated: false,
+            roots: [{ name: "Backup", path: "/Volumes/Backup" }],
           },
     );
     createProjectMock.mockResolvedValue({
@@ -57,27 +59,68 @@ describe("ProjectDialog", () => {
     } as never);
   });
 
-  it("browses directories and selects the current folder", async () => {
+  it("uses the browsed directory immediately and submits the display name", async () => {
     const user = userEvent.setup();
     const onOpenChange = renderDialog();
 
     await waitFor(() => expect(screen.getByText("/Users/me")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "添加项目" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "work" }));
 
     await waitFor(() => expect(listDirectoriesMock).toHaveBeenLastCalledWith("/Users/me/work"));
     expect(await screen.findByText("/Users/me/work")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "选择当前目录" }));
+    expect(screen.queryByRole("button", { name: "选择当前目录" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("项目目录")).toHaveValue("/Users/me/work");
-    expect(screen.getByLabelText("显示名称（可选）")).toHaveValue("work");
+    await user.type(screen.getByLabelText("显示名称（可选）"), "Work project");
 
     await user.click(screen.getByRole("button", { name: "添加项目" }));
     await waitFor(() =>
       expect(createProjectMock).toHaveBeenCalledWith({
         rootPath: "/Users/me/work",
-        name: "work",
+        name: "Work project",
       }),
     );
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("switches Windows drives and keeps the display name while browsing", async () => {
+    const user = userEvent.setup();
+    const roots = [
+      { name: "C:", path: "C:\\" },
+      { name: "D:", path: "D:\\" },
+    ];
+    listDirectoriesMock.mockImplementation(async (directory) => ({
+      path: directory ?? "C:\\Users\\me",
+      home: "C:\\Users\\me",
+      parent: null,
+      entries: directory === "D:\\" ? [{ name: "repo", path: "D:\\repo" }] : [],
+      roots,
+      truncated: false,
+    }));
+    renderDialog();
+
+    await user.type(screen.getByLabelText("显示名称（可选）"), "My project");
+    await user.click(await screen.findByRole("button", { name: "磁盘与卷" }));
+    await user.click(await screen.findByRole("menuitem", { name: "D:" }));
+    await user.click(await screen.findByRole("button", { name: "repo" }));
+    expect(screen.getByLabelText("项目目录")).toHaveValue("D:\\repo");
+    expect(screen.getByLabelText("显示名称（可选）")).toHaveValue("My project");
+  });
+
+  it("leaves the project path editable after a volume disappears", async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(await screen.findByRole("button", { name: "work" }));
+    await waitFor(() => expect(screen.getByLabelText("项目目录")).toHaveValue("/Users/me/work"));
+    listDirectoriesMock.mockRejectedValueOnce(new Error("disk unavailable"));
+
+    await user.click(screen.getByRole("button", { name: "磁盘与卷" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Backup" }));
+    expect(await screen.findByText("无法读取目录")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "添加项目" })).toBeDisabled();
+    await user.type(screen.getByLabelText("项目目录"), "/Users/me/manual");
+    await user.click(screen.getByRole("button", { name: "添加项目" }));
+    expect(createProjectMock).toHaveBeenCalledWith({ rootPath: "/Users/me/manual" });
   });
 });

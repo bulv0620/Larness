@@ -1,5 +1,5 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdtempSync, readFileSync, realpathSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "./support";
@@ -29,6 +29,69 @@ function ipc(command: string, ...args: string[]): IpcResult {
 
   return JSON.parse(output.trim()) as IpcResult;
 }
+
+test("adds a browsed project directly from the directory picker", async ({ page }) => {
+  await page.goto("/pair");
+  const pairPanel = page.locator("[data-request-id]");
+  await expect(pairPanel).toHaveAttribute("data-stage", "waiting");
+  const approved = ipc(
+    "approve",
+    (await pairPanel.getAttribute("data-request-id")) ?? "",
+    "allow_once",
+  );
+  await page.getByLabel("配对码").fill(approved.code ?? "");
+  await page.getByRole("button", { name: "兑换配对码" }).click();
+  await expect(page.getByTestId("workspace-home")).toBeVisible();
+
+  const home = realpathSync(homedir());
+  const projectDir = mkdtempSync(path.join(home, "larness-picker-"));
+  let projectId: string | undefined;
+
+  try {
+    await page.getByRole("button", { name: "添加项目", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "添加项目" });
+    const projectPath = dialog.getByLabel("项目目录");
+    await expect(dialog.getByRole("button", { name: "添加项目", exact: true })).toBeDisabled();
+    await dialog.getByRole("button", { name: "磁盘与卷" }).click();
+    const root = path.parse(home).root;
+    const disk = page.getByRole("menuitem", {
+      name: process.platform === "win32" ? root.slice(0, 2) : root,
+      exact: true,
+    });
+    await disk.click();
+    await expect(projectPath).toHaveValue(root);
+    await dialog.getByRole("button", { name: "主目录", exact: true }).click();
+    await dialog.getByRole("button", { name: path.basename(projectDir), exact: true }).click();
+    await expect(projectPath).toHaveValue(projectDir);
+    await expect(dialog.getByRole("button", { name: "选择当前目录" })).toHaveCount(0);
+    await dialog.getByLabel("显示名称（可选）").fill("目录选择验收");
+    await dialog.screenshot({ path: test.info().outputPath("project-directory.png") });
+
+    const created = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/projects" &&
+        response.request().method() === "POST",
+    );
+    await dialog.getByLabel("显示名称（可选）").press("Enter");
+    const response = await created;
+    expect(response.status()).toBe(201);
+    const project = await response.json();
+    projectId = project.id;
+    expect(project).toMatchObject({ name: "目录选择验收", rootPath: projectDir });
+    await expect(dialog).toBeHidden();
+  } finally {
+    if (projectId) {
+      await page.evaluate(async (id) => {
+        const { csrfToken } = await (await fetch("/api/auth/session")).json();
+        await fetch(`/api/projects/${id}`, {
+          method: "DELETE",
+          headers: { "x-csrf-token": csrfToken },
+        });
+      }, projectId);
+    }
+    rmdirSync(projectDir);
+  }
+});
 
 test("shows the running version in the workspace header", async ({ page }) => {
   await page.goto("/pair");

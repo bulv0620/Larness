@@ -25,6 +25,15 @@ describe("directory browsing API", () => {
         });
         expect(unauthenticated.statusCode).toBe(401);
 
+        const remote = await started.running.app.inject({
+          method: "GET",
+          url: "/api/fs/directories",
+          headers: { cookie: started.cookie },
+          remoteAddress: "203.0.113.10",
+        });
+        expect(remote.statusCode).toBe(403);
+        expect(remote.json()).not.toHaveProperty("roots");
+
         const listing = await started.running.app.inject({
           method: "GET",
           url: `/api/fs/directories?path=${encodeURIComponent(root)}`,
@@ -35,12 +44,18 @@ describe("directory browsing API", () => {
           path: string;
           parent: string | null;
           entries: { name: string }[];
+          roots: { name: string; path: string }[];
           truncated: boolean;
         };
         expect(body.path).toBe(await realpath(root));
         expect(body.parent).toBe(await realpath(dir));
         expect(body.entries.map((entry) => entry.name)).toEqual(["docs", "src"]);
         expect(body.truncated).toBe(false);
+        const systemRoot = path.parse(body.path).root;
+        expect(body.roots).toContainEqual({
+          name: process.platform === "win32" ? systemRoot.slice(0, 2) : systemRoot,
+          path: systemRoot,
+        });
 
         const relative = await started.running.app.inject({
           method: "GET",

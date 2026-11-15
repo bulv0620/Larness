@@ -332,7 +332,7 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/fs/directories?path=` | 本机 loopback 专用；只返回目录 `{ path, parent, home, entries, truncated }`，不返回文件内容 |
+| GET | `/api/fs/directories?path=` | 已认证且本机 loopback 专用；返回 `{ path, parent, home, entries, truncated, roots }`。最多 500 条目录，跳过目录列表中的符号链接及文件 |
 | GET | `/api/projects` | `{ projects: Project[] }`，默认工作区固定首位，其余按 `sortOrder` 升序 |
 | POST | `/api/projects` | `{ name?, rootPath }`；校验目录存在、可读、realpath；201；新项目追加到 `sortOrder` 末尾 |
 | PUT | `/api/projects/order` | `{ projectIds: string[] }`；原子调整登记项目顺序；需 CSRF；返回 200 |
@@ -366,6 +366,8 @@
 | GET | `/api/sessions/:id/files` | M2-1：仅真实独立会话 workspace；参数同项目目录 |
 | GET | `/api/files?projectId=&path=&version=` | M2-1：projectId / sessionId 二选一；完整 UTF-8 / 原字节 SHA-256 |
 | PUT | `/api/files` | M2-1：`{ scope, path, content, expectedVersion }`，scope 为 `{ projectId }` 或 `{ sessionId }`；可选 Idempotency-Key |
+
+`GET /api/fs/directories` 省略 `path` 时读取服务端主目录。`entries` 与 `roots` 均为 `{ name, path }[]`，路径为服务端绝对路径。`roots` 在 Windows 返回可检测的盘符，在 macOS 返回文件系统根及 `/Volumes` 下的目录，其他平台返回文件系统根。目录和磁盘入口均不返回文件内容。
 
 `Project` 响应字段：
 

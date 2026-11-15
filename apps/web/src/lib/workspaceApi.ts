@@ -198,6 +198,7 @@ export interface DirectoryListing {
   home: string;
   entries: Array<{ name: string; path: string }>;
   truncated: boolean;
+  roots: Array<{ name: string; path: string }>;
 }
 
 export async function listDirectories(directory?: string): Promise<DirectoryListing> {

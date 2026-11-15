@@ -23,6 +23,36 @@ interface DirectoryListing {
   home: string;
   entries: DirectoryEntry[];
   truncated: boolean;
+  roots: DirectoryEntry[];
+}
+
+async function readDirectoryEntries(directory: string): Promise<DirectoryEntry[]> {
+  const dirents = await readdir(directory, { withFileTypes: true });
+  return dirents
+    .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
+    .map((entry) => ({ name: entry.name, path: path.join(directory, entry.name) }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
+
+async function listDirectoryRoots(home: string): Promise<DirectoryEntry[]> {
+  if (process.platform === "win32") {
+    const drives = await Promise.all(
+      Array.from("ABCDEFGHIJKLMNOPQRSTUVWXYZ", async (letter) => {
+        const name = `${letter}:`;
+        const root = name + path.sep;
+        const info = await stat(root).catch(() => null);
+        return info?.isDirectory() ? { name, path: root } : null;
+      }),
+    );
+    return drives.filter((drive) => drive !== null);
+  }
+
+  const root = path.parse(home).root;
+  const system = { name: root, path: root };
+  if (process.platform !== "darwin") return [system];
+
+  const volumes = await readDirectoryEntries(path.join(root, "Volumes")).catch(() => []);
+  return [system, ...volumes.slice(0, MAX_ENTRIES - 1)];
 }
 
 function mapFsError(error: unknown): never {
@@ -87,21 +117,10 @@ export function registerFsRoutes(app: FastifyInstance): void {
       }
 
       let entries: DirectoryEntry[];
-      let truncated = false;
-
       try {
-        const dirents = await readdir(target, { withFileTypes: true });
-        entries = dirents
-          .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
-          .map((entry) => ({ name: entry.name, path: path.join(target, entry.name) }))
-          .sort((left, right) => left.name.localeCompare(right.name));
+        entries = await readDirectoryEntries(target);
       } catch (error) {
         mapFsError(error);
-      }
-
-      if (entries.length > MAX_ENTRIES) {
-        entries = entries.slice(0, MAX_ENTRIES);
-        truncated = true;
       }
 
       const parent = path.dirname(target);
@@ -110,8 +129,9 @@ export function registerFsRoutes(app: FastifyInstance): void {
         path: target,
         parent: parent === target ? null : parent,
         home,
-        entries,
-        truncated,
+        entries: entries.slice(0, MAX_ENTRIES),
+        truncated: entries.length > MAX_ENTRIES,
+        roots: await listDirectoryRoots(home),
       };
     },
   );
