@@ -758,3 +758,7 @@ type JobInput = {
 ### FR-14 目录重命名与移动
 
 `POST /api/files/actions` 新增 `moveDirectory`，使用与文件移动相同的字段，其中 `expectedVersion` 为目录条目版本。返回原路径与新路径，记录原路径删除和新路径创建事件。共同根锁内复查源版本、目标缺失、同一 scope、受保护路径及目标祖先，有效时使用原生同卷 rename。外部程序仍可能在最后一次目标检查后竞争路径。重启按源与目标的目录身份对账。
+
+### GX-1 人工 Git 推拉
+
+`POST /api/projects/:id/git/remote-actions` 提交一次人工 `pull` 或 `push`，绑定 Git 状态快照和客户端请求标识。鉴权、幂等、返回状态及兼容规则见 [M2 资源契约](m2-resources.md#gx-1-人工一键-git-推拉adr-066)。

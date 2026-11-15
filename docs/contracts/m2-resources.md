@@ -480,3 +480,9 @@ M2/G2已验收，代码不因本次文档改变。M3只消费终端真实执行/
 ## M2-R1 通用操作清理与进程恢复
 
 启动时各资源先执行专用恢复。后续通用清扫与关闭排空保留待对账的文件保存，以及仍有关联命令或终端执行记录且处于待对账状态或已有进程身份的未完成操作。保留操作继续参与共同根写入判定。无对应执行记录的孤立操作仍由通用清扫收尾。见 [任务记录](../../specs/030-dev-resources/tasks.md#m2-r1-保留未核实进程的写入屏障)。
+
+## GX-1 人工一键 Git 推拉（ADR-066）
+
+`POST /api/projects/:id/git/remote-actions` 仅接受 `{ action: "pull" | "push", expectedSnapshot, requestId }`。`expectedSnapshot` 取项目 Git status 的 `snapshotVersion`，`requestId` 为 UUID。后端鉴权、校验 Origin/CSRF，绑定同一会话内的请求标识、项目、动作与快照，持久化显式人工意图后执行。获取项目锁后重验快照，启动远端 Git 前复查会话和锁。推送使用当前 HEAD 与配置上游，拉取使用指定上游且仅允许快进。Git 凭据沿用 Server 主机配置。
+
+返回 `200` GitActionView。首次请求等待动作结果。相同请求标识重放时只返回该动作的当前状态（可为 `PREPARED` / `RUNNING`）或终态。不同参数复用标识返回 `GIT_CONFLICT`，执行失败返回稳定错误。运行中断后，通用恢复同步标记动作为 `INTERRUPTED`，重放只供核对。直接请求在审计中记录 `git.action.requested_directly`，`decidedBy` 为空。旧 `/git/actions` 审批流程与 Agent 会话策略沿用原规则。

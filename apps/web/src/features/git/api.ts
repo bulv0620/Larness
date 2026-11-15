@@ -4,6 +4,7 @@ import type {
   GitBranchView,
   GitDiffView,
   GitLogView,
+  GitRemoteActionRequest,
   GitStatusView,
 } from "@larness/shared";
 import { apiFetch } from "@/lib/api";
@@ -48,14 +49,14 @@ export async function createGitAction(
     body: action,
   });
 }
-export async function decideGitAction(
-  id: string,
-  decision: "approve" | "reject",
+export async function runGitRemoteAction(
+  projectId: string,
+  action: GitRemoteActionRequest,
 ): Promise<GitActionView> {
-  return apiFetch(`/api/resource-actions/${encodeURIComponent(id)}/decision`, {
+  return apiFetch(`/api/projects/${encodeURIComponent(projectId)}/git/remote-actions`, {
     method: "POST",
     csrf: true,
-    body: { decision },
+    body: action,
   });
 }
 export async function executeGitAction(id: string): Promise<GitActionView> {

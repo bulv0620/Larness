@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
@@ -38,21 +38,18 @@ async function pair(page: Page) {
   await expect(page.getByTestId("workspace-home")).toBeVisible();
 }
 
-test("M2-5b real Git panel shows status, stages, commits, diffs and approves a push", async ({
-  page,
-}) => {
+test("GX-1 real Git panel stages, commits, pushes and pulls without approval", async ({ page }) => {
   test.setTimeout(90000);
   const dir = mkdtempSync(path.join(tmpdir(), "larness-git-ui-"));
   const repo = path.join(dir, "repo");
   const remote = path.join(dir, "remote.git");
-  execFileSync("mkdir", ["-p", repo]);
+  mkdirSync(repo);
   git(repo, "init", "-q", "-b", "main");
   git(repo, "config", "user.name", "GIT UI");
   git(repo, "config", "user.email", "git-ui@example.com");
   writeFileSync(path.join(repo, "a.txt"), "seed\n");
   git(repo, "add", "a.txt");
   git(repo, "commit", "-q", "-m", "initial");
-  execFileSync("mkdir", ["-p", remote]);
   git(dir, "init", "-q", "--bare", remote);
   git(repo, "remote", "add", "origin", remote);
   git(repo, "push", "-q", "-u", "origin", "main");
@@ -123,13 +120,20 @@ test("M2-5b real Git panel shows status, stages, commits, diffs and approves a p
     await expect(branchSelect).toHaveText("main", { timeout: 15000 });
 
     await page.getByRole("button", { name: "推送" }).click();
-    const approval = page.getByRole("region", { name: "Git 操作审批" });
-    await expect(approval).toBeVisible({ timeout: 10000 });
-    await expect(approval).toContainText("push");
-    await approval.getByRole("button", { name: "批准" }).click();
-    await approval.getByRole("button", { name: "执行一次" }).click();
-    await expect(approval).toHaveCount(0, { timeout: 15000 });
+    await expect(gitPanel.getByRole("status")).toHaveText("推送完成", { timeout: 15000 });
+    await expect(page.getByRole("region", { name: "Git 操作审批" })).toHaveCount(0);
     expect(git(remote, "rev-parse", "main")).toBe(git(repo, "rev-parse", "HEAD"));
+
+    const peer = path.join(dir, "peer");
+    git(dir, "clone", "-q", "-b", "main", remote, peer);
+    git(peer, "config", "user.name", "GIT UI peer");
+    git(peer, "config", "user.email", "git-ui-peer@example.com");
+    writeFileSync(path.join(peer, "a.txt"), "changed upstream\n");
+    git(peer, "commit", "-qam", "upstream commit");
+    git(peer, "push", "-q", "origin", "main");
+    await gitPanel.getByRole("button", { name: "拉取（仅快进）" }).click();
+    await expect(gitPanel.getByRole("status")).toHaveText("拉取完成", { timeout: 15000 });
+    expect(git(repo, "rev-parse", "HEAD")).toBe(git(peer, "rev-parse", "HEAD"));
   } finally {
     await page.evaluate(async (rootPath) => {
       const response = await fetch("/api/auth/session");

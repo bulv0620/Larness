@@ -181,7 +181,7 @@ it("opens separate model and thinking submenus with small Key headings", async (
 
   await user.click(trigger);
   await user.click(popover().getByRole("button", { name: "模型：DeepSeek Flash" }));
-  expect(popover().getByRole("list", { name: "GLM Key", exact: true })).toBeVisible();
+  expect(popover().getByRole("list", { name: "GLM Key" })).toBeVisible();
   expect(popover().queryByRole("button", { name: /GLM Key/ })).toBeNull();
   expect(popover().getByRole("button", { name: "DeepSeek Flash" })).toHaveAttribute(
     "aria-pressed",

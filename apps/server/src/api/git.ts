@@ -4,6 +4,7 @@ import {
   GitBranchesQuerySchema,
   GitDiffQuerySchema,
   GitLogQuerySchema,
+  GitRemoteActionRequestSchema,
 } from "@larness/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
@@ -11,6 +12,7 @@ import type { AppServices } from "../app.js";
 import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { HttpError } from "../errors.js";
+import { ProjectLockError } from "../modules/agent/projectWriteLock.js";
 import type { GitManager } from "../modules/git/manager.js";
 
 const ProjectParams = z.object({ id: z.string().min(1).max(128) }).strict();
@@ -19,8 +21,8 @@ function mapFailure(error: unknown): HttpError {
   if (error instanceof GitError) return new HttpError(error.code, error.message);
   if (error instanceof HttpError) return error;
   if (error instanceof FileManagerError) return new HttpError(error.code, error.message);
-  const code = (error as { code?: unknown } | null)?.code;
-  if (typeof code === "string") return new HttpError(code as never, (error as Error).message);
+  if (error instanceof ProjectLockError)
+    return new HttpError(error.code, "Project Git write lock was lost");
   return new HttpError("INTERNAL", "Git operation failed");
 }
 
@@ -93,4 +95,14 @@ export function registerGitRoutes(app: FastifyInstance, deps: AppServices, git: 
     });
     return reply.code(201).send(result);
   });
+  app.post("/api/projects/:id/git/remote-actions", (request) =>
+    run(request, () => {
+      const parsed = GitRemoteActionRequestSchema.safeParse(request.body);
+      if (!parsed.success) throw new HttpError("VALIDATION_ERROR", "Invalid Git remote action");
+      const actor = client(request);
+      return git.runRemoteAction(projectId(request), parsed.data, actor, () => {
+        if (client(request) !== actor) throw new HttpError("FORBIDDEN", "Client session changed");
+      });
+    }),
+  );
 }

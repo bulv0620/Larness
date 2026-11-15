@@ -38,6 +38,7 @@
 - [045 M2-23—M2-26 工作区体验收敛](045-workspace-polish/spec.md)
 - [046 M2-27 Git 文件行补充动作](046-git-file-actions/spec.md)
 - [047 M2-28 Git 空态与刷新提示收敛](047-git-feedback/spec.md)
+- [078 Git 日常操作体验](078-git-workflow/spec.md)
 
 ### M3
 

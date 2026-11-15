@@ -182,3 +182,7 @@ accepted，用户明确指定四项调整。恢复会话两级菜单、设置模
 ## ADR-065 · 模型行内操作（2026-11-15）
 
 accepted，按用户要求单击展开模型操作、隐藏行置灰。替代 ADR-064 的模型行右键交互。见 [ADR-065](ADR-065-inline-model-actions.md)。
+
+## ADR-066 · 人工 Git 拉取与推送（2026-11-15）
+
+accepted，人工 Git 面板显式发起的推拉直接按项目、快照和客户端授权。见 [ADR-066](ADR-066-human-git-remote-actions.md)。

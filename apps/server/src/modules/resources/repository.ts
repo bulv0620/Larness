@@ -38,7 +38,12 @@ export function insertOperation(db: DbExecutor, row: ResourceOperationRow) {
 export function updateOperation(
   db: DbExecutor,
   id: string,
-  values: Partial<Pick<ResourceOperationRow, "status" | "resultJson" | "errorCode" | "updatedAt">>,
+  values: Partial<
+    Pick<
+      ResourceOperationRow,
+      "status" | "resultJson" | "errorCode" | "updatedAt" | "lockId" | "fencingToken"
+    >
+  >,
 ) {
   db.update(resourceOperations).set(values).where(eq(resourceOperations.id, id)).run();
 }

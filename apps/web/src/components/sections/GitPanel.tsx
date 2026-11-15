@@ -1,4 +1,4 @@
-import type { GitAction, GitActionView } from "@larness/shared";
+import type { GitAction, GitRemoteActionRequest } from "@larness/shared";
 import { ConfirmDialog, ErrorMessage, FormSelect, Input, Textarea } from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -8,6 +8,7 @@ import {
   GitBranch,
   GitCommitHorizontal,
   GitPullRequest,
+  LoaderCircle,
   Plus,
   RefreshCw,
   X,
@@ -16,13 +17,13 @@ import { useRef, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
 import {
   createGitAction,
-  decideGitAction,
   executeGitAction,
   readGitBranches,
   readGitStatus,
+  runGitRemoteAction,
 } from "@/features/git/api";
 import { GitChangeTree, type GitTreeChange } from "@/features/git/GitChangeTree";
-import { operationError } from "@/lib/api";
+import { ApiError, operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import { useWindowStore } from "@/stores/windowStore";
@@ -43,15 +44,40 @@ function diffId(projectId: string, path: string) {
   return `diff:${projectId}:${path}`;
 }
 
+function remoteError(failure: unknown) {
+  if (!(failure instanceof ApiError))
+    return "Git 操作结果暂无法确认，请核对本地和远端分支状态后再试。";
+  if (failure.code === "GIT_UNAVAILABLE") return "Git 暂不可用，请检查主机上的 Git 和当前仓库。";
+  if (failure.status >= 500) return "Git 操作结果暂无法确认，请核对本地和远端分支状态后再试。";
+  if (failure.code === "GIT_AUTH_REQUIRED")
+    return "远端认证失败，请检查运行 Larness 的主机上的 Git 凭据。";
+  if (failure.code === "GIT_CONFLICT") {
+    switch (failure.message) {
+      case "Working tree or index is not clean":
+        return "有未提交的更改，请先处理更改再拉取。";
+      case "Git operation cannot be applied without a merge":
+        return "本地与上游分支无法快进，请先在终端处理分叉。";
+      case "Git push requires integrating upstream changes":
+        return "上游分支有新提交，请先拉取并处理可能的分叉。";
+      case "Git command timed out":
+        return "Git 操作超时，请核对本地和远端分支状态后再试。";
+      default:
+        return "Git 操作未完成，请核对当前分支、上游和工作区状态后再试。";
+    }
+  }
+  return operationError(failure, "Git 操作失败，请核对状态后重试。");
+}
+
 function RealGitPanel({ projectId }: { projectId: string | null }) {
   const [discardTarget, setDiscardTarget] = useState<GitTreeChange | null>(null);
   const open = useWindowStore((state) => state.open);
   const [branchOpen, setBranchOpen] = useState(false);
   const [message, setMessage] = useState("");
   const running = useRef(false);
-  const [busy, setBusy] = useState(false);
+  const [active, setActive] = useState<"local" | GitRemoteActionRequest["action"] | null>(null);
+  const busy = active !== null;
   const [error, setError] = useState("");
-  const [pending, setPending] = useState<GitActionView | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const [branchName, setBranchName] = useState("");
   const status = useQuery({
     queryKey: ["git", "status", projectId],
@@ -93,20 +119,25 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
   const refresh = async () => {
     await Promise.all([status.refetch(), branches.refetch()]);
   };
-  const run = async (action: () => Promise<void>) => {
+  const run = async (action: () => Promise<void>, kind: NonNullable<typeof active> = "local") => {
     if (running.current) return;
     running.current = true;
-    setBusy(true);
+    setActive(kind);
     setError("");
+    setAnnouncement("");
     try {
       await action();
       await refresh();
     } catch (failure) {
-      setError(operationError(failure, "Git 操作失败，请核对状态后重试。"));
+      setError(
+        kind === "local"
+          ? operationError(failure, "Git 操作失败，请核对状态后重试。")
+          : remoteError(failure),
+      );
       await refresh();
     } finally {
       running.current = false;
-      setBusy(false);
+      setActive(null);
     }
   };
   const runL1 = (action: GitAction) =>
@@ -118,30 +149,22 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       if (action.action === "commit") setMessage("");
       if (action.action === "createBranch") setBranchName("");
     });
-  const planL2 = (action: GitAction) =>
+  const runRemote = (action: GitRemoteActionRequest["action"]) =>
     run(async () => {
-      const created = await createGitAction(projectId, action);
-      setPending(created);
-    });
-  const decide = (decision: "approve" | "reject") =>
-    run(async () => {
-      if (!pending) return;
-      const result = await decideGitAction(pending.id, decision);
-      setPending(result);
-      if (decision === "reject") setPending(null);
-    });
-  const execute = () =>
-    run(async () => {
-      if (!pending) return;
-      const result = await executeGitAction(pending.id);
-      setPending(result.status === "COMPLETED" || result.status === "FAILED" ? null : result);
-      if (result.status !== "COMPLETED") throw new Error("Git 操作未完成，请核对状态后重试。");
-    });
+      const result = await runGitRemoteAction(projectId, {
+        action,
+        expectedSnapshot: data.snapshotVersion,
+        requestId: crypto.randomUUID(),
+      });
+      if (result.status !== "COMPLETED") throw new Error("Git remote action did not complete");
+      setAnnouncement(action === "pull" ? "拉取完成" : "推送完成");
+    }, action);
   const staged = changes.filter((item) => item.staged);
   const worktree = [
     ...new Map(changes.filter((item) => !item.staged).map((item) => [item.path, item])).values(),
   ];
-  const disabled = busy || pending !== null || status.isError;
+  const disabled = busy || status.isError;
+  const remoteDisabled = disabled || !data.upstream || !data.head;
   const openDiff = (change: { path: string; staged: boolean }) =>
     open({
       kind: "git-diff",
@@ -230,42 +253,58 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
           aria-expanded={branchOpen}
           className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-1 text-[10.5px] hover:bg-surface-2 disabled:opacity-40"
         >
-          <GitBranch size={13} />
-          <span className="truncate">{data.branch}</span>
+          <GitBranch size={13} className="shrink-0" />
+          <span className="flex min-w-0 flex-col text-left leading-tight">
+            <span className="truncate text-ink-2">{data.branch}</span>
+            <span className="truncate text-[9px]">{data.upstream ?? "未设置上游"}</span>
+          </span>
         </button>
         <span className="shrink-0 font-mono text-[9px]" title="传入 / 传出提交">
           ↓{data.behind} ↑{data.ahead}
         </span>
         <button
           type="button"
-          disabled={disabled}
+          disabled={remoteDisabled}
           aria-label="拉取（仅快进）"
-          title="拉取（仅快进）"
-          onClick={() => void planL2({ action: "pull" })}
+          aria-busy={active === "pull"}
+          title={data.upstream ? `从 ${data.upstream} 拉取（仅快进）` : "当前分支未设置上游"}
+          onClick={() => void runRemote("pull")}
           className="rounded p-1.5 hover:bg-surface-2 disabled:opacity-40"
         >
-          <ArrowDown size={13} />
+          {active === "pull" ? (
+            <LoaderCircle size={13} className="animate-spin motion-reduce:animate-none" />
+          ) : (
+            <ArrowDown size={13} />
+          )}
         </button>
         <button
           type="button"
-          disabled={disabled}
+          disabled={remoteDisabled}
           aria-label="推送"
-          title="推送"
-          onClick={() => void planL2({ action: "push" })}
+          aria-busy={active === "push"}
+          title={data.upstream ? `推送到 ${data.upstream}` : "当前分支未设置上游"}
+          onClick={() => void runRemote("push")}
           className="rounded p-1.5 hover:bg-surface-2 disabled:opacity-40"
         >
-          <ArrowUp size={13} />
+          {active === "push" ? (
+            <LoaderCircle size={13} className="animate-spin motion-reduce:animate-none" />
+          ) : (
+            <ArrowUp size={13} />
+          )}
         </button>
         <button
           type="button"
           disabled={busy}
           aria-label="刷新 Git"
-          aria-busy={busy}
+          aria-busy={active === "local"}
           title="刷新 Git"
           onClick={() => void run(async () => {})}
           className="rounded p-1.5 hover:bg-surface-2 disabled:opacity-40"
         >
-          <RefreshCw size={12} className={busy ? "animate-spin motion-reduce:animate-none" : ""} />
+          <RefreshCw
+            size={12}
+            className={active === "local" ? "animate-spin motion-reduce:animate-none" : ""}
+          />
         </button>
         {branchOpen ? (
           <section
@@ -331,7 +370,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
         confirmLabel="确认放弃"
         danger
         pending={busy}
-        confirmDisabled={pending !== null || status.isError}
+        confirmDisabled={status.isError}
         error={error}
         onDismissError={() => setError("")}
         onCancel={closeDiscard}
@@ -357,57 +396,9 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
           onDismiss={error ? () => setError("") : undefined}
         />
       ) : null}
-      {pending ? (
-        <section
-          aria-label="Git 操作审批"
-          className="max-h-56 shrink-0 space-y-1.5 overflow-auto rounded border border-warning/30 bg-warning/[.05] p-2"
-        >
-          <div className="flex items-center gap-2 text-[10.5px] font-medium text-ink">
-            <span>Git 操作审批</span>
-            <span className="ml-auto rounded-full border border-line bg-surface px-1.5 text-[9px]">
-              {pending.status}
-            </span>
-          </div>
-          <p className="break-all font-mono text-[9.5px] text-ink-3">
-            {JSON.stringify(pending.params)}
-          </p>
-          <p className="text-[9.5px] text-ink-3">
-            风险 {pending.risk} · 到期 {new Date(pending.expiresAt).toLocaleTimeString()}
-          </p>
-          <div className="flex gap-1">
-            {pending.status === "WAITING_APPROVAL" ? (
-              <>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => decide("approve")}
-                  className="flex-1 rounded bg-accent px-2 py-1 text-[10px] text-white disabled:opacity-45"
-                >
-                  批准
-                </button>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => decide("reject")}
-                  className="flex-1 rounded border border-line px-2 py-1 text-[10px] disabled:opacity-45"
-                >
-                  拒绝
-                </button>
-              </>
-            ) : null}
-            {pending.status === "APPROVED" ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={execute}
-                className="flex-1 rounded bg-accent px-2 py-1 text-[10px] text-white disabled:opacity-45"
-              >
-                执行一次
-              </button>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
+      <span role="status" className="sr-only">
+        {announcement}
+      </span>
     </div>
   );
 }

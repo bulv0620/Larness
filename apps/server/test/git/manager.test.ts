@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, symlink, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, it, vi } from "vitest";
@@ -122,6 +123,110 @@ it("reads structured status, diffs, log and branches with a stable snapshot", as
       expect(executed.json()).toMatchObject({ status: "COMPLETED" });
     } finally {
       await f.started.running.shutdown("test");
+    }
+  });
+});
+
+it("authenticates a direct remote action, binds its snapshot and replays the same action", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    try {
+      const { app, git: manager } = f.started.running;
+      const url = `/api/projects/${f.projectId}/git/remote-actions`;
+      const headers = {
+        origin: f.started.origin,
+        cookie: f.started.cookie,
+        "x-csrf-token": f.started.csrf,
+      };
+      const initial = await manager.status(f.projectId);
+      await writeFile(path.join(f.repo, "a.txt"), "push once\n");
+      git(f.repo, "commit", "-qam", "direct push");
+      const payload = {
+        action: "push",
+        expectedSnapshot: (await manager.status(f.projectId)).snapshotVersion,
+        requestId: randomUUID(),
+      };
+      const submit = (body = payload) =>
+        app.inject({ method: "POST", url, headers, payload: body });
+      expect(
+        (await app.inject({ method: "POST", url, headers: { origin: f.started.origin }, payload }))
+          .statusCode,
+      ).toBe(401);
+      expect(
+        (
+          await app.inject({
+            method: "POST",
+            url,
+            headers: { ...headers, "x-csrf-token": "bad" },
+            payload,
+          })
+        ).statusCode,
+      ).toBe(403);
+      expect((await submit({ ...payload, action: "commit" })).statusCode).toBe(400);
+      expect(
+        (
+          await submit({
+            ...payload,
+            expectedSnapshot: initial.snapshotVersion,
+            requestId: randomUUID(),
+          })
+        ).statusCode,
+      ).toBe(409);
+      expect(git(f.remote, "rev-parse", "main")).toBe(initial.head);
+
+      const concurrent = await Promise.all([submit(), submit()]);
+      expect(concurrent.map((reply) => reply.json().id)).toEqual([
+        concurrent[0].json().id,
+        concurrent[0].json().id,
+      ]);
+      const completed = await submit();
+      expect(completed.statusCode).toBe(200);
+      expect(completed.json()).toMatchObject({
+        id: concurrent[0].json().id,
+        status: "COMPLETED",
+        kind: "push",
+        decidedBy: null,
+      });
+      expect(git(f.remote, "rev-parse", "main")).toBe(git(f.repo, "rev-parse", "HEAD"));
+      expect((await submit({ ...payload, action: "pull" })).statusCode).toBe(409);
+
+      await writeFile(path.join(f.repo, "a.txt"), "keep this edit\n");
+      const dirty = await submit({
+        action: "pull",
+        expectedSnapshot: (await manager.status(f.projectId)).snapshotVersion,
+        requestId: randomUUID(),
+      });
+      expect(dirty.statusCode).toBe(409);
+      expect(dirty.json()).toMatchObject({
+        error: { code: "GIT_CONFLICT", message: "Working tree or index is not clean" },
+      });
+      expect(await readFile(path.join(f.repo, "a.txt"), "utf8")).toBe("keep this edit\n");
+
+      const writer = new ProjectWriteLock({
+        db: f.started.running.db,
+        projectId: f.projectId,
+        owner: "test-writer",
+        executionId: "test-writer",
+      });
+      const blocked = {
+        ...payload,
+        requestId: randomUUID(),
+        expectedSnapshot: (await manager.status(f.projectId)).snapshotVersion,
+      };
+      expect(writer.acquire()).not.toBeNull();
+      try {
+        const result = await submit(blocked);
+        expect(result.statusCode).toBe(409);
+        expect(result.json()).toMatchObject({ error: { code: "RESOURCE_LOCKED" } });
+      } finally {
+        writer.release();
+      }
+      expect((await submit(blocked)).json()).toMatchObject({
+        status: "FAILED",
+        result: { errorCode: "RESOURCE_LOCKED" },
+      });
+    } finally {
+      await stopAuthorizedServer(f.started);
     }
   });
 });

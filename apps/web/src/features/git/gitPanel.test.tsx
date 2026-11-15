@@ -120,10 +120,16 @@ it("shows real Git status, stages explicit row paths and commits staged content"
   });
 });
 
-it("creates a pull/push plan, approves it once and executes the approved action", async () => {
+it.each([
+  ["推送", "push"],
+  ["拉取（仅快进）", "pull"],
+])("executes %s once without an approval card", async (label, kind) => {
   useWindowStore.setState({ windows: [], focusedId: null, lastFilters: {} });
-  let decision = false;
-  const fetchMock = vi.fn(async (url: string) => {
+  let finish: (() => void) | undefined;
+  const gate = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const fetchMock = vi.fn(async (url: string, _options?: RequestInit) => {
     if (url.includes("/git/status"))
       return new Response(JSON.stringify(statusView(false)), { status: 200 });
     if (url.includes("/git/branches"))
@@ -133,33 +139,55 @@ it("creates a pull/push plan, approves it once and executes the approved action"
           status: 200,
         },
       );
-    if (url.includes("/decision")) {
-      decision = true;
-      return new Response(JSON.stringify(action("APPROVED")), { status: 200 });
-    }
-    if (url.includes("/execute"))
+    if (url.includes("/git/remote-actions")) {
+      await gate;
       return new Response(JSON.stringify(action("COMPLETED")), { status: 200 });
-    if (url.includes("/git/actions"))
-      return new Response(JSON.stringify(action("WAITING_APPROVAL")), { status: 201 });
+    }
     return new Response(JSON.stringify({}), { status: 404 });
   });
   vi.stubGlobal("fetch", fetchMock);
   renderPanel();
-  await waitFor(() => expect(screen.getAllByText("main").length).toBeGreaterThan(0));
-  fireEvent.click(screen.getByRole("button", { name: "推送" }));
-  await waitFor(() => expect(screen.getByRole("region", { name: "Git 操作审批" })).toBeVisible());
-  fireEvent.click(screen.getByRole("button", { name: "批准" }));
-  await waitFor(() => expect(decision).toBe(true));
-  const executeButton = await screen.findByRole("button", { name: "执行一次" });
-  await waitFor(() => expect(executeButton).toBeEnabled());
-  fireEvent.click(executeButton);
-  await waitFor(() =>
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/execute"))).toBe(true),
+  const button = await screen.findByRole("button", { name: label });
+  expect(screen.getByText("origin/main")).toBeVisible();
+  fireEvent.click(button);
+  fireEvent.click(button);
+  await waitFor(() => expect(button).toHaveAttribute("aria-busy", "true"));
+  expect(button).toBeDisabled();
+  expect(screen.queryByRole("region", { name: "Git 操作审批" })).not.toBeInTheDocument();
+  finish?.();
+  await waitFor(() => expect(button).toBeEnabled());
+  const writes = fetchMock.mock.calls.filter(([, options]) => options?.method === "POST");
+  expect(writes).toHaveLength(1);
+  expect(writes[0]?.[0]).toContain("/git/remote-actions");
+  expect(JSON.parse(String(writes[0]?.[1]?.body))).toEqual({
+    action: kind,
+    expectedSnapshot: "snap-1",
+    requestId: expect.any(String),
+  });
+});
+
+it("shows the missing upstream before enabling remote actions and explains credential failures", async () => {
+  let upstream: string | null = null;
+  const fetchMock = vi.fn(async (url: string) => {
+    if (url.includes("/git/status"))
+      return new Response(JSON.stringify({ ...statusView(), upstream }));
+    if (url.includes("/git/branches")) return new Response(JSON.stringify({ items: [] }));
+    return new Response(JSON.stringify({ error: { code: "GIT_AUTH_REQUIRED" } }), { status: 409 });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  renderPanel();
+  const push = await screen.findByRole("button", { name: "推送" });
+  expect(screen.getByText("未设置上游")).toBeVisible();
+  expect(push).toBeDisabled();
+  expect(screen.getByRole("button", { name: "拉取（仅快进）" })).toBeDisabled();
+  upstream = "origin/main";
+  fireEvent.click(screen.getByRole("button", { name: "刷新 Git" }));
+  await waitFor(() => expect(push).toBeEnabled());
+  fireEvent.click(push);
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "检查运行 Larness 的主机上的 Git 凭据",
   );
-  await waitFor(() =>
-    expect(screen.queryByRole("region", { name: "Git 操作审批" })).not.toBeInTheDocument(),
-  );
-  expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/execute"))).toHaveLength(1);
+  await waitFor(() => expect(push).toBeEnabled());
 });
 
 it("shows unavailable Git as a muted empty state without repository actions", async () => {

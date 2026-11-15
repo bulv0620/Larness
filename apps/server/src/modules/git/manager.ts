@@ -18,6 +18,7 @@ import {
   type GitBranchView,
   type GitDiffView,
   type GitLogView,
+  type GitRemoteActionRequest,
   type GitStatusView,
 } from "@larness/shared";
 import { eq } from "drizzle-orm";
@@ -26,11 +27,12 @@ import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import { type ResourceActionRow, resourceActions } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
-import { ProjectWriteLock } from "../agent/projectWriteLock.js";
+import { HttpError } from "../../errors.js";
+import { ProjectLockError, ProjectWriteLock } from "../agent/projectWriteLock.js";
 import { getResourceLockRow } from "../locks/repository.js";
 import type { ResourceLockHandle } from "../locks/service.js";
 import { getProjectById } from "../projects/repository.js";
-import { insertOperation, updateOperation } from "../resources/repository.js";
+import { findOperation, insertOperation, updateOperation } from "../resources/repository.js";
 
 const ACTION_TTL_MS = 5 * 60_000;
 const READ_TIMEOUT_MS = 15_000;
@@ -54,7 +56,7 @@ function fail(
   code: "NOT_FOUND" | "FORBIDDEN" | "APPROVAL_INVALID" | "RESOURCE_LOCKED",
   message: string,
 ): never {
-  throw Object.assign(new Error(message), { code });
+  throw new HttpError(code, message);
 }
 
 export class GitManager {
@@ -163,66 +165,132 @@ export class GitManager {
     if (!action.success) fail("FORBIDDEN", "Invalid Git action");
     const project = this.#project(projectId);
     const payload = action.data;
-    return this.#actionSnapshot(projectId, payload).then((snapshot) => {
+    return this.#actionSnapshot(projectId, payload).then(
+      (snapshot) =>
+        this.#prepareAction(project, payload, requestedBy, snapshot.snapshotVersion).action,
+    );
+  }
+  async runRemoteAction(
+    projectId: string,
+    request: GitRemoteActionRequest,
+    client: string,
+    assertAuthorized: () => void,
+  ) {
+    const project = this.#project(projectId);
+    const { action, created } = this.#prepareAction(
+      project,
+      { action: request.action },
+      client,
+      request.expectedSnapshot,
+      `remote:${request.requestId}`,
+    );
+    if (!created) return action;
+    return this.#executeAction(action.id, client, assertAuthorized);
+  }
+  #prepareAction(
+    project: NonNullable<ReturnType<typeof getProjectById>>,
+    payload: GitAction,
+    requestedBy: string,
+    snapshotVersion: string,
+    requestKey?: string,
+  ) {
+    return immediateTransaction(this.options.db, (tx) => {
+      if (requestKey) {
+        const prior = findOperation(tx, requestedBy, requestKey, "git.action");
+        if (prior) {
+          const row = tx
+            .select()
+            .from(resourceActions)
+            .where(eq(resourceActions.operationId, prior.id))
+            .get();
+          if (!row) fail("NOT_FOUND", "Git action not found");
+          if (
+            row.projectId !== project.id ||
+            row.kind !== payload.action ||
+            row.snapshotHash !== snapshotVersion
+          )
+            throw new GitError(
+              "GIT_CONFLICT",
+              "Git request ID was already used with different parameters",
+            );
+          const now = this.#now();
+          if (row.status === "PREPARED" && row.expiresAt <= now) {
+            tx.update(resourceActions)
+              .set({ status: "EXPIRED", endedAt: now })
+              .where(eq(resourceActions.id, row.id))
+              .run();
+            updateOperation(tx, prior.id, {
+              status: "FAILED",
+              errorCode: "EXPIRED",
+              updatedAt: now,
+            });
+            return {
+              action: this.#view({ ...row, status: "EXPIRED", endedAt: now }),
+              created: false,
+            };
+          }
+          return { action: this.#view(row), created: false };
+        }
+      }
       const now = this.#now();
       const risk = payload.action === "pull" || payload.action === "push" ? "L2" : "L1";
       const id = newId("act");
       const operationId = newId("rop");
       const paramsJson = JSON.stringify(payload);
       const paramsHash = createHash("sha256").update(paramsJson).digest("hex");
-      const status = risk === "L2" ? "WAITING_APPROVAL" : "PREPARED";
-      immediateTransaction(this.options.db, (tx) => {
-        insertOperation(tx, {
-          id: operationId,
-          scopeKey: `project:${project.id}`,
-          rootRealPath: project.realPath,
-          kind: "git.action",
-          status: "COMPLETED",
-          paramsHash,
-          idempotencyKey: id,
-          clientSessionId: requestedBy,
-          path: "",
-          expectedVersion: "",
-          targetVersion: "",
-          lockId: "",
-          fencingToken: 0,
-          resultJson: JSON.stringify({ actionId: id }),
-          errorCode: null,
-          createdAt: now,
-          updatedAt: now,
-        });
-        tx.insert(resourceActions)
-          .values({
-            id,
-            operationId,
-            projectId: project.id,
-            kind: payload.action,
-            risk,
-            status,
-            paramsJson,
-            paramsHash,
-            snapshotHash: snapshot.snapshotVersion,
-            requestedBy,
-            decidedBy: null,
-            expiresAt: now + ACTION_TTL_MS,
-            decidedAt: null,
-            startedAt: null,
-            endedAt: null,
-            resultJson: null,
-            createdAt: now,
-          })
-          .run();
-        appendAudit(tx, {
-          action: "git.action.created",
-          decision: "info",
-          clientSessionId: requestedBy,
-          resourceType: "git",
-          resourceId: id,
-          details: { projectId: project.id, kind: payload.action, risk },
-          now,
-        });
+      const status = risk === "L2" && !requestKey ? "WAITING_APPROVAL" : "PREPARED";
+      insertOperation(tx, {
+        id: operationId,
+        scopeKey: `project:${project.id}`,
+        rootRealPath: project.realPath,
+        kind: "git.action",
+        status: "COMPLETED",
+        paramsHash,
+        idempotencyKey: requestKey ?? id,
+        clientSessionId: requestedBy,
+        path: "",
+        expectedVersion: "",
+        targetVersion: "",
+        lockId: "",
+        fencingToken: 0,
+        resultJson: JSON.stringify({ actionId: id }),
+        errorCode: null,
+        createdAt: now,
+        updatedAt: now,
       });
-      return this.#view(this.#row(id));
+      const row = tx
+        .insert(resourceActions)
+        .values({
+          id,
+          operationId,
+          projectId: project.id,
+          kind: payload.action,
+          risk,
+          status,
+          paramsJson,
+          paramsHash,
+          snapshotHash: snapshotVersion,
+          requestedBy,
+          decidedBy: null,
+          expiresAt: now + ACTION_TTL_MS,
+          decidedAt: null,
+          startedAt: null,
+          endedAt: null,
+          resultJson: null,
+          createdAt: now,
+        })
+        .returning()
+        .get();
+      appendAudit(tx, {
+        action: requestKey ? "git.action.requested_directly" : "git.action.created",
+        decision: requestKey ? "allow" : "info",
+        clientSessionId: requestedBy,
+        resourceType: "git",
+        resourceId: id,
+        details: { projectId: project.id, kind: payload.action, risk },
+        now,
+      });
+      return { action: this.#view(row), created: true };
     });
   }
   decideAction(id: string, decision: "approve" | "reject", decidedBy: string) {
@@ -276,12 +344,17 @@ export class GitManager {
     if (row.status === "EXPIRED") fail("APPROVAL_INVALID", "Git action expired");
     return this.#view(row);
   }
-  async executeAction(id: string, client: string) {
+  executeAction(id: string, client: string) {
+    return this.#executeAction(id, client);
+  }
+  async #executeAction(id: string, client: string, assertAuthorized?: () => void) {
     const action = this.#row(id);
     if (["COMPLETED", "FAILED", "REJECTED", "EXPIRED", "INTERRUPTED"].includes(action.status))
       return this.#view(action);
     const executable =
-      action.risk === "L1" ? action.status === "PREPARED" : action.status === "APPROVED";
+      action.risk === "L1" || assertAuthorized
+        ? action.status === "PREPARED"
+        : action.status === "APPROVED";
     if (!executable) fail("APPROVAL_INVALID", "Git action is not approved");
     if (action.expiresAt <= this.#now()) {
       immediateTransaction(this.options.db, (tx) => {
@@ -299,68 +372,53 @@ export class GitManager {
     }
     const project = this.#project(action.projectId);
     const payload = GitActionSchema.parse(JSON.parse(action.paramsJson));
-    const current = await this.#actionSnapshot(project.id, payload);
-    if (current.snapshotVersion !== action.snapshotHash) {
-      immediateTransaction(this.options.db, (tx) => {
-        tx.update(resourceActions)
-          .set({
-            status: "FAILED",
-            endedAt: this.#now(),
-            resultJson: JSON.stringify({ errorCode: "GIT_CONFLICT" }),
-          })
-          .where(eq(resourceActions.id, id))
-          .run();
-        updateOperation(tx, action.operationId, {
-          status: "FAILED",
-          errorCode: "GIT_CONFLICT",
-          updatedAt: this.#now(),
-        });
-      });
-      throw new GitError("GIT_CONFLICT", "Repository changed after the Git action was prepared");
-    }
     const lock = new ProjectWriteLock({
       db: this.options.db,
       projectId: project.id,
       rootRealPath: project.realPath,
       owner: `git:${action.id}`,
       executionId: action.id,
-      ttlMs: this.options.lockTtlMs,
+      ttlMs: assertAuthorized ? WRITE_TIMEOUT_MS + READ_TIMEOUT_MS * 3 : this.options.lockTtlMs,
       now: this.options.now,
     });
-    if (!lock.acquire()) throw new GitError("GIT_CONFLICT", "Project is locked by another writer");
+    const acquired = lock.acquire();
+    if (!acquired && !assertAuthorized)
+      throw new GitError("GIT_CONFLICT", "Project is locked by another writer");
     try {
+      if (!acquired) fail("RESOURCE_LOCKED", "Project is locked by another writer");
+      const latest = this.#row(id);
+      if (latest.status !== action.status) return this.#view(latest);
       const locked = await this.#actionSnapshot(project.id, payload);
-      if (locked.snapshotVersion !== action.snapshotHash) {
-        immediateTransaction(this.options.db, (tx) => {
-          tx.update(resourceActions)
-            .set({
-              status: "FAILED",
-              endedAt: this.#now(),
-              resultJson: JSON.stringify({ errorCode: "GIT_CONFLICT" }),
-            })
-            .where(eq(resourceActions.id, id))
-            .run();
-          updateOperation(tx, action.operationId, {
-            status: "FAILED",
-            errorCode: "GIT_CONFLICT",
-            updatedAt: this.#now(),
-          });
-        });
+      if (locked.snapshotVersion !== action.snapshotHash)
         throw new GitError("GIT_CONFLICT", "Repository changed before the Git action executed");
-      }
+      const authorizeRemote = assertAuthorized
+        ? () => {
+            assertAuthorized();
+            lock.assertHeld();
+            if (action.expiresAt <= this.#now()) fail("APPROVAL_INVALID", "Git action expired");
+          }
+        : undefined;
+      authorizeRemote?.();
       immediateTransaction(this.options.db, (tx) => {
-        const latest = tx.select().from(resourceActions).where(eq(resourceActions.id, id)).get();
-        if (!latest) fail("NOT_FOUND", "Git action not found");
-        if (latest.status === "COMPLETED") return;
-        if (latest.status !== "PREPARED" && latest.status !== "APPROVED")
-          fail("APPROVAL_INVALID", "Git action cannot be executed");
         tx.update(resourceActions)
           .set({ status: "RUNNING", startedAt: this.#now() })
           .where(eq(resourceActions.id, id))
           .run();
-        updateOperation(tx, action.operationId, { status: "WRITING", updatedAt: this.#now() });
+        updateOperation(tx, action.operationId, {
+          status: "WRITING",
+          lockId: acquired.id,
+          fencingToken: acquired.fencingToken,
+          updatedAt: this.#now(),
+        });
       });
-      const result = await this.#run(project.realPath, JSON.parse(action.paramsJson) as GitAction);
+      const result = await this.#run(
+        project.realPath,
+        payload,
+        authorizeRemote && {
+          status: locked,
+          assertAuthorized: authorizeRemote,
+        },
+      );
       immediateTransaction(this.options.db, (tx) => {
         tx.update(resourceActions)
           .set({ status: "COMPLETED", endedAt: this.#now(), resultJson: JSON.stringify(result) })
@@ -383,7 +441,10 @@ export class GitManager {
       });
       return this.#view(this.#row(id));
     } catch (error) {
-      const code = error instanceof GitError ? error.code : "INTERNAL";
+      const code =
+        error instanceof GitError || error instanceof HttpError || error instanceof ProjectLockError
+          ? error.code
+          : "INTERNAL";
       immediateTransaction(this.options.db, (tx) => {
         tx.update(resourceActions)
           .set({
@@ -410,8 +471,7 @@ export class GitManager {
       });
       throw error;
     } finally {
-      // The caller owns the inherited lock; release only what we acquired.
-      lock?.release();
+      lock.release();
     }
   }
 
@@ -536,16 +596,22 @@ export class GitManager {
     }
     return { ...snapshot, snapshotVersion: hash.digest("hex") };
   }
-  async #run(root: string, action: GitAction) {
-    const status = parseStatus(
-      (
-        await runGit(
-          root,
-          ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"],
-          { readOnly: true },
-        )
-      ).stdout,
-    );
+  async #run(
+    root: string,
+    action: GitAction,
+    remoteRequest?: { status: GitStatusView; assertAuthorized: () => void },
+  ) {
+    const status =
+      remoteRequest?.status ??
+      parseStatus(
+        (
+          await runGit(
+            root,
+            ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"],
+            { readOnly: true },
+          )
+        ).stdout,
+      );
     switch (action.action) {
       case "add": {
         const paths = action.paths.map((item) => validateGitPath(root, item));
@@ -612,27 +678,49 @@ export class GitManager {
         await runGit(root, ["switch", "--no-guess", action.name], { timeoutMs: WRITE_TIMEOUT_MS });
         return { action: "switchBranch", name: action.name };
       }
-      case "pull": {
-        this.#requireClean(status);
-        if (!status.upstream) throw new GitError("GIT_CONFLICT", "Current branch has no upstream");
-        await runGit(root, ["pull", "--ff-only"], { timeoutMs: WRITE_TIMEOUT_MS });
-        return { action: "pull" };
-      }
+      case "pull":
       case "push": {
+        if (action.action === "pull") this.#requireClean(status);
         if (!status.upstream || !status.head)
           throw new GitError("GIT_CONFLICT", "Current branch has no upstream");
+        if (action.action === "pull" && !remoteRequest) {
+          await runGit(root, ["pull", "--ff-only"], { timeoutMs: WRITE_TIMEOUT_MS });
+          return { action: "pull" };
+        }
         const { stdout } = await runGit(
           root,
           [
             "for-each-ref",
-            "--format=%(upstream:remotename)%00%(upstream:remoteref)",
+            "--format=%(upstream:remotename)%00%(upstream:remoteref)%00%(upstream:short)",
             `refs/heads/${status.branch}`,
           ],
           { readOnly: true, timeoutMs: READ_TIMEOUT_MS },
         );
-        const [remote, destination, extra] = stdout.trimEnd().split("\0");
-        if (!remote || !destination?.startsWith("refs/heads/") || extra !== undefined)
+        const [remote, destination, upstream, extra] = stdout.trimEnd().split("\0");
+        if (
+          !remote ||
+          !destination?.startsWith("refs/heads/") ||
+          upstream !== status.upstream ||
+          extra !== undefined
+        )
           throw new GitError("GIT_CONFLICT", "Current branch has no valid upstream branch");
+        remoteRequest?.assertAuthorized();
+        if (action.action === "pull") {
+          await runGit(
+            root,
+            [
+              "pull",
+              "--no-rebase",
+              "--ff-only",
+              "--no-recurse-submodules",
+              "--",
+              remote,
+              destination,
+            ],
+            { timeoutMs: WRITE_TIMEOUT_MS },
+          );
+          return { action: "pull" };
+        }
         await runGit(
           root,
           [
@@ -653,7 +741,7 @@ export class GitManager {
         throw new GitError("GIT_CONFLICT", "Unsupported Git action");
     }
   }
-  #requireClean(status: ReturnType<typeof parseStatus>) {
+  #requireClean(status: Pick<GitStatusView, "staged" | "unstaged" | "conflicts">) {
     if (status.staged.length || status.unstaged.length || status.conflicts.length)
       throw new GitError("GIT_CONFLICT", "Working tree or index is not clean");
   }

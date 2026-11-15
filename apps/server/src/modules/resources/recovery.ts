@@ -3,9 +3,11 @@ import type { Database } from "../../db/client.js";
 import {
   type ResourceLockRow,
   type ResourceOperationRow,
+  resourceActions,
   resourceLocks,
   turns,
 } from "../../db/schema.js";
+import { immediateTransaction } from "../../db/transaction.js";
 import { commandByOperation } from "../commands/repository.js";
 import { quarantinedRoots } from "../locks/quarantine.js";
 import { releaseResourceLock } from "../locks/service.js";
@@ -64,11 +66,19 @@ function finalizeOperation(
   reconciledBy: string,
   now: number,
 ): void {
-  updateOperation(options.db, operation.id, {
-    status: "FAILED",
-    errorCode,
-    resultJson: reconciledResult(operation, reconciledBy),
-    updatedAt: now,
+  immediateTransaction(options.db, (tx) => {
+    updateOperation(tx, operation.id, {
+      status: "FAILED",
+      errorCode,
+      resultJson: reconciledResult(operation, reconciledBy),
+      updatedAt: now,
+    });
+    if (operation.kind === "git.action") {
+      tx.update(resourceActions)
+        .set({ status: "INTERRUPTED", endedAt: now, resultJson: JSON.stringify({ errorCode }) })
+        .where(eq(resourceActions.operationId, operation.id))
+        .run();
+    }
   });
 }
 

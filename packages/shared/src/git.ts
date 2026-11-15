@@ -44,6 +44,15 @@ export const GitActionSchema = z.union([
 export type GitAction = z.infer<typeof GitActionSchema>;
 export type GitActionKind = GitAction["action"];
 
+export const GitRemoteActionRequestSchema = z
+  .object({
+    action: z.enum(["pull", "push"]),
+    expectedSnapshot: z.string().regex(/^[a-f0-9]{64}$/),
+    requestId: z.uuid(),
+  })
+  .strict();
+export type GitRemoteActionRequest = z.infer<typeof GitRemoteActionRequestSchema>;
+
 export const GitActionDecisionSchema = z
   .object({ decision: z.enum(["approve", "reject"]) })
   .strict();
