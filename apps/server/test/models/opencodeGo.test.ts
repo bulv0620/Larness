@@ -3,7 +3,7 @@ import { expect, it, vi } from "vitest";
 import { createDefaultProviderResolver } from "../../src/bootstrap/start.js";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
-import { refreshModelCatalog } from "../../src/modules/models/catalog.js";
+import { refreshModelCatalog, resolveCatalogSelection } from "../../src/modules/models/catalog.js";
 import { createCredential } from "../../src/modules/models/service.js";
 import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -31,9 +31,21 @@ it("uses the Go inventory and sends the same Go session identifier across calls"
               id: "glm-5.3-flash",
               limit: { context: 900_000, output: 22_000 },
               modalities: { input: ["text", "image/png"] },
-              capabilities: { tools: { supported: true } },
+              capabilities: {
+                tools: { supported: true },
+                reasoning: {
+                  supported: true,
+                  effort: ["low", "high", "max"],
+                  default: { type: "effort", value: "max" },
+                },
+              },
             },
             { id: "deepseek-v4.1-flash" },
+            { id: "kimi-k2.7-code", capabilities: { reasoning: { supported: true } } },
+            {
+              id: "hy4",
+              capabilities: { reasoning: { supported: true, effort: ["none", "high"] } },
+            },
           ],
         }),
       );
@@ -48,6 +60,13 @@ it("uses the Go inventory and sends the same Go session identifier across calls"
             id: "glm-5.3-flash",
             agentSelectable: true,
             contextWindow: 900_000,
+            thinking: {
+              supported: true,
+              reasoning: true,
+              mode: "variants",
+              defaultLevel: "effort:max",
+              levels: expect.arrayContaining([{ id: "effort:high", label: "高" }]),
+            },
             capabilities: expect.objectContaining({
               maxOutputTokens: 22_000,
               inputModalities: ["text", "image"],
@@ -56,11 +75,31 @@ it("uses the Go inventory and sends the same Go session identifier across calls"
           expect.objectContaining({ id: "deepseek-v4.1-flash", agentSelectable: true }),
         ]),
       );
+      expect(catalog.models.find(({ id }) => id === "kimi-k2.7-code")?.thinking).toEqual({
+        supported: false,
+        reasoning: true,
+        levels: [],
+      });
+      expect(
+        resolveCatalogSelection(opened.db, {
+          model: "hy4",
+          credentialProfileId: credential.id,
+          thinking: "effort:none",
+        }).thinking,
+      ).toBe("effort:none");
+      expect(() =>
+        resolveCatalogSelection(opened.db, {
+          model: "glm-5.3-flash",
+          credentialProfileId: credential.id,
+          thinking: "effort:medium",
+        }),
+      ).toThrow(/thinking variant is not supported/);
       const session = await createSession(options, {});
       const { turnId } = createTurn(options, {
         sessionId: session.id,
         text: "scratch",
         model: "glm-5.3-flash",
+        thinking: "effort:high",
         credentialProfileId: credential.id,
       });
       const sessionRow = getSessionById(opened.db, session.id);
@@ -74,6 +113,7 @@ it("uses the Go inventory and sends the same Go session identifier across calls"
       fetcher.mockImplementation(async (url, input) => {
         expect(String(url)).toBe("https://opencode.ai/inference/go/openai/v1/chat/completions");
         headers.push(new Headers(input?.headers).get("x-opencode-session") ?? "");
+        expect(JSON.parse(String(input?.body))).toMatchObject({ reasoning_effort: "high" });
         const chunk = {
           id: "test",
           object: "chat.completion.chunk",
@@ -91,6 +131,7 @@ it("uses the Go inventory and sends the same Go session identifier across calls"
           model: resolved.model,
           apiKey: resolved.apiKey,
           endpoint: resolved.endpoint,
+          thinking: resolved.thinking,
           messages: [{ role: "user", content: role }],
           tools: [],
           signal: new AbortController().signal,

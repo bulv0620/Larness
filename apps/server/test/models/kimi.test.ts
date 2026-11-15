@@ -36,7 +36,12 @@ it("keeps Kimi Code separate from the open platform and matches each catalog nam
             "kimi-code-plan-global": {
               models: {
                 k3: {
-                  limit: { context: 750_000 },
+                  limit: { context: 750_000, output: 12_345 },
+                  modalities: { output: ["text"] },
+                  tool_call: true,
+                },
+                "other-lane": {
+                  limit: { context: 100_000 },
                   modalities: { output: ["text"] },
                   tool_call: true,
                 },
@@ -50,12 +55,33 @@ it("keeps Kimi Code separate from the open platform and matches each catalog nam
       expect(catalog.groups.find((group) => group.credentialProfileId === code.id)).toMatchObject({
         candidatesOnly: true,
         billing: "subscription",
-        models: [{ id: "k3", contextWindow: 750_000 }],
+        models: expect.arrayContaining([
+          expect.objectContaining({
+            id: "k3",
+            contextWindow: 262_144,
+            capabilities: expect.objectContaining({ maxOutputTokens: 12_345 }),
+            thinking: expect.objectContaining({ defaultLevel: "effort:high" }),
+          }),
+        ]),
       });
+      expect(
+        catalog.groups
+          .find((group) => group.credentialProfileId === code.id)
+          ?.models.map(({ id }) => id),
+      ).toEqual([
+        "k3.1-pro",
+        "k3.1-pro-highspeed",
+        "k3",
+        "k3-256k",
+        "kimi-for-coding",
+        "kimi-for-coding-highspeed",
+      ]);
       expect(catalog.groups.find((group) => group.credentialProfileId === open.id)).toMatchObject({
         candidatesOnly: false,
         billing: "usage",
-        models: [{ id: "kimi-k3", contextWindow: 500_000 }],
+        models: [
+          { id: "kimi-k3", contextWindow: 1_000_000, thinking: { defaultLevel: "effort:max" } },
+        ],
       });
     } finally {
       fetcher.mockRestore();

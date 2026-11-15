@@ -63,6 +63,40 @@ export function toCompatibleProviderOptions(
   };
 }
 
+function compatibleThinkingOptions(
+  options: CompatibleProviderOptions,
+  { thinking, model }: ProviderStepInput,
+) {
+  if (!thinking) return undefined;
+  switch (options.id) {
+    case "glm":
+      return toCompatibleProviderOptions(options.name, thinking);
+    case "opencode-go":
+      return thinking.effort === undefined
+        ? undefined
+        : { opencodeGo: { reasoning_effort: thinking.effort } };
+    case "kimi":
+      return thinking.effort === undefined
+        ? undefined
+        : { [options.name]: { reasoning_effort: thinking.effort } };
+    case "bailian":
+      return thinking.effort === "none" || thinking.enabled
+        ? { [options.name]: { enable_thinking: thinking.enabled } }
+        : undefined;
+    case "minimax":
+      return {
+        [options.name]: model.startsWith("MiniMax-M3.1-Flash")
+          ? {
+              thinking: { type: "adaptive" },
+              ...(thinking.effort === undefined ? {} : { reasoning_effort: thinking.effort }),
+            }
+          : { thinking: { type: thinking.enabled ? "adaptive" : "disabled" } },
+      };
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Provider for GLM and generic OpenAI-compatible endpoints. The endpoint must
  * be validated by the server before it reaches this factory.
@@ -94,23 +128,7 @@ export function createCompatibleProvider(options: CompatibleProviderOptions): Pr
             : {}),
         });
         const tools = toAiSdkTools(input.tools);
-        const providerOptions =
-          options.id === "glm"
-            ? toCompatibleProviderOptions(options.name, input.thinking)
-            : options.id === "bailian" && input.thinking?.enabled
-              ? { [options.name]: { enable_thinking: true } }
-              : options.id === "minimax" && input.thinking !== undefined
-                ? {
-                    [options.name]: input.model.startsWith("MiniMax-M3.1-Flash")
-                      ? {
-                          thinking: { type: "adaptive" },
-                          ...(input.thinking.effort
-                            ? { reasoning_effort: input.thinking.effort }
-                            : {}),
-                        }
-                      : { thinking: { type: input.thinking.enabled ? "adaptive" : "disabled" } },
-                  }
-                : undefined;
+        const providerOptions = compatibleThinkingOptions(options, input);
         const result = streamText({
           model: provider(input.model),
           // The runtime assembles system messages from trusted instruction sources.

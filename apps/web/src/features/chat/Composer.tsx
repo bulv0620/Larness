@@ -67,10 +67,16 @@ const policies = [
 ] as const;
 
 function defaultThinkingFor(model: {
-  thinking: { supported: boolean; mode?: string; levels: { id: string; label: string }[] };
+  thinking: {
+    supported: boolean;
+    mode?: string;
+    defaultLevel?: string;
+    levels: { id: string; label: string }[];
+  };
 }): string {
   if (!model.thinking.supported) return "off";
   if (model.thinking.mode === "toggle") return "on";
+  if (model.thinking.defaultLevel) return model.thinking.defaultLevel;
   const preferred = model.thinking.mode === "mandatory-levels" ? "high" : "medium";
   return (
     model.thinking.levels.find((level) => level.id === preferred)?.id ??
@@ -81,13 +87,19 @@ function defaultThinkingFor(model: {
 
 function thinkingAllowed(
   model: {
-    thinking: { supported: boolean; mode?: string; levels: { id: string; label: string }[] };
+    thinking: {
+      supported: boolean;
+      mode?: string;
+      defaultLevel?: string;
+      levels: { id: string; label: string }[];
+    };
   },
   thinking: string,
 ): boolean {
   if (!model.thinking.supported) return thinking === "off";
   const mode = model.thinking.mode ?? "levels";
   if (mode === "toggle") return thinking === "off" || thinking === "on";
+  if (mode === "variants") return model.thinking.levels.some((level) => level.id === thinking);
   return (
     (mode !== "mandatory-levels" && thinking === "off") ||
     model.thinking.levels.some((level) => level.id === thinking)

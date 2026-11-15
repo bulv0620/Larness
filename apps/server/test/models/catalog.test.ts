@@ -386,6 +386,8 @@ describe("deepseek model catalog", () => {
           model: "deepseek-flash",
           thinking: "medium",
           contextWindow: 1_048_576,
+          maxOutputTokens: 393_216,
+          acceptsImages: true,
           credentialProfileId,
           provider: "deepseek",
           interactiveOnly: false,
@@ -597,10 +599,11 @@ describe("deepseek model catalog", () => {
     });
   });
   it("keeps every GLM model aligned with the official capability table", () => {
-    const expected: [string, number, string][] = [
+    const expected: [string, number, string?][] = [
       ["glm-4.5", 128_000, "toggle"],
       ["glm-4.5-air", 128_000, "toggle"],
       ["glm-4.6", 200_000, "toggle"],
+      ["glm-4.6v", 128_000],
       ["glm-4.7", 200_000, "toggle"],
       ["glm-5", 200_000, "toggle"],
       ["glm-5-turbo", 200_000, "toggle"],
@@ -619,9 +622,11 @@ describe("deepseek model catalog", () => {
       const model = byId.get(id);
       expect(model, id).toBeDefined();
       expect(model?.contextWindow, id).toBe(contextWindow);
-      expect(model?.thinking.supported, id).toBe(true);
+      expect(model?.thinking.supported, id).toBe(mode !== undefined);
       expect(model?.thinking.mode, id).toBe(mode);
-      expect(model?.thinking.levels.length, id).toBe(mode === "toggle" ? 0 : 3);
+      expect(model?.thinking.levels.length, id).toBe(
+        mode === undefined || mode === "toggle" ? 0 : 3,
+      );
     }
   });
   it("stores a global default model for new sessions", async () => {

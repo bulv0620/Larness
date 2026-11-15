@@ -46,7 +46,9 @@ export function ModelControl({
           { id: "on", label: "开启" },
         ]
       : [
-          ...(mode === "mandatory-levels" ? [] : [{ id: "off", label: "关闭" }]),
+          ...(mode === "mandatory-levels" || mode === "variants"
+            ? []
+            : [{ id: "off", label: "关闭" }]),
           ...model.thinking.levels,
         ];
   const thinkingLabel = levels.find((level) => level.id === thinking)?.label;
@@ -92,7 +94,7 @@ export function ModelControl({
           <span
             className={cn(
               "shrink-0 text-[10px] font-semibold",
-              thinking === "off" ? "text-ink-3" : "text-accent",
+              thinking === "off" || thinking === "effort:none" ? "text-ink-3" : "text-accent",
             )}
           >
             <span aria-hidden="true" className="mr-1 text-ink-3">
@@ -144,7 +146,10 @@ export function ModelControl({
                 <span
                   className={cn(
                     "min-w-0 flex-1 truncate",
-                    thinkingLabel && thinking !== "off" && "text-accent",
+                    thinkingLabel &&
+                      thinking !== "off" &&
+                      thinking !== "effort:none" &&
+                      "text-accent",
                   )}
                 >
                   {thinkingLabel ?? "不支持"}

@@ -192,6 +192,7 @@ export function createDefaultProviderResolver(
                   ...(resolved.provider === "opencode-go"
                     ? {
                         headers: {
+                          "user-agent": `Larness/${SERVER_VERSION}`,
                           "x-opencode-session": `ses_${createHash("sha256")
                             .update(JSON.stringify([session.id, turn.credentialProfileId]))
                             .digest("hex")}`,

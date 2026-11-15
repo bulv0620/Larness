@@ -68,7 +68,10 @@ it("discovers native workspace models and keeps subscription credentials on thei
           .find((group) => group.credentialProfileId === standard.id)
           ?.models.map((model) => model.id),
       ).toEqual(["qwen-one", "qwen-two"]);
-      expect(String(fetcher.mock.calls[1]?.[0])).toContain("/api/v1/models?page_no=2");
+      const secondPage = new URL(String(fetcher.mock.calls[1]?.[0]));
+      expect(secondPage.pathname).toBe("/api/v1/models");
+      expect(secondPage.searchParams.get("page_no")).toBe("2");
+      expect(secondPage.searchParams.get("capabilities")).toBe("TG");
       expect(fetcher.mock.calls).toHaveLength(2);
       const candidates = await refreshModelCatalog(
         {
@@ -76,7 +79,7 @@ it("discovers native workspace models and keeps subscription credentials on thei
           publicDirectoryFetcher: async () => ({
             "alibaba-coding-plan-cn": {
               models: {
-                "qwen-coder": {
+                "qwen3.7-plus": {
                   limit: { context: 100_000 },
                   modalities: { input: ["text"], output: ["text"] },
                   tool_call: true,
@@ -85,13 +88,21 @@ it("discovers native workspace models and keeps subscription credentials on thei
             },
           }),
         },
-        { credentialProfileId: subscription.id },
+        { credentialProfileId: subscription.id, includePublicDirectory: true },
       );
       expect(
         candidates.groups.find((group) => group.credentialProfileId === subscription.id),
       ).toMatchObject({
         candidatesOnly: true,
-        models: [{ id: "qwen-coder", agentSelectable: true }],
+        models: expect.arrayContaining([
+          expect.objectContaining({
+            id: "qwen3.7-plus",
+            agentSelectable: true,
+            thinking: expect.objectContaining({
+              levels: expect.arrayContaining([{ id: "effort:none", label: "关闭" }]),
+            }),
+          }),
+        ]),
       });
       expect(fetcher.mock.calls).toHaveLength(2);
       const session = createSessionRow(opened.db, {
@@ -108,7 +119,7 @@ it("discovers native workspace models and keeps subscription credentials on thei
         createTurn(options, {
           sessionId: session.id,
           text: "run",
-          model: "qwen-coder",
+          model: "qwen3.7-plus",
           credentialProfileId: subscription.id,
         }),
       ).toThrow(/only supports interactive sessions/);

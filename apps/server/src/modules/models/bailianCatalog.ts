@@ -24,6 +24,7 @@ const pageSchema = z.object({
             })
             .optional(),
           features: z.array(z.string()).optional(),
+          capabilities: z.array(z.string()).optional(),
         }),
       )
       .max(200),
@@ -43,18 +44,24 @@ export async function bailianWorkspaceCatalog(
   const pages = 10;
   for (let page = 1; page <= pages && data.length < 200; page++) {
     const url = new URL("/api/v1/models", base);
+    url.searchParams.set("capabilities", "TG");
     url.searchParams.set("page_no", String(page));
     url.searchParams.set("page_size", "20");
     const parsed = pageSchema.safeParse(await fetchPage(url.toString()));
     if (!parsed.success) return null;
     const output = parsed.data.output;
     for (const model of output.models) {
+      const outputModalities = modalities(model.inference_metadata?.response_modality);
+      if (outputModalities && !outputModalities.includes("text")) continue;
       data.push({
         id: model.model,
         name: model.name,
         ...model.model_info,
         input_modalities: modalities(model.inference_metadata?.request_modality),
-        output_modalities: modalities(model.inference_metadata?.response_modality),
+        output_modalities: outputModalities,
+        ...(model.capabilities?.includes("Reasoning")
+          ? { thinking: { supported: false, reasoning: true, levels: [] } }
+          : {}),
         tool_calls: model.features?.includes("function-calling"),
       });
     }

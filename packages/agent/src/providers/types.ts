@@ -67,7 +67,14 @@ export interface ProviderUsage {
   noCacheTokens?: number;
 }
 
-export type ProviderThinkingEffort = "low" | "high" | "max";
+export type ProviderThinkingEffort =
+  | "none"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
 
 export interface ProviderThinking {
   enabled: boolean;

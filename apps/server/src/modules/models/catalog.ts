@@ -1,3 +1,4 @@
+import type { ProviderThinkingEffort } from "@larness/agent";
 import type { ErrorCode } from "@larness/shared";
 import { z } from "zod";
 import type { Database, DbExecutor } from "../../db/client.js";
@@ -16,9 +17,11 @@ import {
   tokenLimitSchema,
 } from "./capabilities.js";
 import { assertSafeEndpoint, EndpointError, type HostResolver } from "./endpoint.js";
-import { normalizeGoCatalog } from "./goCatalog.js";
+import { bundledGoThinking, normalizeGoCatalog } from "./goCatalog.js";
+import { officialModel, publishedCatalog } from "./officialCatalog.js";
 import { presetForCredential } from "./presets.js";
 import { fetchPublicModelDirectory, publicModels } from "./publicDirectory.js";
+import { type CatalogThinking, catalogThinkingSchema, effortSchema } from "./reasoningCatalog.js";
 import {
   clearModelDefaultRow,
   findLatestCredentialForProvider,
@@ -39,20 +42,20 @@ import { ModelError } from "./service.js";
 export const DEEPSEEK_CATALOG_URL = "https://api.deepseek.com/models";
 export const DEFAULT_CATALOG_TIMEOUT_MS = 10_000;
 
-export type ThinkingEffort = "low" | "high" | "max";
+export type ThinkingEffort = ProviderThinkingEffort;
 
 export interface CatalogThinkingLevel {
   id: string;
   label: string;
 }
 
-export type CatalogThinkingMode = "toggle" | "levels" | "mandatory-levels";
+export type CatalogThinkingMode = NonNullable<CatalogThinking["mode"]>;
 
 export interface CatalogModel {
   id: string;
   label: string;
   contextWindow: number | null;
-  thinking: { supported: boolean; mode?: CatalogThinkingMode; levels: CatalogThinkingLevel[] };
+  thinking: CatalogThinking;
   capabilities?: ModelCapabilities;
   agentSelectable?: boolean;
   sources?: CapabilitySources;
@@ -132,12 +135,38 @@ export const DEEPSEEK_BUILTIN_CATALOG: readonly CatalogModel[] = [
     id: "deepseek-flash",
     label: "DeepSeek Flash",
     contextWindow: 1_048_576,
+    capabilities: {
+      inputModalities: ["text", "image"],
+      outputModalities: ["text"],
+      tools: true,
+      streaming: true,
+      maxOutputTokens: 393_216,
+    },
     thinking: {
       supported: true,
       mode: "levels",
       levels: THINKING_LEVELS.map((level) => ({ ...level })),
     },
     default: true,
+  },
+  {
+    id: "deepseek-v4-pro",
+    label: "DeepSeek V4 Pro",
+    contextWindow: 1_048_576,
+    capabilities: {
+      inputModalities: ["text"],
+      outputModalities: ["text"],
+      tools: true,
+      streaming: true,
+      maxOutputTokens: 393_216,
+    },
+    thinking: {
+      supported: true,
+      mode: "levels",
+      levels: [...THINKING_LEVELS],
+      defaultLevel: "medium",
+    },
+    default: false,
   },
   {
     id: "deepseek-chat",
@@ -188,6 +217,12 @@ export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
     id: "glm-5.2",
     label: "GLM-5.2",
     contextWindow: 1_000_000,
+    capabilities: {
+      inputModalities: ["text"],
+      outputModalities: ["text"],
+      tools: true,
+      streaming: true,
+    },
     thinking: {
       supported: true,
       mode: "levels",
@@ -199,6 +234,12 @@ export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
     id: "glm-5.3",
     label: "GLM-5.3",
     contextWindow: 1_000_000,
+    capabilities: {
+      inputModalities: ["text"],
+      outputModalities: ["text"],
+      tools: true,
+      streaming: true,
+    },
     thinking: {
       supported: true,
       mode: "mandatory-levels",
@@ -210,6 +251,12 @@ export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
     id: "glm-5.3-flash",
     label: "GLM-5.3-Flash",
     contextWindow: 1_000_000,
+    capabilities: {
+      inputModalities: ["text"],
+      outputModalities: ["text"],
+      tools: true,
+      streaming: true,
+    },
     thinking: {
       supported: true,
       mode: "mandatory-levels",
@@ -221,6 +268,12 @@ export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
     id: "glm-5.3-flashx",
     label: "GLM-5.3-FlashX",
     contextWindow: 1_000_000,
+    capabilities: {
+      inputModalities: ["text"],
+      outputModalities: ["text"],
+      tools: true,
+      streaming: true,
+    },
     thinking: {
       supported: true,
       mode: "mandatory-levels",
@@ -239,6 +292,20 @@ export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
     },
     default: false,
   },
+  // https://docs.z.ai/guides/vlm/glm-4.6v
+  {
+    id: "glm-4.6v",
+    label: "GLM-4.6V",
+    contextWindow: 128_000,
+    capabilities: {
+      inputModalities: ["text", "image", "video", "file"],
+      outputModalities: ["text"],
+      tools: true,
+      streaming: true,
+    },
+    thinking: { supported: false, levels: [] },
+    default: false,
+  },
   {
     id: "glm-4.5",
     label: "GLM-4.5",
@@ -255,11 +322,6 @@ export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
   },
 ];
 
-const levelSchema = z.object({
-  id: z.string().min(1).max(32),
-  label: z.string().min(1).max(32),
-});
-
 const upstreamModelSchema = z
   .object({
     id: z.string().min(1).max(128),
@@ -273,15 +335,14 @@ const upstreamModelSchema = z
     tool_calls: z.unknown().optional(),
     streaming: z.unknown().optional(),
     effort: z
-      .object({ supported_levels: z.array(z.string()).max(16) })
+      .object({
+        supported_levels: z.array(z.string()).max(16),
+        default_level: z.string().optional(),
+      })
       .optional()
       .catch(undefined),
-    thinking: z
-      .object({
-        supported: z.boolean().optional(),
-        levels: z.array(levelSchema).max(8).optional(),
-      })
-      .optional(),
+    thinking: catalogThinkingSchema.partial().optional().catch(undefined),
+    snapshotFields: z.array(z.string()).max(10).optional().catch(undefined),
   })
   .passthrough();
 
@@ -353,48 +414,8 @@ export function createDeepSeekCatalogFetcher(
   };
 }
 
-// Go-specific limits for the initial offline snapshot. Only IDs the Go
-// inventory actually returns are advertised.
-const GO_BUILTIN_CATALOG: readonly CatalogModel[] = [
-  {
-    id: "glm-5.3-flash",
-    label: "GLM-5.3-Flash",
-    contextWindow: 1_000_000,
-    capabilities: { tools: true, streaming: true, maxOutputTokens: 131_072 },
-    thinking: { supported: false, levels: [] },
-    default: false,
-  },
-  {
-    id: "deepseek-v4.1-flash",
-    label: "DeepSeek V4.1 Flash",
-    contextWindow: 1_048_576,
-    capabilities: { tools: true, streaming: true, maxOutputTokens: 393_216 },
-    thinking: { supported: false, levels: [] },
-    default: false,
-  },
-];
-
-const MINIMAX_BUILTIN_CATALOG: readonly CatalogModel[] = [
-  {
-    id: "MiniMax-M3.1-Flash",
-    label: "MiniMax M3.1 Flash",
-    contextWindow: 1_000_000,
-    thinking: { supported: true, mode: "mandatory-levels", levels: [...THINKING_LEVELS] },
-    default: false,
-  },
-  {
-    id: "MiniMax-M3",
-    label: "MiniMax M3",
-    contextWindow: 1_000_000,
-    thinking: { supported: true, mode: "toggle", levels: [] },
-    default: false,
-  },
-];
-
 function builtinCatalog(provider: ModelProviderId): readonly CatalogModel[] {
   if (provider === "glm") return GLM_BUILTIN_CATALOG;
-  if (provider === "minimax") return MINIMAX_BUILTIN_CATALOG;
-  if (provider === "opencode-go") return GO_BUILTIN_CATALOG;
   return provider === "deepseek" ? DEEPSEEK_BUILTIN_CATALOG : [];
 }
 
@@ -416,7 +437,22 @@ function mergeCatalog(
       ? levels.length > 0
       : (entry.thinking?.supported ?? builtin?.thinking.supported ?? false);
     const mode = hasUpstreamEffort ? "levels" : (builtin?.thinking.mode ?? "levels");
-    const thinking = { supported, mode, levels: supported && mode !== "toggle" ? [...levels] : [] };
+    const explicit =
+      entry.thinking?.mode === "variants" || entry.thinking?.reasoning !== undefined
+        ? catalogThinkingSchema.safeParse(entry.thinking).data
+        : undefined;
+    const thinking = explicit ?? {
+      supported,
+      mode,
+      levels: supported && mode !== "toggle" ? [...levels] : [],
+      ...(hasUpstreamEffort
+        ? {
+            defaultLevel: levels.find(
+              (level) => PROVIDER_EFFORT[level.id] === entry.effort?.default_level,
+            )?.id,
+          }
+        : {}),
+    };
     const upstreamWindow = tokenLimitSchema.safeParse(
       entry.context_window ?? entry.contextWindow,
     ).data;
@@ -432,35 +468,31 @@ function mergeCatalog(
     if (hasUpstreamEffort || entry.thinking?.supported !== undefined) sources.thinking = "upstream";
     else if (builtin) sources.thinking = "bundled";
 
-    const capabilities = {
+    const upstreamCapabilities: ModelCapabilities = {
       maxInputTokens: tokenLimitSchema.safeParse(entry.max_input_tokens).data,
-      maxOutputTokens:
-        tokenLimitSchema.safeParse(entry.max_output_tokens).data ??
-        builtin?.capabilities?.maxOutputTokens,
+      maxOutputTokens: tokenLimitSchema.safeParse(entry.max_output_tokens).data,
       inputModalities: capabilitySchema.shape.inputModalities.safeParse(entry.input_modalities)
         .data,
       outputModalities: capabilitySchema.shape.outputModalities.safeParse(entry.output_modalities)
         .data,
-      tools:
-        capabilitySchema.shape.tools.safeParse(entry.tool_calls).data ??
-        builtin?.capabilities?.tools,
-      streaming:
-        capabilitySchema.shape.streaming.safeParse(entry.streaming).data ??
-        builtin?.capabilities?.streaming,
+      tools: capabilitySchema.shape.tools.safeParse(entry.tool_calls).data,
+      streaming: capabilitySchema.shape.streaming.safeParse(entry.streaming).data,
     };
-    for (const key of Object.keys(capabilities) as (keyof ModelCapabilities)[]) {
-      if (capabilities[key] !== undefined) sources[key] = "upstream";
+    const capabilities: ModelCapabilities = { ...builtin?.capabilities };
+    for (const field of Object.keys(upstreamCapabilities) as (keyof ModelCapabilities)[]) {
+      if (upstreamCapabilities[field] !== undefined) {
+        Object.assign(capabilities, { [field]: upstreamCapabilities[field] });
+        sources[field] = "upstream";
+      } else if (capabilities[field] !== undefined) {
+        sources[field] = "bundled";
+      }
     }
-    if (
-      builtin?.capabilities?.maxOutputTokens !== undefined &&
-      !tokenLimitSchema.safeParse(entry.max_output_tokens).success
-    )
-      sources.maxOutputTokens = "bundled";
-    if (capabilities.tools !== undefined && typeof entry.tool_calls !== "boolean")
-      sources.tools = "bundled";
-    if (capabilities.streaming !== undefined && typeof entry.streaming !== "boolean")
-      sources.streaming = "bundled";
 
+    if (provider === "opencode-go") {
+      for (const field of Object.keys(sources) as (keyof CapabilitySources)[]) {
+        if (entry.snapshotFields?.includes(field)) sources[field] = "bundled";
+      }
+    }
     return {
       id: entry.id,
       label: entry.name ?? builtin?.label ?? entry.id,
@@ -490,11 +522,7 @@ function parseModels(json: string): CatalogModel[] {
           id: z.string(),
           label: z.string(),
           contextWindow: z.number().int().positive().nullable(),
-          thinking: z.object({
-            supported: z.boolean(),
-            mode: z.enum(["toggle", "levels", "mandatory-levels"]).optional(),
-            levels: z.array(levelSchema),
-          }),
+          thinking: catalogThinkingSchema,
           capabilities: capabilitySchema.optional(),
           sources: sourcesSchema.optional(),
           default: z.boolean(),
@@ -604,6 +632,37 @@ function applyCapabilityOverride(model: CatalogModel, override: CapabilityOverri
   };
 }
 
+function withOfficialMetadata(model: CatalogModel, presetId: string | undefined): CatalogModel {
+  const published = officialModel(presetId, model.id);
+  if (!published) return model;
+
+  const sources = { ...model.sources };
+  const capabilities = { ...model.capabilities };
+  for (const field of Object.keys(published.capabilities ?? {}) as (keyof ModelCapabilities)[]) {
+    if (sources[field] !== "upstream") {
+      Object.assign(capabilities, { [field]: published.capabilities?.[field] });
+      sources[field] = "bundled";
+    }
+  }
+  const useWindow = published.contextWindow !== undefined && sources.contextWindow !== "upstream";
+  const useThinking =
+    published.thinking !== undefined &&
+    (sources.thinking !== "upstream" ||
+      (model.thinking.reasoning === true && !model.thinking.supported));
+  if (useWindow) sources.contextWindow = "bundled";
+  if (useThinking) sources.thinking = "bundled";
+  return {
+    ...model,
+    label: model.label === model.id ? (published.label ?? model.label) : model.label,
+    contextWindow: useWindow
+      ? (published.contextWindow ?? model.contextWindow)
+      : model.contextWindow,
+    thinking: useThinking ? (published.thinking ?? model.thinking) : model.thinking,
+    capabilities,
+    sources,
+  };
+}
+
 function modelsForCredential(db: DbExecutor, credential: CredentialProfileRow): CatalogModel[] {
   const overrides = new Map(
     Object.entries(readCapabilityOverrides(credential.capabilityOverridesJson)),
@@ -613,17 +672,29 @@ function modelsForCredential(db: DbExecutor, credential: CredentialProfileRow): 
     overrides.delete(model.id);
     const fallbackWindow =
       credential.provider === "openai-compatible" ? credential.contextWindow : null;
+    const goThinking =
+      credential.provider === "opencode-go" && model.thinking.reasoning === undefined
+        ? bundledGoThinking(model.id)
+        : undefined;
     const withFallback: CatalogModel = {
       ...model,
+      thinking: goThinking ?? model.thinking,
       contextWindow: model.contextWindow ?? fallbackWindow,
       sources: {
         ...(model.contextWindow !== null || fallbackWindow !== null
           ? { contextWindow: "legacy" }
           : {}),
         ...model.sources,
+        ...(goThinking === undefined ? {} : { thinking: "bundled" }),
       },
     };
-    return override === undefined ? withFallback : applyCapabilityOverride(withFallback, override);
+    const preset = presetForCredential(
+      credential.provider,
+      credential.endpoint,
+      credential.presetId,
+    );
+    const enriched = withOfficialMetadata(withFallback, preset?.id);
+    return override === undefined ? enriched : applyCapabilityOverride(enriched, override);
   });
   for (const [id, override] of overrides) {
     models.push(
@@ -712,7 +783,16 @@ async function catalogPayload(
   if (preset.workspaceRegion !== undefined && endpoint !== null) {
     return bailianWorkspaceCatalog(new URL(endpoint), fetchPage);
   }
-  if (preset.candidateDirectory)
+  if (preset.candidateDirectory) {
+    const published = publishedCatalog(preset.id);
+    if (published) {
+      const now = options.now?.() ?? Date.now();
+      return {
+        data: published.models
+          .filter((model) => model.expiresAt === undefined || now < model.expiresAt)
+          .map(({ id }) => ({ id })),
+      };
+    }
     return {
       data: [...publicModels(directory, preset.directoryId ?? "").entries()]
         .filter(
@@ -721,6 +801,7 @@ async function catalogPayload(
         .slice(0, 200)
         .map(([id]) => ({ id })),
     };
+  }
   return fetchPage(catalogUrl(credential));
 }
 
@@ -731,7 +812,8 @@ function catalogUrl(
   if (provider === "deepseek") return DEEPSEEK_CATALOG_URL;
   const preset = presetForCredential(provider, endpoint, presetId);
   if (!preset) throw new ModelError("VALIDATION_ERROR", "unsupported connection endpoint");
-  if (preset.candidateDirectory) return "https://models.dev/api.json";
+  if (preset.candidateDirectory)
+    return publishedCatalog(preset.id)?.url ?? "https://models.dev/api.json";
   if (preset.catalogUrl) return preset.catalogUrl;
   const base = endpoint ?? preset.endpoint;
   if (!base) throw new ModelError("VALIDATION_ERROR", "connection endpoint is missing");
@@ -790,11 +872,12 @@ async function refreshCredential(
     return;
   }
 
+  const preset = presetForCredential(credential.provider, credential.endpoint, credential.presetId);
   const models = mergeCatalog(
     credential.provider,
     parsed.data,
     credential.provider === "openai-compatible" ? (credential.contextWindow ?? 128_000) : null,
-  );
+  ).map((model) => withOfficialMetadata(model, preset?.id));
 
   const previous = new Map(
     cachedModelsFor(options.db, credential.id).map((model) => [model.id, model]),
@@ -803,13 +886,18 @@ async function refreshCredential(
     const cached = previous.get(model.id);
     if (
       cached?.sources?.contextWindow === "directory" &&
-      model.sources?.contextWindow !== "upstream"
+      model.sources?.contextWindow !== "upstream" &&
+      model.sources?.contextWindow !== "bundled"
     ) {
       model.contextWindow = cached.contextWindow;
       model.sources = { ...model.sources, contextWindow: "directory" };
     }
     for (const key of Object.keys(cached?.capabilities ?? {}) as (keyof ModelCapabilities)[]) {
-      if (cached?.sources?.[key] === "directory" && model.sources?.[key] !== "upstream") {
+      if (
+        cached?.sources?.[key] === "directory" &&
+        model.sources?.[key] !== "upstream" &&
+        model.sources?.[key] !== "bundled"
+      ) {
         model.capabilities = { ...model.capabilities, [key]: cached.capabilities?.[key] };
         model.sources = { ...model.sources, [key]: "directory" };
       }
@@ -866,7 +954,11 @@ function supplementFromPublicDirectory(
     const entry = directory.get(model.id);
     if (entry === undefined) continue;
     const sources: CapabilitySources = { ...model.sources };
-    if (entry.limit?.context !== undefined && sources.contextWindow !== "upstream") {
+    if (
+      entry.limit?.context !== undefined &&
+      sources.contextWindow !== "upstream" &&
+      sources.contextWindow !== "bundled"
+    ) {
       model.contextWindow = entry.limit.context;
       sources.contextWindow = "directory";
     }
@@ -879,7 +971,11 @@ function supplementFromPublicDirectory(
     };
     const capabilities = { ...model.capabilities };
     for (const key of Object.keys(fromDirectory) as (keyof ModelCapabilities)[]) {
-      if (fromDirectory[key] !== undefined && sources[key] !== "upstream") {
+      if (
+        fromDirectory[key] !== undefined &&
+        sources[key] !== "upstream" &&
+        sources[key] !== "bundled"
+      ) {
         Object.assign(capabilities, { [key]: fromDirectory[key] });
         sources[key] = "directory";
       }
@@ -919,11 +1015,14 @@ export async function refreshModelCatalog(
   let directoryStatus: "synced" | "unavailable" | undefined;
   if (
     input.includePublicDirectory === true ||
-    credentials.some(
-      (credential) =>
-        presetForCredential(credential.provider, credential.endpoint, credential.presetId)
-          ?.candidateDirectory,
-    )
+    credentials.some((credential) => {
+      const preset = presetForCredential(
+        credential.provider,
+        credential.endpoint,
+        credential.presetId,
+      );
+      return preset?.candidateDirectory && !publishedCatalog(preset.id);
+    })
   ) {
     try {
       directory = await (options.publicDirectoryFetcher ?? fetchPublicModelDirectory)();
@@ -965,6 +1064,7 @@ function recordFailure(
 export function defaultThinking(model: CatalogModel): string {
   if (!model.thinking.supported) return "off";
   if (model.thinking.mode === "toggle") return "on";
+  if (model.thinking.defaultLevel) return model.thinking.defaultLevel;
   const preferred = model.thinking.mode === "mandatory-levels" ? "high" : "medium";
   return (
     model.thinking.levels.find((level) => level.id === preferred)?.id ??
@@ -993,6 +1093,15 @@ function normalizeThinking(model: CatalogModel, thinking: string | null | undefi
     // Legacy level/default values collapse to "on" for toggle-only models.
     if (["low", "medium", "high", "default"].includes(thinking)) return "on";
     throw new ModelError("MODEL_UNSUPPORTED", "thinking level is not supported by this model");
+  }
+
+  if (mode === "variants") {
+    if (model.thinking.levels.some((level) => level.id === thinking)) return thinking;
+    // Saved pre-catalog preferences used the legacy ladder, or off when no controls were exposed.
+    if (["off", "on", "default", "low", "medium", "high"].includes(thinking)) {
+      return defaultThinking(model);
+    }
+    throw new ModelError("MODEL_UNSUPPORTED", "thinking variant is not supported by this model");
   }
 
   if (thinking === "default" || thinking === "on") return defaultThinking(model);
@@ -1091,6 +1200,11 @@ export function mapThinkingSetting(thinking: string | null | undefined): {
   enabled: boolean;
   effort?: ThinkingEffort;
 } {
+  if (thinking === "effort:default") return { enabled: true };
+  if (thinking?.startsWith("effort:")) {
+    const effort = effortSchema.safeParse(thinking.slice("effort:".length));
+    if (effort.success) return { enabled: effort.data !== "none", effort: effort.data };
+  }
   if (thinking === "off") {
     return { enabled: false };
   }
@@ -1145,13 +1259,16 @@ export function resolveCatalogProvider(
     throw new ModelError("PROVIDER_AUTH_FAILED", "credential cannot be decrypted");
   }
 
+  const catalogModel =
+    "id" in credential
+      ? modelsForCredential(options.db, credential).find((item) => item.id === input.model)
+      : undefined;
   const contextWindow =
     "id" in credential
-      ? (modelsForCredential(options.db, credential).find((item) => item.id === input.model)
-          ?.contextWindow ??
-        builtinCatalog(credential.provider).find((item) => item.id === input.model)
-          ?.contextWindow ??
-        null)
+      ? catalogModel
+        ? agentWindow(catalogModel)
+        : (builtinCatalog(credential.provider).find((item) => item.id === input.model)
+            ?.contextWindow ?? null)
       : credential.contextWindow;
 
   if (contextWindow === null) {
@@ -1166,7 +1283,10 @@ export function resolveCatalogProvider(
       ? {}
       : { endpoint: credential.endpoint }),
     contextWindow,
-    thinking: mapThinkingSetting(input.thinking),
+    thinking:
+      credential.provider === "opencode-go" && !input.thinking?.startsWith("effort:")
+        ? { enabled: true }
+        : mapThinkingSetting(input.thinking),
   };
 }
 

@@ -19,7 +19,8 @@ export function compactModelWindow(model: ApiCatalogModel): string | undefined {
 }
 
 function thinkingCapability(model: ApiCatalogModel) {
-  if (!model.thinking.supported) return undefined;
+  if (!model.thinking.supported)
+    return model.thinking.reasoning ? "支持推理，档位由平台控制" : undefined;
   if (model.thinking.mode === "toggle") return "思考可开启或关闭";
   const levels = model.thinking.levels.map((level) => level.label).join("、");
   return levels ? `思考档位：${levels}` : "可调思考档位";

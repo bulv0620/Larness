@@ -131,7 +131,9 @@ export interface ApiCatalogModel {
   agentSelectable?: boolean;
   thinking: {
     supported: boolean;
-    mode?: "toggle" | "levels" | "mandatory-levels";
+    mode?: "toggle" | "levels" | "mandatory-levels" | "variants";
+    defaultLevel?: string;
+    reasoning?: boolean;
     levels: ApiCatalogThinkingLevel[];
   };
   default: boolean;

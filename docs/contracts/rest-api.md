@@ -509,7 +509,7 @@ OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模
 
 ### 7.1 官方模型目录（M5-1，061 / ADR-053）
 
-`GET /api/models/catalog` 返回所有可目录化凭据（DeepSeek / GLM）的分组缓存；`POST /api/models/catalog/refresh` 逐组刷新，失败只更新该组的 `stale` / `lastRefreshError`，不覆盖旧模型列表。两者都要求已认证会话，刷新还校验 CSRF；未认证不调用上游。
+`GET /api/models/catalog` 返回所有可目录化凭据的分组缓存；`POST /api/models/catalog/refresh` 逐组刷新，失败只更新该组的 `stale` / `lastRefreshError`，不覆盖旧模型列表。两者都要求已认证会话，刷新还校验 CSRF；未认证不调用上游。
 
 ```json
 {
@@ -546,11 +546,11 @@ OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模
 }
 ```
 
-`thinking.mode` 为 `levels`（关/低/中/高）、`toggle`（关/开）或 `mandatory-levels`（低/中/高，不能关）；`contextWindow` 表示已知总窗口；未知时为 `null`。有独立最大输入值时可按保守预算运行。以 `agentSelectable` 判断 Agent 可选性。
+`thinking.mode` 为 `levels`（关/低/中/高）、`toggle`（关/开）、`mandatory-levels`（只允许公布的档位）或 `variants`（直接使用 `levels`，关闭仅在明确列出时可用）；`contextWindow` 表示已知总窗口；未知时为 `null`。有独立最大输入值时可按保守预算运行。以 `agentSelectable` 判断 Agent 可选性。`thinking.reasoning` 表示平台是否明确支持推理，`thinking.supported` 表示是否有可选设置。可选的 `defaultLevel` 指向 `levels` 中的首选项。新目录的 `effort:*` ID 表示经校验的精确档位，随现有 Turn 配置保存，`effort:none` 表示明确关闭，`effort:default` 交由该线路使用默认设置。
 
 - 从未成功同步时 `syncedAt: null`、`models: []`、`stale: true`；无凭据返回 `409 MODEL_CREDENTIAL_MISSING`。
 - 模型可带 `capabilities`（`maxInputTokens`、`maxOutputTokens`、`inputModalities`、`outputModalities`、`tools`、`streaming`）和逐字段 `sources`（`upstream`、`directory`、`bundled`、`user`、`legacy`）。未提供的能力为未知；保留前版兼容连接的历史行为。
-- 刷新可提交 `{ credentialProfileId?, includePublicDirectory? }`。显式请求公共目录时，无凭据读取固定的 Models.dev，仅按已登记预设和确切模型 ID 补充该连接已发现的模型字段。返回本次公共目录状态 `directoryStatus: synced | unavailable`；目录不可用保留上次已取得的数据。
+- 刷新可提交 `{ credentialProfileId?, includePublicDirectory? }`。显式请求公共目录时，无凭据读取固定的 Models.dev，仅按已登记预设和确切模型 ID 补充该连接已发现的模型字段。返回本次公共目录状态 `directoryStatus: synced | unavailable`；目录不可用保留上次已取得的数据。无账户目录的官方文档候选使用 `candidatesOnly` 标记。官方来源与逐线路边界见 [077 官方目录校准](../../specs/077-model-connections/official-catalog.md)。
 - `PUT /api/models/catalog/overrides` 接收 `{ credentialProfileId, modelId, override }`，替换该模型的手动配置，并允许登记未发现的 ID。覆盖接受能力字段、`contextWindow` 和 `thinking: off | toggle | levels | mandatory-levels`。DELETE 接收同一标识对并移除覆盖。二者返回 `{ ok: true }`，经认证、CSRF 和审计。
 - 每个模型带 `visible`（默认 `true`）；`PATCH /api/models/catalog/visibility` 保存用户筛选。隐藏全局默认模型会在同一事务清除默认设置，重新显示后需手动设为默认；已保存的会话选择仍可使用。
 - 响应顶层 `defaultSelection` 为全局默认模型（`model / thinking / credentialProfileId`，未设置或已失效为 `null`）；隐藏的历史默认按未设置处理。将隐藏模型设为默认返回 `MODEL_UNSUPPORTED`。设置页只管理 Key、显示与默认。

@@ -340,7 +340,7 @@ export function ModelSettingsDialog({
       existing: true,
       original,
       thinking:
-        model.sources?.thinking === "user"
+        model.sources?.thinking === "user" && model.thinking.mode !== "variants"
           ? model.thinking.supported
             ? (model.thinking.mode ?? "levels")
             : "off"
