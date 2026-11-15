@@ -118,14 +118,12 @@ test("keeps a screenshot draft across model switches and replays the sent image"
     await expect(trigger).not.toContainText("E2E Key");
     await trigger.click();
     const picker = page.getByRole("dialog", { name: "模型与思考" });
-    await expect(picker.getByRole("button", { name: /E2E Key/ })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-    await expect(picker.getByLabel(/^支持截图/)).toBeVisible();
+    await expect(picker.getByRole("button", { name: /^思考强度：/ })).toBeVisible();
     if (name === "DeepSeek Chat") {
-      await picker.screenshot({ path: test.info().outputPath("mobile-model-picker.png") });
+      await picker.screenshot({ path: test.info().outputPath("mobile-model-menu.png") });
     }
+    await picker.getByRole("button", { name: /^模型：/ }).click();
+    await expect(picker.getByText("DeepSeek · E2E Key", { exact: true })).toBeVisible();
     await picker.getByRole("button", { name, exact: true }).click();
   };
   await select("DeepSeek Chat");
@@ -279,7 +277,8 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
 
     await page.getByRole("button", { name: /模型与思考：/ }).click();
     const picker = page.getByRole("dialog", { name: "模型与思考" });
-    await picker.getByRole("button", { name: /DeepSeek Chat/ }).click();
+    await picker.getByRole("button", { name: /^模型：/ }).click();
+    await picker.getByRole("button", { name: "DeepSeek Chat", exact: true }).click();
     await expect(picker).toBeHidden();
     await expect(page.getByRole("button", { name: "模型与思考：DeepSeek Chat" })).toBeVisible();
 
@@ -301,9 +300,17 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await page.getByRole("button", { name: "设置与模型" }).click();
     const modelSettings = page.getByRole("dialog", { name: "模型与凭据" });
     await modelSettings.getByRole("button", { name: /E2E.*2 个模型/ }).click();
-    const defaultModel = modelSettings.getByRole("button", { name: "DeepSeek Flash 设为默认" });
-    await defaultModel.click();
-    await expect(defaultModel).toHaveAttribute("aria-pressed", "true");
+    const defaultModel = modelSettings.getByRole("button", { name: "DeepSeek Flash", exact: true });
+    const defaultStar = modelSettings.getByLabel("新会话默认模型");
+    await defaultModel.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "详情", exact: true }).click();
+    const details = page.getByRole("dialog", { name: "模型能力" });
+    await expect(details).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(details).toBeHidden();
+    await defaultModel.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "设为默认" }).click();
+    await expect(defaultStar).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(modelSettings).toBeHidden();
 
@@ -320,8 +327,11 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await modelSettings.getByRole("button", { name: /E2E.*2 个模型/ }).click();
     const showFlash = modelSettings.getByRole("button", { name: "DeepSeek Flash 在会话中显示" });
     await showFlash.click();
-    await expect(defaultModel).toBeDisabled();
-    await expect(defaultModel).toHaveAttribute("aria-pressed", "false");
+    await expect(showFlash).toHaveAttribute("aria-pressed", "false");
+    await expect(defaultStar).toHaveCount(0);
+    await defaultModel.click({ button: "right" });
+    await expect(page.getByRole("menuitem", { name: "设为默认" })).toBeDisabled();
+    await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");
     await expect(modelSettings).toBeHidden();
 
@@ -332,8 +342,12 @@ test("M1 runs a real turn, approves a patch, restores after refresh, switches mo
     await page.getByRole("button", { name: "设置与模型" }).click();
     await modelSettings.getByRole("button", { name: /E2E.*2 个模型/ }).click();
     await showFlash.click();
-    await expect(defaultModel).toBeEnabled();
-    await expect(defaultModel).toHaveAttribute("aria-pressed", "false");
+    await expect(showFlash).toHaveAttribute("aria-pressed", "true");
+    await expect(defaultStar).toHaveCount(0);
+    await defaultModel.focus();
+    await page.keyboard.press("Shift+F10");
+    await expect(page.getByRole("menuitem", { name: "设为默认" })).toBeEnabled();
+    await page.keyboard.press("Escape");
     await page.keyboard.press("Escape");
     await expect(modelSettings).toBeHidden();
     await page.getByRole("button", { name: "设置与模型" }).click();

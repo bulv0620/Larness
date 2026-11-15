@@ -386,6 +386,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | MC-7 | MiniMax | MC-6 | `done` |
 | MC-8 | 截图输入与能力校验 | MC-7 | `done` |
 | MC-9 | 以 Key 为入口的设置和会话选择器 | MC-8、ADR-063 accepted | `done` |
+| MC-10 | 会话两级菜单和设置列表精简 | MC-9、ADR-064 accepted | `done` |
 
 ## 9. 门禁
 

@@ -14,6 +14,7 @@ import {
   refreshModelCatalog,
   setModelDefault,
   setModelVisibility,
+  testModelConnection,
 } from "@/lib/workspaceApi";
 import { ModelSettingsDialog } from "./ModelSettingsDialog";
 
@@ -242,19 +243,21 @@ it("removes the default marker and disables setting a model as default after hid
     </QueryClientProvider>,
   );
   await user.click(await screen.findByRole("button", { name: /测试凭据.*1 个模型/ }));
-  const model = screen.getByRole("button", { name: "测试模型 设为默认" });
-  expect(model).toBeEnabled();
-  expect(model).toHaveAttribute("aria-pressed", "true");
-
+  const model = screen.getByRole("button", { name: "测试模型" });
+  expect(screen.getByLabelText("新会话默认模型")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "设为默认" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "测试模型 在会话中显示" }));
   expect(setModelVisibility).toHaveBeenCalledWith({
     credentialProfileId: credential.id,
     modelId: "test-model",
     visible: false,
   });
-  await waitFor(() => expect(model).toHaveAttribute("aria-pressed", "false"));
-  expect(model).toBeDisabled();
-  await user.click(model);
+  await waitFor(() => expect(screen.queryByLabelText("新会话默认模型")).toBeNull());
+  expect(screen.queryByText("已隐藏")).toBeNull();
+  fireEvent.contextMenu(model);
+  const setDefault = await screen.findByRole("menuitem", { name: "设为默认" });
+  expect(setDefault).toHaveAttribute("aria-disabled", "true");
+  await user.click(setDefault);
   expect(setModelDefault).not.toHaveBeenCalled();
 });
 
@@ -322,4 +325,77 @@ it("keeps saved Keys selectable when the catalog is unavailable", async () => {
   expect(await screen.findByRole("button", { name: /测试凭据/ })).toBeVisible();
   expect(screen.getByText("目录不可用，请刷新。")).toBeVisible();
   expect(screen.getByRole("button", { name: "刷新目录" })).toBeEnabled();
+});
+
+it("places the compatible platform after official platforms", async () => {
+  vi.mocked(listModelPresets).mockResolvedValue([
+    {
+      id: "compatible",
+      provider: "openai-compatible",
+      label: "兼容",
+      endpoint: null,
+      billing: "unknown",
+    },
+    {
+      id: "deepseek-api",
+      provider: "deepseek",
+      label: "DeepSeek",
+      endpoint: null,
+      billing: "usage",
+    },
+    {
+      id: "opencode-go",
+      provider: "opencode-go",
+      label: "OpenCode Go",
+      endpoint: null,
+      billing: "subscription",
+    },
+  ]);
+  const user = userEvent.setup();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  await screen.findByText("还没有 Key。添加后即可同步官方模型目录。");
+  await user.click(screen.getByRole("button", { name: "添加 Key" }));
+  expect(screen.getAllByRole("button", { name: /^(DeepSeek|OpenCode Go|兼容)$/ })).toEqual([
+    screen.getByRole("button", { name: "DeepSeek" }),
+    screen.getByRole("button", { name: "OpenCode Go" }),
+    screen.getByRole("button", { name: "兼容" }),
+  ]);
+});
+
+it("shows pending feedback for the model under test, then clears it on failure", async () => {
+  vi.mocked(listCredentials).mockReset().mockResolvedValue([credential]);
+  vi.mocked(listModelCatalog)
+    .mockReset()
+    .mockResolvedValue({ ...synced, groups: [synced] });
+  let rejectAttempt: (error: Error) => void = () => {};
+  vi.mocked(testModelConnection).mockImplementation(
+    () =>
+      new Promise<void>((_resolve, reject) => {
+        rejectAttempt = reject;
+      }),
+  );
+  const user = userEvent.setup();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  const model = await screen.findByRole("button", { name: "测试模型" });
+  expect(screen.queryByRole("button", { name: "测试调用" })).toBeNull();
+  model.focus();
+  await user.keyboard("{Shift>}{F10}{/Shift}");
+  await user.click(await screen.findByRole("menuitem", { name: "测试调用" }));
+  expect(testModelConnection).toHaveBeenCalledWith(credential.id, "test-model");
+  expect(screen.getByRole("status")).toHaveTextContent("测试中");
+  rejectAttempt(new Error("unavailable"));
+  expect(await screen.findByRole("alert")).toHaveTextContent("测试调用失败");
+  expect(screen.queryByText("测试中…")).toBeNull();
 });

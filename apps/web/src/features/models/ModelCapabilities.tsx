@@ -13,6 +13,11 @@ function windowCapability(model: ApiCatalogModel) {
   return tokens === undefined ? undefined : { tokens, label: "最大输入" };
 }
 
+export function compactModelWindow(model: ApiCatalogModel): string | undefined {
+  const window = windowCapability(model);
+  return window && compactTokens.format(window.tokens);
+}
+
 function thinkingCapability(model: ApiCatalogModel) {
   if (!model.thinking.supported) return undefined;
   if (model.thinking.mode === "toggle") return "思考可开启或关闭";
@@ -33,7 +38,7 @@ export function modelCapabilityDetails(model: ApiCatalogModel): string {
 }
 
 export function ModelCapabilities({ model }: { model: ApiCatalogModel }) {
-  const window = windowCapability(model);
+  const window = compactModelWindow(model);
   const thinking = thinkingCapability(model);
   const visuals = model.capabilities?.inputModalities?.includes("image");
   const tools = model.capabilities?.tools;
@@ -54,7 +59,7 @@ export function ModelCapabilities({ model }: { model: ApiCatalogModel }) {
         {thinking ? <Brain size={13} aria-hidden="true" /> : null}
         {window ? (
           <span aria-hidden="true" className="font-mono text-[10px] tabular-nums">
-            {compactTokens.format(window.tokens)}
+            {window}
           </span>
         ) : null}
       </span>

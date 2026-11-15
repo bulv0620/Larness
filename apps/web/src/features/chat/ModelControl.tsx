@@ -1,8 +1,8 @@
 import { cn } from "@larness/ui";
-import { Check, ChevronDown, KeyRound, Search } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { billingLabel, providerLabel } from "@/features/models/catalogView";
-import { ModelCapabilities } from "@/features/models/ModelCapabilities";
+import { providerLabel } from "@/features/models/catalogView";
+import { compactModelWindow } from "@/features/models/ModelCapabilities";
 import type { ApiCatalogGroup, ApiCatalogModel } from "@/lib/workspaceApi";
 
 interface ModelControlProps {
@@ -15,6 +15,11 @@ interface ModelControlProps {
   onSelectModel: (modelId: string, credentialProfileId: string) => void;
   onSelectThinking: (thinking: string) => void;
 }
+
+type View = "root" | "models" | "thinking";
+
+const menuRow =
+  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11.5px] text-ink-2 outline-none hover:bg-surface-2 hover:text-ink focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 disabled:opacity-50";
 
 export function ModelControl({
   groups,
@@ -31,22 +36,7 @@ export function ModelControl({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [expandedKey, setExpandedKey] = useState<string | null>();
-  const [search, setSearch] = useState("");
-  const query = search.trim().toLowerCase();
-  const availableGroups = groups.flatMap((group) => {
-    const provider = providerLabel(group.provider);
-    if (!query || `${group.credentialLabel} ${provider}`.toLowerCase().includes(query)) {
-      return [group];
-    }
-    const models = group.models.filter((item) =>
-      `${item.label} ${item.id}`.toLowerCase().includes(query),
-    );
-    return models.length ? [{ ...group, models }] : [];
-  });
-  const defaultExpandedKey =
-    availableGroups.find((group) => group.credentialProfileId === credentialProfileId)
-      ?.credentialProfileId ?? availableGroups[0]?.credentialProfileId;
+  const [view, setView] = useState<View>("root");
   const mode = model?.thinking.mode;
   const levels = !model?.thinking.supported
     ? []
@@ -76,6 +66,11 @@ export function ModelControl({
     triggerRef.current?.focus();
   };
 
+  const showView = (next: View) => {
+    panelRef.current?.focus();
+    setView(next);
+  };
+
   return (
     <div ref={rootRef} className="relative min-w-0">
       <button
@@ -87,9 +82,8 @@ export function ModelControl({
         aria-controls={open && !disabled ? panelId : undefined}
         disabled={disabled}
         onClick={() => {
-          setExpandedKey(undefined);
-          setSearch("");
-          setOpen((current) => !current);
+          setView("root");
+          setOpen(!open);
         }}
         className="flex h-7 min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-[11px] font-medium text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
       >
@@ -123,156 +117,144 @@ export function ModelControl({
               close();
             }
           }}
-          className="absolute bottom-[calc(100%+8px)] -left-5 z-40 flex max-h-[min(400px,55dvh)] w-[min(318px,calc(100vw-44px))] flex-col overflow-hidden rounded-xl border border-line bg-surface text-ink shadow-[var(--shadow-pop)] outline-none sm:left-0"
+          className="absolute bottom-[calc(100%+8px)] left-0 z-40 flex max-h-[min(360px,55dvh)] w-[min(240px,calc(100vw-68px))] flex-col overflow-hidden rounded-xl border border-line bg-surface/95 p-1.5 text-ink shadow-[var(--shadow-pop)] outline-none backdrop-blur-xl"
         >
-          <label className="m-2 flex shrink-0 items-center gap-2 rounded-lg border border-line bg-surface-2/50 px-2.5 focus-within:border-accent/60">
-            <Search size={13} aria-hidden="true" className="text-ink-3" />
-            <input
-              type="search"
-              aria-label="搜索 Key 或模型"
-              placeholder="搜索 Key 或模型"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
-                setExpandedKey(undefined);
-              }}
-              className="h-8 w-full min-w-0 bg-transparent text-xs outline-none placeholder:text-ink-3"
-            />
-          </label>
-          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 pb-2">
-            {availableGroups.length === 0 ? (
-              <p className="px-2 py-3 text-xs text-ink-3">
-                {query
-                  ? "没有匹配的 Key 或模型。"
-                  : catalogError
-                    ? "目录不可用，请在模型设置中刷新。"
-                    : "请先在模型设置中添加 Key。"}
-              </p>
-            ) : null}
-            {availableGroups.map((group) => {
-              const currentKey = group.credentialProfileId === credentialProfileId;
-              const expanded =
-                expandedKey === undefined
-                  ? Boolean(query) || group.credentialProfileId === defaultExpandedKey
-                  : expandedKey === group.credentialProfileId;
-              const groupId = `${panelId}-${group.credentialProfileId}`;
-              return (
-                <div
-                  key={group.credentialProfileId}
-                  className="rounded-lg border border-transparent has-[[aria-expanded=true]]:border-line"
-                >
-                  <button
-                    type="button"
-                    id={`${groupId}-trigger`}
-                    aria-expanded={expanded}
-                    aria-controls={expanded ? groupId : undefined}
-                    onClick={() => setExpandedKey(expanded ? null : group.credentialProfileId)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40",
-                      expanded && "rounded-b-none bg-surface-2/50",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "grid size-7 shrink-0 place-items-center rounded-md bg-surface-2 text-ink-3",
-                        currentKey && "bg-accent-soft text-accent",
-                      )}
-                    >
-                      <KeyRound size={13} aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-semibold">
-                        {group.credentialLabel}
-                      </span>
-                      <span className="block truncate text-[10px] text-ink-3">
-                        {providerLabel(group.provider)} · {billingLabel(group.billing)}
-                      </span>
-                    </span>
-                    <ChevronDown
-                      size={12}
-                      aria-hidden="true"
-                      className={cn(
-                        "shrink-0 text-ink-3 transition-transform",
-                        !expanded && "-rotate-90",
-                      )}
-                    />
-                  </button>
-
-                  {expanded ? (
-                    <ul
-                      id={groupId}
-                      aria-labelledby={`${groupId}-trigger`}
-                      className="space-y-0.5 p-1"
-                    >
-                      {group.models.length === 0 ? (
-                        <li className="px-2 py-2 text-[11px] text-ink-3">此 Key 暂无可选模型</li>
-                      ) : null}
-                      {group.models.map((item) => {
-                        const selected = currentKey && item.id === model?.id;
-                        return (
-                          <li
-                            key={item.id}
-                            className={cn(
-                              "flex items-center rounded-md pr-1",
-                              selected && "bg-accent-soft",
-                            )}
-                          >
-                            <button
-                              type="button"
-                              aria-pressed={selected}
-                              onClick={() => {
-                                close();
-                                onSelectModel(item.id, group.credentialProfileId);
-                              }}
-                              className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-2 text-left text-[11.5px] outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40"
-                            >
-                              <span className="flex-1 truncate">{item.label}</span>
-                              {selected ? (
-                                <Check
-                                  size={13}
-                                  aria-hidden="true"
-                                  className="shrink-0 text-accent"
-                                />
-                              ) : null}
-                            </button>
-                            <ModelCapabilities model={item} />
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-
-          {levels.length > 0 ? (
-            <fieldset
-              aria-label="思考档位"
-              className="flex shrink-0 flex-wrap items-center gap-1 border-t border-line px-2.5 py-2"
-            >
-              <span className="mr-auto text-[11px] text-ink-3">思考档位</span>
-              {levels.map((level) => (
-                <button
-                  key={level.id}
-                  type="button"
-                  aria-pressed={level.id === thinking}
-                  onClick={() => {
-                    close();
-                    if (level.id !== thinking) onSelectThinking(level.id);
-                  }}
+          {view === "root" ? (
+            <>
+              <button
+                type="button"
+                aria-label={`模型：${model?.label ?? "选择模型"}`}
+                onClick={() => showView("models")}
+                className={menuRow}
+              >
+                <span className="w-14 shrink-0 text-[10px] text-ink-3">模型</span>
+                <span className="min-w-0 flex-1 truncate text-ink">
+                  {model?.label ?? "选择模型"}
+                </span>
+                <ChevronRight size={11} aria-hidden="true" className="text-ink-3" />
+              </button>
+              <button
+                type="button"
+                aria-label={`思考强度：${thinkingLabel ?? "不支持"}`}
+                disabled={levels.length === 0}
+                onClick={() => showView("thinking")}
+                className={menuRow}
+              >
+                <span className="w-14 shrink-0 text-[10px] text-ink-3">思考强度</span>
+                <span
                   className={cn(
-                    "rounded-md px-2 py-1 text-[11px] outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent/40",
-                    level.id === thinking
-                      ? "bg-accent-soft font-semibold text-accent"
-                      : "text-ink-2",
+                    "min-w-0 flex-1 truncate",
+                    thinkingLabel && thinking !== "off" && "text-accent",
                   )}
                 >
-                  {level.label}
+                  {thinkingLabel ?? "不支持"}
+                </span>
+                {levels.length > 0 ? (
+                  <ChevronRight size={11} aria-hidden="true" className="text-ink-3" />
+                ) : null}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="flex shrink-0 items-center gap-1 px-1 pb-1 pt-0.5">
+                <button
+                  type="button"
+                  aria-label="返回"
+                  onClick={() => showView("root")}
+                  className="grid size-5 place-items-center rounded-md text-ink-3 outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent/40"
+                >
+                  <ChevronLeft size={12} aria-hidden="true" />
                 </button>
-              ))}
-            </fieldset>
-          ) : null}
+                <span className="text-[10.5px] font-semibold text-ink-3">
+                  {view === "models" ? "模型" : "思考强度"}
+                </span>
+              </div>
+              <div className="min-h-0 overflow-y-auto overscroll-contain">
+                {view === "models" ? (
+                  <>
+                    {groups.length === 0 ? (
+                      <p className="px-2 py-2 text-[11px] text-ink-3">
+                        {catalogError
+                          ? "目录不可用，请在模型设置中刷新。"
+                          : "请先在模型设置中添加 Key。"}
+                      </p>
+                    ) : null}
+                    {groups.map((group) => {
+                      const headingId = `${panelId}-${group.credentialProfileId}`;
+                      return (
+                        <div key={group.credentialProfileId}>
+                          <div
+                            id={headingId}
+                            className="truncate px-2.5 pb-0.5 pt-1.5 text-[10px] text-ink-3"
+                          >
+                            {providerLabel(group.provider)} · {group.credentialLabel}
+                          </div>
+                          <ul aria-labelledby={headingId}>
+                            {group.models.length === 0 ? (
+                              <li className="px-2.5 py-1.5 text-[10.5px] text-ink-3">
+                                {group.lastRefreshError
+                                  ? "目录读取失败，请在设置中刷新。"
+                                  : "此 Key 暂无可选模型"}
+                              </li>
+                            ) : null}
+                            {group.models.map((item) => {
+                              const selected =
+                                item.id === model?.id &&
+                                group.credentialProfileId === credentialProfileId;
+                              return (
+                                <li key={item.id}>
+                                  <button
+                                    type="button"
+                                    aria-label={item.label}
+                                    aria-pressed={selected}
+                                    onClick={() => {
+                                      close();
+                                      onSelectModel(item.id, group.credentialProfileId);
+                                    }}
+                                    className={cn(menuRow, selected && "bg-surface-2 text-ink")}
+                                  >
+                                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                                    <span className="text-[9.5px] text-ink-3">
+                                      {compactModelWindow(item)}
+                                    </span>
+                                    {selected ? (
+                                      <Check
+                                        size={13}
+                                        aria-hidden="true"
+                                        className="shrink-0 text-accent"
+                                      />
+                                    ) : null}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </>
+                ) : (
+                  levels.map((level) => (
+                    <button
+                      key={level.id}
+                      type="button"
+                      aria-pressed={level.id === thinking}
+                      onClick={() => {
+                        close();
+                        if (level.id !== thinking) onSelectThinking(level.id);
+                      }}
+                      className={cn(menuRow, level.id === thinking && "bg-surface-2 text-ink")}
+                    >
+                      <span className="flex-1">{level.label}</span>
+                      {level.id === thinking ? (
+                        <Check size={13} aria-hidden="true" className="shrink-0 text-accent" />
+                      ) : null}
+                    </button>
+                  ))
+                )}
+              </div>
+            </>
+          )}
         </div>
       ) : null}
     </div>

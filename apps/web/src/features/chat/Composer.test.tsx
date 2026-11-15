@@ -160,7 +160,7 @@ it("requires risk confirmation before switching to autonomous, with cancellation
   expect(screen.getByRole("button", { name: "审批策略：完全自主" })).toBeVisible();
 });
 
-it("switches Key groups and thinking without displaying the Key on the trigger", async () => {
+it("opens separate model and thinking submenus with small Key headings", async () => {
   const user = userEvent.setup();
   render(
     <TooltipProvider>
@@ -170,33 +170,31 @@ it("switches Key groups and thinking without displaying the Key on the trigger",
   const trigger = screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 中" });
   expect(trigger).not.toHaveTextContent("DeepSeek Key");
   await user.click(trigger);
-  const popover = await screen.findByRole("dialog", { name: "模型与思考" });
-  expect(within(popover).getByRole("button", { name: /DeepSeek Key.*按量/ })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
-  expect(within(popover).getByRole("button", { name: "DeepSeek Flash" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  expect(within(popover).getByLabelText(/支持截图.*支持工具/)).toBeVisible();
-  expect(within(popover).queryByRole("button", { name: "GLM-4.6" })).toBeNull();
-  await user.click(within(popover).getByRole("button", { name: "高" }));
+  const popover = () => within(screen.getByRole("dialog", { name: "模型与思考" }));
+  expect(popover().getAllByRole("button")).toEqual([
+    popover().getByRole("button", { name: "模型：DeepSeek Flash" }),
+    popover().getByRole("button", { name: "思考强度：中" }),
+  ]);
+  await user.click(popover().getByRole("button", { name: "思考强度：中" }));
+  await user.click(popover().getByRole("button", { name: "高" }));
   expect(trigger).toHaveAccessibleName("模型与思考：DeepSeek Flash · 高");
 
   await user.click(trigger);
-  const search = screen.getByRole("searchbox", { name: "搜索 Key 或模型" });
-  await user.type(search, "glm-4.6");
-  const reopened = screen.getByRole("dialog", { name: "模型与思考" });
-  expect(within(reopened).queryByRole("button", { name: /DeepSeek Key/ })).toBeNull();
-  expect(within(reopened).getByRole("button", { name: /GLM Key.*套餐额度/ })).toBeVisible();
-  await user.click(within(reopened).getByRole("button", { name: "GLM-4.6" }));
+  await user.click(popover().getByRole("button", { name: "模型：DeepSeek Flash" }));
+  expect(popover().getByText("GLM · GLM Key")).toBeVisible();
+  expect(popover().queryByRole("button", { name: /GLM Key/ })).toBeNull();
+  expect(popover().getByRole("button", { name: "DeepSeek Flash" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await user.click(popover().getByRole("button", { name: "GLM-4.6" }));
   const switchNotice = screen.getByText("已切换到 GLM-4.6");
   expect(switchNotice).toBeVisible();
   expect(switchNotice).toHaveClass("absolute", "bottom-full");
 
   await user.click(trigger);
-  await user.click(screen.getByRole("button", { name: /^关闭$/ }));
+  await user.click(popover().getByRole("button", { name: "思考强度：开启" }));
+  await user.click(popover().getByRole("button", { name: /^关闭$/ }));
   expect(trigger).toHaveAccessibleName("模型与思考：GLM-4.6 · 关闭");
 
   await user.click(trigger);
@@ -205,8 +203,8 @@ it("switches Key groups and thinking without displaying the Key on the trigger",
   expect(trigger).toHaveFocus();
 
   await user.click(trigger);
-  await user.click(screen.getByRole("button", { name: /DeepSeek Key/ }));
-  await user.click(screen.getByRole("button", { name: "DeepSeek Chat" }));
+  await user.click(popover().getByRole("button", { name: "模型：GLM-4.6" }));
+  await user.click(popover().getByRole("button", { name: "DeepSeek Chat" }));
   expect(screen.getByText("已切换到 DeepSeek Chat")).toBeVisible();
   expect(trigger).toHaveAccessibleName("模型与思考：DeepSeek Chat");
   expect(trigger).not.toHaveTextContent(/Key|不支持/);

@@ -15,14 +15,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ChevronDown,
-  Eye,
-  EyeOff,
   KeyRound,
   Loader2,
   Plus,
   RefreshCw,
   Search,
-  Star,
   Trash2,
   X,
 } from "lucide-react";
@@ -49,7 +46,8 @@ import {
 } from "@/lib/workspaceApi";
 
 import { billingLabel, providerLabel } from "./catalogView";
-import { ModelCapabilities, modelCapabilityDetails } from "./ModelCapabilities";
+import { modelCapabilityDetails } from "./ModelCapabilities";
+import { ModelSettingsRow } from "./ModelSettingsRow";
 
 function syncLabel(group: ApiCatalogGroup): string {
   if (group.candidatesOnly && group.syncedAt !== null) return "候选目录 · 调用待验证";
@@ -87,7 +85,15 @@ export function ModelSettingsDialog({
     original?: ModelCapabilityOverride;
     existing?: boolean;
   }>();
-  const [verified, setVerified] = useState<string>();
+  const [verification, setVerification] = useState<{
+    credentialId: string;
+    modelId: string;
+    status: "testing" | "passed";
+  }>();
+  const platforms = [...new Set(presets.map((preset) => preset.provider))].sort(
+    (first, second) =>
+      Number(first === "openai-compatible") - Number(second === "openai-compatible"),
+  );
   const platformPresets = presets.filter((preset) => preset.provider === platform);
   const selectedPreset =
     platformPresets.find((preset) => preset.id === presetId) ??
@@ -158,7 +164,7 @@ export function ModelSettingsDialog({
       setAdding(false);
       setSearch("");
       setEditing(undefined);
-      setVerified(undefined);
+      setVerification(undefined);
       return;
     }
 
@@ -304,7 +310,7 @@ export function ModelSettingsDialog({
       });
       const rotated = apiKey.trim().length > 0;
       setApiKey("");
-      setVerified(undefined);
+      setVerification(undefined);
       await reload();
       if (rotated) await refresh(credential.id, true);
     } catch (saveError) {
@@ -377,13 +383,15 @@ export function ModelSettingsDialog({
   };
 
   const verify = async (group: ApiCatalogGroup, model: ApiCatalogModel) => {
+    const target = { credentialId: group.credentialProfileId, modelId: model.id };
     setBusy(true);
-    setVerified(undefined);
+    setVerification({ ...target, status: "testing" });
     setError(null);
     try {
-      await testModelConnection(group.credentialProfileId, model.id);
-      setVerified(JSON.stringify([group.credentialProfileId, model.id]));
+      await testModelConnection(target.credentialId, target.modelId);
+      setVerification({ ...target, status: "passed" });
     } catch (testError) {
+      setVerification(undefined);
       setError(operationError(testError, "测试调用失败"));
     } finally {
       setBusy(false);
@@ -419,7 +427,7 @@ export function ModelSettingsDialog({
       setConnectionOpen(false);
       setApiKey("");
       setSearch("");
-      setVerified(undefined);
+      setVerification(undefined);
       await reload();
       await queryClient.invalidateQueries({ queryKey: ["model-catalog"] });
     } catch (removeError) {
@@ -679,94 +687,28 @@ export function ModelSettingsDialog({
                   </p>
                 ) : (
                   <ul className="divide-y divide-line/70 px-3 sm:px-4">
-                    {models.map((model) => {
-                      const visible = model.visible !== false;
-                      const selectable = model.agentSelectable ?? model.contextWindow !== null;
-                      const selected =
-                        visible &&
-                        model.id === defaultSelection?.model &&
-                        activeGroup.credentialProfileId === defaultSelection.credentialProfileId;
-                      const verifiedModel =
-                        verified === JSON.stringify([activeGroup.credentialProfileId, model.id]);
-                      const unavailableReason = !selectable
-                        ? model.capabilities?.tools === false
-                          ? "不支持工具"
-                          : model.capabilities?.streaming === false
-                            ? "不支持流式"
-                            : model.contextWindow === null &&
-                                model.capabilities?.maxInputTokens === undefined
-                              ? "待补上下文"
-                              : "暂不可选"
-                        : null;
-                      return (
-                        <li
-                          key={model.id}
-                          className="grid gap-1.5 py-2.5 lg:flex lg:items-center lg:gap-3"
-                        >
-                          <div className="flex min-w-0 flex-wrap items-center gap-1.5 lg:flex-1">
-                            <span className="min-w-0 flex-1 break-words text-xs font-semibold">
-                              {model.label}
-                            </span>
-                            <ModelCapabilities model={model} />
-                            {!visible ? (
-                              <span className="text-[10px] text-ink-3">已隐藏</span>
-                            ) : null}
-                            {unavailableReason ? (
-                              <span className="text-[10px] text-warning">{unavailableReason}</span>
-                            ) : null}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1 lg:shrink-0">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              aria-label={`${model.label} 设为默认`}
-                              aria-pressed={selected}
-                              className={selected ? "bg-accent-soft text-accent" : undefined}
-                              disabled={busy || !visible || !selectable}
-                              onClick={() => void makeDefault(activeGroup, model)}
-                            >
-                              <Star
-                                size={12}
-                                aria-hidden="true"
-                                className={selected ? "fill-current text-accent" : ""}
-                              />
-                              {selected ? "新会话默认" : "设为默认"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={busy}
-                              onClick={() => editModel(activeGroup.credentialProfileId, model)}
-                            >
-                              详情
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={busy || !selectable}
-                              onClick={() => void verify(activeGroup, model)}
-                            >
-                              {verifiedModel ? "已验证" : "测试调用"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              aria-pressed={visible}
-                              aria-label={`${model.label} 在会话中显示`}
-                              disabled={busy}
-                              onClick={() => void toggleVisibility(activeGroup, model)}
-                              className="ml-auto"
-                            >
-                              {visible ? (
-                                <Eye size={13} aria-hidden="true" />
-                              ) : (
-                                <EyeOff size={13} aria-hidden="true" />
-                              )}
-                            </Button>
-                          </div>
-                        </li>
-                      );
-                    })}
+                    {models.map((model) => (
+                      <ModelSettingsRow
+                        key={`${activeGroup.credentialProfileId}:${model.id}`}
+                        model={model}
+                        isDefault={
+                          model.visible !== false &&
+                          model.id === defaultSelection?.model &&
+                          activeGroup.credentialProfileId === defaultSelection.credentialProfileId
+                        }
+                        busy={busy}
+                        verification={
+                          verification?.credentialId === activeGroup.credentialProfileId &&
+                          verification.modelId === model.id
+                            ? verification.status
+                            : undefined
+                        }
+                        makeDefault={() => void makeDefault(activeGroup, model)}
+                        edit={() => editModel(activeGroup.credentialProfileId, model)}
+                        verify={() => void verify(activeGroup, model)}
+                        toggleVisibility={() => void toggleVisibility(activeGroup, model)}
+                      />
+                    ))}
                   </ul>
                 )}
 
@@ -808,7 +750,7 @@ export function ModelSettingsDialog({
                 </div>
                 <div className="min-h-0 w-full max-w-[520px] flex-1 space-y-3 overflow-y-auto p-4">
                   <div className="flex flex-wrap gap-1">
-                    {[...new Set(presets.map((preset) => preset.provider))].map((option) => (
+                    {platforms.map((option) => (
                       <Button
                         key={option}
                         size="sm"

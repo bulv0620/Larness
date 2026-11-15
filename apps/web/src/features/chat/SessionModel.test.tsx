@@ -1,6 +1,6 @@
 import { TooltipProvider } from "@larness/ui";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { queryClient } from "@/lib/queries";
@@ -113,9 +113,7 @@ async function selectModel(
   await user.click(
     await screen.findByRole("button", { name: new RegExp(`模型与思考：${current}`) }),
   );
-  await user.click(
-    screen.getByRole("button", { name: next.startsWith("GLM") ? /^GLM / : /^DeepSeek / }),
-  );
+  await user.click(screen.getByRole("button", { name: `模型：${current}` }));
   await user.click(screen.getByRole("button", { name: new RegExp(next) }));
 }
 
@@ -203,6 +201,7 @@ it("persists thinking during an active turn and waits for saving before another 
   renderComposer();
 
   await user.click(await screen.findByRole("button", { name: "模型与思考：GLM-5.3 · 开启" }));
+  await user.click(screen.getByRole("button", { name: "思考强度：开启" }));
   await user.click(screen.getByRole("button", { name: "关闭" }));
   expect(api.updateSession).toHaveBeenCalledWith("ses_a", { ...glm, thinking: "off" });
   expect(api.createTurn).not.toHaveBeenCalled();
@@ -304,8 +303,9 @@ it("binds an identical model to the Key selected inside the picker", async () =>
   const trigger = await screen.findByRole("button", { name: "模型与思考：DeepSeek Flash" });
   expect(trigger).not.toHaveTextContent("Key");
   await user.click(trigger);
-  await user.click(screen.getByRole("button", { name: /另一把 Key.*套餐额度/ }));
-  await user.click(screen.getByRole("button", { name: "DeepSeek Flash" }));
+  await user.click(screen.getByRole("button", { name: "模型：DeepSeek Flash" }));
+  const options = screen.getByRole("list", { name: /另一把 Key/ });
+  await user.click(within(options).getByRole("button", { name: "DeepSeek Flash" }));
   await waitFor(() =>
     expect(api.updateSession).toHaveBeenCalledWith("ses_a", {
       ...deepseek,
