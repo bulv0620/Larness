@@ -352,7 +352,13 @@ export function Composer({
   };
 
   return (
-    <div className="relative rounded-[18px] border border-line bg-surface shadow-[var(--shadow-card)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:ring-2 focus-within:ring-accent/10">
+    <div
+      data-testid="composer-surface"
+      className={cn(
+        "relative rounded-[18px] border border-line shadow-[var(--shadow-card)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:ring-2 focus-within:ring-accent/10",
+        centered ? "bg-surface/65 backdrop-blur-md" : "bg-surface",
+      )}
+    >
       {switchNotice?.sessionId === sessionId ? (
         <p
           role="status"

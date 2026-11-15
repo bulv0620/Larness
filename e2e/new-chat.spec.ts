@@ -7,11 +7,19 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     const input = page.getByRole("textbox", { name: "对话输入" });
     const center = page.getByRole("main");
     const dock = page.getByTestId("composer-dock");
+    const backdrop = dock.getByTestId("welcome-backdrop");
+    const surface = dock.getByTestId("composer-surface");
     const historyPosition = (await input.boundingBox())?.y ?? 0;
     await expect(dock).toHaveAttribute("data-placement", "bottom");
     await page.getByRole("button", { name: /^新建会话/ }).click();
     await expect(dock).toHaveAttribute("data-placement", "center");
     await expect(center.getByRole("heading", { name: "今天想做什么？" })).toBeVisible();
+    await expect(backdrop).toBeVisible();
+    await expect(backdrop).toHaveCSS(
+      "animation-name",
+      reducedMotion === "reduce" ? "none" : "welcome-backdrop-expand",
+    );
+    await expect(surface).toHaveCSS("backdrop-filter", /blur\(/);
     expect((await input.boundingBox())?.y).toBeLessThan(historyPosition);
     if (reducedMotion === "reduce") {
       await page.setViewportSize({ width: 320, height: 540 });
@@ -43,6 +51,8 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     });
     await input.press("Enter");
     await expect(dock).toHaveAttribute("data-placement", "bottom");
+    await expect(backdrop).toHaveCount(0);
+    await expect(surface).toHaveCSS("backdrop-filter", "none");
     await expect(center.getByRole("heading", { name: "今天想做什么？" })).toHaveCount(0);
     await expect(center.getByText(/先帮我了解项目结构/)).toBeVisible();
     await expect(input).toBeFocused();
@@ -54,3 +64,38 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     }
   });
 }
+
+test("keeps the circular backdrop centered and the glass composer readable across themes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await page.getByRole("button", { name: /^新建会话/ }).click();
+  const dock = page.getByTestId("composer-dock");
+  const backdrop = dock.getByTestId("welcome-backdrop");
+  const surface = dock.getByTestId("composer-surface");
+  await expect(backdrop).toBeVisible();
+  await expect(backdrop).toHaveCSS("pointer-events", "none");
+  for (const height of [900, 440]) {
+    await page.setViewportSize({ width: 1440, height });
+    const circle = await backdrop.boundingBox();
+    const bounds = await dock.boundingBox();
+    if (!circle || !bounds) throw new Error("Missing new-chat layout");
+    expect(circle.width).toBeCloseTo(circle.height, 0);
+    expect(circle.height).toBeLessThanOrEqual(bounds.height);
+    expect(circle.x + circle.width / 2).toBeCloseTo(bounds.x + bounds.width / 2, 0);
+    expect(circle.y + circle.height / 2).toBeCloseTo(bounds.y + bounds.height / 2, 0);
+  }
+
+  const lightSurface = await surface.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  await page.getByRole("button", { name: "外观与主题" }).click();
+  await page.getByRole("menuitemradio", { name: "深色", exact: false }).click();
+  await expect(surface).not.toHaveCSS("background-color", lightSurface);
+  await expect(surface).toHaveCSS("backdrop-filter", /blur\(/);
+  const input = page.getByRole("textbox", { name: "对话输入" });
+  await input.click();
+  await expect(input).toBeFocused();
+});

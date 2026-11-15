@@ -1,6 +1,7 @@
-import { Bug, Code2, FolderSearch, Sparkles } from "lucide-react";
+import { Bug, Code2, FolderSearch } from "lucide-react";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
+import "./welcome-backdrop.css";
 
 const suggestions = [
   {
@@ -23,16 +24,25 @@ const suggestions = [
   },
 ];
 
+export function WelcomeBackdrop() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 grid place-items-center [container-type:size]"
+    >
+      <div
+        data-testid="welcome-backdrop"
+        className="welcome-backdrop relative aspect-square w-[min(100cqw,100cqh,620px)]"
+      />
+    </div>
+  );
+}
+
 export function WelcomeHeading() {
   return (
-    <div className="mb-5 flex flex-col items-center gap-3 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/20 bg-gradient-to-br from-accent-soft to-surface text-accent">
-        <Sparkles size={20} strokeWidth={1.7} aria-hidden="true" />
-      </div>
-      <h2 className="text-[23px] font-semibold tracking-tight text-ink sm:text-[27px]">
-        今天想做什么？
-      </h2>
-    </div>
+    <h2 className="mb-5 text-center text-[23px] font-semibold tracking-tight text-ink sm:text-[27px]">
+      今天想做什么？
+    </h2>
   );
 }
 

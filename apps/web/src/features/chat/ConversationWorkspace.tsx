@@ -23,7 +23,7 @@ import { Composer } from "./Composer";
 import { PendingApproval } from "./PendingApproval";
 import { RenameSessionDialog } from "./RenameSessionDialog";
 import { Timeline } from "./Timeline";
-import { WelcomeHeading, WelcomeSuggestions } from "./Welcome";
+import { WelcomeBackdrop, WelcomeHeading, WelcomeSuggestions } from "./Welcome";
 
 export function ConversationWorkspace() {
   const { data } = useSnapshot();
@@ -135,6 +135,7 @@ export function ConversationWorkspace() {
           centered ? "flex min-h-0 flex-1 flex-col overflow-y-auto py-5" : "shrink-0 pb-3 pt-1",
         )}
       >
+        {centered ? <WelcomeBackdrop /> : null}
         <div
           className={cn(
             "relative mx-auto flex w-full max-w-[760px] flex-col",

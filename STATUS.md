@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F20 新会话圆形背景**（`done`，`task/ui-f20-welcome-backdrop`，2026-11-15）：移除星标，圆形光晕、网格及圆点从中心展开，空态输入框使用毛玻璃。整仓检查复跑通过，Chromium 定向 6 项通过。见 [068 验收记录](specs/068-ui-fixes/tasks.md#ui-f202026-11-15windows)。
+
 - **GX-4 提交输入框图标按钮**（`done`，`task/gx-4-commit-icon`，2026-11-15）：圆形提交按钮位于输入框内右下角，浅色底色与侧栏可区分。认证 Chromium 和整仓检查复跑通过。用户验收本轮 GX-1～GX-4 并授权合并推送。
 
 - **GX-3 差异树缩进对齐**（`done`，`task/gx-3-align-tree-indent`，2026-11-15）：同层文件和目录共享图标及名称列，子项增加 12px 缩进。Windows 11 认证 Chromium、整仓构建和低并发复跑的整仓检查通过。见 [078 验收记录](specs/078-git-workflow/tasks.md#gx-3-验收记录)。
