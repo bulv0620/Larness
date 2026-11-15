@@ -15,6 +15,7 @@ import {
   setModelDefault,
   setModelVisibility,
   testModelConnection,
+  updateCredentialSettings,
 } from "@/lib/workspaceApi";
 import { ModelSettingsDialog } from "./ModelSettingsDialog";
 
@@ -442,4 +443,40 @@ it("shows visible capability labels and keeps Key editing inside separate dialog
   expect(
     within(screen.getByRole("dialog", { name: "管理 Key" })).getByLabelText("替换 API Key"),
   ).toHaveValue("");
+});
+
+it("groups compatible Key settings and keeps the save actions separate", async () => {
+  const compatible: ApiCredential = {
+    ...credential,
+    provider: "openai-compatible",
+    endpoint: "https://example.com/v1",
+    contextWindow: 128 * 1024,
+  };
+  vi.mocked(listCredentials).mockReset().mockResolvedValue([compatible]);
+  const user = userEvent.setup();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+
+  await user.click(await screen.findByRole("button", { name: "管理 Key" }));
+  const manage = within(screen.getByRole("dialog", { name: "管理 Key" }));
+  const connection = within(manage.getByRole("group", { name: "连接凭据" }));
+  expect(connection.getByLabelText("连接名称")).toHaveValue(compatible.label);
+  expect(connection.getByLabelText("替换 API Key")).toHaveAttribute("type", "password");
+  expect(manage.getByRole("button", { name: "保存连接" })).toBeEnabled();
+
+  const endpoint = within(manage.getByRole("group", { name: "兼容端点" }));
+  expect(endpoint.getByLabelText("兼容端点 URL")).toHaveValue(compatible.endpoint);
+  const contextWindow = endpoint.getByLabelText("兼容上下文窗口（K）");
+  await user.clear(contextWindow);
+  await user.type(contextWindow, "64");
+  await user.click(manage.getByRole("button", { name: "保存端点" }));
+  expect(updateCredentialSettings).toHaveBeenCalledWith(compatible.id, {
+    endpoint: compatible.endpoint,
+    contextWindow: 64 * 1024,
+  });
 });

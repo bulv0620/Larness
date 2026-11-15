@@ -820,52 +820,45 @@ export function ModelSettingsDialog({
           >
             <DialogContent overlayClassName="z-[310]" className={settingsSubdialog}>
               <DialogTitle>管理 Key</DialogTitle>
-              <DialogDescription className="break-all">
-                {activeCredential.label} · {activeCredential.masked} ·{" "}
-                {activeCredential.endpoint ?? "官方端点"}
+              <DialogDescription className="wrap-anywhere">
+                {activeCredential.masked} · {activeCredential.endpoint ?? "官方端点"}
               </DialogDescription>
               <ErrorMessage message={error} onDismiss={() => setError(null)} />
-              <div className="flex flex-wrap items-end gap-2">
+              <fieldset className="min-w-0 space-y-3">
+                <legend className="sr-only">连接凭据</legend>
                 <label
                   htmlFor={`${fieldId}-connection-label`}
-                  className="min-w-[120px] flex-1 text-xs"
+                  className="block text-[10.5px] font-semibold text-ink-3"
                 >
                   连接名称
                   <Input
                     id={`${fieldId}-connection-label`}
-                    className="mt-1"
                     value={label}
                     onChange={(event) => setLabel(event.target.value)}
+                    className="mt-1 text-[11px]"
                   />
                 </label>
                 <label
                   htmlFor={`${fieldId}-replacement-key`}
-                  className="min-w-[120px] flex-1 text-xs"
+                  className="block text-[10.5px] font-semibold text-ink-3"
                 >
                   替换 API Key
                   <Input
                     id={`${fieldId}-replacement-key`}
-                    className="mt-1"
                     type="password"
                     autoComplete="off"
                     value={apiKey}
                     onChange={(event) => setApiKey(event.target.value)}
+                    className="mt-1 font-mono text-[11px]"
                   />
                 </label>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={busy || !label.trim()}
-                  onClick={() => void editConnection(activeCredential)}
-                >
-                  保存连接
-                </Button>
-              </div>
+              </fieldset>
               {activeCredential.provider === "openai-compatible" ? (
-                <div className="flex flex-wrap items-end gap-2 border-t border-line pt-2">
+                <fieldset className="min-w-0 space-y-3">
+                  <legend className="sr-only">兼容端点</legend>
                   <label
                     htmlFor={`${fieldId}-endpoint-edit`}
-                    className="min-w-[120px] flex-1 text-xs"
+                    className="block text-[10.5px] font-semibold text-ink-3"
                   >
                     端点 URL
                     <Input
@@ -873,20 +866,36 @@ export function ModelSettingsDialog({
                       aria-label="兼容端点 URL"
                       value={endpointDraft}
                       onChange={(event) => setEndpointDraft(event.target.value)}
-                      className="mt-1 font-mono"
+                      className="mt-1 font-mono text-[11px]"
                     />
                   </label>
-                  <label htmlFor={`${fieldId}-window-edit`} className="w-24 text-xs">
-                    窗口（K）
+                  <label
+                    htmlFor={`${fieldId}-window-edit`}
+                    className="block text-[10.5px] font-semibold text-ink-3"
+                  >
+                    上下文窗口（K）
                     <Input
                       id={`${fieldId}-window-edit`}
                       aria-label="兼容上下文窗口（K）"
                       value={windowDraft}
                       onChange={(event) => setWindowDraft(event.target.value)}
                       inputMode="numeric"
-                      className="mt-1 font-mono"
+                      className="mt-1 font-mono text-[11px]"
                     />
                   </label>
+                </fieldset>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={busy || !label.trim()}
+                  onClick={() => void editConnection(activeCredential)}
+                >
+                  保存连接
+                </Button>
+                {activeCredential.provider === "openai-compatible" ? (
                   <Button
                     size="sm"
                     variant="secondary"
@@ -895,14 +904,13 @@ export function ModelSettingsDialog({
                   >
                     保存端点
                   </Button>
-                </div>
-              ) : null}
-
-              <DialogClose asChild>
-                <Button variant="ghost" size="sm" disabled={busy}>
-                  取消
-                </Button>
-              </DialogClose>
+                ) : null}
+                <DialogClose asChild>
+                  <Button variant="ghost" size="sm" disabled={busy}>
+                    取消
+                  </Button>
+                </DialogClose>
+              </div>
             </DialogContent>
           </Dialog>
         ) : null}
