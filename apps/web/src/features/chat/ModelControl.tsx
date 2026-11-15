@@ -1,7 +1,6 @@
 import { cn } from "@larness/ui";
 import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { providerLabel } from "@/features/models/catalogView";
 import { compactModelWindow } from "@/features/models/ModelCapabilities";
 import type { ApiCatalogGroup, ApiCatalogModel } from "@/lib/workspaceApi";
 
@@ -192,7 +191,7 @@ export function ModelControl({
                             id={headingId}
                             className="truncate px-2.5 pb-0.5 pt-1.5 text-[10px] text-ink-3"
                           >
-                            {providerLabel(group.provider)} · {group.credentialLabel}
+                            {group.credentialLabel}
                           </div>
                           <ul aria-labelledby={headingId}>
                             {group.models.length === 0 ? (

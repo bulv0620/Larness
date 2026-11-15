@@ -151,7 +151,7 @@ test("keeps a screenshot draft across model switches and replays the sent image"
       await picker.screenshot({ path: test.info().outputPath("mobile-model-menu.png") });
     }
     await picker.getByRole("button", { name: /^模型：/ }).click();
-    await expect(picker.getByText("DeepSeek · E2E Key", { exact: true })).toBeVisible();
+    await expect(picker.getByText("E2E Key", { exact: true })).toBeVisible();
     await picker.getByRole("button", { name, exact: true }).click();
   };
   await select("DeepSeek Chat");
