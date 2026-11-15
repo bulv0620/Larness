@@ -71,6 +71,7 @@ export function ConversationWorkspace() {
     (item) => item.id === sessionId,
   );
   const project = data.projects.find((item) => item.id === projectId);
+  const workspaceLabel = project?.name ?? unassignedWorkspaceLabel(sessionId, data.sessions);
   const archive = async () => {
     if (!session || USE_MOCKS) return;
     try {
@@ -89,7 +90,7 @@ export function ConversationWorkspace() {
       <header className="flex h-12 shrink-0 items-center gap-3 px-4 sm:px-7">
         <h1 className="min-w-0 truncate text-[12px] font-medium">{session?.title ?? "新会话"}</h1>
         <span className="ml-auto hidden max-w-[40%] truncate text-[11px] text-ink-3 md:block">
-          {project?.name ?? unassignedWorkspaceLabel(sessionId, data.sessions)}
+          {workspaceLabel}
         </span>
         <div className="ml-auto flex items-center gap-0.5 md:ml-0">
           <IconButton
@@ -132,7 +133,9 @@ export function ConversationWorkspace() {
         data-placement={centered ? "center" : "bottom"}
         className={cn(
           "relative px-4 sm:px-7",
-          centered ? "flex min-h-0 flex-1 flex-col overflow-y-auto py-5" : "shrink-0 pb-3 pt-1",
+          centered
+            ? "flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto py-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            : "shrink-0 pb-3 pt-1",
         )}
       >
         {centered ? <WelcomeBackdrop /> : null}
@@ -142,7 +145,7 @@ export function ConversationWorkspace() {
             centered && "my-auto shrink-0",
           )}
         >
-          {centered ? <WelcomeHeading /> : null}
+          {centered ? <WelcomeHeading workspaceLabel={workspaceLabel} /> : null}
           {centered ? null : <ResourceDock />}
           <PendingApproval />
           <div ref={composerRef} data-composer-motion className="relative z-10 min-w-0">

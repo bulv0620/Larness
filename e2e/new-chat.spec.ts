@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const welcomeTitle = "想在 larness-web 中做些什么？";
+
 for (const reducedMotion of ["no-preference", "reduce"] as const) {
   test(`centers new chats and docks the same composer with ${reducedMotion}`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion });
@@ -13,13 +15,21 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     await expect(dock).toHaveAttribute("data-placement", "bottom");
     await page.getByRole("button", { name: /^新建会话/ }).click();
     await expect(dock).toHaveAttribute("data-placement", "center");
-    await expect(center.getByRole("heading", { name: "今天想做什么？" })).toBeVisible();
+    await expect(dock).toHaveCSS("scrollbar-width", "none");
+    await expect(center).toHaveCSS("backdrop-filter", "none");
+    const heading = center.getByRole("heading", { name: welcomeTitle });
+    await expect(heading).toBeVisible();
     await expect(backdrop).toBeVisible();
     await expect(backdrop).toHaveCSS(
       "animation-name",
       reducedMotion === "reduce" ? "none" : "welcome-backdrop-expand",
     );
     await expect(surface).toHaveCSS("backdrop-filter", /blur\(/);
+    await expect(heading).toHaveCSS("margin-bottom", "24px");
+    const waveAnimation = await backdrop.evaluate(
+      (element) => getComputedStyle(element, "::before").animationName,
+    );
+    expect(waveAnimation).toBe(reducedMotion === "reduce" ? "none" : "welcome-wave-drift");
     expect((await input.boundingBox())?.y).toBeLessThan(historyPosition);
     if (reducedMotion === "reduce") {
       await page.setViewportSize({ width: 320, height: 540 });
@@ -51,9 +61,15 @@ for (const reducedMotion of ["no-preference", "reduce"] as const) {
     });
     await input.press("Enter");
     await expect(dock).toHaveAttribute("data-placement", "bottom");
+    await expect(center).toHaveCSS("backdrop-filter", "none");
     await expect(backdrop).toHaveCount(0);
     await expect(surface).toHaveCSS("backdrop-filter", "none");
-    await expect(center.getByRole("heading", { name: "今天想做什么？" })).toHaveCount(0);
+    await expect(center.getByRole("heading", { name: welcomeTitle })).toHaveCount(0);
+    for (const side of ["top", "bottom"]) {
+      const edge = center.locator(`.conversation-scroll-edge-${side}`);
+      await expect(edge).toHaveCSS("backdrop-filter", "blur(4px)");
+      await expect(edge).toHaveCSS("pointer-events", "none");
+    }
     await expect(center.getByText(/先帮我了解项目结构/)).toBeVisible();
     await expect(input).toBeFocused();
     expect(await inputNode?.evaluate((node) => node === document.activeElement)).toBe(true);
@@ -79,13 +95,19 @@ test("keeps the circular backdrop centered and the glass composer readable acros
   await expect(backdrop).toHaveCSS("pointer-events", "none");
   for (const height of [900, 440]) {
     await page.setViewportSize({ width: 1440, height });
-    const circle = await backdrop.boundingBox();
-    const bounds = await dock.boundingBox();
-    if (!circle || !bounds) throw new Error("Missing new-chat layout");
-    expect(circle.width).toBeCloseTo(circle.height, 0);
-    expect(circle.height).toBeLessThanOrEqual(bounds.height);
-    expect(circle.x + circle.width / 2).toBeCloseTo(bounds.x + bounds.width / 2, 0);
-    expect(circle.y + circle.height / 2).toBeCloseTo(bounds.y + bounds.height / 2, 0);
+    await expect(async () => {
+      const circle = await backdrop.boundingBox();
+      const bounds = await dock.boundingBox();
+      if (!circle || !bounds) throw new Error("Missing new-chat layout");
+      expect(circle.width).toBeCloseTo(circle.height, 0);
+      expect(circle.height).toBeLessThanOrEqual(bounds.height);
+      expect(circle.x + circle.width / 2).toBeCloseTo(bounds.x + bounds.width / 2, 0);
+      expect(circle.y + circle.height / 2).toBeCloseTo(bounds.y + bounds.height / 2, 0);
+      const overflow = await dock.evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      );
+      expect(overflow).toBeLessThanOrEqual(1);
+    }).toPass({ timeout: 2000 });
   }
 
   const lightSurface = await surface.evaluate(

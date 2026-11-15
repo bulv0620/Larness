@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **UI-F21 新会话动效调整**（`done`，`task/ui-f21-welcome-motion`，2026-11-15）：波浪光晕、工作区标题、增加 4px 的标题间距和无滚动条空态已由用户验收。恢复原聊天背景，Chromium 定向 6 项及整仓检查复跑通过。用户授权合并推送。见 [068 验收记录](specs/068-ui-fixes/tasks.md#ui-f212026-11-15windows)。
+
 - **UI-F20 新会话圆形背景**（`done`，`task/ui-f20-welcome-backdrop`，2026-11-15）：移除星标，圆形光晕、网格及圆点从中心展开，空态输入框使用毛玻璃。整仓检查复跑通过，Chromium 定向 6 项通过。见 [068 验收记录](specs/068-ui-fixes/tasks.md#ui-f202026-11-15windows)。
 
 - **GX-4 提交输入框图标按钮**（`done`，`task/gx-4-commit-icon`，2026-11-15）：圆形提交按钮位于输入框内右下角，浅色底色与侧栏可区分。认证 Chromium 和整仓检查复跑通过。用户验收本轮 GX-1～GX-4 并授权合并推送。

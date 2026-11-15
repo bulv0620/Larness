@@ -28,20 +28,20 @@ export function WelcomeBackdrop() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 grid place-items-center [container-type:size]"
+      className="pointer-events-none absolute inset-0 grid place-items-center overflow-clip [container-type:size]"
     >
       <div
         data-testid="welcome-backdrop"
-        className="welcome-backdrop relative aspect-square w-[min(100cqw,100cqh,620px)]"
+        className="welcome-backdrop relative aspect-square w-[min(100cqw,100cqh,700px)]"
       />
     </div>
   );
 }
 
-export function WelcomeHeading() {
+export function WelcomeHeading({ workspaceLabel }: { workspaceLabel: string }) {
   return (
-    <h2 className="mb-5 text-center text-[23px] font-semibold tracking-tight text-ink sm:text-[27px]">
-      今天想做什么？
+    <h2 className="mb-6 text-balance text-center text-[20px] font-semibold tracking-tight text-ink [overflow-wrap:anywhere] sm:text-[27px]">
+      想在 {workspaceLabel} 中做些什么？
     </h2>
   );
 }
