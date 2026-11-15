@@ -136,8 +136,24 @@ test("real Git panel batches a collapsed folder, commits, pushes and pulls witho
     await expect(gitPanel.getByRole("button", { name: "取消暂存 a.txt" })).toBeVisible({
       timeout: 15000,
     });
-    await page.getByLabel("提交信息").fill("UI commit");
-    await page.getByRole("button", { name: /提交已暂存/ }).click();
+    const commitInput = gitPanel.getByLabel("提交信息");
+    await expect(commitInput).toHaveCSS("background-color", "rgb(255, 255, 255)");
+    await commitInput.fill("UI commit");
+    const commitButton = gitPanel.getByRole("button", { name: /提交已暂存/ });
+    const inputBox = await commitInput.boundingBox();
+    const buttonBox = await commitButton.boundingBox();
+    if (!inputBox || !buttonBox) throw new Error("Git commit controls are hidden");
+    expect(buttonBox.x + buttonBox.width).toBeCloseTo(inputBox.x + inputBox.width - 8);
+    expect(buttonBox.y + buttonBox.height).toBeCloseTo(inputBox.y + inputBox.height - 8);
+    expect(buttonBox.width).toBe(buttonBox.height);
+    await commitInput.blur();
+    const panelBox = await gitPanel.boundingBox();
+    if (!panelBox) throw new Error("Git panel is hidden");
+    await page.screenshot({
+      path: path.join(tmpdir(), "larness-gx-4-commit-background.png"),
+      clip: { ...panelBox, height: inputBox.y + inputBox.height - panelBox.y + 30 },
+    });
+    await commitButton.click();
     await expect(
       gitPanel.getByRole("button", { name: "提交已暂存 (0)", exact: true }),
     ).toBeDisabled({ timeout: 15000 });

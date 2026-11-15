@@ -182,33 +182,34 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
   };
   return (
     <div data-testid="git-panel" className="relative flex h-full min-h-0 flex-col px-1 pb-1">
-      <div className="shrink-0 space-y-2 px-1 pb-2">
-        <Textarea
-          aria-label="提交信息"
-          value={message}
-          disabled={busy}
-          onChange={(event) => setMessage(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              commit();
-            }
-          }}
-          rows={2}
-          placeholder="提交信息（⌘ / Ctrl + Enter）"
-          className="resize-none py-2 text-[11px] focus:outline-none"
-        />
-        <button
-          type="button"
-          title="仅提交已暂存的更改"
-          aria-label={`提交已暂存 (${staged.length})`}
-          disabled={disabled || !message.trim() || !staged.length}
-          onClick={commit}
-          className="flex h-8 w-full items-center justify-center gap-1.5 rounded-lg bg-accent text-[11px] font-medium text-white transition-opacity disabled:opacity-40"
-        >
-          <Check size={14} />
-          提交
-        </button>
+      <div className="shrink-0 px-1 pb-2">
+        <div className="relative">
+          <Textarea
+            aria-label="提交信息"
+            value={message}
+            disabled={busy}
+            onChange={(event) => setMessage(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                commit();
+              }
+            }}
+            rows={2}
+            placeholder="提交信息（⌘ / Ctrl + Enter）"
+            className="block resize-none border-line-strong bg-surface pt-2 pb-10 text-[11px]"
+          />
+          <button
+            type="button"
+            title="仅提交已暂存的更改"
+            aria-label={`提交已暂存 (${staged.length})`}
+            disabled={disabled || !message.trim() || !staged.length}
+            onClick={commit}
+            className="absolute right-2 bottom-2 grid size-7 place-items-center rounded-full bg-accent text-white transition-opacity enabled:hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:opacity-40"
+          >
+            <Check size={14} />
+          </button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">
         {(
