@@ -110,8 +110,9 @@ async function addKey() {
   );
   await screen.findByText("还没有 Key。添加后即可同步官方模型目录。");
   fireEvent.click(screen.getByRole("button", { name: "添加 Key" }));
-  fireEvent.change(screen.getByLabelText("API Key"), { target: { value: "placeholder" } });
-  fireEvent.click(screen.getByRole("button", { name: "添加" }));
+  const dialog = screen.getByRole("dialog", { name: "添加 Key" });
+  fireEvent.change(within(dialog).getByLabelText("API Key"), { target: { value: "placeholder" } });
+  fireEvent.click(within(dialog).getByRole("button", { name: /^添加$/ }));
   return invalidateQueries;
 }
 
@@ -398,4 +399,34 @@ it("shows pending feedback for the model under test, then clears it on failure",
   rejectAttempt(new Error("unavailable"));
   expect(await screen.findByRole("alert")).toHaveTextContent("测试调用失败");
   expect(screen.queryByText("测试中…")).toBeNull();
+});
+
+it("shows visible capability labels and keeps Key editing inside separate dialogs", async () => {
+  vi.mocked(listCredentials).mockReset().mockResolvedValue([credential]);
+  vi.mocked(listModelCatalog)
+    .mockReset()
+    .mockResolvedValue({ ...synced, groups: [synced] });
+  const user = userEvent.setup();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <ModelSettingsDialog open onOpenChange={vi.fn()} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  fireEvent.contextMenu(await screen.findByRole("button", { name: "测试模型" }));
+  await user.click(screen.getByRole("menuitem", { name: "详情" }));
+  const details = screen.getByRole("dialog", { name: "模型能力" });
+  for (const label of ["工具调用", "截图输入", "思考模式"]) {
+    expect(within(details).getByText(label, { exact: true })).toBeVisible();
+  }
+  await user.keyboard("{Escape}");
+  await user.click(screen.getByRole("button", { name: "管理 Key" }));
+  const manage = screen.getByRole("dialog", { name: "管理 Key" });
+  await user.type(within(manage).getByLabelText("替换 API Key"), "placeholder");
+  await user.click(within(manage).getByRole("button", { name: "取消" }));
+  await user.click(screen.getByRole("button", { name: "管理 Key" }));
+  expect(
+    within(screen.getByRole("dialog", { name: "管理 Key" })).getByLabelText("替换 API Key"),
+  ).toHaveValue("");
 });

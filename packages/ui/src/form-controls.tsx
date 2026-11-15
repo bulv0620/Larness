@@ -59,6 +59,7 @@ interface SelectOption<Value extends string> {
 
 interface FormSelectProps<Value extends string> {
   label: string;
+  showLabel?: boolean;
   value: Value;
   options: readonly SelectOption<Value>[];
   onValueChange: (value: Value) => void;
@@ -69,6 +70,7 @@ interface FormSelectProps<Value extends string> {
 
 export function FormSelect<Value extends string>({
   label,
+  showLabel,
   value,
   options,
   onValueChange,
@@ -79,7 +81,7 @@ export function FormSelect<Value extends string>({
   const valueId = useId();
   const selection = options.find((option) => option.value === value);
 
-  return (
+  const control = (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
         aria-label={label}
@@ -116,5 +118,14 @@ export function FormSelect<Value extends string>({
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+
+  return showLabel ? (
+    <div>
+      <p className="mb-1 text-xs">{label}</p>
+      {control}
+    </div>
+  ) : (
+    control
   );
 }

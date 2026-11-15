@@ -5,6 +5,8 @@
 
 ## 当前任务
 
+- **MC-11 能力标签和 Key 弹窗**（`done`，`task/mc-11-model-settings-dialogs`，2026-11-15）：统一设置子弹窗。
+
 - **MC-10 会话两级菜单和设置列表精简**（`done`，`task/mc-10-model-menu-refinements`，2026-11-15）：恢复会话模型和思考强度两级菜单。设置使用模型行右键操作、默认星标、测试中反馈，兼容入口置末。整仓检查、构建、开发认证和生产 M1 Chromium（各 4 项）通过。
 
 - **MC-9 Key 分组界面**（`done`，`task/mc-9-key-first-model-ui`，2026-11-15）：设置按 Key 管理与浏览模型，会话展开按 Key 选择，收起只显示模型和思考档位。整仓检查、构建、认证及生产 M1 Chromium（各 4 项）通过。
