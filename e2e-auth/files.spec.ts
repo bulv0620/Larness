@@ -132,7 +132,7 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await resources.getByRole("button", { name: "快速打开文件" }).click();
     await search.press("Escape");
     await expect(quickOpen).toHaveCount(0);
-    await page.getByRole("button", { name: "打开文件 bom.txt", exact: true }).click();
+    await page.getByRole("button", { name: "打开文件 bom.txt", exact: true }).dblclick();
     const vercelIcon = resources
       .getByRole("button", { name: "打开文件 vercel.json" })
       .locator("[style*='--file-icon']");
@@ -169,15 +169,15 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     );
     await page.getByRole("button", { name: "关闭 syntax.ts" }).click();
     const bomTab = page.getByRole("tab", { name: /^bom\.txt/ });
-    await expect(bomTab.locator("span.italic")).toHaveText("bom.txt");
+    await expect(bomTab.locator("span.italic")).toHaveCount(0);
+    await page.getByRole("button", { name: "关闭 bom.txt" }).click();
     const noteRow = page.getByRole("button", { name: "打开文件 note.txt", exact: true });
     await noteRow.click();
-    await expect(bomTab).toHaveCount(0);
-    const noteTab = page.getByRole("tab", { name: /^note\.txt/ });
-    await expect(noteTab.locator("span.italic")).toHaveText("note.txt");
+    await expect(page.getByRole("tab", { name: /^note\.txt/ })).toHaveCount(0);
     await noteRow.dblclick();
-    await expect(noteTab.locator("span.italic")).toHaveCount(0);
+    const noteTab = page.getByRole("tab", { name: /^note\.txt/ });
     await expect(noteTab).toBeVisible();
+    await expect(noteTab.locator("span.italic")).toHaveCount(0);
     const editor = page.getByRole("textbox", { name: "文件内容", exact: true });
     await expect(editor).toBeVisible({ timeout: 30_000 });
     await editor.focus();
@@ -251,11 +251,11 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await confirm.getByRole("button", { name: "保存并关闭", exact: true }).click();
     await expect.poll(() => readFileSync(file, "utf8")).toBe("merged\r\n");
     await expect(editor).toHaveCount(0);
-    await page.getByRole("button", { name: "打开文件 large.txt", exact: true }).click();
+    await page.getByRole("button", { name: "打开文件 large.txt", exact: true }).dblclick();
     await expect(page.getByRole("alert").filter({ hasText: "不支持编辑" })).toBeVisible();
     expect(readFileSync(path.join(root, "large.txt")).length).toBe(512 * 1024 + 1);
     expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain("unsaved draft");
-    await page.getByRole("button", { name: "打开文件 bom.txt", exact: true }).click();
+    await page.getByRole("button", { name: "打开文件 bom.txt", exact: true }).dblclick();
     await expect(editor).toBeVisible();
     await replaceEditor(page, "BOM saved\r\n");
     await page.getByRole("button", { name: "保存文件", exact: true }).click();
@@ -272,7 +272,7 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     ).toBe(true);
     await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
     await page.getByRole("button", { name: "目录 sub", exact: true }).click();
-    await page.getByRole("button", { name: "打开文件 child.txt", exact: true }).click();
+    await page.getByRole("button", { name: "打开文件 child.txt", exact: true }).dblclick();
     await expect(editor).toBeVisible();
     await page.getByRole("tab", { name: /^bom\.txt/ }).click();
     await expect(page.locator(".view-lines").first()).toContainText("BOM draft");
@@ -288,9 +288,9 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await page.screenshot({ path: path.join(tmpdir(), "larness-fr-1-file-tree.png") });
     await childRow.press("ArrowLeft");
     await expect(resources.getByRole("button", { name: "目录 sub" })).toBeFocused();
-    await expect(page.getByRole("tab", { name: /^child\.txt/ }).locator("span.italic")).toHaveText(
-      "child.txt",
-    );
+    const childTab = page.getByRole("tab", { name: /^child\.txt/ });
+    await expect(childTab).toBeVisible();
+    await expect(childTab.locator("span.italic")).toHaveCount(0);
     expect(readFileSync(path.join(root, "bom.txt"), "utf8")).toBe("\uFEFFBOM saved\r\n");
     writeFileSync(child, "external child\n");
     await expect(page.locator(".view-lines").first()).toContainText("external child", {
@@ -425,7 +425,7 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
         .toBe("draft follows rename and move");
       const movedRow = observer.getByRole("button", { name: "打开文件 moved.txt" });
       await expect(movedRow).toBeVisible();
-      await movedRow.click();
+      await movedRow.dblclick();
       await expect(observer.locator(".view-lines")).toContainText("draft follows rename and move");
     } finally {
       await observerContext.close();

@@ -89,7 +89,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
   }, []);
   useFileWatch(scope, expanded);
 
-  const open = (path: string, preview: boolean) => {
+  const open = (path: string) => {
     pendingOpen.current?.abort();
     pendingOpen.current = new AbortController();
     const { signal } = pendingOpen.current;
@@ -98,7 +98,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
       scope,
       path,
       "projectId" in scope ? "project" : "workspace" in scope ? "global" : "session",
-      { preview, signal, treeWidth },
+      { signal, treeWidth },
     ).catch((error: unknown) => {
       if (!signal.aborted) setError(fileError(error));
     });
@@ -241,7 +241,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
         );
       }
       navigation.revealFile(id, result.path);
-      if (action === "createFile") open(result.path, false);
+      if (action === "createFile") open(result.path);
     } catch (error) {
       if (error instanceof ApiError && error.status < 500) request.current = null;
       if (
@@ -322,7 +322,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
         break;
       case "Enter":
         if (isFolder) return;
-        open(path, false);
+        open(path);
         break;
       default:
         return;
@@ -476,7 +476,7 @@ interface DirectoryProps {
   select: (path: string) => void;
   copy: (path: string) => void;
   chat: (path: string) => void;
-  open: (path: string, preview: boolean) => void;
+  open: (path: string) => void;
   reveal: string | null;
   finishReveal: (path: string | null) => void;
   edit: Edit | null;
@@ -577,9 +577,8 @@ function Directory(props: DirectoryProps) {
             onClick={() => {
               select(entry.path);
               if (directory) toggle(entry.path);
-              else open(entry.path, true);
             }}
-            onDoubleClick={directory ? undefined : () => open(entry.path, false)}
+            onDoubleClick={directory ? undefined : () => open(entry.path)}
           >
             {directory ? (
               <>

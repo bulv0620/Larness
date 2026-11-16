@@ -26,8 +26,17 @@
 | UI-F20 | 新会话背景和输入框 | 圆形光晕、网格、圆点，空态输入框毛玻璃 | UI-F19、UI-F9 | done |
 | UI-F21 | 新会话呈现调整 | 波浪光晕、工作区标题和空态隐藏滚动条 | UI-F20、M2-18 | done |
 | UI-F22 | 添加项目 | 浏览即选中、切换磁盘 / 卷及失败恢复 | M1-9 | done |
+| UI-F23 | 文件树打开 | 单击仅选中，双击打开普通文件 Tab | UI-F22 | done |
 
 ## 验收记录
+
+### UI-F23（2026-11-16，macOS）
+
+- 先写组件回归确认旧实现单击即调用 `readFile`；改为单击仅选中、双击打开普通 Tab，新增文件与 Enter 沿用普通 Tab。Mock 文件树同步选择态与双击打开。
+- 文件树不再产生可替换预览 Tab；旧本地布局恢复的预览 Tab 仍沿用原替换与固定规则。认证 Chromium 文件流程因原“打开另一文件替换预览”的步骤改为显式关闭前一个 Tab，并新增“单击不打开、双击打开”断言。
+- Web 定向 3 项、Web 全量 45 文件 247 项、Web typecheck、改动文件 Biome 通过。Mock Chromium 资源区 1 项、认证 Chromium 文件流程与默认工作区各 1 项通过。
+- `VITEST_MAX_WORKERS=2 pnpm check`：Biome（仅既有 warning）、全仓 typecheck、Web 247 项、Agent 59 项通过；Server 702 通过、14 跳过、1 失败。失败为 `service-ops.test.ts` 预览 resolve 断言期望 503 实际 400，单独复跑同样失败。本任务未改 Server 代码，该断言在历史验收中已有干净 main 复现记录，按既有环境问题记录。
+- 未运行整套浏览器测试、生产构建及 Windows 实机验证。
 
 ### UI-F22（2026-11-15，Windows）
 

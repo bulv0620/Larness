@@ -268,7 +268,7 @@ test.describe("Larness S0 视觉 Demo", () => {
   test("资源区切换文件时保留窗口和 Monaco 只读预览", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 1080 });
     const resources = page.getByLabel("项目资源", { exact: true });
-    await resources.getByText("AppShell.tsx", { exact: true }).click();
+    await resources.getByText("AppShell.tsx", { exact: true }).dblclick();
     await expect(page.locator(".monaco-editor")).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(".view-lines")).toContainText("ConversationWorkspace");
     await expect(page.getByText("只读预览")).toBeVisible();
@@ -287,7 +287,7 @@ test.describe("Larness S0 视觉 Demo", () => {
         { capture: true, once: true },
       );
     });
-    await resources.getByText("README.md", { exact: true }).click();
+    await resources.getByText("README.md", { exact: true }).dblclick();
     const reopened = page.getByRole("dialog", { name: "README.md", exact: true });
     await expect(reopened.getByRole("tab", { name: "README.md", selected: true })).toBeVisible();
     await expect(reopened).toHaveAttribute("data-animating-on-pointer-down", "false");

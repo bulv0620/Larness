@@ -66,6 +66,35 @@ it("reveals a file beyond the first page and keeps expansion scoped to the proje
   );
 });
 
+it("opens files only on double click", async () => {
+  vi.mocked(api.listDirectory).mockResolvedValue({
+    revision,
+    items: [{ path: "note.txt", name: "note.txt", type: "file" }],
+    nextCursor: null,
+  });
+  const read = vi.spyOn(api, "readFile").mockResolvedValue({
+    path: "note.txt",
+    realPath: "/p/note.txt",
+    version: revision,
+    content: "",
+    size: 0,
+    encoding: "utf-8",
+  });
+  render(tree("p"));
+  const row = await screen.findByRole("button", { name: "打开文件 note.txt" });
+
+  fireEvent.click(row);
+  expect(row).toHaveAttribute("aria-current", "true");
+  expect(read).not.toHaveBeenCalled();
+  expect(useWindowStore.getState().windows).toHaveLength(0);
+
+  await act(async () => fireEvent.doubleClick(row));
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(useWindowStore.getState().windows[0]?.tabs.map((tab) => [tab.title, tab.preview])).toEqual(
+    [["note.txt", false]],
+  );
+});
+
 it("ignores a slower open when the user clicks a different file", async () => {
   vi.mocked(api.listDirectory).mockResolvedValue({
     revision,
@@ -92,8 +121,10 @@ it("ignores a slower open when the user clicks a different file", async () => {
     path === "slow.txt" ? slow : document,
   );
   render(tree("p"));
-  fireEvent.click(await screen.findByRole("button", { name: "打开文件 slow.txt" }));
-  await act(async () => fireEvent.click(screen.getByRole("button", { name: "打开文件 fast.txt" })));
+  fireEvent.doubleClick(await screen.findByRole("button", { name: "打开文件 slow.txt" }));
+  await act(async () =>
+    fireEvent.doubleClick(screen.getByRole("button", { name: "打开文件 fast.txt" })),
+  );
   await act(async () => resolveSlow({ ...document, path: "slow.txt", realPath: "/p/slow.txt" }));
   expect(useWindowStore.getState().windows[0]?.tabs.map((tab) => tab.title)).toEqual(["fast.txt"]);
 });

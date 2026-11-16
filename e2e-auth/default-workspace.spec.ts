@@ -82,7 +82,7 @@ test("M2-10 default workspace shares files, sessions and terminal views across p
     await page.getByRole("button", { name: "终端操作" }).click();
     await page.getByRole("menuitem", { name: "释放输入权" }).click();
     await page.getByRole("button", { name: "隐藏窗口", exact: true }).click();
-    await page.getByRole("button", { name: "打开文件 default-note.txt", exact: true }).click();
+    await page.getByRole("button", { name: "打开文件 default-note.txt", exact: true }).dblclick();
     const editor = page.locator(".monaco-editor");
     await expect(editor).toBeVisible();
     await expect(page.locator(".view-lines").first()).toContainText("seed");

@@ -12,6 +12,7 @@ function iconFor(path: string) {
 export function DemoFileTreePanel({ projectId }: { projectId: string | null }) {
   const open = useWindowStore((state) => state.open);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [selected, setSelected] = useState<string | null>(null);
 
   const toggleDirectory = (path: string) => {
     setCollapsed((current) => {
@@ -38,24 +39,27 @@ export function DemoFileTreePanel({ projectId }: { projectId: string | null }) {
           <button
             key={node.path}
             type="button"
+            aria-current={selected === node.path ? true : undefined}
             onClick={() => {
-              if (node.type === "file") {
-                open({
-                  kind: "files",
-                  resourceId: node.path,
-                  title: node.name,
-                  projectId,
-                  source: "project",
-                });
-              } else {
-                toggleDirectory(node.path);
-              }
+              setSelected(node.path);
+              if (node.type === "directory") toggleDirectory(node.path);
+            }}
+            onDoubleClick={() => {
+              if (node.type !== "file") return;
+              open({
+                kind: "files",
+                resourceId: node.path,
+                title: node.name,
+                projectId,
+                source: "project",
+              });
             }}
             className={cn(
               "flex h-[26px] w-full items-center gap-1.5 rounded-md px-1.5 text-left text-[11.5px] transition-colors",
               node.type === "directory"
                 ? "text-ink-2 hover:bg-black/[.035] dark:hover:bg-white/[.05]"
                 : "text-ink-2 hover:bg-accent-soft hover:text-ink",
+              selected === node.path && "bg-accent-soft text-accent",
             )}
             style={{ paddingLeft: 6 + node.depth * 12 }}
           >
