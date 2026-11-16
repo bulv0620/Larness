@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import * as api from "@/features/files/api";
 import { queryClient } from "@/lib/queries";
@@ -152,6 +153,53 @@ it("keeps the current directory and scroll position while refreshing after creat
     await new Promise((resolve) => setTimeout(resolve, 50));
   });
   expect(scroller.scrollTop).toBe(120);
+});
+
+it("creates files and folders from a directory context menu", async () => {
+  const user = userEvent.setup();
+  let created = false;
+  vi.mocked(api.listDirectory).mockImplementation(async (_scope, path) => ({
+    revision,
+    items:
+      path === "."
+        ? [{ path: "folder", name: "folder", type: "directory", entryVersion: revision }]
+        : created
+          ? [{ path: "folder/new.txt", name: "new.txt", type: "file" }]
+          : [],
+    nextCursor: null,
+  }));
+  vi.mocked(api.applyFileAction).mockImplementation(async () => {
+    created = true;
+    return { path: "folder/new.txt", realPath: "/p/folder/new.txt" };
+  });
+  vi.spyOn(api, "readFile").mockResolvedValue({
+    path: "folder/new.txt",
+    realPath: "/p/folder/new.txt",
+    version: revision,
+    content: "",
+    size: 0,
+    encoding: "utf-8",
+  });
+  render(tree("p"));
+  const folder = await screen.findByRole("button", { name: "目录 folder" });
+
+  fireEvent.contextMenu(folder);
+  const menu = await screen.findByRole("menu");
+  expect(within(menu).getByRole("menuitem", { name: "新建文件" })).toBeVisible();
+  expect(within(menu).getByRole("menuitem", { name: "新建文件夹" })).toBeVisible();
+
+  await user.click(within(menu).getByRole("menuitem", { name: "新建文件" }));
+  expect(folder).toHaveAttribute("aria-expanded", "true");
+  const input = screen.getByRole("textbox", { name: "新文件名" });
+  fireEvent.change(input, { target: { value: "new.txt" } });
+  fireEvent.submit(input.closest("form") as HTMLFormElement);
+  await act(async () => {});
+
+  expect(vi.mocked(api.applyFileAction)).toHaveBeenCalledWith(
+    { scope: { projectId: "p" }, action: "createFile", path: "folder/new.txt" },
+    expect.any(String),
+  );
+  expect(await screen.findByRole("button", { name: "打开文件 new.txt" })).toBeVisible();
 });
 
 it("ignores a slower open when the user clicks a different file", async () => {

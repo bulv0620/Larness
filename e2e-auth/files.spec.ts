@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, type Page, type Route, test } from "@playwright/test";
@@ -452,9 +452,19 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
       exact: true,
     });
     await originalFolder.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "新建文件夹" }).click();
+    const menuFolder = resources.getByRole("textbox", { name: "新目录名" });
+    await menuFolder.fill("menu-created");
+    await menuFolder.press("Tab");
+    await expect(menuFolder).toHaveCount(0);
+    await expect(resources.getByRole("button", { name: "目录 menu-created" })).toBeVisible();
+    expect(existsSync(path.join(root, "remove-folder", "menu-created"))).toBe(true);
+    await originalFolder.click({ button: "right" });
     await expect(page.getByRole("menuitem")).toHaveText([
       "复制相对路径",
       "发送到聊天框",
+      "新建文件",
+      "新建文件夹",
       "重命名",
       "移动",
       "删除…",

@@ -121,6 +121,11 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     setEdit(next);
   };
 
+  const beginCreate = (action: "createFile" | "createDirectory", path: string) => {
+    useNavigationStore.getState().setExpandedFileDirectories(id, [...new Set([...expanded, path])]);
+    begin({ action, path });
+  };
+
   const startCreate = (action: "createFile" | "createDirectory") => {
     const selectedRow = [
       ...(tree.current?.querySelectorAll<HTMLButtonElement>("[data-file-path]") ?? []),
@@ -131,8 +136,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           ? selected
           : parentPath(selected)
         : ".";
-    useNavigationStore.getState().setExpandedFileDirectories(id, [...new Set([...expanded, path])]);
-    begin({ action, path });
+    beginCreate(action, path);
   };
 
   const submit = async (value: string) => {
@@ -484,6 +488,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           edit={edit}
           busy={busy}
           begin={begin}
+          beginCreate={beginCreate}
           submit={(value) => void submit(value)}
           cancel={() => {
             scrollAnchor.current = null;
@@ -511,6 +516,7 @@ interface DirectoryProps {
   edit: Edit | null;
   busy: boolean;
   begin: (edit: Edit) => void;
+  beginCreate: (action: "createFile" | "createDirectory", path: string) => void;
   submit: (name: string) => void;
   cancel: () => void;
 }
@@ -532,6 +538,7 @@ function Directory(props: DirectoryProps) {
     edit,
     busy,
     begin,
+    beginCreate,
     submit,
     cancel,
   } = props;
@@ -642,6 +649,10 @@ function Directory(props: DirectoryProps) {
               <FileRowActions
                 copy={() => copy(entry.path)}
                 chat={() => chat(entry.path)}
+                createFile={directory ? () => beginCreate("createFile", entry.path) : undefined}
+                createDirectory={
+                  directory ? () => beginCreate("createDirectory", entry.path) : undefined
+                }
                 rename={() =>
                   begin({
                     action: "rename",
