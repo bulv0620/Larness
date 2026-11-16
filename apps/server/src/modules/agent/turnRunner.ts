@@ -33,6 +33,7 @@ import {
   StopProjectTerminalParamsSchema,
   TerminalDevSchema,
   TerminalResultTargetSchema,
+  type TurnBudgetCause,
   type TurnFileResult,
 } from "@larness/shared";
 import { z } from "zod";
@@ -64,7 +65,14 @@ import {
   reservedOutputTokens,
 } from "./tokenEstimator.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
-import { addUsage, DEFAULT_BUDGET, deriveTerminalReason, type TurnBudget } from "./turn/budget.js";
+import {
+  addUsage,
+  DEFAULT_BUDGET,
+  deriveTerminalReason,
+  resolveSpendCap,
+  type TurnBudget,
+} from "./turn/budget.js";
+import { carriedSpendTokens } from "./turn/chain.js";
 import { createSecretLoader } from "./turn/secrets.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
 import {
@@ -144,7 +152,9 @@ export interface TurnTimingLogger {
   info(fields: Record<string, unknown>, message: string): void;
 }
 
-export type TurnBudgetCause = "duration" | "tokens" | "context" | "steps" | "tool_calls";
+// The cause union lives in @larness/shared so the timeline can label a stop
+// without the server and the web app drifting apart.
+export type { TurnBudgetCause };
 
 export type TurnRunResult = {
   status: TurnStatus;
@@ -1143,6 +1153,15 @@ export class TurnRunner {
       const contextWindow =
         resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens;
       const inputWindow = Math.min(contextWindow, resolved.maxInputTokens ?? contextWindow);
+      // Scale the spend cap with the window reported for this turn: a fixed
+      // token cap buys fewer steps on large-context models, which is backwards
+      // exactly where long tasks run (ADR-059).
+      const spendCap = resolveSpendCap(this.#budget, contextWindow);
+      // The cap covers the whole task, so a continuation inherits what its
+      // slices already spent instead of getting a fresh allowance.
+      const carriedTokens = carriedSpendTokens(this.#options.db, turn.resumedFromTurnId);
+      const spentTokensTotal = (): number =>
+        carriedTokens + (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
       const configuredOutputCap = this.#budget.maxOutputTokens;
       const maxOutputTokens =
         resolved.maxOutputTokens === undefined
@@ -1297,9 +1316,12 @@ export class TurnRunner {
         appendLockNotice();
 
         // Ask the model to land the turn before the budget cuts it mid-sentence.
-        const spentTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+        const spentTokens = spentTokensTotal();
 
-        if (!wrapUpRequested && this.#shouldRequestWrapUp(steps, startedAt, spentTokens)) {
+        if (
+          !wrapUpRequested &&
+          this.#shouldRequestWrapUp(steps, startedAt, spentTokens, spendCap)
+        ) {
           wrapUpRequested = true;
           messages.push({
             role: "user",
@@ -1416,10 +1438,10 @@ export class TurnRunner {
           });
         }
 
-        if (this.#budget.maxTotalTokens > 0) {
-          const spentTokens = (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
+        if (spendCap > 0) {
+          const spentTokens = spentTokensTotal();
 
-          if (spentTokens >= this.#budget.maxTotalTokens) {
+          if (spentTokens >= spendCap) {
             return await finalize("COMPLETED", {
               eventType: "turn.completed",
               budgetExhausted: true,
@@ -2216,12 +2238,16 @@ export class TurnRunner {
     }
   }
 
-  /** True when the remaining step or time budget is about to end the turn. */
-  #shouldRequestWrapUp(steps: number, startedAt: number, spentTokens: number): boolean {
+  /** True when the remaining step, time or spend budget is about to end the turn. */
+  #shouldRequestWrapUp(
+    steps: number,
+    startedAt: number,
+    spentTokens: number,
+    spendCap: number,
+  ): boolean {
     const nearSteps = this.#budget.maxSteps >= 8 && steps >= this.#budget.maxSteps - 4;
     const nearTime = this.#now() - startedAt >= this.#budget.maxDurationMs * 0.8;
-    const nearTokens =
-      this.#budget.maxTotalTokens > 0 && spentTokens >= this.#budget.maxTotalTokens * 0.8;
+    const nearTokens = spendCap > 0 && spentTokens >= spendCap * 0.8;
 
     return nearSteps || nearTime || nearTokens;
   }

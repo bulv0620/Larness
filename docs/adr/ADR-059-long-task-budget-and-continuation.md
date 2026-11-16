@@ -14,7 +14,9 @@
 
 1. **取消步数与工具数上限**。`maxSteps` / `maxToolCalls` 默认 `0`（不限制），保留字段以便按需收紧。
 2. **预算改为「花费为主、时长为兜底」**（2026-11-12 二次确认，选项 A）：
-   - 花费上限 `maxTotalTokens`（默认 200 万，含输入与输出；摘要调用暂不计入）是**主约束**；
+   - 花费上限是**主约束**，默认按模型窗口自适应：`maxTotalTokens = 0` 时取 `contextWindow × 30`（`SPEND_CAP_CONTEXTS`），显式配置的正数则原样生效（含输入与输出；摘要调用暂不计入）；
+   - 2026-11-12 修订：固定 200 万在 2026-11 的实测中过早触顶（每步都重发全文，同样的 200 万在大窗口模型上只够十余步），改为随窗口缩放的倍数上限，使**步数**大致恒定而不是随窗口变小；
+   - 上限是**整个任务**的额度，不是每一片的额度：接续轮沿 `resumedFromTurnId` 累加前序切片已花的 token（`chain.ts` 的 `carriedSpendTokens`），所有切片共用同一份预算；否则每片各领一份满额，真实上限会被放大成「4 × 30 窗口」；
    - 挂钟只做**卡死检测**，默认放宽到 60 分钟，不按 10 分钟切片；
    - 触顶以 `terminalReason=budget` 结束本轮，并记录 `budgetCause`（`tokens` / `context` / `duration` / `steps` / `tool_calls`）。
 3. **自动接续只发生在花费或上下文触顶时**（`budgetCause` 为 `tokens` / `context`）。`duration` 等属于卡死兜底，不自动接续。接续时用检查点事实（已改文件与版本、命令摘要、失败诊断、未完成计划步骤、资源 ID）创建**新 Turn** 接着做：
@@ -39,9 +41,9 @@
 - **API / 契约**：新增 `turn.continued` 事件；`turns.resumed_from_turn_id` 同时表示「恢复」与「接续」；`user.message` 的正文可能是一段检查点事实（界面按前缀识别并折叠）。
 - **数据 / 迁移**：无新增列（复用 `0025` 的 `resumed_from_turn_id`）。
 - **安全 / 权限**：接续是新 Turn，走完整授权、锁、审批与审计；不绕过任何执行约束。
-- **成本**：单轮上限 200 万 token × 最多 4 轮（原始 + 3 次接续）。默认值可按实际使用再调。
+- **成本**：一个任务（原始 Turn + 至多 3 次接续）**合计**上限为 30 个上下文窗口的累计 token（200k 模型约 600 万、128k 模型约 384 万），接续轮继承前序花费而非重新领满额。上限随窗口缩放，可按实际使用再调 `spendCapContexts`；设为 `0` 关闭该上限。
 
 ## 验证与回滚
 
-- 验证：`test/agent/continuation.test.ts` 3 个用例（接续生成新 Turn 与事件、深度上限、定时会话与非预算 Turn 不接续、空事实不接续）；`maxSteps: 0` 与 `maxToolCalls: 0` 的无限语义由既有 Turn 用例覆盖；收尾提示用例覆盖时长与花费压力；web 用例覆盖接续标记与事实折叠。
-- 回滚：把 `DEFAULT_BUDGET.maxSteps` / `maxToolCalls` 恢复为非零、`maxTotalTokens` 设为 `0`，并在 `TurnQueueOptions.onSettled` 中断开 `continueBudgetedTurn` 即可回到「单轮硬上限」行为；已产生的接续 Turn 保留，不影响历史。
+- 验证：`test/agent/continuation.test.ts` 5 个用例（接续生成新 Turn 与事件、深度上限、定时会话与非预算 Turn 不接续、空事实不接续、零花费的 `tokens` 切片不接续）；`test/agent/spendCap.test.ts` 8 个用例（自适应上限的纯函数边界、200k 模型在 250 万花费下不再于第 1 步误停、显式上限仍立刻生效、`spendCapContexts: 0` 关闭上限）；`test/agent/chainSpend.test.ts` 4 个用例（链式累加、`usage_json` 缺失或非法时回落到 0、前片已花 500 万且上限 600 万时接续片不得发起第 2 次模型调用）。`maxSteps: 0` 与 `maxToolCalls: 0` 的无限语义由既有 Turn 用例覆盖；收尾提示用例覆盖时长与花费压力。web 侧 `TimelineContinuation.test.tsx` 覆盖接续合并、成果区累加、`budgetCause` 文案与「已自动继续」计数，`eventReducerBudgetCause.test.ts` 覆盖 `budgetCause` 白名单落库与跨轮不串味。
+- 回滚：把 `DEFAULT_BUDGET.maxSteps` / `maxToolCalls` 恢复为非零、`spendCapContexts` 设为 `0`（关闭花费上限），并在 `TurnQueueOptions.onSettled` 中断开 `continueBudgetedTurn` 即可回到「单轮硬上限」行为；要恢复固定上限则直接给 `maxTotalTokens` 赋正数。已产生的接续 Turn 保留，不影响历史。

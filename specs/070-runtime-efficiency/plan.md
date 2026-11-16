@@ -152,7 +152,7 @@ specs/051-agent-tool-contract/spec.md、specs/064-scheduler/spec.md      HX-3/4/
 10. **HX-12**（建议在 HX-4 之前）：先补事件顺序快照用例锁定现状，再做纯机械拆分，最后比对拆分前后事件序列。
 11. **HX-9**：先写"含秘密参数被拒 + 查询次数"用例，再注入 per-turn 秘密列表。
 12. **HX-10**：FakeProvider 脚本化 5 次相同失败调用，先断言无干预（红），再实现计数与提示。
-13. **HX-11**：`TurnBudget` 增字段 → 预检接入 → 终态矩阵补行；默认值等 D10 确认后才启用。
+13. **HX-11**：`TurnBudget` 增字段 → 预检接入 → 终态矩阵补行；默认值等 D10 确认后才启用（D10 已于 2026-11-12 确认，默认按模型窗口自适应，见 [ADR-059](../../docs/adr/ADR-059-long-task-budget-and-continuation.md)）。
 
 ## 5. 数据与迁移
 
@@ -190,7 +190,7 @@ LARNESS_DEEPSEEK_SMOKE=1 pnpm --filter @larness/agent test   # 真实 Provider �
 | 每步预检改变既有压缩触发点 | 与 M5-1d 的 70% 规则冲突 | `shouldCompress` 保留为开轮规则；新水位只作用于 Turn 内（spec R-4） |
 | 拆分过程中"顺手修 bug" | 行为改动混入结构调整，回归无法定位 | HX-12 明令禁止；发现问题只登记 open-questions |
 | 重复失败干预被模型理解为"禁止重试" | 模型改用更危险的方式绕过 | 文案只陈述事实与已试次数，不给替代策略；授权语义不变 |
-| token 上限设得过低 | 正常任务被提前截停 | 默认值取基线 P95 的 1.5 倍以上；先只观测（HX-1）再启用（D10） |
+| token 上限设得过低 | 正常任务被提前截停 | 默认值随模型窗口缩放（`contextWindow × 30`），使步数大致恒定；可显式给 `maxTotalTokens` 覆盖（D10 / [ADR-059](../../docs/adr/ADR-059-long-task-budget-and-continuation.md)） |
 | 秘密列表按 Turn 缓存后轮换滞后 | 新秘密在同一 Turn 内不生效 | 接受：凭据变更本就要求新 Turn；在文档与测试中显式记录该边界 |
 
 ## 9. 未决事项
@@ -198,6 +198,6 @@ LARNESS_DEEPSEEK_SMOKE=1 pnpm --filter @larness/agent test   # 真实 Provider �
 - D1 资源观察呈现方式（决定 HX-5 的最终形态）。
 - D2 终态表达（决定 HX-3 是否需要新 `TurnStatus`）。
 - D5 单条结果预算数值、D6 命中率发布门槛、D7 是否上线只读并发。
-- D8 秘密校验收敛方式、D9 重复失败阈值与文案、D10 token 上限默认值（D10 阻塞 HX-11）。
+- D8 秘密校验收敛方式、D9 重复失败阈值与文案、D10 token 上限默认值 —— 均已于 2026-11-12 确认，D10 修订为随模型窗口自适应，不再阻塞 HX-11。
 - 中断 Turn 恢复与数据保留不在本切片，见 [071](../071-turn-recovery/spec.md)。
 - 关联 [遗留问题](../../docs/open-questions.md) Q-031、Q-032。

@@ -6,12 +6,14 @@ import type {
   ServerEvent,
   TimelineItem,
   ToolItem,
+  TurnBudgetCause,
   TurnTerminalReason,
 } from "@larness/shared";
 import {
   CommandParamsSchema,
   PlanItemSchema,
   ResourceTargetSchema,
+  TURN_BUDGET_CAUSES,
   TurnFileResultsSchema,
 } from "@larness/shared";
 
@@ -45,6 +47,15 @@ function terminalReasonField(source: Payload): TurnTerminalReason | undefined {
   const value = source.terminalReason;
   return typeof value === "string" && TERMINAL_REASONS.has(value as TurnTerminalReason)
     ? (value as TurnTerminalReason)
+    : undefined;
+}
+
+const BUDGET_CAUSES = new Set<TurnBudgetCause>(TURN_BUDGET_CAUSES);
+
+function budgetCauseField(source: Payload): TurnBudgetCause | undefined {
+  const value = source.budgetCause;
+  return typeof value === "string" && BUDGET_CAUSES.has(value as TurnBudgetCause)
+    ? (value as TurnBudgetCause)
     : undefined;
 }
 
@@ -314,6 +325,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
           ? "cancelled"
           : "interrupted";
   const terminalReason = terminalReasonField(data);
+  const budgetCause = budgetCauseField(data);
   const fileResults = TurnFileResultsSchema.safeParse(data.fileResults);
   const omittedResults = numberField(data, "fileResultsOmitted");
   return next.map((item) => {
@@ -326,6 +338,7 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
               turnOutcome: outcome,
               durationMs: numberField(data, "durationMs"),
               ...(terminalReason === undefined ? {} : { terminalReason }),
+              ...(budgetCause === undefined ? {} : { budgetCause }),
               ...(fileResults.success ? { fileResults: fileResults.data } : {}),
               ...(omittedResults === undefined ? {} : { fileResultsOmitted: omittedResults }),
             }

@@ -74,6 +74,20 @@ export type TurnTerminalReason =
   | "cancelled"
   | "interrupted";
 
+/**
+ * Which budget ended a turn (ADR-059). `tokens` and `context` are the ones a
+ * chain can continue past; the rest are stall guards.
+ */
+export type TurnBudgetCause = "duration" | "tokens" | "context" | "steps" | "tool_calls";
+
+export const TURN_BUDGET_CAUSES: readonly TurnBudgetCause[] = [
+  "duration",
+  "tokens",
+  "context",
+  "steps",
+  "tool_calls",
+];
+
 export const TurnFileResultSchema = z.object({
   path: z.string().min(1),
   changeType: z.enum(["created", "modified"]),
@@ -97,6 +111,8 @@ export interface MessageItem {
   streaming?: boolean;
   turnOutcome?: "completed" | "failed" | "cancelled" | "interrupted";
   terminalReason?: TurnTerminalReason;
+  /** Which budget ended this slice; absent on turns that ran before ADR-059. */
+  budgetCause?: TurnBudgetCause;
   durationMs?: number;
   /** Per-file disposition emitted with the terminal event; absent on old turns. */
   fileResults?: TurnFileResult[];

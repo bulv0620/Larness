@@ -119,7 +119,7 @@ interface ServerEvent<T = unknown> {
 
 `turn.continued` 由自动接续写入：`depth` 是接续链深度（原始 Turn 为 0），默认最多 3。`turn.resumed` 由恢复操作写入新 Turn：`fromTurnId` 是被中断的原 Turn，原 Turn 本身不被改写。
 
-`budgetCause`（ADR-059）说明是哪一项预算结束了本轮：`tokens`（花费上限，可自动接续）/ `context`（上下文放不下，可自动接续）/ `duration`（卡死兜底，不接续）/ `steps` / `tool_calls`（仅在显式配置上限时出现）。
+`budgetCause`（ADR-059）说明是哪一项预算结束了本轮：`tokens`（花费上限，可自动接续）/ `context`（上下文放不下，可自动接续）/ `duration`（卡死兜底，不接续）/ `steps` / `tool_calls`（仅在显式配置上限时出现）。`tokens` 的额度按**整个任务**计算：接续轮累加其前序切片已花的 token，共用同一份上限，不会每片重新领满额；因此 `tokens` 表示「这条任务的总花费到了」，而不是「这一段到了」。若某片以 `tokens` 结束但自身花费为 0（额度此前已被前序切片用尽），不再接续，避免链尾堆出空轮。历史事件缺少 `budgetCause` 时，客户端按 `terminalReason=budget` 回落到笼统的「预算停止」文案。
 
 `fileResults`（074）是 Turn 终态的文件处置：仅在本轮确有文件写入时出现，`{ path, changeType: "created"|"modified", version, existed, category: "deliverable"|"process" }[]`，按首次改动顺序、同路径去重。`existed=false` 表示 Turn 结束时文件已不存在；`category=process` 表示临时 / 生成 / 项目忽略 / 已删除文件。字段只含项目内相对路径与版本哈希，不含正文、绝对路径或命令。单 Turn 上限 200 条，超出部分只给 `fileResultsOmitted` 计数，不渲染条目。历史事件与旧客户端忽略这两个字段，继续按 `file.changed` / `resourceTarget` 渲染。
 

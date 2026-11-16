@@ -19,6 +19,7 @@ function finishAsBudget(
   opened: ReturnType<typeof openDatabase>,
   sessionId: string,
   turnId: string,
+  usage: Record<string, number> = { inputTokens: 400_000, outputTokens: 100_000 },
 ): void {
   appendAgentEvent(opened.db, {
     sessionId,
@@ -31,6 +32,9 @@ function finishAsBudget(
     status: "COMPLETED",
     terminalReason: "budget",
     endedAt: NOW,
+    // A slice that hit the token cap always reports what it spent, and the
+    // chain reads this column to carry the cap across slices (ADR-059).
+    usageJson: JSON.stringify(usage),
   });
 }
 
@@ -110,6 +114,40 @@ describe("automatic continuation", () => {
             { turnId, budgetCause: "tokens" },
           ),
         ).toBeNull();
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("does not chain a slice that spent nothing", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+
+      try {
+        const options = { db: opened.db, dataDir: dir, now: () => NOW };
+        const session = await createSession(options, {});
+        const turn = createTurn(options, { sessionId: session.id, text: "end of chain" });
+        // Stopping before the first model call proves the inherited cap is
+        // already spent: another slice would only append an empty turn.
+        finishAsBudget(opened, session.id, turn.turnId, {});
+
+        expect(
+          continueBudgetedTurn(
+            { db: opened.db, now: () => NOW },
+            { turnId: turn.turnId, budgetCause: "tokens" },
+          ),
+        ).toBeNull();
+
+        // Context pressure is a different cause, so the zero spend is not why
+        // that slice stopped.
+        expect(
+          continueBudgetedTurn(
+            { db: opened.db, now: () => NOW },
+            { turnId: turn.turnId, budgetCause: "context" },
+          ),
+        ).not.toBeNull();
       } finally {
         opened.close();
       }

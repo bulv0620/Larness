@@ -5,6 +5,7 @@ import { screenshotIds } from "../../sessions/attachments.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../../sessions/repository.js";
 import { createTurn } from "../../sessions/turns.js";
 import { appendAgentEvent } from "../events.js";
+import { spentTokensFromJson } from "../turn/chain.js";
 import { checkpointMessage, factsAreEmpty, loadTurnFacts } from "../turnCheckpoint.js";
 import type { TurnBudgetCause } from "../turnRunner.js";
 
@@ -61,6 +62,12 @@ export function continueBudgetedTurn(
     input.budgetCause !== "tokens" &&
     input.budgetCause !== "context"
   ) {
+    return null;
+  }
+
+  // A slice that stopped before its first model call proves the chain already
+  // spent its cap (ADR-059): chaining again would only append empty turns.
+  if (input.budgetCause === "tokens" && spentTokensFromJson(turn.usageJson) === 0) {
     return null;
   }
 

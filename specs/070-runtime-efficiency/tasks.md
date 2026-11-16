@@ -60,7 +60,7 @@
 - 验收：A2 通过；未知口径有独立计数；事件与 DTO 只含数字与枚举。
 - 测试：`packages/agent/test/providers/ai-sdk-wire.test.ts` 造带 `prompt_cache_hit_tokens` 与不带该字段的两种 SSE；`eventReducer` 单测。
 - 涉及路径：`packages/agent/src/providers/{types,deepseek,compatible,fake}.ts`、`apps/server/src/modules/agent/turnRunner.ts`、`apps/web/src/lib/eventReducer.ts`、`docs/contracts/ws-events.md`
-- 分片预算与自动接续（2026-11-12，用户选择激进档，[ADR-059](../../docs/adr/ADR-059-long-task-budget-and-continuation.md)）：取消 `maxSteps` / `maxToolCalls` 上限（默认 0），改用挂钟分片（10 分钟）+ 花费上限（200 万 token）；撞预算时自动用检查点事实创建新 Turn 接续（深度上限 3，仅 `origin=user`，无事实不接续），新增 `turn.continued` 事件与界面「自动继续」标记。
+- 分片预算与自动接续（2026-11-12，用户选择激进档，[ADR-059](../../docs/adr/ADR-059-long-task-budget-and-continuation.md)）：取消 `maxSteps` / `maxToolCalls` 上限（默认 0），改用挂钟分片（10 分钟）+ 花费上限（200 万 token）；撞预算时自动用检查点事实创建新 Turn 接续（深度上限 3，仅 `origin=user`，无事实不接续），新增 `turn.continued` 事件与界面「自动继续」标记。**同日修订**：挂钟改为 60 分钟、仅作卡死兜底（不再按 10 分钟分片）；花费上限改为按模型窗口自适应 `contextWindow × 30`，且是**整个任务**的额度（接续轮累加前序花费），以 [ADR-059](../../docs/adr/ADR-059-long-task-budget-and-continuation.md) 的当前版本为准。
 - 预算收敛补充（2026-11-12，用户反馈「loop 有问题」）：实测一轮 UI 重构用了 **30 次模型请求 = 正好耗尽 `maxSteps`**（39 个工具调用、193 秒，末步缓存命中 99.6%），说明不是缓存或上下文问题，而是步数上限在任务中途切断、且没有收尾提示。处理：`maxSteps` 默认 30 → 50；新增「临近上限提示」——剩余 ≤4 步或已用 80% 时长时，在请求尾部追加一次收尾提示（完成当前操作、更新计划、总结已完成/已验证/未完成），只追加一次且不重写前缀；`TurnRunner` 的 `logger` 在 bootstrap 中接上，`turn timing` / `turn wrap-up requested` 现在真的会落日志。
 - 备注：`inputTokenDetails` 由 AI SDK 提供，无需升级依赖；真实 Provider 核对用 `LARNESS_DEEPSEEK_SMOKE=1`。
 - 偏差记录：阶段耗时（排队 / 装配 / 首 token / 工具 / 摘要）未随本任务交付，移到 HX-2。理由：耗时只有与截止时间、终态一起改才有意义，单独加会在同一段代码做两次契约变更。
@@ -241,20 +241,20 @@
 
 ### HX-11 Turn 级 token 消耗上限
 
-- 状态：`done`（2026-11-11，默认关闭）
+- 状态：`done`（2026-11-11 交付字段与校验；2026-11-12 按 D10 默认启用）
 - 依赖：HX-1（无用量细分则无法计量）
 - 目标：在步数/工具数/时长之外增加消耗约束，防止「步数内跑完但烧掉大量 token」。
 - 交付物：
-  - `TurnBudget` 增 `maxTotalTokens`（默认值见 D10），累计取 `inputTokens + outputTokens`；
+  - `TurnBudget` 增 `maxTotalTokens`（默认 0 = 按模型窗口自适应，规则见 D10），累计取 `inputTokens + outputTokens`；
   - 每步预检接入；超限以 `terminalReason=budget` 结束并记录已改内容与待验证项；
-  - 摘要调用计入累计；
+  - 摘要调用计入累计（**未交付**：`compressContext` 未回传 usage，与 ADR-059「暂不计入」一致，见下方实现要点）；
   - 配置可覆盖，审计与事件记录超限原因（`budget_tokens`）。
 - 验收：构造 3 步即超限的用例，断言终止原因、事件与 Job 判定一致；正常任务不受影响。
 - 测试：`runtime-budget.test.ts` 增 token 超限用例；HX-3 的终态矩阵补一行。
 - 涉及路径：`apps/server/src/modules/agent/turnRunner.ts`、`apps/server/src/db/schema.ts`（如终态细分需要）、`docs/contracts/ws-events.md`
-- 实现要点：`TurnBudget.maxTotalTokens`（默认 `0` = 关闭），每步预检按 `input+output` 累计判断，超限以 `budget` 终态结束；摘要调用用量当前不计入（`compressContext` 未回传 usage），已在备注记录。
+- 实现要点：`TurnBudget.maxTotalTokens`（`> 0` 原样生效；`<= 0` 时取 `contextWindow × spendCapContexts`，而 `spendCapContexts: 0` 才关闭上限），每步预检按 `input+output` 累计判断，超限以 `budget` 终态结束并记 `budgetCause=tokens`；累计口径是**整个任务**（接续轮经 `turn/chain.ts` 的 `carriedSpendTokens` 计入前序切片）；摘要调用用量当前不计入（`compressContext` 未回传 usage），已在备注记录。
 - 验证：新增用例——`maxTotalTokens: 500` 且首步回报 1000 tokens，断言只发 1 次请求且 `terminal_reason=budget`。
-- 备注：**默认关闭**。D10 的人类确认仍未完成，因此只交付字段、校验与测试，不改变默认行为；确认后只需调整默认值。
+- 备注：2026-11-11 首次交付时按「默认关闭」落地（当时 D10 未确认）；D10 于 2026-11-12 确认，并由 ADR-059 修订为自适应上限，故本任务随之默认启用。
 - 偏差：HX-10 与 HX-11 因共用同一文件的连续改动，合并在一个提交 `feat(agent): stop repeated failing calls and cap spend (HX-10, HX-11)` 中；两者的测试与文档各自独立。
 
 ### HX-12 turnRunner 机械拆分（前置工程动作）

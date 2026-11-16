@@ -4,6 +4,8 @@ import type {
   PlanItem,
   TimelineItem,
   ToolItem,
+  TurnBudgetCause,
+  TurnFileResult,
 } from "@larness/shared";
 import { cn } from "@larness/ui";
 import { ArrowDown, ChevronRight, Loader2, ShieldAlert } from "lucide-react";
@@ -20,8 +22,19 @@ import { MessageBubble, TimelineItemView } from "./TimelineItemView";
 interface TurnGroup {
   id: string;
   items: TimelineItem[];
+  /** Every turn merged into this group, in arrival order. */
+  turnIds: string[];
+  /**
+   * Every slice's user message in arrival order, including the checkpoints the
+   * UI never renders: they still carry the slice's outcome and file results.
+   */
+  users: MessageItem[];
 }
-function isContinuationTurn(item: TimelineItem): boolean {
+function isUserMessage(item: TimelineItem): item is MessageItem {
+  return item.kind === "message" && item.role === "user";
+}
+
+function isContinuationTurn(item: TimelineItem): item is MessageItem {
   return (
     item.kind === "message" && item.role === "user" && item.text.startsWith("Work state checkpoint")
   );
@@ -37,21 +50,44 @@ function groupTurns(items: TimelineItem[]): TurnGroup[] {
     // reads as one flow instead of a new turn.
     if (isContinuationTurn(item) && item.turnId !== undefined && current !== undefined) {
       byId.set(item.turnId, current);
+      current.turnIds.push(item.turnId);
+      current.users.push(item);
       continue;
     }
     const id = item.turnId ?? (isUser ? item.id : (current?.id ?? item.id));
     const existing = byId.get(id);
     if (existing) {
       existing.items.push(item);
-      if (isUser) current = existing;
+      if (item.turnId !== undefined && !existing.turnIds.includes(item.turnId)) {
+        existing.turnIds.push(item.turnId);
+      }
+      if (isUser) {
+        current = existing;
+        existing.users.push(item);
+      }
     } else {
-      const group = { id, items: [item] };
+      const group: TurnGroup = {
+        id,
+        items: [item],
+        turnIds: item.turnId === undefined ? [] : [item.turnId],
+        users: isUser ? [item] : [],
+      };
       groups.push(group);
       byId.set(id, group);
       current = group;
     }
   }
   return groups;
+}
+
+/**
+ * A continued chain keeps the first slice's id, so resolving the live group by
+ * that id alone loses the running continuation and freezes the whole task into
+ * a finished-looking state.
+ */
+function activeGroupOf(groups: TurnGroup[], activeTurnId: string | null): TurnGroup | undefined {
+  if (activeTurnId === null) return groups.at(-1);
+  return groups.find((group) => group.turnIds.includes(activeTurnId));
 }
 
 function summarizeTools(tools: ToolItem[]): string {
@@ -76,22 +112,38 @@ function summarizeTools(tools: ToolItem[]): string {
   );
 }
 
+/**
+ * The cause separates a continuable stop (`tokens` / `context`) from a stall
+ * guard, so the label names the limit that actually fired instead of a generic
+ * "budget". Older turns carry no cause and keep the old wording.
+ */
+function budgetStopLabel(cause: TurnBudgetCause | undefined): string {
+  switch (cause) {
+    case "tokens":
+      return "已达花费上限";
+    case "context":
+      return "上下文已满";
+    case "duration":
+      return "执行超时中止";
+    case "steps":
+      return "步数已达上限";
+    case "tool_calls":
+      return "工具调用已达上限";
+    default:
+      return "预算停止";
+  }
+}
+
 function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const send = useTimelineStore((state) => state.send);
   const resumeTurn = useTimelineStore((state) => state.resumeTurn);
   const items = group.items;
-  const user = items.find(
-    (item): item is MessageItem => item.kind === "message" && item.role === "user",
-  );
-  const lastTurnId = [...items].reverse().find((item) => item.turnId !== undefined)?.turnId;
-  const lastTurnUser = items.find(
-    (item): item is MessageItem =>
-      item.kind === "message" &&
-      item.role === "user" &&
-      item.turnId !== undefined &&
-      item.turnId === lastTurnId,
-  );
-  const turnActive = active && lastTurnUser?.turnOutcome === undefined;
+  const user = items.find(isUserMessage);
+  // The chain reports the latest slice: the first one usually settled on a
+  // budget while the last one is still working, so reading the first would
+  // label a running task as finished and re-show its results mid-flight.
+  const stateUser = group.users.at(-1) ?? user;
+  const turnActive = active && stateUser?.turnOutcome === undefined;
   const [expanded, setExpanded] = useState(false);
   const [confirmResume, setConfirmResume] = useState(false);
   const tools = items.filter(
@@ -111,14 +163,15 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const answer =
     lastAssistant >= 0 &&
     !turnActive &&
-    (lastAssistant > lastOperation || user?.turnOutcome === "completed")
+    (lastAssistant > lastOperation || stateUser?.turnOutcome === "completed")
       ? items[lastAssistant]
       : undefined;
   const latestCommentary =
     active && !answer
       ? [...items].reverse().find((item) => item.kind === "message" && item.role === "assistant")
       : undefined;
-  const plans = items.filter((item): item is PlanItem => item.kind === "plan");
+  // Each slice publishes its own plan id; a merged chain shows only the latest.
+  const plan = items.filter((item): item is PlanItem => item.kind === "plan").at(-1);
   const process = items.filter(
     (item) =>
       item !== user &&
@@ -127,12 +180,16 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
       ((item.kind === "message" && item.role === "assistant") ||
         (item.kind === "tool" && item.name !== "update_plan")),
   );
-  const failed = user?.turnOutcome === "failed" || user?.turnOutcome === "interrupted";
-  const stopped = user?.turnOutcome === "cancelled";
+  const failed = stateUser?.turnOutcome === "failed" || stateUser?.turnOutcome === "interrupted";
+  const stopped = stateUser?.turnOutcome === "cancelled";
   // A turn can end "completed" yet still be incomplete: budget stop or truncated output.
-  const budgetStopped = user?.terminalReason === "budget";
-  const truncated = user?.terminalReason === "output_truncated";
-  const duration = user?.durationMs;
+  const budgetStopped = stateUser?.terminalReason === "budget";
+  const truncated = stateUser?.terminalReason === "output_truncated";
+  // A chain's wall clock is the sum of its slices; each settled slice reports one.
+  const duration = group.users.reduce<number | undefined>(
+    (total, slice) => (slice.durationMs !== undefined ? (total ?? 0) + slice.durationMs : total),
+    undefined,
+  );
   const seconds = duration === undefined ? "" : ` · ${Math.round(duration / 1000)}秒`;
   const reasoningPreview = [...items].reverse().find((item) => item.kind === "reasoning")?.text;
   const showReasoning =
@@ -145,7 +202,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     : failed
       ? "执行未完成"
       : budgetStopped
-        ? "预算停止"
+        ? budgetStopLabel(stateUser?.budgetCause)
         : truncated
           ? "输出被截断"
           : "";
@@ -195,7 +252,15 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   }
   // A turn settled with per-file dispositions renders from them, so temporary
   // and deleted files stay out of the results while remaining inspectable.
-  const fileResults = user?.fileResults;
+  // A chain accumulates them: every settled slice contributes its delivered
+  // files, and a later slice wins on the same path.
+  const accumulated = new Map<string, TurnFileResult>();
+  let omitted = 0;
+  for (const slice of group.users) {
+    omitted += slice.fileResultsOmitted ?? 0;
+    for (const file of slice.fileResults ?? []) accumulated.set(file.path, file);
+  }
+  const fileResults = accumulated.size === 0 ? undefined : [...accumulated.values()];
   const deliverablePaths = new Set(
     (fileResults ?? []).filter((file) => file.category === "deliverable").map((file) => file.path),
   );
@@ -214,10 +279,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     return !filePaths.has(titlePath);
   });
   const hasResults =
-    visibleTargets.length > 0 ||
-    artifacts.length > 0 ||
-    processFiles.length > 0 ||
-    (user?.fileResultsOmitted ?? 0) > 0;
+    visibleTargets.length > 0 || artifacts.length > 0 || processFiles.length > 0 || omitted > 0;
   const results =
     !turnActive && hasResults ? (
       <div className="mt-2 space-y-2">
@@ -238,17 +300,15 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
           <TimelineItemView key={item.id} item={item} />
         ))}
         <ProcessFilesRow files={processFiles} targets={fileTargets} />
-        {user?.fileResultsOmitted ? (
-          <p className="text-[11px] text-ink-3">{`另有 ${user.fileResultsOmitted} 个文件未列出`}</p>
+        {omitted > 0 ? (
+          <p className="text-[11px] text-ink-3">{`另有 ${omitted} 个文件未列出`}</p>
         ) : null}
       </div>
     ) : null;
   return (
     <section aria-label="对话轮次" className="min-w-0">
       {user ? <TimelineItemView item={user} /> : null}
-      {plans.map((item) => (
-        <TimelineItemView key={item.id} item={item} turnActive={turnActive} />
-      ))}
+      {plan ? <TimelineItemView key={plan.id} item={plan} turnActive={turnActive} /> : null}
       <div className="space-y-3">
         {process.length > 0 || tools.length > 0 || reasoningPreview !== undefined ? (
           <div className="text-[12px] text-ink-3">
@@ -276,7 +336,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
             ) : null}
           </div>
         ) : null}
-        {user?.turnOutcome === "interrupted" && user.turnId !== undefined ? (
+        {stateUser?.turnOutcome === "interrupted" && stateUser.turnId !== undefined ? (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-[12px] text-ink-2">
             {confirmResume ? (
               <>
@@ -288,7 +348,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
                   className="rounded border border-line px-2 py-0.5 text-ink transition-colors hover:text-accent"
                   onClick={() => {
                     setConfirmResume(false);
-                    void resumeTurn(user.turnId ?? "");
+                    void resumeTurn(stateUser.turnId ?? "");
                   }}
                 >
                   确认继续
@@ -371,11 +431,10 @@ export function Timeline() {
     return () => observer.disconnect();
   }, [follow]);
   const groups = groupTurns(items);
-  const activeGroup = isStreaming
-    ? activeTurnId === null
-      ? groups.at(-1)
-      : groups.find((group) => group.id === activeTurnId)
-    : undefined;
+  const activeGroup = isStreaming ? activeGroupOf(groups, activeTurnId) : undefined;
+  // A grouped chain already ran past a slice boundary, so the running label
+  // says so instead of looking like a fresh start.
+  const autoContinued = activeGroup === undefined ? 0 : Math.max(0, activeGroup.users.length - 1);
   const waiting = pendingApprovals(items).length > 0;
   const runningTool =
     activeGroup &&
@@ -394,6 +453,9 @@ export function Timeline() {
     activity = `正在执行 · ${runningTool.commandLabel || runningTool.summary || runningTool.name}`;
   else if (replying) activity = "正在回复…";
   else if (isStreaming) activity = "正在处理…";
+  if (activity !== "" && autoContinued > 0) {
+    activity = `${activity} · 已自动继续 ${autoContinued} 次`;
+  }
   return (
     <>
       <div className="relative flex min-h-0 flex-1 flex-col">
