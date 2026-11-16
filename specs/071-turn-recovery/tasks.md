@@ -97,7 +97,7 @@
 - 涉及路径：`apps/server/src/db/cleanup.ts`、`apps/server/src/modules/system/`、`packages/shared/src/config.ts`、`apps/server/drizzle/0024_turn_recovery.sql`、`docs/contracts/data-model.md`
 - 实现要点：迁移 `0026` 加 `sessions.pinned_at`；`config.json` 新增 `cleanup`（`enabled=false`、`deleteSessions=false`、`keepPinned=true`、`retentionDays={events:90,turns:180,summaries:90}`、`maxBytes=0`）；`modules/system/retention.ts` 以**会话为单元**计算候选（`sessions.updated_at` 早于 turns 保留期、无活跃 Turn、未被 pin），默认只统计；开启后**先备份**（`backupDatabase`，失败即整体中止），再在单事务内删除该会话的 `agent_events` / `session_context_summaries` / `turns`，写 `storage.cleanup` 审计（策略、条数、备份路径）；`deleteSessions=true` 时改为删会话行（级联）。
 - 接入：`startCleanupScheduler` 在 `cleanup.enabled` 时按同一周期执行清理；日志记录结果或失败。
-- 验证：新增 4 个用例——默认只统计不删、备份后删除且跳过 pinned/活跃会话、备份失败零删除、`deleteSessions` 时删除会话行；`test/system` 22 通过；迁移计数与 `schemaVersion` 同步到 26；完整 server 套件 73 失败 / 546 通过（失败集合与基线一致）。
+- 验证：新增 4 个用例——默认只统计不删、备份后删除且跳过 pinned/活跃会话、备份失败零删除、`deleteSessions` 时删除会话行；`test/system` 22 通过；迁移计数与 `schemaVersion` 同步到 26；完整 server 套件 73 失败 / 546 通过（失败集合与基线一致；**2026-11-16 修订：该批失败系当时无独立 `node` 所致，已在可用 `node` 环境下清零，不再作为验收基准**）。
 - **偏差与待复核**：
   1. `maxBytes` 字段已加入配置但**未启用强制淘汰**——需要把 TR-1 的体积测量接进调度器，且「超预算时删哪些会话」是产品决策，留待复核。
   2. 删除粒度按**会话整段**、默认**保留 `sessions` 行**（历史列表仍在、内容为空）；`deleteSessions=true` 才会连会话行一起删。这与 D2 的「按会话整段删除」一致，但「是否连会话行一起删」仍建议用户确认。

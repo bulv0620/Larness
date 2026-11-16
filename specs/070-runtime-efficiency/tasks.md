@@ -274,7 +274,7 @@
   - `turn/toolResults.ts`：`truncateToolMessage`、`boundedTerminalOutput`、结构感知序列化（`shrinkValue` / `toolMessageContent`）与相关常量；
   - `turn/text.ts`：`canonicalArgs`、`stableArgsKey`、`turnInputText`。
   `turnRunner.ts` 由 2182 行降到 1951 行，只剩编排、预算判定与闭包状态。
-- 验收：拆分前后 `test/agent` 82 通过 / 9 个既有环境性失败一致；完整 server 套件 72 失败 / 532 通过（失败集合与基线一致）；无行为差异。
+- 验收：拆分前后 `test/agent` 82 通过 / 9 个既有环境性失败一致；完整 server 套件 72 失败 / 532 通过（失败集合与基线一致；**2026-11-16 修订：该基线已作废，失败系当时无独立 `node` 所致，已在可用 `node` 环境下清零，不再作为验收基准**）；无行为差异。
 - **偏差（记录在案）**：`providerStep` / `toolBatch` / `finalize` 三个循环体模块**未**在本任务拆出。原因：循环体共享约 20 个可变闭包状态（预算计数、锁、审批、事实、重复失败表），机械拆分要么引入一个巨型上下文对象、要么必须改动可变状态的所有权，两者都不满足"行为零变化"的前提；且本机 72 个环境性失败的覆盖缺口让大重构不可验证。已另立 `HX-12b` 承接。
 - 备注：纯机械动作，禁止夹带行为改动；发现的非行为问题只登记 `docs/open-questions.md`。
 
