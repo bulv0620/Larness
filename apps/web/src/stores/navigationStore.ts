@@ -80,7 +80,7 @@ export const useNavigationStore = create<NavigationState>()(
           return {
             resourceTab: "files",
             resourceCollapsed: false,
-            fileReveal: { scope, path, scroll: options?.scroll ?? "nearest" },
+            fileReveal: { scope, path, scroll: options?.scroll ?? "center" },
             expandedFileDirectories: {
               ...state.expandedFileDirectories,
               [scope]: [

@@ -213,7 +213,8 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await expect(page.locator(".view-lines").first()).toContainText("line 2499");
     await replaceEditor(page, "mine\r\n");
     const saveButton = page.getByRole("button", { name: "保存文件", exact: true });
-    const editorPosition = await editor.boundingBox();
+    const editorSurface = page.locator(".monaco-editor").first();
+    const editorPosition = await editorSurface.boundingBox();
     const rejectSave = async (route: Route) => {
       if (route.request().method() !== "PUT") return route.fallback();
       await route.fulfill({
@@ -225,7 +226,7 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     await saveButton.click();
     const failure = page.getByRole("alert").filter({ hasText: /项目正在写入/ });
     await expect(failure).toHaveCSS("position", "fixed");
-    expect(await editor.boundingBox()).toEqual(editorPosition);
+    expect(await editorSurface.boundingBox()).toEqual(editorPosition);
     await failure.getByRole("button", { name: "关闭错误消息" }).click();
     await expect(failure).toHaveCount(0);
     await page.unroute("**/api/files", rejectSave);
@@ -302,6 +303,18 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
     const childRow = resources.getByRole("button", { name: "打开文件 child.txt" });
     await expect(childRow).toBeFocused();
     await expect(childRow).toHaveAttribute("aria-current", "true");
+    const midRow = resources.getByRole("button", { name: "打开文件 z-scroll-20.txt" });
+    await midRow.dblclick();
+    await expect(page.getByRole("tab", { name: /^z-scroll-20\.txt/ })).toBeVisible();
+    await page.getByRole("button", { name: "在文件树中定位" }).click();
+    await expect(midRow).toBeFocused();
+    const panelBox = await filePanel.boundingBox();
+    const midBox = await midRow.boundingBox();
+    expect(panelBox && midBox).toBeTruthy();
+    const panelCenter = (panelBox?.y ?? 0) + (panelBox?.height ?? 0) / 2;
+    const midCenter = (midBox?.y ?? 0) + (midBox?.height ?? 0) / 2;
+    expect(Math.abs(midCenter - panelCenter)).toBeLessThan((panelBox?.height ?? 0) * 0.2);
+    await page.getByRole("button", { name: "关闭 z-scroll-20.txt", exact: true }).click();
     await page.screenshot({ path: path.join(tmpdir(), "larness-fr-1-file-tree.png") });
     await childRow.press("ArrowLeft");
     await expect(resources.getByRole("button", { name: "目录 sub" })).toBeFocused();

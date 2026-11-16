@@ -320,7 +320,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     setError(null);
     setSelected(path);
     row?.focus({ preventScroll: true });
-    if (reveal?.scroll !== "none") row?.scrollIntoView?.({ block: reveal?.scroll ?? "nearest" });
+    if (reveal?.scroll !== "none") row?.scrollIntoView?.({ block: reveal?.scroll ?? "center" });
   };
 
   const handleKeys = (event: KeyboardEvent<HTMLFieldSetElement>) => {

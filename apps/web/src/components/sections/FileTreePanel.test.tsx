@@ -46,12 +46,14 @@ it("reveals a file beyond the first page and keeps expansion scoped to the proje
           : [{ path: "folder/first.txt", name: "first.txt", type: "file" }],
     nextCursor: path === "folder" && !cursor ? "next" : null,
   }));
+  const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
   const view = render(tree("p1"));
   await screen.findByRole("button", { name: "目录 folder" });
   act(() => useNavigationStore.getState().revealFile("project:p1", file.path));
   const row = await screen.findByRole("button", { name: "打开文件 note.txt" });
   expect(row).toHaveFocus();
   expect(row).toHaveAttribute("aria-current", "true");
+  expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
   expect(vi.mocked(api.listDirectory)).toHaveBeenCalledWith({ projectId: "p1" }, "folder", "next");
 
   fireEvent.keyDown(row, { key: "ArrowLeft" });
