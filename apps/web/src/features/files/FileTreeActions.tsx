@@ -25,6 +25,8 @@ export function FileRowActions({
   chat,
   move,
   remove,
+  createFile,
+  createDirectory,
 }: {
   children: ReactElement<ComponentPropsWithoutRef<"button">>;
   rename?: () => void;
@@ -32,6 +34,8 @@ export function FileRowActions({
   chat: () => void;
   move?: () => void;
   remove?: () => void;
+  createFile?: () => void;
+  createDirectory?: () => void;
 }) {
   const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
   const [open, setOpen] = useState(false);
@@ -71,6 +75,11 @@ export function FileRowActions({
           <DropdownMenuItem onSelect={copy}>复制相对路径</DropdownMenuItem>
           <DropdownMenuItem onSelect={chat}>发送到聊天框</DropdownMenuItem>
           <DropdownMenuSeparator />
+          {createFile ? <DropdownMenuItem onSelect={createFile}>新建文件</DropdownMenuItem> : null}
+          {createDirectory ? (
+            <DropdownMenuItem onSelect={createDirectory}>新建文件夹</DropdownMenuItem>
+          ) : null}
+          {createFile || createDirectory ? <DropdownMenuSeparator /> : null}
           {rename ? <DropdownMenuItem onSelect={rename}>重命名</DropdownMenuItem> : null}
           {move ? <DropdownMenuItem onSelect={move}>移动</DropdownMenuItem> : null}
           {remove ? (

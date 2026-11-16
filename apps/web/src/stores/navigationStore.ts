@@ -22,9 +22,17 @@ interface NavigationState {
   expandedProjects: Record<string, boolean>;
   expandedFileDirectories: Record<string, string[]>;
   resourceTab: "files" | "git";
-  fileReveal: { scope: string; path: string } | null;
+  fileReveal: {
+    scope: string;
+    path: string;
+    scroll?: "nearest" | "center" | "none";
+  } | null;
   setResourceTab: (tab: "files" | "git") => void;
-  revealFile: (scope: string, path: string) => void;
+  revealFile: (
+    scope: string,
+    path: string,
+    options?: { scroll?: "nearest" | "center" | "none" },
+  ) => void;
   setExpandedFileDirectories: (scope: string, paths: string[]) => void;
   focusComposerNonce: number;
   reconcileWorkspace: (
@@ -66,13 +74,13 @@ export const useNavigationStore = create<NavigationState>()(
 
       setResourceTab: (resourceTab) => set({ resourceTab, fileReveal: null }),
 
-      revealFile: (scope, path) =>
+      revealFile: (scope, path, options) =>
         set((state) => {
           const parents = path.split("/").slice(0, -1);
           return {
             resourceTab: "files",
             resourceCollapsed: false,
-            fileReveal: { scope, path },
+            fileReveal: { scope, path, scroll: options?.scroll ?? "center" },
             expandedFileDirectories: {
               ...state.expandedFileDirectories,
               [scope]: [
