@@ -1,7 +1,7 @@
 # 任务：<切片标题>
 
 > 状态：`todo | in_progress | blocked | review | done`。一个任务一个提交。  
-> 开始任务前更新 `STATUS.md`；完成后勾选本表并更新 `ROADMAP.md`。
+> 开始任务前在 `STATUS.md` 的「当前进行中」登记；完成后勾选本表、更新 `ROADMAP.md`，并把该任务移入「最近收口」。
 
 ## 状态总表
 

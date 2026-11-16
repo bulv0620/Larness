@@ -101,7 +101,7 @@ depends_on: [010-foundation]
 | `done` | 全部任务完成且门禁通过 |
 | `blocked` | 存在未决边界或外部依赖 |
 
-`ROADMAP.md` 是进度总表；`STATUS.md` 是当前会话视角的摘要。三者冲突时以 `ROADMAP.md` 的任务状态为准，并立即修正其他两处。
+`ROADMAP.md` 是进度总表；`STATUS.md` 是**当前状态快照**（进行中 / 阻塞 / 最近收口），已收口明细在 [历史状态日志](../docs/log/2026-11.md) 与各切片 `tasks.md` / `acceptance.md`。三者冲突时以 `ROADMAP.md` 的任务状态为准，并立即修正其他两处。
 
 ## 3. 任务 ID 与粒度
 

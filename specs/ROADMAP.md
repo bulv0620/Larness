@@ -552,7 +552,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | FR-14 | 文件与目录统一右键操作 | FR-13 | `done` |
 | FR-15 | 文件树重命名失焦提交 | FR-14 | `done` |
 
-- 开始任务：`todo → in_progress`，在 `STATUS.md` 登记。
-- 完成：更新 `tasks.md`、本节状态、`STATUS.md`，提交。
+- 开始任务：`todo → in_progress`，在 `STATUS.md` 的「当前进行中」登记。
+- 完成：更新 `tasks.md` 与本节状态，把该任务移入 `STATUS.md` 的「最近收口」，提交。
 - 阻塞：`blocked` + 原因 + 需要谁决策；解除后回到 `todo`。
 - 新增 / 拆分任务：先改本表与对应 `tasks.md`，保持 ID 稳定；不使用“临时任务”绕过依赖。
