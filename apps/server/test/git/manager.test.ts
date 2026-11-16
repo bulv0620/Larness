@@ -196,10 +196,8 @@ it("authenticates a direct remote action, binds its snapshot and replays the sam
         expectedSnapshot: (await manager.status(f.projectId)).snapshotVersion,
         requestId: randomUUID(),
       });
-      expect(dirty.statusCode).toBe(409);
-      expect(dirty.json()).toMatchObject({
-        error: { code: "GIT_CONFLICT", message: "Working tree or index is not clean" },
-      });
+      expect(dirty.statusCode).toBe(200);
+      expect(dirty.json()).toMatchObject({ status: "COMPLETED", kind: "pull" });
       expect(await readFile(path.join(f.repo, "a.txt"), "utf8")).toBe("keep this edit\n");
 
       const writer = new ProjectWriteLock({
@@ -512,6 +510,32 @@ it("pulls ff-only, refuses non-fast-forward and dirty branch switches without st
       manager.decideAction(pull.id, "approve", f.clientId);
       expect((await manager.executeAction(pull.id, f.clientId)).status).toBe("COMPLETED");
       expect(await readFile(path.join(f.repo, "remote.txt"), "utf8")).toBe("remote\n");
+
+      // Uncommitted local changes are kept when the incoming commits do not touch them.
+      await writeFile(path.join(f.repo, "b.txt"), "local edit\n");
+      await writeFile(path.join(clone, "remote-safe.txt"), "remote safe\n");
+      git(clone, "add", "remote-safe.txt");
+      git(clone, "commit", "-q", "-m", "remote change without overlap");
+      git(clone, "push", "-q", "origin", "main");
+      const dirty = await manager.createAction(f.projectId, { action: "pull" }, f.clientId);
+      manager.decideAction(dirty.id, "approve", f.clientId);
+      expect((await manager.executeAction(dirty.id, f.clientId)).status).toBe("COMPLETED");
+      expect(await readFile(path.join(f.repo, "remote-safe.txt"), "utf8")).toBe("remote safe\n");
+      expect(await readFile(path.join(f.repo, "b.txt"), "utf8")).toBe("local edit\n");
+
+      // A pull that would overwrite a local edit is refused and keeps the file as it is.
+      const head = git(f.repo, "rev-parse", "HEAD");
+      await writeFile(path.join(clone, "b.txt"), "remote edit\n");
+      git(clone, "commit", "-qam", "remote overlapping change");
+      git(clone, "push", "-q", "origin", "main");
+      const overlap = await manager.createAction(f.projectId, { action: "pull" }, f.clientId);
+      manager.decideAction(overlap.id, "approve", f.clientId);
+      await expect(manager.executeAction(overlap.id, f.clientId)).rejects.toMatchObject({
+        code: "GIT_CONFLICT",
+        message: "Git operation would overwrite local changes",
+      });
+      expect(await readFile(path.join(f.repo, "b.txt"), "utf8")).toBe("local edit\n");
+      expect(git(f.repo, "rev-parse", "HEAD")).toBe(head);
 
       await writeFile(path.join(f.repo, "local.txt"), "local\n");
       git(f.repo, "add", "local.txt");

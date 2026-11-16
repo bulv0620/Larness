@@ -728,11 +728,14 @@ export class GitManager {
       }
       case "pull":
       case "push": {
-        if (action.action === "pull") this.#requireClean(status);
+        if (action.action === "pull" && status.conflicts.length)
+          throw new GitError("GIT_CONFLICT", "Resolve conflicts before pulling");
         if (!status.upstream || !status.head)
           throw new GitError("GIT_CONFLICT", "Current branch has no upstream");
         if (action.action === "pull" && !authorizeRemote) {
-          await runGit(root, ["pull", "--ff-only"], { timeoutMs: WRITE_TIMEOUT_MS });
+          await runGit(root, ["pull", "--no-rebase", "--ff-only", "--no-recurse-submodules"], {
+            timeoutMs: WRITE_TIMEOUT_MS,
+          });
           return { action: "pull" };
         }
         const { stdout } = await runGit(

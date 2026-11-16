@@ -122,7 +122,7 @@ export function createGitTools(): ToolDefinition[] {
     action(
       "git_pull",
       "L2",
-      "Pull the current branch with --ff-only when the working tree is clean and an upstream is configured. Never stashes, merges or resets.",
+      "Pull the current branch with --ff-only when an upstream is configured. Uncommitted local changes are kept unless the incoming commits would overwrite them; that case fails with GIT_CONFLICT. Never stashes, merges or resets.",
       Empty,
       () => "拉取当前分支（仅快进）",
     ),

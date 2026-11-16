@@ -53,8 +53,10 @@ function remoteError(failure: unknown) {
     return "远端认证失败，请检查运行 Larness 的主机上的 Git 凭据。";
   if (failure.code === "GIT_CONFLICT") {
     switch (failure.message) {
-      case "Working tree or index is not clean":
-        return "有未提交的更改，请先处理更改再拉取。";
+      case "Git operation would overwrite local changes":
+        return "拉取会覆盖本地未提交的改动，请先提交、暂存或移除这些文件再拉取。";
+      case "Resolve conflicts before pulling":
+        return "还有未解决的冲突，请先处理冲突再拉取。";
       case "Git operation cannot be applied without a merge":
         return "本地与上游分支无法快进，请先在终端处理分叉。";
       case "Git push requires integrating upstream changes":

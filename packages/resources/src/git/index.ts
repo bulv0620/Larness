@@ -95,6 +95,8 @@ function classify(stderr: string, readOnly: boolean): GitError {
     return new GitError("GIT_AUTH_REQUIRED", "Git host authentication is required");
   if (text.includes("not possible to fast-forward") || text.includes("diverging branches"))
     return new GitError("GIT_CONFLICT", "Git operation cannot be applied without a merge");
+  if (text.includes("would be overwritten by"))
+    return new GitError("GIT_CONFLICT", "Git operation would overwrite local changes");
   if (
     text.includes("[rejected]") &&
     (text.includes("non-fast-forward") || text.includes("fetch first"))
