@@ -1,5 +1,14 @@
 import { z } from "zod";
 import { FilePathSchema } from "./files";
+
+/**
+ * A single command may run for up to 30 minutes. The Turn wall clock is the
+ * real outer bound (ADR-059): `CommandManager` further clamps this to the time
+ * left in the Turn, so a long timeout never outlives its Turn.
+ */
+export const MAX_COMMAND_TIMEOUT_MS = 1_800_000;
+export const DEFAULT_COMMAND_TIMEOUT_MS = 300_000;
+
 export const CommandParamsSchema = z
   .object({
     executable: z
@@ -16,7 +25,12 @@ export const CommandParamsSchema = z
       )
       .max(256),
     cwd: FilePathSchema.default("."),
-    timeoutMs: z.number().int().min(1).max(600_000).default(120_000),
+    timeoutMs: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_COMMAND_TIMEOUT_MS)
+      .default(DEFAULT_COMMAND_TIMEOUT_MS),
   })
   .strict()
   .refine(

@@ -177,6 +177,59 @@ describe("automatic continuation", () => {
     });
   });
 
+  it("continues a read-only slice because reads are recorded facts", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+
+      try {
+        const options = { db: opened.db, dataDir: dir, now: () => NOW };
+        const session = await createSession(options, {});
+        const turn = createTurn(options, { sessionId: session.id, text: "audit the module" });
+
+        // Only reads: no file was written and no command ran. This used to mean
+        // "no facts", so an audit Turn could not be continued at all.
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: turn.turnId,
+          type: "tool.requested",
+          payload: { turnId: turn.turnId, toolCallId: "r1", name: "read_file" },
+          now: NOW,
+        });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: turn.turnId,
+          type: "tool.completed",
+          payload: {
+            turnId: turn.turnId,
+            toolCallId: "r1",
+            resultSummary: "read src/pay.ts",
+            fileRead: { path: "src/pay.ts", version: "v9" },
+          },
+          now: NOW,
+        });
+        updateTurnRow(opened.db, turn.turnId, {
+          status: "COMPLETED",
+          terminalReason: "budget",
+          endedAt: NOW,
+          usageJson: JSON.stringify({ inputTokens: 400_000, outputTokens: 100_000 }),
+        });
+
+        const next = continueBudgetedTurn(
+          { db: opened.db, now: () => NOW },
+          { turnId: turn.turnId, budgetCause: "context" },
+        );
+
+        expect(next).not.toBeNull();
+        const created = getTurnById(opened.db, next?.turnId ?? "");
+        const input = JSON.parse(created?.inputJson ?? "{}") as { text?: string };
+        expect(input.text).toContain("src/pay.ts");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("never chains scheduled sessions or non-budget turns", async () => {
     await withTempDir(async (dir) => {
       const opened = openDatabase(path.join(dir, "larness.db"));

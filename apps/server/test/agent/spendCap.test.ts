@@ -42,6 +42,14 @@ function textStep(text: string): { chunks: ProviderChunk[] } {
 }
 
 describe("resolveSpendCap", () => {
+  it("keeps wall clock as a stall guard rather than the real budget", () => {
+    // 180 minutes: long verification-heavy Turns were cut mid-work by the old
+    // 60-minute clock while the spend cap is what actually bounds a Turn.
+    expect(DEFAULT_BUDGET.maxDurationMs).toBe(180 * 60_000);
+    expect(DEFAULT_BUDGET.maxSteps).toBe(0);
+    expect(DEFAULT_BUDGET.maxToolCalls).toBe(0);
+  });
+
   it("scales the default cap with the reported window", () => {
     expect(SPEND_CAP_CONTEXTS).toBe(30);
     expect(resolveSpendCap(DEFAULT_BUDGET, 128_000)).toBe(3_840_000);

@@ -247,6 +247,20 @@ export function assembleContext(
     estimatedTokens = estimateRequestTokens(messages, tools);
   }
 
+  if (truncatedHistory) {
+    // Dropping history silently is worse than the loss itself: the model cannot
+    // tell that earlier turns are gone and may assume it already has them.
+    const system = messages[0];
+
+    if (system?.role === "system") {
+      messages[0] = {
+        role: "system",
+        content: `${system.content}\n\nEarlier conversation history was dropped to fit the context window. If a specific earlier detail matters, ask the user or re-read the project instead of assuming it.`,
+      };
+      estimatedTokens = estimateRequestTokens(messages, tools);
+    }
+  }
+
   return {
     messages,
     tools,

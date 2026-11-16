@@ -36,8 +36,10 @@ import { getProjectById } from "../projects/repository.js";
 import { findOperation, insertOperation, updateOperation } from "../resources/repository.js";
 
 const ACTION_TTL_MS = 5 * 60_000;
-const READ_TIMEOUT_MS = 15_000;
-const WRITE_TIMEOUT_MS = 120_000;
+// Large repositories make even read-only plumbing (`git status`, `git log`)
+// slow on spinning disks, and `git push` / `git pull` can wait on the network.
+const READ_TIMEOUT_MS = 30_000;
+const WRITE_TIMEOUT_MS = 300_000;
 
 export interface GitManagerOptions {
   db: Database;

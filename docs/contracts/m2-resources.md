@@ -239,7 +239,7 @@ WebSocket 输入最大 1 MiB，控制消息串行处理且待处理最多 64 条
 ### 参数、锁与状态
 
 - 参数沿 §3：executable、args、cwd、timeoutMs；严格拒绝 env 等额外字段。程序名最多 4096 字符，参数最多 256 个、每个最多 8192 字符，合计字符上限 65536；拒绝 NUL。cwd 为根内规范化相对目录，拒绝链接 / 越界 / 受保护运行数据，执行前重新核验。
-- 默认 120s / 最大 600s，启动前扣除准备耗时并取 Turn 剩余预算的较小值。到期开始有限停止流程，停止确认前保持冲突屏障；不把超时视为已停止。
+- 默认 300s / 最大 1800s，启动前扣除准备耗时并取 Turn 剩余预算的较小值。到期开始有限停止流程，停止确认前保持冲突屏障；不把超时视为已停止。
 - resource_operations 的 kind 为 command.run，幂等键为真实 Turn ID + toolCallId 的 SHA-256，仍按实际 client_session_id + kind + key 唯一；参数哈希绑定会话、Turn、策略、根及规范化参数。相同执行复用记录 / 等待原执行，参数不同 CONFLICT；不同 Turn 可复用供应商的同名 toolCallId。没有活动 Runtime 的未完成记录返回 RESOURCE_UNAVAILABLE，不伪报运行或重启进程。
 - 先在事务内取共同根写锁、提交 PREPARED / CREATED、审计与递增序号，再准备输出与执行。command 的 operation.path 为 cwd，非文件操作的 expected_version / target_version 使用空字符串，不解释为文件版本。WRITING 在 spawn 前持久化；onSpawn 记录 RUNNING 和本代进程身份。状态 / 结果 / 序号事务提交后才广播。
 - 自有锁在执行期间续租，直到进程组确认停止、最终状态落库后释放；可验证并复用相同 Turn / canonical root 的有效 inheritedLock，不重复获取或代替 Turn 释放。续租失败、Turn 取消、AbortSignal 均先停止；未确认停止或最终状态提交失败保留 RECONCILIATION_REQUIRED，TTL 不能解除根冲突。

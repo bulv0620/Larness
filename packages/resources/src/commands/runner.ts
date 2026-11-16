@@ -1,6 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 import { promisify } from "node:util";
+import { MAX_COMMAND_TIMEOUT_MS } from "@larness/shared";
 import { commandEnvironment } from "../platform/environment.js";
 import { processAlive, processTreePids, terminateProcessTree } from "../platform/process.js";
 import { OutputRedactor } from "./redactor.js";
@@ -108,7 +109,11 @@ async function stopWindowsTree(
   return [...known].every((target) => !processAlive(target));
 }
 export async function runCommand(options: CommandRunOptions): Promise<CommandRunResult> {
-  if (!Number.isInteger(options.timeoutMs) || options.timeoutMs <= 0 || options.timeoutMs > 600_000)
+  if (
+    !Number.isInteger(options.timeoutMs) ||
+    options.timeoutMs <= 0 ||
+    options.timeoutMs > MAX_COMMAND_TIMEOUT_MS
+  )
     throw new Error("Invalid command timeout");
   if (options.signal?.aborted)
     return { exitCode: null, reasonCode: "CANCELLED", truncated: false, stopped: true };

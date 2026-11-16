@@ -189,3 +189,58 @@ export function toolMessageContent(result: {
         },
   );
 }
+
+/** Folded strings stay short enough to read as an identifier, not as content. */
+const FOLD_STRING_CHARS = 160;
+const FOLD_MAX_DEPTH = 3;
+
+function foldValue(value: unknown, depth: number): unknown {
+  if (typeof value === "string") {
+    return value.length <= FOLD_STRING_CHARS
+      ? value
+      : `…[${value.length - FOLD_STRING_CHARS} chars elided]…`;
+  }
+
+  if (value === null || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    // The count is what the model needs to judge a result, not the items.
+    return { count: value.length };
+  }
+
+  if (isPlainRecord(value)) {
+    if (depth >= FOLD_MAX_DEPTH) {
+      return { keys: Object.keys(value).length };
+    }
+
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, foldValue(entry, depth + 1)]),
+    );
+  }
+
+  return null;
+}
+
+/**
+ * Replaces a tool result with its identifiers: paths, versions, counts and
+ * status fields survive, bulk content is elided. This is reversible — the full
+ * result is still in `agent_events` and the model can re-read the file — which
+ * is why it is preferred over dropping history.
+ */
+export function foldToolResultContent(content: string): string {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(content) as unknown;
+  } catch {
+    return content.slice(0, FOLD_STRING_CHARS);
+  }
+
+  const base = isPlainRecord(parsed)
+    ? (foldValue(parsed, 0) as Record<string, unknown>)
+    : { value: foldValue(parsed, 0) };
+
+  return JSON.stringify({ ...base, folded: true });
+}

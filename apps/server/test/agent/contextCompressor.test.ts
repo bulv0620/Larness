@@ -199,4 +199,63 @@ describe("context compression", () => {
       }
     });
   });
+
+  it("summarizes an oversized history in chunks and merges the parts", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+      const options = { db: opened.db, dataDir: dir };
+      const session = await createSession(options, {});
+      const created = createTurn(options, { sessionId: session.id, text: "current task" });
+      const turn = getTurnById(opened.db, created.turnId);
+
+      if (turn === null) throw new Error("turn missing");
+
+      // Long entries so the transcript cannot fit into one summary prompt.
+      for (let index = 0; index < 20; index += 1) {
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: null,
+          type: "user.message",
+          payload: { text: `user ${index} `.padEnd(400, "x") },
+          now: 1_000 + index * 2,
+        });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: null,
+          type: "assistant.message",
+          payload: { text: `assistant ${index} `.padEnd(400, "y") },
+          now: 1_001 + index * 2,
+        });
+      }
+
+      try {
+        const adapter = createFakeProvider(
+          Array.from({ length: 12 }, () => ({
+            chunks: [
+              { type: "text-delta" as const, text: "CHUNK-SUMMARY" },
+              { type: "finish" as const, finishReason: "stop" as const },
+            ],
+          })),
+        );
+        const result = await compressContext({
+          db: opened.db,
+          session,
+          turn,
+          adapter,
+          model: "fake",
+          apiKey: "sk-fake",
+          contextWindow: 1_000,
+          tokensBefore: 900,
+        });
+
+        expect(result).toMatchObject({ degraded: false });
+        // More than one chunk plus a merge pass; the single prompt used to fail.
+        expect(adapter.calls.length).toBeGreaterThan(2);
+        expect(latestContextSummary(opened.db, session.id)?.summary).toContain("CHUNK-SUMMARY");
+      } finally {
+        opened.sqlite.close();
+      }
+    });
+  });
 });

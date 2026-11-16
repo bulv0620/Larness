@@ -108,6 +108,20 @@ export function calibrateEstimate(options: {
 
 export type ContextWatermark = "ok" | "soft" | "hard";
 
+/**
+ * Folding starts below the checkpoint watermark: eliding old tool bodies is
+ * cheap, reversible and often enough, so many Turns never need a checkpoint at
+ * all.
+ */
+export const FOLD_WATERMARK_RATIO = 0.55;
+
+export function shouldFoldToolResults(
+  estimatedInputTokens: number,
+  contextWindow: number,
+): boolean {
+  return contextWindow > 0 && estimatedInputTokens / contextWindow >= FOLD_WATERMARK_RATIO;
+}
+
 export const SOFT_WATERMARK_RATIO = 0.7;
 export const HARD_WATERMARK_RATIO = 0.9;
 

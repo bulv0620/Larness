@@ -95,14 +95,14 @@ interface ServerEvent<T = unknown> {
 | `tool.approval.required` | `toolCallId, approvalId, summary, scope, expiresAt` | 是 |
 | `tool.approval.resolved` | `approvalId, decision` | 是 |
 | `tool.started` | `toolCallId, name` | 是 |
-| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?, supersedes?`（M2-2 成功文件修改附授权 scope / path / version，074 起 `write_file` 同样生成；`supersedes` 为同一 `(tool, 规范化参数)` 之前失败、本次成功的 callId 列表） | 是 |
+| `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?, supersedes?, fileRead?`（M2-2 成功文件修改附授权 scope / path / version，074 起 `write_file` 同样生成；`supersedes` 为同一 `(tool, 规范化参数)` 之前失败、本次成功的 callId 列表；M6-13 起 `read_file` 附 `fileRead: {path, version}`，只含相对路径与版本哈希，供检查点与接续记录「已查看」事实） | 是 |
 | `tool.failed` | `toolCallId, errorCode, message, issues?, repeatCount?`（M6-10：同一 `(tool, 规范化参数)` 连续失败次数；`issues` 为最多 5 条 `{path,message}` 的参数校验原因） | 是 |
 | `file.changed` | `path, changeType, version`（`changeType`: `modified`（`apply_patch`）/ `created`（`write_file`）） | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
 | `turn.completed` | `turnId, usage, durationMs, terminalReason, budgetExhausted?, budgetCause?, fileResults?, fileResultsOmitted?`（`usage` 与 `model.usage` 同口径，含 `cacheReadTokens?` / `noCacheTokens?`；`fileResults` 见 074） | 是 |
 | `model.usage` | `turnId, model, inputTokens, outputTokens?, totalTokens?, cacheReadTokens?, noCacheTokens?, usageSource, contextWindow`（M5-1 单次请求；M6-1 增缓存细分） | 是 |
 | `context.compressed` | `turnId, summaryId, coveredUpToSeq, tokensBefore, tokensAfter, degraded`（M5-1d 压缩） | 是 |
-| `context.checkpoint` | `turnId, summaryId, scope, reason, coveredUpToSeq, tokensBefore, tokensAfter, files, failures, openSteps`（M6-7 Turn 内检查点） | 是 |
+| `context.checkpoint` | `turnId, summaryId, scope, reason, coveredUpToSeq, tokensBefore, tokensAfter, files, reads, failures, openSteps, retainedToolBatch, pinnedRequestChars`（M6-7 Turn 内检查点；`reads` / `retainedToolBatch` / `pinnedRequestChars` 为 M6-13 增补） | 是 |
 | `turn.failed` | `turnId, errorCode, message, terminalReason, fileResults?, fileResultsOmitted?` | 是 |
 | `turn.cancelled` | `turnId, reason, terminalReason, fileResults?, fileResultsOmitted?` | 是 |
 | `turn.interrupted` | `turnId, reason, terminalReason, fileResults?, fileResultsOmitted?` | 是 |
@@ -125,7 +125,7 @@ interface ServerEvent<T = unknown> {
 
 `terminalReason`（M6-3，[ADR-057](../adr/ADR-057-runtime-efficiency.md)）在每个 `turn.*` 终态事件中给出结束原因：`normal / budget / output_truncated / provider_error / error / cancelled / interrupted`。它和事件类型正交——`turn.completed` 也可能是 `budget` 或 `output_truncated`，客户端必须按 `terminalReason` 而不是仅按事件类型判断「任务是否真的做完」。
 
-`context.checkpoint` 在 Turn 内发生上下文压力时写入：替换的是**当前 Turn 的消息历史**，事实来自已持久化事件（文件与版本、命令摘要、失败诊断、未完成计划步骤、资源 ID），不含模型摘要、prompt 或工具输出正文；`tokensBefore` / `tokensAfter` 为同一启发式口径下的整包体积，便于直接比较。检查点只存 `session_context_summaries` 的 `scope='turn'` 行，跨轮压缩（`scope='session'`）不会读到它们。
+`context.checkpoint` 在 Turn 内发生上下文压力时写入：替换的是**当前 Turn 的消息历史**，事实来自已持久化事件（文件与版本、只读查看过的文件与版本、命令摘要、失败诊断、未完成计划步骤、资源 ID），不含模型摘要、prompt 或工具输出正文；`tokensBefore` / `tokensAfter` 为同一启发式口径下的整包体积，便于直接比较。替换后的历史固定为：system 前缀、当前需求的原文（超长按头尾裁剪并标注省略字符数）、一条检查点消息，以及最近一个完整工具批次（每条结果先折叠为标识，调用与结果成对保留；放不下时整批丢弃）。检查点正文按字段裁剪，始终是合法 JSON，被省略的条目按分组计入 `omitted` 计数，不会因截断而丢掉末尾分组。`reads` 为只读查看过的文件数，`retainedToolBatch` 为保留的工具结果条数（0 表示未保留），`pinnedRequestChars` 为需求原文长度（0 表示本轮输入没有文本）。检查点只存 `session_context_summaries` 的 `scope='turn'` 行，跨轮压缩（`scope='session'`）不会读到它们。
 
 `context.compressed` 在压缩成功后先持久化再广播；`degraded: true` 表示摘要失败，Turn 继续使用截断历史。摘要正文只存 `session_context_summaries`，不进入事件、日志或审计。
 

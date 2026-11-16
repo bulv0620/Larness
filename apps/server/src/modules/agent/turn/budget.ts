@@ -12,12 +12,21 @@ import type { TurnStatus, TurnTerminalReason } from "../../../db/schema.js";
  */
 export const SPEND_CAP_CONTEXTS = 30;
 
+/**
+ * Wall clock is only a stall guard (ADR-059). It was raised from 60 to 180
+ * minutes because the spend cap — not the clock — is the real budget: a
+ * chatty coding loop exhausts `contextWindow × 30` in well under an hour,
+ * while verification-heavy Turns (builds, e2e, `install`) spend most of
+ * their time waiting with a small context and were being cut mid-work.
+ */
+export const DEFAULT_MAX_DURATION_MS = 180 * 60_000;
+
 export const DEFAULT_BUDGET = {
   // 0 = no step cap. A turn runs until it finishes or hits the spend cap;
   // wall clock is only a stall guard (ADR-059, option A).
   maxSteps: 0,
   maxToolCalls: 0,
-  maxDurationMs: 60 * 60_000,
+  maxDurationMs: DEFAULT_MAX_DURATION_MS,
   contextRatio: 0.8,
   // 0 = let the provider choose. A hard cap truncates thinking models, whose
   // reasoning tokens are charged against the same output budget.

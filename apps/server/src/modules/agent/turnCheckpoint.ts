@@ -1,4 +1,4 @@
-import type { ModelMessage } from "@larness/agent";
+import type { ModelImage, ModelMessage } from "@larness/agent";
 import { asc, desc, eq } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
@@ -6,20 +6,83 @@ import { agentEvents, sessionContextSummaries } from "../../db/schema.js";
 
 /** Bounded so a checkpoint can never become the new overflow problem. */
 export const MAX_CHECKPOINT_CHARS = 4_000;
+/**
+ * The current request is pinned next to the checkpoint. It used to survive only
+ * as `goal`, truncated to 600 characters, so a long specification silently lost
+ * its second half at the first compaction with no event and no UI hint.
+ */
+export const MAX_PINNED_REQUEST_CHARS = 8_000;
 const MAX_FILES = 20;
 const MAX_COMMANDS = 12;
 const MAX_FAILURES = 8;
 const MAX_RESOURCES = 12;
 const MAX_OPEN_STEPS = 20;
 const MAX_GOAL_CHARS = 600;
+const MAX_PATH_CHARS = 200;
+const MAX_VERSION_CHARS = 80;
 
 export interface CheckpointFacts {
   goal: string;
   files: { path: string; version: string }[];
+  /**
+   * Files that were only inspected. Successful read-only tools used to record
+   * nothing, so a read-only Turn had empty facts: it could be neither compacted
+   * nor continued and simply stopped on the context budget.
+   */
+  reads: { path: string; version: string }[];
   commands: string[];
   failures: string[];
   openSteps: string[];
   resources: string[];
+}
+
+interface CheckpointLimits {
+  files: number;
+  reads: number;
+  commands: number;
+  failures: number;
+  openSteps: number;
+  resources: number;
+  textChars: number;
+}
+
+/**
+ * Fidelity ladder. The checkpoint is shaped field by field instead of being cut
+ * out of serialized JSON: a character cut produced invalid JSON and always ate
+ * the trailing sections (`resources` first), which is exactly the loss the
+ * tool-result shaper already forbids.
+ */
+function limits(
+  files: number,
+  reads: number,
+  commands: number,
+  failures: number,
+  openSteps: number,
+  resources: number,
+  textChars: number,
+): CheckpointLimits {
+  return { files, reads, commands, failures, openSteps, resources, textChars };
+}
+
+const CHECKPOINT_LADDER: CheckpointLimits[] = [
+  limits(MAX_FILES, MAX_FILES, MAX_COMMANDS, MAX_FAILURES, MAX_OPEN_STEPS, MAX_RESOURCES, 240),
+  limits(12, 12, 8, 6, 12, 12, 200),
+  limits(8, 8, 5, 4, 8, 10, 160),
+  limits(4, 4, 2, 2, 4, 8, 120),
+  limits(2, 2, 1, 1, 2, 6, 80),
+];
+
+function clipText(value: string, maxChars: number): string {
+  if (value.length <= maxChars) {
+    return value;
+  }
+
+  const omitted = value.length - maxChars;
+  const headChars = Math.max(1, Math.floor(maxChars * 0.6));
+  const tailChars = Math.max(0, maxChars - headChars);
+  const tail = tailChars === 0 ? "" : value.slice(-tailChars);
+
+  return `${value.slice(0, headChars)}…[${omitted} chars omitted]…${tail}`;
 }
 
 interface PlanStepLike {
@@ -44,6 +107,7 @@ function uniqueLast(values: string[], limit: number): string[] {
 export class TurnFactsBuilder {
   readonly #goal: string;
   readonly #files = new Map<string, string>();
+  readonly #reads = new Map<string, string>();
   readonly #commands: string[] = [];
   readonly #failures: string[] = [];
   readonly #resources = new Set<string>();
@@ -55,6 +119,14 @@ export class TurnFactsBuilder {
 
   recordFile(filePath: string, version: string): void {
     this.#files.set(filePath, version);
+    // A written file is already tracked with its new version.
+    this.#reads.delete(filePath);
+  }
+
+  recordRead(filePath: string, version: string): void {
+    if (!this.#files.has(filePath)) {
+      this.#reads.set(filePath, version);
+    }
   }
 
   recordCommand(summary: string): void {
@@ -88,6 +160,7 @@ export class TurnFactsBuilder {
   isEmpty(): boolean {
     return (
       this.#files.size === 0 &&
+      this.#reads.size === 0 &&
       this.#commands.length === 0 &&
       this.#failures.length === 0 &&
       this.#plan.length === 0 &&
@@ -96,14 +169,16 @@ export class TurnFactsBuilder {
   }
 
   snapshot(): CheckpointFacts {
-    const files = [...this.#files.entries()].slice(-MAX_FILES).map(([filePath, version]) => ({
-      path: filePath,
-      version,
-    }));
+    const entriesOf = (source: Map<string, string>) =>
+      [...source.entries()].slice(-MAX_FILES).map(([filePath, version]) => ({
+        path: filePath,
+        version,
+      }));
 
     return {
       goal: this.#goal,
-      files,
+      files: entriesOf(this.#files),
+      reads: entriesOf(this.#reads),
       commands: cap(this.#commands, MAX_COMMANDS),
       failures: uniqueLast(this.#failures, MAX_FAILURES),
       openSteps: this.#plan
@@ -115,12 +190,89 @@ export class TurnFactsBuilder {
   }
 }
 
+interface ShapedFacts {
+  goal: string;
+  files: { path: string; version: string }[];
+  reads: { path: string; version: string }[];
+  commands: string[];
+  failures: string[];
+  openSteps: string[];
+  resources: string[];
+  omitted?: Record<string, number>;
+}
+
+function shapeFiles(
+  entries: { path: string; version: string }[],
+  limit: number,
+): { kept: { path: string; version: string }[]; omitted: number } {
+  const kept = entries.slice(-limit).map((entry) => ({
+    path: clipText(entry.path, MAX_PATH_CHARS),
+    version: clipText(entry.version, MAX_VERSION_CHARS),
+  }));
+
+  return { kept, omitted: Math.max(0, entries.length - kept.length) };
+}
+
+function shapeTexts(
+  values: string[],
+  limit: number,
+  chars: number,
+): { kept: string[]; omitted: number } {
+  const kept = values.slice(-limit).map((value) => clipText(value, chars));
+
+  return { kept, omitted: Math.max(0, values.length - kept.length) };
+}
+
+function shapeFacts(facts: CheckpointFacts, level: CheckpointLimits): ShapedFacts {
+  const files = shapeFiles(facts.files, level.files);
+  const reads = shapeFiles(facts.reads, level.reads);
+  const commands = shapeTexts(facts.commands, level.commands, level.textChars);
+  const failures = shapeTexts(facts.failures, level.failures, level.textChars);
+  const openSteps = shapeTexts(facts.openSteps, level.openSteps, level.textChars);
+  const resources = shapeTexts(facts.resources, level.resources, MAX_PATH_CHARS);
+  const counts: [string, number][] = [
+    ["files", files.omitted],
+    ["reads", reads.omitted],
+    ["commands", commands.omitted],
+    ["failures", failures.omitted],
+    ["openSteps", openSteps.omitted],
+    ["resources", resources.omitted],
+  ];
+  const omitted = Object.fromEntries(counts.filter(([, count]) => count > 0));
+
+  return {
+    goal: facts.goal,
+    files: files.kept,
+    reads: reads.kept,
+    commands: commands.kept,
+    failures: failures.kept,
+    openSteps: openSteps.kept,
+    resources: resources.kept,
+    ...(Object.keys(omitted).length === 0 ? {} : { omitted }),
+  };
+}
+
+/**
+ * Serializes the facts at the highest fidelity that fits the budget, so the
+ * body is always valid JSON and loss is explicit in `omitted` counts instead of
+ * silently dropping the trailing fields.
+ */
+export function boundedCheckpointBody(facts: CheckpointFacts): string {
+  const smallest = CHECKPOINT_LADDER[CHECKPOINT_LADDER.length - 1] as CheckpointLimits;
+
+  for (const level of CHECKPOINT_LADDER) {
+    const body = JSON.stringify(shapeFacts(facts, level));
+
+    if (body.length <= MAX_CHECKPOINT_CHARS) {
+      return body;
+    }
+  }
+
+  return JSON.stringify(shapeFacts(facts, smallest));
+}
+
 export function checkpointMessage(facts: CheckpointFacts, observedAt: number): ModelMessage {
-  const body = JSON.stringify(facts);
-  const bounded =
-    body.length <= MAX_CHECKPOINT_CHARS
-      ? body
-      : `${body.slice(0, MAX_CHECKPOINT_CHARS)}…[checkpoint truncated]`;
+  const bounded = boundedCheckpointBody(facts);
 
   return {
     role: "user",
@@ -130,6 +282,38 @@ export function checkpointMessage(facts: CheckpointFacts, observedAt: number): M
       "",
       bounded,
     ].join("\n"),
+  };
+}
+
+/**
+ * The request that opened the Turn, kept verbatim across compaction. Without it
+ * a long specification is reduced to the checkpoint's 600-character `goal` and
+ * the model keeps working against a requirement it can no longer read.
+ */
+export function pinnedRequestMessage(input: {
+  text: string;
+  images?: ModelImage[];
+}): ModelMessage | null {
+  const text = input.text.trim();
+  const images = input.images ?? [];
+
+  if (text.length === 0 && images.length === 0) {
+    return null;
+  }
+
+  const omitted = Math.max(0, text.length - MAX_PINNED_REQUEST_CHARS);
+  const body =
+    omitted === 0
+      ? text
+      : `${text.slice(0, MAX_PINNED_REQUEST_CHARS)}…[${omitted} chars omitted; re-read the requirement from the user or a project file before assuming the rest]…`;
+
+  return {
+    role: "user",
+    content: [
+      "Original request for this Turn (kept verbatim when older messages were compacted):",
+      body,
+    ].join("\n"),
+    ...(images.length === 0 ? {} : { images }),
   };
 }
 
@@ -175,6 +359,16 @@ export function extractFactsFromEvents(events: EventLike[], goal: string): Check
 
       if (toolName === "run_command" && typeof payload.resultSummary === "string") {
         facts.recordCommand(payload.resultSummary);
+      }
+
+      const read = payload.fileRead;
+
+      if (typeof read === "object" && read !== null) {
+        const record = read as { path?: unknown; version?: unknown };
+
+        if (typeof record.path === "string" && typeof record.version === "string") {
+          facts.recordRead(record.path, record.version);
+        }
       }
 
       facts.recordResource(payload.resourceTarget);
@@ -244,6 +438,7 @@ export function loadTurnFacts(db: DbExecutor, turnId: string, goal: string): Che
 export function factsAreEmpty(facts: CheckpointFacts): boolean {
   return (
     facts.files.length === 0 &&
+    facts.reads.length === 0 &&
     facts.commands.length === 0 &&
     facts.failures.length === 0 &&
     facts.openSteps.length === 0 &&

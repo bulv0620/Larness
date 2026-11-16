@@ -63,6 +63,7 @@ import {
   contextWatermark,
   estimateRequestTokens,
   reservedOutputTokens,
+  shouldFoldToolResults,
 } from "./tokenEstimator.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
 import {
@@ -73,6 +74,7 @@ import {
   type TurnBudget,
 } from "./turn/budget.js";
 import { carriedSpendTokens } from "./turn/chain.js";
+import { foldOldToolResults, lastCompleteToolBatch } from "./turn/compaction.js";
 import { createSecretLoader } from "./turn/secrets.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
 import {
@@ -84,6 +86,7 @@ import {
 import {
   checkpointMessage,
   latestEventSeq,
+  pinnedRequestMessage,
   saveTurnCheckpoint,
   TurnFactsBuilder,
 } from "./turnCheckpoint.js";
@@ -1344,7 +1347,7 @@ export class TurnRunner {
 
         const remainingMs = Math.max(1_000, deadline - this.#now());
         const stepStartedAt = this.#now();
-        const heuristicTokens = estimateRequestTokens(messages, tools);
+        let heuristicTokens = estimateRequestTokens(messages, tools);
         let estimatedInputTokens = calibrateEstimate({
           heuristicTokens,
           anchoredHeuristicTokens,
@@ -1355,6 +1358,25 @@ export class TurnRunner {
           contextWindow,
         });
         let projectedTokens = estimatedInputTokens + reservedOutput;
+
+        // Level-1 compaction: elide older tool bodies before falling back to an
+        // irreversible checkpoint. The full results stay in `agent_events`, so
+        // the model can re-read anything it still needs.
+        if (steps > 0 && shouldFoldToolResults(estimatedInputTokens, inputWindow)) {
+          const folded = foldOldToolResults(messages);
+
+          if (folded !== null) {
+            messages = folded;
+            heuristicTokens = estimateRequestTokens(messages, tools);
+            estimatedInputTokens = calibrateEstimate({
+              heuristicTokens,
+              anchoredHeuristicTokens,
+              anchoredProviderTokens,
+            });
+            projectedTokens = estimatedInputTokens + reservedOutput;
+          }
+        }
+
         const watermark = contextWatermark(
           estimatedInputTokens,
           Math.min(inputWindow, contextWindow - reservedOutput),
@@ -1386,10 +1408,21 @@ export class TurnRunner {
           const screenshots = messages.flatMap((message) =>
             message.role === "user" ? (message.images ?? []) : [],
           );
-          const checkpoint = checkpointMessage(snapshot, checkpointAt);
+          // The request that opened the Turn survives compaction verbatim: the
+          // checkpoint's 600-character goal is not a substitute for a long
+          // specification.
+          const pinned = pinnedRequestMessage({
+            text: turnInputText(turn.inputJson),
+            ...(screenshots.length === 0 ? {} : { images: screenshots }),
+          });
+          // Keep the immediate working set: the facts say what happened, the
+          // last complete batch says what the model was looking at.
+          const batch = lastCompleteToolBatch(messages, inputWindow);
           const candidate: ModelMessage[] = [
             messages[0] as ModelMessage,
-            { ...checkpoint, ...(screenshots.length > 0 ? { images: screenshots } : {}) },
+            ...(pinned === null ? [] : [pinned]),
+            checkpointMessage(snapshot, checkpointAt),
+            ...(batch === null ? [] : batch.messages),
           ];
           const after = estimateRequestTokens(candidate, tools);
 
@@ -1423,8 +1456,11 @@ export class TurnRunner {
               tokensBefore,
               tokensAfter: after,
               files: snapshot.files.length,
+              reads: snapshot.reads.length,
               failures: snapshot.failures.length,
               openSteps: snapshot.openSteps.length,
+              retainedToolBatch: batch === null ? 0 : batch.messages.length - 1,
+              pinnedRequestChars: pinned === null ? 0 : turnInputText(turn.inputJson).length,
             });
           }
         }
@@ -1873,12 +1909,29 @@ export class TurnRunner {
               facts.recordCommand(result.result.summary);
             }
 
+            // A read-only Turn used to record nothing, so it could be neither
+            // compacted nor continued. The path and version are the facts a
+            // later slice needs to know what was already inspected.
+            const readData =
+              request.name === "read_file"
+                ? (result.result.data as { path?: unknown; version?: unknown } | undefined)
+                : undefined;
+            const fileRead =
+              typeof readData?.path === "string" && typeof readData.version === "string"
+                ? { path: readData.path, version: readData.version }
+                : undefined;
+
+            if (fileRead !== undefined) {
+              facts.recordRead(fileRead.path, fileRead.version);
+            }
+
             facts.recordResource(target);
 
             this.#emit(turn, session, "tool.completed", {
               turnId: turn.id,
               toolCallId: request.id,
               resultSummary: result.result.summary,
+              ...(fileRead === undefined ? {} : { fileRead }),
               ...(target === undefined ? {} : { resourceTarget: target }),
               ...(closedTarget?.success ? { closedTerminalTarget: closedTarget.data } : {}),
               ...((terminalTarget?.success || closedTarget?.success) && snapshot

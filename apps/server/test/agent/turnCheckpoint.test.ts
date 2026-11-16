@@ -4,8 +4,12 @@ import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { latestContextSummary } from "../../src/modules/agent/contextCompressor.js";
 import {
+  boundedCheckpointBody,
   checkpointMessage,
+  factsAreEmpty,
   MAX_CHECKPOINT_CHARS,
+  MAX_PINNED_REQUEST_CHARS,
+  pinnedRequestMessage,
   saveTurnCheckpoint,
   TurnFactsBuilder,
 } from "../../src/modules/agent/turnCheckpoint.js";
@@ -53,6 +57,61 @@ describe("turn facts", () => {
     expect(facts.isEmpty()).toBe(true);
     facts.recordCommand("done");
     expect(facts.isEmpty()).toBe(false);
+  });
+
+  it("treats a read-only Turn as having facts", () => {
+    const facts = new TurnFactsBuilder("audit the payment module");
+
+    facts.recordRead("src/pay.ts", "abc123");
+
+    expect(facts.isEmpty()).toBe(false);
+    expect(factsAreEmpty(facts.snapshot())).toBe(false);
+    expect(facts.snapshot().reads).toEqual([{ path: "src/pay.ts", version: "abc123" }]);
+  });
+
+  it("promotes a written file out of the read list", () => {
+    const facts = new TurnFactsBuilder("task");
+
+    facts.recordRead("src/a.ts", "v1");
+    facts.recordFile("src/a.ts", "v2");
+
+    expect(facts.snapshot().reads).toEqual([]);
+    expect(facts.snapshot().files).toEqual([{ path: "src/a.ts", version: "v2" }]);
+  });
+
+  it("keeps the checkpoint valid JSON and never starves trailing sections", () => {
+    const facts = new TurnFactsBuilder("refactor");
+
+    for (let index = 0; index < 60; index += 1) {
+      facts.recordFile(`src/very/deep/path/number-${index}.ts`, `version-${index}`);
+      facts.recordCommand(`Command COMPLETED; exit code 0; ${"detail ".repeat(40)}`);
+      facts.recordResource({ kind: "preview", serviceId: `svc_${index}` });
+    }
+
+    const body = boundedCheckpointBody(facts.snapshot());
+    const parsed = JSON.parse(body) as {
+      resources: string[];
+      omitted?: Record<string, number>;
+    };
+
+    expect(body.length).toBeLessThanOrEqual(MAX_CHECKPOINT_CHARS);
+    // `resources` used to be the first field cut by the character slice.
+    expect(parsed.resources.length).toBeGreaterThan(0);
+    expect(parsed.omitted?.files).toBeGreaterThan(0);
+  });
+
+  it("pins the original request instead of leaving only the short goal", () => {
+    const requirement = `需求：${"实现分页缓存。".repeat(2_000)}结尾标记`;
+    const pinned = pinnedRequestMessage({ text: requirement });
+
+    expect(pinned?.role).toBe("user");
+    expect(pinned?.content).toContain("需求：");
+    expect(pinned?.content).toContain("chars omitted");
+    expect(pinned?.content.length).toBeLessThan(MAX_PINNED_REQUEST_CHARS + 400);
+  });
+
+  it("skips an empty request instead of emitting an empty message", () => {
+    expect(pinnedRequestMessage({ text: "   " })).toBeNull();
   });
 
   it("stores turn checkpoints without becoming the cross-turn summary", async () => {

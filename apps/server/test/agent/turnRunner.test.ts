@@ -1051,12 +1051,25 @@ describe("TurnRunner", () => {
 
         expect(provider.calls).toHaveLength(3);
         const last = provider.calls[2];
-        expect(last?.messages).toHaveLength(2);
-        const [, compacted] = last?.messages ?? [];
-        expect(compacted?.role).toBe("user");
-        if (compacted?.role === "user") {
-          expect(compacted.content).toContain("Work state checkpoint");
-          expect(compacted.content).toContain("a.txt");
+        const compacted = last?.messages ?? [];
+        // system + pinned request + checkpoint + the last complete tool batch.
+        expect(compacted).toHaveLength(5);
+        expect(compacted[0]?.role).toBe("system");
+        const [pinned, checkpointMessageAt] = compacted.slice(1);
+        expect(pinned?.role).toBe("user");
+        if (pinned?.role === "user") {
+          expect(pinned.content).toContain("compact me");
+        }
+        expect(checkpointMessageAt?.role).toBe("user");
+        if (checkpointMessageAt?.role === "user") {
+          expect(checkpointMessageAt.content).toContain("Work state checkpoint");
+          expect(checkpointMessageAt.content).toContain("a.txt");
+        }
+        // The retained batch keeps its tool-call / tool-result pairing intact.
+        expect(compacted[3]?.role).toBe("assistant");
+        expect(compacted[4]?.role).toBe("tool");
+        if (compacted[3]?.role === "assistant" && compacted[4]?.role === "tool") {
+          expect(compacted[3].toolCalls?.map((call) => call.id)).toEqual([compacted[4].toolCallId]);
         }
 
         const stored = opened.sqlite

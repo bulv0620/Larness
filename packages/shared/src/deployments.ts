@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_COMMAND_TIMEOUT_MS } from "./commands";
 
 export const ServiceControlInputSchema = z
   .object({
@@ -83,7 +84,7 @@ export const DeploymentBuildSpecSchema = z.strictObject({
   command: CommandSchema,
   cwd: DeploymentCwdSchema.default("."),
   outputDir: DeploymentOutputDirSchema,
-  timeoutMs: z.int().min(1000).max(600_000).default(300_000),
+  timeoutMs: z.int().min(1000).max(MAX_COMMAND_TIMEOUT_MS).default(600_000),
 });
 export type DeploymentBuildSpec = z.infer<typeof DeploymentBuildSpecSchema>;
 
@@ -96,7 +97,7 @@ export type DeploymentStartSpec = z.infer<typeof DeploymentStartSpecSchema>;
 export const DeploymentHealthSchema = z.strictObject({
   path: DeploymentHealthPathSchema,
   port: z.int().min(1024).max(65535),
-  timeoutMs: z.int().min(1000).max(120_000).default(30_000),
+  timeoutMs: z.int().min(1000).max(300_000).default(60_000),
   intervalMs: z.int().min(100).max(10_000).default(500),
 });
 export type DeploymentHealth = z.infer<typeof DeploymentHealthSchema>;
