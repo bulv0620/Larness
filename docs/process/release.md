@@ -1,7 +1,7 @@
 # 本地发布与升级清单
 
 > 仓库不配置 CI；发布由维护者在本机执行。目标是可重复、可回滚，不把未验证平台写成支持。
-> 当前已发布：`larness@0.2.1`（公共 npm，MIT）。相关：[安装指南](../guides/install.md)、[已知限制](../known-limitations.md)、[安全复核](../security/review.md)。
+> 当前已发布：`larness@0.3.0`（公共 npm，MIT）。相关：[安装指南](../guides/install.md)、[已知限制](../known-limitations.md)、[安全复核](../security/review.md)。
 > 发布记录与 0.2.1 复盘见第 11、12 节；发布前先读第 4 节的 2FA / staged publish 流程。
 
 ## 1. 发布前
@@ -29,7 +29,7 @@
 
   使用官方 Node 发行包。不要用 Electron / 桌面端内置的 node：其签名和 ABI
   会让 `better-sqlite3`、`node-pty`、`rolldown` 等原生模块加载失败。
-  本机 0.2.1 发布使用 Node 24.22.3 + npm 11.19.1。
+  本机 0.3.0 发布使用 Node 24.22.2 + npm 11.19.1。
 
 ## 2. 构建与检查
 
@@ -89,7 +89,7 @@ npm stage view <stage-id>
 ```
 
 `npm stage publish` 会输出 stage id，并把版本上传到 npm 的 staged 区。
-等待 npm 自动审核（本次 0.2.1 约 7 分钟）：
+等待 npm 自动审核（本次 0.3.0 约 5 分钟）：
 
 ```bash
 npm stage approve <stage-id> --otp=<6位码>
@@ -215,6 +215,9 @@ npm install -g larness@<old-version>
 | 0.1.1 | 2026-11-10 | 仅有 git tag，未发布；不要复用 |
 | 0.2.0 | — | 未发布；发布尝试在 npm 侧留下版本占用，改用 0.2.1 |
 | 0.2.1 | 2026-11-12 | 已发布（staged publish → approve） |
+| 0.3.0 | 2026-11-16 | 已发布（staged publish → approve） |
+
+0.3.0：包含 0.2.1 之后的 67 个提交（文件树双击打开、右键新建、定位居中、Git 与模型连接等）。发布前 `pnpm check`（Web 249、Agent 59、Server 703、14 跳过）、`pnpm build`、`platform-smoke`、`verify-npm-pack --install` 通过；stage id `0a65fb43-3931-4359-9c47-489d11d7870e`，registry `latest=0.3.0`，临时全局安装后 `larness --version` 返回 `0.3.0`。
 
 ## 12. 已知坑（0.2.1 复盘）
 
