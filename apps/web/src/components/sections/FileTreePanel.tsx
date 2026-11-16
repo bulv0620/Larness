@@ -79,6 +79,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
   const [error, setError] = useState<string | null>(null);
   const tree = useRef<HTMLFieldSetElement>(null);
   const pendingOpen = useRef<AbortController | null>(null);
+  const scrollAnchor = useRef<{ element: HTMLElement; top: number } | null>(null);
   const mounted = useRef(false);
   useLayoutEffect(() => {
     mounted.current = true;
@@ -104,11 +105,19 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     });
   };
 
+  const rememberScroll = () => {
+    const element = tree.current?.closest<HTMLElement>("[data-file-tree-scroll]");
+    scrollAnchor.current = element ? { element, top: element.scrollTop } : null;
+  };
+
   const begin = (next: Edit) => {
     if (mutation.current) return;
     setError(null);
     request.current = null;
     setStaleDelete(false);
+    if (next.action === "createFile" || next.action === "createDirectory") {
+      if (!scrollAnchor.current) rememberScroll();
+    } else scrollAnchor.current = null;
     setEdit(next);
   };
 
@@ -135,6 +144,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     )
       setEdit(null);
     const deleting = edit.action === "deleteFile" || edit.action === "deleteDirectory";
+    const creating = edit.action === "createFile" || edit.action === "createDirectory";
     if (
       edit.action !== "move" &&
       !deleting &&
@@ -211,7 +221,8 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
             action === "deleteDirectory" ? ["files", id, "content"] : fileKey(scope, result.path),
         });
       }
-      await queryClient.resetQueries({ queryKey: ["files", id, "directory"] });
+      if (creating) await queryClient.invalidateQueries({ queryKey: ["files", id, "directory"] });
+      else await queryClient.resetQueries({ queryKey: ["files", id, "directory"] });
       void queryClient.invalidateQueries({ queryKey: ["file-search", id] });
       if (!mounted.current) return;
       setEdit(null);
@@ -240,7 +251,20 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           ),
         );
       }
-      navigation.revealFile(id, result.path);
+      navigation.revealFile(
+        id,
+        result.path,
+        action === "createFile" || action === "createDirectory" ? { scroll: "none" } : undefined,
+      );
+      if (creating && scrollAnchor.current) {
+        const { element, top } = scrollAnchor.current;
+        scrollAnchor.current = null;
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (mounted.current) element.scrollTop = top;
+          });
+        });
+      }
       if (action === "createFile") open(result.path);
     } catch (error) {
       if (error instanceof ApiError && error.status < 500) request.current = null;
@@ -292,7 +316,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
     setError(null);
     setSelected(path);
     row?.focus({ preventScroll: true });
-    row?.scrollIntoView?.({ block: "nearest" });
+    if (reveal?.scroll !== "none") row?.scrollIntoView?.({ block: reveal?.scroll ?? "nearest" });
   };
 
   const handleKeys = (event: KeyboardEvent<HTMLFieldSetElement>) => {
@@ -353,6 +377,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           title="新建文件"
           disabled={busy}
           className="rounded p-1.5 hover:bg-surface-2"
+          onPointerDown={rememberScroll}
           onClick={() => startCreate("createFile")}
         >
           <FilePlus2 size={13} />
@@ -363,6 +388,7 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           title="新建目录"
           disabled={busy}
           className="rounded p-1.5 hover:bg-surface-2"
+          onPointerDown={rememberScroll}
           onClick={() => startCreate("createDirectory")}
         >
           <FolderPlus size={13} />
@@ -459,7 +485,10 @@ function RealFileTree({ scope, onQuickOpen }: { scope: FileScope; onQuickOpen?: 
           busy={busy}
           begin={begin}
           submit={(value) => void submit(value)}
-          cancel={() => setEdit(null)}
+          cancel={() => {
+            scrollAnchor.current = null;
+            setEdit(null);
+          }}
         />
       </fieldset>
     </div>

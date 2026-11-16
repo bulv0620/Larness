@@ -27,7 +27,9 @@ beforeEach(() => {
 function tree(projectId: string) {
   return (
     <QueryClientProvider client={queryClient}>
-      <FileTreePanel projectId={projectId} />
+      <div data-file-tree-scroll>
+        <FileTreePanel projectId={projectId} />
+      </div>
     </QueryClientProvider>
   );
 }
@@ -93,6 +95,63 @@ it("opens files only on double click", async () => {
   expect(useWindowStore.getState().windows[0]?.tabs.map((tab) => [tab.title, tab.preview])).toEqual(
     [["note.txt", false]],
   );
+});
+
+it("keeps the current directory and scroll position while refreshing after create", async () => {
+  let calls = 0;
+  let release = () => {};
+  const refreshing = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const existing = { path: "existing.txt", name: "existing.txt", type: "file" } as const;
+  const created = { path: "new.txt", name: "new.txt", type: "file" } as const;
+  vi.mocked(api.listDirectory).mockImplementation(async () => {
+    if (calls++ === 0) return { revision, items: [existing], nextCursor: null };
+    await refreshing;
+    return { revision, items: [existing, created], nextCursor: null };
+  });
+  vi.mocked(api.applyFileAction).mockResolvedValue({
+    path: created.path,
+    realPath: "/p/new.txt",
+  });
+  vi.spyOn(api, "readFile").mockResolvedValue({
+    path: created.path,
+    realPath: "/p/new.txt",
+    version: revision,
+    content: "",
+    size: 0,
+    encoding: "utf-8",
+  });
+  const scrollIntoView = vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
+  const view = render(tree("p"));
+  await screen.findByRole("button", { name: "打开文件 existing.txt" });
+  const scroller = view.container.querySelector<HTMLElement>("[data-file-tree-scroll]");
+  if (!scroller) throw new Error("missing scroll container");
+  scroller.scrollTop = 120;
+
+  const newFile = screen.getByRole("button", { name: "新建文件" });
+  fireEvent.pointerDown(newFile);
+  fireEvent.click(newFile);
+  scroller.scrollTop = 0;
+  const input = screen.getByRole("textbox", { name: "新文件名" });
+  fireEvent.change(input, { target: { value: "new.txt" } });
+  fireEvent.submit(input.closest("form") as HTMLFormElement);
+  await act(async () => {});
+
+  expect(screen.getByRole("button", { name: "打开文件 existing.txt" })).toBeVisible();
+  expect(screen.queryByText("正在读取目录…")).toBeNull();
+  expect(vi.mocked(api.listDirectory)).toHaveBeenCalledTimes(2);
+
+  release();
+  await act(async () => {});
+  const row = await screen.findByRole("button", { name: "打开文件 new.txt" });
+  expect(row).toHaveAttribute("aria-current", "true");
+  expect(row).toHaveFocus();
+  expect(scrollIntoView).not.toHaveBeenCalled();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  expect(scroller.scrollTop).toBe(120);
 });
 
 it("ignores a slower open when the user clicks a different file", async () => {

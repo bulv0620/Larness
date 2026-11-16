@@ -124,6 +124,23 @@ test("M2 files edit real bytes, retain conflicting drafts, confirm close and res
       await tools.evaluate((element) => getComputedStyle(element, "::before").background),
     ).toMatch(/^rgba\(0, 0, 0, 0\) /);
     await expect(newFileButton).toBeEnabled();
+    const newFolderButton = tools.getByRole("button", { name: "新建目录" });
+    const newFolderBox = await newFolderButton.boundingBox();
+    await page.mouse.click(
+      (newFolderBox?.x ?? 0) + (newFolderBox?.width ?? 0) / 2,
+      (newFolderBox?.y ?? 0) + (newFolderBox?.height ?? 0) / 2,
+    );
+    const scrollFolder = resources.getByRole("textbox", { name: "新目录名" });
+    await scrollFolder.fill("zz-scroll-folder");
+    await scrollFolder.press("Enter");
+    const createdFolder = resources.getByRole("button", { name: "目录 zz-scroll-folder" });
+    await expect(createdFolder).toBeVisible();
+    await expect.poll(() => filePanel.evaluate((panel) => panel.scrollTop)).toBeGreaterThan(100);
+    await createdFolder.click({ button: "right" });
+    await page.getByRole("menuitem", { name: "删除…" }).click();
+    const createdFolderDialog = page.getByRole("dialog", { name: "删除目录" });
+    await createdFolderDialog.getByRole("button", { name: "确认删除" }).click();
+    await expect(createdFolder).toHaveCount(0);
     await page.screenshot({ path: path.join(tmpdir(), "larness-fr-9-compact-toolbar.png") });
     await filePanel.evaluate((panel) => {
       panel.scrollTop = 0;

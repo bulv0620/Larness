@@ -62,6 +62,7 @@ export function ProjectResourceSidebar({ onQuickOpen }: { onQuickOpen?: () => vo
           role="tabpanel"
           id="resource-files"
           aria-labelledby="resource-tab-files"
+          data-file-tree-scroll
           hidden={active !== "files"}
           className="min-h-0 flex-1 scroll-pt-11 overflow-y-auto px-2 pb-2"
         >
