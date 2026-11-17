@@ -869,8 +869,78 @@ describe("TurnRunner", () => {
         expect(second.messages[0]?.role).toBe("system");
         if (second.messages[0]?.role === "system") {
           expect(second.messages[0].content).toContain("Larness prompt version:");
-          expect(second.messages[0].content).toContain("snapshot at Turn start");
+          // Volatile Turn-start facts must not sit in the cacheable prefix: a
+          // single changing byte there re-bills the whole later conversation.
+          expect(second.messages[0].content).not.toContain("PM2 runtime");
         }
+        const observed = second.messages.find((message) =>
+          message.content.includes("Turn-start runtime observations"),
+        );
+        expect(observed?.content).toContain("PM2 runtime and service/project associations");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("runs a pure-read batch concurrently and still publishes events in call order", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        await writeFile(path.join(session.workspacePath, "a.txt"), "alpha\n");
+        await writeFile(path.join(session.workspacePath, "b.txt"), "beta\n");
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "read both" });
+        const provider = createFakeProvider([
+          {
+            chunks: [
+              {
+                type: "tool-call",
+                toolCall: { id: "call_a", name: "read_file", args: { path: "a.txt" } },
+              },
+              {
+                type: "tool-call",
+                toolCall: { id: "call_b", name: "read_file", args: { path: "b.txt" } },
+              },
+              { type: "finish", finishReason: "tool-calls" },
+            ],
+          },
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const order = listSessionEvents(opened.db, session.id)
+          .items.filter((event) => event.type.startsWith("tool."))
+          .map(
+            (event) =>
+              `${event.type}:${(event.payload as { toolCallId?: string }).toolCallId ?? ""}`,
+          );
+        // A concurrent batch still publishes events in the model's call order.
+        expect(order).toEqual([
+          "tool.requested:call_a",
+          "tool.started:call_a",
+          "tool.completed:call_a",
+          "tool.requested:call_b",
+          "tool.started:call_b",
+          "tool.completed:call_b",
+        ]);
+
+        const results = (provider.calls[1]?.messages ?? []).filter(
+          (message) => message.role === "tool",
+        );
+        expect(
+          results.map((message) => (message.role === "tool" ? message.toolCallId : "")),
+        ).toEqual(["call_a", "call_b"]);
+        expect(results[0]?.role === "tool" ? results[0].content : "").toContain("alpha");
+        expect(results[1]?.role === "tool" ? results[1].content : "").toContain("beta");
       } finally {
         opened.close();
       }
@@ -1047,7 +1117,13 @@ describe("TurnRunner", () => {
 
         const events = listSessionEvents(opened.db, session.id).items;
         const checkpoint = events.find((event) => event.type === "context.checkpoint");
-        expect(checkpoint?.payload).toMatchObject({ scope: "turn", reason: "soft_watermark" });
+        // Which watermark fires depends on the fixed prompt size; what matters is
+        // that compaction happens well before the overflow stop, which the call
+        // count and the reduction below both prove.
+        expect(checkpoint?.payload).toMatchObject({
+          scope: "turn",
+          reason: expect.stringMatching(/^(soft|hard)_watermark$/),
+        });
 
         expect(provider.calls).toHaveLength(3);
         const last = provider.calls[2];

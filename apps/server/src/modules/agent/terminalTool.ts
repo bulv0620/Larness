@@ -20,7 +20,7 @@ export function createTerminalTools(options: {
     defineTool({
       name: "start_project_terminal",
       description:
-        "Create a managed project terminal and run a temporary dev program in the foreground. The PTY stays usable between commands, but this is not persistent PM2 deployment. For HTTP previews, register the verified listener with register_temporary_service; stopping Larness ends temporary resources. Inspect the project's scripts and use its declared entry point. Set project-relative cwd to the package directory when invoking a package command directly. The default cwd is the project root. Follow the current Turn's approval policy. Ctrl+C or program exit returns to an interactive shell in the same PTY. On Windows the host selects PowerShell 7, Windows PowerShell 5.1, or CMD in that order of availability. RUNNING confirms the terminal is alive. Inspect output for the listening port and verify service readiness separately. Reusing a role returns the terminal without rerunning the program. To restart from its idle shell, acquire the input lease and send the project's dev command. An active role with different parameters is a conflict. Use run_command for finite tests/builds. The process runs with host account permissions and may write files concurrently.",
+        "Create a managed project terminal and run a dev program in the foreground. The PTY stays usable between commands, but this is not persistent PM2 deployment and stopping Larness ends the terminal. Inspect the project's scripts and use its declared entry point; set cwd to the package directory when invoking a package command directly, the default cwd is the project root. Follow the current Turn's approval policy. On Windows the host selects PowerShell 7, Windows PowerShell 5.1, or CMD in that order of availability. Ctrl+C or program exit returns to an interactive shell in the same PTY. RUNNING means the terminal is alive, not that a service is ready: read the output for the listening port, then register it with register_temporary_service. Reusing a role returns the terminal without rerunning its program, and the same role with different parameters is a conflict. Use run_command for finite tests and builds. The process runs with host account permissions and may write files concurrently.",
       riskLevel: "L2",
       requiresProject: true,
       requiresProjectLock: false,
@@ -65,7 +65,7 @@ export function createTerminalTools(options: {
     defineTool({
       name: "stop_project_terminal",
       description:
-        "Close the entire dev terminal created by the agent in the current project, including its shell and managed descendants. Use interrupt_terminal to stop only the foreground command and keep the terminal usable. Waits for confirmed exit and does not stop human shell terminals. Stopping a Turn does not call this tool.",
+        "Close the dev terminal this agent created in the current project, including its shell and managed descendants. Use interrupt_terminal to stop only the foreground command and keep the terminal usable. Waits for confirmed exit and never stops human shell terminals. Ending a Turn does not call this tool.",
       riskLevel: "L1",
       requiresProject: true,
       requiresProjectLock: false,

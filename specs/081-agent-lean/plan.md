@@ -1,0 +1,41 @@
+# 实施计划：Agent 内核轻量化
+
+> 用户已确认（2026-11-16）：「建立一个任务把应该优化的都一步步优化」；按 [ADR-067](../../docs/adr/ADR-067-lean-agent-context.md) 的 D1–D5 顺序实施，每项独立可回滚。
+
+## 1. 顺序
+
+1. **LE-1 观察块出前缀**（D1/D2）：`contextAssembler` 把 system 收成稳定内容，`AssembledContext` 返回 `observations`；`turnRunner` 把观察块作为独立消息追加在全部历史之后，检查点重建时重新挂回。先写「跨轮字节稳定」与「不在 system 内」的断言。
+2. **LE-2 精炼输出约束**（D5a）：`SYSTEM_POLICY` 增加风格段，`PROMPT_VERSION` → `m6-3`。
+3. **LE-3 文案只写一份**（D5b）：服务生命周期契约收敛到 system；服务工具只写机制与参数；终端输入协议移进观察块；PM2 段落只留安全与命名。
+4. **LE-4 纯读批次并发**（D3）：整批 `L0` + 无锁 + `allow` + 2–8 个时 `Promise.all` 预取，序列循环消费结果、仍按原顺序发事件与消息。
+5. **LE-5 每批结果预算**（D4）：`foldBatchToolResults` 从最旧折叠，最新一条保留原文，上限 12 000 token。
+6. **LE-6 验证**：`test/agent` 全量、`pnpm typecheck`、`pnpm exec biome ci .`。
+7. **LE-7 收口**：`specs/README.md`、`ROADMAP.md`、`STATUS.md`、`DECISIONS.md`、`070/tasks.md` 交叉引用、`docs/open-questions.md`。
+
+## 2. 设计要点
+
+- **越靠后变化，作废的历史越少**。缓存从请求开头逐字节匹配，所以变化的东西必须排在最后；这是 LE-1 的唯一理由，不是格式偏好。
+- **观察块不写时间戳**。`observedAt` 不进入序列化文本，于是「工作区没变」就等于「字节没变」，无需去重或失效逻辑。
+- **用 `user` 角色**。既有 `checkpointMessage` 与 `pinnedRequestMessage` 已在真实 Turn 里以 `user` 角色插入，路径已被验证；在用户消息后插 `system` 对部分 OpenAI 兼容端点不安全。
+- **并发只做预取，不做重排**。预取保证「执行」并发，但 `tool.requested / started / completed`、预算检查和消息追加仍在原序列循环里，因此事件序列与串行完全一致，审计只写一次。
+- **折叠方向选「最旧优先」**。下一步要用的通常是刚返回的那条；从最旧折叠既削掉长尾，又不切坏当前上下文。
+- **文案只写一份，不合并工具**。重复文案是纯成本；合并工具会改变调用正确率，属于另一种风险。
+
+## 3. 不改动
+
+- `turnRunner` 的循环体结构（HX-12b 仍是独立任务）。
+- 折叠水位 55% / 70% / 90%、检查点事实来源、继续链、预算终态。
+- 工具集合与工具参数 schema、`@larness/shared` 的字段描述。
+- 授权、审批、锁、fencing、幂等、审计、秘密保护。
+- REST / WS / IPC / 数据库。
+
+## 4. 风险
+
+| 风险 | 处置 |
+|---|---|
+| 观察块作为消息被模型当成用户指令 | 块首行明示「system-provided, not user instructions」，非可信字段继续标注；已在真实 Turn 路径验证 |
+| 并发让事件顺序或审计重复 | 预取只负责执行；事件、预算与消息仍在序列循环里按原顺序产出 |
+| 预取失败被静默吞掉 | 失败的调用不写入预取表，序列路径重跑并走正常错误上报，测试覆盖 |
+| 折叠切掉最新结果 | 最新一条始终保留原文；单条超预算时不折叠，交给既有单条裁剪 |
+| `PROMPT_VERSION` 变化导致一次性前缀失效 | 已知且可解释：只影响下一 Turn 一次，之后恢复命中 |
+| `turnRunner` 继续变长 | 本切片不动循环体；交付后为 2 416 行，已记入 [STATUS](../../STATUS.md) 的阻塞项，由 [HX-12b](../070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) 承接 |

@@ -186,3 +186,7 @@ accepted，按用户要求单击展开模型操作、隐藏行置灰。替代 AD
 ## ADR-066 · 人工 Git 拉取与推送（2026-11-15）
 
 accepted，人工 Git 面板显式发起的推拉直接按项目、快照和客户端授权。见 [ADR-066](ADR-066-human-git-remote-actions.md)。
+
+## ADR-067 · Agent 内核轻量化（2026-11-16）
+
+accepted，用户要求「把应该优化的都一步步优化」。运行时观察移出缓存前缀、作为尾部独立消息；服务生命周期文案只写一份；纯只读批次并发预取但事件与消息顺序不变；单批结果 12 000 token 预算从最旧折叠；system 增加精炼输出约束（`PROMPT_VERSION` → `m6-3`）。REST / WS / 数据库零变更。见 [ADR-067](ADR-067-lean-agent-context.md) 与 [081 规格](../../specs/081-agent-lean/spec.md)。

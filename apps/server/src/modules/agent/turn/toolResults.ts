@@ -1,3 +1,6 @@
+import type { ModelMessage } from "@larness/agent";
+import { estimateTextTokens } from "../tokenEstimator.js";
+
 const MAX_TOOL_MESSAGE_CHARS = 20_000;
 const MAX_TOOL_MESSAGE_LINES = 1_000;
 
@@ -243,4 +246,50 @@ export function foldToolResultContent(content: string): string {
     : { value: foldValue(parsed, 0) };
 
   return JSON.stringify({ ...base, folded: true });
+}
+
+/**
+ * One step can ask for several large results at once: six full 16k-character
+ * results are roughly 24k tokens, which is most of a 128k window spent in a
+ * single step and enough to push the Turn straight over the fold watermark. The
+ * budget is generous, so an ordinary batch is untouched; only a pathological
+ * one is folded, oldest first, which keeps the newest result verbatim — that is
+ * the one the next step is most likely to act on. Folding is reversible: the
+ * full results stay in `agent_events`.
+ */
+export const MAX_BATCH_TOOL_RESULT_TOKENS = 12_000;
+
+export function foldBatchToolResults(
+  messages: ModelMessage[],
+  indexes: number[],
+  budgetTokens: number,
+): { messages: ModelMessage[]; folded: number } | null {
+  const contents = indexes.flatMap((index) => {
+    const message = messages[index];
+    return message?.role === "tool" ? [message.content] : [];
+  });
+
+  if (contents.length < 2) return null;
+
+  let remaining = contents.reduce((sum, content) => sum + estimateTextTokens(content), 0);
+
+  if (remaining <= budgetTokens) return null;
+
+  const next = [...messages];
+  let folded = 0;
+
+  for (const index of indexes.slice(0, -1)) {
+    if (remaining <= budgetTokens) break;
+    const message = next[index];
+    if (message?.role !== "tool") continue;
+    if (message.content.includes('"folded":true')) continue;
+    const content = foldToolResultContent(message.content);
+    const saved = estimateTextTokens(message.content) - estimateTextTokens(content);
+    if (saved <= 0) continue;
+    next[index] = { ...message, content };
+    remaining -= saved;
+    folded += 1;
+  }
+
+  return folded === 0 ? null : { messages: next, folded };
 }

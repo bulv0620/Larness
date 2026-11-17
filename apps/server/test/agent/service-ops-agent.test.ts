@@ -56,9 +56,11 @@ it("provides PM2 environment and project associations to the normal command cont
       );
       expect(context.tools.map(({ name }) => name)).toContain("run_command");
       expect(context.tools.map(({ name }) => name)).not.toContain("start_formal_service");
-      expect(context.messages[0]?.content).toContain("/global/pm2/bin/pm2");
-      expect(context.messages[0]?.content).toContain("larness:prj_one:api");
       expect(context.messages[0]?.content).toContain("PM2_HOME");
+      // The runtime snapshot changes with the deployment, so it travels after
+      // the request instead of inside the cacheable system prefix.
+      expect(context.observations).toContain("/global/pm2/bin/pm2");
+      expect(context.observations).toContain("larness:prj_one:api");
       const base = {
         sessionId: session.id,
         turnId: turn.id,

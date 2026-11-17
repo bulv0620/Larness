@@ -199,10 +199,15 @@ it("registers a verified temporary service, replays events and unregisters when 
         policy: "autonomous" as const,
       };
       const model = assembleContext(options, sessionRow, turnRow);
-      expect(model.messages[0]?.content).toContain(registered.id);
-      expect(model.messages[0]?.content).toContain(registered.terminalExecutionId);
+      // Runtime observations left the cached system prefix (ADR-067 D1): they
+      // travel as the last message so an unchanged workspace keeps hitting the
+      // provider cache for the whole earlier conversation.
+      expect(model.observations).toContain(registered.id);
+      expect(model.observations).toContain(registered.terminalExecutionId);
+      expect(model.messages[0]?.content).not.toContain(registered.id);
+      expect(model.messages[model.messages.length - 1]?.content).toBe(model.observations);
       expect(
-        assembleContext(options, { ...sessionRow, projectId: null }, turnRow).messages[0]?.content,
+        assembleContext(options, { ...sessionRow, projectId: null }, turnRow).observations ?? "",
       ).not.toContain(registered.id);
 
       const replay = await listResourceEvents(

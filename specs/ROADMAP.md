@@ -401,6 +401,22 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | GX-3 | [差异树缩进对齐](078-git-workflow/tasks.md) | GX-2 | `done` |
 | GX-4 | [提交输入框图标按钮](078-git-workflow/tasks.md) | GX-3 | `done` |
 
+### 8.7 发布后：Agent 内核轻量化（081，done）
+
+目标：按「轻、快、省」重测内核后，修掉四处与目标直接冲突的问题——观察快照占据缓存前缀、生命周期文案三处重复、批内串行、单步可吞掉整个窗口；同时把「回复精炼」变成工程约束。决策见 [ADR-067](../docs/adr/ADR-067-lean-agent-context.md)，验收见 [081 任务卡](081-agent-lean/tasks.md#验收记录)。
+
+门禁：G-081 = A1–A9 通过；`test/agent` 全量绿；类型与规范通过；全量并行失败的每一项都有结论。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| LE-1 | [观察块移出缓存前缀](081-agent-lean/spec.md#6-功能需求) | 070 HX-5 done | `done` |
+| LE-2 | [精炼输出约束](081-agent-lean/spec.md#6-功能需求) | LE-1 | `done` |
+| LE-3 | [文案只写一份](081-agent-lean/spec.md#6-功能需求) | LE-2 | `done` |
+| LE-4 | [纯读批次并发](081-agent-lean/spec.md#6-功能需求) | LE-3 | `done` |
+| LE-5 | [每批结果预算](081-agent-lean/spec.md#6-功能需求) | LE-4 | `done` |
+| LE-6 | [验证](081-agent-lean/tasks.md#验收记录) | LE-5 | `done` |
+| LE-7 | [文档与状态回填](081-agent-lean/tasks.md#验收记录) | LE-6 | `done` |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

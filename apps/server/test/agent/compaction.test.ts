@@ -5,7 +5,11 @@ import {
   KEEP_RECENT_TOOL_RESULTS,
   lastCompleteToolBatch,
 } from "../../src/modules/agent/turn/compaction.js";
-import { foldToolResultContent } from "../../src/modules/agent/turn/toolResults.js";
+import {
+  foldBatchToolResults,
+  foldToolResultContent,
+  MAX_BATCH_TOOL_RESULT_TOKENS,
+} from "../../src/modules/agent/turn/toolResults.js";
 
 function readResult(filePath: string, body: string): string {
   return JSON.stringify({ path: filePath, version: "v1", content: body, totalLines: 10 });
@@ -141,5 +145,57 @@ describe("retained tool batch", () => {
     ];
 
     expect(lastCompleteToolBatch(messages, 1_000)).toBeNull();
+  });
+});
+
+describe("tool batch budget", () => {
+  function batch(
+    count: number,
+    bodyChars: number,
+  ): {
+    messages: ModelMessage[];
+    indexes: number[];
+  } {
+    const messages: ModelMessage[] = [{ role: "system", content: "policy" }];
+    const indexes: number[] = [];
+
+    for (let index = 0; index < count; index += 1) {
+      indexes.push(messages.length);
+      messages.push(
+        toolMessage(`call_${index}`, readResult(`src/${index}.ts`, "y".repeat(bodyChars))),
+      );
+    }
+
+    return { messages, indexes };
+  }
+
+  it("folds the oldest results and keeps the newest one verbatim", () => {
+    const { messages, indexes } = batch(4, 8_000);
+    const newest = messages.at(-1);
+
+    const bounded = foldBatchToolResults(messages, indexes, 6_000);
+
+    expect(bounded).not.toBeNull();
+    const contents = (bounded?.messages ?? []).flatMap((message) =>
+      message.role === "tool" ? [message.content] : [],
+    );
+
+    expect(bounded?.folded).toBeGreaterThan(0);
+    expect(contents[0]).toContain('"folded":true');
+    expect(contents[0]).toContain("src/0.ts");
+    // The newest result is what the next step acts on, so it is never folded.
+    expect(contents.at(-1)).toBe(newest?.role === "tool" ? newest.content : undefined);
+  });
+
+  it("leaves an ordinary batch untouched", () => {
+    const { messages, indexes } = batch(3, 900);
+
+    expect(foldBatchToolResults(messages, indexes, MAX_BATCH_TOOL_RESULT_TOKENS)).toBeNull();
+  });
+
+  it("does nothing for a single result", () => {
+    const { messages, indexes } = batch(1, 200_000);
+
+    expect(foldBatchToolResults(messages, indexes, 1_000)).toBeNull();
   });
 });

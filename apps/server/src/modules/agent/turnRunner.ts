@@ -81,6 +81,8 @@ import { stableArgsKey, turnInputText } from "./turn/text.js";
 import {
   boundedCommandOutput,
   boundedTerminalOutput,
+  foldBatchToolResults,
+  MAX_BATCH_TOOL_RESULT_TOKENS,
   toolFailureIssues,
   toolMessageContent,
 } from "./turn/toolResults.js";
@@ -113,6 +115,12 @@ const APPROVAL_POLL_MS = 100;
 const CHECKPOINT_MIN_GAIN = 200;
 const DEFAULT_LOCK_WAIT_MS = 10_000;
 const DEFAULT_LOCK_POLL_MS = 250;
+/**
+ * Upper bound on a batch that may be executed concurrently. Only a batch made
+ * entirely of pure reads qualifies, so the ordering the serial loop guarantees
+ * for events, budget checks and messages is unaffected.
+ */
+const READ_PREFETCH_LIMIT = 8;
 
 export interface ResolvedProvider {
   adapter: ProviderAdapter;
@@ -1197,6 +1205,10 @@ export class TurnRunner {
       timing.assembleMs += this.#now() - assembleStarted;
       let messages: ModelMessage[] = context.messages;
       const tools: ToolSchema[] = context.tools;
+      // Volatile Turn-start observations live outside the cacheable prefix, so
+      // they are re-attached to every rebuilt history (compaction included).
+      let observations: ModelMessage | null =
+        context.observations === null ? null : { role: "user", content: context.observations };
 
       this.#transition(turn, session, "PREPARING", startedAt);
 
@@ -1238,6 +1250,10 @@ export class TurnRunner {
             });
             context = assembleContext(contextOptions, session, turn);
             messages = context.messages;
+            observations =
+              context.observations === null
+                ? null
+                : { role: "user", content: context.observations };
           }
         } catch {
           // Compression is best-effort; keep the truncated context on failure.
@@ -1450,6 +1466,7 @@ export class TurnRunner {
             ...(pinned === null ? [] : [pinned]),
             checkpointMessage(snapshot, checkpointAt),
             ...(batch === null ? [] : batch.messages),
+            ...(observations === null ? [] : [observations]),
           ];
           const after = estimateRequestTokens(candidate, tools);
 
@@ -1685,6 +1702,45 @@ export class TurnRunner {
           ...(reasoning.length === 0 ? {} : { reasoning }),
         });
 
+        // A batch that is nothing but pure reads (L0, lock-free, allowed by the
+        // policy) has no ordering constraint, so it runs concurrently: several
+        // git reads or searches then cost one round trip instead of their sum.
+        // The serial loop below still emits events, checks the budget and
+        // appends messages in the original order, and consumes the prefetched
+        // outcome instead of executing the call twice.
+        const prefetched = new Map<string, ToolExecutionOutcome>();
+
+        const batchToolIndexes: number[] = [];
+
+        if (
+          toolRequests.length >= 2 &&
+          toolRequests.length <= READ_PREFETCH_LIMIT &&
+          checkBudget() === "ok" &&
+          toolRequests.every((request) => {
+            const definition = this.#options.registry.get(request.name);
+            if (definition === undefined) return false;
+            const risk = definition.classifyRisk?.(request.args) ?? definition.riskLevel;
+            return (
+              risk === "L0" &&
+              definition.requiresProjectLock === false &&
+              decideToolAccess(policy, risk) === "allow"
+            );
+          })
+        ) {
+          const prefetchStarted = this.#now();
+          await Promise.all(
+            toolRequests.map(async (request) => {
+              try {
+                prefetched.set(request.id, await execute(request));
+              } catch {
+                // Leaving it out makes the serial loop run it again and report
+                // the failure through the normal tool path.
+              }
+            }),
+          );
+          timing.toolMs += this.#now() - prefetchStarted;
+        }
+
         for (const request of toolRequests) {
           // Counted before execution, so an `update_plan` in this batch resets
           // the counter through its handler instead of being undone here.
@@ -1764,7 +1820,8 @@ export class TurnRunner {
           });
 
           const toolStartedAt = this.#now();
-          const outcome: ToolExecutionOutcome = await execute(request);
+          const outcome: ToolExecutionOutcome =
+            prefetched.get(request.id) ?? (await execute(request));
           timing.toolMs += this.#now() - toolStartedAt;
 
           if (outcome.status === "approval_required") {
@@ -2010,6 +2067,7 @@ export class TurnRunner {
             });
           }
 
+          batchToolIndexes.push(messages.length);
           messages.push({
             role: "tool",
             toolCallId: request.id,
@@ -2034,6 +2092,22 @@ export class TurnRunner {
               "identical tool call keeps failing",
             );
           }
+        }
+
+        // One step, one budget: a batch of fat results must not spend the whole
+        // window. Folding is reversible and keeps the newest result verbatim.
+        const boundedBatch = foldBatchToolResults(
+          messages,
+          batchToolIndexes,
+          MAX_BATCH_TOOL_RESULT_TOKENS,
+        );
+
+        if (boundedBatch !== null) {
+          messages = boundedBatch.messages;
+          this.#options.logger?.info(
+            { turnId, step: steps, folded: boundedBatch.folded },
+            "tool batch folded to its token budget",
+          );
         }
       }
 

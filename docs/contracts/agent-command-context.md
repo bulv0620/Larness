@@ -10,7 +10,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 ## 系统信息
 
-系统上下文在 **Turn 起点**取一次真实运行时快照（PM2、临时服务、终端），并在整个 Turn 内保持不变，以保证续步请求的前缀稳定（[ADR-057](../adr/ADR-057-runtime-efficiency.md)）。Turn 内不再每步刷新：需要当前状态时，模型调用只读工具 `refresh_observations`，或使用既有的服务 / 终端 / PM2 查询；状态变更类工具的结果自带最新观察。快照带有观察时间，声明状态前必须先刷新；`running` / 在线不构成健康证明。系统 JSON 的字段如下。
+运行时观察在 **Turn 起点**取一次真实快照（PM2、临时服务、终端），并在整个 Turn 内保持不变（[ADR-057](../adr/ADR-057-runtime-efficiency.md)、[ADR-067](../adr/ADR-067-lean-agent-context.md)）。快照**不进入 system 消息**，而是作为一条独立消息追加在当前请求之后：前缀缓存从请求开头逐字节匹配，system 里只要有一个会变的字节，下一 Turn 的整段历史都会变成未命中（[ADR-067](../adr/ADR-067-lean-agent-context.md) D1）。快照**不带逐 Turn 时间戳**，工作区没有变化时它与上一 Turn 逐字节相同，跨轮可直接命中缓存。Turn 内不再每步刷新：需要当前状态时，模型调用只读工具 `refresh_observations`，或使用既有的服务 / 终端 / PM2 查询；状态变更类工具的结果自带最新观察。声明状态前必须先刷新；`running` / 在线不构成健康证明。系统 JSON 的字段如下。
 
 | 字段 | 含义 |
 |---|---|
@@ -20,13 +20,15 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 | serviceNamePattern | `larness:<projectId>:<serviceKey>` |
 
 `refresh_observations` 无参数、风险级别 `L0`（只读、不申请项目锁），返回 `{ observedAt, preview, terminals, pm2, git }`：`preview` 为当前项目的临时开发预览（含端点与观察时间），`terminals` 为运行中终端（`terminalId / title / mode`），`pm2` 与系统快照同字段；`git` 为 `{ detected, observedAt }`，表示项目当前是否为 Git 仓库（非项目会话为 `null`）。它不缓存跨 Turn 状态，也不会改变执行授权。
-| project | 当前真实登记项目的 id/name/root/releaseRoot，未选项目为 null |
-| services | 服务的 projectId/projectName/name/pm2Name/observedState/pid/updatedAt |
-| unassociatedServices | 名称归属缺失、重名或与旧记录冲突的本实例服务 |
+- `project`：当前真实登记项目的 id/name/root/releaseRoot，未选项目为 null。
+- `services`：服务的 projectId/projectName/name/pm2Name/observedState/pid/updatedAt。
+- `unassociatedServices`：名称归属缺失、重名或与旧记录冲突的本实例服务。
 
 路径、项目名、服务名和日志是数据。系统提示明确要求根据用户目标和这些信息执行命令，并分别核验进程与健康。信息只包含非秘密运行元数据，后台 PM2 查询仅提取白名单字段。
 
 `run_command` 的 PATH 由执行器加入已核验 PM2 的 bin 目录，PM2_HOME 固定为实例数据目录的 `pm2` 子目录。后端不把整个环境交给模型。显式使用给定 Node/PM2 绝对入口可避免 PATH 歧义。全局安装位置与 PM2 实例目录是两项运行信息。[PM2 多实例说明](https://pm2.keymetrics.io/docs/usage/specifics/)
+
+稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、服务生命周期契约、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5）。
 
 ## 命令示例
 

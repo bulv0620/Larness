@@ -71,9 +71,8 @@ describe("context assembler", () => {
             expect(context.messages[0]?.content).toContain("Service lifecycle contract");
             expect(context.messages[0]?.content).toContain("development_preview");
             expect(context.messages[0]?.content).toContain("persistent_pm2");
-            expect(context.messages[0]?.content).toContain(
-              "Registration does not start or daemonize a process",
-            );
+            expect(context.messages[0]?.content).not.toContain("PM2 runtime");
+            expect(context.messages[0]?.content).not.toContain("Registered status");
             expect(context.messages[0]?.content).toContain(
               projectId ? "registered project workspace" : "workspace without a registered project",
             );
@@ -258,6 +257,56 @@ describe("context assembler", () => {
           turnRow,
         );
         expect(narrow.truncatedHistory).toBe(true);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("keeps the cacheable prefix byte-stable while Turn-start observations change", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const root = path.join(dir, "project");
+        await mkdir(root);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false },
+          { rootPath: root },
+        );
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, { projectId: project.id });
+        const created = createTurn(sessionOptions, { sessionId: session.id, text: "observe" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, created.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const pm2 = (version: string) => ({
+          available: true,
+          nodeExecutable: "/usr/bin/node",
+          entry: "/usr/lib/pm2/bin/pm2",
+          version,
+          home: path.join(dir, "pm2"),
+          namespace: "larness" as const,
+          serviceNamePattern: "larness:<projectId>:<serviceKey>" as const,
+          project: null,
+          services: [],
+        });
+        const base = {
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          maxContextTokens: 128_000,
+          policy: "standard" as const,
+        };
+        const first = assembleContext({ ...base, pm2Context: pm2("7.1.2") }, sessionRow, turn);
+        const second = assembleContext({ ...base, pm2Context: pm2("7.2.0") }, sessionRow, turn);
+
+        // A prefix cache matches from the start of the request, so a changed
+        // observation may only touch the trailing block.
+        expect(second.messages[0]).toEqual(first.messages[0]);
+        expect(first.messages.at(-1)).not.toEqual(second.messages.at(-1));
+        expect(first.observations).toContain("PM2 runtime and service/project associations");
+        expect(first.messages.at(-1)?.content).toBe(first.observations);
       } finally {
         opened.close();
       }

@@ -314,8 +314,13 @@ it("runs approved Agent control and file tools in the default workspace while is
       expect(await readFile(path.join(session.workspacePath, "agent.txt"), "utf8")).toBe("new\n");
       expect(JSON.stringify(events)).toContain('"workspace":"default"');
       const systemPrompt = JSON.stringify(provider.calls[0]?.messages[0]);
-      expect(systemPrompt).toContain(terminal.id);
-      expect(systemPrompt).toContain("identify PowerShell or CMD from the actual prompt");
+      const turnMessages = provider.calls[0]?.messages ?? [];
+      const observed = JSON.stringify(turnMessages[turnMessages.length - 1]);
+      // Terminals and the input protocol are runtime observations now: they must
+      // stay out of the stable system prefix and arrive with the last message.
+      expect(systemPrompt).not.toContain(terminal.id);
+      expect(observed).toContain(terminal.id);
+      expect(observed).toContain("Identify PowerShell or CMD from the actual prompt");
       await until(async () =>
         (await f.running.terminals.output(terminal.id, 0, 100)).chunks
           .map((chunk) => chunk.data)
