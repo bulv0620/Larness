@@ -417,6 +417,7 @@ export function Timeline() {
   const isStreaming = useTimelineStore((state) => state.isStreaming);
   const contextNotice = useTimelineStore((state) => state.contextNotice);
   const activeTurnId = useTimelineStore((state) => state.activeTurnId);
+  const scrollToLatestNonce = useTimelineStore((state) => state.scrollToLatestNonce);
   const sessionId = useNavigationStore((state) => state.sessionId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -435,6 +436,14 @@ export function Timeline() {
   }, [sessionId]);
   // biome-ignore lint/correctness/useExhaustiveDependencies: new output is the scroll trigger
   useLayoutEffect(follow, [items, loading]);
+  // Sending from a scrolled position re-attaches the transcript to the latest output.
+  useLayoutEffect(() => {
+    if (scrollToLatestNonce === 0) return;
+    pinnedRef.current = true;
+    setShowJump(false);
+    const element = scrollRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }, [scrollToLatestNonce]);
   useEffect(() => {
     const scroll = scrollRef.current;
     const content = contentRef.current;

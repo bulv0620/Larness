@@ -31,7 +31,36 @@ beforeEach(() => {
     loading: false,
     isStreaming: false,
     activeTurnId: null,
+    scrollToLatestNonce: 0,
   });
+});
+
+it("jumps back to the latest output when a message is sent from a scrolled position", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "old",
+        kind: "message",
+        role: "user",
+        text: "上一条消息",
+        createdAt: 1,
+      },
+    ],
+  });
+  render(<Timeline />);
+  const log = screen.getByRole("log", { name: "会话时间线" });
+  Object.defineProperty(log, "scrollHeight", { configurable: true, value: 900 });
+  Object.defineProperty(log, "clientHeight", { configurable: true, value: 300 });
+  log.scrollTop = 120;
+  fireEvent.scroll(log);
+  expect(screen.getByRole("button", { name: "回到最新消息" })).toBeInTheDocument();
+
+  act(() => {
+    useTimelineStore.setState((state) => ({ scrollToLatestNonce: state.scrollToLatestNonce + 1 }));
+  });
+
+  expect(log.scrollTop).toBeGreaterThan(300);
+  expect(screen.queryByRole("button", { name: "回到最新消息" })).toBeNull();
 });
 
 it("keeps the final answer visible when a completed tool event arrives after the message", () => {

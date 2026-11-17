@@ -77,6 +77,8 @@ interface TimelineState {
   contextNotice: { degraded: boolean; createdAt: number } | null;
   modelUsage: Record<string, ModelUsageEntry>;
   lastSeq: number;
+  /** Increments when the operator sends; Timeline jumps to the latest message. */
+  scrollToLatestNonce: number;
   load: (sessionId: string) => Promise<void>;
   disconnect: () => void;
   syncEvents: () => Promise<void>;
@@ -345,6 +347,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   contextNotice: null,
   modelUsage: {},
   lastSeq: 0,
+  scrollToLatestNonce: 0,
 
   load: async (sessionId) => {
     const token = ++loadToken;
@@ -457,6 +460,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     const sessionId = get().sessionId;
 
     if (!sessionId) return;
+
+    set((state) => ({ scrollToLatestNonce: state.scrollToLatestNonce + 1 }));
 
     if (USE_MOCKS) {
       const userItem: TimelineItem = {
