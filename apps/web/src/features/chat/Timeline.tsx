@@ -182,6 +182,13 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   );
   const failed = stateUser?.turnOutcome === "failed" || stateUser?.turnOutcome === "interrupted";
   const stopped = stateUser?.turnOutcome === "cancelled";
+  // The resume banner states the interruption and offers the way forward, so
+  // the generic notice underneath would only repeat it and add a weaker second
+  // action: resending the original text without the facts already gathered.
+  const interruptedNotice =
+    stateUser?.turnOutcome === "interrupted" && stateUser.turnId !== undefined
+      ? `interrupted_${stateUser.turnId}`
+      : undefined;
   // A turn can end "completed" yet still be incomplete: budget stop or truncated output.
   const budgetStopped = stateUser?.terminalReason === "budget";
   const truncated = stateUser?.terminalReason === "output_truncated";
@@ -391,7 +398,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
           results
         )}
         {items
-          .filter((item) => item.kind === "error")
+          .filter((item) => item.kind === "error" && item.id !== interruptedNotice)
           .map((item) => (
             <TimelineItemView
               key={item.id}

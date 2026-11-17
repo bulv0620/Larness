@@ -805,6 +805,64 @@ it("does not offer resume for a cancelled turn", () => {
   expect(screen.queryByRole("button", { name: "继续这个任务" })).toBeNull();
 });
 
+it("leaves only the resume entry on an interrupted turn", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "跑完测试",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "interrupted",
+      },
+      {
+        id: "interrupted_turn-1",
+        kind: "error",
+        turnId: "turn-1",
+        message: "执行已中断，请重新发送任务。",
+        createdAt: 2,
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  expect(screen.getByRole("button", { name: "继续这个任务" })).toBeTruthy();
+  expect(screen.queryByText("执行已中断，请重新发送任务。")).toBeNull();
+  expect(screen.queryByRole("button", { name: "重试" })).toBeNull();
+});
+
+it("keeps the retry entry when a turn failed", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "跑完测试",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "failed",
+      },
+      {
+        id: "error_turn-1",
+        kind: "error",
+        turnId: "turn-1",
+        message: "PROVIDER_UNAVAILABLE: provider request timed out",
+        createdAt: 2,
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  expect(screen.getByText(/provider request timed out/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "继续这个任务" })).toBeNull();
+});
+
 it("shows deliverables and folds process files into one collapsed row", () => {
   useTimelineStore.setState({
     items: [
