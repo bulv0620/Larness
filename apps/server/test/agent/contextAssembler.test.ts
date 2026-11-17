@@ -64,6 +64,10 @@ describe("context assembler", () => {
             );
             expect(context.messages[0]?.content).toContain(`Turn approval policy: ${policy}`);
             expect(context.messages[0]?.content).toContain(`L2=${l2}`);
+            expect(context.messages[0]?.content).toContain(
+              "update_plan in the same batch as your next action",
+            );
+            expect(context.messages[0]?.content).toMatch(/never mark a step done/i);
             expect(context.messages[0]?.content).toContain("Service lifecycle contract");
             expect(context.messages[0]?.content).toContain("development_preview");
             expect(context.messages[0]?.content).toContain("persistent_pm2");

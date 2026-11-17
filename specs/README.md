@@ -76,6 +76,7 @@
 - [075 Windows 交互终端自动选择 Shell](075-windows-terminal-shell/spec.md)
 - [076 项目资源文件管理器](076-file-explorer/spec.md)
 - [077 模型连接、能力目录与平台接入](077-model-connections/spec.md)
+- [079 计划步骤即时更新](079-plan-progress/spec.md)
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 

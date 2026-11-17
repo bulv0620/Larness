@@ -61,7 +61,7 @@ export function createPlanTool(options: {
   return defineTool({
     name: "update_plan",
     description:
-      "Create or replace this turn's task plan for complex work. Use stable step IDs, at most one running step, and update progress as work completes. Do not invent completion or use for simple questions. This only records metadata; it does not authorize actions.",
+      "Create or replace this turn's task plan for complex work, and advance it while you work instead of once at the end. Keep stable step IDs and at most one running step. When a step finishes, call this again in the same batch as your next tool call: mark that step done, set the step you are working on to running, and re-scope or add steps that appeared — do not defer every status change to the end of the turn. The status is your report of progress, so never mark a step done before it is finished and verified, and never tick a cancelled or failed step as done. Simple questions need no plan. This only records metadata; it does not authorize actions.",
     riskLevel: "L0",
     requiresProjectLock: false,
     schema: PlanParamsSchema,

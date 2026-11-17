@@ -16,7 +16,7 @@
 | 模型连接与截图 | 使用合法持有的 Key 逐预设验收真实模型发现、流式工具调用、续步和用量。使用支持图片与工具的真实线路验证截图输入。 | [077 验收记录](../specs/077-model-connections/acceptance.md) |
 | 调度 | 补真实 Provider 定时任务、取消到终态的时延、实际重启和休眠唤醒、失败角标、任务数满额和视觉记录。 | [调度验收](../specs/064-scheduler/acceptance.md) |
 | npm | 真实 registry 出现新版本时验证 TUI 提示；全局安装的交互 TUI 缺独立验收。npm 11 脚本策略可能影响原生模块安装。 | [分发验收](../specs/065-launcher-updater/acceptance.md)、[安装指南](guides/install.md) |
-| 全量回归 | auth E2E 有批量时序抖动，终端用例可单独通过；对话用例仍有旧计划选择器失败记录。预览验收也记录过 PTY 测试时序抖动。 | [调度验收](../specs/064-scheduler/acceptance.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
+| 全量回归 | auth E2E 有批量时序抖动，终端用例可单独通过；对话用例仍有旧计划选择器失败记录。预览验收也记录过 PTY 测试时序抖动。2026-11-16 复现同类现象：`pnpm test` 全量 9 文件 / 16 项失败，全部落在真实子进程、PTY、预览、Vite 与终端组，单独复跑 `test/agent`（含 `commands`）174/174、`test/resources/services.test.ts` 7/7 通过。 | [调度验收](../specs/064-scheduler/acceptance.md)、[M3 收尾](../specs/040-services-preview/closure.md)、[079 验收记录](../specs/079-plan-progress/tasks.md#验收记录) |
 | Windows 浏览器与测试基线 | M1 综合认证 E2E 在项目右键菜单步骤失败。Windows 终端测试 worker 曾以 0xC0000005 退出，复跑通过。 | [068 验收记录](../specs/068-ui-fixes/tasks.md#验收记录) |
 | Server 单测基线 | 命令与终端重启恢复的根屏障已在 M2-R1 修复。Windows 曾记录服务运维预览解析请求得到 400、测试期望 503。 | [UI-F17 验收记录](../specs/068-ui-fixes/tasks.md#ui-f172026-11-13windows) |
 | 前端与资源 | Monaco 生产 CSP 使用 `unsafe-eval`；Git 状态每 3 秒轮询，暂无 WS 失效接线。外部写入、进程脱组及磁盘满/数据库损坏仍是边界。 | [M2 收尾](../specs/030-dev-resources/closure.md)、[M3 收尾](../specs/040-services-preview/closure.md) |
@@ -40,6 +40,7 @@
 | Q-033 | `agent_events` / `turns` / `session_context_summaries` 的保留期与体积上限默认值？ | 建议 events 90 天、turns 180 天、摘要 90 天，另有 `maxBytes`；先由 TR-1 体积报告支撑再定；清理默认关闭、只 dry-run | 数据保留、备份体积、历史可追溯性 | [071 spec](../specs/071-turn-recovery/spec.md) D2、[ADR-058](adr/ADR-058-turn-recovery-retention.md) |
 | Q-035 | TypeScript 7.0.2 对 JSDoc 中的某些文本会产生假诊断（例如注释里写 `**/test/*.ts` 会报 `TS7008 Member 'test' implicitly has an 'any' type`）。 | 已观测：改写注释即可消除；暂不改注释规范，遇到时按误报处理并记录 | 开发体验、误导性报错 | [HX-8 记录](../specs/070-runtime-efficiency/tasks.md) |
 | Q-034 | 开启清理前是否强制备份，备份保留几份？ | 建议强制备份一次并复用 ADR-055 的备份路径；份数与周期沿用 Q-010 | 删除不可逆风险 | [071 spec](../specs/071-turn-recovery/spec.md) TR-4、Q-010 |
+| Q-039 | 计划陈旧提醒的阈值（6 个工具调用）与「每计划版本只提醒一次」是否合适？ | 已按 6 实现（`PLAN_STALE_TOOL_CALLS`）；真实长任务中若模型仍只在结尾更新，再按 `plan.updated` 次数调低或允许每 N 次重复 | 长任务体验、token 成本 | [079 spec](../specs/079-plan-progress/spec.md#13-开放问题) |
 
 ## 已解决
 
