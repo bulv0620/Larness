@@ -576,11 +576,11 @@ function groupFor(db: DbExecutor, credential: CredentialProfileRow): CatalogGrou
 export function getModelCatalog(options: CatalogOptions): CatalogDto {
   const credentials = catalogCredentials(options.db);
 
-  if (credentials.length === 0) {
+  const groups = credentials.map((credential) => groupFor(options.db, credential));
+  const [primaryGroup] = groups;
+  if (primaryGroup === undefined) {
     throw new ModelError("MODEL_CREDENTIAL_MISSING", "configure a catalog credential first");
   }
-
-  const groups = credentials.map((credential) => groupFor(options.db, credential));
   const row = getModelDefaultRow(options.db);
   const defaultGroup =
     row === null
@@ -591,7 +591,7 @@ export function getModelCatalog(options: CatalogOptions): CatalogDto {
   );
 
   return {
-    ...groups[0]!,
+    ...primaryGroup,
     groups,
     defaultSelection:
       row !== null && defaultModel !== undefined

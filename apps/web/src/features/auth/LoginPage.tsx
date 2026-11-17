@@ -57,8 +57,7 @@ export function LoginPage() {
   const originMatches =
     bootstrap.data !== undefined && window.location.origin === bootstrap.data.auth.passkeyOrigin;
   const usable =
-    bootstrap.data !== undefined &&
-    bootstrap.data.initialized &&
+    bootstrap.data?.initialized === true &&
     bootstrap.data.auth.passkeyEnabled &&
     originMatches &&
     support;
@@ -142,7 +141,7 @@ export function LoginPage() {
           </p>
         ) : null}
 
-        {bootstrap.data && bootstrap.data.initialized && !originMatches ? (
+        {bootstrap.data?.initialized === true && !originMatches ? (
           <p className="mt-6 rounded-md bg-surface-2 p-3 text-sm text-ink-2">
             当前来源 <code>{window.location.origin}</code> 不是 canonical origin{" "}
             <code>{bootstrap.data.auth.passkeyOrigin}</code>。请改用 localhost 或 HTTPS
@@ -150,13 +149,13 @@ export function LoginPage() {
           </p>
         ) : null}
 
-        {bootstrap.data && bootstrap.data.initialized && originMatches && !support ? (
+        {bootstrap.data?.initialized === true && originMatches && !support ? (
           <p className="mt-6 rounded-md bg-surface-2 p-3 text-sm text-ink-2">
             当前浏览器不支持 WebAuthn / Passkey，请使用配对码入口。
           </p>
         ) : null}
 
-        {bootstrap.data && bootstrap.data.initialized && !bootstrap.data.auth.passkeyEnabled ? (
+        {bootstrap.data?.initialized === true && !bootstrap.data.auth.passkeyEnabled ? (
           <p className="mt-6 rounded-md bg-surface-2 p-3 text-sm text-ink-2">
             WebAuthn 配置无效（RP ID / Origin），Passkey 不可用；请使用配对码入口。
           </p>

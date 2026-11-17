@@ -46,10 +46,12 @@ function serverSource(port: number, host = "127.0.0.1"): string {
     '  if (url.pathname === "/redirect") { response.writeHead(302, { location: "http://evil.example/" }); response.end(); return; }',
     '  if (url.pathname === "/cookie") { response.setHeader("set-cookie", "app=1; Domain=localhost; Path=/"); response.end("cookie"); return; }',
     '  if (url.pathname === "/slow") { setTimeout(() => response.end("slow"), 2000); return; }',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: emits a template literal into the generated source
     "  response.end(`${request.headers.host}|${request.headers.cookie ?? ''}|${url.pathname}`);",
     "});",
     'server.on("upgrade", (request, socket) => {',
     '  socket.write("HTTP/1.1 101 Switching Protocols\\r\\nUpgrade: websocket\\r\\nConnection: Upgrade\\r\\n\\r\\n");',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: emits a template literal into the generated source
     '  socket.on("data", (data) => socket.write(`echo:${data}`));',
     "});",
     `server.listen(${port}, ${JSON.stringify(host)});`,

@@ -183,7 +183,7 @@ export async function terminateProcessTree(pid: number, graceMs = 2_000): Promis
 export async function processCommandLine(pid: number): Promise<string | null> {
   if (!Number.isSafeInteger(pid) || pid <= 0) return null;
   if (process.platform === "win32") {
-    const script = String.raw`
+    const script = `
 $ErrorActionPreference = 'Stop'
 $process = Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}"
 if ($process -and $process.CommandLine) { [Console]::Out.Write($process.CommandLine) }
@@ -219,7 +219,7 @@ export async function windowsTcpListeners(port: number): Promise<TcpListener[]> 
   if (cached && Date.now() - cached.at < 1_000) return cached.listeners;
   const pending = listenerInFlight.get(port);
   if (pending) return pending;
-  const script = String.raw`
+  const script = `
 $ErrorActionPreference = 'Stop'
 Get-NetTCPConnection -State Listen -LocalPort ${port} | ForEach-Object {
   [Console]::Out.WriteLine(("{0}|{1}|{2}" -f $_.OwningProcess, $_.LocalAddress, $_.LocalPort))

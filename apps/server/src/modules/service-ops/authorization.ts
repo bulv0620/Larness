@@ -349,7 +349,7 @@ export class DeploymentAuthorizationService {
       throw new DeploymentError("DEPLOY_APPROVAL_INVALID", "Deployment approval is not pending");
     }
     const authorization = authorizationById(this.#db, approval.authorizationId);
-    if (!authorization || authorization.status !== "PENDING") {
+    if (authorization?.status !== "PENDING") {
       throw new DeploymentError(
         "DEPLOY_APPROVAL_INVALID",
         "Deployment authorization is not pending",
@@ -380,11 +380,9 @@ export class DeploymentAuthorizationService {
       const currentApproval = approvalById(tx, approvalId);
       const currentAuthorization = authorizationById(tx, approval.authorizationId);
       if (
-        !currentApproval ||
-        currentApproval.status !== "PENDING" ||
+        currentApproval?.status !== "PENDING" ||
         currentApproval.expiresAt <= now ||
-        !currentAuthorization ||
-        currentAuthorization.status !== "PENDING" ||
+        currentAuthorization?.status !== "PENDING" ||
         currentAuthorization.expiresAt <= now
       ) {
         throw new DeploymentError("DEPLOY_APPROVAL_INVALID", "Deployment approval changed");
@@ -534,7 +532,7 @@ export class DeploymentAuthorizationService {
     const now = this.#now();
     immediateTransaction(this.#db, (tx) => {
       const current = authorizationById(tx, authorizationId);
-      if (!current || current.status !== "AUTHORIZED" || current.expiresAt <= now) {
+      if (current?.status !== "AUTHORIZED" || current.expiresAt <= now) {
         throw new DeploymentError("DEPLOY_AUTH_INVALID", "Deployment authorization is not usable");
       }
       updateAuthorization(tx, authorizationId, {
@@ -720,7 +718,7 @@ export class DeploymentAuthorizationService {
   #expireApproval(row: DeploymentApprovalRow, now: number): void {
     immediateTransaction(this.#db, (tx) => {
       const current = approvalById(tx, row.id);
-      if (!current || current.status !== "PENDING") return;
+      if (current?.status !== "PENDING") return;
       updateApproval(tx, row.id, { status: "EXPIRED", decidedAt: now });
       const authorization = authorizationById(tx, current.authorizationId);
       if (authorization?.status === "PENDING") {

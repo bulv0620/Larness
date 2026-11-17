@@ -96,11 +96,11 @@ const fakeProviderResolver: ProviderResolver = async (session, turn) => {
         // the running state before the final text arrives.
         { ...step(2), delayMs: 8_000 },
         textStep(
-          Array.from(
+          `${Array.from(
             { length: 60 },
             (_, index) =>
               `历史段落 ${index + 1}：已读取工作区文件，这是用于验证长对话阅读位置的测试记录。`,
-          ).join("\n\n") + "\n\n计划验证结束。",
+          ).join("\n\n")}\n\n计划验证结束。`,
         ),
       ]),
       model: turn.model ?? "deepseek-flash",

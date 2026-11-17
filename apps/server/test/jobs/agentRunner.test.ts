@@ -28,7 +28,9 @@ describe("agent job executor", () => {
           agent: { prompt: "inspect the workspace", approvalPolicy: "readonly" },
         });
         const job = jobById(opened.db, created.id);
-        expect(job).not.toBeNull();
+        if (job === null) {
+          throw new Error("agent job was not created");
+        }
 
         const provider = createFakeProvider([
           {
@@ -53,10 +55,10 @@ describe("agent job executor", () => {
         });
 
         const result = await executor.run(
-          job!,
+          job,
           {
             id: "run_test",
-            jobId: job!.id,
+            jobId: job.id,
             trigger: "manual",
             status: "queued",
             scheduledFor: 1,
@@ -76,11 +78,15 @@ describe("agent job executor", () => {
         );
 
         expect(result).toMatchObject({ status: "succeeded" });
-        expect(result.sessionId).toBe(job!.sessionId);
+        expect(result.sessionId).toBe(job.sessionId);
         expect(result.turnId).toMatch(/^trn_/);
         expect(provider.calls[0]?.messages[0]?.content).toContain("Turn approval policy: readonly");
 
-        const session = getSessionById(opened.db, job!.sessionId!);
+        const sessionId = job.sessionId;
+        if (sessionId === null) {
+          throw new Error("agent job did not persist a session");
+        }
+        const session = getSessionById(opened.db, sessionId);
         expect(session?.origin).toBe("scheduled");
         expect(session?.approvalPolicyId).toBe("readonly");
       } finally {
