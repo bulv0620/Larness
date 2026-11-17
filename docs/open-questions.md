@@ -41,6 +41,7 @@
 | Q-035 | TypeScript 7.0.2 对 JSDoc 中的某些文本会产生假诊断（例如注释里写 `**/test/*.ts` 会报 `TS7008 Member 'test' implicitly has an 'any' type`）。 | 已观测：改写注释即可消除；暂不改注释规范，遇到时按误报处理并记录 | 开发体验、误导性报错 | [HX-8 记录](../specs/070-runtime-efficiency/tasks.md) |
 | Q-034 | 开启清理前是否强制备份，备份保留几份？ | 建议强制备份一次并复用 ADR-055 的备份路径；份数与周期沿用 Q-010 | 删除不可逆风险 | [071 spec](../specs/071-turn-recovery/spec.md) TR-4、Q-010 |
 | Q-039 | 计划陈旧提醒的阈值（6 个工具调用）与「每计划版本只提醒一次」是否合适？ | 已按 6 实现（`PLAN_STALE_TOOL_CALLS`）；真实长任务中若模型仍只在结尾更新，再按 `plan.updated` 次数调低或允许每 N 次重复 | 长任务体验、token 成本 | [079 spec](../specs/079-plan-progress/spec.md#13-开放问题) |
+| Q-040 | 回合已完成但计划仍留 `pending` 时，是否要在回合摘要额外提示「计划未同步」？ | 默认只在计划行显示「另有 N 步未完成」，不加回合级提示；若用户仍误读计划与成果不符，再评估 | 计划可读性、界面噪声 | [080 spec](../specs/080-plan-terminal-state/spec.md#13-开放问题) |
 
 ## 已解决
 

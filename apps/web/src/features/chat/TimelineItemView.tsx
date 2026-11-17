@@ -1,6 +1,6 @@
 import type { ArtifactItem, MessageItem, PlanItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
-import { Check, ChevronRight, Circle, Copy, Loader2, X } from "lucide-react";
+import { Check, ChevronRight, Circle, CircleDashed, Copy, Loader2, X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
 import { PreviewResultCard } from "@/features/services/PreviewResultCard";
@@ -14,11 +14,14 @@ import { MarkdownText } from "./MarkdownText";
 export function TimelineItemView({
   item,
   turnActive = false,
+  turnOutcome,
   commentary = false,
   onRetry,
 }: {
   item: TimelineItem;
   turnActive?: boolean;
+  /** Which way this turn settled; a plan reads its open steps from it. */
+  turnOutcome?: MessageItem["turnOutcome"];
   commentary?: boolean;
   onRetry?: () => void;
 }) {
@@ -26,7 +29,7 @@ export function TimelineItemView({
     case "message":
       return <MessageBubble item={item} commentary={commentary} />;
     case "plan":
-      return <PlanCard item={item} turnActive={turnActive} />;
+      return <PlanCard item={item} turnActive={turnActive} turnOutcome={turnOutcome} />;
     case "tool":
       return <ToolCard item={item} />;
     case "reasoning":
@@ -185,18 +188,62 @@ export function MessageBubble({
   );
 }
 
-const planStepLabels = {
+type PlanStepStatus = PlanItem["steps"][number]["status"];
+/** A settled step keeps the model's status or explains why it stayed open. */
+type PlanStepDisplay = PlanStepStatus | "stopped" | "interrupted" | "unmarked";
+
+/**
+ * A settled turn keeps the model's last report. A step still `running` then was
+ * cut off, not failed, so it reads the reason from the turn's outcome instead of
+ * borrowing the failure mark.
+ */
+function displayStepStatus(
+  status: PlanStepStatus,
+  turnActive: boolean,
+  outcome: MessageItem["turnOutcome"],
+): PlanStepDisplay {
+  if (status !== "running" || turnActive) return status;
+  switch (outcome) {
+    case "cancelled":
+      return "stopped";
+    case "failed":
+    case "interrupted":
+      return "interrupted";
+    default:
+      return "unmarked";
+  }
+}
+
+const planStepLabels: Record<PlanStepDisplay, string> = {
   done: "已完成：",
   running: "进行中：",
   failed: "失败：",
   pending: "待做：",
-  unfinished: "未完成",
+  stopped: "已停止",
+  interrupted: "已中断",
+  unmarked: "未标记完成",
 };
 
-function PlanCard({ item, turnActive }: { item: PlanItem; turnActive: boolean }) {
+/** Why a step is still open is stated in words, so it also reads out loud. */
+const planStepStated = new Set<PlanStepDisplay>(["stopped", "interrupted", "unmarked"]);
+
+function PlanCard({
+  item,
+  turnActive,
+  turnOutcome,
+}: {
+  item: PlanItem;
+  turnActive: boolean;
+  turnOutcome?: MessageItem["turnOutcome"];
+}) {
   const [expanded, setExpanded] = useState(false);
   const done = item.steps.filter((step) => step.status === "done").length;
   const current = turnActive ? item.steps.find((step) => step.status === "running") : undefined;
+  // A settled plan reports how many steps it left open: a turn can end while the
+  // model never marked them, and the count says so without claiming they failed.
+  const open = turnActive
+    ? 0
+    : item.steps.filter((step) => step.status === "running" || step.status === "pending").length;
   return (
     <div className="text-[12px] text-ink-3">
       <button
@@ -209,12 +256,13 @@ function PlanCard({ item, turnActive }: { item: PlanItem; turnActive: boolean })
         <span className={current ? "text-accent" : undefined}>
           计划 · {done}/{item.steps.length}
           {current ? ` · ${current.title}` : ` · ${item.title}`}
+          {open > 0 ? ` · 另有 ${open} 步未完成` : null}
         </span>
       </button>
       {expanded ? (
         <ol aria-label={item.title} className="ml-5 mt-1 space-y-1.5">
           {item.steps.map((step) => {
-            const status = step.status === "running" && !turnActive ? "unfinished" : step.status;
+            const status = displayStepStatus(step.status, turnActive, turnOutcome);
             return (
               <li key={step.id} className="flex items-start gap-2">
                 {status === "done" ? (
@@ -224,14 +272,16 @@ function PlanCard({ item, turnActive }: { item: PlanItem; turnActive: boolean })
                     size={13}
                     className="mt-0.5 shrink-0 animate-spin text-accent motion-reduce:animate-none"
                   />
-                ) : status === "failed" || status === "unfinished" ? (
+                ) : status === "failed" ? (
                   <X size={13} className="mt-0.5 shrink-0 text-danger" />
-                ) : (
+                ) : status === "pending" ? (
                   <Circle size={13} className="mt-0.5 shrink-0" />
+                ) : (
+                  <CircleDashed size={13} className="mt-0.5 shrink-0" />
                 )}
                 <span className="min-w-0 break-words">
                   {step.title}
-                  <span className={status === "unfinished" ? "ml-2" : "sr-only"}>
+                  <span className={planStepStated.has(status) ? "ml-2" : "sr-only"}>
                     {planStepLabels[status]}
                   </span>
                   {step.detail ? <span className="ml-2">{step.detail}</span> : null}

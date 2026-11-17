@@ -308,7 +308,14 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   return (
     <section aria-label="对话轮次" className="min-w-0">
       {user ? <TimelineItemView item={user} /> : null}
-      {plan ? <TimelineItemView key={plan.id} item={plan} turnActive={turnActive} /> : null}
+      {plan ? (
+        <TimelineItemView
+          key={plan.id}
+          item={plan}
+          turnActive={turnActive}
+          turnOutcome={stateUser?.turnOutcome}
+        />
+      ) : null}
       <div className="space-y-3">
         {process.length > 0 || tools.length > 0 || reasoningPreview !== undefined ? (
           <div className="text-[12px] text-ink-3">

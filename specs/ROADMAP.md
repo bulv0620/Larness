@@ -563,6 +563,17 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | PG-3 | [运行时计划陈旧提醒](079-plan-progress/spec.md#6-功能需求) | PG-2 | `done` |
 | PG-4 | [验证、文档与状态回填](079-plan-progress/tasks.md#验收记录) | PG-3 | `done` |
 
+### 2026-11-16 计划终态呈现（080，done）
+
+079 的附带缺陷：7/18 个有计划的 Turn 计划终态与执行事实不一致（3 个停在 running/pending 被渲染成红叉「未完成」，4 个完成后仍留 pending）。服务端不得改写步骤状态（036），因此单开呈现切片：用回合结局解释未结束的步骤，并如实报出剩余步数。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| PT-1 | [终态呈现红测试](080-plan-terminal-state/tasks.md#pt-1-终态呈现红测试) | 079 done | `done` |
+| PT-2 | [计划终态派生与摘要](080-plan-terminal-state/spec.md#6-功能需求) | PT-1 | `done` |
+| PT-3 | [验证](080-plan-terminal-state/tasks.md#pt-3-验证) | PT-2 | `done` |
+| PT-4 | [文档与状态回填](080-plan-terminal-state/tasks.md#验收记录) | PT-3 | `done` |
+
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 的「当前进行中」登记。
 - 完成：更新 `tasks.md` 与本节状态，把该任务移入 `STATUS.md` 的「最近收口」，提交。
 - 阻塞：`blocked` + 原因 + 需要谁决策；解除后回到 `todo`。

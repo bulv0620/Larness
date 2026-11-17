@@ -491,90 +491,225 @@ it.each(["completed", "cancelled"] as const)(
   },
 );
 
-it.each(["turn.interrupted", "turn.cancelled", "turn.failed", "turn.completed"])(
-  "stops an unfinished plan on %s and keeps it stopped on replay",
-  (terminalEvent) => {
-    const turnId = "turn-plan";
-    const base = {
-      kind: "event",
-      protocolVersion: 1,
-      topic: "agent",
-      streamId: "session",
-      timestamp: 1,
-    } as const;
-    const start: ServerEvent[] = [
-      {
-        ...base,
-        eventId: "user",
-        sequence: 1,
-        type: "user.message",
-        payload: { turnId, text: "更新样式" },
-      },
-      {
-        ...base,
-        eventId: "plan",
-        sequence: 2,
-        type: "plan.updated",
-        payload: {
+// A settled turn keeps the model's last report. A step still running was cut
+// off, not failed, so it names the reason instead of borrowing the failure mark.
+const settledTerminals = [
+  "turn.interrupted",
+  "turn.cancelled",
+  "turn.failed",
+  "turn.completed",
+] as const;
+const settledPlanLabel = {
+  "turn.interrupted": "已中断",
+  "turn.cancelled": "已停止",
+  "turn.failed": "已中断",
+  "turn.completed": "未标记完成",
+} as const;
+
+it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (terminalEvent) => {
+  const label = settledPlanLabel[terminalEvent];
+  const turnId = "turn-plan";
+  const base = {
+    kind: "event",
+    protocolVersion: 1,
+    topic: "agent",
+    streamId: "session",
+    timestamp: 1,
+  } as const;
+  const start: ServerEvent[] = [
+    {
+      ...base,
+      eventId: "user",
+      sequence: 1,
+      type: "user.message",
+      payload: { turnId, text: "更新样式" },
+    },
+    {
+      ...base,
+      eventId: "plan",
+      sequence: 2,
+      type: "plan.updated",
+      payload: {
+        turnId,
+        plan: {
+          id: "plan-turn",
+          kind: "plan",
           turnId,
-          plan: {
-            id: "plan-turn",
-            kind: "plan",
-            turnId,
-            title: "样式调整",
-            createdAt: 1,
-            steps: [
-              { id: "read", title: "读取样式", status: "done" },
-              { id: "edit", title: "修改样式", status: "running" },
-              { id: "verify", title: "验证页面", status: "pending" },
-            ],
-          },
+          title: "样式调整",
+          createdAt: 1,
+          steps: [
+            { id: "read", title: "读取样式", status: "done" },
+            { id: "edit", title: "修改样式", status: "running" },
+            { id: "verify", title: "验证页面", status: "pending" },
+          ],
         },
       },
-    ];
-    const terminal: ServerEvent = {
-      ...base,
-      eventId: "terminal",
-      sequence: 3,
-      type: terminalEvent,
-      payload: { turnId },
-    };
-    useTimelineStore.setState({
-      items: eventsToTimeline(start),
-      isStreaming: true,
-      activeTurnId: turnId,
-    });
-    const view = render(<Timeline />);
-    fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 修改样式" }));
-    const plan = screen.getByRole("list", { name: "样式调整" });
-    expect(plan.querySelector(".animate-spin")).toBeInTheDocument();
+    },
+  ];
+  const terminal: ServerEvent = {
+    ...base,
+    eventId: "terminal",
+    sequence: 3,
+    type: terminalEvent,
+    payload: { turnId },
+  };
+  useTimelineStore.setState({
+    items: eventsToTimeline(start),
+    isStreaming: true,
+    activeTurnId: turnId,
+  });
+  const view = render(<Timeline />);
+  fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 修改样式" }));
+  const plan = screen.getByRole("list", { name: "样式调整" });
+  expect(plan.querySelector(".animate-spin")).toBeInTheDocument();
+  // While the turn runs, the step is just in progress.
+  expect(within(plan).queryByText(label, { exact: true })).toBeNull();
 
-    act(() => {
-      useTimelineStore.setState((state) => ({
-        items: applyServerEvent(state.items, terminal),
-        isStreaming: false,
-        activeTurnId: null,
-      }));
-    });
-    const finishedPlan = screen.getByRole("list", { name: "样式调整" });
-    expect(finishedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
-    expect(within(finishedPlan).getByText("未完成", { exact: true })).toBeVisible();
-    expect(within(finishedPlan).getByText("已完成：", { exact: true })).toBeInTheDocument();
-    expect(within(finishedPlan).getByText("待做：", { exact: true })).toBeInTheDocument();
+  act(() => {
+    useTimelineStore.setState((state) => ({
+      items: applyServerEvent(state.items, terminal),
+      isStreaming: false,
+      activeTurnId: null,
+    }));
+  });
+  // The settled summary reports how many steps stayed open, and the reason is
+  // stated instead of a red failure mark.
+  expect(
+    screen.getByRole("button", { name: "计划 · 1/3 · 样式调整 · 另有 2 步未完成" }),
+  ).toBeTruthy();
+  const finishedPlan = screen.getByRole("list", { name: "样式调整" });
+  expect(finishedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
+  expect(within(finishedPlan).getByText(label, { exact: true })).toBeVisible();
+  expect(finishedPlan.querySelector(".text-danger")).toBeNull();
+  expect(within(finishedPlan).getByText("已完成：", { exact: true })).toBeInTheDocument();
+  expect(within(finishedPlan).getByText("待做：", { exact: true })).toBeInTheDocument();
 
-    view.unmount();
-    useTimelineStore.setState({
-      items: eventsToTimeline([...start, terminal]),
-      isStreaming: true,
-      activeTurnId: "turn-next",
-    });
-    render(<Timeline />);
-    fireEvent.click(screen.getByRole("button", { name: /^计划 · 1\/3/ }));
-    const replayedPlan = screen.getByRole("list", { name: "样式调整" });
-    expect(replayedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
-    expect(within(replayedPlan).getByText("未完成", { exact: true })).toBeVisible();
-  },
-);
+  view.unmount();
+  useTimelineStore.setState({
+    items: eventsToTimeline([...start, terminal]),
+    isStreaming: true,
+    activeTurnId: "turn-next",
+  });
+  render(<Timeline />);
+  fireEvent.click(screen.getByRole("button", { name: /^计划 · 1\/3/ }));
+  const replayedPlan = screen.getByRole("list", { name: "样式调整" });
+  expect(replayedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
+  expect(within(replayedPlan).getByText(label, { exact: true })).toBeVisible();
+  expect(replayedPlan.querySelector(".text-danger")).toBeNull();
+});
+
+it("counts only open steps in the summary and keeps a failure a failure", () => {
+  useTimelineStore.setState({
+    isStreaming: false,
+    activeTurnId: null,
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "发布检查",
+        createdAt: 1,
+        turnId: "turn-settled",
+        turnOutcome: "completed",
+        durationMs: 1_000,
+      },
+      {
+        id: "plan",
+        kind: "plan",
+        turnId: "turn-settled",
+        title: "发布检查",
+        createdAt: 2,
+        steps: [
+          { id: "lint", title: "跑 lint", status: "done" },
+          { id: "test", title: "跑测试", status: "failed" },
+          { id: "ship", title: "发布", status: "pending" },
+        ],
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  // A failure already reads as one; only the open step is counted.
+  fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 发布检查 · 另有 1 步未完成" }));
+  const plan = screen.getByRole("list", { name: "发布检查" });
+  expect(within(plan).getByText("失败：", { exact: true })).toBeInTheDocument();
+  expect(within(plan).getByText("待做：", { exact: true })).toBeInTheDocument();
+  expect(plan.querySelector(".text-danger")).toBeInTheDocument();
+});
+
+it("adds no open counter when every step is settled", () => {
+  useTimelineStore.setState({
+    isStreaming: false,
+    activeTurnId: null,
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "发布检查",
+        createdAt: 1,
+        turnId: "turn-settled",
+        turnOutcome: "completed",
+        durationMs: 1_000,
+      },
+      {
+        id: "plan",
+        kind: "plan",
+        turnId: "turn-settled",
+        title: "发布检查",
+        createdAt: 2,
+        steps: [
+          { id: "lint", title: "跑 lint", status: "done" },
+          { id: "test", title: "跑测试", status: "failed" },
+          { id: "doc", title: "补文档", status: "done" },
+        ],
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  expect(screen.getByRole("button", { name: "计划 · 2/3 · 发布检查" })).toBeTruthy();
+});
+
+it("reads a turn that never settled as unmarked rather than failed", () => {
+  useTimelineStore.setState({
+    isStreaming: false,
+    activeTurnId: null,
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "整理文档",
+        createdAt: 1,
+        turnId: "turn-orphan",
+      },
+      {
+        id: "plan",
+        kind: "plan",
+        turnId: "turn-orphan",
+        title: "整理文档",
+        createdAt: 2,
+        steps: [
+          { id: "read", title: "读取文档", status: "running" },
+          { id: "write", title: "改写文档", status: "pending" },
+        ],
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  expect(
+    screen.getByRole("button", { name: "计划 · 0/2 · 整理文档 · 另有 2 步未完成" }),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /^计划 · 0\/2/ }));
+  const plan = screen.getByRole("list", { name: "整理文档" });
+  expect(within(plan).getByText("未标记完成", { exact: true })).toBeVisible();
+  expect(plan.querySelector(".text-danger")).toBeNull();
+});
 
 it("shows a single-line reasoning preview and keeps it out of the expanded process", () => {
   const user = {
