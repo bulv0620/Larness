@@ -432,7 +432,7 @@ it("exposes a fixed default project, rejects mutations and preserves the default
       expect(list.json().items.map((row: { id: string }) => row.id)).toContain(terminal.json().id);
       expect(
         (await f.running.app.inject({ url: "/api/projects/prj_default", headers })).json(),
-      ).toEqual(project);
+      ).toEqual({ ...project, runningTerminals: 1 });
       expect(await readFile(path.join(project.realPath, "keep.txt"), "utf8")).toBe("keep");
     } finally {
       await f.running.shutdown("test");

@@ -61,6 +61,7 @@ export async function terminalAction(
     }));
   }
   await queryClient.invalidateQueries({ queryKey: ["terminals"] });
+  if (action === "terminate") void queryClient.invalidateQueries({ queryKey: ["workspace"] });
   return result;
 }
 export function openTerminal(item: LiveTerminal) {
@@ -104,6 +105,7 @@ export function applyAgentTerminalEvent(
 
 export function openAgentTerminal(target: TerminalResultTarget, activate = false) {
   void queryClient.invalidateQueries({ queryKey: ["terminals"] });
+  void queryClient.invalidateQueries({ queryKey: ["workspace"] });
   useWindowStore.getState().open({
     kind: "terminal",
     resourceId: target.terminalId,
@@ -154,6 +156,7 @@ export async function applyAgentTerminalClosedEvent(
     if (focusedId && useWindowStore.getState().windows.some((win) => win.id === focusedId))
       useWindowStore.setState({ focusedId });
     void queryClient.invalidateQueries({ queryKey: ["terminals"] });
+    void queryClient.invalidateQueries({ queryKey: ["workspace"] });
     return true;
   } catch {
     // A notification is not proof of current resource state. Keep the view on read failure.

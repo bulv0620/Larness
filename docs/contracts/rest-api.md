@@ -379,6 +379,7 @@
   "realPath": "/Users/me/demo",
   "settings": { "defaultModelProfileId": null, "instructions": "", "ignore": [] },
   "gitDetected": true,
+  "runningTerminals": 1,
   "sortOrder": 0,
   "createdAt": 1790000000000,
   "updatedAt": 1790000000000
@@ -386,6 +387,8 @@
 ```
 
 `sortOrder` 为项目列表顺序，值越小越靠前；同一顺序值时按 `updatedAt` 倒序、`id` 倒序稳定排列。默认工作区固定返回在首位且 `sortOrder` 恒为 0，不参与 `PUT /api/projects/order`。
+
+`runningTerminals` 为当前项目作用域内状态为 `RUNNING` 的终端数量，由终端表实时统计而非持久化；默认工作区统计 `project_id IS NULL` 的终端。列表、详情、创建、更新与排序响应均返回该字段。
 
 `Session` 响应字段（详情额外带 `activeTurn`）：
 

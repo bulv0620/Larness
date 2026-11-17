@@ -117,6 +117,12 @@ it("creates one real PTY by idempotency key, lists shared resources, and termina
           .json()
           .items.map((row: { id: string }) => row.id),
       ).toContain(terminal.id);
+      const runningProjects = (
+        await f.running.app.inject({ url: "/api/projects", headers })
+      ).json() as { projects: { id: string; runningTerminals: number }[] };
+      expect(
+        runningProjects.projects.find((project) => project.id === p.id)?.runningTerminals,
+      ).toBe(1);
       const ended = await f.running.app.inject({
         method: "POST",
         url: `/api/terminals/${terminal.id}/terminate`,
@@ -125,6 +131,12 @@ it("creates one real PTY by idempotency key, lists shared resources, and termina
       });
       expect(ended.statusCode).toBe(200);
       expect(ended.json().status).toBe("TERMINATED");
+      const idleProjects = (
+        await f.running.app.inject({ url: "/api/projects", headers })
+      ).json() as { projects: { id: string; runningTerminals: number }[] };
+      expect(idleProjects.projects.find((project) => project.id === p.id)?.runningTerminals).toBe(
+        0,
+      );
       expect(f.running.sqlite.prepare("SELECT count(*) AS n FROM terminals").get()).toEqual({
         n: 1,
       });

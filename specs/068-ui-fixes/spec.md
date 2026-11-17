@@ -242,3 +242,14 @@ depends_on: [052-workspace-polish, 063-multi-provider, 064-scheduler, 065-launch
 - Given 目标文件不可见或目录读取失败，Then 沿用现有提示，不改变文件窗口。
 - 接口、数据与安全：纯前端滚动行为，无后端契约变更。
 - 验证：组件回归断言使用中部滚动参数；认证 Chromium 在有足够列表内容时核对目标行接近列表中心。
+
+## UI-F27 项目条目终端与 Git 标识
+
+- 目标：项目条目中的 Git 状态改为图标，只有 Git 仓库显示分支图标；项目存在运行中终端时，在 Git 图标左侧显示终端图标。
+- 非目标：项目排序、展开、新建会话、右键菜单及 Git 面板内容不变。
+- Given 项目已识别为 Git 仓库，When 查看项目列表，Then 名称右侧显示 Git 分支图标，不显示分支名或“no git”文本。
+- Given 项目没有 Git，When 查看项目列表，Then 不显示 Git 图标。
+- Given 项目存在至少一个运行中的终端，When 查看项目列表，Then 在 Git 图标左侧显示终端图标并提示运行数量；没有运行中的终端时不显示终端图标。
+- Given 终端创建、终止或项目列表刷新，When 查询返回，Then 图标随项目运行中终端数量更新。
+- 接口：`GET /api/projects`（列表与详情）的 `Project` 响应增加非负整数 `runningTerminals`，按项目统计 `RUNNING` 终端；默认工作区统计 `projectId = null` 的终端。无数据库变更。
+- 验证：服务端覆盖终端创建 / 终止后的计数；Web 组件覆盖 Git / 无 Git、终端 / 无终端及图标顺序；运行类型检查与定向检查。

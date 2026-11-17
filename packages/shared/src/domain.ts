@@ -12,6 +12,8 @@ export interface Project {
   branch: string | null;
   git: boolean;
   accent: string;
+  /** Number of RUNNING terminals currently scoped to this project. */
+  runningTerminals?: number;
 }
 
 export interface SessionSummary {

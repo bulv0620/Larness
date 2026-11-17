@@ -24,6 +24,7 @@ export const projects: Project[] = [
     branch: "feat/agent-runtime",
     git: true,
     accent: "#0A84FF",
+    runningTerminals: 1,
   },
   {
     id: "prj_docs",
@@ -32,6 +33,7 @@ export const projects: Project[] = [
     branch: null,
     git: false,
     accent: "#FF9F0A",
+    runningTerminals: 1,
   },
 ];
 

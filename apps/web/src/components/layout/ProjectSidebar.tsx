@@ -9,12 +9,14 @@ import {
   Clock3,
   Folder,
   FolderPlus,
+  GitBranch,
   Loader2,
   LogOut,
   Pencil,
   Plus,
   Search,
   Settings,
+  SquareTerminal,
   Trash2,
   UserRound,
   Zap,
@@ -404,6 +406,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
           {visibleProjects.map((project) => {
             const expanded = expandedProjects[project.id] ?? true;
             const isDefault = project.kind === "default";
+            const runningTerminals = project.runningTerminals ?? 0;
             const regularIndex = isDefault ? -1 : (regularProjectIndex.get(project.id) ?? -1);
             const isDragging = dragState?.id === project.id && dragState.moved;
             const navigationProjectId = isDefault ? null : project.id;
@@ -483,15 +486,27 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                       <Folder size={10} />
                     </span>
                     <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
-                    {isDefault ? (
-                      <span className="text-[9px] text-ink-3">内置</span>
-                    ) : project.git ? (
-                      <span className="font-mono text-[9px] text-ink-3">
-                        {project.branch ?? "git"}
+                    {runningTerminals > 0 ? (
+                      <span
+                        className="flex shrink-0 items-center text-success"
+                        title={`${runningTerminals} 个运行中的终端`}
+                        aria-hidden="true"
+                        data-testid="project-terminal-indicator"
+                      >
+                        <SquareTerminal size={10} strokeWidth={2} />
                       </span>
-                    ) : (
-                      <span className="text-[9px] text-ink-3">no git</span>
-                    )}
+                    ) : null}
+                    {project.git ? (
+                      <span
+                        className="flex shrink-0 items-center text-ink-3"
+                        title={project.branch ? `Git · ${project.branch}` : "Git 仓库"}
+                        aria-hidden="true"
+                        data-testid="project-git-indicator"
+                      >
+                        <GitBranch size={10} strokeWidth={2} />
+                      </span>
+                    ) : null}
+                    {isDefault ? <span className="text-[9px] text-ink-3">内置</span> : null}
                   </button>
                   {!USE_MOCKS ? (
                     <button

@@ -19,6 +19,7 @@ export interface ApiProject {
     ignore: string[];
   };
   gitDetected: boolean;
+  runningTerminals?: number;
   sortOrder: number;
   createdAt: number;
   updatedAt: number;
@@ -548,6 +549,7 @@ export function toProjectView(project: ApiProject) {
     rootPath: project.realPath,
     branch: null,
     git: project.gitDetected,
+    runningTerminals: project.runningTerminals ?? 0,
     accent: accents[index % accents.length] ?? accents[0],
   };
 }

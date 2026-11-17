@@ -9,12 +9,14 @@ import {
   getDefaultProjectDto,
   getProjectDto,
   listProjectDtos,
+  type ProjectDto,
   ProjectError,
   type ProjectSettings,
   ProjectSettingsSchema,
   reorderProjects,
   updateProject,
 } from "../modules/projects/service.js";
+import { runningTerminalCounts } from "../modules/terminals/repository.js";
 
 const CreateProjectSchema = z
   .object({
@@ -70,9 +72,35 @@ function throwProject(error: unknown): never {
   throw error;
 }
 
+type ProjectWithActivity = ProjectDto & { runningTerminals: number };
+
+function withRunningTerminals(
+  project: ProjectDto,
+  counts: Map<string | null, number>,
+): ProjectWithActivity {
+  return {
+    ...project,
+    runningTerminals: counts.get(project.kind === "default" ? null : project.id) ?? 0,
+  };
+}
+
+function withProjectActivity(db: Database, project: ProjectDto): ProjectWithActivity {
+  return withRunningTerminals(project, runningTerminalCounts(db));
+}
+
+function withProjectsActivity(db: Database, projects: ProjectDto[]): ProjectWithActivity[] {
+  const counts = runningTerminalCounts(db);
+  return projects.map((project) => withRunningTerminals(project, counts));
+}
+
 export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps): void {
   app.get("/api/projects", async () => {
-    return { projects: [await getDefaultProjectDto(deps.dataDir), ...listProjectDtos(deps.db)] };
+    return {
+      projects: withProjectsActivity(deps.db, [
+        await getDefaultProjectDto(deps.dataDir),
+        ...listProjectDtos(deps.db),
+      ]),
+    };
   });
 
   app.post("/api/projects", async (request, reply) => {
@@ -87,7 +115,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
           clientSessionId: request.clientSession?.id,
         },
       );
-      return reply.code(201).send(project);
+      return reply.code(201).send(withProjectActivity(deps.db, project));
     } catch (error) {
       throwProject(error);
     }
@@ -98,12 +126,15 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
 
     try {
       return {
-        projects: reorderProjects(
-          { db: deps.db, now: deps.now, dataDir: deps.dataDir },
-          {
-            projectIds: body.projectIds,
-            clientSessionId: request.clientSession?.id,
-          },
+        projects: withProjectsActivity(
+          deps.db,
+          reorderProjects(
+            { db: deps.db, now: deps.now, dataDir: deps.dataDir },
+            {
+              projectIds: body.projectIds,
+              clientSessionId: request.clientSession?.id,
+            },
+          ),
         ),
       };
     } catch (error) {
@@ -115,9 +146,12 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
     const id = parse(ProjectIdSchema, request.params.id);
 
     try {
-      return id === DEFAULT_PROJECT_ID
-        ? await getDefaultProjectDto(deps.dataDir)
-        : getProjectDto(deps.db, id);
+      return withProjectActivity(
+        deps.db,
+        id === DEFAULT_PROJECT_ID
+          ? await getDefaultProjectDto(deps.dataDir)
+          : getProjectDto(deps.db, id),
+      );
     } catch (error) {
       throwProject(error);
     }
@@ -128,14 +162,17 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
     const body = parse(UpdateProjectSchema, request.body);
 
     try {
-      return updateProject(
-        { db: deps.db, now: deps.now, dataDir: deps.dataDir },
-        {
-          id,
-          name: body.name,
-          settings: body.settings as Partial<ProjectSettings> | undefined,
-          clientSessionId: request.clientSession?.id,
-        },
+      return withProjectActivity(
+        deps.db,
+        updateProject(
+          { db: deps.db, now: deps.now, dataDir: deps.dataDir },
+          {
+            id,
+            name: body.name,
+            settings: body.settings as Partial<ProjectSettings> | undefined,
+            clientSessionId: request.clientSession?.id,
+          },
+        ),
       );
     } catch (error) {
       throwProject(error);

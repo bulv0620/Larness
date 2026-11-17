@@ -30,8 +30,17 @@
 | UI-F24 | 新建后列表无感 | 创建文件 / 文件夹后不整树重载、不跳动 | UI-F23 | done |
 | UI-F25 | 目录右键新建 | 目录菜单提供新建文件与新建文件夹 | UI-F24 | done |
 | UI-F26 | 定位居中 | 在文件树中定位时把目标行滚动到列表中部 | UI-F25 | done |
+| UI-F27 | 项目条目标识 | Git 改为图标，运行中终端显示终端图标 | UI-F26 | done |
 
 ## 验收记录
+
+### UI-F27（2026-11-17，macOS）
+
+- 先补组件失败断言：项目条目仍显示 `no git` / 分支文本，且没有终端与 Git 图标。实现后按“终端图标 → Git 图标”的顺序渲染，两者均使用 `aria-hidden`，不改变项目按钮的可访问名称。
+- `GET /api/projects` 与详情响应增加 `runningTerminals`，由终端仓库按 `RUNNING` 状态分组统计；默认工作区统计 `projectId = null`。终端创建、终止和 Agent 终端事件会刷新工作区查询，另以 10 秒轮询兜底。
+- 服务端定向 `terminals.test.ts`、`default-workspace.test.ts` 共 22 项通过；Web 组件 6 项、Web / Server typecheck、改动文件 Biome 通过。
+- 收口时整仓 `VITEST_MAX_WORKERS=2 pnpm check` 通过：Web 255、Agent 59、Server 730 项通过，15 项跳过；Biome 与全包 typecheck 通过。
+- 未运行整套浏览器测试或生产构建；视觉由用户验收。
 
 ### UI-F26（2026-11-16，macOS）
 

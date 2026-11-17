@@ -62,6 +62,7 @@ export function useSnapshot() {
     queryFn: loadWorkspace,
     enabled: !USE_MOCKS,
     staleTime: 0,
+    refetchInterval: 10_000,
   });
 
   const data = USE_MOCKS ? snapshot : (query.data ?? EMPTY_SNAPSHOT);

@@ -1,4 +1,4 @@
-import { asc, eq, inArray, lt } from "drizzle-orm";
+import { asc, count, eq, inArray, lt } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import {
   type TerminalLeaseRow,
@@ -32,6 +32,15 @@ export function activeTerminals(db: DbExecutor) {
     .from(terminals)
     .where(inArray(terminals.status, ["CREATED", "RUNNING", "STOPPING"]))
     .all();
+}
+export function runningTerminalCounts(db: DbExecutor): Map<string | null, number> {
+  const rows = db
+    .select({ projectId: terminals.projectId, value: count() })
+    .from(terminals)
+    .where(eq(terminals.status, "RUNNING"))
+    .groupBy(terminals.projectId)
+    .all();
+  return new Map(rows.map((row) => [row.projectId, row.value]));
 }
 export function oldTerminals(db: DbExecutor, cutoff: number) {
   return db.select().from(terminals).where(lt(terminals.endedAt, cutoff)).all();

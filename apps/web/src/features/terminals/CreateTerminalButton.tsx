@@ -51,6 +51,7 @@ export function CreateTerminalButton({
             openTerminal(item);
             setRequest(null);
             void queryClient.invalidateQueries({ queryKey: ["terminals"] });
+            void queryClient.invalidateQueries({ queryKey: ["workspace"] });
           } catch {
             setError("创建结果未确认，请重试核对；重试不会重复创建。");
           } finally {
