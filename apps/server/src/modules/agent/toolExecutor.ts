@@ -52,6 +52,9 @@ export interface ExecuteToolInput {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  listServiceOps?: () => Promise<ToolResult>;
+  readServiceOpsLogs?: (args: unknown) => Promise<ToolResult>;
+  controlServiceOps?: (args: unknown) => Promise<ToolResult>;
   loadSecrets?: () => import("@larness/agent").EncryptedSecretRef[];
 }
 
@@ -384,6 +387,19 @@ export async function executeTool(
             return (
               input.resolveServicePreview?.(args) ??
               denied("FORBIDDEN", "Service context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.listServiceOps ? { listServiceOps: input.listServiceOps } : {}),
+    ...(input.readServiceOpsLogs ? { readServiceOpsLogs: input.readServiceOpsLogs } : {}),
+    ...(input.controlServiceOps
+      ? {
+          controlServiceOps: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.controlServiceOps?.(args) ??
+              denied("FORBIDDEN", "Service operations context unavailable")
             );
           },
         }

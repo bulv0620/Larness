@@ -38,6 +38,8 @@ import { listEncryptedSecrets } from "../models/repository.js";
 import type { ProcessManager } from "../processes/manager.js";
 import { getProjectById, updateProjectRow } from "../projects/repository.js";
 import { detectGit, parseProjectSettings } from "../projects/service.js";
+import { DeploymentError } from "../service-ops/errors.js";
+import type { ServiceOpsRuntime } from "../service-ops/serviceOps.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
 import { isDefaultWorkspace } from "../workspaces/default.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
@@ -149,6 +151,7 @@ export interface TurnRunnerOptions {
   commands?: CommandManager;
   git?: GitManager;
   processes?: ProcessManager;
+  serviceOps?: ServiceOpsRuntime;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
   logger?: TurnTimingLogger;
 }
@@ -725,6 +728,110 @@ export class TurnRunner {
               };
             }
           },
+          listServiceOps: async () => {
+            if (!this.#options.serviceOps) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Service operations context unavailable",
+              };
+            }
+            try {
+              await this.#options.serviceOps.reconcile();
+              return {
+                ok: true,
+                summary: `${this.#options.serviceOps.listServices().length} 个 PM2 服务`,
+                data: {
+                  items: this.#options.serviceOps.listServices(),
+                  unassociated: this.#options.serviceOps.listUnassociatedServices(),
+                },
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof DeploymentError ? error.code : "TOOL_ERROR",
+                summary: "PM2 services could not be listed",
+              };
+            }
+          },
+          readServiceOpsLogs: async (params) => {
+            const parsed = z
+              .object({ targetId: z.string().min(1) })
+              .strict()
+              .safeParse(params);
+            if (!parsed.success || !this.#options.serviceOps) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Service operations context unavailable",
+              };
+            }
+            try {
+              const logs = await this.#options.serviceOps.logs(parsed.data.targetId);
+              return {
+                ok: true,
+                summary: `PM2 日志 ${logs.text.length} 字符`,
+                truncated: logs.truncated,
+                data: logs,
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode:
+                  error instanceof DeploymentError || error instanceof FileManagerError
+                    ? error.code
+                    : "TOOL_ERROR",
+                summary: "PM2 logs could not be read",
+              };
+            }
+          },
+          controlServiceOps: async (params) => {
+            const parsed = z
+              .object({
+                targetId: z.string().min(1),
+                action: z.enum(["start", "stop", "restart"]),
+              })
+              .strict()
+              .safeParse(params);
+            if (!parsed.success || !this.#options.serviceOps || !snapshot) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Service operations context unavailable",
+              };
+            }
+            try {
+              const service = this.#options.serviceOps.getService(parsed.data.targetId);
+              const result = await this.#options.serviceOps.controlService(
+                service.targetId,
+                {
+                  action: parsed.data.action,
+                  expectedPm2Name: service.pm2Name,
+                  requestKey: `tool:${turn.id}:${request.id}`,
+                  confirmed: true,
+                },
+                snapshot.clientSessionId,
+                () => {
+                  if (checkBudget() !== "ok" || lockLost)
+                    throw new FileManagerError("FORBIDDEN", "Execution no longer authorized");
+                },
+              );
+              return {
+                ok: result.observedState === "running" || parsed.data.action === "stop",
+                summary: `PM2 ${result.name}: ${result.observedState}`,
+                data: result,
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode:
+                  error instanceof DeploymentError || error instanceof FileManagerError
+                    ? error.code
+                    : "TOOL_ERROR",
+                summary: "PM2 control failed",
+              };
+            }
+          },
           loadSecrets,
           refreshObservations: async () => {
             if (checkBudget() !== "ok") {
@@ -881,6 +988,9 @@ export class TurnRunner {
       }
 
       const ensureProjectLock = async (): Promise<boolean> => {
+        // A previous STOP_UNCONFIRMED command can outlive its process and block
+        // this root forever; confirm it is gone before failing a new Turn.
+        await this.#options.commands?.reconcileDeadStoppedCommands();
         if (controller.signal.aborted) {
           return false;
         }

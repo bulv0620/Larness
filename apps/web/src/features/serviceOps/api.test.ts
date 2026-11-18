@@ -19,6 +19,8 @@ it("sends an object JSON body and CSRF through the actual fetch boundary", async
     projectName: "demo",
     name: "api",
     pm2Name: input.expectedPm2Name,
+    namespace: "larness",
+    namespaceMismatch: false,
     source: "pm2-cli",
     version: null,
     artifactHash: null,

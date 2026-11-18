@@ -506,14 +506,16 @@ export class ProcessManager {
     return { process: this.#dto(row), ...result };
   }
 
-  async verifyPreview(id: string): Promise<{ id: string; host: string; port: number }> {
+  async verifyPreview(
+    id: string,
+  ): Promise<{ id: string; projectId: string | null; host: string; port: number }> {
     const row = this.#processes.get(id);
     if (row === undefined) fail("NOT_FOUND", "Process not found");
     if (row.status !== "RUNNING" || row.port === null)
       fail("PREVIEW_UNAVAILABLE", "Process has no running preview target");
     if (!(await portListening(row.port)))
       fail("PREVIEW_UNAVAILABLE", "Process port is not accepting connections");
-    return { id: row.id, host: "127.0.0.1", port: row.port };
+    return { id: row.id, projectId: row.projectId, host: "127.0.0.1", port: row.port };
   }
 
   dialTarget(id: string): { host: string; port: number } {

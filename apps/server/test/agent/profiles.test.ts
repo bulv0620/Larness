@@ -15,6 +15,7 @@ import {
   TOOL_PACK_CATALOG,
   toolNamesForProfile,
 } from "../../src/modules/agent/profiles.js";
+import { createServiceOpsTools } from "../../src/modules/agent/serviceOpsTool.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -54,6 +55,7 @@ describe("agent profile assembly", () => {
           createCommandTool({}),
           createShellTool({}),
           ...createProcessTools({}),
+          ...createServiceOpsTools(),
           createObservationTool(),
         ])
           registry.register(tool);
@@ -112,8 +114,9 @@ describe("agent profile assembly", () => {
           "write_file",
         ]);
         expect(codingSystem).not.toContain("update_plan");
-        expect(codingSystem).not.toContain("Service lifecycle contract");
-        expect(codingSystem).not.toContain("globally installed PM2");
+        expect(codingSystem).toContain("Project background task contract");
+        expect(codingSystem).not.toContain("Persistent PM2 service contract");
+        expect(codingSystem).not.toContain("isolated PM2_HOME");
         expect(coding.observations).toBeNull();
 
         expect(plan.tools.map((tool) => tool.name)).toEqual([
@@ -123,17 +126,19 @@ describe("agent profile assembly", () => {
           "update_plan",
         ]);
         expect(planSystem).toContain("update_plan");
-        expect(planSystem).not.toContain("globally installed PM2");
+        expect(planSystem).not.toContain("isolated PM2_HOME");
+        expect(planSystem).not.toContain("Project background task contract");
         expect(plan.observations).toBeNull();
 
         expect(serviceOps.tools.map((tool) => tool.name)).toEqual([
-          "list_files",
-          "read_file",
+          "control_service_ops",
+          "list_service_ops",
+          "read_service_ops_logs",
           "refresh_observations",
-          "search_code",
         ]);
-        expect(serviceOpsSystem).toContain("globally installed PM2");
-        expect(serviceOpsSystem).toContain("Service lifecycle contract");
+        expect(serviceOpsSystem).toContain("isolated PM2_HOME");
+        expect(serviceOpsSystem).toContain("Persistent PM2 service contract");
+        expect(serviceOpsSystem).not.toContain("Project background task contract");
         expect(serviceOps.observations).toContain("PM2 runtime and service/project associations");
 
         expect([...toolNamesForProfile("coding")]).toHaveLength(11);
@@ -145,8 +150,8 @@ describe("agent profile assembly", () => {
           "process",
         ]);
         expect(TOOL_PACK_CATALOG.profiles["service-ops"].packs).toEqual([
-          "core.read",
           "observation",
+          "serviceOps",
         ]);
       } finally {
         opened.close();

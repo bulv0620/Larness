@@ -116,6 +116,8 @@ export function serviceOpsDto(row: ServiceOpsServiceRow): ServiceOpsServiceDto {
     projectId: row.projectId,
     name: row.name as ServiceOpsServiceDto["name"],
     pm2Name: row.pm2Name,
+    namespace: row.namespace,
+    namespaceMismatch: row.namespace !== "larness",
     projectName: null,
     source: row.pm2Name.startsWith("larness:") ? "pm2-cli" : "deployment",
     version: row.currentVersion as ServiceOpsServiceDto["version"],

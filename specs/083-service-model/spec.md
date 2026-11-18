@@ -1,6 +1,6 @@
 ---
 id: 083-service-model
-status: ready
+status: done
 depends_on: [051-agent-tool-contract, 082-agent-kernel, 030-dev-resources, 040-services-preview]
 owners: []
 created: 2026-11-18
@@ -9,7 +9,7 @@ updated: 2026-11-18
 
 # 项目开发服务与全局 PM2 运维分离
 
-> 状态：`ready`（2026-11-18 人类明确确认方向）。本切片修正 082 中 Profile、项目服务、预览与 PM2 运维的边界；不改变终端只面向人类、Git 只面向人类的结论。
+> 状态：`done`（2026-11-18 自动门禁通过；人类视觉与用户实机 PM2/旧数据未验证）。本切片修正 082 中 Profile、项目服务、预览与 PM2 运维的边界；不改变终端只面向人类、Git 只面向人类的结论。
 
 ## 1. 目标
 

@@ -92,6 +92,14 @@ function pm2Name(targetId: string): string {
   return `larness-${targetId}`;
 }
 
+function managedNamespace(namespace: string | undefined, name: string): boolean {
+  // PM2_HOME is the isolation boundary; a valid Larness name is ours even if
+  // the CLI was started without --namespace.
+  return (
+    namespace === SERVICE_NAMESPACE || (namespace === "default" && name.startsWith("larness:"))
+  );
+}
+
 function isNode(executable: string): boolean {
   return executable === process.execPath || path.basename(executable) === "node";
 }
@@ -170,7 +178,7 @@ export class ServiceOpsRuntime {
     if (
       app &&
       typeof app !== "string" &&
-      (app.namespace !== SERVICE_NAMESPACE || app.name !== row.pm2Name)
+      (!managedNamespace(app.namespace, app.name) || app.name !== row.pm2Name)
     ) {
       throw new DeploymentError("DEPLOY_UNAVAILABLE", "Service log identity is unavailable");
     }
@@ -197,7 +205,7 @@ export class ServiceOpsRuntime {
       if (
         app &&
         typeof app !== "string" &&
-        row.namespace === SERVICE_NAMESPACE &&
+        managedNamespace(row.namespace, row.pm2Name) &&
         row.pm2Name === `larness:${row.projectId}:${row.name}`
       ) {
         const project = getProjectById(this.#db, row.projectId);
@@ -397,7 +405,7 @@ export class ServiceOpsRuntime {
     if (!row || !project) throw new DeploymentError("NOT_FOUND", "Service project was not found");
     if (
       row.pm2Name !== input.expectedPm2Name ||
-      row.namespace !== SERVICE_NAMESPACE ||
+      !managedNamespace(row.namespace, row.pm2Name) ||
       (row.pm2Name.startsWith("larness:") && row.pm2Name !== `larness:${row.projectId}:${row.name}`)
     )
       throw new DeploymentError("DEPLOY_CONFLICT", "Service identity changed; refresh first");
@@ -454,7 +462,7 @@ export class ServiceOpsRuntime {
     heartbeat.unref();
     try {
       const app = await pm2.find(row.pm2Name);
-      if (typeof app === "string" || app.namespace !== SERVICE_NAMESPACE)
+      if (typeof app === "string" || !managedNamespace(app.namespace, app.name))
         throw new DeploymentError("DEPLOY_CONFLICT", "PM2 service identity is unavailable");
       const fingerprint = (value: typeof app) =>
         sha256(
@@ -755,7 +763,7 @@ export class ServiceOpsRuntime {
     if (apps !== "unknown") {
       const knownNames = new Set(listServiceOpsRows(this.#db).map((row) => row.pm2Name));
       for (const app of apps) {
-        if (app.namespace !== SERVICE_NAMESPACE) {
+        if (!managedNamespace(app.namespace, app.name)) {
           this.#unassociated.push({ pm2Name: app.name, reason: "NAMESPACE_UNMANAGED" });
           continue;
         }
@@ -790,7 +798,7 @@ export class ServiceOpsRuntime {
               targetId: target.id,
               projectId: project.id,
               name: name.data,
-              namespace: SERVICE_NAMESPACE,
+              namespace: app.namespace ?? "default",
               pm2Name: app.name,
               desiredState: "running",
               observedState: "unknown",
@@ -845,7 +853,8 @@ export class ServiceOpsRuntime {
       const cli = row.pm2Name.startsWith("larness:");
       const matches = apps === "unknown" ? [] : apps.filter((item) => item.name === row.pm2Name);
       const app = matches.length === 1 ? matches[0] : undefined;
-      const identityConflict = matches.length > 1 || (app && app.namespace !== SERVICE_NAMESPACE);
+      const identityConflict =
+        matches.length > 1 || (app && !managedNamespace(app.namespace, app.name));
       let observed: ServiceOpsObservedState;
       let desired = row.desiredState;
       let pid: number | null = null;
@@ -898,6 +907,7 @@ export class ServiceOpsRuntime {
       });
       if (
         observed === row.observedState &&
+        (app?.namespace ?? row.namespace) === row.namespace &&
         pid === row.pid &&
         reason === row.reasonCode &&
         desired === row.desiredState &&
@@ -910,6 +920,7 @@ export class ServiceOpsRuntime {
         updateServiceOpsRow(tx, row.targetId, {
           observedState: observed,
           desiredState: desired,
+          namespace: app?.namespace ?? row.namespace,
           pid,
           reasonCode: reason,
           lastHealthAt: row.lastHealthAt,
@@ -1117,7 +1128,7 @@ export class ServiceOpsRuntime {
     const app = await this.#pm2.find(config.pm2Name);
     if (typeof app === "string" || !app.pid) return null;
     if (
-      app.namespace !== SERVICE_NAMESPACE ||
+      !managedNamespace(app.namespace, app.name) ||
       app.status !== "online" ||
       app.cwd !== config.cwd ||
       app.entry !== config.script ||

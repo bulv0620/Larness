@@ -9,6 +9,7 @@ const catalog: ToolPackCatalog = {
     plan: { id: "plan", label: "plan", tools: ["update_plan"] },
     process: { id: "process", label: "process", tools: ["start_process"] },
     observation: { id: "observation", label: "observation", tools: ["refresh_observations"] },
+    serviceOps: { id: "serviceOps", label: "serviceOps", tools: ["list_service_ops"] },
   },
   profiles: {
     coding: {
@@ -20,7 +21,7 @@ const catalog: ToolPackCatalog = {
     "service-ops": {
       id: "service-ops",
       label: "服务运维",
-      packs: ["core.read", "observation"],
+      packs: ["core.read", "observation", "serviceOps"],
     },
   },
 };
@@ -39,6 +40,7 @@ describe("agent profiles", () => {
     expect([...profileToolNames(catalog, "service-ops")]).toEqual([
       "read_file",
       "refresh_observations",
+      "list_service_ops",
     ]);
   });
 

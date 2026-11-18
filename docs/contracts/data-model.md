@@ -146,7 +146,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `secrets` | `id, ciphertext, nonce, tag, created_at` | AES-256-GCM；主密钥在文件系统 |
 | `approvals` | `id, turn_id, tool_call_id, tool_name, risk, status, scope_json, params_hash, expires_at, decided_at, decided_by, created_at` | `status`: `pending / approved / denied / expired`；审批参数绑定与审计 |
 | `resource_locks` | `id, resource_type, resource_id, owner, execution_id, fencing_token, expires_at, heartbeat_at, created_at`；`UNIQUE(resource_type, resource_id)` | 082 K-11 起实际业务锁只创建 `project` / `service`；`file` / `git` / `global-maintenance` 类型仅为旧记录/预留，不再创建 |
-| 后台进程 / 命名服务 | 无新表；运行状态在 `ProcessManager` / `NamedServiceManager` 内存中，生命周期写入 `agent_events` | 082 K-6/K-7：临时开发资源不跨重启恢复；`services` 表继续只表示终端临时服务与预览源，进程服务 `previewEligible=false` |
+| 后台进程 | 无新表；运行状态在 `ProcessManager` 内存中，生命周期写入 `agent_events` | 083：项目服务唯一开发任务源；重启后临时开发进程不恢复。`services` 表只保留旧终端服务历史读取，不再新增登记 |
 
 索引：`agent_events(session_id, seq)`、`turns(session_id, created_at)`、`sessions(project_id, updated_at)`、`projects(real_path)`、`projects(sort_order, updated_at)`。
 

@@ -266,7 +266,7 @@ describe("background process manager", () => {
           }
         }, "preview target");
         const target = await started.running.processes.verifyPreview(dto.id);
-        expect(target).toEqual({ id: dto.id, host: "127.0.0.1", port });
+        expect(target).toEqual({ id: dto.id, projectId: project.id, host: "127.0.0.1", port });
         const listed = started.running.processes.list({ projectId: project.id });
         expect(listed.map((item) => item.id)).toContain(dto.id);
 

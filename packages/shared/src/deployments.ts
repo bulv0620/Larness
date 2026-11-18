@@ -366,6 +366,8 @@ export const ServiceOpsServiceDtoSchema = z.object({
   projectId: z.string().min(1).max(128),
   name: DeploymentTargetNameSchema,
   pm2Name: z.string().min(1).max(256),
+  namespace: z.string().min(1).max(64),
+  namespaceMismatch: z.boolean(),
   projectName: z.string().nullable(),
   source: z.enum(["pm2-cli", "deployment"]),
   version: DeploymentVersionSchema.nullable(),

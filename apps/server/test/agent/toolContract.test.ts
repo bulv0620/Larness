@@ -8,6 +8,7 @@ import { createCommandTool, createShellTool } from "../../src/modules/agent/comm
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
+import { createServiceOpsTools } from "../../src/modules/agent/serviceOpsTool.js";
 import { type ExecuteToolInput, executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -25,6 +26,7 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   registry.register(createCommandTool({}));
   registry.register(createShellTool({}));
   for (const tool of createProcessTools({})) registry.register(tool);
+  for (const tool of createServiceOpsTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
 }
@@ -37,6 +39,9 @@ type HandlerKey = keyof Pick<
   | "listProcesses"
   | "readProcessOutput"
   | "stopProcess"
+  | "listServiceOps"
+  | "readServiceOpsLogs"
+  | "controlServiceOps"
   | "refreshObservations"
 >;
 
@@ -93,6 +98,24 @@ const BOUND_TOOLS: BoundToolCase[] = [
     handler: "listProcesses",
     args: {},
     invalid: { limit: 0 },
+  },
+  {
+    name: "list_service_ops",
+    handler: "listServiceOps",
+    args: {},
+    invalid: { targetId: "x" },
+  },
+  {
+    name: "read_service_ops_logs",
+    handler: "readServiceOpsLogs",
+    args: { targetId: "tgt_00000000-0000-4000-8000-000000000000" },
+    invalid: { targetId: "nope" },
+  },
+  {
+    name: "control_service_ops",
+    handler: "controlServiceOps",
+    args: { targetId: "tgt_00000000-0000-4000-8000-000000000000", action: "restart" },
+    invalid: { targetId: "tgt_00000000-0000-4000-8000-000000000000", action: "deploy" },
   },
   {
     name: "refresh_observations",
@@ -174,6 +197,9 @@ describe("tool contract matrix", () => {
             listProcesses: handlerStub("listProcesses"),
             readProcessOutput: handlerStub("readProcessOutput"),
             stopProcess: handlerStub("stopProcess"),
+            listServiceOps: handlerStub("listServiceOps"),
+            readServiceOpsLogs: handlerStub("readServiceOpsLogs"),
+            controlServiceOps: handlerStub("controlServiceOps"),
             refreshObservations: handlerStub("refreshObservations"),
           });
 

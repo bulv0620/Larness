@@ -30,6 +30,9 @@ export interface ToolContext {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  listServiceOps?: () => Promise<ToolResult>;
+  readServiceOpsLogs?: (args: unknown) => Promise<ToolResult>;
+  controlServiceOps?: (args: unknown) => Promise<ToolResult>;
   /** Per-Turn cached secret rows; callers must not cache plaintext. */
   loadSecrets?: () => EncryptedSecretRef[];
 }

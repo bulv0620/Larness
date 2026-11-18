@@ -41,7 +41,13 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
     setLoading(true);
     setError("");
     setSession(null);
-    resolvePreview(browser.serviceId, browser.path)
+    resolvePreview(
+      browser.serviceId,
+      browser.path,
+      "embedded",
+      browser.targetKind,
+      tab.projectId ?? undefined,
+    )
       .then((value) => {
         if (cancelled || attempt !== nonce) return;
         setSession(value);
@@ -55,7 +61,7 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
     return () => {
       cancelled = true;
     };
-  }, [browser, nonce]);
+  }, [browser, nonce, tab.projectId]);
 
   useEffect(() => {
     if (session) formRef.current?.submit();
@@ -69,7 +75,13 @@ function PreviewBrowser({ tab }: { tab: WindowTab }) {
     try {
       if (!target) throw new Error("浏览器阻止了新窗口");
       target.opener = null;
-      const value = await resolvePreview(browser.serviceId, browser.path, "external");
+      const value = await resolvePreview(
+        browser.serviceId,
+        browser.path,
+        "external",
+        browser.targetKind,
+        tab.projectId ?? undefined,
+      );
       const form = document.createElement("form");
       form.method = "POST";
       form.action = value.bootstrapUrl;

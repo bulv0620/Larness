@@ -40,6 +40,7 @@ import { createProcessTools } from "../modules/agent/processTool.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { continueBudgetedTurn } from "../modules/agent/recovery/continue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
+import { createServiceOpsTools } from "../modules/agent/serviceOpsTool.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
 import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileActions } from "../modules/files/actions.js";
@@ -396,6 +397,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         previews = new PreviewRegistry({
           db: opened.db,
           services,
+          processes,
           events: resourceEvents,
           idleTtlMinutes: loaded.config.auth.idleTtlMinutes,
           port: loaded.config.preview.port,
@@ -513,6 +515,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       registry.register(createCommandTool({ secretStore }));
       registry.register(createShellTool({ secretStore }));
       for (const tool of createProcessTools({ secretStore })) registry.register(tool);
+      for (const tool of createServiceOpsTools()) registry.register(tool);
       registry.register(createObservationTool());
       const runner = new TurnRunner({
         dataDir,

@@ -50,7 +50,7 @@ TUI Supervisor ── manages ── Server + Web
 | Server | Fastify、WS、SQLite、Agent Runtime、资源管理、代理、调度 | 覆盖正在运行的自身二进制 |
 | TUI Client | 初始化、设备审批 / 撤销、状态、日志、doctor、关闭 | 绕过 Server 直接操作业务数据 |
 | Web Client | 视图、窗口、输入、事件订阅 | 直接操控进程 / 文件 / 端口 |
-| User Services | 开发进程（M3登记）、PM2持久进程（M4） | 管理端鉴权；正式服务在TUI退出后继续运行（ADR-046） |
+| User Services | Agent 后台开发进程（083）、PM2 持久进程（M4） | 管理端鉴权；正式服务在 TUI 退出后继续运行（ADR-046） |
 | npm CLI | 用户手动安装、升级或降级发布包 | 管理运行中的任务或恢复数据库 |
 
 `node app.js` 以 TUI 为受管前台入口，启动 Server + Web，关闭 TUI 时停止管理面与临时开发资源，已运行正式服务按 ADR-046 保留；`status` / `doctor` 仍为只读子命令。
@@ -67,11 +67,11 @@ TUI Supervisor ── manages ── Server + Web
 | ToolRegistry / ToolExecutor | Registry 注册名称/schema/handler，Executor 按策略校验、审批和审计后调用 handler | 向模型暴露秘密 |
 | TerminalManager | PTY 创建 / 写入 / resize / 终止、控制权租约 | 长期服务托管 |
 | CommandRunner | 非交互短命令、超时、输出截断、取消 | 为每条命令创建终端 Tab |
-| ServiceManager / Registry | 会话开发服务的终端绑定登记、关联日志及预览资格 | 正式服务发布、PM2 进程管理 |
-| 服务运维模块（M4） | PM2 实例检查、服务/项目关系、状态投影与日志；旧发布接口保留兼容 | 把 online 自动当业务健康 |
+| ProcessManager | 项目后台开发进程、进程组停止、日志游标与端口预览资格 | 跨重启恢复、正式服务发布 |
+| 服务运维模块（M4/083） | PM2 实例检查、服务/项目关系、状态投影、日志与控制；接受 default namespace 的 Larness 名称并标注偏差 | 把 online 自动当业务健康 |
 | FileManager | 授权路径读写、版本冲突检测、文件监听 | 对任意 Shell 提供文件隔离 |
 | GitManager | status / diff / commit / branch 等结构化操作 | 绕过后端策略/快照/审计自动push |
-| PreviewRegistry / Proxy | 登记 loopback 目标、票据、HTTP / WS 转发 | 任意内网 URL 代理 |
+| PreviewRegistry / Proxy | 按需校验进程/端口/项目、票据、HTTP / WS 转发 | 任意内网 URL 代理 |
 | Scheduler（M5） | 任务持久化、触发、限流、失败记录 | 继承人工临时审批 |
 | EventLog / EventBus | 先持久化后广播、增量重放 | 把 WS 当唯一状态 |
 | npm 更新检查 | TUI 查询 registry 并提示新版本；Server 迁移前备份数据库 | 安装、重启和程序版本切换 |
@@ -144,8 +144,8 @@ POST /api/sessions/:id/turns
 
 ```text
 普通项目会话 ──文件 / run_command──► CommandManager ──► 项目脚本 / PM2 CLI
-聊天开发浮窗 ──开发 API──► 临时服务登记 ──► PTY / 隔离预览
-服务运维弹窗 ◄──正式服务 API / 事件── PM2 观察与项目关联
+coding Chat ──start_process──► ProcessManager ──► 项目服务窗口 / 按需预览
+服务运维弹窗 ◄──service-ops API / 工具── PM2 观察与项目关联
 通用的鉴权、策略、项目锁和审计在执行和资源访问时校验
 ```
 
@@ -154,11 +154,11 @@ POST /api/sessions/:id/turns
 - 开发服务绑定终端执行，按项目或工作区核验。正式服务可由普通项目会话中的 PM2 命令建立，服务名含稳定项目 ID，正式进程的生命周期由守护进程管理。
 - Tab 身份、来源、项目筛选、分组与去重规则见 [resource-views.md](../contracts/resource-views.md)。
 
-### 5.5 临时服务、持久服务与结果入口
+### 5.5 项目开发服务、持久服务与结果入口
 
-终端启动 dev → 核验该次执行与 loopback endpoint → 登记临时服务 → 服务窗口卡片 → 目标 ready 后 AI 预览卡片 → 点击打开隔离预览。终端源命令退出 / PTY 结束自动退登并撤销代理；ServiceRegistry 不另 spawn、不接管进程、不交 PM2。
+083 起，项目服务 = `coding` 会话通过 `start_process` 启动的后台开发进程。进程属于项目与来源 Turn，项目侧栏显示运行数量，服务窗口显示状态、端口、PID、日志与停止；声明 `port` 的任务在用户点击“预览”时才校验项目归属、进程存活与端口监听并签发预览票据。关闭窗口不停止任务；临时进程不跨 Larness 重启恢复。旧 `services` 记录只保留历史查询、停止/删除与日志读取。见 [ADR-069](../adr/ADR-069-project-services-and-service-ops.md)。
 
-M4 普通项目会话 → 文件工具读取项目脚本 → 通用命令构建和准备运行目录 → PM2 CLI 启动或更新 → 有限日志与实际访问核验。后端向模型提供同源 PM2 环境，并把实际服务状态和项目关系投影给「服务运维」。新服务使用 `namespace=larness` 和 `larness:<projectId>:<serviceKey>`，旧名称按原目标记录识别。正式与临时服务继续使用各自的资源、REST、事件和预览边界。见 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)。
+`service-ops` Profile 管理 Larness 私有 PM2 中的持久服务：`list_service_ops`、`read_service_ops_logs`、`control_service_ops`。PM2 服务按完整 `larness:<projectId>:<serviceKey>` 名称关联项目；`namespace=default` 但名称合法的应用仍显示并标注偏差。控制前复核 targetId、pm2Name、项目/服务锁与授权，日志有界脱敏。见 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)、[ADR-069](../adr/ADR-069-project-services-and-service-ops.md)。
 
 文件工具结果附 scope / path 卡片，点击打开文件 Tab；可预览服务结果附 serviceId / 相对页面路径卡片，点击解析当前授权后打开 Browser Tab。卡片只打开视图，不重新执行工具、启动资源或自动开放端口。详细契约见 [services-preview.md](../contracts/services-preview.md)。
 
@@ -166,14 +166,14 @@ M4 普通项目会话 → 文件工具读取项目脚本 → 通用命令构建�
 
 ```text
 输入 localhost:5173/dashboard
-  → normalize → 匹配已登记 Service
+  → normalize → 匹配运行中 Process 与项目
   → 校验会话 + 服务权限
   → 签发短期预览票据
   → 独立预览来源加载 iframe
   → Larness 代理 → 127.0.0.1:5173
 ```
 
-代理只允许已登记 loopback 目标；独立来源不可用时安全降级，不允许同源执行不可信项目代码。
+代理只允许已校验的 loopback 进程目标（项目归属、RUNNING、端口监听）；独立来源不可用时安全降级，不允许同源执行不可信项目代码。
 
 ## 6. 安装目录与数据目录
 
@@ -243,7 +243,7 @@ app.js          # 稳定入口（M0-9 创建）
 
 生产入口在 bootstrap 注册 26 个工具，注册表只向模型提供当前会话适用的工具。文件 4、计划 1、命令 1、终端 7、Git 10、临时开发服务 3。专用正式服务构建、发布和启停工具已撤回。
 
-服务运维的人工启动/停止/重启按 [ADR-051](../adr/ADR-051-human-pm2-service-control.md) 经独立 REST 调用 ServiceOpsRuntime，在项目→服务锁内复核身份并控制已有 PM2 应用，使用资源操作表持久化幂等意图。该入口不依赖当前聊天，不增加模型工具；Agent 继续使用 run_command。
+服务运维的人工启动/停止/重启按 [ADR-051](../adr/ADR-051-human-pm2-service-control.md) 经独立 REST 调用 ServiceOpsRuntime，在项目→服务锁内复核身份并控制已有 PM2 应用，使用资源操作表持久化幂等意图。该入口不依赖当前聊天；`service-ops` Profile 另提供受控的 list/logs/control 模型工具，普通 `coding` 仍可使用 run_command。
 
 TurnQueue 默认最多同时执行两个不同会话，同一会话保持单个活跃 Turn。TurnRunner 组装系统约束、会话历史、项目指令、工具 schema、终端与 PM2 信息，调用 Provider，再把工具调用交给 ToolExecutor 和各资源 Manager。工具结果回填模型，直到返回答复、失败、取消或达到预算。默认不限制步数与工具调用次数，花费上限为模型窗口 × 30 且按整个任务累计（接续轮继承前序花费），挂钟 180 分钟只作卡死兜底（[ADR-059](../adr/ADR-059-long-task-budget-and-continuation.md)）。上下文分三级处理：达到窗口 55% 先把旧工具结果折叠为标识（可逆，正文仍在 `agent_events`），70%/90% 才用检查点替换历史，检查点保留当前需求原文、结构化事实与最近一个完整工具批次。
 
@@ -260,6 +260,6 @@ TurnQueue 默认最多同时执行两个不同会话，同一会话保持单个�
 | 终端控制 | acquire_terminal_control、send_terminal_input、interrupt_terminal、release_terminal_control |
 | Git 读取 | git_status、git_diff、git_log、git_branches |
 | Git 修改 | git_add、git_commit、git_create_branch、git_switch_branch、git_pull、git_push |
-| 临时服务与预览 | register_temporary_service、list_services、resolve_service_preview |
+| 项目开发服务与预览 | start_process、list_processes、read_process_output、stop_process；预览由用户点击按需生成 |
 
 实际注册以 `apps/server/src/bootstrap/start.ts` 为准。命令与 PM2 的具体字段见 [命令上下文契约](../contracts/agent-command-context.md)，当前验证范围见 [M4-R0 验收](../../specs/050-deploy/acceptance-cli.md)。

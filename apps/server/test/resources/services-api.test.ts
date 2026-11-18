@@ -34,7 +34,7 @@ async function waitFor(check: () => Promise<boolean>, label: string, timeoutMs =
   throw new Error(`Timed out waiting for ${label}`);
 }
 
-it("registers a service through the resource action API and serves list, detail and logs", async () => {
+it("serves historical service records without a registration endpoint", async () => {
   await withTempDir(async (dir) => {
     const f = await startAuthorizedServer(path.join(dir, "data"));
     const root = path.join(dir, "project");
@@ -82,19 +82,7 @@ it("registers a service through the resource action API and serves list, detail 
         "x-csrf-token": f.csrf,
       };
 
-      const denied = await f.running.app.inject({
-        method: "POST",
-        url: "/api/services",
-        payload: {
-          kind: "temporary",
-          terminalId: terminal.id,
-          name: "web",
-          endpoint: { host: "127.0.0.1", port, protocol: "http" },
-        },
-      });
-      expect([401, 403]).toContain(denied.statusCode);
-
-      const created = await f.running.app.inject({
+      const removedRoute = await f.running.app.inject({
         method: "POST",
         url: "/api/services",
         headers,
@@ -105,41 +93,20 @@ it("registers a service through the resource action API and serves list, detail 
           endpoint: { host: "127.0.0.1", port, protocol: "http" },
         },
       });
-      expect(created.statusCode).toBe(201);
-      const action = created.json() as { id: string; status: string; kind: string };
-      expect(action.status).toBe("WAITING_APPROVAL");
-      expect(action.kind).toBe("service.register");
+      expect(removedRoute.statusCode).toBe(404);
 
-      const premature = await f.running.app.inject({
-        method: "POST",
-        url: `/api/resource-actions/${action.id}/execute`,
-        headers,
-        payload: {},
-      });
-      expect(premature.statusCode).toBe(409);
-
-      const approved = await f.running.app.inject({
-        method: "POST",
-        url: `/api/resource-actions/${action.id}/decision`,
-        headers,
-        payload: { decision: "approve" },
-      });
-      expect(approved.statusCode).toBe(200);
-      expect((approved.json() as { status: string }).status).toBe("APPROVED");
-
-      const executed = await f.running.app.inject({
-        method: "POST",
-        url: `/api/resource-actions/${action.id}/execute`,
-        headers,
-        payload: {},
-      });
-      expect(executed.statusCode).toBe(200);
-      const completed = executed.json() as {
-        status: string;
-        result: { serviceId: string };
-      };
-      expect(completed.status).toBe("COMPLETED");
-      expect(completed.result.serviceId).toMatch(/^svc_/);
+      const service = await f.running.services.registerAgent(
+        {
+          projectId: project.id,
+          operationKey: "service-api:1",
+          sourceSessionId: session.id,
+          terminalId: terminal.id,
+          kind: "temporary",
+          name: "web",
+          endpoint: { host: "127.0.0.1", port, protocol: "http" },
+        },
+        client,
+      );
 
       const listed = await f.running.app.inject({
         url: `/api/services?projectId=${project.id}`,
@@ -147,10 +114,10 @@ it("registers a service through the resource action API and serves list, detail 
       });
       expect(listed.statusCode).toBe(200);
       const list = listed.json() as { items: { id: string }[] };
-      expect(list.items.map((item) => item.id)).toContain(completed.result.serviceId);
+      expect(list.items.map((item) => item.id)).toContain(service.id);
 
       const detail = await f.running.app.inject({
-        url: `/api/services/${completed.result.serviceId}`,
+        url: `/api/services/${service.id}`,
         headers,
       });
       expect(detail.statusCode).toBe(200);
@@ -159,7 +126,7 @@ it("registers a service through the resource action API and serves list, detail 
       expect(dto.terminalId).toBe(terminal.id);
 
       const logs = await f.running.app.inject({
-        url: `/api/services/${completed.result.serviceId}/logs`,
+        url: `/api/services/${service.id}/logs`,
         headers,
       });
       expect(logs.statusCode).toBe(200);
@@ -167,7 +134,7 @@ it("registers a service through the resource action API and serves list, detail 
 
       const removed = await f.running.app.inject({
         method: "DELETE",
-        url: `/api/services/${completed.result.serviceId}`,
+        url: `/api/services/${service.id}`,
         headers,
       });
       expect(removed.statusCode).toBe(200);
@@ -178,7 +145,7 @@ it("registers a service through the resource action API and serves list, detail 
 
       const stopAgain = await f.running.app.inject({
         method: "POST",
-        url: `/api/services/${completed.result.serviceId}/stop`,
+        url: `/api/services/${service.id}/stop`,
         headers,
       });
       expect(stopAgain.statusCode).toBe(200);

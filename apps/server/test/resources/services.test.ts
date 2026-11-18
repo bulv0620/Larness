@@ -199,13 +199,11 @@ it("registers a verified temporary service, replays events and unregisters when 
         agentProfile: "service-ops" as const,
       };
       const model = assembleContext(options, sessionRow, turnRow);
-      // Runtime observations left the cached system prefix (ADR-067 D1): they
-      // travel as the last message so an unchanged workspace keeps hitting the
-      // provider cache for the whole earlier conversation.
-      expect(model.observations).toContain(registered.id);
-      expect(model.observations).toContain(registered.terminalExecutionId);
+      // 083: project services are ProcessManager tasks and previews are
+      // generated on demand; historical terminal services are no longer
+      // injected as Turn-start observations.
+      expect(model.observations).toBeNull();
       expect(model.messages[0]?.content).not.toContain(registered.id);
-      expect(model.messages[model.messages.length - 1]?.content).toBe(model.observations);
       expect(
         assembleContext(options, { ...sessionRow, projectId: null }, turnRow).observations ?? "",
       ).not.toContain(registered.id);

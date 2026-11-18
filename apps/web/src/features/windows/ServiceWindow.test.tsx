@@ -1,59 +1,42 @@
-import type { ServiceActionView, ServiceDto } from "@larness/shared";
+import type { ProcessDto } from "@larness/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
-import { ApiError } from "@/lib/api";
+import { useWindowStore } from "@/stores/windowStore";
 import { ServiceWindow } from "./ServiceWindow";
 
-vi.mock("@/features/services/api", async (original) => ({
-  ...(await original<typeof import("@/features/services/api")>()),
-  listServices: vi.fn(),
-  readService: vi.fn(),
-  readServiceLogs: vi.fn(),
-  createServiceAction: vi.fn(),
-  decideServiceAction: vi.fn(),
-  executeServiceAction: vi.fn(),
-  stopService: vi.fn(),
-  deleteService: vi.fn(),
-}));
-vi.mock("@/features/terminals/api", async (original) => ({
-  ...(await original<typeof import("@/features/terminals/api")>()),
-  readTerminal: vi.fn(),
-  openTerminal: vi.fn(),
-  listTerminals: vi.fn(),
+vi.mock("@/lib/env", () => ({ USE_MOCKS: false }));
+vi.mock("@/features/processes/api", async (original) => ({
+  ...(await original<typeof import("@/features/processes/api")>()),
+  listProcesses: vi.fn(),
+  readProcess: vi.fn(),
+  readProcessOutput: vi.fn(),
+  stopProcess: vi.fn(),
 }));
 
-const {
-  listServices,
-  readService,
-  readServiceLogs,
-  createServiceAction,
-  decideServiceAction,
-  executeServiceAction,
-  stopService,
-  deleteService,
-} = await import("@/features/services/api");
-const { readTerminal, openTerminal, listTerminals } = await import("@/features/terminals/api");
+const { listProcesses, readProcess, readProcessOutput, stopProcess } = await import(
+  "@/features/processes/api"
+);
 
-const terminalId = "term_00000000-0000-0000-0000-000000000001";
-const serviceId = "svc_00000000-0000-0000-0000-000000000001";
-const service: ServiceDto = {
-  id: serviceId,
+const processId = "prc_00000000-0000-4000-8000-000000000001";
+const process: ProcessDto = {
+  id: processId,
   projectId: "prj_1",
-  sourceSessionId: null,
+  sessionId: "ses_1",
   name: "web",
-  kind: "temporary",
   status: "RUNNING",
-  terminalId,
-  terminalExecutionId: "exe_00000000-0000-0000-0000-000000000001",
-  endpointGeneration: 1,
-  endpoint: { host: "127.0.0.1", port: 5173, protocol: "http" },
-  previewEligible: true,
+  executable: "pnpm",
+  cwd: "/tmp/project",
+  pid: 4321,
+  exitCode: null,
   reasonCode: null,
-  createdAt: 1,
-  updatedAt: 1,
+  startedAt: 1,
   endedAt: null,
+  port: 5173,
+  healthPath: "/",
+  previewEligible: true,
+  outputCursor: 1,
+  truncated: false,
 };
 const tab = {
   id: "tab-services",
@@ -65,210 +48,69 @@ const tab = {
   originType: "project" as const,
 };
 
-function renderWindow(value = tab) {
+function renderWindow() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <ServiceWindow tab={value} />
+      <ServiceWindow tab={tab} />
     </QueryClientProvider>,
   );
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(listServices).mockResolvedValue([service]);
-  vi.mocked(readService).mockResolvedValue(service);
-  vi.mocked(readServiceLogs).mockResolvedValue({
-    terminalId,
-    chunks: [{ cursor: 1, data: "ready\n", timestamp: 1 }],
+  useWindowStore.setState({ windows: [], focusedId: null, zCounter: 10 });
+  vi.mocked(listProcesses).mockResolvedValue([process]);
+  vi.mocked(readProcess).mockResolvedValue(process);
+  vi.mocked(readProcessOutput).mockResolvedValue({
+    chunks: [{ cursor: 1, data: "ready\n", channel: "stdout", timestamp: 1 }],
     nextCursor: 1,
+    oldestCursor: 1,
     truncated: false,
     resyncRequired: false,
   });
-  vi.mocked(listTerminals).mockResolvedValue({ items: [], nextCursor: null } as never);
+  vi.mocked(stopProcess).mockResolvedValue({} as never);
 });
 
-it("shows registered service cards, detail, terminal output and opens the owning terminal", async () => {
-  vi.mocked(readTerminal).mockResolvedValue({ id: terminalId } as never);
+it("lists real background processes with port, PID and logs", async () => {
+  const { container } = renderWindow();
+  expect(await screen.findByText("web")).toBeTruthy();
+  expect(screen.getByText("127.0.0.1:5173")).toBeTruthy();
+  expect(screen.getByText(/PID 4321/)).toBeTruthy();
+  expect(screen.getByText("可预览")).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: /web/ }));
+  expect(await screen.findByText("127.0.0.1:5173")).toBeTruthy();
+  await waitFor(() => expect(container.querySelector("[role=log]")?.textContent).toBe("ready\n"));
+});
+
+it("opens a process preview tab only after the user clicks preview", async () => {
   renderWindow();
   fireEvent.click(await screen.findByRole("button", { name: /web/ }));
-  expect(await screen.findByText("http://127.0.0.1:5173")).toBeTruthy();
-  expect(await screen.findByText("ready")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "打开终端" }));
-  await waitFor(() => expect(readTerminal).toHaveBeenCalledWith(terminalId));
-  await waitFor(() => expect(openTerminal).toHaveBeenCalled());
-});
-
-it("shows readable terminal output across chunk boundaries and refreshes without duplicate lines", async () => {
-  const chunks = [
-    { cursor: 1, data: "\u001b]0;Power", timestamp: 1 },
-    { cursor: 2, data: "Shell\u001b\\\u001b[3", timestamp: 1 },
-    { cursor: 3, data: "2m服务已", timestamp: 1 },
-    { cursor: 4, data: "启动\u001b[0m\r\n", timestamp: 1 },
-  ];
-  const page = { terminalId, chunks, nextCursor: 4, truncated: false, resyncRequired: false };
-  vi.mocked(readServiceLogs)
-    .mockResolvedValueOnce(page)
-    .mockResolvedValue({
-      ...page,
-      chunks: [...chunks, { cursor: 5, data: "Ready\u001b[?25h\r\n", timestamp: 2 }],
-      nextCursor: 5,
-    });
-
-  const { container } = renderWindow({ ...tab, id: "tab-readable-logs" });
-  fireEvent.click(await screen.findByRole("button", { name: /web/ }));
-  await waitFor(() => expect(container.querySelector("pre")?.textContent).toBe("服务已启动\n"));
-  fireEvent.click(screen.getByRole("button", { name: "刷新" }));
-  await waitFor(() =>
-    expect(container.querySelector("pre")?.textContent).toBe("服务已启动\nReady\n"),
-  );
-  fireEvent.click(screen.getByRole("button", { name: "返回" }));
-  fireEvent.click(await screen.findByRole("button", { name: /web/ }));
-  await waitFor(() =>
-    expect(container.querySelector("pre")?.textContent).toBe("服务已启动\nReady\n"),
-  );
-});
-
-it("registers through the resource action and shows the new detail after approval", async () => {
-  const user = userEvent.setup();
-  vi.mocked(listServices).mockResolvedValue([]);
-  vi.mocked(listTerminals).mockResolvedValue({
-    items: [{ id: terminalId, status: "RUNNING", title: "dev", role: "frontend" }],
-    nextCursor: null,
-  } as never);
-  const pending: ServiceActionView = {
-    id: "act_1",
+  fireEvent.click(await screen.findByRole("button", { name: "预览" }));
+  const opened = useWindowStore.getState().windows[0]?.tabs[0];
+  expect(opened).toMatchObject({
+    kind: "browser",
+    resourceId: `browser:${processId}:/`,
+    browser: { serviceId: processId, path: "/", targetKind: "process" },
     projectId: "prj_1",
-    kind: "service.register",
-    risk: "L2",
-    status: "WAITING_APPROVAL",
-    params: {
-      kind: "temporary",
-      terminalId,
-      name: "web",
-      endpoint: { host: "127.0.0.1", port: 5173, protocol: "http" },
-    },
-    paramsHash: "h",
-    snapshotVersion: "s",
-    requestedBy: "c",
-    decidedBy: null,
-    expiresAt: 2,
-    decidedAt: null,
-    startedAt: null,
-    endedAt: null,
-    result: null,
-    createdAt: 1,
-  };
-  vi.mocked(createServiceAction).mockResolvedValue(pending);
-  vi.mocked(decideServiceAction).mockResolvedValue({ ...pending, status: "APPROVED" });
-  vi.mocked(executeServiceAction).mockResolvedValue({
-    ...pending,
-    status: "COMPLETED",
-    result: { serviceId },
   });
-  renderWindow({ ...tab, id: "tab-services-2" });
-  expect(await screen.findByText(/实际监听端口登记/)).toBeTruthy();
-  const [register] = await screen.findAllByRole("button", { name: "登记服务" });
-  fireEvent.click(register);
-  await screen.findByText("登记临时服务");
-  expect(screen.getByText(/选择当前项目.*服务的监听端口/)).toBeTruthy();
-  expect(screen.getByText(/0\.0\.0\.0.*可登记/)).toBeTruthy();
-  const terminal = screen.getByRole("button", { name: "选择终端" });
-  await waitFor(() => expect(terminal).toBeEnabled());
-  await user.click(terminal);
-  await user.click(screen.getByRole("menuitemradio", { name: /dev/ }));
-  fireEvent.change(screen.getByLabelText("服务名称"), { target: { value: "web" } });
-  fireEvent.change(screen.getByLabelText("服务端口"), { target: { value: "5173" } });
-  fireEvent.click(screen.getByRole("button", { name: "继续" }));
-  fireEvent.click(await screen.findByRole("button", { name: "批准并登记" }));
-  await waitFor(() => expect(executeServiceAction).toHaveBeenCalledWith("act_1"));
-  expect(await screen.findByText("运行中")).toBeTruthy();
 });
 
-it("returns to the form when execution fails terminally instead of leaving a dead approval", async () => {
-  const user = userEvent.setup();
-  vi.mocked(listServices).mockResolvedValue([]);
-  vi.mocked(listTerminals).mockResolvedValue({
-    items: [{ id: terminalId, status: "RUNNING", title: "dev", role: "backend" }],
-    nextCursor: null,
-  } as never);
-  const pending: ServiceActionView = {
-    id: "act_failed",
-    projectId: "prj_1",
-    kind: "service.register",
-    risk: "L2",
-    status: "WAITING_APPROVAL",
-    params: {
-      kind: "temporary",
-      terminalId,
-      name: "web",
-      endpoint: { host: "127.0.0.1", port: 5173, protocol: "http" },
-    },
-    paramsHash: "h",
-    snapshotVersion: "s",
-    requestedBy: "c",
-    decidedBy: null,
-    expiresAt: 2,
-    decidedAt: null,
-    startedAt: null,
-    endedAt: null,
-    result: null,
-    createdAt: 1,
-  };
-  vi.mocked(createServiceAction).mockResolvedValue(pending);
-  vi.mocked(decideServiceAction).mockResolvedValue({ ...pending, status: "APPROVED" });
-  vi.mocked(executeServiceAction).mockRejectedValue(
-    new ApiError(403, "PREVIEW_TARGET_INVALID", "Listener does not belong to this terminal"),
-  );
-  renderWindow({ ...tab, id: "tab-services-fail" });
-  const [register] = await screen.findAllByRole("button", { name: "登记服务" });
-  fireEvent.click(register);
-  await screen.findByText("登记临时服务");
-  const terminal = screen.getByRole("button", { name: "选择终端" });
-  await waitFor(() => expect(terminal).toBeEnabled());
-  await user.click(terminal);
-  await user.click(screen.getByRole("menuitemradio", { name: /dev/ }));
-  fireEvent.change(screen.getByLabelText("服务名称"), { target: { value: "web" } });
-  fireEvent.change(screen.getByLabelText("服务端口"), { target: { value: "5173" } });
-  fireEvent.click(screen.getByRole("button", { name: "继续" }));
-  fireEvent.click(await screen.findByRole("button", { name: "批准并登记" }));
-
-  expect(await screen.findByText(/没有可核验、且属于此终端的监听/)).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "批准并登记" })).toBeNull();
-  expect(screen.getByLabelText("服务名称")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "继续" }));
-  await waitFor(() => expect(createServiceAction).toHaveBeenCalledTimes(2));
-});
-
-it("stops the verified service process only after confirmation", async () => {
-  vi.mocked(stopService).mockResolvedValue({
-    ...service,
-    status: "UNREGISTERED",
-    reasonCode: "STOPPED_BY_USER",
-  });
-  renderWindow({ ...tab, id: "tab-stop" });
+it("confirms before stopping the process group", async () => {
+  renderWindow();
   fireEvent.click(await screen.findByRole("button", { name: /web/ }));
-  await screen.findByText("http://127.0.0.1:5173");
-  fireEvent.click(screen.getByRole("button", { name: "停止服务" }));
+  fireEvent.click(await screen.findByRole("button", { name: "停止" }));
   expect(await screen.findByText("停止服务？")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "停止" }));
-  await waitFor(() => expect(stopService).toHaveBeenCalledWith(serviceId));
-  await waitFor(() => expect(screen.queryByText("停止服务？")).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "确认停止" }));
+  await waitFor(() => expect(stopProcess).toHaveBeenCalledWith(processId));
 });
 
-it("deletes a registration without claiming to stop the process", async () => {
-  vi.mocked(deleteService).mockResolvedValue({
-    ...service,
-    status: "UNREGISTERED",
-    reasonCode: "DELETED",
-  });
-  renderWindow({ ...tab, id: "tab-delete" });
-  fireEvent.click(await screen.findByRole("button", { name: /web/ }));
-  await screen.findByText("http://127.0.0.1:5173");
-  fireEvent.click(screen.getByRole("button", { name: "删除登记" }));
-  expect(await screen.findByText("删除登记？")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "删除" }));
-  await waitFor(() => expect(deleteService).toHaveBeenCalledWith(serviceId));
+it("shows an empty state without any manual registration entry", async () => {
+  vi.mocked(listProcesses).mockResolvedValue([]);
+  renderWindow();
+  expect(await screen.findByText("当前项目暂无后台服务")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /登记服务/ })).toBeNull();
 });

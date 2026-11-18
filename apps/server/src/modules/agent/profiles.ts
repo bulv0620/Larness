@@ -37,11 +37,16 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "stop_process",
     ]),
     observation: pack("observation", "观察", ["refresh_observations"]),
+    serviceOps: pack("serviceOps", "服务运维", [
+      "list_service_ops",
+      "read_service_ops_logs",
+      "control_service_ops",
+    ]),
   },
   profiles: {
     coding: profile("coding", "Coding", ["core.read", "core.write", "core.command", "process"]),
     plan: profile("plan", "Plan", ["core.read", "plan"]),
-    "service-ops": profile("service-ops", "服务运维", ["core.read", "observation"]),
+    "service-ops": profile("service-ops", "服务运维", ["observation", "serviceOps"]),
   },
 };
 

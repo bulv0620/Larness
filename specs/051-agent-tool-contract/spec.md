@@ -91,3 +91,5 @@ M4-R3 进一步统一既有服务生命周期契约：系统固定注入 develop
 ### 截图输入
 
 用户随 Turn 发送的截图作为不可信输入进入已组装的模型上下文。同一 Turn 工具续步保留截图，图片内的指令不改变已有工具权限。旧会话消息的图片由 UI 显示，普通后续 Turn 接收附件标记。验收在 [077 MC-8](../077-model-connections/tasks.md#mc-8-截图) 验证实际上下文、工具续步及纯文本模型的拒绝。
+
+   083（2026-11-18）：`start_process` / `read_process_output` / `stop_process` 进入默认 `coding`，新增只读 `list_processes`；`start_process` 增加可选 `port` / `healthPath`，用于项目服务窗口的手动预览。删除 `start_service` / `read_service_logs` / `stop_service`、`register_temporary_service` / `resolve_service_preview` / `list_services` 与命名服务域。`workspace` Profile 迁移为 `service-ops`，新增 `list_service_ops`（L0）、`read_service_ops_logs`（L0）、`control_service_ops`（L2），只操作 Larness 隔离 PM2 投影；PM2 应用按 `larness:<projectId>:<serviceKey>` 名称关联项目，即使 namespace 为 default 也显示并标注偏差。项目预览由用户点击运行中进程触发，后端校验项目、存活与端口。

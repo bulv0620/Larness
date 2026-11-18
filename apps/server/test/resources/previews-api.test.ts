@@ -155,3 +155,92 @@ it("returns PREVIEW_DISABLED when preview is disabled", async () => {
     }
   });
 }, 40_000);
+
+it("resolves a manual preview for a running background process", async () => {
+  await withTempDir(async (dir) => {
+    const previewPort = await freePort();
+    const f = await startAuthorizedServer(path.join(dir, "data"), {
+      preview: { enabled: true, port: previewPort },
+    });
+    try {
+      const root = path.join(dir, "project");
+      await mkdir(root);
+      const project = await createProject({ db: f.running.db }, { rootPath: root });
+      const session = await createSession(
+        { db: f.running.db, dataDir: f.running.dataDir },
+        { projectId: project.id },
+      );
+      const client = (
+        await f.running.app.inject({ url: "/api/auth/session", headers: { cookie: f.cookie } })
+      ).json().clientSessionId as string;
+      const turn = createTurn(
+        { db: f.running.db },
+        { sessionId: session.id, text: "process preview", clientSessionId: client },
+      );
+      updateTurnRow(f.running.db, turn.turnId, { status: "RUNNING" });
+      const port = await freePort();
+      const task = await f.running.processes.start(
+        {
+          sessionId: session.id,
+          turnId: turn.turnId,
+          toolCallId: newId("tool"),
+          clientSessionId: client,
+          policySnapshotId: "preview-process",
+          assertAuthorized: () => {},
+        },
+        {
+          executable: process.execPath,
+          args: [
+            "-e",
+            `const http=require('node:http');http.createServer((req,res)=>res.end('process-preview')).listen(${port},'127.0.0.1')`,
+          ],
+          cwd: ".",
+          name: "preview",
+          port,
+        },
+      );
+      await waitFor(async () => {
+        try {
+          await f.running.processes.verifyPreview(task.id);
+          return true;
+        } catch {
+          return false;
+        }
+      }, "process preview listener");
+      const headers = { cookie: f.cookie, origin: f.origin, "x-csrf-token": f.csrf };
+      const response = await f.running.app.inject({
+        method: "POST",
+        url: "/api/previews/resolve",
+        headers,
+        payload: { processId: task.id, projectId: project.id, path: "/" },
+      });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.json()).toMatchObject({ mode: "embedded" });
+      const foreign = await f.running.app.inject({
+        method: "POST",
+        url: "/api/previews/resolve",
+        headers,
+        payload: {
+          processId: task.id,
+          projectId: "prj_00000000-0000-4000-8000-000000000002",
+          path: "/",
+        },
+      });
+      expect(foreign.statusCode, foreign.body).toBe(503);
+      await f.running.processes.stop(task.id, {
+        sessionId: session.id,
+        clientSessionId: client,
+        projectId: project.id,
+      });
+      const stopped = await f.running.app.inject({
+        method: "POST",
+        url: "/api/previews/resolve",
+        headers,
+        payload: { processId: task.id, projectId: project.id, path: "/" },
+      });
+      expect(stopped.statusCode).toBe(503);
+    } finally {
+      await stopAuthorizedServer(f);
+    }
+  });
+}, 40_000);

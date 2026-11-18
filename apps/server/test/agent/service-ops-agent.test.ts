@@ -3,8 +3,9 @@ import { createFileToolRegistry } from "@larness/agent";
 import { expect, it } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
-import { createCommandTool } from "../../src/modules/agent/commandTool.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
+import { createObservationTool } from "../../src/modules/agent/observationTool.js";
+import { createServiceOpsTools } from "../../src/modules/agent/serviceOpsTool.js";
 import { executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -25,7 +26,8 @@ it("provides PM2 environment and project associations to the normal command cont
       const turn = getTurnById(opened.db, created.turnId);
       if (!sessionRow || !turn) throw new Error("fixture missing");
       const registry = createFileToolRegistry();
-      registry.register(createCommandTool({}));
+      for (const tool of createServiceOpsTools()) registry.register(tool);
+      registry.register(createObservationTool());
       const context = assembleContext(
         {
           db: opened.db,
@@ -58,7 +60,9 @@ it("provides PM2 environment and project associations to the normal command cont
         sessionRow,
         turn,
       );
-      expect(context.tools.map(({ name }) => name)).toContain("run_command");
+      expect(context.tools.map(({ name }) => name)).toContain("list_service_ops");
+      expect(context.tools.map(({ name }) => name)).toContain("control_service_ops");
+      expect(context.tools.map(({ name }) => name)).not.toContain("run_command");
       expect(context.tools.map(({ name }) => name)).not.toContain("start_formal_service");
       expect(context.messages[0]?.content).toContain("PM2_HOME");
       // The runtime snapshot changes with the deployment, so it travels after
@@ -81,7 +85,7 @@ it("provides PM2 environment and project associations to the normal command cont
             args: { executable: "pm2", args: ["restart", "api"] },
           },
         ),
-      ).toMatchObject({ status: "completed", result: { ok: false, errorCode: "FORBIDDEN" } });
+      ).toMatchObject({ status: "completed", result: { ok: false, errorCode: "TOOL_NOT_FOUND" } });
       expect(
         await executeTool(
           { db: opened.db, registry },

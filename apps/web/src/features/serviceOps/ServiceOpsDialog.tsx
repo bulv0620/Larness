@@ -321,8 +321,18 @@ export function ServiceOpsDialog({
                     <div className="flex items-center gap-2">
                       <span className="truncate text-[12px] font-medium">{service.name}</span>
                       <StateBadge service={service} />
-                      <span className="ml-auto rounded bg-black/[0.04] px-1.5 py-0.5 text-[9px] text-ink-3 dark:bg-white/[0.07]">
-                        PM2
+                      <span className="ml-auto flex items-center gap-1">
+                        {service.namespace !== "larness" ? (
+                          <span
+                            className="rounded bg-warning/10 px-1.5 py-0.5 text-[9px] text-warning"
+                            title={`PM2 namespace=${service.namespace}；Larness 隔离目录内仍按项目关联`}
+                          >
+                            namespace {service.namespace}
+                          </span>
+                        ) : null}
+                        <span className="rounded bg-black/[0.04] px-1.5 py-0.5 text-[9px] text-ink-3 dark:bg-white/[0.07]">
+                          PM2
+                        </span>
                       </span>
                     </div>
                     <p className="mt-2 truncate text-[11px] text-ink-2">
