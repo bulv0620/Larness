@@ -73,7 +73,7 @@ export interface UpdateSessionInput {
 }
 
 export type ApprovalPolicy = "standard" | "strict" | "readonly" | "autonomous";
-export type AgentProfile = "coding" | "plan" | "service-ops";
+export type AgentProfile = "coding" | "plan";
 
 export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
   return {
@@ -103,7 +103,7 @@ export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
 
 function normalizeAgentProfile(value: string | undefined): AgentProfile {
   if (value === undefined) return "coding";
-  if (value === "coding" || value === "plan" || value === "service-ops") return value;
+  if (value === "coding" || value === "plan") return value;
   throw new SessionError("VALIDATION_ERROR", "invalid agent profile");
 }
 

@@ -8,8 +8,8 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | AP-1 | 规格决议、ADR、计划与任务卡 | — | `done` |
-| AP-2 | Profile 收敛、提示、迁移与选择器 | AP-1 | `in_progress` |
-| AP-3 | 会话用量 API 与步骤耗时 | AP-1 | `todo` |
+| AP-2 | Profile 收敛、提示、迁移与选择器 | AP-1 | `done` |
+| AP-3 | 会话用量 API 与步骤耗时 | AP-1 | `in_progress` |
 | AP-4 | 输入框下方用量与最后一步速度 | AP-3 | `todo` |
 | AP-5 | 过程呈现收敛（状态行、波形、思考） | AP-1 | `todo` |
 | AP-6 | 全量验证、契约与状态回填 | AP-2～AP-5 | `todo` |

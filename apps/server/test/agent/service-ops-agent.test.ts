@@ -3,8 +3,10 @@ import { createFakeProvider, createFileToolRegistry } from "@larness/agent";
 import { expect, it } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
+import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
+import { disabledToolsForProfile } from "../../src/modules/agent/profiles.js";
 import { createServiceOpsTools } from "../../src/modules/agent/serviceOpsTool.js";
 import { executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
@@ -14,84 +16,63 @@ import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
 import { withTempDir } from "../helpers.js";
 
-it("provides PM2 environment and project associations to the normal command context", async () => {
+it("exposes PM2 tools to coding without injecting a PM2 observation snapshot", async () => {
   await withTempDir(async (dir) => {
     const opened = openDatabase(path.join(dir, "larness.db"));
     runMigrations(opened.db);
     try {
       const session = await createSession(
         { db: opened.db, dataDir: dir },
-        { agentProfile: "service-ops" },
+        { agentProfile: "coding" },
       );
       const created = createTurn({ db: opened.db }, { sessionId: session.id, text: "deploy" });
       const sessionRow = getSessionById(opened.db, session.id);
       const turn = getTurnById(opened.db, created.turnId);
       if (!sessionRow || !turn) throw new Error("fixture missing");
       const registry = createFileToolRegistry();
-      for (const tool of createServiceOpsTools()) registry.register(tool);
-      registry.register(createObservationTool());
+      for (const tool of [
+        ...createServiceOpsTools(),
+        createObservationTool(),
+        createCommandTool({}),
+        createShellTool({}),
+      ])
+        registry.register(tool);
       const context = assembleContext(
         {
           db: opened.db,
           registry,
           maxContextTokens: 128_000,
           policy: "autonomous",
-          agentProfile: "service-ops",
-          pm2Context: {
-            available: true,
-            nodeExecutable: process.execPath,
-            entry: "/global/pm2/bin/pm2",
-            version: "7.1.2",
-            home: path.join(dir, "pm2"),
-            namespace: "larness",
-            serviceNamePattern: "larness:<projectId>:<serviceKey>",
-            project: null,
-            services: [
-              {
-                projectId: "prj_one",
-                projectName: "One",
-                name: "api",
-                pm2Name: "larness:prj_one:api",
-                observedState: "running",
-                pid: 1234,
-                updatedAt: 1,
-              },
-            ],
-          },
+          agentProfile: "coding",
         },
         sessionRow,
         turn,
       );
-      expect(context.tools.map(({ name }) => name)).toContain("list_service_ops");
-      expect(context.tools.map(({ name }) => name)).toContain("control_service_ops");
-      expect(context.tools.map(({ name }) => name)).not.toContain("run_command");
-      expect(context.tools.map(({ name }) => name)).not.toContain("start_formal_service");
+      const names = context.tools.map(({ name }) => name);
+      expect(names).toContain("list_service_ops");
+      expect(names).toContain("control_service_ops");
+      expect(names).toContain("run_command");
+      expect(names).not.toContain("refresh_observations");
+      expect(names).not.toContain("start_formal_service");
       expect(context.messages[0]?.content).toContain("PM2_HOME");
-      // The runtime snapshot changes with the deployment, so it travels after
-      // the request instead of inside the cacheable system prefix.
-      expect(context.observations).toContain("/global/pm2/bin/pm2");
-      expect(context.observations).toContain("larness:prj_one:api");
+      expect(context.messages[0]?.content).not.toContain("PM2 runtime");
       const base = {
         sessionId: session.id,
         turnId: turn.id,
         toolCallId: "call",
         projectRoot: dir,
-        policy: "readonly" as const,
+        policy: "autonomous" as const,
       };
       expect(
         await executeTool(
-          { db: opened.db, registry },
-          {
-            ...base,
-            toolName: "run_command",
-            args: { executable: "pm2", args: ["restart", "api"] },
-          },
+          { db: opened.db, registry, disabledTools: disabledToolsForProfile("coding") },
+          { ...base, toolName: "refresh_observations", args: {} },
         ),
       ).toMatchObject({ status: "completed", result: { ok: false, errorCode: "TOOL_NOT_FOUND" } });
       expect(
         await executeTool(
           { db: opened.db, registry },
-          { ...base, policy: "autonomous", toolName: "build_formal_artifact", args: {} },
+          { ...base, toolName: "build_formal_artifact", args: {} },
         ),
       ).toMatchObject({ status: "completed", result: { ok: false, errorCode: "TOOL_NOT_FOUND" } });
     } finally {
@@ -107,7 +88,7 @@ it("routes service operations tools through the wired Turn runner", async () => 
     try {
       const session = await createSession(
         { db: opened.db, dataDir: dir },
-        { agentProfile: "service-ops" },
+        { agentProfile: "coding" },
       );
       const turn = createTurn({ db: opened.db }, { sessionId: session.id, text: "list services" });
       const registry = createFileToolRegistry();

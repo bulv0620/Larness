@@ -232,6 +232,13 @@
       "when": 1794985734209,
       "tag": "0033_agent_profile_service_ops",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "6",
+      "when": 1795009482851,
+      "tag": "0034_agent_profile_coding_plan",
+      "breakpoints": true
     }
   ]
 }

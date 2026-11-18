@@ -15,32 +15,35 @@ const catalog: ToolPackCatalog = {
     coding: {
       id: "coding",
       label: "Coding",
-      packs: ["core.read", "core.write", "core.command", "process"],
+      packs: ["core.read", "core.write", "core.command", "process", "serviceOps"],
     },
-    plan: { id: "plan", label: "Plan", packs: ["core.read", "plan"] },
-    "service-ops": {
-      id: "service-ops",
-      label: "服务运维",
-      packs: ["core.read", "observation", "serviceOps"],
+    plan: {
+      id: "plan",
+      label: "Plan",
+      packs: ["core.read", "core.write", "core.command", "process", "serviceOps", "plan"],
     },
   },
 };
 
 describe("agent profiles", () => {
-  it("resolves coding to core tools only", () => {
+  it("resolves coding to the full execution surface", () => {
     expect([...profileToolNames(catalog, "coding")]).toEqual([
       "read_file",
       "write_file",
       "run_command",
       "start_process",
+      "list_service_ops",
     ]);
   });
 
-  it("resolves service-ops to the read-only observation surface", () => {
-    expect([...profileToolNames(catalog, "service-ops")]).toEqual([
+  it("adds only the plan tool to plan", () => {
+    expect([...profileToolNames(catalog, "plan")]).toEqual([
       "read_file",
-      "refresh_observations",
+      "write_file",
+      "run_command",
+      "start_process",
       "list_service_ops",
+      "update_plan",
     ]);
   });
 
@@ -65,6 +68,6 @@ describe("agent profiles", () => {
   it("reports project-required and disabled availability", () => {
     expect(toolAvailability(catalog, "coding", "read_file", false)).toBe("enabled");
     expect(toolAvailability(catalog, "coding", "start_process", true)).toBe("project-required");
-    expect(toolAvailability(catalog, "service-ops", "start_process", true)).toBe("disabled");
+    expect(toolAvailability(catalog, "coding", "update_plan", true)).toBe("disabled");
   });
 });

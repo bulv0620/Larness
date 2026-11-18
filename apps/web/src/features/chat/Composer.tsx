@@ -19,7 +19,6 @@ import {
   Code2,
   ListChecks,
   Plus,
-  ServerCog,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -76,11 +75,10 @@ const policies = [
   },
 ] as const;
 
-type AgentProfileId = "coding" | "plan" | "service-ops";
+type AgentProfileId = "coding" | "plan";
 const agentProfiles = [
-  { id: "coding", label: "Coding", detail: "文件、搜索与命令", icon: Code2 },
-  { id: "plan", label: "Plan", detail: "只读探索与计划", icon: ListChecks },
-  { id: "service-ops", label: "Service Ops", detail: "全局 PM2 服务", icon: ServerCog },
+  { id: "coding", label: "Coding", detail: "完整能力，默认快速执行", icon: Code2 },
+  { id: "plan", label: "Plan", detail: "完整能力 + 计划", icon: ListChecks },
 ] as const;
 
 function defaultThinkingFor(model: {

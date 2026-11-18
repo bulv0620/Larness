@@ -78,7 +78,7 @@ async function fixture(dir: string) {
   const project = await createProject({ db: f.running.db }, { rootPath: root });
   const session = await createSession(
     { db: f.running.db, dataDir: f.running.dataDir },
-    { projectId: project.id, agentProfile: "service-ops" },
+    { projectId: project.id, agentProfile: "coding" },
   );
   const client = (
     await f.running.app.inject({ url: "/api/auth/session", headers: { cookie: f.cookie } })
@@ -196,17 +196,12 @@ it("registers a verified temporary service, replays events and unregisters when 
         registry: createFileToolRegistry(),
         maxContextTokens: 128_000,
         policy: "autonomous" as const,
-        agentProfile: "service-ops" as const,
+        agentProfile: "coding" as const,
       };
       const model = assembleContext(options, sessionRow, turnRow);
-      // 083: project services are ProcessManager tasks and previews are
-      // generated on demand; historical terminal services are no longer
-      // injected as Turn-start observations.
-      expect(model.observations).toBeNull();
+      // 083/084: project services are ProcessManager tasks and previews are
+      // generated on demand; no runtime snapshot is injected into the context.
       expect(model.messages[0]?.content).not.toContain(registered.id);
-      expect(
-        assembleContext(options, { ...sessionRow, projectId: null }, turnRow).observations ?? "",
-      ).not.toContain(registered.id);
 
       const replay = await listResourceEvents(
         { db: f.running.db, dataDir: f.running.dataDir },

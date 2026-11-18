@@ -1,7 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createFileToolRegistry } from "@larness/agent";
-import type { Pm2CommandContext } from "@larness/shared";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
@@ -28,8 +27,27 @@ function openWorkspace(dir: string): OpenedDatabase {
   return opened;
 }
 
+const codingTools = [
+  "apply_patch",
+  "control_service_ops",
+  "list_files",
+  "list_processes",
+  "list_service_ops",
+  "read_file",
+  "read_process_output",
+  "read_service_ops_logs",
+  "run_command",
+  "run_shell",
+  "search_code",
+  "start_process",
+  "stop_process",
+  "write_file",
+];
+
+const fullPacks = ["core.read", "core.write", "core.command", "process", "serviceOps"] as const;
+
 describe("agent profile assembly", () => {
-  it("puts background processes in coding and keeps service-ops for PM2", async () => {
+  it("gives coding and plan the full tool surface and only plan the plan tool", async () => {
     await withTempDir(async (dir) => {
       const opened = openWorkspace(dir);
       try {
@@ -60,23 +78,7 @@ describe("agent profile assembly", () => {
         ])
           registry.register(tool);
 
-        const pm2Context: Pm2CommandContext = {
-          available: true,
-          nodeExecutable: "/usr/bin/node",
-          entry: null,
-          version: "7.1.2",
-          home: path.join(dir, "pm2"),
-          namespace: "larness",
-          serviceNamePattern: "larness:<projectId>:<serviceKey>",
-          project: {
-            id: project.id,
-            name: "project",
-            root,
-            releaseRoot: path.join(root, ".larness"),
-          },
-          services: [],
-        };
-        const assemble = (agentProfile: "coding" | "plan" | "service-ops") =>
+        const assemble = (agentProfile: "coding" | "plan") =>
           assembleContext(
             {
               db: opened.db,
@@ -84,7 +86,6 @@ describe("agent profile assembly", () => {
               maxContextTokens: 128_000,
               policy: "standard",
               agentProfile,
-              pm2Context,
             },
             sessionRow,
             turn,
@@ -92,67 +93,32 @@ describe("agent profile assembly", () => {
 
         const coding = assemble("coding");
         const plan = assemble("plan");
-        const serviceOps = assemble("service-ops");
 
         expect(DEFAULT_AGENT_PROFILE).toBe("coding");
         const codingSystem = coding.messages[0]?.content ?? "";
         const planSystem = plan.messages[0]?.content ?? "";
-        const serviceOpsSystem = serviceOps.messages[0]?.content ?? "";
 
         expect(coding.agentProfile).toBe("coding");
-        expect(coding.tools.map((tool) => tool.name)).toEqual([
-          "apply_patch",
-          "list_files",
-          "list_processes",
-          "read_file",
-          "read_process_output",
-          "run_command",
-          "run_shell",
-          "search_code",
-          "start_process",
-          "stop_process",
-          "write_file",
-        ]);
+        expect(coding.tools.map((tool) => tool.name)).toEqual(codingTools);
         expect(codingSystem).not.toContain("update_plan");
         expect(codingSystem).toContain("Project background task contract");
-        expect(codingSystem).not.toContain("Persistent PM2 service contract");
-        expect(codingSystem).not.toContain("isolated PM2_HOME");
-        expect(coding.observations).toBeNull();
+        expect(codingSystem).toContain("Persistent PM2 service contract");
+        expect(codingSystem).toContain("isolated PM2_HOME");
+        expect(codingSystem).toContain("Match verification to the change");
+        expect(codingSystem).not.toContain("PM2 runtime");
 
-        expect(plan.tools.map((tool) => tool.name)).toEqual([
-          "list_files",
-          "read_file",
-          "search_code",
-          "update_plan",
-        ]);
+        expect(plan.tools.map((tool) => tool.name)).toEqual(
+          [...codingTools, "update_plan"].sort((left, right) => left.localeCompare(right)),
+        );
         expect(planSystem).toContain("update_plan");
-        expect(planSystem).not.toContain("isolated PM2_HOME");
-        expect(planSystem).not.toContain("Project background task contract");
-        expect(plan.observations).toBeNull();
+        expect(planSystem).toContain("For complex multi-step tasks");
+        expect(planSystem).toContain("Match verification to the change");
 
-        expect(serviceOps.tools.map((tool) => tool.name)).toEqual([
-          "control_service_ops",
-          "list_service_ops",
-          "read_service_ops_logs",
-          "refresh_observations",
-        ]);
-        expect(serviceOpsSystem).toContain("isolated PM2_HOME");
-        expect(serviceOpsSystem).toContain("Persistent PM2 service contract");
-        expect(serviceOpsSystem).not.toContain("Project background task contract");
-        expect(serviceOps.observations).toContain("PM2 runtime and service/project associations");
-
-        expect([...toolNamesForProfile("coding")]).toHaveLength(11);
-        expect([...toolNamesForProfile("service-ops")]).toHaveLength(4);
-        expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([
-          "core.read",
-          "core.write",
-          "core.command",
-          "process",
-        ]);
-        expect(TOOL_PACK_CATALOG.profiles["service-ops"].packs).toEqual([
-          "observation",
-          "serviceOps",
-        ]);
+        expect([...toolNamesForProfile("coding")]).toHaveLength(14);
+        expect([...toolNamesForProfile("plan")]).toHaveLength(15);
+        expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([...fullPacks]);
+        expect(TOOL_PACK_CATALOG.profiles.plan.packs).toEqual([...fullPacks, "plan"]);
+        expect(Object.keys(TOOL_PACK_CATALOG.profiles).sort()).toEqual(["coding", "plan"]);
       } finally {
         opened.close();
       }

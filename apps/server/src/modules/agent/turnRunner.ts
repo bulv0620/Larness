@@ -922,7 +922,6 @@ export class TurnRunner {
         maxContextTokens: inputWindow,
         policy,
         contextRatio: this.#budget.contextRatio,
-        pm2Context: await this.#options.pm2Context?.(session.projectId),
         agentProfile: session.agentProfile,
       };
       const assembleStarted = this.#now();
@@ -930,10 +929,6 @@ export class TurnRunner {
       timing.assembleMs += this.#now() - assembleStarted;
       let messages: ModelMessage[] = context.messages;
       const tools: ToolSchema[] = context.tools;
-      // Volatile Turn-start observations live outside the cacheable prefix, so
-      // they are re-attached to every rebuilt history (compaction included).
-      let observations: ModelMessage | null =
-        context.observations === null ? null : { role: "user", content: context.observations };
 
       this.#transition(turn, session, "PREPARING", startedAt);
 
@@ -975,10 +970,6 @@ export class TurnRunner {
             });
             context = assembleContext(contextOptions, session, turn);
             messages = context.messages;
-            observations =
-              context.observations === null
-                ? null
-                : { role: "user", content: context.observations };
           }
         } catch {
           // Compression is best-effort; keep the truncated context on failure.
@@ -1176,7 +1167,6 @@ export class TurnRunner {
             ...(pinned === null ? [] : [pinned]),
             checkpointMessage(snapshot, checkpointAt),
             ...(batch === null ? [] : batch.messages),
-            ...(observations === null ? [] : [observations]),
           ];
           const after = estimateRequestTokens(candidate, tools);
 

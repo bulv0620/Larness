@@ -103,10 +103,7 @@ export const sessions = sqliteTable(
     credentialProfileId: text("credential_profile_id"),
     model: text("model"),
     thinking: text("thinking"),
-    agentProfile: text("agent_profile")
-      .$type<"coding" | "plan" | "service-ops">()
-      .notNull()
-      .default("coding"),
+    agentProfile: text("agent_profile").$type<"coding" | "plan">().notNull().default("coding"),
     approvalPolicyId: text("approval_policy_id").notNull().default("standard"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),

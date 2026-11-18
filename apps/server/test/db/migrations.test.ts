@@ -1,4 +1,4 @@
-import { cp, readFile, stat, writeFile } from "node:fs/promises";
+import { cp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { backupDatabase } from "../../src/db/backup.js";
@@ -27,7 +27,7 @@ describe("migrations", () => {
         expect(opened.sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
         expect(opened.sqlite.pragma("busy_timeout", { simple: true })).toBe(5000);
         expect(quickCheck(opened.sqlite)).toBe(true);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(33);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(34);
 
         const sessionColumns = opened.sqlite.prepare("PRAGMA table_info(sessions)").all() as {
           name: string;
@@ -100,7 +100,7 @@ describe("migrations", () => {
       const { db, sqlite, close } = openDatabase(path.join(dir, "larness.db"));
       try {
         runMigrations(db, migrations);
-        expect(appliedMigrationCount(sqlite)).toBe(27);
+        expect(appliedMigrationCount(sqlite)).toBe(28);
         sqlite.exec(`
           INSERT INTO secrets VALUES ('sec_old', 'ciphertext', 'nonce', 'tag', 1);
           INSERT INTO credential_profiles
@@ -155,7 +155,7 @@ describe("migrations", () => {
 
       try {
         runMigrations(opened.db);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(33);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(34);
       } finally {
         opened.close();
       }
@@ -264,10 +264,46 @@ describe("migrations", () => {
         const copy = openDatabase(target);
 
         try {
-          expect(appliedMigrationCount(copy.sqlite)).toBe(33);
+          expect(appliedMigrationCount(copy.sqlite)).toBe(34);
         } finally {
           copy.close();
         }
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("normalizes service-ops sessions to coding", async () => {
+    await withTempDir(async (dir) => {
+      const oldMigrations = path.join(dir, "old-drizzle");
+      await cp(migrationsDirectory(), oldMigrations, { recursive: true });
+      const journalPath = path.join(oldMigrations, "meta", "_journal.json");
+      const journal = JSON.parse(await readFile(journalPath, "utf8")) as {
+        entries: { tag: string }[];
+      };
+      const latest = journal.entries.at(-1);
+      if (latest === undefined) throw new Error("missing migration journal entry");
+      journal.entries = journal.entries.slice(0, -1);
+      await writeFile(journalPath, JSON.stringify(journal));
+      await rm(path.join(oldMigrations, `${latest.tag}.sql`));
+
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      try {
+        runMigrations(opened.db, oldMigrations);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(33);
+        opened.sqlite
+          .prepare(
+            "INSERT INTO sessions (id, workspace_path, title, agent_profile, created_at, updated_at, last_activity_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          )
+          .run("ses_old", dir, "Old", "service-ops", 1, 1, 1);
+
+        runMigrations(opened.db);
+
+        expect(appliedMigrationCount(opened.sqlite)).toBe(34);
+        expect(
+          opened.sqlite.prepare("SELECT agent_profile FROM sessions WHERE id = ?").get("ses_old"),
+        ).toMatchObject({ agent_profile: "coding" });
       } finally {
         opened.close();
       }

@@ -34,7 +34,7 @@ export interface CreateSessionRowInput {
   credentialProfileId?: string | null;
   model?: string | null;
   thinking?: string | null;
-  agentProfile?: "coding" | "plan" | "service-ops";
+  agentProfile?: "coding" | "plan";
   approvalPolicyId: string;
   origin?: SessionOrigin;
   now: number;

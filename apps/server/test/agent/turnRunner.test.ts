@@ -814,26 +814,14 @@ describe("TurnRunner", () => {
     });
   });
 
-  it("keeps the request prefix identical across steps and reads observations once", async () => {
+  it("keeps the request prefix identical across steps without PM2 observations", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
 
       try {
         const sessionOptions = { db: opened.db, dataDir: dir };
-        const session = await createSession(sessionOptions, { agentProfile: "service-ops" });
+        const session = await createSession(sessionOptions, { agentProfile: "coding" });
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "prefix" });
-        let pm2Calls = 0;
-        const pm2 = {
-          available: true,
-          nodeExecutable: "/usr/bin/node",
-          entry: "/usr/lib/pm2/bin/pm2",
-          version: "7.1.2",
-          home: path.join(dir, "pm2"),
-          namespace: "larness" as const,
-          serviceNamePattern: "larness:<projectId>:<serviceKey>" as const,
-          project: null,
-          services: [],
-        };
         const provider = createFakeProvider([
           {
             chunks: [
@@ -847,14 +835,9 @@ describe("TurnRunner", () => {
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
-          pm2Context: async () => {
-            pm2Calls += 1;
-            return pm2;
-          },
         });
 
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
-        expect(pm2Calls).toBe(1);
 
         const first = provider.calls[0];
         const second = provider.calls[1];
@@ -869,14 +852,16 @@ describe("TurnRunner", () => {
         expect(second.messages[0]?.role).toBe("system");
         if (second.messages[0]?.role === "system") {
           expect(second.messages[0].content).toContain("Larness prompt version:");
-          // Volatile Turn-start facts must not sit in the cacheable prefix: a
-          // single changing byte there re-bills the whole later conversation.
+          expect(second.messages[0].content).toContain("isolated PM2_HOME");
+          // PM2 state is read on demand, so no runtime snapshot enters the
+          // cacheable prefix or the trailing block.
           expect(second.messages[0].content).not.toContain("PM2 runtime");
         }
-        const observed = second.messages.find((message) =>
-          message.content.includes("Turn-start runtime observations"),
-        );
-        expect(observed?.content).toContain("PM2 runtime and service/project associations");
+        expect(
+          second.messages.find((message) =>
+            message.content.includes("Turn-start runtime observations"),
+          ),
+        ).toBeUndefined();
       } finally {
         opened.close();
       }
@@ -947,13 +932,13 @@ describe("TurnRunner", () => {
     });
   });
 
-  it("refreshes observations through an L0 tool instead of rewriting the prefix", async () => {
+  it("rejects refresh_observations after the tool leaves the model surface", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
 
       try {
         const sessionOptions = { db: opened.db, dataDir: dir };
-        const session = await createSession(sessionOptions, { agentProfile: "service-ops" });
+        const session = await createSession(sessionOptions, { agentProfile: "coding" });
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "refresh" });
         const registry = createFileToolRegistry();
         registry.register(createObservationTool());
@@ -981,17 +966,8 @@ describe("TurnRunner", () => {
         expect(result?.role).toBe("tool");
         if (result?.role !== "tool") return;
 
-        const parsed = JSON.parse(result.content) as {
-          observedAt: number;
-          preview: unknown[];
-          terminals?: unknown[];
-          pm2: unknown;
-        };
-        expect(typeof parsed.observedAt).toBe("number");
-        expect(Array.isArray(parsed.preview)).toBe(true);
-        expect(parsed.terminals).toBeUndefined();
-        expect(parsed.pm2).toBeNull();
-        expect(result.isError).toBe(false);
+        expect(result.content).toContain("TOOL_NOT_FOUND");
+        expect(result.isError).toBe(true);
       } finally {
         opened.close();
       }
