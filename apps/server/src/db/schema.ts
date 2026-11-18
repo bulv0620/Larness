@@ -104,7 +104,7 @@ export const sessions = sqliteTable(
     model: text("model"),
     thinking: text("thinking"),
     agentProfile: text("agent_profile")
-      .$type<"coding" | "plan" | "workspace">()
+      .$type<"coding" | "plan" | "service-ops">()
       .notNull()
       .default("coding"),
     approvalPolicyId: text("approval_policy_id").notNull().default("standard"),

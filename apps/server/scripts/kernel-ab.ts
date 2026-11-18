@@ -33,7 +33,7 @@ import { ResourceEventBus } from "../src/modules/resources/events.js";
 import { createSession, updateSession } from "../src/modules/sessions/service.js";
 import { createTurn } from "../src/modules/sessions/turns.js";
 
-type Profile = "coding" | "workspace";
+type Profile = "coding" | "service-ops";
 type Step = { chunks: ProviderChunk[] };
 
 const now = Date.now();
@@ -237,7 +237,7 @@ async function main(): Promise<void> {
       registry.register(entry);
 
     const results: TaskResult[] = [];
-    for (const profile of ["coding", "workspace"] as const) {
+    for (const profile of ["coding", "service-ops"] as const) {
       for (const task of tasks) {
         const root = path.join(dir, "projects", `${profile}-${task.id}`);
         await mkdir(path.join(root, "src"), { recursive: true });
@@ -361,7 +361,7 @@ async function main(): Promise<void> {
           generatedAt: new Date().toISOString(),
           mode: "deterministic-scripted",
           note: "Fake provider replays the same tool trace; this measures fixed context and functional success, not real-model quality.",
-          summary: [summarize("coding"), summarize("workspace")],
+          summary: [summarize("coding"), summarize("service-ops")],
           tasks: results,
         },
         null,

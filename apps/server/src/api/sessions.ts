@@ -29,7 +29,7 @@ const CreateSessionSchema = z
   .object({
     projectId: z.string().min(1).max(128).optional(),
     title: z.string().min(1).max(128).optional(),
-    agentProfile: z.enum(["coding", "plan", "workspace"]).optional(),
+    agentProfile: z.enum(["coding", "plan", "service-ops"]).optional(),
   })
   .strict();
 
@@ -40,7 +40,7 @@ const UpdateSessionSchema = z
     model: z.string().min(1).max(128).nullable().optional(),
     thinking: z.string().min(1).max(32).nullable().optional(),
     credentialProfileId: z.string().min(1).max(128).nullable().optional(),
-    agentProfile: z.enum(["coding", "plan", "workspace"]).optional(),
+    agentProfile: z.enum(["coding", "plan", "service-ops"]).optional(),
     approvalPolicyId: z.enum(["standard", "strict", "readonly", "autonomous"]).optional(),
   })
   .strict();

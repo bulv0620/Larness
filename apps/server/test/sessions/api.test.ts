@@ -135,14 +135,14 @@ describe("sessions API", () => {
           payload: {
             title: "Renamed",
             modelProfileId: "mdl_next",
-            agentProfile: "workspace",
+            agentProfile: "service-ops",
             approvalPolicyId: "strict",
           },
         });
         expect(renamed.json()).toMatchObject({
           title: "Renamed",
           modelProfileId: "mdl_next",
-          agentProfile: "workspace",
+          agentProfile: "service-ops",
           approvalPolicyId: "strict",
         });
 

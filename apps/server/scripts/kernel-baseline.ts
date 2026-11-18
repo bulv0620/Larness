@@ -227,7 +227,7 @@ function usageBaseline(dataDir: string): UsageBaseline | null {
 
 const profiles = Object.fromEntries(
   await Promise.all(
-    (["coding", "plan", "workspace"] as const).map(async (profile) => [
+    (["coding", "plan", "service-ops"] as const).map(async (profile) => [
       profile,
       await freshWorkspaceNumbers(profile),
     ]),

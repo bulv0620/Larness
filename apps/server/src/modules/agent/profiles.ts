@@ -44,7 +44,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
   profiles: {
     coding: profile("coding", "Coding", ["core.read", "core.write", "core.command"]),
     plan: profile("plan", "Plan", ["core.read", "plan"]),
-    workspace: profile("workspace", "Workspace", [
+    "service-ops": profile("service-ops", "服务运维", [
       "core.read",
       "core.write",
       "core.command",

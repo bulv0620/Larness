@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- 无。
+- **S-1（083 项目服务与 service-ops）**：分支 `task/083-service-model`，2026-11-18 开始。人类已确认：coding 直接管理后台开发任务；项目服务显示真实后台进程并删除手动登记；预览按需点击；workspace 改为 service-ops 管理 Larness 隔离 PM2。计划：ADR-069、spec/plan/tasks、Profile `service-ops` 迁移与契约。
 
 ## 阻塞与待确认
 

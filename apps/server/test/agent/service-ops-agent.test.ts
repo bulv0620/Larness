@@ -18,7 +18,7 @@ it("provides PM2 environment and project associations to the normal command cont
     try {
       const session = await createSession(
         { db: opened.db, dataDir: dir },
-        { agentProfile: "workspace" },
+        { agentProfile: "service-ops" },
       );
       const created = createTurn({ db: opened.db }, { sessionId: session.id, text: "deploy" });
       const sessionRow = getSessionById(opened.db, session.id);
@@ -32,7 +32,7 @@ it("provides PM2 environment and project associations to the normal command cont
           registry,
           maxContextTokens: 128_000,
           policy: "autonomous",
-          agentProfile: "workspace",
+          agentProfile: "service-ops",
           pm2Context: {
             available: true,
             nodeExecutable: process.execPath,

@@ -54,7 +54,7 @@ describe("context assembler", () => {
                 registry,
                 maxContextTokens: 128_000,
                 policy,
-                agentProfile: "workspace",
+                agentProfile: "service-ops",
               },
               sessionRow,
               turn,
@@ -257,7 +257,7 @@ describe("context assembler", () => {
           registry: createFileToolRegistry(),
           maxContextTokens: 128_000,
           policy: "standard" as const,
-          agentProfile: "workspace" as const,
+          agentProfile: "service-ops" as const,
         };
         const first = assembleContext({ ...base, pm2Context: pm2("7.1.2") }, sessionRow, turn);
         const second = assembleContext({ ...base, pm2Context: pm2("7.2.0") }, sessionRow, turn);

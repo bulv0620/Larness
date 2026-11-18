@@ -30,7 +30,7 @@ function openWorkspace(dir: string): OpenedDatabase {
 }
 
 describe("agent profile assembly", () => {
-  it("exposes the existing 28-tool surface as workspace and a core-only coding surface", async () => {
+  it("exposes the existing tool surface as service-ops and a core-only coding surface", async () => {
     await withTempDir(async (dir) => {
       const opened = openWorkspace(dir);
       try {
@@ -79,7 +79,7 @@ describe("agent profile assembly", () => {
           },
           services: [],
         };
-        const assemble = (agentProfile: "coding" | "plan" | "workspace") =>
+        const assemble = (agentProfile: "coding" | "plan" | "service-ops") =>
           assembleContext(
             {
               db: opened.db,
@@ -93,30 +93,30 @@ describe("agent profile assembly", () => {
             turn,
           );
 
-        const workspace = assemble("workspace");
+        const serviceOps = assemble("service-ops");
         const coding = assemble("coding");
         const plan = assemble("plan");
 
         expect(DEFAULT_AGENT_PROFILE).toBe("coding");
-        const workspaceSystem = workspace.messages[0]?.content ?? "";
+        const serviceOpsSystem = serviceOps.messages[0]?.content ?? "";
         const codingSystem = coding.messages[0]?.content ?? "";
         const planSystem = plan.messages[0]?.content ?? "";
 
-        expect(workspace.agentProfile).toBe("workspace");
-        expect(workspace.tools).toHaveLength(17);
-        expect(workspace.tools.map((tool) => tool.name)).toContain("start_process");
-        expect(workspace.tools.map((tool) => tool.name)).toContain("start_service");
-        expect(workspace.tools.map((tool) => tool.name)).toContain("list_services");
-        expect(workspace.tools.map((tool) => tool.name)).not.toContain("update_plan");
-        expect(workspace.tools.some((tool) => tool.name.startsWith("git_"))).toBe(false);
-        expect(workspace.tools.some((tool) => tool.name.includes("terminal"))).toBe(false);
-        expect(workspaceSystem).toContain("Larness prompt version: m6-6.");
-        expect(workspaceSystem).not.toContain("update_plan");
-        expect(workspaceSystem).toContain("Service lifecycle contract");
-        expect(workspaceSystem).not.toContain("Git availability");
-        expect(workspaceSystem).toContain("globally installed PM2");
-        expect(workspaceSystem).not.toContain("terminal input leases");
-        expect(workspace.observations).toContain("PM2 runtime and service/project associations");
+        expect(serviceOps.agentProfile).toBe("service-ops");
+        expect(serviceOps.tools).toHaveLength(17);
+        expect(serviceOps.tools.map((tool) => tool.name)).toContain("start_process");
+        expect(serviceOps.tools.map((tool) => tool.name)).toContain("start_service");
+        expect(serviceOps.tools.map((tool) => tool.name)).toContain("list_services");
+        expect(serviceOps.tools.map((tool) => tool.name)).not.toContain("update_plan");
+        expect(serviceOps.tools.some((tool) => tool.name.startsWith("git_"))).toBe(false);
+        expect(serviceOps.tools.some((tool) => tool.name.includes("terminal"))).toBe(false);
+        expect(serviceOpsSystem).toContain("Larness prompt version: m6-6.");
+        expect(serviceOpsSystem).not.toContain("update_plan");
+        expect(serviceOpsSystem).toContain("Service lifecycle contract");
+        expect(serviceOpsSystem).not.toContain("Git availability");
+        expect(serviceOpsSystem).toContain("globally installed PM2");
+        expect(serviceOpsSystem).not.toContain("terminal input leases");
+        expect(serviceOps.observations).toContain("PM2 runtime and service/project associations");
 
         expect(codingSystem).toContain("Larness prompt version: m6-6.");
         expect(codingSystem).not.toContain("update_plan");
@@ -145,7 +145,7 @@ describe("agent profile assembly", () => {
         expect(coding.tools.some((tool) => tool.name.startsWith("git_"))).toBe(false);
         expect(coding.tools.some((tool) => tool.name.includes("terminal"))).toBe(false);
         expect(coding.tools.some((tool) => tool.name === "update_plan")).toBe(false);
-        expect(coding.estimatedTokens).toBeLessThan(workspace.estimatedTokens);
+        expect(coding.estimatedTokens).toBeLessThan(serviceOps.estimatedTokens);
 
         expect(plan.tools.map((tool) => tool.name)).toEqual([
           "list_files",
@@ -158,7 +158,7 @@ describe("agent profile assembly", () => {
 
         // The same Session can be assembled with both surfaces without mutating it.
         expect(sessionRow.id).toBe(session.id);
-        expect([...toolNamesForProfile("workspace")]).toHaveLength(17);
+        expect([...toolNamesForProfile("service-ops")]).toHaveLength(17);
         expect([...toolNamesForProfile("coding")]).toHaveLength(7);
         expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([
           "core.read",
@@ -171,7 +171,7 @@ describe("agent profile assembly", () => {
     });
   });
 
-  it("drops project-only tools for a workspace without a registered project", async () => {
+  it("drops project-only tools without a registered project", async () => {
     await withTempDir(async (dir) => {
       const opened = openWorkspace(dir);
       try {
@@ -204,7 +204,7 @@ describe("agent profile assembly", () => {
             registry,
             maxContextTokens: 128_000,
             policy: "standard",
-            agentProfile: "workspace",
+            agentProfile: "service-ops",
           },
           sessionRow,
           turn,
