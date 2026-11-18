@@ -8,7 +8,7 @@ import type {
   TurnFileResult,
 } from "@larness/shared";
 import { cn } from "@larness/ui";
-import { ArrowDown, ChevronRight, Loader2, ShieldAlert } from "lucide-react";
+import { ArrowDown, ChevronRight } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
 import { PreviewResultCard } from "@/features/services/PreviewResultCard";
@@ -90,28 +90,6 @@ function activeGroupOf(groups: TurnGroup[], activeTurnId: string | null): TurnGr
   return groups.find((group) => group.turnIds.includes(activeTurnId));
 }
 
-function summarizeTools(tools: ToolItem[]): string {
-  let exploration = 0;
-  let edits = 0;
-  let commands = 0;
-  for (const tool of tools) {
-    if (tool.name === "run_command" || tool.commandId) commands++;
-    else if (tool.name === "apply_patch") edits++;
-    else if (["read_file", "list_files", "search_code"].includes(tool.name)) exploration++;
-  }
-  const other = tools.length - exploration - edits - commands;
-  return (
-    [
-      exploration && `探索 ${exploration} 项`,
-      edits && `修改 ${edits} 项`,
-      commands && `命令 ${commands} 条`,
-      other && `其他 ${other} 项`,
-    ]
-      .filter(Boolean)
-      .join(" · ") || "执行了 0 项操作"
-  );
-}
-
 /**
  * The cause separates a continuable stop (`tokens` / `context`) from a stall
  * guard, so the label names the limit that actually fired instead of a generic
@@ -132,6 +110,31 @@ function budgetStopLabel(cause: TurnBudgetCause | undefined): string {
     default:
       return "预算停止";
   }
+}
+
+function useElapsedSeconds(active: boolean): number | null {
+  const startedAt = useTimelineStore((state) => state.turnStartedAt);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!active) return;
+    setNow(Date.now());
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  if (!active || startedAt === null) return null;
+  return Math.max(0, Math.floor((now - startedAt) / 1_000));
+}
+
+function ProcessWaveform({ active }: { active: boolean }) {
+  return (
+    <span aria-hidden="true" className="process-waveform" data-active={active ? "true" : "false"}>
+      {[0, 1, 2, 3, 4].map((bar) => (
+        <span key={bar} />
+      ))}
+    </span>
+  );
 }
 
 function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
@@ -180,15 +183,14 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
       ((item.kind === "message" && item.role === "assistant") ||
         (item.kind === "tool" && item.name !== "update_plan")),
   );
-  const failed = stateUser?.turnOutcome === "failed" || stateUser?.turnOutcome === "interrupted";
+  const interrupted = stateUser?.turnOutcome === "interrupted";
+  const failed = stateUser?.turnOutcome === "failed";
   const stopped = stateUser?.turnOutcome === "cancelled";
   // The resume banner states the interruption and offers the way forward, so
   // the generic notice underneath would only repeat it and add a weaker second
   // action: resending the original text without the facts already gathered.
   const interruptedNotice =
-    stateUser?.turnOutcome === "interrupted" && stateUser.turnId !== undefined
-      ? `interrupted_${stateUser.turnId}`
-      : undefined;
+    interrupted && stateUser.turnId !== undefined ? `interrupted_${stateUser.turnId}` : undefined;
   // A turn can end "completed" yet still be incomplete: budget stop or truncated output.
   const budgetStopped = stateUser?.terminalReason === "budget";
   const truncated = stateUser?.terminalReason === "output_truncated";
@@ -197,22 +199,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     (total, slice) => (slice.durationMs !== undefined ? (total ?? 0) + slice.durationMs : total),
     undefined,
   );
-  const seconds = duration === undefined ? "" : ` · ${Math.round(duration / 1000)}秒`;
-  const reasoningPreview = [...items].reverse().find((item) => item.kind === "reasoning")?.text;
-  const showReasoning =
-    turnActive &&
-    reasoningPreview &&
-    !tools.some((tool) => tool.status === "running") &&
-    pendingApprovals(items).length === 0;
-  const outcomeLabel = stopped
-    ? "已停止"
-    : failed
-      ? "执行未完成"
-      : budgetStopped
-        ? budgetStopLabel(stateUser?.budgetCause)
-        : truncated
-          ? "输出被截断"
-          : "";
+  const elapsed = useElapsedSeconds(turnActive);
   const failedTools = tools.filter((tool) => tool.status === "error");
   const retriedFailures = failedTools.filter((tool) => tool.retried === true).length;
   const unresolvedFailures = failedTools.length - retriedFailures;
@@ -222,9 +209,48 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   ]
     .filter(Boolean)
     .join(" · ");
-  const summary = [
-    outcomeLabel,
-    [summarizeTools(tools), failureLabel].filter(Boolean).join(" · ") + seconds,
+  const waiting = turnActive && pendingApprovals(items).length > 0;
+  const runningTool = [...items]
+    .reverse()
+    .find(
+      (item): item is ToolItem =>
+        item.kind === "tool" && item.name !== "update_plan" && item.status === "running",
+    );
+  const streamingReply =
+    turnActive &&
+    items.some((item) => item.kind === "message" && item.role === "assistant" && item.streaming);
+  const streamingReasoning =
+    turnActive && items.some((item) => item.kind === "reasoning" && item.streaming);
+  let status: string;
+  if (turnActive) {
+    status = waiting
+      ? "Waiting for approval..."
+      : runningTool
+        ? "Running..."
+        : streamingReply
+          ? "Generating..."
+          : streamingReasoning
+            ? "Thinking..."
+            : "Starting...";
+  } else {
+    const suffix = duration === undefined ? "" : ` · ${Math.round(duration / 1000)}s`;
+    status = stopped
+      ? `Stopped${suffix}`
+      : interrupted
+        ? `Interrupted${suffix}`
+        : failed
+          ? `Failed${suffix}`
+          : `Completed${suffix}`;
+  }
+  const autoContinued = Math.max(0, group.users.length - 1);
+  const secondary = [
+    runningTool ? runningTool.commandLabel || runningTool.summary || runningTool.name : "",
+    tools.length > 0 ? `${tools.length} 步` : "",
+    turnActive && elapsed !== null ? `${elapsed}s` : "",
+    autoContinued > 0 ? `已自动继续 ${autoContinued} 次` : "",
+    failureLabel,
+    !turnActive && budgetStopped ? budgetStopLabel(stateUser?.budgetCause) : "",
+    !turnActive && truncated ? "输出被截断" : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -324,22 +350,32 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         />
       ) : null}
       <div className="space-y-3">
-        {process.length > 0 || tools.length > 0 || reasoningPreview !== undefined ? (
+        {process.length > 0 ||
+        tools.length > 0 ||
+        streamingReasoning ||
+        waiting ||
+        (turnActive && !answer) ? (
           <div className="text-[12px] text-ink-3">
             <button
               type="button"
-              aria-label={`执行过程 · ${showReasoning ? "正在思考 · " : ""}${summary}`}
+              aria-label={`执行过程 · ${status}${secondary === "" ? "" : ` · ${secondary}`}`}
               aria-expanded={expanded}
               onClick={() => setExpanded((value) => !value)}
-              className="flex w-full items-start gap-1.5 rounded-md py-1 text-left transition-colors hover:text-accent"
+              className={cn(
+                "process-status-row flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:text-accent",
+                turnActive && "process-status-active",
+              )}
             >
-              <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
-              <span className="min-w-0">
-                <span className="block break-words">{summary}</span>
-                {showReasoning ? (
-                  <span className="block truncate">正在思考 · {reasoningPreview}</span>
-                ) : null}
-              </span>
+              <ProcessWaveform active={turnActive} />
+              <span className="shrink-0 font-medium text-ink-2">{status}</span>
+              {secondary === "" ? null : (
+                <span className="min-w-0 truncate text-[11px] text-ink-3">{secondary}</span>
+              )}
+              <span className="flex-1" />
+              <ChevronRight
+                size={13}
+                className={cn("shrink-0 transition-transform", expanded && "rotate-90")}
+              />
             </button>
             {visibleProcess.length > 0 ? (
               <div className="ml-1.5 mt-1 space-y-1 border-l border-line pl-3">
@@ -434,8 +470,11 @@ export function Timeline() {
     pinnedRef.current = true;
     setShowJump(false);
   }, [sessionId]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: new output is the scroll trigger
-  useLayoutEffect(follow, [items, loading]);
+  const contentSignature = items
+    .map((item) => (item.kind === "reasoning" ? "" : JSON.stringify(item)))
+    .join("|");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: non-reasoning content is the scroll trigger
+  useLayoutEffect(follow, [contentSignature, loading]);
   // Sending from a scrolled position re-attaches the transcript to the latest output.
   useLayoutEffect(() => {
     if (scrollToLatestNonce === 0) return;
@@ -455,112 +494,64 @@ export function Timeline() {
   }, [follow]);
   const groups = groupTurns(items);
   const activeGroup = isStreaming ? activeGroupOf(groups, activeTurnId) : undefined;
-  // A grouped chain already ran past a slice boundary, so the running label
-  // says so instead of looking like a fresh start.
-  const autoContinued = activeGroup === undefined ? 0 : Math.max(0, activeGroup.users.length - 1);
-  const waiting = pendingApprovals(items).length > 0;
-  const runningTool =
-    activeGroup &&
-    [...activeGroup.items]
-      .reverse()
-      .find(
-        (item): item is ToolItem =>
-          item.kind === "tool" && item.name !== "update_plan" && item.status === "running",
-      );
-  const replying = activeGroup?.items.some(
-    (item) => item.kind === "message" && item.role === "assistant" && item.streaming,
-  );
-  let activity = "";
-  if (waiting) activity = "等待审批";
-  else if (runningTool)
-    activity = `正在执行 · ${runningTool.commandLabel || runningTool.summary || runningTool.name}`;
-  else if (replying) activity = "正在回复…";
-  else if (isStreaming) activity = "正在处理…";
-  if (activity !== "" && autoContinued > 0) {
-    activity = `${activity} · 已自动继续 ${autoContinued} 次`;
-  }
   return (
-    <>
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div
-          ref={scrollRef}
-          role="log"
-          aria-label="会话时间线"
-          onClickCapture={(event) => {
-            if (event.target instanceof Element && event.target.closest("button[aria-expanded]"))
-              pinnedRef.current = false;
-          }}
-          onScroll={(event) => {
-            const el = event.currentTarget;
-            const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
-            pinnedRef.current = distance < 70;
-            setShowJump(distance > 140);
-          }}
-          className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 [scrollbar-gutter:stable]"
-        >
-          <div ref={contentRef} className="mx-auto w-full max-w-[760px] space-y-8 pb-5">
-            {contextNotice ? (
-              <p role="status" className="text-[11px] text-ink-3">
-                上下文已压缩{contextNotice.degraded ? "（降级：超出部分已截断）" : ""}
-              </p>
-            ) : null}
-            {loading ? (
-              <div role="status" className="py-8 text-[12px] text-ink-3">
-                正在加载对话…
-              </div>
-            ) : (
-              groups.map((group) => (
-                <TurnView
-                  key={`${sessionId}:${group.id}`}
-                  group={group}
-                  active={activeGroup === group}
-                />
-              ))
-            )}
-          </div>
-        </div>
-        <div aria-hidden="true" className="conversation-scroll-edge conversation-scroll-edge-top" />
-        <div
-          aria-hidden="true"
-          className="conversation-scroll-edge conversation-scroll-edge-bottom"
-        />
-        {showJump ? (
-          <button
-            type="button"
-            aria-label="回到最新消息"
-            onClick={() => {
-              pinnedRef.current = true;
-              follow();
-              setShowJump(false);
-            }}
-            className="absolute bottom-3 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-accent shadow-[var(--shadow-card)] transition-colors hover:bg-accent-soft"
-          >
-            <ArrowDown size={14} />
-          </button>
-        ) : null}
-      </div>
-      {activity ? (
-        <div className="shrink-0 px-4 sm:px-7">
-          <div
-            role="status"
-            aria-label="当前执行状态"
-            className="mx-auto flex w-full max-w-[760px] items-center gap-2 py-1.5 text-[12px] text-ink-2"
-          >
-            {waiting ? (
-              <ShieldAlert size={13} className="shrink-0 text-warning" />
-            ) : (
-              <Loader2
-                size={13}
-                data-testid="turn-running-spinner"
-                className="shrink-0 animate-spin text-accent motion-reduce:animate-none"
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scrollRef}
+        role="log"
+        aria-label="会话时间线"
+        onClickCapture={(event) => {
+          if (event.target instanceof Element && event.target.closest("button[aria-expanded]"))
+            pinnedRef.current = false;
+        }}
+        onScroll={(event) => {
+          const el = event.currentTarget;
+          const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+          pinnedRef.current = distance < 70;
+          setShowJump(distance > 140);
+        }}
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 [scrollbar-gutter:stable]"
+      >
+        <div ref={contentRef} className="mx-auto w-full max-w-[760px] space-y-8 pb-5">
+          {contextNotice ? (
+            <p role="status" className="text-[11px] text-ink-3">
+              上下文已压缩{contextNotice.degraded ? "（降级：超出部分已截断）" : ""}
+            </p>
+          ) : null}
+          {loading ? (
+            <div role="status" className="py-8 text-[12px] text-ink-3">
+              正在加载对话…
+            </div>
+          ) : (
+            groups.map((group) => (
+              <TurnView
+                key={`${sessionId}:${group.id}`}
+                group={group}
+                active={activeGroup === group}
               />
-            )}
-            <span className="min-w-0 truncate" title={activity}>
-              {activity}
-            </span>
-          </div>
+            ))
+          )}
         </div>
+      </div>
+      <div aria-hidden="true" className="conversation-scroll-edge conversation-scroll-edge-top" />
+      <div
+        aria-hidden="true"
+        className="conversation-scroll-edge conversation-scroll-edge-bottom"
+      />
+      {showJump ? (
+        <button
+          type="button"
+          aria-label="回到最新消息"
+          onClick={() => {
+            pinnedRef.current = true;
+            follow();
+            setShowJump(false);
+          }}
+          className="absolute bottom-3 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-line bg-surface text-accent shadow-[var(--shadow-card)] transition-colors hover:bg-accent-soft"
+        >
+          <ArrowDown size={14} />
+        </button>
       ) : null}
-    </>
+    </div>
   );
 }

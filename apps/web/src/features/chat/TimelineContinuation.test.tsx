@@ -111,10 +111,10 @@ it("reads a continued chain from its latest slice, not the budget-stopped first 
   expect(screen.getAllByLabelText("对话轮次")).toHaveLength(1);
   expect(screen.queryByText(/Work state checkpoint/)).toBeNull();
   // The chain is still running, so nothing settle-only may appear yet.
-  expect(screen.getByLabelText("当前执行状态")).toHaveTextContent("正在回复…");
+  const runningHeader = screen.getByRole("button", { name: /执行过程 · Generating\.\.\./ });
   // The grouped chain already crossed a slice boundary; the running label says
   // so instead of looking like a fresh start.
-  expect(screen.getByLabelText("当前执行状态")).toHaveTextContent("已自动继续 1 次");
+  expect(runningHeader).toHaveAccessibleName(/已自动继续 1 次/);
   expect(screen.queryByRole("region", { name: "本次成果" })).toBeNull();
   expect(screen.queryByTestId("final-answer-bubble")).toBeNull();
   // The first slice's budget stop must not label a running chain.
@@ -250,7 +250,7 @@ it("accumulates the results of every slice in a continued chain", () => {
   expect(within(results).queryByRole("button", { name: "查看文件 · tmp/probe.mjs" })).toBeNull();
   expect(screen.getByText("另有 2 个文件未列出")).toBeTruthy();
   // The chain reports the summed wall clock and the last slice's outcome.
-  expect(screen.getByRole("button", { name: /· 90秒/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /Completed · 90s/ })).toBeTruthy();
   expect(screen.queryByRole("button", { name: /预算停止/ })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /^执行过程/ }));
   expect(screen.getByText("报告已成文。")).toBeTruthy();

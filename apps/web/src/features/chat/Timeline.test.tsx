@@ -186,20 +186,19 @@ it("shows the current tool and a spinner outside the scrollable transcript", () 
     isStreaming: true,
   });
   render(<Timeline />);
-  expect(screen.getByTestId("turn-running-spinner")).toBeTruthy();
-  expect(screen.getByRole("status", { name: "当前执行状态" })).toHaveTextContent("启动终端");
-  expect(
-    within(screen.getByRole("log", { name: "会话时间线" })).queryByText("正在执行 · 启动终端"),
-  ).toBeNull();
+  expect(screen.getByRole("button", { name: /执行过程 · Running\.\.\. · 启动终端/ })).toBeTruthy();
+  expect(screen.queryByTestId("turn-running-spinner")).toBeNull();
 });
 
-it("reports a pending approval outside the transcript even before the turn is restored", () => {
+it("reports a pending approval on the turn header", () => {
   useTimelineStore.setState({
     items: [{ id: "approval", kind: "approval", status: "pending", createdAt: 1 }],
+    isStreaming: true,
   });
   render(<Timeline />);
-  expect(screen.getByRole("status", { name: "当前执行状态" })).toHaveTextContent("等待审批");
-  expect(screen.queryByTestId("turn-running-spinner")).toBeNull();
+  expect(
+    screen.getByRole("button", { name: /执行过程 · Waiting for approval\.\.\./ }),
+  ).toBeTruthy();
 });
 
 it("summarizes tool calls and opens individual command output directly from a failure", () => {
@@ -233,7 +232,7 @@ it("summarizes tool calls and opens individual command output directly from a fa
   });
   render(<Timeline />);
   const summary = screen.getByRole("button", {
-    name: /执行过程 · 探索 1 项 · 修改 1 项 · 命令 2 条/,
+    name: /执行过程 · Completed · 4 步/,
   });
   const failure = screen.getByRole("button", { name: /第一次检查.*失败/ });
   expect(summary).toHaveAttribute("aria-expanded", "false");
@@ -396,7 +395,7 @@ it("folds failed steps into the record once the turn has an answer", () => {
   render(<Timeline />);
 
   const summary = screen.getByRole("button", {
-    name: /执行过程 · 命令 1 条 · 失败 1 项/,
+    name: /执行过程 · Completed.*1 步 · 失败 1 项/,
   });
   expect(summary).toHaveAttribute("aria-expanded", "false");
   expect(screen.queryByRole("button", { name: /运行命令.*失败/ })).toBeNull();
@@ -444,7 +443,7 @@ it("counts only unresolved failures in the summary and marks retried attempts", 
   render(<Timeline />);
 
   const summary = screen.getByRole("button", {
-    name: /执行过程 · 命令 2 条 · 失败 1 项 · 重试成功 1 次/,
+    name: /执行过程 · Completed · 2 步 · 失败 1 项 · 重试成功 1 次/,
   });
   expect(summary).toBeTruthy();
   expect(screen.queryByRole("button", { name: /运行命令.*失败/ })).toBeNull();
@@ -740,7 +739,7 @@ it("reads a turn that never settled as unmarked rather than failed", () => {
   expect(plan.querySelector(".text-danger")).toBeNull();
 });
 
-it("shows a single-line reasoning preview and keeps it out of the expanded process", () => {
+it("shows Thinking... without rendering reasoning text", () => {
   const user = {
     id: "u",
     kind: "message",
@@ -757,16 +756,26 @@ it("shows a single-line reasoning preview and keeps it out of the expanded proce
     turnId: "t1",
     streaming: true,
   } as const;
+  const tool = {
+    id: "tool",
+    kind: "tool",
+    name: "list_files",
+    summary: "列出文件",
+    args: "",
+    status: "done",
+    createdAt: 3,
+    turnId: "t1",
+  } as const;
 
   useTimelineStore.setState({
-    items: [user, reasoning],
+    items: [user, reasoning, tool],
     isStreaming: true,
     activeTurnId: "t1",
   });
   render(<Timeline />);
 
-  const summary = screen.getByRole("button", { name: /执行过程 · 正在思考/ });
-  expect(summary).toHaveTextContent("先分析目录结构。");
+  const summary = screen.getByRole("button", { name: /执行过程 · Thinking\.\.\./ });
+  expect(summary).not.toHaveTextContent("先分析目录结构。");
   expect(screen.queryByText("先分析目录结构。")).toBeNull();
 
   act(() => {
@@ -774,14 +783,15 @@ it("shows a single-line reasoning preview and keeps it out of the expanded proce
       items: [
         { ...user, turnOutcome: "completed", durationMs: 2_000 },
         { ...reasoning, streaming: false },
-        { id: "a", kind: "message", role: "assistant", text: "完成", createdAt: 3, turnId: "t1" },
+        tool,
+        { id: "a", kind: "message", role: "assistant", text: "完成", createdAt: 4, turnId: "t1" },
       ],
       isStreaming: false,
       activeTurnId: null,
     });
   });
 
-  const finished = screen.getByRole("button", { name: /执行过程 · 执行了 0 项操作/ });
+  const finished = screen.getByRole("button", { name: /执行过程 · Completed · 2s/ });
   expect(finished).not.toHaveTextContent("先分析目录结构。");
   fireEvent.click(finished);
   expect(screen.getByText("完成")).toBeVisible();
