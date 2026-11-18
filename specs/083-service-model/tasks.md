@@ -60,5 +60,5 @@
 - 全量门禁：`pnpm check` 通过（biome 683 文件；web 256、agent 63+1 跳过、server 729+14 跳过）；`pnpm build` 通过。
 - E2E：`pnpm test:e2e` 24/24；`pnpm test:e2e:prod` 20/20。
 - 文档：ADR-069、REST / Agent / 资源 / 数据模型 / 安全契约、051 持续约束、ROADMAP、STATUS、Q-051 已同步。
-- 收尾修正：移除 `POST /api/services` 写入口（旧记录只读/停止/删除）；进程预览必须同时提交 `processId` + `projectId` 并校验归属；system prompt 拆分为 coding 的项目后台任务契约与 service-ops 的 PM2 契约，`PROMPT_VERSION` → `m6-7`；ServiceWindow 新增真实进程列表/预览/停止测试并修复日志重复追加。
+- 收尾修正：移除 `POST /api/services` 写入口（旧记录只读/停止/删除）；进程预览必须同时提交 `processId` + `projectId` 并校验归属；system prompt 拆分为 coding 的项目后台任务契约与 service-ops 的 PM2 契约，`PROMPT_VERSION` → `m6-7`；ServiceWindow 新增真实进程列表/预览/停止测试并修复日志重复追加；`list_processes` 与项目服务列表只返回 STARTING/RUNNING/STOPPING，结束/失败任务不再保留列表项。
 - 未运行：人类浏览器视觉验收；用户现有 `todo-list` PM2 应用（namespace=default）与旧 `STOP_UNCONFIRMED` 数据未在真实库上操作，需新版本启动后由 cleanup 路径确认。不得因自动门禁通过而声称这些实机项已验证。

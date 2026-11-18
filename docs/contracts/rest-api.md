@@ -781,7 +781,7 @@ type JobInput = {
 
 082 K-6 新增 `GET /api/processes?projectId=|sessionId=`、`GET /api/processes/:id`、`GET /api/processes/:id/output?after=&limit=`、`POST /api/processes/:id/stop`。全部经过现有认证守卫；stop 同样受 Origin / CSRF 保护。进程 ID 为 `prc_` 前缀，DTO 含 projectId、sessionId、name、status、executable、cwd、pid、exitCode、reasonCode、startedAt、endedAt、port、healthPath、previewEligible、outputCursor、truncated。输出按游标分页，`resyncRequired` 表示旧块已淘汰；REST 不返回原始环境或秘密。`start_process` 仍只由 Agent Turn 创建，不开放通用 POST 创建入口。
 
-083：项目服务窗口直接使用该 API 作为唯一数据源；`previewEligible=true` 仅表示 RUNNING 且声明了 port。`POST /api/previews/resolve` 对进程目标接受 `processId` + `projectId`（两者同时必填），点击预览时才校验进程属于该项目、存活且端口监听；不再需要 `register_temporary_service`。
+083：项目服务窗口直接使用该 API 作为唯一数据源；列表只返回 `STARTING / RUNNING / STOPPING`，结束或失败的任务不再显示（按 ID 读取详情仍可用）；`previewEligible=true` 仅表示 RUNNING 且声明了 port。`POST /api/previews/resolve` 对进程目标接受 `processId` + `projectId`（两者同时必填），点击预览时才校验进程属于该项目、存活且端口监听；不再需要 `register_temporary_service`。
 
 ### K-7 命名服务 API
 

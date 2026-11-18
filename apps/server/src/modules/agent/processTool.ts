@@ -94,7 +94,7 @@ export function createProcessTools(options: { secretStore?: SecretStore }): Tool
     defineTool({
       name: "list_processes",
       description:
-        "List background processes started by this project, including running, stopped and failed tasks. Use it after a restart or when the user asks what is running; previewEligible is true only for a RUNNING task with a declared port.",
+        "List active background processes started by this project. Ended tasks are removed from the list; use the processId from start_process or read_process_output for a specific task. previewEligible is true only for a RUNNING task with a declared port.",
       riskLevel: "L0",
       requiresProject: true,
       requiresProjectLock: false,

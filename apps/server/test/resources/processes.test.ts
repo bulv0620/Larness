@@ -129,7 +129,7 @@ describe("background process manager", () => {
           headers: { cookie: started.cookie },
         });
         expect(listed.statusCode).toBe(200);
-        expect(listed.json()).toMatchObject({ items: [{ id: first.id }] });
+        expect(listed.json()).toMatchObject({ items: [] });
         const output = await started.running.app.inject({
           url: `/api/processes/${first.id}/output?after=0`,
           headers: { cookie: started.cookie },
@@ -189,6 +189,9 @@ describe("background process manager", () => {
         );
         const dto = started.running.processes.get(exited.id);
         expect(dto).toMatchObject({ status: "FAILED", exitCode: 2, reasonCode: "NONZERO_EXIT" });
+        expect(
+          started.running.processes.list({ projectId: project.id }).map((item) => item.id),
+        ).not.toContain(exited.id);
         const page = await started.running.processes.readOutput(
           exited.id,
           {
@@ -279,6 +282,7 @@ describe("background process manager", () => {
           status: "STOPPED",
           previewEligible: false,
         });
+        expect(started.running.processes.list({ projectId: project.id })).toEqual([]);
         await expect(started.running.processes.verifyPreview(dto.id)).rejects.toMatchObject({
           code: "PREVIEW_UNAVAILABLE",
         });

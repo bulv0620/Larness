@@ -530,6 +530,7 @@ export class ProcessManager {
     return [...this.#processes.values()]
       .filter(
         (row) =>
+          ["STARTING", "RUNNING", "STOPPING"].includes(row.status) &&
           (filter.projectId === undefined || row.projectId === filter.projectId) &&
           (filter.sessionId === undefined || row.sessionId === filter.sessionId),
       )
