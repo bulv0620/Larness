@@ -18,6 +18,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-18 | K-9 workspace Profile、迁移与 UI | 新增 `sessions.agent_profile` 默认 coding；Session API/Composer Profile 选择；TurnRunner 按会话装配；迁移计数 32 | [082 tasks](specs/082-agent-kernel/tasks.md#k-92026-11-18macos) |
 | 2026-11-18 | K-11 锁与审计收敛 | LeaseManager 成为唯一锁入口；AuditSink required/resource/debug；tool.requested/completed 与 terminal input/resize 审计移除；dev-web/git 噪声收敛 | [082 tasks](specs/082-agent-kernel/tasks.md#k-112026-11-18macos) |
 | 2026-11-18 | K-8 计划可选化 | coding/workspace 移除 update_plan 与计划提醒；plan Profile 只读+计划；workspace 17 工具 / 3 442 schema token；`PROMPT_VERSION` → `m6-6` | [082 tasks](specs/082-agent-kernel/tasks.md#k-82026-11-18macos) |
 | 2026-11-18 | K-7 命名服务 | 新增 NamedServiceManager、3 个 workspace 工具与服务 REST；项目+名称+命令幂等、端口冲突、健康检查与日志；workspace 18 工具 / 3 741 schema token | [082 tasks](specs/082-agent-kernel/tasks.md#k-72026-11-18macos) |
@@ -27,7 +28,6 @@
 | 2026-11-18 | K-12 run_command / run_shell | `run_shell` 平台 shell、实际 shell 与 stdout/stderr 分离；新错误码与交互命令拒绝；coding 7 工具 / 1 727 token，比 workspace 降 63.3% | [082 tasks](specs/082-agent-kernel/tasks.md#k-122026-11-18macos) |
 | 2026-11-18 | K-3 coding Profile 与核心提示 | coding 6 工具、schema 1 174 / system 253 token，比 workspace 降 73%；`PROMPT_VERSION` → `m6-4`；默认仍 workspace | [082 tasks](specs/082-agent-kernel/tasks.md#k-32026-11-18macos) |
 | 2026-11-18 | K-2 Profile / ToolPack 抽象 | 新增 AgentProfile / ToolPack / ToolAvailability；coding 6 工具、plan 只读+计划、workspace 保持 28 工具；默认仍 workspace | [082 tasks](specs/082-agent-kernel/tasks.md#k-22026-11-18macos) |
-| 2026-11-18 | K-1 082 门禁、基线与锁/审计盘点 | spec `ready`、ADR-068 `accepted`、Q-042～Q-050 确认；28 工具 / 4 577 schema token、system 747 token、98 Turn 基线；`pnpm check` 全绿 | [082 baseline](specs/082-agent-kernel/baseline.md) |
 
 > 更早的收口记录（含同日其余 MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

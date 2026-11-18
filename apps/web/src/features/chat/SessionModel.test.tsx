@@ -233,6 +233,24 @@ it("saves approval policy without sending and restores it after a reload", async
   expect(await screen.findByRole("button", { name: "审批策略：标准审批" })).toBeVisible();
 });
 
+it("saves the agent profile without sending and restores it after a reload", async () => {
+  const user = userEvent.setup();
+  const view = renderComposer();
+  await user.click(await screen.findByRole("button", { name: "Agent Profile：Coding" }));
+  await user.click(screen.getByRole("menuitemradio", { name: /Workspace/ }));
+  await waitFor(() =>
+    expect(api.updateSession).toHaveBeenCalledWith("ses_a", { agentProfile: "workspace" }),
+  );
+  expect(api.createTurn).not.toHaveBeenCalled();
+  view.unmount();
+  queryClient.clear();
+
+  renderComposer();
+  expect(await screen.findByRole("button", { name: "Agent Profile：Workspace" })).toBeVisible();
+  act(() => useNavigationStore.getState().selectSession("ses_b", null));
+  expect(await screen.findByRole("button", { name: "Agent Profile：Coding" })).toBeVisible();
+});
+
 it("uses the session's stored approval policy when sending", async () => {
   const user = userEvent.setup();
   sessions.set("ses_a", { ...session("ses_a"), approvalPolicyId: "readonly" });

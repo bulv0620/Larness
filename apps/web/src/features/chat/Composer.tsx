@@ -14,7 +14,17 @@ import {
   Textarea,
 } from "@larness/ui";
 import { useIsMutating, useMutation } from "@tanstack/react-query";
-import { ArrowUp, Plus, Shield, ShieldAlert, ShieldCheck, Square } from "lucide-react";
+import {
+  ArrowUp,
+  Code2,
+  ListChecks,
+  Plus,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Square,
+  Wrench,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
@@ -64,6 +74,13 @@ const policies = [
     icon: ShieldAlert,
     tone: "text-danger",
   },
+] as const;
+
+type AgentProfileId = "coding" | "plan" | "workspace";
+const agentProfiles = [
+  { id: "coding", label: "Coding", detail: "文件、搜索与命令", icon: Code2 },
+  { id: "plan", label: "Plan", detail: "只读探索与计划", icon: ListChecks },
+  { id: "workspace", label: "Workspace", detail: "后台进程与服务", icon: Wrench },
 ] as const;
 
 function defaultThinkingFor(model: {
@@ -120,6 +137,10 @@ export function Composer({
     sessionId: string;
     value: ApiSession["approvalPolicyId"];
   }>();
+  const [draftProfile, setDraftProfile] = useState<{
+    sessionId: string;
+    value: AgentProfileId;
+  }>();
   const [switchNotice, setSwitchNotice] = useState<{ sessionId: string; message: string } | null>(
     null,
   );
@@ -144,6 +165,9 @@ export function Composer({
   const policy =
     sessionDetail?.approvalPolicyId ??
     (draftPolicy?.sessionId === sessionId ? draftPolicy.value : standardPolicy.id);
+  const profile =
+    sessionDetail?.agentProfile ??
+    (draftProfile?.sessionId === sessionId ? draftProfile.value : "coding");
   const savingSettings =
     useIsMutating({ mutationKey: saveSessionSettingsKey(sessionId) }, queryClient) > 0;
   const settingsDisabled =
@@ -157,7 +181,7 @@ export function Composer({
         patch,
       }: {
         id: string;
-        patch: ModelSelection | Pick<ApiSession, "approvalPolicyId">;
+        patch: ModelSelection | Partial<Pick<ApiSession, "approvalPolicyId" | "agentProfile">>;
       }) => {
         const key = sessionDetailKey(id);
         await queryClient.cancelQueries({ queryKey: key });
@@ -241,6 +265,8 @@ export function Composer({
   };
   const currentPolicy = policies.find((item) => item.id === policy) ?? standardPolicy;
   const PolicyIcon = currentPolicy.icon;
+  const currentProfile = agentProfiles.find((item) => item.id === profile) ?? agentProfiles[0];
+  const ProfileIcon = currentProfile.icon;
   const modelUsage = useTimelineStore((state) => state.modelUsage);
   const usage = model ? modelUsage[model.id] : undefined;
   const pendingApproval = useTimelineStore((state) => pendingApprovals(state.items).length > 0);
@@ -311,6 +337,23 @@ export function Composer({
     );
   };
 
+  const selectProfile = async (value: AgentProfileId) => {
+    if (settingsDisabled || value === profile) return;
+    setSaveError(null);
+    if (USE_MOCKS || isDraftSession) {
+      setDraftProfile({ sessionId, value });
+      return;
+    }
+    try {
+      await saveSettings.mutateAsync({ id: sessionId, patch: { agentProfile: value } });
+    } catch (error) {
+      setSaveError({
+        sessionId,
+        message: operationError(error, "Agent Profile 保存失败，请重试。"),
+      });
+    }
+  };
+
   const selectPolicy = async (value: ApiSession["approvalPolicyId"]) => {
     if (settingsDisabled || value === policy) return;
     setSaveError(null);
@@ -333,10 +376,11 @@ export function Composer({
     onSubmit?.();
     const selection = { model: model.id, credentialProfileId, thinking };
     const initialPolicy = isDraftSession ? policy : undefined;
+    const initialProfile = isDraftSession ? profile : undefined;
     if (USE_MOCKS) void send(value);
-    else if (screenshots.length === 0) void send(value, selection, initialPolicy);
+    else if (screenshots.length === 0) void send(value, selection, initialPolicy, initialProfile);
     else {
-      void send(value, selection, initialPolicy, screenshots, () => {
+      void send(value, selection, initialPolicy, initialProfile, screenshots, () => {
         setAttachments((current) =>
           current?.sessionId === sessionId && current.files === screenshots ? undefined : current,
         );
@@ -472,6 +516,35 @@ export function Composer({
             }
           }}
         />
+
+        <DropdownMenu key={`profile-${sessionId}`}>
+          <DropdownMenuTrigger asChild>
+            <IconButton
+              disabled={settingsDisabled}
+              label={`Agent Profile：${currentProfile.label}`}
+              title={`${currentProfile.label} · ${currentProfile.detail}`}
+              className="h-7 w-7"
+            >
+              <ProfileIcon size={15} className="text-accent" aria-hidden="true" />
+            </IconButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-[230px]">
+            <DropdownMenuLabel>Agent Profile</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={profile}
+              onValueChange={(value) => void selectProfile(value as AgentProfileId)}
+            >
+              {agentProfiles.map((item) => (
+                <DropdownMenuRadioItem key={item.id} value={item.id} className="items-start py-2">
+                  <span className="flex flex-col">
+                    <span className="text-[11.5px] font-medium text-ink">{item.label}</span>
+                    <span className="text-[10px] text-ink-3">{item.detail}</span>
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <DropdownMenu key={`policy-${sessionId}`}>
           <DropdownMenuTrigger asChild>

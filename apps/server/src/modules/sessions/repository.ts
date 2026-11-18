@@ -34,6 +34,7 @@ export interface CreateSessionRowInput {
   credentialProfileId?: string | null;
   model?: string | null;
   thinking?: string | null;
+  agentProfile?: "coding" | "plan" | "workspace";
   approvalPolicyId: string;
   origin?: SessionOrigin;
   now: number;
@@ -51,6 +52,7 @@ export function createSessionRow(db: DbExecutor, input: CreateSessionRowInput): 
     credentialProfileId: input.credentialProfileId ?? null,
     model: input.model ?? null,
     thinking: input.thinking ?? null,
+    agentProfile: input.agentProfile ?? "coding",
     approvalPolicyId: input.approvalPolicyId,
     createdAt: input.now,
     updatedAt: input.now,
@@ -99,6 +101,7 @@ export function updateSessionRow(
     credentialProfileId?: string | null;
     model?: string | null;
     thinking?: string | null;
+    agentProfile?: SessionRow["agentProfile"];
     approvalPolicyId?: string;
     status?: SessionRow["status"];
     updatedAt: number;
@@ -113,6 +116,7 @@ export function updateSessionRow(
       : { credentialProfileId: input.credentialProfileId }),
     ...(input.model === undefined ? {} : { model: input.model }),
     ...(input.thinking === undefined ? {} : { thinking: input.thinking }),
+    ...(input.agentProfile === undefined ? {} : { agentProfile: input.agentProfile }),
     ...(input.approvalPolicyId === undefined ? {} : { approvalPolicyId: input.approvalPolicyId }),
     ...(input.status === undefined ? {} : { status: input.status }),
     updatedAt: input.updatedAt,

@@ -97,7 +97,7 @@ describe("agent profile assembly", () => {
         const coding = assemble("coding");
         const plan = assemble("plan");
 
-        expect(DEFAULT_AGENT_PROFILE).toBe("workspace");
+        expect(DEFAULT_AGENT_PROFILE).toBe("coding");
         const workspaceSystem = workspace.messages[0]?.content ?? "";
         const codingSystem = coding.messages[0]?.content ?? "";
         const planSystem = plan.messages[0]?.content ?? "";

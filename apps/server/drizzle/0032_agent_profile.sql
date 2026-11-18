@@ -1,0 +1,1 @@
+ALTER TABLE `sessions` ADD `agent_profile` text DEFAULT 'coding' NOT NULL;

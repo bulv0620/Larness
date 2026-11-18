@@ -34,6 +34,7 @@ export interface SessionDto {
   credentialProfileId: string | null;
   model: string | null;
   thinking: string | null;
+  agentProfile: AgentProfile;
   approvalPolicyId: string;
   createdAt: number;
   updatedAt: number;
@@ -55,6 +56,7 @@ export interface SessionServiceOptions {
 export interface CreateSessionInput {
   projectId?: string;
   title?: string;
+  agentProfile?: AgentProfile;
   clientSessionId?: string;
 }
 
@@ -65,11 +67,13 @@ export interface UpdateSessionInput {
   credentialProfileId?: string | null;
   model?: string | null;
   thinking?: string | null;
+  agentProfile?: AgentProfile;
   approvalPolicyId?: ApprovalPolicy;
   clientSessionId?: string;
 }
 
 export type ApprovalPolicy = "standard" | "strict" | "readonly" | "autonomous";
+export type AgentProfile = "coding" | "plan" | "workspace";
 
 export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
   return {
@@ -88,12 +92,19 @@ export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
     credentialProfileId: row.credentialProfileId,
     model: row.model,
     thinking: row.thinking,
+    agentProfile: row.agentProfile,
     approvalPolicyId: row.approvalPolicyId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     lastActivityAt: row.lastActivityAt,
     pinnedAt: row.pinnedAt,
   };
+}
+
+function normalizeAgentProfile(value: string | undefined): AgentProfile {
+  if (value === undefined) return "coding";
+  if (value === "coding" || value === "plan" || value === "workspace") return value;
+  throw new SessionError("VALIDATION_ERROR", "invalid agent profile");
 }
 
 function normalizeTitle(title: string | undefined): string {
@@ -185,6 +196,7 @@ function insertSession(
     credentialProfileId?: string | null;
     model?: string | null;
     thinking?: string | null;
+    agentProfile?: string;
     now: number;
     clientSessionId?: string;
   },
@@ -199,6 +211,7 @@ function insertSession(
       credentialProfileId: input.credentialProfileId ?? null,
       model: input.model ?? null,
       thinking: input.thinking ?? null,
+      agentProfile: normalizeAgentProfile(input.agentProfile),
       approvalPolicyId: "standard",
       now: input.now,
     });
@@ -253,6 +266,7 @@ export async function createSession(
     credentialProfileId: defaultSelection?.credentialProfileId ?? null,
     model: defaultSelection?.model ?? null,
     thinking: defaultSelection?.thinking ?? null,
+    agentProfile: normalizeAgentProfile(input.agentProfile),
     now,
     clientSessionId: input.clientSessionId,
   });
@@ -267,6 +281,8 @@ export function updateSession(
   const title = input.title === undefined ? undefined : normalizeTitle(input.title);
   const modelProfileId = normalizeModelProfileId(input.modelProfileId);
   const approvalPolicyId = normalizeApprovalPolicy(input.approvalPolicyId);
+  const agentProfile =
+    input.agentProfile === undefined ? undefined : normalizeAgentProfile(input.agentProfile);
   const now = options.now?.() ?? Date.now();
 
   const row = immediateTransaction(options.db, (tx) => {
@@ -311,6 +327,7 @@ export function updateSession(
       credentialProfileId,
       model,
       thinking,
+      agentProfile,
       approvalPolicyId,
       updatedAt: now,
     });

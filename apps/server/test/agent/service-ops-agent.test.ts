@@ -16,7 +16,10 @@ it("provides PM2 environment and project associations to the normal command cont
     const opened = openDatabase(path.join(dir, "larness.db"));
     runMigrations(opened.db);
     try {
-      const session = await createSession({ db: opened.db, dataDir: dir }, {});
+      const session = await createSession(
+        { db: opened.db, dataDir: dir },
+        { agentProfile: "workspace" },
+      );
       const created = createTurn({ db: opened.db }, { sessionId: session.id, text: "deploy" });
       const sessionRow = getSessionById(opened.db, session.id);
       const turn = getTurnById(opened.db, created.turnId);
@@ -29,6 +32,7 @@ it("provides PM2 environment and project associations to the normal command cont
           registry,
           maxContextTokens: 128_000,
           policy: "autonomous",
+          agentProfile: "workspace",
           pm2Context: {
             available: true,
             nodeExecutable: process.execPath,

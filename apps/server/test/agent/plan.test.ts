@@ -17,7 +17,10 @@ it("persists each real plan update before publishing and replays the same turn p
     const opened = openDatabase(path.join(dir, "test.db"));
     runMigrations(opened.db);
     try {
-      const session = await createSession({ db: opened.db, dataDir: dir }, {});
+      const session = await createSession(
+        { db: opened.db, dataDir: dir },
+        { agentProfile: "plan" },
+      );
       const turn = createTurn({ db: opened.db }, { sessionId: session.id, text: "multi step" });
       const registry = createFileToolRegistry();
       registry.register(createPlanTool({ db: opened.db }));
@@ -56,7 +59,6 @@ it("persists each real plan update before publishing and replays the same turn p
       const runner = new TurnRunner({
         db: opened.db,
         registry,
-        agentProfile: "plan",
         resolveProvider: () => ({ adapter: provider, model: "fake" }),
         publish: (event) => {
           if (!("sequence" in event) || event.type !== "plan.updated") return;
@@ -152,7 +154,10 @@ it("does not write a plan after cancellation and refuses known credentials", asy
         ),
       ).toMatchObject({ ok: false, errorCode: "FORBIDDEN", summary: "Protected plan content" });
       expect(updatePlan).not.toHaveBeenCalled();
-      const session = await createSession({ db: opened.db, dataDir: dir }, {});
+      const session = await createSession(
+        { db: opened.db, dataDir: dir },
+        { agentProfile: "plan" },
+      );
       const turn = createTurn({ db: opened.db }, { sessionId: session.id, text: "cancel" });
       const registry = createFileToolRegistry();
       registry.register(tool);
@@ -174,7 +179,6 @@ it("does not write a plan after cancellation and refuses known credentials", asy
       const runner = new TurnRunner({
         db: opened.db,
         registry,
-        agentProfile: "plan",
         resolveProvider: () => ({ adapter: provider, model: "fake" }),
         publish: (event) => {
           if ("type" in event && event.type === "tool.started") runner.cancel(turn.turnId);

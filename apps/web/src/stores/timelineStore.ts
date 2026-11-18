@@ -86,6 +86,7 @@ interface TimelineState {
     text: string,
     selection?: ModelSelection,
     draftPolicy?: ApiSession["approvalPolicyId"],
+    draftProfile?: ApiSession["agentProfile"],
     screenshots?: File[],
     onAccepted?: () => void,
   ) => Promise<void>;
@@ -454,7 +455,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }
   },
 
-  send: async (text, selection, draftPolicy, screenshots = [], onAccepted) => {
+  send: async (text, selection, draftPolicy, draftProfile, screenshots = [], onAccepted) => {
     const trimmed = text.trim();
     if ((!trimmed && screenshots.length === 0) || get().isStreaming) return;
     const sessionId = get().sessionId;
@@ -519,9 +520,10 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       set({ isStreaming: true, turnStartedAt: Date.now() });
 
       try {
-        const real = await createSession(
-          draft.projectId === null ? {} : { projectId: draft.projectId },
-        );
+        const real = await createSession({
+          ...(draft.projectId === null ? {} : { projectId: draft.projectId }),
+          ...(draftProfile === undefined ? {} : { agentProfile: draftProfile }),
+        });
         await updateSession(real.id, {
           ...selection,
           approvalPolicyId: draftPolicy,

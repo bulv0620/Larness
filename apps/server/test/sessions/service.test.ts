@@ -39,6 +39,7 @@ describe("session service", () => {
         expect(session.projectId).toBeNull();
         expect(session.title).toBe("New session");
         expect(session.status).toBe("active");
+        expect(session.agentProfile).toBe("coding");
         expect(session.approvalPolicyId).toBe("standard");
         expect(session.workspacePath).toBe(
           path.join(dir, "sessions", "global-terminal", "workspace"),
@@ -160,11 +161,13 @@ describe("session service", () => {
           id: session.id,
           title: "  Renamed  ",
           modelProfileId: "mdl_deepseek",
+          agentProfile: "plan",
           approvalPolicyId: "strict",
         });
 
         expect(updated.title).toBe("Renamed");
         expect(updated.modelProfileId).toBe("mdl_deepseek");
+        expect(updated.agentProfile).toBe("plan");
         expect(updated.approvalPolicyId).toBe("strict");
         expect(updated.updatedAt).toBe(2_000);
         const modelAudit = listRecentAudit(opened.db).find((row) => row.action === "model.changed");

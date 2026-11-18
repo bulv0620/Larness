@@ -38,7 +38,6 @@ import { createObservationTool } from "../modules/agent/observationTool.js";
 import { createPlanTool } from "../modules/agent/planTool.js";
 import { createProcessServiceTools } from "../modules/agent/processServiceTool.js";
 import { createProcessTools } from "../modules/agent/processTool.js";
-import { DEFAULT_AGENT_PROFILE } from "../modules/agent/profiles.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { continueBudgetedTurn } from "../modules/agent/recovery/continue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
@@ -533,7 +532,6 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         services,
         processes,
         processServices: namedServices,
-        agentProfile: DEFAULT_AGENT_PROFILE,
         pm2Context: (projectId) =>
           pm2CommandContext(opened.db, dataDir, pm2Global, serviceOps, projectId),
         resolveProvider:

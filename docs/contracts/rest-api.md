@@ -569,6 +569,7 @@ OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模
 Session / Turn 的模型选择：
 
 - `model` 为目录中的模型 id；`thinking` 为 `off` / `low` / `medium` / `high`（旧 `default` 读取归一为 `medium`）。Provider 侧按 `low`→`low`、`medium`→`high`、`high`→`max` 发送。`PATCH /api/sessions/:id` 保存选择，`POST /api/sessions/:id/turns` 可覆盖本轮选择。
+- `agentProfile` 为 `coding` / `plan` / `workspace`；`POST /api/sessions` 可显式指定，缺省 `coding`；`PATCH /api/sessions/:id` 可切换。会话级字段持久化，Turn 开始时按当前会话 Profile 装配工具集；旧客户端不传时使用默认。
 - Turn 创建时快照 `provider`、`model`、`thinking`、预算（总窗口或保守窗口、最大输入／输出）与连接版本；运行中改选只影响下一 Turn。
 - 模型不在目录内或档位不属于该模型时返回 `400 MODEL_UNSUPPORTED`，不创建 Turn，也不调用上游。
 - 旧客户端传 `modelProfileId` 仍按快照兼容解析；档案已忽略或凭据缺失时失败关闭。`GET /api/models` 保留兼容但不再被 UI 使用。

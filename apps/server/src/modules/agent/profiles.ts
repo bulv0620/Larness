@@ -56,7 +56,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
 };
 
 /** Until K-9 wires the persisted session profile, production keeps the old tool surface. */
-export const DEFAULT_AGENT_PROFILE: AgentProfileId = "workspace";
+export const DEFAULT_AGENT_PROFILE: AgentProfileId = "coding";
 
 export function toolNamesForProfile(profileId: AgentProfileId): ReadonlySet<string> {
   return profileToolNames(TOOL_PACK_CATALOG, profileId);

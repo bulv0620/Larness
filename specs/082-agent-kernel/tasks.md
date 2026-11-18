@@ -17,7 +17,7 @@
 | K-7 | 命名服务与可选预览 | K-6 | `done` |
 | K-8 | 计划可选化 | K-3 | `done` |
 | K-11 | 锁与审计契约收敛 | K-2 | `done` |
-| K-9 | workspace Profile、迁移与 UI | K-4、K-7、K-8、K-11、K-12 | `todo` |
+| K-9 | workspace Profile、迁移与 UI | K-4、K-7、K-8、K-11、K-12 | `done` |
 | K-10 | A/B 验证、全量检查与文档回填 | K-9 | `todo` |
 
 ## 任务卡
@@ -270,7 +270,7 @@
 
 ### K-9 workspace Profile、迁移与 UI
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-4、K-7、K-8、K-11
 - 目标：保留后台进程/服务能力作为显式 `workspace` Profile，并完成会话迁移与 UI 展示；不保留旧 Git/终端模型工具。
 - 交付物：
@@ -403,3 +403,13 @@
 - 测试：`auditSink.test.ts` 覆盖 required 失败关闭与 debug 不入表；锁/命令/终端/ServiceOps/Deployments/Git 定向 90 项通过；`projectWriteLock`、`gitLockOrder`、`cross-resource-locks` 回归通过。
 - 验证：`pnpm check` 全绿——biome 691 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 729（14 跳过）。
 - 说明：既有约 100 个 `appendAudit` 调用点仍保留在各自事务内，基线已按 required/resource/debug 分类；本轮优先移除调试双写与噪声，未机械改写全部调用点，行为上安全关键路径继续失败关闭。
+
+### K-9（2026-11-18，macOS）
+
+- 迁移：`sessions.agent_profile`（`0032_agent_profile.sql`），`NOT NULL DEFAULT 'coding'`；新会话与存量会话统一 `coding`，`workspace` 仅显式选择。迁移计数测试全部从 31 更新为 32。
+- 服务端：`SessionDto` / `CreateSessionInput` / `UpdateSessionInput` / Session repository 增加 `agentProfile`；`POST /api/sessions` 与 `PATCH /api/sessions/:id` 接受 `coding|plan|workspace`；TurnRunner 在 Turn 开始时读取 `session.agentProfile` 装配工具集，不再使用全局默认 Profile。`DEFAULT_AGENT_PROFILE` 改为 `coding`。
+- UI：Composer 增加 Agent Profile 下拉（Coding / Plan / Workspace）与当前模式图标/提示；草稿会话在创建时提交 Profile；已有会话通过 PATCH 保存。会话详情类型与 API 客户端同步。
+- 兼容：旧事件、旧终端/服务记录、旧 Git/计划回放保留；旧客户端不传 Profile 时使用 `coding`。
+- 测试：`sessions/service.test.ts` 断言默认 coding 与切换到 plan；`sessions/api.test.ts` 断言创建默认 coding 与 PATCH workspace；`SessionModel.test.tsx` 新增 Profile 保存/恢复用例（12 项通过）；plan/context/profiles 定向通过。
+- 验证：`pnpm check` 全绿——biome 692 文件、6 包 typecheck、web 258、agent 63（1 跳过）、server 729（14 跳过）。
+- 未运行：浏览器 Profile 切换 E2E 与视觉验收未跑；留到 K-10 全量 E2E / 人工验收。

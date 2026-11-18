@@ -820,7 +820,7 @@ describe("TurnRunner", () => {
 
       try {
         const sessionOptions = { db: opened.db, dataDir: dir };
-        const session = await createSession(sessionOptions, {});
+        const session = await createSession(sessionOptions, { agentProfile: "workspace" });
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "prefix" });
         let pm2Calls = 0;
         const pm2 = {
