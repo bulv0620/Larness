@@ -1,6 +1,6 @@
 # STATUS
 
-> 最后更新：2026-11-17 (+08:00)
+> 最后更新：2026-11-18 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
@@ -13,6 +13,7 @@
 - **HX-12b（`turnRunner` 循环体拆分）**：前置是把约 20 个可变闭包状态收敛为显式 `TurnRunState`；仅因改造面大而暂缓，不受环境阻塞。081 明确不动循环体，交付后该文件为 2 416 行，拆分优先级不变。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
+- **082 Agent 内核重构 spec 草案**：已建立 [082](specs/082-agent-kernel/spec.md) 与 [ADR-068 提案](docs/adr/ADR-068-agent-kernel.md)。待人类确认默认 Profile、存量会话迁移、进程/服务契约、锁/审计分级、`run_command`/`run_shell` 双路径与 ADR 替代边界；确认前不进入实现。
 
 ## 最近收口（滚动保留最近 10 项）
 
