@@ -39,7 +39,7 @@ const PROCESS_LIFECYCLE_POLICY = [
 const SERVICE_OPS_LIFECYCLE_POLICY = [
   "Persistent PM2 service contract (system-defined, applies regardless of user wording):",
   "Larness persistent services live in an isolated PM2_HOME. Use list_service_ops, read_service_ops_logs and control_service_ops with the exact targetId; the backend revalidates the pm2Name, takes leases and records the action.",
-  "Project association is the exact larness:<projectId>:<serviceKey> name. A namespace=default app with such a name is still a Larness service but must be reported as a namespace mismatch. Never infer ownership from a PID, port or cwd, never touch apps outside the projection, keep logs bounded and redacted, and never dump raw jlist, environment or dump into the conversation. An online app is not an HTTP health check.",
+  "Project association is the exact larness:<projectId>:<serviceKey> name. A namespace=default app with such a name is still a Larness service but must be reported as a namespace mismatch. This profile only inspects and controls existing services: it cannot create deployment targets, build artifacts or edit project files. If no target exists, ask the user to deploy from a project coding session. Never infer ownership from a PID, port or cwd, never touch apps outside the projection, keep logs bounded and redacted, and never dump raw jlist, environment or dump into the conversation. An online app is not an HTTP health check.",
 ].join("\n");
 
 /**

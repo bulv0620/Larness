@@ -1,5 +1,5 @@
 import path from "node:path";
-import { createFileToolRegistry } from "@larness/agent";
+import { createFakeProvider, createFileToolRegistry } from "@larness/agent";
 import { expect, it } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
@@ -7,6 +7,8 @@ import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createServiceOpsTools } from "../../src/modules/agent/serviceOpsTool.js";
 import { executeTool } from "../../src/modules/agent/toolExecutor.js";
+import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
+import type { ServiceOpsRuntime } from "../../src/modules/service-ops/serviceOps.js";
 import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -92,6 +94,71 @@ it("provides PM2 environment and project associations to the normal command cont
           { ...base, policy: "autonomous", toolName: "build_formal_artifact", args: {} },
         ),
       ).toMatchObject({ status: "completed", result: { ok: false, errorCode: "TOOL_NOT_FOUND" } });
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("routes service operations tools through the wired Turn runner", async () => {
+  await withTempDir(async (dir) => {
+    const opened = openDatabase(path.join(dir, "larness.db"));
+    runMigrations(opened.db);
+    try {
+      const session = await createSession(
+        { db: opened.db, dataDir: dir },
+        { agentProfile: "service-ops" },
+      );
+      const turn = createTurn({ db: opened.db }, { sessionId: session.id, text: "list services" });
+      const registry = createFileToolRegistry();
+      for (const tool of createServiceOpsTools()) registry.register(tool);
+      registry.register(createObservationTool());
+      const provider = createFakeProvider([
+        {
+          chunks: [
+            {
+              type: "tool-call",
+              toolCall: { id: "call_list", name: "list_service_ops", args: {} },
+            },
+            { type: "finish", finishReason: "tool-calls" },
+          ],
+        },
+        {
+          chunks: [
+            { type: "text-delta", text: "listed" },
+            {
+              type: "finish",
+              finishReason: "stop",
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+            },
+          ],
+        },
+      ]);
+      const events: Array<{ type: string; payload: unknown }> = [];
+      const serviceOps = {
+        reconcile: async () => {},
+        listServices: () => [{ targetId: "tgt_one" }],
+        listUnassociatedServices: () => [],
+      } as unknown as ServiceOpsRuntime;
+      const runner = new TurnRunner({
+        db: opened.db,
+        dataDir: dir,
+        registry,
+        serviceOps,
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        publish: (event) => {
+          if ("payload" in event) events.push({ type: event.type, payload: event.payload });
+        },
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+      expect(
+        events.find(
+          (event) =>
+            event.type === "tool.completed" &&
+            (event.payload as { toolCallId?: string }).toolCallId === "call_list",
+        )?.payload,
+      ).toMatchObject({ resultSummary: "1 个 PM2 服务" });
     } finally {
       opened.close();
     }

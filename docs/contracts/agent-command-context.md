@@ -80,4 +80,6 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 | 停止 | stop_process 停止进程组 | control_service_ops 按 targetId 停止 |
 | 退出管理面 | 临时进程不跨 Larness 重启恢复 | PM2 服务继续运行 |
 
+service-ops 只运维已存在的 PM2 服务，不创建部署 target、不构建产物、不编辑项目文件；没有 target 时应提示用户切到 Coding 项目会话完成部署。
+
 不再存在手动登记 temporary service、`POST /api/services` 或 `register_temporary_service` / `resolve_service_preview` 工具；旧 `services` 记录只保留历史查询、显式停止/删除与日志读取。项目服务窗口直接使用 `/api/processes?projectId=`，关闭窗口不停止任务。`POST /api/previews/resolve` 在用户点击时按 `processId` + `projectId` 校验项目归属、进程存活与端口监听。PM2 服务即使 `namespace=default`，只要名称符合 `larness:<projectId>:<serviceKey>` 仍按项目关联并标注偏差。后端继续独立校验项目、进程、targetId/pm2Name、租约与日志脱敏。

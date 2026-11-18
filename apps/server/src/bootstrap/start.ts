@@ -524,6 +524,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         commands,
         git,
         processes,
+        serviceOps,
         pm2Context: (projectId) =>
           pm2CommandContext(opened.db, dataDir, pm2Global, serviceOps, projectId),
         resolveProvider:

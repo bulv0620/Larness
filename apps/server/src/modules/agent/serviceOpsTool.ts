@@ -16,7 +16,7 @@ export function createServiceOpsTools(): ToolDefinition[] {
     defineTool({
       name: "list_service_ops",
       description:
-        "List Larness-managed PM2 services and their project associations. Use it to inspect the isolated Larness PM2 instance; an empty list is not proof that PM2 is unavailable.",
+        "List existing Larness-managed PM2 services and their project associations. This tool does not create deployment targets, build artifacts or files; an empty list means there is no target yet, not that PM2 is unavailable. Deploy from a project coding session first.",
       riskLevel: "L0",
       requiresProject: false,
       requiresProjectLock: false,
@@ -52,7 +52,7 @@ export function createServiceOpsTools(): ToolDefinition[] {
     defineTool({
       name: "control_service_ops",
       description:
-        "Start, stop or restart one Larness-managed PM2 service by targetId. The backend re-checks the current pm2Name, takes project and service leases, and persists the control operation; a stale target returns DEPLOY_CONFLICT instead of touching another process.",
+        "Start, stop or restart one existing Larness-managed PM2 service by targetId. The backend re-checks the current pm2Name, takes project and service leases, and persists the control operation; a stale target returns DEPLOY_CONFLICT instead of touching another process. This tool cannot build or create a deployment target.",
       riskLevel: "L2",
       requiresProject: false,
       requiresProjectLock: false,

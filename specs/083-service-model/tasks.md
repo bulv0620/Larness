@@ -60,6 +60,6 @@
 - 全量门禁：`pnpm check` 通过（biome 683 文件；web 256、agent 63+1 跳过、server 729+14 跳过）；`pnpm build` 通过。
 - E2E：`pnpm test:e2e` 24/24；`pnpm test:e2e:prod` 20/20。
 - 文档：ADR-069、REST / Agent / 资源 / 数据模型 / 安全契约、051 持续约束、ROADMAP、STATUS、Q-051 已同步。
-- 收尾修正：移除 `POST /api/services` 写入口（旧记录只读/停止/删除）；进程预览必须同时提交 `processId` + `projectId` 并校验归属；system prompt 拆分为 coding 的项目后台任务契约与 service-ops 的 PM2 契约，`PROMPT_VERSION` → `m6-7`；ServiceWindow 新增真实进程列表/预览/停止测试并修复日志重复追加；`list_processes` 与项目服务列表只返回 STARTING/RUNNING/STOPPING，结束/失败任务不再保留列表项。
+- 收尾修正：移除 `POST /api/services` 写入口（旧记录只读/停止/删除）；进程预览必须同时提交 `processId` + `projectId` 并校验归属；system prompt 拆分为 coding 的项目后台任务契约与 service-ops 的 PM2 契约，`PROMPT_VERSION` → `m6-7`；ServiceWindow 新增真实进程列表/预览/停止测试并修复日志重复追加；`list_processes` 与项目服务列表只返回 STARTING/RUNNING/STOPPING，结束/失败任务不再保留列表项。修复 TurnRunner 未注入 ServiceOpsRuntime 导致 service-ops 工具全部 FORBIDDEN 的装配缺陷，并补回归测试；明确 service-ops 只运维已有服务，部署从 Coding 项目会话发起。
 - 验收：2026-11-18 人类验收通过，083 收工。
 - 未在本次环境复跑：用户现有 `todo-list` PM2 应用（namespace=default）与旧 `STOP_UNCONFIRMED` 数据；不得因自动门禁或人类验收而声称这些实机数据已验证。
