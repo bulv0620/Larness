@@ -81,6 +81,7 @@
 - [081 Agent 内核轻量化](081-agent-lean/spec.md)
 - [082 Agent 内核重构](082-agent-kernel/spec.md)
 - [083 项目开发服务与全局 PM2 运维](083-service-model/spec.md)
+- [084 Agent Profile 收敛与会话 Token 统计](084-agent-profiles-and-usage/spec.md)
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 
