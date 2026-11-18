@@ -2,7 +2,7 @@
 id: 084-agent-profiles-and-usage
 title: Agent Profile 收敛与会话 Token 统计
 milestone: 发布后
-status: draft
+status: active
 depends_on: [051-agent-tool-contract, 082-agent-kernel, 083-service-model]
 owners: []
 created: 2026-11-18
@@ -11,7 +11,7 @@ updated: 2026-11-18
 
 # Agent Profile 收敛与会话 Token 统计
 
-> 状态：`draft`（2026-11-18 开始讨论，待人类逐项确认）。本切片修改 082/083 的 Profile 模型，并增加输入框下方的会话 Token 统计与最后一步实测速度。未确认项集中在 §12。
+> 状态：`active`（2026-11-18 人类审核通过并指示开始实施；§12 已固化为决议）。本切片修改 082/083 的 Profile 模型，并增加输入框下方的会话 Token 统计与最后一步实测速度。决策见 [ADR-070](../../docs/adr/ADR-070-agent-profiles-and-usage.md)。
 
 ## 1. 背景与问题
 
@@ -227,18 +227,18 @@ And 用户点击标题行可展开查看执行过程
 - E2E：Coding 小任务不出现计划卡；Plan 任务出现计划卡并完成实际修改；会话 Token 显示。
 - 门禁：`pnpm check`、`pnpm build`、`pnpm test:e2e`、`pnpm test:e2e:prod`。
 
-## 12. 待确认
+## 12. 已确认决议（2026-11-18 审核通过）
 
-1. **Coding / Plan 文案**：Plan 是否仍叫 `Plan`，详情写“完整能力 + 计划”还是“执行计划模式”？
-2. **Token 行显示时机**：只在任务进行中显示整行，还是总数常驻、速度仅进行中显示？
-3. **Token 单位**：显示 `1.24M tokens`，还是分开显示 `输入 / 输出`？
-4. **缺失 usage**：显示 `部分统计`、`≥`，还是隐藏总数？
-5. **最后一步速度**：显示 `38 tok/s` 还是 `38 tokens/s`；是否同时显示步骤耗时？
-6. **PM2 观察**：两个 Profile 都完全不注入，还是仅在 `service-ops` 相关操作时注入一次？
-7. **验证比例原则**：是否写入 system prompt，还是只写在命令工具描述/项目说明？
-8. **是否保留 `refresh_observations`**：Service Ops Profile 删除后，该工具是否也退出模型面？
-9. **旧 Plan 会话**：升级后直接获得完整写/命令权限，是否需要提示或二次确认？
-10. **ADR**：需要新增 ADR 取代 ADR-069 中 Service Ops 独立 Profile 的决策；草案待人类批准后才能进入实现。
+1. **Coding / Plan 文案**：保留 `Coding` 与 `Plan`；Plan 详情为「完整能力 + 计划」。
+2. **Token 行显示时机**：总数常驻（有已知 usage 时）；最后一步速度仅在 Turn 进行中显示。
+3. **Token 单位**：总量显示 `1.24M tokens` / `12.3k tokens`；输入/输出明细放在 Hint 中。
+4. **缺失 usage**：总量前缀 `≥`，Hint 标注「部分统计 · N 轮缺失」；不隐藏已知值、不补零。
+5. **最后一步速度**：显示 `38 tok/s`；Hint 显示该步骤输出量与耗时。
+6. **PM2 观察**：两个 Profile 都不注入；模型需要时调用 `list_service_ops`。
+7. **验证比例原则**：写入 system prompt，并同步到 051 工具契约说明。
+8. **`refresh_observations`**：保留实现，但不再属于任何 Profile 的工具包，退出模型面。
+9. **旧 Plan 会话**：升级后直接获得完整写/命令权限，不二次确认；`plan` 不是权限边界。
+10. **ADR**：[ADR-070](../../docs/adr/ADR-070-agent-profiles-and-usage.md) 已 accepted，取代 ADR-069 的独立 Service Ops Profile 决策。
 
 ## 13. 完成定义
 

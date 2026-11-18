@@ -452,9 +452,18 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | S-6 | [旧命令锁恢复](083-service-model/tasks.md#s-6) | S-2 | `done`（2026-11-18） |
 | S-7 | [全量验证与收口](083-service-model/tasks.md#s-7) | S-1～S-6 | `done`（2026-11-18） |
 
-### 8.10 Agent Profile 收敛与会话 Token 统计（084，draft）
+### 8.10 Agent Profile 收敛与会话 Token 统计（084，active）
 
-把 Profile 收敛为 `coding`（完整工具、无 `update_plan`）与 `plan`（相同工具 + `update_plan`），将 Service Ops 工具合并进两者；旧 `service-ops` 会话迁移为 `coding`。同时在输入框下方增加会话累计 Token 与最后一步实测输出速度，不做不可精确的逐字实时 speed。验证比例原则默认最小检查，避免小任务跑全仓。规格见 [084](084-agent-profiles-and-usage/spec.md)；待确认项与 ADR 草案见规格 §12。
+把 Profile 收敛为 `coding`（完整工具、无 `update_plan`）与 `plan`（相同工具 + `update_plan`），将 Service Ops 工具合并进两者；旧 `service-ops` 会话迁移为 `coding`。同时在输入框下方增加会话累计 Token 与最后一步实测输出速度，不做不可精确的逐字实时 speed。2026-11-18 人类审核通过 spec 与 §12 决议，实施见 [ADR-070](../docs/adr/ADR-070-agent-profiles-and-usage.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| AP-1 | [规格决议、ADR、计划与任务卡](084-agent-profiles-and-usage/tasks.md#ap-1-规格决议adr计划与任务卡) | — | `done` |
+| AP-2 | [Profile 收敛、提示、迁移与选择器](084-agent-profiles-and-usage/tasks.md#ap-2-profile-收敛提示迁移与选择器) | AP-1 | `in_progress` |
+| AP-3 | [会话用量 API 与步骤耗时](084-agent-profiles-and-usage/tasks.md#ap-3-会话用量-api-与步骤耗时) | AP-1 | `todo` |
+| AP-4 | [输入框下方用量与最后一步速度](084-agent-profiles-and-usage/tasks.md#ap-4-输入框下方用量与最后一步速度) | AP-3 | `todo` |
+| AP-5 | [过程呈现收敛（状态行、波形、思考）](084-agent-profiles-and-usage/tasks.md#ap-5-过程呈现收敛状态行波形思考) | AP-1 | `todo` |
+| AP-6 | [全量验证、契约与状态回填](084-agent-profiles-and-usage/tasks.md#ap-6-全量验证契约与状态回填) | AP-2～AP-5 | `todo` |
 
 ## 9. 门禁
 
