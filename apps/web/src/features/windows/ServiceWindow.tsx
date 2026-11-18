@@ -140,7 +140,7 @@ function ProcessServiceWindow({
             <Server size={22} className="text-ink-3" />
             <p className="text-[12px] font-medium text-ink">当前项目暂无后台服务</p>
             <p className="max-w-[340px] text-[11px] text-ink-3">
-              让 Agent 启动开发服务器或 long-running 任务后，会自动出现在这里；不需要手动登记。
+              让 Agent 启动开发服务器或 long-running 任务
             </p>
           </div>
         ) : (
