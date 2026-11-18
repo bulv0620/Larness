@@ -1,4 +1,4 @@
-import { chmod, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { expect, it } from "vitest";
 import { resolveManualShell, terminalLaunch } from "../../src/modules/terminals/shell.js";
@@ -86,14 +86,18 @@ it.skipIf(process.platform !== "win32")(
   "uses system CMD if PowerShell is unavailable and fails when all candidates are unusable",
   async () => {
     const cmd = path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe");
-    await withTempDir(async (dir) => {
+    // Stage the fake Windows root beside the tests instead of %TEMP%:
+    // executing a copied cmd.exe from %TEMP% is a known attack pattern, and
+    // host security software can silently kill the whole worker over it.
+    const dir = path.join(process.cwd(), `.terminal-shell-fixture-${process.pid}`);
+    try {
       const previousPath = process.env.PATH;
       const previousRoot = process.env.SystemRoot;
       try {
         process.env.PATH = dir;
         process.env.SystemRoot = dir;
         const system32 = path.join(dir, "System32");
-        await mkdir(system32);
+        await mkdir(system32, { recursive: true });
         const fallback = path.join(system32, "cmd.exe");
         await expect(resolveManualShell()).rejects.toThrow();
         await copyFile(cmd, fallback);
@@ -102,6 +106,8 @@ it.skipIf(process.platform !== "win32")(
         process.env.PATH = previousPath;
         process.env.SystemRoot = previousRoot;
       }
-    });
+    } finally {
+      await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    }
   },
 );

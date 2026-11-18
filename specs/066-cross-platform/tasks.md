@@ -93,11 +93,19 @@
 
 ### 发布后跟踪 M5-F1-W12：Windows 全量 check 存量 shell 测试失败（不计入 M5 完成）
 
-- 状态：`todo`（2026-11-18 W11 排查时发现）
+- 状态：`done`（2026-11-18，分支 `task/m5-f1-w12-shell-tests`；Windows 10 19045 / Node 24.19.0 实机；只改测试，未动产品代码）
 - 依赖：M5-F1
-- 现象：Windows 10 实机 `VITEST_MAX_WORKERS=3 pnpm check` 在 apps/server 测试阶段失败：`test/agent/commands.test.ts`「runs run_shell through the platform shell…」与 `test/resources/command-runner.test.ts`「runs an explicit platform shell…」期望 POSIX `sh` 断言（`shell: "sh"`），本机仅有 `pwsh`，PowerShell 对 `"node.exe" -e …` 报 ParserError 导致 exit 1。另有 `terminal-shell.test.ts` worker 偶发 `exited unexpectedly`（并行运行时 1 次，单独复跑未再现）。stash 掉 W11 修复后同样失败，确认为存量，非 W11 回归；疑为 082 K-12 新增测试未在 Windows 验证（最后一次 Windows 全量 check 为 2026-11-10 Windows 11）。
-- 目标：平台条件化或补 pwsh 断言，使 Windows 全量 check 通过；worker 崩溃复现后归因。
-- 涉及路径：`apps/server/test/agent/commands.test.ts`、`apps/server/test/resources/command-runner.test.ts`、必要时 `selectShell` 相关断言。
+- 现象与归因：
+  - `test/agent/commands.test.ts`「runs run_shell through the platform shell…」与 `test/resources/command-runner.test.ts`「runs an explicit platform shell…」用带引号路径命令（`"node.exe" -e …`），POSIX sh 可执行但 PowerShell 需要 `&` 调用符，ParserError 导致 exit 1；shell 名断言硬编码 `sh`。
+  - 「executes an exact project test script…」偶发 `TIMED_OUT`：fixture 默认命令预算 2000ms，Windows 下 `pnpm` .cmd shim 启动链常超 2s（已复现一次）。
+  - `terminal-shell.test.ts` worker 崩溃为**确定性**（单独运行 5/5 复现）：「uses system CMD if PowerShell is unavailable…」把真实 cmd.exe 复制到 %TEMP% 再探测执行，被主机安全软件无声击杀整棵进程树（父进程 exit 0、无任何事件日志；脱离 vitest 可独立复现）。对照实验：where.exe 副本、cmd.exe 硬链接、仓库目录下的 cmd.exe 副本均存活——拦截模式是「%TEMP% 中新建的 cmd.exe 副本被执行」。
+- 交付（2026-11-18）：
+  - [x] 两个 shell 测试补 Windows 分支：命令加 `&` 调用符，shell 名按平台断言（POSIX `sh`；Windows `pwsh`/`powershell`）。Windows 首次真实覆盖 `selectWindowsShell` + `-EncodedCommand` 包装路径。
+  - [x] `pnpm test` 用例预算 2000ms → 30s。
+  - [x] terminal-shell 的 cmd 兜底夹具从 %TEMP% 改为工作目录暂存（`.terminal-shell-fixture-<pid>`，finally 清理）；3/3 稳定通过，cmd 兜底分支在本机首次完整执行。
+  - [x] 定向复跑：两个测试文件 22/22 ×3 遍；terminal-shell 3/3 ×3 遍无 worker 崩溃。
+  - [x] `VITEST_MAX_WORKERS=3 pnpm check` 全绿：biome、6 包 typecheck、server 152 文件 712 通过 / 31 跳过（082/083 测试合入后 Windows 首次全量通过）。
+- 涉及路径：`apps/server/test/agent/commands.test.ts`、`apps/server/test/resources/command-runner.test.ts`、`apps/server/test/resources/terminal-shell.test.ts`。
 
 ### 发布后跟踪 M5-F3：平台文档与整体验收（不计入 M5 完成）
 
