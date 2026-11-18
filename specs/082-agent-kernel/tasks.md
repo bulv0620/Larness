@@ -7,7 +7,7 @@
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
-| K-1 | ADR-068、基线、锁/审计与契约盘点 | — | `todo` |
+| K-1 | ADR-068、基线、锁/审计与契约盘点 | — | `done` |
 | K-2 | Profile / ToolPack 抽象 | K-1 | `todo` |
 | K-3 | coding Profile 与核心提示 | K-2 | `todo` |
 | K-12 | run_command/run_shell 跨平台执行 | K-3 | `todo` |
@@ -24,17 +24,18 @@
 
 ### K-1 ADR-068、基线、锁/审计与契约盘点
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：无
 - 目标：把 ADR-068 从 proposed 推进到 accepted，并建立重构前基线。
 - 交付物：
-  - ADR-068 终稿与人类确认记录；
-  - 当前 28 工具、固定 token、system 段落、计划触发率、测试命令占比、终端/服务调用统计；
+  - ADR-068 终稿与人类确认记录（2026-11-18：全部推荐默认、内测允许破坏性重构、存量不保留旧能力）；
+  - [baseline.md](baseline.md)：当前 28 工具、固定 token、system 段落、计划触发率、终端/服务调用统计；
   - 锁/审计调用点清单：ProjectWriteLock、命令/Git/Files/ServiceOps 的锁入口、终端租约、appendAudit 调用与失败策略；
   - 受影响的工具契约、REST/WS、数据模型、ADR-030/038/048/059/060/067 清单；
-  - “coding / plan / workspace”默认与存量迁移方案。
+  - “coding / plan / workspace”默认与存量迁移方案：新会话与存量统一 `coding`，`workspace` 仅显式选择；
+  - 复现脚本 `apps/server/scripts/kernel-baseline.ts`。
 - 验收：
-  - 基线可在 `specs/082-agent-kernel/` 或 `docs/log` 复现；
+  - 基线可在 [baseline.md](baseline.md) 复现，脚本可重复运行；
   - 每个锁域和审计级别都有“保留 / 收敛 / 移除 / 另切片”的结论；
   - 所有冲突条款有明确结论；
   - ADR-068 状态为 accepted，或 spec 继续 draft。
@@ -271,22 +272,22 @@
 
 - 状态：`todo`
 - 依赖：K-4、K-7、K-8、K-11
-- 目标：保留现有工作区能力作为显式 Profile，并完成会话迁移与 UI 展示。
+- 目标：保留后台进程/服务能力作为显式 `workspace` Profile，并完成会话迁移与 UI 展示；不保留旧 Git/终端模型工具。
 - 交付物：
   - `workspace` = coding + process + service；
-  - 会话 `agent_profile` 持久化与迁移（新会话 coding；存量 workspace）；
+  - 会话 `agent_profile` 持久化与迁移（新会话与存量统一 coding；不做旧能力回填；workspace 仅显式选择）；
   - UI Profile 选择、当前模式与能力提示；
   - 旧会话/旧事件/旧资源兼容。
 - 验收：
   - A7/A9 通过；
-  - 旧会话升级后可继续使用；
+  - 旧会话升级后使用 coding，历史事件与人类操作面仍可回放；
   - 切换 Profile 不重启未完成 Turn；
   - 人类终端/Git/PM2/预览入口不回归。
 - 测试：
   - 迁移测试、E2E Profile 切换、旧数据回放、UI 视觉验收。
 - 涉及路径：
   - `sessions/*`、`api/sessions.ts`、`workspaceApi.ts`、web 会话设置
-- 备注：默认迁移策略必须先由人类确认。
+- 备注：迁移策略已于 2026-11-18 确认：存量不保留旧能力；`workspace` 仅显式选择。
 
 ### K-10 A/B 验证、全量检查与文档回填
 
@@ -310,4 +311,11 @@
 
 ## 验收记录
 
-（待实现后填写。）
+### K-1（2026-11-18，macOS）
+
+- 门禁：082 spec `ready`；ADR-068 `accepted`；Q-042～Q-050 全部确认并记录于 [open-questions](../../docs/open-questions.md#已解决)。
+- 基线：[baseline.md](baseline.md)。28 工具 / 4 577 schema token；system 747 token；真实数据 98 Turn、970 次工具调用、计划触发率 11.2%、终端 120 次、服务 55 次。
+- 锁：实际只创建 project/service 两类；ProjectWriteLock 覆盖 Agent Turn、Files、Git，Commands/ServiceOps 直接 acquire；file/git/global-maintenance 无活动写者；terminal_leases 仅剩人类终端与旧数据。
+- 审计：104 个调用点、188 170 行；`tool.requested/completed`、`terminal.input/resize`、Turn 细节降为 debug；`dev-web.rejected`（169 061）与 `git.denied`（13 923）需去重/聚合，但安全拒绝不删除。
+- 验证：`pnpm check` 全绿——biome 678 文件、6 包 typecheck、web 257、agent 59（1 跳过）、server 730（14 跳过）。
+- 结论：K-2 可以开始；实现前不再需要新的产品决策。

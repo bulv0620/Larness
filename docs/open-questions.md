@@ -43,17 +43,9 @@
 | Q-039 | 计划陈旧提醒的阈值（6 个工具调用）与「每计划版本只提醒一次」是否合适？ | 已按 6 实现（`PLAN_STALE_TOOL_CALLS`）；真实长任务中若模型仍只在结尾更新，再按 `plan.updated` 次数调低或允许每 N 次重复 | 长任务体验、token 成本 | [079 spec](../specs/079-plan-progress/spec.md#13-开放问题) |
 | Q-040 | 回合已完成但计划仍留 `pending` 时，是否要在回合摘要额外提示「计划未同步」？ | 默认只在计划行显示「另有 N 步未完成」，不加回合级提示；若用户仍误读计划与成果不符，再评估 | 计划可读性、界面噪声 | [080 spec](../specs/080-plan-terminal-state/spec.md#13-开放问题) |
 | Q-041 | 是否继续压缩 `@larness/shared` 的 schema 字段描述（`update_plan`、`start_project_terminal`、`run_command`）？081 把重复的生命周期文案合到一处后，字段描述成为剩余固定开销的最大单项（工具 schema 仍约 4.4k token）。 | 暂不动：改 `.describe()` 属执行契约变更，需要重跑工具契约矩阵并更新 `051` 契约，单开一轮评估 | 固定开销、模型调用正确率 | [081 spec](../specs/081-agent-lean/spec.md#13-开放问题) |
-| Q-042 | 082 内核重构后，新会话默认 `coding`、存量会话是否迁移到 `workspace`？ | 建议新会话 `coding`，存量保持 `workspace` 直到用户显式切换；不静默改变现有会话能力 | 升级体验、工具面 | [082 spec](../specs/082-agent-kernel/spec.md#13-开放问题) |
-| Q-043 | 计划是否从 `coding` 默认移除，仅保留 `plan` Profile？ | 建议 `coding` 不注册 `update_plan`、不注入计划提醒；`plan` Profile 保留只读计划元数据 | 模型行为、UI、ADR-036/079/080 | [082 spec](../specs/082-agent-kernel/spec.md#13-开放问题)、[ADR-068](adr/ADR-068-agent-kernel.md) |
-| Q-044 | 交互终端是否完全退出 Agent 模型面，服务改为后台进程？ | 建议是：终端仅人类使用；Agent 使用 `start_process/read_process_output/stop_process` 与服务层。需 ADR-068 替代 ADR-030/038 的相关条款 | 终端/服务生命周期、安全 | [082 spec](../specs/082-agent-kernel/spec.md#13-开放问题) |
-| Q-045 | 人类 Git UI 与 Agent Shell Git 并发如何串行？ | 建议人类 Git 写操作加项目锁；Agent `git` 写命令由命令扫描器识别并尝试同一把锁 | Git 索引冲突、用户误操作 | [082 spec](../specs/082-agent-kernel/spec.md#13-开放问题) |
-| Q-046 | 082 是否同时收紧 ADR-059 的步数/花费/挂钟与自动接续？ | 建议不在 082 内改变；另开切片评估。082 先通过工具面/Prompt 降低固定开销 | 预算、长任务行为 | [082 spec](../specs/082-agent-kernel/spec.md#13-开放问题) |
-| Q-047 | 082 是否改变项目 `AGENTS.md` 的加载方式？ | 建议本切片不改；项目规则仍由现有项目指令机制提供 | 项目规则、测试行为 | [082 spec](../specs/082-agent-kernel/spec.md#13-开放问题) |
-| Q-048 | 082 的 `workspace` / service 预览默认值是否改变 ADR-060 的现有默认？ | 建议沿用 ADR-060 的现有配置默认；预览仍可选，不在本切片改为默认关闭 | 服务预览、用户体验 | [082 spec](../specs/082-agent-kernel/spec.md#13-开放问题)、[ADR-060](adr/ADR-060-local-preview-default.md) |
-| Q-049 | 082 的锁/审计分级是否按推荐收敛为 ProjectLease + ServiceLease 与 required/resource/debug？ | 建议按 [082 spec](../specs/082-agent-kernel/spec.md#75-锁与审计契约) 实施；终端租约退出模型面，安全关键审计 fail-closed | 并发、安全、审计体积 | [082 spec](../specs/082-agent-kernel/spec.md#75-锁与审计契约)、[ADR-068](adr/ADR-068-agent-kernel.md) |
-| Q-050 | 082 是否采用 `run_command` 结构化 + `run_shell` 平台 shell 双路径？ | 建议采用；POSIX `/bin/sh -c`，Windows `pwsh` → PowerShell 5.1 → CMD；不假设 bash，不自动翻译平台语法 | 跨平台执行、审批、安全 | [082 spec](../specs/082-agent-kernel/spec.md#76-命令执行契约) |
-
 ## 已解决
+
+- Q-042～Q-050（2026-11-18）：人类批准 [082 spec](../specs/082-agent-kernel/spec.md#13-已确认决策) 与 [ADR-068](adr/ADR-068-agent-kernel.md) 的全部推荐默认。新会话与存量会话统一 `coding`，内测允许破坏性重构、不保留旧能力；`workspace` 仅显式选择。`plan` 仅 plan Profile；终端退出模型面；Git 模型工具移除；后台进程/服务工具按 3+4 粒度；`run_command` + `run_shell` 双路径；锁为 ProjectLease + ServiceLease；审计为 required/resource/debug；ADR-059/060 与 AGENTS.md 加载方式不变。K-1 基线见 [baseline.md](../specs/082-agent-kernel/baseline.md)。
 
 - Q-038：MC-2 使用包内能力与显式刷新 Models.dev，公共目录只补已经发现的模型的允许字段；调用地址、授权头和协议由 Larness 管理。后续复查公共目录返回 HTTP 200，离线合并和失败路径以测试覆盖。见 [077 验收记录](../specs/077-model-connections/acceptance.md)。
 

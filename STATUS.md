@@ -13,12 +13,12 @@
 - **HX-12b（`turnRunner` 循环体拆分）**：前置是把约 20 个可变闭包状态收敛为显式 `TurnRunState`；仅因改造面大而暂缓，不受环境阻塞。081 明确不动循环体，交付后该文件为 2 416 行，拆分优先级不变。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
-- **082 Agent 内核重构 spec 草案**：已建立 [082](specs/082-agent-kernel/spec.md) 与 [ADR-068 提案](docs/adr/ADR-068-agent-kernel.md)。待人类确认默认 Profile、存量会话迁移、进程/服务契约、锁/审计分级、`run_command`/`run_shell` 双路径与 ADR 替代边界；确认前不进入实现。
 
 ## 最近收口（滚动保留最近 10 项）
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-18 | K-1 082 门禁、基线与锁/审计盘点 | spec `ready`、ADR-068 `accepted`、Q-042～Q-050 确认；28 工具 / 4 577 schema token、system 747 token、98 Turn 基线；`pnpm check` 全绿 | [082 baseline](specs/082-agent-kernel/baseline.md) |
 | 2026-11-17 | UI-F28 发送后回到底部 | 发送消息立即回到最新输出并恢复自动跟随 | [068](specs/068-ui-fixes/tasks.md#ui-f282026-11-17macos) |
 | 2026-11-17 | UI-F27 项目条目标识 | Git 改为图标，运行中终端在 Git 图标左侧显示终端图标；服务端项目响应新增 `runningTerminals` | [068](specs/068-ui-fixes/tasks.md#ui-f272026-11-17macos) |
 | 2026-11-16 | LE-1～LE-7 Agent 内核轻量化 | 观察块移出缓存前缀、生命周期文案三处合一处、纯读批并发、批结果 12k 预算、system 精炼输出约束；`test/agent` 179/179 | [081](specs/081-agent-lean/tasks.md#验收记录) |
@@ -28,7 +28,6 @@
 | 2026-11-16 | UI-F23 文件树双击打开 | 单击仅选中，双击打开普通文件 Tab；认证文件流程与 Web 全量通过 | [068](specs/068-ui-fixes/tasks.md#ui-f232026-11-16macos) |
 | 2026-11-16 | PT-1～PT-4 计划终态呈现 | 终态 running 步骤按结局显示「已停止 / 已中断 / 未标记完成」，摘要报未完成步数；web 249/249 | [080](specs/080-plan-terminal-state/tasks.md#验收记录) |
 | 2026-11-16 | PG-1～PG-4 计划步骤即时更新 | 系统提示与工具描述要求「完成一步即同批更新」；计划 6 次工具调用未更新时提醒一次；`test/agent` 174/174 | [079](specs/079-plan-progress/tasks.md#验收记录) |
-| 2026-11-15 | UI-F22 添加项目目录选择 | 目录浏览成功即选中，支持回车提交与磁盘 / 卷切换；用户验收通过 | [068](specs/068-ui-fixes/tasks.md#ui-f222026-11-15windows) |
 
 > 更早的收口记录（含同日其余 MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

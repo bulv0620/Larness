@@ -2,7 +2,7 @@
 id: 082-agent-kernel
 title: Agent 内核重构：单循环、核心工具与人类操作面分离
 milestone: 发布后
-status: draft
+status: ready
 depends_on: [051-agent-tool-contract, 030-dev-resources, 040-services-preview, 081-agent-lean]
 owners: []
 created: 2026-11-18
@@ -11,7 +11,7 @@ updated: 2026-11-18
 
 # Agent 内核重构：单循环、核心工具与人类操作面分离
 
-> 状态：`draft`。本文只冻结目标、边界与验收；实现前必须完成 [ADR-068](../../docs/adr/ADR-068-agent-kernel.md) 并获得人类确认。网络搜索明确不在本切片范围内。
+> 状态：`ready`（2026-11-18 人类批准）。[ADR-068](../../docs/adr/ADR-068-agent-kernel.md) 已 accepted；Q-042～Q-050 按推荐默认确认；内测版本允许破坏性重构，存量会话不保留旧能力。K-1 只做基线与文档，K-2 起进入实现。网络搜索与 subagent 明确不在本切片范围内。
 
 ## 1. 背景与问题
 
@@ -158,7 +158,7 @@ Given 升级前存在计划事件、终端事件、Git 事件或 AI 终端资源
 When 打开旧会话并回放
 Then 历史时间线仍显示原有事件
 And 旧终端资源不被自动终止或重新赋权给 Agent
-And 新默认 profile 只影响新会话或显式切换后的会话
+And 升级后的会话统一使用 coding；workspace 只在用户显式切换后生效
 ```
 
 ### A10 明确排除的能力
@@ -357,7 +357,7 @@ And 交互式 TUI 命令被明确拒绝，提示使用非交互参数
 
 ## 8. 数据与迁移
 
-- `sessions` 增加 `agent_profile`（或等价配置）：新会话默认 `coding`；存量会话建议保持 `workspace`/旧行为直到显式切换（Q-042）。
+- `sessions` 增加 `agent_profile`（或等价配置）：新会话与存量会话统一归一到 `coding`；不保留 legacy Profile，不做旧能力回填（Q-042 已确认）。`workspace` 仅作为显式选择。
 - 不删除 `terminals`、`services`、`plans` 或事件表；旧 AI 终端资源升级后作为人类终端保留，不自动终止。
 - `resource_locks` 保留现有结构；ProjectLease 与 ServiceLease 复用该表，不新增锁表。`terminal_leases` 保留用于旧记录与人类终端兼容，但 Agent 不再创建或使用。
 - 审计表结构不变；分级由调用契约表达，不新增 `level` 列。若后续需要结构化级别，单独迁移。
@@ -416,24 +416,28 @@ And 交互式 TUI 命令被明确拒绝，提示使用非交互参数
 - 安全：未授权 Shell、写入、进程启动、Git UI 锁、锁丢失/接管、秘密扫描、安全关键审计 fail-closed、`run_shell` 审批与注入边界。
 - 手动/视觉：Profile 切换、终端窗口、Git 面板、服务/预览界面。
 
-## 13. 开放问题
+## 13. 已确认决策
 
-| 问题 | 默认 | 需要谁决策 |
-|---|---|---|
-| Q-042 默认 Profile 与存量会话迁移 | 新会话 `coding`；存量保持 `workspace` 直到显式切换 | 人类负责人 |
-| Q-043 `plan` Profile 是否保留 `update_plan` 工具 | 保留为 plan-only 元数据工具，`coding` 不注册 | 人类负责人 |
-| Q-044 后台进程/服务工具粒度与持久化 | 进程 3 工具 + 服务 4 工具；服务复用/扩展现有 services 记录 | 人类负责人 |
-| Q-045 Git UI 与 Agent Shell Git 的并发锁 | 人类 Git 写操作加项目锁；Agent git 写命令尽量识别并串行化 | 人类负责人 |
-| Q-048 预览默认值 | 沿用 ADR-060 的现有配置默认；是否改为默认关闭另行确认 | 人类负责人 |
-| Q-044 / Q-046 ADR-030/038/048/059 的替代关系 | 先写 ADR-068；终端/服务生命周期条款按新 ADR 替代 | 人类负责人 |
-| Q-047 AGENTS.md 是否自动加载 | 本切片不改变项目指令机制 | 人类负责人 |
-| Q-049 锁/审计分级 | 按第 7.5 节：ProjectLease + ServiceLease，required/resource/debug 审计；终端租约退出模型面 | 人类负责人 |
-| Q-050 命令双路径 | `run_command` 结构化 + `run_shell` 平台 shell；不假设 bash | 人类负责人 |
+2026-11-18 人类批准以下全部推荐默认；ADR-068 同时转为 `accepted`。
+
+| 问题 | 决定 |
+|---|---|
+| Q-042 默认 Profile 与存量会话迁移 | 新会话与存量会话统一 `coding`；不保留 legacy Profile，不做旧能力回填；`workspace` 仅显式选择 |
+| Q-043 `plan` Profile 是否保留 `update_plan` | 保留为 plan-only 元数据工具；`coding` 不注册、不注入计划提醒 |
+| Q-044 后台进程/服务工具粒度与持久化 | 进程 3 工具 + 服务 4 工具；服务复用/扩展现有 `services` 记录，不新建重复域 |
+| Q-045 Git UI 与 Agent Shell Git 的并发锁 | 人类 Git 写操作走 ProjectLease；Agent `git` 写命令由命令扫描器识别并尝试同一把锁 |
+| Q-046 是否收紧 ADR-059 的预算/自动接续 | 不在 082 内改变；预算收敛另开切片 |
+| Q-047 AGENTS.md 是否自动加载 | 本切片不改变项目指令机制 |
+| Q-048 预览默认值 | 沿用 ADR-060 的现有配置默认；预览保持可选 |
+| Q-049 锁/审计分级 | 按第 7.5 节：ProjectLease + ServiceLease；required / resource / debug 审计；Agent 终端租约退出模型面 |
+| Q-050 命令双路径 | `run_command` 结构化 + `run_shell` 平台 shell；不假设 bash，不自动翻译平台语法 |
+| ADR 替代关系 | ADR-068 替代 ADR-030/038 的 Agent 终端与服务交互条款；ADR-048/059/060 不替代 |
 
 ## 14. 完成定义
 
 - [ ] A1–A14 全部通过；
-- [ ] ADR-068 accepted，明确替代 ADR-030/038 的哪些条款；
+- [x] ADR-068 accepted，明确替代 ADR-030/038 的哪些条款；
+- [x] K-1 基线与锁/审计结论已记录；
 - [ ] 工具契约、REST/WS、数据模型、Agent 提示、锁与审计契约同步更新；
 - [ ] 旧会话、旧计划、旧终端与旧服务回放通过；
 - [ ] ProjectLease/ServiceLease 成为唯一锁入口；Agent 终端租约已移除；
