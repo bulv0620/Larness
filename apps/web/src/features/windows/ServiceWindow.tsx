@@ -140,7 +140,7 @@ function ProcessServiceWindow({
             <Server size={22} className="text-ink-3" />
             <p className="text-[12px] font-medium text-ink">当前项目暂无后台服务</p>
             <p className="max-w-[340px] text-[11px] text-ink-3">
-              让 Agent 启动开发服务器或 long-running 任务
+              在项目会话中让 Agent 启动开发服务器或常驻任务，启动后即可在这里查看和预览。
             </p>
           </div>
         ) : (

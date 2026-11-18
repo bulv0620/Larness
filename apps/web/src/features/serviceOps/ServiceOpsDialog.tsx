@@ -354,7 +354,7 @@ export function ServiceOpsDialog({
                   <Server size={22} className="text-ink-3" />
                   <p className="text-[12px] font-medium">暂无正式服务</p>
                   <p className="max-w-sm text-[11px] text-ink-3">
-                    在项目会话中让 Agent 通过 PM2 部署，运行后即可查看和管理。
+                    在项目会话中让 Agent 用 PM2 部署正式服务，部署后即可在这里启停和查看日志。
                   </p>
                 </div>
               )
