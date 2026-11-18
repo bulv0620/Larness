@@ -19,11 +19,11 @@ import {
   Code2,
   ListChecks,
   Plus,
+  ServerCog,
   Shield,
   ShieldAlert,
   ShieldCheck,
   Square,
-  Wrench,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { operationError } from "@/lib/api";
@@ -76,11 +76,11 @@ const policies = [
   },
 ] as const;
 
-type AgentProfileId = "coding" | "plan" | "workspace";
+type AgentProfileId = "coding" | "plan" | "service-ops";
 const agentProfiles = [
   { id: "coding", label: "Coding", detail: "文件、搜索与命令", icon: Code2 },
   { id: "plan", label: "Plan", detail: "只读探索与计划", icon: ListChecks },
-  { id: "workspace", label: "Workspace", detail: "后台进程与服务", icon: Wrench },
+  { id: "service-ops", label: "服务运维", detail: "全局 PM2 服务", icon: ServerCog },
 ] as const;
 
 function defaultThinkingFor(model: {

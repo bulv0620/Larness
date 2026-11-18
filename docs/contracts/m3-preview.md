@@ -1,5 +1,7 @@
 # M3 服务登记与预览技术契约
 
+> 083（2026-11-18）修订：临时服务登记、`POST /api/services` 写入口与 `register_temporary_service` / `resolve_service_preview` 工具已退出产品面；项目开发服务改由 Agent `start_process` 后台任务表示（`GET /api/processes` 可读），预览通过 `POST /api/previews/resolve` 的 `processId` + `projectId` 按需生成。本文其余内容保留为 M3 历史契约。
+
 > M3 已交付临时服务登记、查询、Agent 工具、资源事件及本机隔离预览。当前绑定规则见 [ADR-044](../adr/ADR-044-preview-binding-simplification.md)，其余身份与授权沿用 [ADR-043](../adr/ADR-043-development-preview-authorization.md)。下文保留 PoC 阶段的候选条款和预算。实际交付与验证范围见 [M3 收尾记录](../../specs/040-services-preview/closure.md)，远程独立注册域 HTTPS 尚未实测。
 
 > 按 [ADR-048](../adr/ADR-048-service-domain-separation.md)，本契约的服务 ID、接口、预览、工具及事件均用于开发域。M4 正式运维见 [部署契约](deployment.md)。

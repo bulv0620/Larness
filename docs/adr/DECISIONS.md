@@ -193,4 +193,8 @@ accepted，用户要求「把应该优化的都一步步优化」。运行时观
 
 ## ADR-068 · Agent 内核与人类操作面分离（2026-11-18）
 
+## ADR-069 · 项目开发服务与全局 PM2 运维分离（2026-11-18）
+
+accepted，人类明确要求 coding 直接启动项目后台开发服务、项目服务显示这些任务、预览手动点击才注册、终端纯人类、workspace 改为服务运维并管理 Larness 隔离 PM2。见 [ADR-069](ADR-069-project-services-and-service-ops.md) 与 [083 规格](../../specs/083-service-model/spec.md)。
+
 accepted，2026-11-18 人类确认 082 spec、本 ADR 与 Q-042～Q-050 全部推荐默认；内测允许破坏性重构，存量会话不保留旧能力。单循环、无 subagent；新增 coding/plan/workspace Profile；模型移除 Git 与交互终端工具，Git/终端/PM2/预览保留为人类操作面；Agent 使用后台进程与命名服务；计划降级为 plan Profile；锁域收敛为 ProjectLease + ServiceLease；审计分级为安全关键/资源操作/调试；命令采用 run_command 结构化 + run_shell 平台 shell 双路径。替代 ADR-030 的 Agent 终端服务模型与 ADR-038 的 Agent 终端交互规则；ADR-048/059/060 不替代。见 [ADR-068](ADR-068-agent-kernel.md)、[K-1 基线](../../specs/082-agent-kernel/baseline.md) 与 [082 规格](../../specs/082-agent-kernel/spec.md)。

@@ -6,7 +6,7 @@
  * database and secret dependencies. Keeping the types here prevents the
  * kernel from importing server storage or adapters.
  */
-export type AgentProfileId = "coding" | "plan" | "workspace";
+export type AgentProfileId = "coding" | "plan" | "service-ops";
 
 export type ToolPackId =
   | "core.read"
@@ -14,8 +14,8 @@ export type ToolPackId =
   | "core.command"
   | "plan"
   | "process"
-  | "service"
-  | "observation";
+  | "observation"
+  | "serviceOps";
 
 export type ToolAvailability = "enabled" | "project-required" | "disabled";
 

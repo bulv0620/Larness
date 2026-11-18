@@ -1,5 +1,5 @@
 import { FileManagerError } from "@larness/resources";
-import { ServiceRegisterInputSchema, ServiceStatusSchema } from "@larness/shared";
+import { ServiceStatusSchema } from "@larness/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { AppServices } from "../app.js";
@@ -7,7 +7,6 @@ import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { HttpError } from "../errors.js";
 import type { ServiceManager } from "../modules/services/manager.js";
-import { terminalRow } from "../modules/terminals/repository.js";
 
 const Params = z.object({ id: z.string().min(1).max(128) }).strict();
 const ListQuery = z
@@ -104,15 +103,4 @@ export function registerServiceRoutes(
   app.post("/api/services/:id/stop", (request) =>
     run(request, () => services.stopService(serviceId(request), client(request))),
   );
-  app.post("/api/services", async (request, reply) => {
-    const result = await run(request, async () => {
-      const parsed = ServiceRegisterInputSchema.safeParse(request.body);
-      if (!parsed.success) throw new HttpError("VALIDATION_ERROR", "Invalid service registration");
-      const terminal = terminalRow(deps.db, parsed.data.terminalId);
-      if (!terminal?.projectId)
-        throw new HttpError("NOT_FOUND", "Terminal not found for a project");
-      return services.createAction(terminal.projectId, parsed.data, client(request));
-    });
-    return reply.code(201).send(result);
-  });
 }

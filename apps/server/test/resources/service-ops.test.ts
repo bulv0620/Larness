@@ -434,3 +434,78 @@ describe("service operations REST", () => {
     });
   });
 });
+
+describe("service operations PM2 projection without --namespace", () => {
+  it("associates a Larness-named app even when PM2 reports namespace=default", async () => {
+    await withTempDir(async (dir) => {
+      const dataDir = path.join(dir, "data");
+      const root = path.join(dir, "project");
+      await mkdir(dataDir, { recursive: true, mode: 0o700 });
+      await mkdir(root, { recursive: true });
+      const opened = openDatabase(path.join(dataDir, "larness.db"));
+      runMigrations(opened.db);
+      const project = await createProject(
+        { db: opened.db, detectGit: async () => false },
+        { rootPath: root },
+      );
+      const manager = new DeploymentManager({ db: opened.db, dataDir });
+      const authorizations = new DeploymentAuthorizationService({
+        db: opened.db,
+        deployments: manager,
+      });
+      const name = `larness:${project.id}:todo-list`;
+      const pm2 = {
+        list: async () => [
+          {
+            pid: 1234,
+            id: 0,
+            status: "online",
+            name,
+            namespace: "default",
+            entry: path.join(root, "server.js"),
+            cwd: root,
+            args: [],
+            log: path.join(dataDir, "pm2", "logs", "out.log"),
+            interpreter: "node",
+          },
+        ],
+        find: async () => ({
+          pid: 1234,
+          id: 0,
+          status: "online",
+          name,
+          namespace: "default",
+          entry: path.join(root, "server.js"),
+          cwd: root,
+          args: [],
+          log: path.join(dataDir, "pm2", "logs", "out.log"),
+          interpreter: "node",
+        }),
+      };
+      const runtime = new ServiceOpsRuntime({
+        db: opened.db,
+        dataDir,
+        deployments: manager,
+        authorizations,
+        pm2: pm2 as never,
+        events: new ResourceEventBus(),
+      });
+      try {
+        await runtime.reconcile();
+        const services = runtime.listServices();
+        expect(services).toHaveLength(1);
+        expect(services[0]).toMatchObject({
+          projectId: project.id,
+          name: "todo-list",
+          pm2Name: name,
+          namespace: "default",
+          namespaceMismatch: true,
+          observedState: "running",
+        });
+        expect(runtime.listUnassociatedServices()).toEqual([]);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+});

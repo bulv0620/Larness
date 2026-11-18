@@ -150,6 +150,8 @@ ACTIVE → REVOKED
 - **审计分级**：`AuditSink.required` 用于认证、配对、审批、拒绝、权限/凭据、部署、服务启停与秘密相关事件，写入失败即失败关闭；`resource` 用于文件/命令/Git/进程/服务生命周期，调用方在同一事务写入；`debug` 只进 `agent_events`/日志。`tool.requested`、`tool.completed`、`terminal.input`、`terminal.resize` 不再写审计；`tool.denied` 仍为 required。
 - **噪声控制**：`dev-web.rejected` 按分钟聚合；`git.denied` 不再记录 `VALIDATION_ERROR`。安全拒绝仍保留，不因降噪删除证据。
 
+083（2026-11-18）：项目后台任务预览必须校验任务属于当前项目、进程仍存活且端口可连接，校验失败关闭；PM2 服务运维仍以 Larness 独立 `PM2_HOME` 为隔离边界，名称/namespace 偏差只影响归属展示，不扩大控制范围。`command.run` 的 `STOP_UNCONFIRMED` 只有在进程组确认退出后才释放项目锁。
+
 ## 8. 失败关闭矩阵
 
 | 条件 | 行为 | 错误码 |

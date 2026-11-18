@@ -8,20 +8,20 @@ const catalog: ToolPackCatalog = {
     "core.command": { id: "core.command", label: "command", tools: ["run_command"] },
     plan: { id: "plan", label: "plan", tools: ["update_plan"] },
     process: { id: "process", label: "process", tools: ["start_process"] },
-    service: { id: "service", label: "service", tools: ["list_services"] },
     observation: { id: "observation", label: "observation", tools: ["refresh_observations"] },
+    serviceOps: { id: "serviceOps", label: "serviceOps", tools: ["list_service_ops"] },
   },
   profiles: {
     coding: {
       id: "coding",
       label: "Coding",
-      packs: ["core.read", "core.write", "core.command"],
+      packs: ["core.read", "core.write", "core.command", "process"],
     },
     plan: { id: "plan", label: "Plan", packs: ["core.read", "plan"] },
-    workspace: {
-      id: "workspace",
-      label: "Workspace",
-      packs: ["core.read", "core.write", "core.command", "process", "service", "observation"],
+    "service-ops": {
+      id: "service-ops",
+      label: "服务运维",
+      packs: ["core.read", "observation", "serviceOps"],
     },
   },
 };
@@ -32,13 +32,16 @@ describe("agent profiles", () => {
       "read_file",
       "write_file",
       "run_command",
+      "start_process",
     ]);
   });
 
-  it("resolves workspace to the full pack surface", () => {
-    expect([...profileToolNames(catalog, "workspace")]).toHaveLength(6);
-    expect(profileToolNames(catalog, "workspace").has("start_process")).toBe(true);
-    expect(profileToolNames(catalog, "workspace").has("list_services")).toBe(true);
+  it("resolves service-ops to the read-only observation surface", () => {
+    expect([...profileToolNames(catalog, "service-ops")]).toEqual([
+      "read_file",
+      "refresh_observations",
+      "list_service_ops",
+    ]);
   });
 
   it("rejects unknown profiles and packs instead of silently exposing tools", () => {
@@ -61,7 +64,7 @@ describe("agent profiles", () => {
 
   it("reports project-required and disabled availability", () => {
     expect(toolAvailability(catalog, "coding", "read_file", false)).toBe("enabled");
-    expect(toolAvailability(catalog, "coding", "list_services", true)).toBe("disabled");
-    expect(toolAvailability(catalog, "workspace", "list_services", true)).toBe("project-required");
+    expect(toolAvailability(catalog, "coding", "start_process", true)).toBe("project-required");
+    expect(toolAvailability(catalog, "service-ops", "start_process", true)).toBe("disabled");
   });
 });

@@ -10,8 +10,7 @@
 
 ## 阻塞与待确认
 
-- **082 真实模型 A/B**：K-10 已按人类 2026-11-18 确认限定收口；真实 Provider A/B、Windows 实机与人工视觉未运行，不得声称模型成功率已验证。
-- **Q-051 命名服务持久化**：082 的命名后台服务为内存 + `agent_events`，Larness 重启后不恢复；现有 `services` 表继续只表示终端临时服务与预览源。是否要求跨重启历史待确认。
+- **实机验收证据边界（082/083）**：082 已按限定范围验收通过，但真实 Provider A/B、Windows 实机与 083 用户现有 PM2/旧命令数据未在本次环境复跑；不得据此声称这些场景已验证。
 - **HX-12b（`turnRunner` 循环体拆分）**：前置是把约 20 个可变闭包状态收敛为显式 `TurnRunState`；仅因改造面大而暂缓，不受环境阻塞。081 明确不动循环体，交付后该文件为 2 416 行，拆分优先级不变。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
@@ -20,7 +19,8 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
-| 2026-11-18 | K-10 A/B 与全量门禁 | 确定性 10 任务 A/B 10/10；check/build/Mock 24/24/Prod 20/20；真实模型 A/B 未运行，按限定范围收口 | [082 tasks](specs/082-agent-kernel/tasks.md#k-102026-11-18macos真实模型-ab-未运行) |
+| 2026-11-18 | S-1～S-7 项目服务与 service-ops | 人类验收通过；coding 直接管理后台开发任务；项目服务改读进程；预览按需生成；service-ops 管理默认 namespace PM2；旧命令释放锁；check/build + Mock 24/24 + Prod 20/20 | [083 tasks](specs/083-service-model/tasks.md#s-72026-11-18macos) |
+| 2026-11-18 | K-10 A/B 与全量门禁 | 确定性 10 任务 A/B 10/10；check/build/Mock 24/24/Prod 20/20；真实模型 A/B 未运行，按限定范围收口，人类验收通过 | [082 tasks](specs/082-agent-kernel/tasks.md#k-102026-11-18macos真实模型-ab-未运行) |
 | 2026-11-18 | K-9 workspace Profile、迁移与 UI | 新增 `sessions.agent_profile` 默认 coding；Session API/Composer Profile 选择；TurnRunner 按会话装配；迁移计数 32 | [082 tasks](specs/082-agent-kernel/tasks.md#k-92026-11-18macos) |
 | 2026-11-18 | K-11 锁与审计收敛 | LeaseManager 成为唯一锁入口；AuditSink required/resource/debug；tool.requested/completed 与 terminal input/resize 审计移除；dev-web/git 噪声收敛 | [082 tasks](specs/082-agent-kernel/tasks.md#k-112026-11-18macos) |
 | 2026-11-18 | K-8 计划可选化 | coding/workspace 移除 update_plan 与计划提醒；plan Profile 只读+计划；workspace 17 工具 / 3 442 schema token；`PROMPT_VERSION` → `m6-6` | [082 tasks](specs/082-agent-kernel/tasks.md#k-82026-11-18macos) |
@@ -29,7 +29,6 @@
 | 2026-11-18 | K-5 终端与 Agent 模型面分离 | 7 个终端工具与 Agent 租约移除；workspace 12 工具 / 2 596 schema token；人类终端 API/WS 16 项通过；`PROMPT_VERSION` → `m6-5` | [082 tasks](specs/082-agent-kernel/tasks.md#k-52026-11-18macos) |
 | 2026-11-18 | K-4 Git 模型工具移除 | 10 个 Git 工具从所有 Profile 移除；workspace 19 工具 / 3 947 schema token；人类 Git UI 与 ProjectLease 保留；Agent 经 shell Git 提交验证 | [082 tasks](specs/082-agent-kernel/tasks.md#k-42026-11-18macos) |
 | 2026-11-18 | K-12 run_command / run_shell | `run_shell` 平台 shell、实际 shell 与 stdout/stderr 分离；新错误码与交互命令拒绝；coding 7 工具 / 1 727 token，比 workspace 降 63.3% | [082 tasks](specs/082-agent-kernel/tasks.md#k-122026-11-18macos) |
-| 2026-11-18 | K-3 coding Profile 与核心提示 | coding 6 工具、schema 1 174 / system 253 token，比 workspace 降 73%；`PROMPT_VERSION` → `m6-4`；默认仍 workspace | [082 tasks](specs/082-agent-kernel/tasks.md#k-32026-11-18macos) |
 
 > 更早的收口记录（含同日其余 MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 
@@ -42,7 +41,7 @@
 ## 交付基线
 
 - 最新发布 `0.3.0`（2026-11-16，npm `latest`）；tag `v0.3.0` 已在 `origin/main` 上（2026-11-16 推送）。
-- 迁移至 `0031`（schemaVersion 31）。
+- 迁移至 `0033`（schemaVersion 33）。
 
 ## 维护记录（已收口）
 
@@ -61,4 +60,4 @@
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | `done` | M5-1a–e / M5-2 / M5-3 / M5-4 / M5-5 `done`；G5 条件通过（2026-11-08） |
 | M6 | 运行时效率与 Turn 恢复 | `done` | 070（HX）与 071（TR）于 2026-11-12 收口；HX-12b 拆分暂缓 |
-| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核轻量化 |
+| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核重构、项目服务与 service-ops |

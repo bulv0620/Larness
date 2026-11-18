@@ -569,7 +569,7 @@ OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模
 Session / Turn 的模型选择：
 
 - `model` 为目录中的模型 id；`thinking` 为 `off` / `low` / `medium` / `high`（旧 `default` 读取归一为 `medium`）。Provider 侧按 `low`→`low`、`medium`→`high`、`high`→`max` 发送。`PATCH /api/sessions/:id` 保存选择，`POST /api/sessions/:id/turns` 可覆盖本轮选择。
-- `agentProfile` 为 `coding` / `plan` / `workspace`；`POST /api/sessions` 可显式指定，缺省 `coding`；`PATCH /api/sessions/:id` 可切换。会话级字段持久化，Turn 开始时按当前会话 Profile 装配工具集；旧客户端不传时使用默认。
+- `agentProfile` 为 `coding` / `plan` / `service-ops`；`POST /api/sessions` 可显式指定，缺省 `coding`；`PATCH /api/sessions/:id` 可切换。会话级字段持久化，Turn 开始时按当前会话 Profile 装配工具集；旧客户端不传时使用默认。
 - Turn 创建时快照 `provider`、`model`、`thinking`、预算（总窗口或保守窗口、最大输入／输出）与连接版本；运行中改选只影响下一 Turn。
 - 模型不在目录内或档位不属于该模型时返回 `400 MODEL_UNSUPPORTED`，不创建 Turn，也不调用上游。
 - 旧客户端传 `modelProfileId` 仍按快照兼容解析；档案已忽略或凭据缺失时失败关闭。`GET /api/models` 保留兼容但不再被 UI 使用。
@@ -586,7 +586,7 @@ Session / Turn 的模型选择：
 | POST | `/api/terminals/:id/lease` | M2 |
 | GET | `/api/projects/:id/git/status` | M2 |
 | POST | `/api/projects/:id/git/actions` | M2 |
-| GET / POST | `/api/services` | M3 开发服务查询与登记 |
+| GET | `/api/services` | M3 历史开发服务查询；083 起 `POST` 登记入口已移除 |
 | GET | `/api/services/:id/logs?cursor=` | M3 引用终端日志 |
 | POST | `/api/previews/resolve` | M3 为已授权的开发服务签发短期票据，见 [M3 技术契约](m3-preview.md) |
 | GET | `/api/service-ops/status` | M4-3 正式运维可用性 |
@@ -779,8 +779,10 @@ type JobInput = {
 
 ### K-6 后台进程 API
 
-082 K-6 新增 `GET /api/processes?projectId=|sessionId=`、`GET /api/processes/:id`、`GET /api/processes/:id/output?after=&limit=`、`POST /api/processes/:id/stop`。全部经过现有认证守卫；stop 同样受 Origin / CSRF 保护。进程 ID 为 `prc_` 前缀，DTO 含 projectId、sessionId、name、status、executable、cwd、pid、exitCode、reasonCode、startedAt、endedAt、outputCursor、truncated。输出按游标分页，`resyncRequired` 表示旧块已淘汰；REST 不返回原始环境或秘密。`start_process` 仍只由 Agent Turn 创建，不开放通用 POST 创建入口。
+082 K-6 新增 `GET /api/processes?projectId=|sessionId=`、`GET /api/processes/:id`、`GET /api/processes/:id/output?after=&limit=`、`POST /api/processes/:id/stop`。全部经过现有认证守卫；stop 同样受 Origin / CSRF 保护。进程 ID 为 `prc_` 前缀，DTO 含 projectId、sessionId、name、status、executable、cwd、pid、exitCode、reasonCode、startedAt、endedAt、port、healthPath、previewEligible、outputCursor、truncated。输出按游标分页，`resyncRequired` 表示旧块已淘汰；REST 不返回原始环境或秘密。`start_process` 仍只由 Agent Turn 创建，不开放通用 POST 创建入口。
+
+083：项目服务窗口直接使用该 API 作为唯一数据源；列表只返回 `STARTING / RUNNING / STOPPING`，结束或失败的任务不再显示（按 ID 读取详情仍可用）；`previewEligible=true` 仅表示 RUNNING 且声明了 port。`POST /api/previews/resolve` 对进程目标接受 `processId` + `projectId`（两者同时必填），点击预览时才校验进程属于该项目、存活且端口监听；不再需要 `register_temporary_service`。
 
 ### K-7 命名服务 API
 
-082 K-7 新增 `GET /api/process-services?projectId=|sessionId=`、`GET /api/process-services/:id`、`GET /api/process-services/:id/logs?after=&limit=`、`POST /api/process-services/:id/stop`。全部使用现有认证守卫，stop 受 Origin / CSRF 保护。服务 ID 为 `svc_` 前缀，DTO 含 projectId、sessionId、processId、name、executable、cwd、port、status、previewEligible、reasonCode 与时间字段。`previewEligible` 当前固定为 `false`：进程服务的预览接线留待后续切片，现有终端服务预览不受影响。日志读取复用进程输出游标语义。
+082 K-7 新增的 `/api/process-services` 已在 083 移除；项目服务改由 `/api/processes?projectId=` 提供，预览按进程 ID 按需生成。

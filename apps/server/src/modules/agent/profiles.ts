@@ -30,28 +30,23 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
     "core.write": pack("core.write", "核心写入", ["write_file", "apply_patch"]),
     "core.command": pack("core.command", "核心命令", ["run_command", "run_shell"]),
     plan: pack("plan", "计划", ["update_plan"]),
-    process: pack("process", "后台进程", ["start_process", "read_process_output", "stop_process"]),
-    service: pack("service", "服务", [
-      "start_service",
-      "read_service_logs",
-      "stop_service",
-      "register_temporary_service",
-      "resolve_service_preview",
-      "list_services",
+    process: pack("process", "后台进程", [
+      "start_process",
+      "list_processes",
+      "read_process_output",
+      "stop_process",
     ]),
     observation: pack("observation", "观察", ["refresh_observations"]),
+    serviceOps: pack("serviceOps", "服务运维", [
+      "list_service_ops",
+      "read_service_ops_logs",
+      "control_service_ops",
+    ]),
   },
   profiles: {
-    coding: profile("coding", "Coding", ["core.read", "core.write", "core.command"]),
+    coding: profile("coding", "Coding", ["core.read", "core.write", "core.command", "process"]),
     plan: profile("plan", "Plan", ["core.read", "plan"]),
-    workspace: profile("workspace", "Workspace", [
-      "core.read",
-      "core.write",
-      "core.command",
-      "process",
-      "service",
-      "observation",
-    ]),
+    "service-ops": profile("service-ops", "服务运维", ["observation", "serviceOps"]),
   },
 };
 

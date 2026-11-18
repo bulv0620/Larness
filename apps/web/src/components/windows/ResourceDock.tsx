@@ -1,5 +1,7 @@
 import { cn } from "@larness/ui";
+import { useQuery } from "@tanstack/react-query";
 import { FileCode2, GitCompare, Globe2, Server, SquareTerminal } from "lucide-react";
+import { listProcesses, processesKey } from "@/features/processes/api";
 import { USE_MOCKS } from "@/lib/env";
 import { useSnapshot } from "@/lib/queries";
 import type { WindowKind } from "@/lib/windowTypes";
@@ -18,6 +20,17 @@ export function ResourceDock() {
   const { data } = useSnapshot();
   const { projectId, sessionId } = useNavigationStore();
   const { windows, focusedId, open, restore } = useWindowStore();
+  const processes = useQuery({
+    queryKey: processesKey(),
+    queryFn: () => listProcesses(),
+    enabled: !USE_MOCKS,
+    refetchInterval: 3_000,
+  });
+  const serviceCount = USE_MOCKS
+    ? data.services.filter((item) => item.projectId === projectId).length
+    : (processes.data ?? []).filter(
+        (item) => item.status === "RUNNING" && item.projectId === projectId,
+      ).length;
   const scope = activeWindowScope(projectId, sessionId, data.sessions);
   const workspace = activeWorkspaceScope(projectId, sessionId, data.sessions);
   const current = windows.filter((win) => windowScopeKey(win) === scope);
@@ -79,7 +92,14 @@ export function ResourceDock() {
                 className={kind === "terminal" ? "text-accent" : "text-success"}
               />
               {kind === "terminal" ? "终端" : "服务"}
-              {win && win.tabs.filter((tab) => !tab.resourceId.endsWith(":empty")).length > 0 ? (
+              {kind === "services" && serviceCount > 0 ? (
+                <span className="rounded bg-black/[.045] px-1 font-mono text-[9px] dark:bg-white/[.08]">
+                  {serviceCount}
+                </span>
+              ) : null}
+              {kind === "terminal" &&
+              win &&
+              win.tabs.filter((tab) => !tab.resourceId.endsWith(":empty")).length > 0 ? (
                 <span className="rounded bg-black/[.045] px-1 font-mono text-[9px] dark:bg-white/[.08]">
                   {win.tabs.filter((tab) => !tab.resourceId.endsWith(":empty")).length}
                 </span>

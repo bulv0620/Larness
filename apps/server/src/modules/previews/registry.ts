@@ -15,11 +15,14 @@ import { FileManagerError } from "@larness/resources";
 import { eq } from "drizzle-orm";
 import type { Database } from "../../db/client.js";
 import { browserSessions } from "../../db/schema.js";
+import type { ProcessManager } from "../processes/manager.js";
 import type { ResourceEventBus } from "../resources/events.js";
 import type { ServiceManager } from "../services/manager.js";
 
 export interface PreviewResolveInput {
-  serviceId: string;
+  serviceId?: string;
+  processId?: string;
+  projectId?: string;
   path?: string;
   mode?: "embedded" | "external";
 }
@@ -35,6 +38,7 @@ export interface ResolvedPreview {
 export interface PreviewRegistryOptions {
   db: Database;
   services: ServiceManager;
+  processes?: ProcessManager;
   events?: ResourceEventBus;
   port?: number;
   hostSuffix?: string;
@@ -49,7 +53,8 @@ export interface PreviewRegistryOptions {
 interface TicketRecord {
   hash: string;
   host: string;
-  serviceId: string;
+  targetId: string;
+  targetKind: "service" | "process";
   path: string;
   mode: "embedded" | "external";
   clientSessionId: string;
@@ -59,7 +64,8 @@ interface TicketRecord {
 interface GrantRecord {
   hash: string;
   host: string;
-  serviceId: string;
+  targetId: string;
+  targetKind: "service" | "process";
   clientSessionId: string;
   expiresAt: number;
   sockets: Set<Socket>;
@@ -178,6 +184,7 @@ function responseHeaders(headers: IncomingHttpHeaders): OutgoingHttpHeaders {
 export class PreviewRegistry {
   readonly #db: Database;
   readonly #services: ServiceManager;
+  readonly #processes: ProcessManager | undefined;
   readonly #events: ResourceEventBus | undefined;
   readonly #hostSuffix: string;
   readonly #idleTtlMinutes: number;
@@ -199,6 +206,7 @@ export class PreviewRegistry {
   constructor(options: PreviewRegistryOptions) {
     this.#db = options.db;
     this.#services = options.services;
+    this.#processes = options.processes;
     this.#events = options.events;
     this.#hostSuffix = options.hostSuffix ?? "preview.localhost";
     this.#idleTtlMinutes = options.idleTtlMinutes ?? 30;
@@ -256,9 +264,29 @@ export class PreviewRegistry {
 
   async resolve(input: PreviewResolveInput, clientSessionId: string): Promise<ResolvedPreview> {
     const target = safePath(input.path);
-    const service = await this.#services.verifyActive(input.serviceId).catch(() => {
-      throw new FileManagerError("PREVIEW_UNAVAILABLE", "Service is not available for preview");
-    });
+    const targetKind = input.processId !== undefined ? "process" : "service";
+    const targetId = input.processId ?? input.serviceId ?? "";
+    if (targetId.length === 0) {
+      throw new FileManagerError("VALIDATION_ERROR", "Preview target is required");
+    }
+    if (targetKind === "process") {
+      if (!this.#processes) {
+        throw new FileManagerError("PREVIEW_UNAVAILABLE", "Process preview is unavailable");
+      }
+      const process = await this.#processes.verifyPreview(targetId).catch(() => {
+        throw new FileManagerError("PREVIEW_UNAVAILABLE", "Process is not available for preview");
+      });
+      if (input.projectId === undefined || process.projectId !== input.projectId) {
+        throw new FileManagerError(
+          "PREVIEW_UNAVAILABLE",
+          "Process does not belong to this project",
+        );
+      }
+    } else {
+      await this.#services.verifyActive(targetId).catch(() => {
+        throw new FileManagerError("PREVIEW_UNAVAILABLE", "Service is not available for preview");
+      });
+    }
     if (!this.#sessionActive(clientSessionId)) {
       throw new FileManagerError("PREVIEW_UNAVAILABLE", "Client session expired");
     }
@@ -272,7 +300,8 @@ export class PreviewRegistry {
     this.#tickets.set(hash(ticket), {
       hash: hash(ticket),
       host,
-      serviceId: service.id,
+      targetId,
+      targetKind,
       path: target,
       mode,
       clientSessionId,
@@ -287,13 +316,18 @@ export class PreviewRegistry {
     };
   }
 
-  revokeService(serviceId: string): void {
+  revokeTarget(targetId: string): void {
     for (const [key, grant] of this.#grants) {
-      if (grant.serviceId !== serviceId) continue;
+      if (grant.targetId !== targetId) continue;
       for (const socket of grant.sockets) socket.destroy();
       this.#grants.delete(key);
     }
-    this.#verifyCache.delete(serviceId);
+    this.#verifyCache.delete(`service:${targetId}`);
+    this.#verifyCache.delete(`process:${targetId}`);
+  }
+
+  revokeService(serviceId: string): void {
+    this.revokeTarget(serviceId);
   }
 
   async #handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -327,11 +361,11 @@ export class PreviewRegistry {
       this.#active--;
     });
     try {
-      await this.#verify(grant.serviceId);
-      const target = this.#services.dialTarget(grant.serviceId);
+      await this.#verify(grant.targetKind, grant.targetId);
+      const target = this.#dialTarget(grant.targetKind, grant.targetId);
       this.#proxy(req, res, url, target.host, target.port);
     } catch {
-      this.revokeService(grant.serviceId);
+      this.revokeTarget(grant.targetId);
       res.writeHead(401, { "cache-control": "no-store" });
       res.end("preview unavailable");
     }
@@ -368,7 +402,7 @@ export class PreviewRegistry {
       return;
     }
     try {
-      await this.#services.verifyActive(record.serviceId);
+      await this.#verify(record.targetKind, record.targetId);
     } catch {
       this.#tickets.delete(record.hash);
       res.writeHead(401, { "cache-control": "no-store" });
@@ -380,7 +414,8 @@ export class PreviewRegistry {
     const grant: GrantRecord = {
       hash: hash(raw),
       host,
-      serviceId: record.serviceId,
+      targetId: record.targetId,
+      targetKind: record.targetKind,
       clientSessionId: record.clientSessionId,
       expiresAt: this.#now() + this.#grantTtlMs,
       sockets: new Set(),
@@ -401,26 +436,39 @@ export class PreviewRegistry {
     const grant = this.#grants.get(hash(raw));
     if (!grant || grant.host !== host) return undefined;
     if (grant.expiresAt <= this.#now() || !this.#sessionActive(grant.clientSessionId)) {
-      this.revokeService(grant.serviceId);
+      this.revokeTarget(grant.targetId);
       return undefined;
     }
     return grant;
   }
 
-  async #verify(serviceId: string) {
-    const cached = this.#verifyCache.get(serviceId);
-    if (cached && this.#now() - cached.at < 2000 && cached.ok) {
-      const dto = this.#services.get(serviceId);
-      return dto;
-    }
+  async #verify(targetKind: "service" | "process", targetId: string) {
+    const key = `${targetKind}:${targetId}`;
+    const cached = this.#verifyCache.get(key);
+    if (cached && this.#now() - cached.at < 2000 && cached.ok) return true;
     try {
-      const dto = await this.#services.verifyActive(serviceId);
-      this.#verifyCache.set(serviceId, { at: this.#now(), ok: true });
-      return dto;
+      if (targetKind === "process") {
+        if (!this.#processes)
+          throw new FileManagerError("PREVIEW_UNAVAILABLE", "Process unavailable");
+        await this.#processes.verifyPreview(targetId);
+      } else {
+        await this.#services.verifyActive(targetId);
+      }
+      this.#verifyCache.set(key, { at: this.#now(), ok: true });
+      return true;
     } catch (error) {
-      this.#verifyCache.set(serviceId, { at: this.#now(), ok: false });
+      this.#verifyCache.set(key, { at: this.#now(), ok: false });
       throw error;
     }
+  }
+
+  #dialTarget(targetKind: "service" | "process", targetId: string): { host: string; port: number } {
+    if (targetKind === "process") {
+      if (!this.#processes)
+        throw new FileManagerError("PREVIEW_UNAVAILABLE", "Process unavailable");
+      return this.#processes.dialTarget(targetId);
+    }
+    return this.#services.dialTarget(targetId);
   }
 
   #proxy(req: IncomingMessage, res: ServerResponse, url: URL, host: string, port: number): void {
@@ -483,7 +531,7 @@ export class PreviewRegistry {
     }
     let target: { host: string; port: number };
     try {
-      target = this.#services.dialTarget(grant.serviceId);
+      target = this.#dialTarget(grant.targetKind, grant.targetId);
     } catch {
       socket.destroy();
       return;

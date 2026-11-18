@@ -417,7 +417,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | LE-6 | [验证](081-agent-lean/tasks.md#验收记录) | LE-5 | `done` |
 | LE-7 | [文档与状态回填](081-agent-lean/tasks.md#验收记录) | LE-6 | `done` |
 
-### 8.8 发布后：Agent 内核重构（082，ready）
+### 8.8 发布后：Agent 内核重构（082，done）
 
 目标：在保留人类终端、Git、服务与 PM2 操作面的前提下，把 Agent 内核收成单循环 + core 工具 + 可选能力包；模型移除 Git 与交互终端工具，计划降级为 plan Profile，Agent 长任务使用后台进程/命名服务，锁收敛为 ProjectLease + ServiceLease，审计按安全关键/资源操作/调试分级。网络搜索与 subagent 不在本切片。规格见 [082](082-agent-kernel/spec.md)，基线见 [K-1](082-agent-kernel/baseline.md)，决策见 [ADR-068](../docs/adr/ADR-068-agent-kernel.md)。
 
@@ -437,6 +437,20 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | K-11 | [锁与审计契约收敛](082-agent-kernel/tasks.md#k-11-锁与审计契约收敛) | K-2 | `done`（2026-11-18） |
 | K-9 | [workspace Profile、迁移与 UI](082-agent-kernel/tasks.md#k-9-workspace-profile迁移与-ui) | K-4、K-7、K-8、K-11、K-12 | `done`（2026-11-18） |
 | K-10 | [A/B 验证、全量检查与文档回填](082-agent-kernel/tasks.md#k-10-ab-验证全量检查与文档回填) | K-9 | `done`（限定范围；真实模型 A/B 未运行） |
+
+### 8.9 项目开发服务与全局 PM2 运维（083，done）
+
+修正 082 的 Profile 与服务边界：coding 直接管理项目后台开发任务；项目服务显示真实后台进程并删除手动登记；预览按需生成；workspace 改为 service-ops 管理 Larness 隔离 PM2；旧命令不再永久锁项目。2026-11-18 自动门禁通过（check/build、Mock 24/24、Prod 20/20）；人类视觉与用户实机 PM2/旧数据未验证。规格见 [083](083-service-model/spec.md)，决策见 [ADR-069](../docs/adr/ADR-069-project-services-and-service-ops.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| S-1 | [合同、ADR、Profile 与迁移](083-service-model/tasks.md#s-1) | — | `done`（2026-11-18） |
+| S-2 | [后台进程模型与 coding 工具面](083-service-model/tasks.md#s-2) | S-1 | `done`（2026-11-18） |
+| S-3 | [项目服务窗口与侧栏计数](083-service-model/tasks.md#s-3) | S-2 | `done`（2026-11-18） |
+| S-4 | [按需预览](083-service-model/tasks.md#s-4) | S-2 | `done`（2026-11-18） |
+| S-5 | [服务运维 Profile 与 PM2 投影](083-service-model/tasks.md#s-5) | S-1、S-4 | `done`（2026-11-18） |
+| S-6 | [旧命令锁恢复](083-service-model/tasks.md#s-6) | S-2 | `done`（2026-11-18） |
+| S-7 | [全量验证与收口](083-service-model/tasks.md#s-7) | S-1～S-6 | `done`（2026-11-18） |
 
 ## 9. 门禁
 

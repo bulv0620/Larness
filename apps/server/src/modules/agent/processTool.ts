@@ -34,6 +34,8 @@ function repairStartProcessArgs(raw: unknown): unknown {
   return args;
 }
 
+const ListSchema = z.object({ limit: z.number().int().min(1).max(200).default(100) }).strict();
+
 const ReadOutputSchema = z
   .object({
     processId: ProcessIdSchema,
@@ -50,7 +52,7 @@ export function createProcessTools(options: { secretStore?: SecretStore }): Tool
       ...defineTool({
         name: "start_process",
         description:
-          'Start a non-interactive background process in the project and return a stable processId, cwd and output cursor. Use it for long-running dev servers or watchers that should outlive the current tool call; use run_command for finite builds and tests. The process group is stopped as a tree when stop_process is called. Repeating the same Turn/tool call returns the existing process; the same name with different executable, args or cwd is a conflict. The process runs with the Larness OS account\'s permissions. Example: {"executable":"pnpm","args":["dev"],"cwd":".","name":"web"}.',
+          'Start a non-interactive background process in the project and return a stable processId, cwd and output cursor. Use it for long-running dev servers or watchers that should outlive the current tool call; use run_command for finite builds and tests. Declare port when the task listens on a local HTTP port so the project service window can offer a manual preview; healthPath is optional. The process group is stopped as a tree when stop_process is called. Repeating the same Turn/tool call returns the existing process; the same name with different executable, args, cwd, port or healthPath is a conflict. The process runs with the Larness OS account\'s permissions. Example: {"executable":"pnpm","args":["dev"],"cwd":".","name":"web","port":5173}.',
         riskLevel: "L2",
         requiresProject: true,
         requiresProjectLock: false,
@@ -89,6 +91,20 @@ export function createProcessTools(options: { secretStore?: SecretStore }): Tool
       }),
       classifyRisk: processRisk,
     },
+    defineTool({
+      name: "list_processes",
+      description:
+        "List active background processes started by this project. Ended tasks are removed from the list; use the processId from start_process or read_process_output for a specific task. previewEligible is true only for a RUNNING task with a declared port.",
+      riskLevel: "L0",
+      requiresProject: true,
+      requiresProjectLock: false,
+      schema: ListSchema,
+      summarize: () => "列出项目后台任务",
+      handler: async (args, context) =>
+        context.listProcesses
+          ? context.listProcesses(args)
+          : { ok: false, errorCode: "FORBIDDEN", summary: "Process context unavailable" },
+    }),
     defineTool({
       name: "read_process_output",
       description:

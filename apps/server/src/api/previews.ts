@@ -1,5 +1,5 @@
 import { FileManagerError } from "@larness/resources";
-import { ServiceIdSchema } from "@larness/shared";
+import { ProcessIdSchema, ServiceIdSchema } from "@larness/shared";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import type { AppServices } from "../app.js";
@@ -9,11 +9,18 @@ import type { PreviewRegistry } from "../modules/previews/registry.js";
 
 const ResolveSchema = z
   .object({
-    serviceId: ServiceIdSchema,
+    serviceId: ServiceIdSchema.optional(),
+    processId: ProcessIdSchema.optional(),
+    projectId: z
+      .string()
+      .regex(/^prj_[a-f0-9-]{36}$/)
+      .optional(),
     path: z.string().min(1).max(2048).optional(),
     mode: z.enum(["embedded", "external"]).default("embedded"),
   })
-  .strict();
+  .strict()
+  .refine((value) => (value.serviceId === undefined) !== (value.processId === undefined))
+  .refine((value) => value.processId === undefined || value.projectId !== undefined);
 
 export function registerPreviewRoutes(
   app: FastifyInstance,

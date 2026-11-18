@@ -853,3 +853,43 @@ it("rejects interactive commands and a non-directory cwd with stable error codes
     }
   });
 });
+
+it("does not keep a project root blocked by a command whose recorded process is gone", async () => {
+  await withTempDir(async (dir) => {
+    const f = await commandFixture(dir);
+    try {
+      const row = await f.started.running.commands.execute(f.context, {
+        executable: process.execPath,
+        args: ["-e", "0"],
+      });
+      const deadPid = 2_000_000;
+      f.started.running.sqlite
+        .prepare("UPDATE command_executions SET process_identity_json=? WHERE id=?")
+        .run(
+          JSON.stringify({ pid: deadPid, pgid: deadPid, instance: "old", launchId: "old" }),
+          row.id,
+        );
+      f.started.running.sqlite
+        .prepare(
+          "UPDATE resource_operations SET status='RECONCILIATION_REQUIRED', error_code='STOP_UNCONFIRMED' WHERE id=?",
+        )
+        .run(row.operationId);
+      await f.started.running.commands.recover();
+      const { acquireResourceLock } = await import("../../src/modules/locks/service.js");
+      const lock = acquireResourceLock(
+        { db: f.started.running.db, now: () => Date.now() + 100_000 },
+        {
+          resourceType: "project",
+          resourceId: "different-project-id",
+          rootRealPath: f.project.realPath,
+          owner: "test",
+          executionId: "test-execution",
+          ttlMs: 5_000,
+        },
+      );
+      expect(lock).not.toBeNull();
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});

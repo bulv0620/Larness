@@ -20,6 +20,7 @@ export interface ToolContext {
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown) => Promise<ToolResult>;
   startProcess?: (args: unknown) => Promise<ToolResult>;
+  listProcesses?: (args: unknown) => Promise<ToolResult>;
   readProcessOutput?: (args: unknown) => Promise<ToolResult>;
   stopProcess?: (args: unknown) => Promise<ToolResult>;
   startService?: (args: unknown) => Promise<ToolResult>;
@@ -29,6 +30,9 @@ export interface ToolContext {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  listServiceOps?: () => Promise<ToolResult>;
+  readServiceOpsLogs?: (args: unknown) => Promise<ToolResult>;
+  controlServiceOps?: (args: unknown) => Promise<ToolResult>;
   /** Per-Turn cached secret rows; callers must not cache plaintext. */
   loadSecrets?: () => EncryptedSecretRef[];
 }

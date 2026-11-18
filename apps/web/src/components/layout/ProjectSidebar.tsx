@@ -15,6 +15,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Server,
   Settings,
   SquareTerminal,
   Trash2,
@@ -28,6 +29,7 @@ import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
 import { getJobsSummary, jobsSummaryKey } from "@/features/jobs/api";
 import { JobsDialog } from "@/features/jobs/JobsDialog";
 import { ModelSettingsDialog } from "@/features/models/ModelSettingsDialog";
+import { listProcesses, processesKey } from "@/features/processes/api";
 import { ProjectDialog } from "@/features/projects/ProjectDialog";
 import { RenameProjectDialog } from "@/features/projects/RenameProjectDialog";
 import { ServiceOpsDialog } from "@/features/serviceOps/ServiceOpsDialog";
@@ -99,6 +101,20 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     refetchInterval: 15_000,
   });
   const jobsBadge = Math.max(0, (jobsSummary.data?.failedLast24h ?? 0) - jobsSeenFailures);
+  const processes = useQuery({
+    queryKey: processesKey(),
+    queryFn: () => listProcesses(),
+    enabled: !USE_MOCKS,
+    refetchInterval: 3_000,
+  });
+  const runningProcessCounts = useMemo(() => {
+    const counts = new Map<string | null, number>();
+    for (const process of processes.data ?? []) {
+      if (process.status !== "RUNNING") continue;
+      counts.set(process.projectId, (counts.get(process.projectId) ?? 0) + 1);
+    }
+    return counts;
+  }, [processes.data]);
   useEffect(() => {
     if (jobsOpen && jobsSummary.data) {
       setJobsSeenFailures(jobsSummary.data.failedLast24h);
@@ -407,6 +423,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
             const expanded = expandedProjects[project.id] ?? true;
             const isDefault = project.kind === "default";
             const runningTerminals = project.runningTerminals ?? 0;
+            const runningServices = runningProcessCounts.get(isDefault ? null : project.id) ?? 0;
             const regularIndex = isDefault ? -1 : (regularProjectIndex.get(project.id) ?? -1);
             const isDragging = dragState?.id === project.id && dragState.moved;
             const navigationProjectId = isDefault ? null : project.id;
@@ -486,6 +503,17 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                       <Folder size={10} />
                     </span>
                     <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
+                    {runningServices > 0 ? (
+                      <span
+                        className="flex shrink-0 items-center gap-0.5 text-accent"
+                        title={`${runningServices} 个运行中的后台服务`}
+                        aria-hidden="true"
+                        data-testid="project-service-indicator"
+                      >
+                        <Server size={10} strokeWidth={2} />
+                        <span className="font-mono text-[9px]">{runningServices}</span>
+                      </span>
+                    ) : null}
                     {runningTerminals > 0 ? (
                       <span
                         className="flex shrink-0 items-center text-success"

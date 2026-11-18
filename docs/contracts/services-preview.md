@@ -1,5 +1,7 @@
 # 开发服务、预览与 Agent 结果卡片契约
 
+> 083（2026-11-18）修订：项目开发服务改为 Agent `start_process` 的后台进程（`ProcessManager`），项目服务窗口读取 `/api/processes?projectId=`；预览在用户点击时按 `processId` + `projectId` 校验并签发。手动临时服务登记、`POST /api/services` 与相关 Agent 工具已退出产品面；旧 `services` 记录只保留历史查询、显式停止/删除与日志读取。本文其余 M3 内容保留为历史契约。
+
 > 本契约适用于 M3 的终端开发服务和隔离预览。当前实现见 [M3 技术契约](m3-preview.md) 与 [M3 收尾记录](../../specs/040-services-preview/closure.md)。正式服务有独立 [运维与部署契约](deployment.md)，分域规则见 [ADR-048](../adr/ADR-048-service-domain-separation.md)。
 
 ## 1. 开发服务的归属与控制者

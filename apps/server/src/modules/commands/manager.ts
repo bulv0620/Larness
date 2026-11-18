@@ -2,8 +2,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { lstat } from "node:fs/promises";
 import {
   FileManagerError,
+  groupAlive,
   isInteractiveExecutable,
   isInteractiveShellCommand,
+  processAlive,
   resolveFilePath,
   runCommand,
   ShellUnavailableError,
@@ -32,6 +34,7 @@ import {
   appendResourceEvent,
   findOperation,
   insertOperation,
+  pendingOperations,
   resourceSequence,
   updateOperation,
 } from "../resources/repository.js";
@@ -221,6 +224,7 @@ export class CommandManager {
       throw new FileManagerError("VALIDATION_ERROR", "Invalid command request");
     if (this.#closed)
       throw new FileManagerError("RESOURCE_UNAVAILABLE", "Command execution unavailable");
+    await this.reconcileDeadStoppedCommands();
     const request = parsed.data;
     if (request.mode === "exec" && isInteractiveExecutable(request.executable, request.args)) {
       throw new FileManagerError(
@@ -636,7 +640,35 @@ export class CommandManager {
     if (runtime) await runtime.done;
     return this.read(id);
   }
+  async reconcileDeadStoppedCommands(): Promise<void> {
+    for (const operation of pendingOperations(this.options.db).filter(
+      (item) => item.kind === "command.run" && item.status === "RECONCILIATION_REQUIRED",
+    )) {
+      if (operation.errorCode !== "STOP_UNCONFIRMED") continue;
+      const command = commandByOperation(this.options.db, operation.id);
+      if (!command?.processIdentityJson) continue;
+      let pid: number | null = null;
+      try {
+        const identity = JSON.parse(command.processIdentityJson) as { pid?: unknown };
+        if (typeof identity.pid === "number") pid = identity.pid;
+      } catch {
+        continue;
+      }
+      if (pid === null) continue;
+      if ((await groupAlive(pid)) || processAlive(pid)) continue;
+      immediateTransaction(this.options.db, (tx) => {
+        updateOperation(tx, operation.id, {
+          status: "FAILED",
+          errorCode: "STOP_UNCONFIRMED",
+          updatedAt: this.#now(),
+        });
+      });
+      this.#leases.releaseById(operation.lockId, operation.fencingToken);
+    }
+  }
+
   async recover() {
+    await this.reconcileDeadStoppedCommands();
     for (const row of unfinishedCommands(this.options.db)) {
       const operation = operationRow(this.options.db, row.operationId);
       const safe = operation?.status === "PREPARED" && row.processIdentityJson === null;

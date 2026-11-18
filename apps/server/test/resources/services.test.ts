@@ -8,7 +8,6 @@ import { expect, it } from "vitest";
 import { newId } from "../../src/db/ids.js";
 import { resourceActions } from "../../src/db/schema.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
-import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { listResourceEvents, ResourceEventBus } from "../../src/modules/resources/events.js";
 import {
@@ -79,7 +78,7 @@ async function fixture(dir: string) {
   const project = await createProject({ db: f.running.db }, { rootPath: root });
   const session = await createSession(
     { db: f.running.db, dataDir: f.running.dataDir },
-    { projectId: project.id, agentProfile: "workspace" },
+    { projectId: project.id, agentProfile: "service-ops" },
   );
   const client = (
     await f.running.app.inject({ url: "/api/auth/session", headers: { cookie: f.cookie } })
@@ -197,16 +196,14 @@ it("registers a verified temporary service, replays events and unregisters when 
         registry: createFileToolRegistry(),
         maxContextTokens: 128_000,
         policy: "autonomous" as const,
-        agentProfile: "workspace" as const,
+        agentProfile: "service-ops" as const,
       };
       const model = assembleContext(options, sessionRow, turnRow);
-      // Runtime observations left the cached system prefix (ADR-067 D1): they
-      // travel as the last message so an unchanged workspace keeps hitting the
-      // provider cache for the whole earlier conversation.
-      expect(model.observations).toContain(registered.id);
-      expect(model.observations).toContain(registered.terminalExecutionId);
+      // 083: project services are ProcessManager tasks and previews are
+      // generated on demand; historical terminal services are no longer
+      // injected as Turn-start observations.
+      expect(model.observations).toBeNull();
       expect(model.messages[0]?.content).not.toContain(registered.id);
-      expect(model.messages[model.messages.length - 1]?.content).toBe(model.observations);
       expect(
         assembleContext(options, { ...sessionRow, projectId: null }, turnRow).observations ?? "",
       ).not.toContain(registered.id);
@@ -421,11 +418,6 @@ it("registers a verified service for an authorized agent without a second approv
       const again = await services.registerAgent(input, client);
       expect(again.id).toBe(registered.id);
 
-      const tools = createServiceTools();
-      const register = tools.find((tool) => tool.name === "register_temporary_service");
-      expect(register?.riskLevel).toBe("L2");
-      const preview = tools.find((tool) => tool.name === "resolve_service_preview");
-      expect(preview?.riskLevel).toBe("L0");
       expect(decideToolAccess("autonomous", "L2")).toBe("allow");
       expect(decideToolAccess("standard", "L2")).toBe("require_approval");
       expect(decideToolAccess("readonly", "L2")).toBe("deny");

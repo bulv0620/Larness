@@ -21,7 +21,7 @@ export interface WindowTab {
   preview?: boolean;
   file?: { scope: FileScope; path: string };
   git?: { path: string; staged: boolean };
-  browser?: { serviceId: string; path: string };
+  browser?: { serviceId: string; path: string; targetKind?: "service" | "process" };
 }
 
 export interface Rect {

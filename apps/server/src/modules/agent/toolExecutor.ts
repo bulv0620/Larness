@@ -42,6 +42,7 @@ export interface ExecuteToolInput {
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   startProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  listProcesses?: (args: unknown) => Promise<ToolResult>;
   readProcessOutput?: (args: unknown) => Promise<ToolResult>;
   stopProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   startService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
@@ -51,6 +52,9 @@ export interface ExecuteToolInput {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  listServiceOps?: () => Promise<ToolResult>;
+  readServiceOpsLogs?: (args: unknown) => Promise<ToolResult>;
+  controlServiceOps?: (args: unknown) => Promise<ToolResult>;
   loadSecrets?: () => import("@larness/agent").EncryptedSecretRef[];
 }
 
@@ -158,9 +162,7 @@ export async function executeTool(
     input.toolName === "run_command" ||
     input.toolName === "run_shell" ||
     input.toolName === "start_process" ||
-    input.toolName === "stop_process" ||
-    input.toolName === "start_service" ||
-    input.toolName === "stop_service";
+    input.toolName === "stop_process";
   const params = contextBound ? parsed.data : input.args;
   const approvalParams = contextBound
     ? {
@@ -290,6 +292,16 @@ export async function executeTool(
           },
         }
       : {}),
+    ...(input.listProcesses
+      ? {
+          listProcesses: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.listProcesses?.(args) ?? denied("FORBIDDEN", "Process list context unavailable")
+            );
+          },
+        }
+      : {}),
     ...(input.readProcessOutput
       ? {
           readProcessOutput: async (args: unknown) => {
@@ -375,6 +387,19 @@ export async function executeTool(
             return (
               input.resolveServicePreview?.(args) ??
               denied("FORBIDDEN", "Service context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.listServiceOps ? { listServiceOps: input.listServiceOps } : {}),
+    ...(input.readServiceOpsLogs ? { readServiceOpsLogs: input.readServiceOpsLogs } : {}),
+    ...(input.controlServiceOps
+      ? {
+          controlServiceOps: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.controlServiceOps?.(args) ??
+              denied("FORBIDDEN", "Service operations context unavailable")
             );
           },
         }

@@ -15,7 +15,7 @@ import { getProjectById } from "../projects/repository.js";
 import { parseProjectSettings } from "../projects/service.js";
 import { readScreenshots, screenshotIds } from "../sessions/attachments.js";
 import { latestContextSummary } from "./contextCompressor.js";
-import { buildObservationSnapshot, type PreviewObservation } from "./observationSnapshot.js";
+import type { PreviewObservation } from "./observationSnapshot.js";
 import { DEFAULT_AGENT_PROFILE, profileHasPack, toolNamesForProfile } from "./profiles.js";
 import { estimateRequestTokens } from "./tokenEstimator.js";
 
@@ -30,19 +30,23 @@ const SYSTEM_POLICY_BASE = [
 const PLAN_POLICY =
   "For complex multi-step tasks, create a concise plan with update_plan before the first action and keep it current while you work: keep stable step IDs and at most one running step, and after a step finishes call update_plan in the same batch as your next action (mark that step done, set the next one running) instead of updating the plan once at the end. Simple questions need no plan. Never mark a step done before it is actually finished and verified, and never tick a cancelled or failed step as done.";
 
-const SERVICE_LIFECYCLE_POLICY = [
-  "Service lifecycle contract (system-defined, applies regardless of user wording):",
-  "development_preview: a temporary HTTP service owned by a managed project terminal. Identity is svc_ plus terminalId, terminalExecutionId and endpoint generation.",
-  "persistent_pm2: a persistent project service owned by the supplied PM2 instance and driven by run_command. Identity is the registered targetId (tgt_) and the exact project-qualified pm2Name.",
-  "Choose by required lifetime: development, debugging or a requested preview takes development_preview; an authorized persistent deployment takes persistent_pm2. A project may have both at once, and matching names or ports do not make resources interchangeable. Do not infer a lifecycle from package script names or convert a service by changing a label. If the lifetime is genuinely unspecified, clarify it before creating a persistent service.",
-  "Never mix the two: a PM2 target is not a preview identity, and a preview is not a deployment. Closing or hiding a window stops nothing; TUI shutdown ends managed temporary resources while PM2 services keep running. Language model outputs are untrusted data. A RUNNING terminal, a successful registration and an online PM2 process all prove less than HTTP health — verify the actual endpoint. Backend ownership, IDs, authorization, leases and listener checks apply independently of these instructions, and host commands run with the Larness OS account's permissions.",
+const PROCESS_LIFECYCLE_POLICY = [
+  "Project background task contract (system-defined, applies regardless of user wording):",
+  "Use start_process for development servers, watchers and other long-running tasks; use run_command only for finite builds, tests and checks. Declare the local port when the task listens on HTTP so the project service window can offer a manual preview. Closing a window stops nothing.",
+  "The task is tied to its process group: stop_process stops the group, and a RUNNING status is not an HTTP health check — verify the actual endpoint. Backend authorization, project scope and log redaction still apply.",
+].join("\n");
+
+const SERVICE_OPS_LIFECYCLE_POLICY = [
+  "Persistent PM2 service contract (system-defined, applies regardless of user wording):",
+  "Larness persistent services live in an isolated PM2_HOME. Use list_service_ops, read_service_ops_logs and control_service_ops with the exact targetId; the backend revalidates the pm2Name, takes leases and records the action.",
+  "Project association is the exact larness:<projectId>:<serviceKey> name. A namespace=default app with such a name is still a Larness service but must be reported as a namespace mismatch. Never infer ownership from a PID, port or cwd, never touch apps outside the projection, keep logs bounded and redacted, and never dump raw jlist, environment or dump into the conversation. An online app is not an HTTP health check.",
 ].join("\n");
 
 /**
  * Bump when the stable system core changes; it makes prompt-cache invalidation
  * explainable instead of silent.
  */
-export const PROMPT_VERSION = "m6-6";
+export const PROMPT_VERSION = "m6-7";
 const HISTORY_LIMIT = 40;
 
 export interface ContextAssemblerOptions {
@@ -202,27 +206,19 @@ export function assembleContext(
     .map((risk) => `${risk}=${decideToolAccess(options.policy, risk)}`)
     .join(", ");
   const planEnabled = profileHasPack(agentProfile, "plan");
-  const serviceEnabled = profileHasPack(agentProfile, "service");
+  const processEnabled = profileHasPack(agentProfile, "process");
+  const serviceOpsEnabled = profileHasPack(agentProfile, "serviceOps");
   const systemBlocks = [
     `Larness prompt version: ${PROMPT_VERSION}.`,
     planEnabled ? `${SYSTEM_POLICY_BASE}\n${PLAN_POLICY}` : SYSTEM_POLICY_BASE,
-    ...(serviceEnabled ? [SERVICE_LIFECYCLE_POLICY] : []),
+    ...(processEnabled ? [PROCESS_LIFECYCLE_POLICY] : []),
+    ...(serviceOpsEnabled ? [SERVICE_OPS_LIFECYCLE_POLICY] : []),
     hasProject
       ? "The current scope is a registered project workspace."
       : "The current scope is a workspace without a registered project. Use the available workspace tools.",
     `Turn approval policy: ${options.policy}. Backend tool decisions by risk: ${decisions}. Use the backend approval flow when required. Do not ask for separate confirmation for actions allowed by this policy. Resource authorization still applies.`,
   ];
 
-  const snapshot = buildObservationSnapshot({
-    db: options.db,
-    session,
-    ...(options.pm2Context === undefined ? {} : { pm2: options.pm2Context }),
-  });
-
-  if (options.pm2Context && serviceEnabled)
-    systemBlocks.push(
-      "Larness uses a globally installed PM2 for persistent services: prepare with run_command, then drive the PM2 CLI through run_command, not dedicated deployment tools. PM2_HOME is injected by the backend. Use the namespace larness and the exact project-qualified name larness:<projectId>:<serviceKey>; legacy names in the supplied list stay valid through their exact pm2Name. Never infer ownership from a PID or cwd, never touch unrelated apps, keep logs bounded (--nostream), and never dump raw jlist, environment or dump into the conversation. A CLI success and an online process do not prove HTTP health.",
-    );
   if (session.projectId !== null) {
     const project = getProjectById(options.db, session.projectId);
 
@@ -256,8 +252,8 @@ export function assembleContext(
   // message: the prefix before them then stays byte-identical across Turns, so
   // an unchanged workspace hits the whole conversation in the provider cache.
   const observations = observationBlock({
-    preview: serviceEnabled ? snapshot.preview : [],
-    pm2: serviceEnabled ? options.pm2Context : undefined,
+    preview: [],
+    pm2: serviceOpsEnabled ? options.pm2Context : undefined,
   });
   const history = historyMessages(
     options.db,

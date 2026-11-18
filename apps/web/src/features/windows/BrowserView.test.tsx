@@ -36,7 +36,15 @@ it("resolves a one-time ticket and submits it through a POST bootstrap form, nev
   });
   const { container } = render(<BrowserView tab={tab} />);
   expect(screen.getByRole("button", { name: "在独立来源打开" })).toBeTruthy();
-  await waitFor(() => expect(resolvePreview).toHaveBeenCalledWith(tab.browser.serviceId, "/"));
+  await waitFor(() =>
+    expect(resolvePreview).toHaveBeenCalledWith(
+      tab.browser.serviceId,
+      "/",
+      "embedded",
+      undefined,
+      "prj_1",
+    ),
+  );
   await waitFor(() => expect(submit).toHaveBeenCalled());
   const form = container.querySelector("form");
   expect(form?.getAttribute("action")).toBe("http://abc123.preview.localhost:3211/__bootstrap");
