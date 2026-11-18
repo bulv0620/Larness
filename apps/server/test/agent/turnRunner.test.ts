@@ -466,7 +466,7 @@ describe("TurnRunner", () => {
           (event) => event.type === "model.usage",
         );
         expect(usageEvents).toHaveLength(2);
-        expect(usageEvents[0]?.payload).toEqual({
+        expect(usageEvents[0]?.payload).toMatchObject({
           turnId: turn.turnId,
           model: "fake",
           inputTokens: 100,
@@ -474,7 +474,11 @@ describe("TurnRunner", () => {
           totalTokens: 110,
           usageSource: "unknown",
           contextWindow: 1_048_576,
+          durationMs: expect.any(Number),
         });
+        expect(
+          (usageEvents[0]?.payload as { durationMs?: number } | undefined)?.durationMs,
+        ).toBeGreaterThanOrEqual(0);
         expect(usageEvents[1]?.payload).toMatchObject({ inputTokens: 3, contextWindow: 1_048_576 });
         expect(usageEvents[0]?.sequence).toBeLessThan(usageEvents[1]?.sequence ?? 0);
       } finally {

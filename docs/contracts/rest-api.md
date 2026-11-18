@@ -346,12 +346,13 @@
 | GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档；列表项包含 `hasActiveTurn` |
 | POST | `/api/sessions` | `{ projectId?, title? }`；省略项目或选择内建默认项目时使用共享默认工作区；201 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
-| PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, credentialProfileId?, modelProfileId?, approvalPolicyId? }`；模型 / 档位 / 凭据 / 策略只影响下一 Turn；输入框改选策略后保存到当前会话，刷新后恢复 |
+| PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, credentialProfileId?, modelProfileId?, agentProfile?, approvalPolicyId? }`；模型 / 档位 / 凭据 / 策略只影响下一 Turn；输入框改选策略后保存到当前会话，刷新后恢复；`agentProfile` 仅 `coding` / `plan` |
 | DELETE | `/api/sessions/:id` | 归档会话（`status=archived`，不删 workspace / 源码）；活跃 Turn 返回 409 |
 | POST | `/api/sessions/:id/turns` | `{ input, model?, thinking?, credentialProfileId?, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
 | POST | `/api/turns/:id/cancel` | 活跃 Turn 置 `CANCELLING`；无活跃 Turn 返回 409 |
 | POST | `/api/turns/:id/resume` | 仅 `INTERRUPTED` 且已有可接手事实时，新建继承事实的 Turn（`resumedFromTurnId`）；202。非中断 409 `CONFLICT`，无事实 409，模型不可用 409 `RESOURCE_UNAVAILABLE`，Turn 不存在 404 |
 | GET | `/api/sessions/:id/events?after=<seq>&limit=` | 增量事件，按 `seq` 升序；`limit` 1–500（默认 100） |
+| GET | `/api/sessions/:id/usage` | 会话级只读用量聚合：终态 Turn 的 input/output/total 已知和、cache 已知值（不完整时为 `null`）、`turns`、`missingTurns`、`partial` 与 `updatedAt`；不返回 prompt 或密钥 |
 | GET | `/api/approvals/:id` | 审批详情（参数摘要、范围、过期时间） |
 | POST | `/api/approvals/:id` | `{ decision: "approve" \| "reject" }`；校验参数哈希与范围 |
 | GET | `/api/models` | **deprecated（061）**：旧模型 Profile 列表，UI 不再使用；数据保留 |
@@ -569,7 +570,7 @@ OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模
 Session / Turn 的模型选择：
 
 - `model` 为目录中的模型 id；`thinking` 为 `off` / `low` / `medium` / `high`（旧 `default` 读取归一为 `medium`）。Provider 侧按 `low`→`low`、`medium`→`high`、`high`→`max` 发送。`PATCH /api/sessions/:id` 保存选择，`POST /api/sessions/:id/turns` 可覆盖本轮选择。
-- `agentProfile` 为 `coding` / `plan` / `service-ops`；`POST /api/sessions` 可显式指定，缺省 `coding`；`PATCH /api/sessions/:id` 可切换。会话级字段持久化，Turn 开始时按当前会话 Profile 装配工具集；旧客户端不传时使用默认。
+- `agentProfile` 为 `coding` / `plan`；`POST /api/sessions` 可显式指定，缺省 `coding`；`PATCH /api/sessions/:id` 可切换。会话级字段持久化，Turn 开始时按当前会话 Profile 装配工具集；旧客户端不传时使用默认。原 `service-ops` 会话由迁移 `0034` 归一为 `coding`，Service Ops 人类弹窗与 REST 保持不变。
 - Turn 创建时快照 `provider`、`model`、`thinking`、预算（总窗口或保守窗口、最大输入／输出）与连接版本；运行中改选只影响下一 Turn。
 - 模型不在目录内或档位不属于该模型时返回 `400 MODEL_UNSUPPORTED`，不创建 Turn，也不调用上游。
 - 旧客户端传 `modelProfileId` 仍按快照兼容解析；档案已忽略或凭据缺失时失败关闭。`GET /api/models` 保留兼容但不再被 UI 使用。

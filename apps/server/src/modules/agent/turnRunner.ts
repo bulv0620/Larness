@@ -320,6 +320,7 @@ export class TurnRunner {
     const policy = snapshot?.policy ?? approvalPolicy(session.approvalPolicyId);
     let projectLock: ProjectWriteLock | null = null;
     let usage: ProviderUsage = {};
+    let missingUsageSteps = 0;
     let steps = 0;
     let toolCalls = 0;
     let finalized = false;
@@ -360,10 +361,12 @@ export class TurnRunner {
     ): Promise<TurnRunResult> => {
       const fileResults = await this.#collectFileResults(projectRoot, projectIgnore, fileChanges);
       const omitted = fileChanges.size - fileResults.length;
+      const persistedUsage: ProviderUsage & { missingSteps?: number } =
+        missingUsageSteps === 0 ? usage : { ...usage, missingSteps: missingUsageSteps };
       finalized = true;
       return this.#finalize(turn, session, status, {
         ...options,
-        usage,
+        usage: persistedUsage,
         durationMs: this.#now() - startedAt,
         ...(fileResults.length === 0 ? {} : { fileResults }),
         ...(omitted <= 0 ? {} : { fileResultsOmitted: omitted }),
@@ -1318,6 +1321,7 @@ export class TurnRunner {
         }
 
         usage = addUsage(usage, stepUsage);
+        if (stepUsage === undefined) missingUsageSteps += 1;
 
         if (stepUsage?.inputTokens !== undefined) {
           anchoredHeuristicTokens = heuristicTokens;
@@ -1339,6 +1343,7 @@ export class TurnRunner {
             ...(stepUsage.noCacheTokens === undefined
               ? {}
               : { noCacheTokens: stepUsage.noCacheTokens }),
+            durationMs: this.#now() - stepStartedAt,
             usageSource: stepUsage.cacheReadTokens === undefined ? "unknown" : "provider",
             contextWindow: resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens,
           });

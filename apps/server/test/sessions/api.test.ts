@@ -64,6 +64,25 @@ describe("sessions API", () => {
           activeTurn: null,
         });
 
+        const usage = await started.running.app.inject({
+          method: "GET",
+          url: `/api/sessions/${session.id}/usage`,
+          headers: { cookie: started.cookie },
+        });
+        expect(usage.statusCode).toBe(200);
+        expect(usage.json()).toEqual({
+          sessionId: session.id,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          cacheReadTokens: null,
+          noCacheTokens: null,
+          turns: 0,
+          missingTurns: 0,
+          partial: false,
+          updatedAt: null,
+        });
+
         const turnResponse = await started.running.app.inject({
           method: "POST",
           url: `/api/sessions/${session.id}/turns`,

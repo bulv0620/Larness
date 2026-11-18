@@ -21,6 +21,7 @@ import {
   updateSession,
 } from "../modules/sessions/service.js";
 import { cancelTurn, createTurn } from "../modules/sessions/turns.js";
+import { getSessionUsage } from "../modules/sessions/usage.js";
 import { publishWorkspaceSessionsChanged } from "../ws/publisher.js";
 
 const SessionIdSchema = z.string().min(1).max(128);
@@ -224,6 +225,16 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
       }
     },
   );
+
+  app.get<{ Params: { id: string } }>("/api/sessions/:id/usage", async (request) => {
+    const id = parse(SessionIdSchema, request.params.id);
+
+    try {
+      return getSessionUsage(deps.db, id);
+    } catch (error) {
+      throwSession(error);
+    }
+  });
 
   app.post<{ Params: { id: string } }>("/api/sessions/:id/turns", async (request, reply) => {
     const id = parse(SessionIdSchema, request.params.id);
