@@ -463,7 +463,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | AP-3 | [会话用量 API 与步骤耗时](084-agent-profiles-and-usage/tasks.md#ap-3-会话用量-api-与步骤耗时) | AP-1 | `done` |
 | AP-4 | [输入框下方用量与最后一步速度](084-agent-profiles-and-usage/tasks.md#ap-4-输入框下方用量与最后一步速度) | AP-3 | `done` |
 | AP-5 | [过程呈现收敛（状态行、波形、思考）](084-agent-profiles-and-usage/tasks.md#ap-5-过程呈现收敛状态行波形思考) | AP-1 | `done` |
-| AP-6 | [全量验证、契约与状态回填](084-agent-profiles-and-usage/tasks.md#ap-6-全量验证契约与状态回填) | AP-2～AP-5 | `in_progress` |
+| AP-6 | [全量验证、契约与状态回填](084-agent-profiles-and-usage/tasks.md#ap-6-全量验证契约与状态回填) | AP-2～AP-5 | `done` |
 
 ## 9. 门禁
 

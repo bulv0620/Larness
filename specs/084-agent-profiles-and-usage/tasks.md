@@ -12,7 +12,7 @@
 | AP-3 | 会话用量 API 与步骤耗时 | AP-1 | `done` |
 | AP-4 | 输入框下方用量与最后一步速度 | AP-3 | `done` |
 | AP-5 | 过程呈现收敛（状态行、波形、思考） | AP-1 | `done` |
-| AP-6 | 全量验证、契约与状态回填 | AP-2～AP-5 | `in_progress` |
+| AP-6 | 全量验证、契约与状态回填 | AP-2～AP-5 | `done` |
 
 ## 任务卡
 
@@ -109,3 +109,13 @@
 - 测试：整仓门禁与 E2E。
 - 涉及路径：全仓与状态文档。
 - 备注：失败项定点复跑，不冒充全绿。
+
+## 验收记录（2026-11-18，macOS）
+
+- AP-2：Profile 只剩 `coding` / `plan`；两者工具面相同，Plan 多 `update_plan`；迁移 `0034` 将 `service-ops` 归一 `coding`；PM2 观察快照不再注入，`refresh_observations` 退出模型面。定向 96 项通过。
+- AP-3：`GET /api/sessions/:id/usage`、诚实聚合与 `model.usage.durationMs` 完成；定向 60 项通过。
+- AP-4：输入框下方会话 Token、部分统计与最后一步速度完成；Web 定向 29 项通过。
+- AP-5：底部状态栏删除，过程标题行、波形、状态与耗时完成；reasoning 不渲染、不触发滚动；聊天定向 67 项通过。
+- 全量：`pnpm check` 通过（biome、6 包 typecheck、Web 262、Agent 63 + 1 跳过、Server 734 + 14 跳过）；`pnpm build` 通过。
+- E2E：Mock 24/24；认证 20/20；生产构建 20/20。认证与生产使用 3310/3320 端口（3210/3211 被现有开发服务占用），认证 Web 使用 5174。
+- 未验证：真实 Provider 长时间会话的 usage 完整性、真实模型下的 Plan 行为；UI 视觉验收待人类确认。

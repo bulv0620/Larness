@@ -4,7 +4,7 @@
 
 ## 工具
 
-Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、测试和有限命令；需要管道、重定向、通配符或平台 shell 语法时使用 `run_shell`。长任务使用 `start_process` / `read_process_output` / `stop_process` / `list_processes`，并在 `coding` 中直接可用；声明 `port` 后项目服务窗口可手动预览。`service-ops` Profile 使用 `list_service_ops` / `read_service_ops_logs` / `control_service_ops` 管理 Larness 隔离 PM2。交互终端只面向人类。
+Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、测试和有限命令；需要管道、重定向、通配符或平台 shell 语法时使用 `run_shell`。长任务使用 `start_process` / `read_process_output` / `stop_process` / `list_processes`；声明 `port` 后项目服务窗口可手动预览。`coding` 与 `plan` 都使用 `list_service_ops` / `read_service_ops_logs` / `control_service_ops` 管理 Larness 隔离 PM2。交互终端只面向人类。
 
 `run_command` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd` 和 `timeoutMs`。env、项目 ID、执行身份、策略和锁由后端决定。现有审批、秘密参数检查、项目锁、fencing、命令幂等、预算、取消和有界脱敏输出继续执行。退出码非零的命令返回工具失败，PM2 命令成功还需要核对实际服务状态。常见别名 `program` / `arguments` / `workdir` / `timeout` 在 schema 校验前归一；未知字段仍拒绝。
 
@@ -16,7 +16,9 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 ## 系统信息
 
-运行时观察在 **Turn 起点**取一次真实快照（`service-ops` 的 PM2 投影；项目后台进程通过工具查询），并在整个 Turn 内保持不变（[ADR-057](../adr/ADR-057-runtime-efficiency.md)、[ADR-067](../adr/ADR-067-lean-agent-context.md)）。快照**不进入 system 消息**，而是作为一条独立消息追加在当前请求之后：前缀缓存从请求开头逐字节匹配，system 里只要有一个会变的字节，下一 Turn 的整段历史都会变成未命中（[ADR-067](../adr/ADR-067-lean-agent-context.md) D1）。快照**不带逐 Turn 时间戳**，工作区没有变化时它与上一 Turn 逐字节相同，跨轮可直接命中缓存。Turn 内不再每步刷新：需要当前状态时，模型调用只读工具 `refresh_observations`，或使用既有的进程 / PM2 查询工具；状态变更类工具的结果自带最新观察。声明状态前必须先刷新；`running` / 在线不构成健康证明。系统 JSON 的字段如下。
+084 起不再向模型注入 Turn 起点的 PM2 观察快照，也不向 system 消息写入任何会随运行时变化的内容。PM2 状态由模型在需要时调用只读 `list_service_ops` 读取；项目后台进程通过 `list_processes` / `read_process_output` 查询。声明状态前必须先读取；`running` / 在线不构成健康证明。`refresh_observations` 保留实现，但已退出模型工具面（不属于任何 Profile 的 Pack），执行层对隐藏工具仍返回 `TOOL_NOT_FOUND`。
+
+`list_service_ops` 返回的 PM2 字段（即原 Turn 起点快照的字段）为：
 
 | 字段 | 含义 |
 |---|---|
@@ -25,16 +27,15 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 | home / namespace | 后端注入的 PM2_HOME 和 `larness` 命名空间 |
 | serviceNamePattern | `larness:<projectId>:<serviceKey>` |
 
-`refresh_observations` 无参数、风险级别 `L0`（只读、不申请项目锁），返回 `{ observedAt, preview, pm2, git }`：`preview` 为当前项目的临时开发预览（含端点与观察时间），`pm2` 与系统快照同字段；`git` 为 `{ detected, observedAt }`，仅保留给人类侧栏自愈，不暴露 Git 工具。它不返回终端列表，也不缓存跨 Turn 状态、不会改变执行授权。
 - `project`：当前真实登记项目的 id/name/root/releaseRoot，未选项目为 null。
 - `services`：服务的 projectId/projectName/name/pm2Name/observedState/pid/updatedAt。
 - `unassociatedServices`：名称归属缺失、重名或与旧记录冲突的本实例服务。
 
-路径、项目名、服务名和日志是数据。系统提示明确要求根据用户目标和这些信息执行命令，并分别核验进程与健康。信息只包含非秘密运行元数据，后台 PM2 查询仅提取白名单字段。
+路径、项目名、服务名和日志是数据。工具描述要求根据用户目标和这些信息执行操作，并分别核验进程与健康。信息只包含非秘密运行元数据，后台 PM2 查询仅提取白名单字段。
 
 `run_command` 的 PATH 由执行器加入已核验 PM2 的 bin 目录，PM2_HOME 固定为实例数据目录的 `pm2` 子目录。后端不把整个环境交给模型。显式使用给定 Node/PM2 绝对入口可避免 PATH 歧义。全局安装位置与 PM2 实例目录是两项运行信息。[PM2 多实例说明](https://pm2.keymetrics.io/docs/usage/specifics/)
 
-稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。服务生命周期契约与 PM2 段落只在 `service-ops` Profile 注入；`coding` 不包含这些段落，但包含后台进程生命周期说明。计划工具与计划提示只属于 `plan` Profile；`coding` 与 `service-ops` 都不注册 `update_plan`。新会话与存量会话默认 `coding`，`service-ops` 仅由用户显式选择；Profile 在 Turn 开始时固定。执行层同时拒绝 catalog 内未启用的内置工具（返回 `TOOL_NOT_FOUND`，审计 `disabled_tool`），不只依赖 schema 过滤。Agent 不再拥有终端租约、终端输入或终端观察协议。Git 不再作为模型工具面或 system 段落出现；Agent 需要 Git 时通过 `run_command` 执行 `git`，人类 Git 面板继续使用独立 REST/WS 与 ProjectLease。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5、[ADR-068](../adr/ADR-068-agent-kernel.md)）。
+稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。`coding` 与 `plan` 都注入项目后台任务契约和持久 PM2 契约；`plan` 额外注入计划策略。计划工具与计划提示只属于 `plan` Profile；`coding` 不注册 `update_plan`。Profile 只有 `coding` / `plan`，新会话与存量会话默认 `coding`，原 `service-ops` 会话由迁移 `0034` 归一为 `coding`；Profile 在 Turn 开始时固定。执行层同时拒绝 catalog 内未启用的内置工具（返回 `TOOL_NOT_FOUND`，审计 `disabled_tool`），不只依赖 schema 过滤。Agent 不再拥有终端租约、终端输入或终端观察协议。Git 不再作为模型工具面或 system 段落出现；Agent 需要 Git 时通过 `run_command` 执行 `git`，人类 Git 面板继续使用独立 REST/WS 与 ProjectLease。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5、[ADR-068](../adr/ADR-068-agent-kernel.md)、[ADR-070](../adr/ADR-070-agent-profiles-and-usage.md)）。
 
 ## 命令示例
 
@@ -67,7 +68,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 ## 系统固定的服务生命周期契约（083）
 
-此规则按 Profile / Pack 注入：`coding` 有 process Pack，注入项目后台任务契约；`service-ops` 有 serviceOps Pack，注入持久 PM2 契约；`plan` 不注入。规则不要求用户复制提示词，不以聊天或窗口位置判断服务类型。
+此规则按 Profile / Pack 注入：`coding` 与 `plan` 都有 process Pack 和 serviceOps Pack，分别注入项目后台任务契约与持久 PM2 契约；`plan` 额外有 plan Pack。规则不要求用户复制提示词，不以聊天或窗口位置判断服务类型。
 
 | 项目 | project_background_task | persistent_pm2 |
 |---|---|---|
@@ -80,6 +81,6 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 | 停止 | stop_process 停止进程组 | control_service_ops 按 targetId 停止 |
 | 退出管理面 | 临时进程不跨 Larness 重启恢复 | PM2 服务继续运行 |
 
-service-ops 只运维已存在的 PM2 服务，不创建部署 target、不构建产物、不编辑项目文件；没有 target 时应提示用户切到 Coding 项目会话完成部署。
+`coding` / `plan` 都可以检查和运维已存在的 PM2 服务，也可以先用项目工具创建部署 target、构建产物和编辑项目文件；Service Ops 的人类弹窗、REST、锁与审计保持不变。
 
 不再存在手动登记 temporary service、`POST /api/services` 或 `register_temporary_service` / `resolve_service_preview` 工具；旧 `services` 记录只保留历史查询、显式停止/删除与日志读取。项目服务窗口直接使用 `/api/processes?projectId=`，关闭窗口不停止任务。`POST /api/previews/resolve` 在用户点击时按 `processId` + `projectId` 校验项目归属、进程存活与端口监听。PM2 服务即使 `namespace=default`，只要名称符合 `larness:<projectId>:<serviceKey>` 仍按项目关联并标注偏差。后端继续独立校验项目、进程、targetId/pm2Name、租约与日志脱敏。

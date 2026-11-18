@@ -11,7 +11,7 @@ updated: 2026-11-18
 
 # Agent Profile 收敛与会话 Token 统计
 
-> 状态：`active`（2026-11-18 人类审核通过并指示开始实施；§12 已固化为决议）。本切片修改 082/083 的 Profile 模型，并增加输入框下方的会话 Token 统计与最后一步实测速度。决策见 [ADR-070](../../docs/adr/ADR-070-agent-profiles-and-usage.md)。
+> 状态：`active`（2026-11-18 人类审核通过并指示实施；AP-1～AP-6 完成，自动化门禁通过，待 UI 视觉验收）。本切片修改 082/083 的 Profile 模型，并增加输入框下方的会话 Token 统计与最后一步实测速度。决策见 [ADR-070](../../docs/adr/ADR-070-agent-profiles-and-usage.md)，验收记录见 [tasks](tasks.md#验收记录2026-11-18macos)。
 
 ## 1. 背景与问题
 

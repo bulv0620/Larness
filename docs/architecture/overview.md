@@ -158,7 +158,7 @@ coding Chat ──start_process──► ProcessManager ──► 项目服务�
 
 083 起，项目服务 = `coding` 会话通过 `start_process` 启动的后台开发进程。进程属于项目与来源 Turn，项目侧栏显示运行数量，服务窗口显示状态、端口、PID、日志与停止；声明 `port` 的任务在用户点击“预览”时才校验项目归属、进程存活与端口监听并签发预览票据。关闭窗口不停止任务；临时进程不跨 Larness 重启恢复。旧 `services` 记录只保留历史查询、停止/删除与日志读取。见 [ADR-069](../adr/ADR-069-project-services-and-service-ops.md)。
 
-`service-ops` Profile 管理 Larness 私有 PM2 中的持久服务：`list_service_ops`、`read_service_ops_logs`、`control_service_ops`。PM2 服务按完整 `larness:<projectId>:<serviceKey>` 名称关联项目；`namespace=default` 但名称合法的应用仍显示并标注偏差。控制前复核 targetId、pm2Name、项目/服务锁与授权，日志有界脱敏。见 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)、[ADR-069](../adr/ADR-069-project-services-and-service-ops.md)。
+`coding` 与 `plan` 都可管理 Larness 私有 PM2 中的持久服务：`list_service_ops`、`read_service_ops_logs`、`control_service_ops`。PM2 服务按完整 `larness:<projectId>:<serviceKey>` 名称关联项目；`namespace=default` 但名称合法的应用仍显示并标注偏差。控制前复核 targetId、pm2Name、项目/服务锁与授权，日志有界脱敏。默认不注入 Turn 起点 PM2 快照，模型按需读取。见 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)、[ADR-069](../adr/ADR-069-project-services-and-service-ops.md)、[ADR-070](../adr/ADR-070-agent-profiles-and-usage.md)。
 
 文件工具结果附 scope / path 卡片，点击打开文件 Tab；可预览服务结果附 serviceId / 相对页面路径卡片，点击解析当前授权后打开 Browser Tab。卡片只打开视图，不重新执行工具、启动资源或自动开放端口。详细契约见 [services-preview.md](../contracts/services-preview.md)。
 
@@ -241,11 +241,11 @@ app.js          # 稳定入口（M0-9 创建）
 
 ## 当前 Agent 执行结构
 
-生产入口在 bootstrap 注册 26 个工具，注册表只向模型提供当前会话适用的工具。文件 4、计划 1、命令 1、终端 7、Git 10、临时开发服务 3。专用正式服务构建、发布和启停工具已撤回。
+生产入口在 bootstrap 注册工具，注册表只向模型提供当前会话适用的工具。`coding` 暴露 14 个工具（读取、写入、命令、后台进程、Service Ops），`plan` 在同一面上增加 `update_plan`；终端与 Git 不在模型面。`refresh_observations` 保留实现但不属于任何 Profile。
 
-服务运维的人工启动/停止/重启按 [ADR-051](../adr/ADR-051-human-pm2-service-control.md) 经独立 REST 调用 ServiceOpsRuntime，在项目→服务锁内复核身份并控制已有 PM2 应用，使用资源操作表持久化幂等意图。该入口不依赖当前聊天；`service-ops` Profile 另提供受控的 list/logs/control 模型工具，普通 `coding` 仍可使用 run_command。
+服务运维的人工启动/停止/重启按 [ADR-051](../adr/ADR-051-human-pm2-service-control.md) 经独立 REST 调用 ServiceOpsRuntime，在项目→服务锁内复核身份并控制已有 PM2 应用，使用资源操作表持久化幂等意图。该入口不依赖当前聊天；`coding` 与 `plan` 两个 Profile 都提供受控的 list/logs/control 模型工具，按需读取 PM2 状态。
 
-TurnQueue 默认最多同时执行两个不同会话，同一会话保持单个活跃 Turn。TurnRunner 组装系统约束、会话历史、项目指令、工具 schema、终端与 PM2 信息，调用 Provider，再把工具调用交给 ToolExecutor 和各资源 Manager。工具结果回填模型，直到返回答复、失败、取消或达到预算。默认不限制步数与工具调用次数，花费上限为模型窗口 × 30 且按整个任务累计（接续轮继承前序花费），挂钟 180 分钟只作卡死兜底（[ADR-059](../adr/ADR-059-long-task-budget-and-continuation.md)）。上下文分三级处理：达到窗口 55% 先把旧工具结果折叠为标识（可逆，正文仍在 `agent_events`），70%/90% 才用检查点替换历史，检查点保留当前需求原文、结构化事实与最近一个完整工具批次。
+TurnQueue 默认最多同时执行两个不同会话，同一会话保持单个活跃 Turn。TurnRunner 组装系统约束、会话历史、项目指令与工具 schema，调用 Provider，再把工具调用交给 ToolExecutor 和各资源 Manager。PM2 / 后台进程状态由模型按需通过工具读取，不在 Turn 起点注入快照。工具结果回填模型，直到返回答复、失败、取消或达到预算。默认不限制步数与工具调用次数，花费上限为模型窗口 × 30 且按整个任务累计（接续轮继承前序花费），挂钟 180 分钟只作卡死兜底（[ADR-059](../adr/ADR-059-long-task-budget-and-continuation.md)）。上下文分三级处理：达到窗口 55% 先把旧工具结果折叠为标识（可逆，正文仍在 `agent_events`），70%/90% 才用检查点替换历史，检查点保留当前需求原文、结构化事实与最近一个完整工具批次。
 
 模型请求和流式协议经 ProviderAdapter 适配，生产 resolver 接入 DeepSeek、GLM 和 OpenAI 兼容端点，测试使用 FakeProvider。上下文构建支持摘要压缩，模型和凭据在 Turn 创建时固定。
 

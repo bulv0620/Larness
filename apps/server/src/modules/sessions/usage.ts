@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { Database } from "../../db/client.js";
-import { turns, type TurnStatus } from "../../db/schema.js";
+import { type TurnStatus, turns } from "../../db/schema.js";
 import { SessionError } from "./errors.js";
 import { getSessionById } from "./repository.js";
 

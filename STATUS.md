@@ -1,15 +1,16 @@
 # STATUS
 
-> 最后更新：2026-11-18 (+08:00)
+> 最后更新：2026-11-18 22:30 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
 ## 当前进行中
 
-- **AP-6**（084，分支 `task/084-agent-profiles-usage`，2026-11-18 22:05）：全量 check / build / E2E、契约与状态回填。
+- 无。
 
 ## 阻塞与待确认
 
+- **084 UI 视觉验收**：AP-1～AP-6 完成且自动化门禁通过；过程标题行、波形、用量行与 Plan 文案待用户视觉确认。
 - **实机验收证据边界（082/083）**：082 已按限定范围验收通过，但真实 Provider A/B、Windows 实机与 083 用户现有 PM2/旧命令数据未在本次环境复跑；不得据此声称这些场景已验证。
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
@@ -19,6 +20,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-18 | AP-6 全量验证与收口 | check 通过（Web 262 / Agent 63+1 / Server 734+14）；build 通过；Mock 24/24、认证 20/20、生产 20/20；契约与状态同步；UI 视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |
 | 2026-11-18 | AP-5 过程呈现收敛 | 删除底部状态栏；状态收敛到折叠标题行（波形 + Thinking/Generating/Running/Waiting/Completed/Failed/Stopped + 步数与耗时）；reasoning 不渲染、不触发滚动；聊天定向 67 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-5-过程呈现收敛状态行波形思考) |
 | 2026-11-18 | AP-4 输入框用量与速度 | 新增会话用量行：总量常驻、部分统计 `≥`、进行中最后一步 `tok/s`；终态失效重取；Web 定向 29 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-4-输入框下方用量与最后一步速度) |
 | 2026-11-18 | AP-3 会话用量与步骤耗时 | 新增 `GET /api/sessions/:id/usage` 与诚实聚合（缺失不补零）；`model.usage` 增 `durationMs`；契约同步；定向 60 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-3-会话用量-api-与步骤耗时) |
