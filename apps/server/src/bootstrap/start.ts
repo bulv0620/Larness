@@ -79,6 +79,7 @@ import { NamedServiceManager } from "../modules/services/named.js";
 import { getSessionById } from "../modules/sessions/repository.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
+import type { RateLimiter } from "../security/rate-limit.js";
 import { SecretStore } from "../security/secretStore.js";
 import { SERVER_VERSION } from "../version.js";
 import { publishAgentEvent } from "../ws/publisher.js";
@@ -100,6 +101,8 @@ export interface StartServerOptions {
   catalogFetcher?: DeepSeekCatalogFetcher;
   pm2Global?: Pm2Global;
   pm2?: Pm2Adapter | null;
+  /** E2E fixtures can raise pairing limits without changing production rules. */
+  rateLimiter?: RateLimiter;
 }
 
 export interface RunningServer {
@@ -598,6 +601,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
     app = createApp({
       logger: activeLogger,
+      ...(options.rateLimiter === undefined ? {} : { rateLimiter: options.rateLimiter }),
       services: {
         db: opened.db,
         dataDir,

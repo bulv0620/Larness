@@ -1,11 +1,12 @@
 import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createFileToolRegistry } from "@larness/agent";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { listRecentAudit } from "../../src/db/repositories/audit.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
+import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -272,6 +273,57 @@ describe("tool executor", () => {
           });
         }
         expect(listRecentAudit(opened.db).map((row) => row.action)).toContain("tool.denied");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("rejects a registered tool that the session profile does not advertise", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      const projectRoot = path.join(dir, "project");
+      await mkdir(projectRoot);
+      const realRoot = await realpath(projectRoot);
+      const options = { db: opened.db, dataDir: dir };
+      const session = await createSession(options, { agentProfile: "coding" });
+      const turn = createTurn(options, { sessionId: session.id, text: "hidden tool" });
+      const registry = createFileToolRegistry();
+      registry.register(createPlanTool({ db: opened.db }));
+      const updatePlan = vi.fn(async () => ({ ok: true as const, summary: "plan" }));
+
+      try {
+        const outcome = await executeTool(
+          {
+            db: opened.db,
+            registry,
+            disabledTools: new Set(["update_plan"]),
+          },
+          {
+            sessionId: session.id,
+            turnId: turn.turnId,
+            toolCallId: "call_hidden_plan",
+            toolName: "update_plan",
+            args: {
+              title: "hidden",
+              steps: [{ id: "a", title: "x", status: "pending" }],
+            },
+            policy: "autonomous",
+            projectRoot: realRoot,
+            updatePlan,
+          },
+        );
+
+        expect(outcome.status).toBe("completed");
+        if (outcome.status === "completed") {
+          expect(outcome.result).toMatchObject({ ok: false, errorCode: "TOOL_NOT_FOUND" });
+        }
+        expect(updatePlan).not.toHaveBeenCalled();
+        const denied = listRecentAudit(opened.db).filter((row) => row.action === "tool.denied");
+        expect(denied).toHaveLength(1);
+        expect(JSON.parse(denied[0]?.detailsJson ?? "{}")).toMatchObject({
+          reason: "disabled_tool",
+        });
       } finally {
         opened.close();
       }

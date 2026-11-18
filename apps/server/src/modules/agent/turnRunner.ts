@@ -51,6 +51,7 @@ import { assembleContext } from "./contextAssembler.js";
 import { compressContext, shouldCompress } from "./contextCompressor.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
 import { buildObservationSnapshot } from "./observationSnapshot.js";
+import { disabledToolsForProfile } from "./profiles.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
 import {
   calibrateEstimate,
@@ -360,6 +361,10 @@ export class TurnRunner {
     let anchoredProviderTokens: number | undefined;
     let wrapUpRequested = false;
     const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
+    // Profile membership is enforced at execution, not only in the advertised
+    // schema: a model that hallucinates a hidden built-in tool must not reach
+    // its handler. Extension/test tools outside the catalog stay available.
+    const disabledTools = disabledToolsForProfile(session.agentProfile);
     // First-touch order survives; later writes only refresh the version.
     const fileChanges = new Map<string, TurnFileChange>();
     const repeatFailures = new Map<string, number>();
@@ -458,7 +463,12 @@ export class TurnRunner {
     heartbeat.unref();
     const execute = (request: ToolCallRequest, approvalId?: string) =>
       executeTool(
-        { db: this.#options.db, registry: this.#options.registry, now: this.#options.now },
+        {
+          db: this.#options.db,
+          registry: this.#options.registry,
+          disabledTools,
+          now: this.#options.now,
+        },
         {
           sessionId: session.id,
           turnId: turn.id,
@@ -1571,6 +1581,7 @@ export class TurnRunner {
           toolRequests.length <= READ_PREFETCH_LIMIT &&
           checkBudget() === "ok" &&
           toolRequests.every((request) => {
+            if (disabledTools.has(request.name)) return false;
             const definition = this.#options.registry.get(request.name);
             if (definition === undefined) return false;
             const risk = definition.classifyRisk?.(request.args) ?? definition.riskLevel;
@@ -1618,7 +1629,9 @@ export class TurnRunner {
             });
           }
 
-          const definition = this.#options.registry.get(request.name);
+          const definition = disabledTools.has(request.name)
+            ? undefined
+            : this.#options.registry.get(request.name);
           const argsSummary = definition?.summarize?.(request.args) ?? request.name;
 
           this.#emit(turn, session, "tool.requested", {

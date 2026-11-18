@@ -9,6 +9,7 @@ import type { ProviderResolver } from "../apps/server/src/modules/agent/turnRunn
 import { refreshModelCatalog } from "../apps/server/src/modules/models/catalog.js";
 import { createCredential } from "../apps/server/src/modules/models/service.js";
 import { getProjectById } from "../apps/server/src/modules/projects/repository.js";
+import { RateLimiter } from "../apps/server/src/security/rate-limit.js";
 import { SecretStore } from "../apps/server/src/security/secretStore.js";
 import { createFakeProvider, type ProviderChunk } from "../packages/agent/src/index.js";
 import { DEFAULT_APP_CONFIG } from "../packages/shared/src/index.js";
@@ -398,7 +399,15 @@ const catalogFetcher = async () => ({
   ],
 });
 
+/** Each Playwright test pairs a fresh browser; keep pairing limits out of the fixture. */
+class E2eRateLimiter extends RateLimiter {
+  override consume(key: string, limit: number, windowMs: number, now = Date.now()) {
+    return super.consume(key, Math.max(limit, 10_000), windowMs, now);
+  }
+}
+
 running = await startServer({
+  rateLimiter: new E2eRateLimiter(),
   env: {
     LARNESS_DATA_DIR: dataDir,
     LARNESS_PORT: String(port),

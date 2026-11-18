@@ -43,6 +43,7 @@
 | Q-039 | 计划陈旧提醒的阈值（6 个工具调用）与「每计划版本只提醒一次」是否合适？ | 已按 6 实现（`PLAN_STALE_TOOL_CALLS`）；真实长任务中若模型仍只在结尾更新，再按 `plan.updated` 次数调低或允许每 N 次重复 | 长任务体验、token 成本 | [079 spec](../specs/079-plan-progress/spec.md#13-开放问题) |
 | Q-040 | 回合已完成但计划仍留 `pending` 时，是否要在回合摘要额外提示「计划未同步」？ | 默认只在计划行显示「另有 N 步未完成」，不加回合级提示；若用户仍误读计划与成果不符，再评估 | 计划可读性、界面噪声 | [080 spec](../specs/080-plan-terminal-state/spec.md#13-开放问题) |
 | Q-041 | 是否继续压缩 `@larness/shared` 的 schema 字段描述（`update_plan`、`start_project_terminal`、`run_command`）？081 把重复的生命周期文案合到一处后，字段描述成为剩余固定开销的最大单项（工具 schema 仍约 4.4k token）。 | 暂不动：改 `.describe()` 属执行契约变更，需要重跑工具契约矩阵并更新 `051` 契约，单开一轮评估 | 固定开销、模型调用正确率 | [081 spec](../specs/081-agent-lean/spec.md#13-开放问题) |
+| Q-051 | 082 的命名后台服务是否需要跨重启持久化，或复用现有 `services` 表？ | 当前实现为进程内存 + `agent_events`：重启后不恢复临时开发进程，`services` 表继续只表示终端临时服务与预览源。若产品要求重启后仍显示服务历史，另开迁移并补旧数据兼容。 | 数据持久化、重启体验、预览源语义 | [082 tasks](../specs/082-agent-kernel/tasks.md#k-72026-11-18macos) |
 ## 已解决
 
 - Q-042～Q-050（2026-11-18）：人类批准 [082 spec](../specs/082-agent-kernel/spec.md#13-已确认决策) 与 [ADR-068](adr/ADR-068-agent-kernel.md) 的全部推荐默认。新会话与存量会话统一 `coding`，内测允许破坏性重构、不保留旧能力；`workspace` 仅显式选择。`plan` 仅 plan Profile；终端退出模型面；Git 模型工具移除；后台进程/服务工具按 3+4 粒度；`run_command` + `run_shell` 双路径；锁为 ProjectLease + ServiceLease；审计为 required/resource/debug；ADR-059/060 与 AGENTS.md 加载方式不变。K-1 基线见 [baseline.md](../specs/082-agent-kernel/baseline.md)。

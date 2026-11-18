@@ -953,7 +953,7 @@ describe("TurnRunner", () => {
 
       try {
         const sessionOptions = { db: opened.db, dataDir: dir };
-        const session = await createSession(sessionOptions, {});
+        const session = await createSession(sessionOptions, { agentProfile: "workspace" });
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "refresh" });
         const registry = createFileToolRegistry();
         registry.register(createObservationTool());

@@ -51,11 +51,18 @@ test("M2 command approval runs real bytes, streams redacted output, survives ref
     await expect(page.getByRole("button", { name: "批准执行" })).toBeVisible();
     await expect(page.getByText(/以本机账户权限运行，可访问项目外文件/).first()).toBeVisible();
     const approval = page.getByRole("region", { name: "待处理审批" });
-    const approvalBox = await approval.boundingBox();
-    const composerBox = await composer.boundingBox();
-    expect(
-      approvalBox && composerBox && approvalBox.y + approvalBox.height <= composerBox.y,
-    ).toBeTruthy();
+    // Sending from the centered welcome composer animates it into the dock, so
+    // the first frame can still overlap the approval panel. Wait for the
+    // settled layout instead of sampling mid-animation.
+    await expect
+      .poll(async () => {
+        const approvalBox = await approval.boundingBox();
+        const composerBox = await composer.boundingBox();
+        return Boolean(
+          approvalBox && composerBox && approvalBox.y + approvalBox.height <= composerBox.y,
+        );
+      })
+      .toBe(true);
     await expect(
       page.getByRole("log", { name: "会话时间线" }).getByRole("button", { name: "批准执行" }),
     ).toHaveCount(0);
@@ -76,6 +83,12 @@ test("M2 command approval runs real bytes, streams redacted output, survives ref
     await expect(card.getByRole("status")).toHaveText("执行中");
     await page.screenshot({ path: path.join(tmpdir(), "larness-m2-3b-running.png") });
     await page.reload();
+    // A finished turn collapses its process on reload; reopen it before reading
+    // the command row.
+    const processToggle = currentTurn().getByRole("button", { name: /执行过程 ·/ });
+    if ((await processToggle.getAttribute("aria-expanded")) !== "true") {
+      await processToggle.click();
+    }
     await expect(commandButton()).toContainText("失败", { timeout: 15000 });
     await commandButton().click();
     const restored = page.getByRole("region", { name: "命令执行" }).first();

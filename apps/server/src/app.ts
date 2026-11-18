@@ -82,6 +82,8 @@ export interface AppServices {
 export interface CreateAppOptions {
   startedAt?: number;
   logger?: FastifyBaseLogger;
+  /** Test fixtures may raise limits; production uses the default limiter. */
+  rateLimiter?: RateLimiter;
   services?: AppServices;
   webDistDir?: string;
   devWeb?: Pick<DevWebOptions, "target" | "webRoot" | "roots">;
@@ -116,7 +118,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.services) {
     installSecurityGuard(app, {
       ...options.services,
-      limiter: new RateLimiter(),
+      limiter: options.rateLimiter ?? new RateLimiter(),
     });
     registerBootstrapRoutes(app, options.services);
     registerSystemRoutes(app, {

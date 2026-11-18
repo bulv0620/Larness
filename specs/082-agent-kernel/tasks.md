@@ -18,7 +18,7 @@
 | K-8 | 计划可选化 | K-3 | `done` |
 | K-11 | 锁与审计契约收敛 | K-2 | `done` |
 | K-9 | workspace Profile、迁移与 UI | K-4、K-7、K-8、K-11、K-12 | `done` |
-| K-10 | A/B 验证、全量检查与文档回填 | K-9 | `todo` |
+| K-10 | A/B 验证、全量检查与文档回填 | K-9 | `in_progress` |
 
 ## 任务卡
 
@@ -291,7 +291,7 @@
 
 ### K-10 A/B 验证、全量检查与文档回填
 
-- 状态：`todo`
+- 状态：`in_progress`（2026-11-18；确定性 A/B、全量门禁与文档已完成，真实 Provider A/B 待 Key/预算）
 - 依赖：K-9
 - 目标：证明轻量没有牺牲成功率和关键功能。
 - 交付物：
@@ -381,6 +381,7 @@
 - 新增 `NamedServiceManager`：在 `ProcessManager` 上绑定项目、`processId`、命令摘要、端口、可选 `healthPath` 与状态；同一项目 + 名称 + 命令幂等，不同命令同名冲突，端口占用启动前拒绝，健康检查失败停止进程并失败关闭，进程退出后按需降级状态。
 - 新增 `start_service`（L2）/ `read_service_logs`（L0）/ `stop_service`（L1），仅 `workspace`；`list_services` 合并命名进程服务与旧临时终端服务。
 - 新增 `GET /api/process-services`、`/:id`、`/:id/logs`、`/:id/stop`，沿用认证 / Origin / CSRF 守卫。
+- 持久化边界：命名服务与进程状态保存在内存，生命周期写 `agent_events`，不新建表，也不复用 `services`（该表的 `terminalId` / `executionIdentity` 语义绑定终端预览源）。Larness 重启后临时开发进程不恢复，符合 ADR-004 的临时资源边界；如需跨重启历史，另开迁移。
 - 预览边界：进程服务 `previewEligible=false`，预览仍只服务既有终端服务；关闭预览不影响服务运行与日志。该缺口在验收中明确，不冒充进程服务已可预览。
 - 测试：`named-services.test.ts` 覆盖真实 HTTP 服务启动/健康检查、重复启动、同名冲突、日志、列表、停止与重复停止、端口占用；`toolContract` / `profiles` 断言 3 个服务工具与 workspace 18 工具。
 - 验证：`pnpm check` 全绿——biome 690 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 733（14 跳过）。
@@ -413,3 +414,11 @@
 - 测试：`sessions/service.test.ts` 断言默认 coding 与切换到 plan；`sessions/api.test.ts` 断言创建默认 coding 与 PATCH workspace；`SessionModel.test.tsx` 新增 Profile 保存/恢复用例（12 项通过）；plan/context/profiles 定向通过。
 - 验证：`pnpm check` 全绿——biome 692 文件、6 包 typecheck、web 258、agent 63（1 跳过）、server 729（14 跳过）。
 - 未运行：浏览器 Profile 切换 E2E 与视觉验收未跑；留到 K-10 全量 E2E / 人工验收。
+
+### K-10（2026-11-18，macOS；真实模型 A/B 未运行）
+
+- 确定性 A/B：[ab.md](ab.md)。10 个脚本化文件/搜索/补丁/命令/混合任务在 coding 与 workspace 均 10/10 成功；同一轨迹下 coding 首次工具 schema 1 462 vs 3 440 token（-57.5%），累计估算输入 52 378 vs 120 238 token（-56.4%）；Provider 调用 29/29、工具调用 19/19、计划 0/0、工具失败 0/0、锁失败 0/0、审批 0/0、命令 3/3 完成。
+- K-10 修复：执行层现在按 Profile 拒绝隐藏的内置工具（`disabledToolsForProfile`），不只依赖 schema 过滤；`toolExecutor.test.ts` 覆盖注册但未启用的 `update_plan` 返回 `TOOL_NOT_FOUND` 且不调用 handler。
+- E2E：`pnpm test:e2e` 24/24；`pnpm test:e2e:prod` 20/20。修复了四个既有/时序问题：commands 审批框在 Composer 入场动画期间取样、conversation 旧“保留阅读位置”断言与 UI-F28 冲突、m1 等 19 个 pairing 请求触发 10 次/分钟限流、demo Ctrl+B 断言错误地要求动画侧栏卸载。E2E server 通过 `StartServerOptions.rateLimiter` 注入高限流器，生产默认未改变。
+- 门禁：`pnpm check` 全绿——biome 689 文件、6 包 typecheck、web 258、agent 63（1 跳过）、server 730（14 跳过）；`pnpm build` 成功。
+- 未运行：真实 Provider 的 10 任务 coding vs workspace A/B（无 Key/预算授权）、Windows 实机 `run_shell`/进程树停止、浏览器视觉人工验收。上述项目不得标记通过；真实模型成功率仍需补跑后才能声明“不明显下降”。

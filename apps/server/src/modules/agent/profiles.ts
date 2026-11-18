@@ -62,6 +62,25 @@ export function toolNamesForProfile(profileId: AgentProfileId): ReadonlySet<stri
   return profileToolNames(TOOL_PACK_CATALOG, profileId);
 }
 
+/** Every tool name owned by the catalog. Tools outside it are extension/test tools. */
+export const PROFILE_GATED_TOOL_NAMES: ReadonlySet<string> = new Set(
+  Object.values(TOOL_PACK_CATALOG.packs).flatMap((pack) => pack.tools),
+);
+
+/**
+ * Catalog tools the profile must not execute. Custom tools that are not part
+ * of any pack stay available, so tests and future extensions are not blocked
+ * by the profile catalog while every built-in gated tool fails closed.
+ */
+export function disabledToolsForProfile(profileId: AgentProfileId): ReadonlySet<string> {
+  const allowed = toolNamesForProfile(profileId);
+  const disabled = new Set<string>();
+  for (const name of PROFILE_GATED_TOOL_NAMES) {
+    if (!allowed.has(name)) disabled.add(name);
+  }
+  return disabled;
+}
+
 export function profileHasPack(profileId: AgentProfileId, packId: ToolPackId): boolean {
   return TOOL_PACK_CATALOG.profiles[profileId].packs.includes(packId);
 }

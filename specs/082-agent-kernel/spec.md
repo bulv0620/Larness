@@ -438,10 +438,12 @@ And 交互式 TUI 命令被明确拒绝，提示使用非交互参数
 - [ ] A1–A14 全部通过；
 - [x] ADR-068 accepted，明确替代 ADR-030/038 的哪些条款；
 - [x] K-1 基线与锁/审计结论已记录；
-- [ ] 工具契约、REST/WS、数据模型、Agent 提示、锁与审计契约同步更新；
-- [ ] 旧会话、旧计划、旧终端与旧服务回放通过；
-- [ ] ProjectLease/ServiceLease 成为唯一锁入口；Agent 终端租约已移除；
-- [ ] `run_command` 与 `run_shell` 的跨平台矩阵、错误码与交互式命令拒绝通过；
-- [ ] 审计分级与 fail-closed 行为通过安全测试；
-- [ ] `pnpm check`、`pnpm build`、相关 E2E 通过；
+- [x] 工具契约、REST/WS、数据模型、Agent 提示、锁与审计契约同步更新；
+- [x] 旧会话、旧计划、旧终端与旧服务回放通过；
+- [x] ProjectLease/ServiceLease 成为唯一锁入口；Agent 终端租约已移除；
+- [ ] `run_command` 与 `run_shell` 的跨平台矩阵、错误码与交互式命令拒绝通过（macOS 实机 + 逻辑覆盖通过；Windows 实机未跑）；
+- [x] 审计分级与 fail-closed 行为通过安全测试；
+- [x] `pnpm check`、`pnpm build`、相关 E2E 通过；
 - [ ] 人类验收默认 Profile、终端隔离、Git UI/Agent 分面、锁/审计与服务/预览行为。
+
+> 2026-11-18：确定性 A/B 与全量门禁已完成；真实 Provider A/B、Windows 实机与人工视觉验收仍未完成，见 [K-10](tasks.md#k-102026-11-18macos真实模型-ab-未运行) 与 [ab.md](ab.md#4-真实模型-ab未运行)。

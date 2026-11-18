@@ -20,6 +20,8 @@ import {
 export interface ToolExecutorOptions {
   db: Database;
   registry: ToolRegistry;
+  /** Catalog tools the session's current agent profile must not execute. */
+  disabledTools?: ReadonlySet<string>;
   now?: () => number;
 }
 
@@ -68,7 +70,7 @@ export async function executeTool(
   const audit = new AuditSink({ db: options.db, now: () => now });
   const tool = options.registry.get(input.toolName);
 
-  if (tool === undefined) {
+  if (tool === undefined || options.disabledTools?.has(input.toolName) === true) {
     audit.required({
       action: "tool.denied",
       decision: "deny",
@@ -76,7 +78,11 @@ export async function executeTool(
       sessionId: input.sessionId,
       resourceType: "tool",
       resourceId: input.toolCallId,
-      details: { turnId: input.turnId, toolName: input.toolName, reason: "unknown_tool" },
+      details: {
+        turnId: input.turnId,
+        toolName: input.toolName,
+        reason: tool === undefined ? "unknown_tool" : "disabled_tool",
+      },
     });
     return {
       status: "completed",

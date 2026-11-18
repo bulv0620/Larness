@@ -6,10 +6,12 @@
 
 ## 当前进行中
 
-- 无。
+- **K-10（082 Agent 内核重构）**：分支 `task/082-agent-kernel`。确定性 10 任务 A/B、`pnpm check`、`pnpm build`、Mock E2E 24/24、生产 E2E 20/20 已完成；真实 Provider 的 coding vs workspace A/B 因无 Key/预算尚未运行。其余 K-1～K-12 已提交。
 
 ## 阻塞与待确认
 
+- **K-10 真实模型 A/B**：需要人类提供可用 Provider Key 与预算授权，才能补跑同一组 10 个 coding 任务的 coding vs workspace 成功率/步数/花费。当前只完成确定性功能 A/B 与全量门禁，不冒充模型成功率。
+- **Q-051 命名服务持久化**：082 的命名后台服务为内存 + `agent_events`，Larness 重启后不恢复；现有 `services` 表继续只表示终端临时服务与预览源。是否要求跨重启历史待确认。
 - **HX-12b（`turnRunner` 循环体拆分）**：前置是把约 20 个可变闭包状态收敛为显式 `TurnRunState`；仅因改造面大而暂缓，不受环境阻塞。081 明确不动循环体，交付后该文件为 2 416 行，拆分优先级不变。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。

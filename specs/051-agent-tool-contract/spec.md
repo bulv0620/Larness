@@ -62,6 +62,8 @@ created: 2026-11-06
    082 K-11（2026-11-18）：锁收敛为 `LeaseManager.acquireProject` / `acquireService` / `renew` / `release`；Files/Git/Commands/ServiceOps/Deployments 不再直接操作 `resource_locks`，Agent 终端租约已退出。审计新增 `AuditSink.required/resource/debug`；`tool.requested`、`tool.completed`、`terminal.input`、`terminal.resize` 不再写审计，`tool.denied` 保持 required 且审计失败关闭。`dev-web.rejected` 按分钟聚合，`git.denied` 跳过 `VALIDATION_ERROR`。
 
    082 K-9（2026-11-18）：`sessions.agent_profile` 迁移默认 `coding`，新会话与存量会话统一归一到 `coding`；`workspace` 仅显式选择。会话 DTO / `POST /api/sessions` / `PATCH /api/sessions/:id` 暴露 Profile，Composer 增加 Profile 选择与当前模式提示；Turn 开始时按会话 Profile 装配工具集。旧事件、旧终端/服务记录与旧 Git/计划回放保留。
+
+   082 K-10（2026-11-18）：Profile 在**执行层**同样生效。`disabledToolsForProfile()` 计算 catalog 内未启用的内置工具；`ToolExecutor` 对注册但未启用的工具返回 `TOOL_NOT_FOUND`，审计 `tool.denied` 的 `reason=disabled_tool` 且不调用 handler。扩展/测试注册的非 catalog 工具不受影响。`toolExecutor.test.ts` 覆盖 coding 会话调用 `update_plan` 的隐藏工具路径。
 2. 模型上下文中的状态与策略使用执行层同一已解析数据。模型工具列表按工作区适用性生成，后端仍独立核验。不得从展示文案推断授权，不得把终端存活、服务登记或预览意图写成业务健康证明。
 3. 每条影响操作范围或安全的承诺都要有执行层验收，覆盖合法输入和至少一个会扩大范围、越权或误报成功的反例。工具或 prompt 变更还要通过实际上下文组装验证模型收到的描述、schema 和作用域。禁止只核对源码常量或只用文本快照替代执行测试。
 4. 新增或修改此类能力的 spec 必须列出上述验证和受影响表面。测试纳入常规检查。无法自动化的表面需在验收中记录可复核的检查与结果。

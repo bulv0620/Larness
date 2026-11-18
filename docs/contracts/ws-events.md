@@ -125,6 +125,8 @@ interface ServerEvent<T = unknown> {
 
 `terminalReason`（M6-3，[ADR-057](../adr/ADR-057-runtime-efficiency.md)）在每个 `turn.*` 终态事件中给出结束原因：`normal / budget / output_truncated / provider_error / error / cancelled / interrupted`。它和事件类型正交——`turn.completed` 也可能是 `budget` 或 `output_truncated`，客户端必须按 `terminalReason` 而不是仅按事件类型判断「任务是否真的做完」。
 
+082 K-6/K-7（2026-11-18）：后台进程与命名服务使用 Agent 会话事件 `process.started` / `process.exited` / `process.stopped` 与 `service.started` / `service.stopped`，topic 为 `agent`，写入 `agent_events` 后广播。payload 只含 process/service ID、名称、状态、端口、exitCode 与 reasonCode，不含命令参数、环境、日志正文或秘密。进程/服务 REST 使用独立路径，不改变 `terminal` 事件的所有权语义；进程与服务状态当前为进程内存 + 事件，不跨 Larness 重启恢复。
+
 `context.checkpoint` 在 Turn 内发生上下文压力时写入：替换的是**当前 Turn 的消息历史**，事实来自已持久化事件（文件与版本、只读查看过的文件与版本、命令摘要、失败诊断、未完成计划步骤、资源 ID），不含模型摘要、prompt 或工具输出正文；`tokensBefore` / `tokensAfter` 为同一启发式口径下的整包体积，便于直接比较。替换后的历史固定为：system 前缀、当前需求的原文（超长按头尾裁剪并标注省略字符数）、一条检查点消息，以及最近一个完整工具批次（每条结果先折叠为标识，调用与结果成对保留；放不下时整批丢弃）。检查点正文按字段裁剪，始终是合法 JSON，被省略的条目按分组计入 `omitted` 计数，不会因截断而丢掉末尾分组。`reads` 为只读查看过的文件数，`retainedToolBatch` 为保留的工具结果条数（0 表示未保留），`pinnedRequestChars` 为需求原文长度（0 表示本轮输入没有文本）。检查点只存 `session_context_summaries` 的 `scope='turn'` 行，跨轮压缩（`scope='session'`）不会读到它们。
 
 `context.compressed` 在压缩成功后先持久化再广播；`degraded: true` 表示摘要失败，Turn 继续使用截断历史。摘要正文只存 `session_context_summaries`，不进入事件、日志或审计。
