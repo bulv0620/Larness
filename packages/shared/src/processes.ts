@@ -30,6 +30,10 @@ export const StartProcessParamsSchema = z
     cwd: FilePathSchema.default("."),
     /** Stable human-readable name used for idempotent restarts. */
     name: z.string().min(1).max(80).optional(),
+    /** Port the task will listen on; required for a preview button. */
+    port: z.number().int().min(1).max(65_535).optional(),
+    /** Optional HTTP health path used by the UI/preview verification. */
+    healthPath: z.string().min(1).max(2048).optional(),
   })
   .strict()
   .refine(
@@ -72,6 +76,9 @@ export const ProcessDtoSchema = z
     reasonCode: z.string().nullable(),
     startedAt: z.number().int().nullable(),
     endedAt: z.number().int().nullable(),
+    port: z.number().int().min(1).max(65_535).nullable(),
+    healthPath: z.string().nullable(),
+    previewEligible: z.boolean(),
     outputCursor: z.number().int().nonnegative(),
     truncated: z.boolean(),
   })

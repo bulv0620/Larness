@@ -5,9 +5,10 @@ import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { immediateTransaction } from "../../src/db/transaction.js";
+import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { appendAgentEvent } from "../../src/modules/agent/events.js";
-import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
+import { createProcessTools } from "../../src/modules/agent/processTool.js";
 import { createProject, updateProject } from "../../src/modules/projects/service.js";
 import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -21,7 +22,7 @@ async function openWorkspace(dir: string): Promise<OpenedDatabase> {
 }
 
 describe("context assembler", () => {
-  it("sends actionable tool guidance and the actual Turn policy for each workspace", async () => {
+  it("sends actionable tool guidance and the actual Turn policy for coding", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
       try {
@@ -33,8 +34,8 @@ describe("context assembler", () => {
         );
         const sessionOptions = { db: opened.db, dataDir: dir };
         const registry = createFileToolRegistry();
-        const projectTools = createServiceTools();
-        for (const tool of projectTools) registry.register(tool);
+        for (const tool of [createCommandTool({}), createShellTool({}), ...createProcessTools({})])
+          registry.register(tool);
 
         for (const projectId of [project.id, undefined]) {
           const session = await createSession(sessionOptions, { projectId });
@@ -54,7 +55,7 @@ describe("context assembler", () => {
                 registry,
                 maxContextTokens: 128_000,
                 policy,
-                agentProfile: "service-ops",
+                agentProfile: "coding",
               },
               sessionRow,
               turn,
@@ -62,42 +63,23 @@ describe("context assembler", () => {
             expect(context.messages[0]?.content).toContain(`Turn approval policy: ${policy}`);
             expect(context.messages[0]?.content).toContain(`L2=${l2}`);
             expect(context.messages[0]?.content).not.toContain("update_plan");
-            expect(context.messages[0]?.content).toContain("Service lifecycle contract");
-            expect(context.messages[0]?.content).toContain("development_preview");
-            expect(context.messages[0]?.content).toContain("persistent_pm2");
+            expect(context.messages[0]?.content).not.toContain("Service lifecycle contract");
             expect(context.messages[0]?.content).not.toContain("PM2 runtime");
-            expect(context.messages[0]?.content).not.toContain("Registered status");
             expect(context.messages[0]?.content).toContain(
               projectId ? "registered project workspace" : "workspace without a registered project",
             );
             const byName = new Map(context.tools.map((tool) => [tool.name, tool]));
             expect(byName.has("read_file")).toBe(true);
+            expect(byName.has("run_command")).toBe(true);
+            expect(byName.has("run_shell")).toBe(true);
+            expect(byName.has("start_process")).toBe(Boolean(projectId));
+            expect(byName.has("list_processes")).toBe(Boolean(projectId));
             expect(byName.has("git_status")).toBe(false);
-            expect(byName.has("git_commit")).toBe(false);
             expect(byName.has("read_terminal_output")).toBe(false);
-            expect(byName.has("send_terminal_input")).toBe(false);
             expect(byName.has("start_project_terminal")).toBe(false);
-            expect(byName.has("stop_project_terminal")).toBe(false);
-            for (const name of projectTools.map((tool) => tool.name))
-              expect(byName.has(name)).toBe(Boolean(projectId));
-            if (projectId) {
-              const register = byName.get("register_temporary_service");
-              expect(register?.description).toContain("not PM2");
-              expect(register?.description).toMatch(/wildcard.*0\.0\.0\.0.*without.*restart/i);
-              expect(register?.parameters).toMatchObject({
-                properties: {
-                  kind: {
-                    const: "temporary",
-                    description: expect.stringContaining("not create a persistent PM2 service"),
-                  },
-                  terminalId: { description: expect.stringContaining("not a PM2 targetId") },
-                  endpoint: {
-                    description: expect.stringMatching(/actual bind address/i),
-                    properties: { host: { enum: ["127.0.0.1", "::1"] } },
-                  },
-                },
-              });
-            }
+            expect(byName.has("register_temporary_service")).toBe(false);
+            expect(byName.has("start_service")).toBe(false);
+            expect(byName.has("update_plan")).toBe(false);
           }
         }
       } finally {

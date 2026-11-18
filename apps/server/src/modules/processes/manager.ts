@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { lstat } from "node:fs/promises";
+import { connect } from "node:net";
 import { StringDecoder } from "node:string_decoder";
 import {
   commandEnvironment,
@@ -70,6 +71,8 @@ interface ManagedProcess {
   executable: string;
   args: string[];
   cwd: string;
+  port: number | null;
+  healthPath: string | null;
   child: ChildProcess;
   pid: number | null;
   status: ProcessStatus;
@@ -127,6 +130,21 @@ class ProcessOutputBuffer {
   }
 }
 
+function portListening(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect({ host: "127.0.0.1", port });
+    const done = (value: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(value);
+    };
+    socket.setTimeout(750);
+    socket.once("connect", () => done(true));
+    socket.once("timeout", () => done(false));
+    socket.once("error", () => done(false));
+  });
+}
+
 function fail(code: ConstructorParameters<typeof FileManagerError>[0], message: string): never {
   throw new FileManagerError(code, message);
 }
@@ -175,6 +193,9 @@ export class ProcessManager {
       reasonCode: row.reasonCode,
       startedAt: row.startedAt,
       endedAt: row.endedAt,
+      port: row.port,
+      healthPath: row.healthPath,
+      previewEligible: row.status === "RUNNING" && row.port !== null,
       outputCursor: row.output.cursor,
       truncated: row.output.truncated,
     };
@@ -271,7 +292,9 @@ export class ProcessManager {
         if (
           named.executable !== params.executable ||
           named.args.join("\0") !== params.args.join("\0") ||
-          named.cwd !== cwd
+          named.cwd !== cwd ||
+          named.port !== (params.port ?? null) ||
+          named.healthPath !== (params.healthPath ?? null)
         ) {
           fail("CONFLICT", "A process with this name already uses different parameters");
         }
@@ -305,6 +328,8 @@ export class ProcessManager {
       executable: params.executable,
       args: params.args,
       cwd,
+      port: params.port ?? null,
+      healthPath: params.healthPath ?? null,
       child,
       pid: child.pid ?? null,
       status: "STARTING",
@@ -479,6 +504,24 @@ export class ProcessManager {
     })();
     const result = await row.stopPromise;
     return { process: this.#dto(row), ...result };
+  }
+
+  async verifyPreview(id: string): Promise<{ id: string; host: string; port: number }> {
+    const row = this.#processes.get(id);
+    if (row === undefined) fail("NOT_FOUND", "Process not found");
+    if (row.status !== "RUNNING" || row.port === null)
+      fail("PREVIEW_UNAVAILABLE", "Process has no running preview target");
+    if (!(await portListening(row.port)))
+      fail("PREVIEW_UNAVAILABLE", "Process port is not accepting connections");
+    return { id: row.id, host: "127.0.0.1", port: row.port };
+  }
+
+  dialTarget(id: string): { host: string; port: number } {
+    const row = this.#processes.get(id);
+    if (row === undefined) fail("NOT_FOUND", "Process not found");
+    if (row.status !== "RUNNING" || row.port === null)
+      fail("PREVIEW_UNAVAILABLE", "Process has no running preview target");
+    return { host: "127.0.0.1", port: row.port };
   }
 
   list(filter: { projectId?: string; sessionId?: string } = {}): ProcessDto[] {

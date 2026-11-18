@@ -42,6 +42,7 @@ export interface ExecuteToolInput {
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   startProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  listProcesses?: (args: unknown) => Promise<ToolResult>;
   readProcessOutput?: (args: unknown) => Promise<ToolResult>;
   stopProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   startService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
@@ -158,9 +159,7 @@ export async function executeTool(
     input.toolName === "run_command" ||
     input.toolName === "run_shell" ||
     input.toolName === "start_process" ||
-    input.toolName === "stop_process" ||
-    input.toolName === "start_service" ||
-    input.toolName === "stop_service";
+    input.toolName === "stop_process";
   const params = contextBound ? parsed.data : input.args;
   const approvalParams = contextBound
     ? {
@@ -286,6 +285,16 @@ export async function executeTool(
             return (
               input.startProcess?.(args, assertAuthorized) ??
               denied("FORBIDDEN", "Process context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.listProcesses
+      ? {
+          listProcesses: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.listProcesses?.(args) ?? denied("FORBIDDEN", "Process list context unavailable")
             );
           },
         }

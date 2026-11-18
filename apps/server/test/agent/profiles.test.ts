@@ -9,14 +9,12 @@ import { createCommandTool, createShellTool } from "../../src/modules/agent/comm
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
-import { createProcessServiceTools } from "../../src/modules/agent/processServiceTool.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
 import {
   DEFAULT_AGENT_PROFILE,
   TOOL_PACK_CATALOG,
   toolNamesForProfile,
 } from "../../src/modules/agent/profiles.js";
-import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -30,7 +28,7 @@ function openWorkspace(dir: string): OpenedDatabase {
 }
 
 describe("agent profile assembly", () => {
-  it("exposes the existing tool surface as service-ops and a core-only coding surface", async () => {
+  it("puts background processes in coding and keeps service-ops for PM2", async () => {
     await withTempDir(async (dir) => {
       const opened = openWorkspace(dir);
       try {
@@ -56,12 +54,9 @@ describe("agent profile assembly", () => {
           createCommandTool({}),
           createShellTool({}),
           ...createProcessTools({}),
-          ...createProcessServiceTools({}),
-          ...createServiceTools(),
           createObservationTool(),
-        ]) {
+        ])
           registry.register(tool);
-        }
 
         const pm2Context: Pm2CommandContext = {
           available: true,
@@ -93,59 +88,33 @@ describe("agent profile assembly", () => {
             turn,
           );
 
-        const serviceOps = assemble("service-ops");
         const coding = assemble("coding");
         const plan = assemble("plan");
+        const serviceOps = assemble("service-ops");
 
         expect(DEFAULT_AGENT_PROFILE).toBe("coding");
-        const serviceOpsSystem = serviceOps.messages[0]?.content ?? "";
         const codingSystem = coding.messages[0]?.content ?? "";
         const planSystem = plan.messages[0]?.content ?? "";
+        const serviceOpsSystem = serviceOps.messages[0]?.content ?? "";
 
-        expect(serviceOps.agentProfile).toBe("service-ops");
-        expect(serviceOps.tools).toHaveLength(17);
-        expect(serviceOps.tools.map((tool) => tool.name)).toContain("start_process");
-        expect(serviceOps.tools.map((tool) => tool.name)).toContain("start_service");
-        expect(serviceOps.tools.map((tool) => tool.name)).toContain("list_services");
-        expect(serviceOps.tools.map((tool) => tool.name)).not.toContain("update_plan");
-        expect(serviceOps.tools.some((tool) => tool.name.startsWith("git_"))).toBe(false);
-        expect(serviceOps.tools.some((tool) => tool.name.includes("terminal"))).toBe(false);
-        expect(serviceOpsSystem).toContain("Larness prompt version: m6-6.");
-        expect(serviceOpsSystem).not.toContain("update_plan");
-        expect(serviceOpsSystem).toContain("Service lifecycle contract");
-        expect(serviceOpsSystem).not.toContain("Git availability");
-        expect(serviceOpsSystem).toContain("globally installed PM2");
-        expect(serviceOpsSystem).not.toContain("terminal input leases");
-        expect(serviceOps.observations).toContain("PM2 runtime and service/project associations");
-
-        expect(codingSystem).toContain("Larness prompt version: m6-6.");
-        expect(codingSystem).not.toContain("update_plan");
-        expect(codingSystem).not.toContain("Service lifecycle contract");
-        expect(codingSystem).not.toContain("Git availability");
-        expect(codingSystem).not.toContain("globally installed PM2");
-        expect(codingSystem).not.toContain("terminal input leases");
-        expect(codingSystem).not.toContain("development_preview");
-        expect(codingSystem).not.toContain("persistent_pm2");
-        expect(coding.observations).toBeNull();
-        expect(planSystem).toContain("update_plan");
-        expect(planSystem).not.toContain("Service lifecycle contract");
-        expect(planSystem).not.toContain("Git availability");
-        expect(planSystem).not.toContain("globally installed PM2");
-        expect(plan.observations).toBeNull();
-
+        expect(coding.agentProfile).toBe("coding");
         expect(coding.tools.map((tool) => tool.name)).toEqual([
           "apply_patch",
           "list_files",
+          "list_processes",
           "read_file",
+          "read_process_output",
           "run_command",
           "run_shell",
           "search_code",
+          "start_process",
+          "stop_process",
           "write_file",
         ]);
-        expect(coding.tools.some((tool) => tool.name.startsWith("git_"))).toBe(false);
-        expect(coding.tools.some((tool) => tool.name.includes("terminal"))).toBe(false);
-        expect(coding.tools.some((tool) => tool.name === "update_plan")).toBe(false);
-        expect(coding.estimatedTokens).toBeLessThan(serviceOps.estimatedTokens);
+        expect(codingSystem).not.toContain("update_plan");
+        expect(codingSystem).not.toContain("Service lifecycle contract");
+        expect(codingSystem).not.toContain("globally installed PM2");
+        expect(coding.observations).toBeNull();
 
         expect(plan.tools.map((tool) => tool.name)).toEqual([
           "list_files",
@@ -153,17 +122,31 @@ describe("agent profile assembly", () => {
           "search_code",
           "update_plan",
         ]);
-        expect(plan.tools.some((tool) => tool.name === "write_file")).toBe(false);
-        expect(plan.tools.some((tool) => tool.name === "run_command")).toBe(false);
+        expect(planSystem).toContain("update_plan");
+        expect(planSystem).not.toContain("globally installed PM2");
+        expect(plan.observations).toBeNull();
 
-        // The same Session can be assembled with both surfaces without mutating it.
-        expect(sessionRow.id).toBe(session.id);
-        expect([...toolNamesForProfile("service-ops")]).toHaveLength(17);
-        expect([...toolNamesForProfile("coding")]).toHaveLength(7);
+        expect(serviceOps.tools.map((tool) => tool.name)).toEqual([
+          "list_files",
+          "read_file",
+          "refresh_observations",
+          "search_code",
+        ]);
+        expect(serviceOpsSystem).toContain("globally installed PM2");
+        expect(serviceOpsSystem).toContain("Service lifecycle contract");
+        expect(serviceOps.observations).toContain("PM2 runtime and service/project associations");
+
+        expect([...toolNamesForProfile("coding")]).toHaveLength(11);
+        expect([...toolNamesForProfile("service-ops")]).toHaveLength(4);
         expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([
           "core.read",
           "core.write",
           "core.command",
+          "process",
+        ]);
+        expect(TOOL_PACK_CATALOG.profiles["service-ops"].packs).toEqual([
+          "core.read",
+          "observation",
         ]);
       } finally {
         opened.close();
@@ -171,7 +154,7 @@ describe("agent profile assembly", () => {
     });
   });
 
-  it("drops project-only tools without a registered project", async () => {
+  it("drops project-only tools when no project is registered", async () => {
     await withTempDir(async (dir) => {
       const opened = openWorkspace(dir);
       try {
@@ -186,17 +169,8 @@ describe("agent profile assembly", () => {
         if (!sessionRow || !turn) throw new Error("fixture missing");
 
         const registry = createFileToolRegistry();
-        for (const tool of [
-          createPlanTool({ db: opened.db }),
-          createCommandTool({}),
-          createShellTool({}),
-          ...createProcessTools({}),
-          ...createProcessServiceTools({}),
-          ...createServiceTools(),
-          createObservationTool(),
-        ]) {
+        for (const tool of [createCommandTool({}), createShellTool({}), ...createProcessTools({})])
           registry.register(tool);
-        }
 
         const context = assembleContext(
           {
@@ -204,15 +178,15 @@ describe("agent profile assembly", () => {
             registry,
             maxContextTokens: 128_000,
             policy: "standard",
-            agentProfile: "service-ops",
+            agentProfile: "coding",
           },
           sessionRow,
           turn,
         );
         const names = context.tools.map((tool) => tool.name);
 
-        expect(names).not.toContain("git_status");
-        expect(names).not.toContain("register_temporary_service");
+        expect(names).not.toContain("start_process");
+        expect(names).not.toContain("list_processes");
         expect(names).toContain("read_file");
         expect(names).toContain("run_command");
       } finally {

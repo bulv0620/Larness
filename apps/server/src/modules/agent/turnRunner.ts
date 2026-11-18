@@ -20,12 +20,8 @@ import {
   FileResultTargetSchema,
   normalizeCommandRequest,
   PlanParamsSchema,
-  type PreviewResultTarget,
-  PreviewResultTargetSchema,
   ProcessIdSchema,
   type ServerEvent,
-  ServiceIdSchema,
-  ServiceRegisterInputSchema,
   type TurnBudgetCause,
   type TurnFileResult,
 } from "@larness/shared";
@@ -42,8 +38,6 @@ import { listEncryptedSecrets } from "../models/repository.js";
 import type { ProcessManager } from "../processes/manager.js";
 import { getProjectById, updateProjectRow } from "../projects/repository.js";
 import { detectGit, parseProjectSettings } from "../projects/service.js";
-import type { ServiceManager } from "../services/manager.js";
-import type { NamedServiceManager } from "../services/named.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
 import { isDefaultWorkspace } from "../workspaces/default.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
@@ -154,9 +148,7 @@ export interface TurnRunnerOptions {
   lockPollMs?: number;
   commands?: CommandManager;
   git?: GitManager;
-  services?: ServiceManager;
   processes?: ProcessManager;
-  processServices?: NamedServiceManager;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
   logger?: TurnTimingLogger;
 }
@@ -207,29 +199,6 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 
     signal.addEventListener("abort", onAbort, { once: true });
   });
-}
-
-export function registeredServiceTarget(
-  toolName: string,
-  data: unknown,
-  projectId: string | null,
-): PreviewResultTarget | undefined {
-  if (toolName !== "register_temporary_service" || projectId === null) return undefined;
-  const parsed = z
-    .object({
-      serviceId: ServiceIdSchema,
-      status: z.string(),
-      name: z.string().min(1).max(128).optional(),
-    })
-    .safeParse(data);
-  if (!parsed.success || parsed.data.status !== "RUNNING") return undefined;
-  return {
-    kind: "preview",
-    projectId,
-    serviceId: parsed.data.serviceId,
-    path: "/",
-    ...(parsed.data.name === undefined ? {} : { name: parsed.data.name }),
-  };
 }
 
 export class TurnRunner {
@@ -657,6 +626,34 @@ export class TurnRunner {
               };
             }
           },
+          listProcesses: async (params) => {
+            if (!session.projectId || !this.#options.processes) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Process context unavailable",
+              };
+            }
+            const parsed = z
+              .object({ limit: z.number().int().min(1).max(200).default(100) })
+              .strict()
+              .safeParse(params);
+            if (!parsed.success) {
+              return {
+                ok: false,
+                errorCode: "VALIDATION_ERROR",
+                summary: "Invalid process list request",
+              };
+            }
+            const items = this.#options.processes
+              .list({ projectId: session.projectId })
+              .slice(0, parsed.data.limit);
+            return {
+              ok: true,
+              summary: `${items.length} 个后台任务`,
+              data: { items },
+            };
+          },
           readProcessOutput: async (params) => {
             const parsed = z
               .object({
@@ -725,267 +722,6 @@ export class TurnRunner {
                 ok: false,
                 errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
                 summary: "Process could not be stopped",
-              };
-            }
-          },
-          startService: async (params, assertAuthorized) => {
-            if (!snapshot || !this.#options.processServices || !session.projectId) {
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Service context unavailable",
-              };
-            }
-            try {
-              const service = await this.#options.processServices.start(
-                {
-                  sessionId: session.id,
-                  turnId: turn.id,
-                  toolCallId: request.id,
-                  clientSessionId: snapshot.clientSessionId,
-                  policySnapshotId: snapshot.policySnapshotId,
-                  projectId: session.projectId,
-                  signal: controller.signal,
-                  assertAuthorized: () => {
-                    assertAuthorized();
-                    if (checkBudget() !== "ok" || lockLost)
-                      throw new Error("Execution no longer authorized");
-                  },
-                },
-                params,
-              );
-              const running = service.status === "RUNNING";
-              return {
-                ok: running,
-                summary: `Service ${service.name} ${service.status}`,
-                ...(running ? {} : { errorCode: service.reasonCode ?? "SERVICE_FAILED" }),
-                data: service,
-              };
-            } catch (error) {
-              return {
-                ok: false,
-                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
-                summary: "Service could not be started",
-              };
-            }
-          },
-          readServiceLogs: async (params) => {
-            const parsed = z
-              .object({
-                serviceId: z.string().min(1),
-                after: z.number().int().min(0).default(0),
-                limit: z.number().int().min(1).max(500).default(100),
-              })
-              .strict()
-              .safeParse(params);
-            if (
-              !parsed.success ||
-              !snapshot ||
-              !this.#options.processServices ||
-              !session.projectId
-            ) {
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Service log context unavailable",
-              };
-            }
-            try {
-              const page = await this.#options.processServices.logs(
-                parsed.data.serviceId,
-                {
-                  sessionId: session.id,
-                  clientSessionId: snapshot.clientSessionId,
-                  projectId: session.projectId,
-                },
-                parsed.data.after,
-                parsed.data.limit,
-              );
-              return {
-                ok: true,
-                summary: `${page.chunks.length} service log chunks`,
-                truncated: page.truncated || page.resyncRequired,
-                data: page,
-              };
-            } catch (error) {
-              return {
-                ok: false,
-                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
-                summary: "Service logs could not be read",
-              };
-            }
-          },
-          stopService: async (params, assertAuthorized) => {
-            const parsed = z
-              .object({ serviceId: z.string().min(1) })
-              .strict()
-              .safeParse(params);
-            if (
-              !parsed.success ||
-              !snapshot ||
-              !this.#options.processServices ||
-              !session.projectId
-            ) {
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Service context unavailable",
-              };
-            }
-            try {
-              assertAuthorized();
-              const result = await this.#options.processServices.stop(parsed.data.serviceId, {
-                sessionId: session.id,
-                clientSessionId: snapshot.clientSessionId,
-                projectId: session.projectId,
-              });
-              return {
-                ok: result.stopped,
-                summary: `Service ${result.service.status}`,
-                ...(result.stopped ? {} : { errorCode: "STOP_UNCONFIRMED" }),
-                data: result.service,
-              };
-            } catch (error) {
-              return {
-                ok: false,
-                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
-                summary: "Service could not be stopped",
-              };
-            }
-          },
-          registerService: async (params, assertAuthorized) => {
-            const parsed = ServiceRegisterInputSchema.safeParse(params);
-            if (!parsed.success)
-              return {
-                ok: false,
-                errorCode: "VALIDATION_ERROR",
-                summary: "Invalid service registration",
-              };
-            if (!snapshot || !this.#options.services || !session.projectId)
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Service context unavailable",
-              };
-            try {
-              assertAuthorized();
-              if (checkBudget() !== "ok" || lockLost)
-                throw new Error("Execution no longer authorized");
-              const service = await this.#options.services.registerAgent(
-                {
-                  ...parsed.data,
-                  projectId: session.projectId,
-                  operationKey: `${turn.id}:${request.id}`,
-                  sourceSessionId: session.id,
-                },
-                snapshot.clientSessionId,
-              );
-              return {
-                ok: true,
-                summary: `临时服务 ${service.name} ${service.status}`,
-                data: {
-                  serviceId: service.id,
-                  kind: service.kind,
-                  projectId: service.projectId,
-                  name: service.name,
-                  status: service.status,
-                  terminalId: service.terminalId,
-                  endpoint: service.endpoint,
-                  previewEligible: service.previewEligible,
-                },
-              };
-            } catch (error) {
-              return {
-                ok: false,
-                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
-                summary: "Service registration failed",
-              };
-            }
-          },
-          resolveServicePreview: async (params) => {
-            const parsed = z
-              .object({
-                serviceId: ServiceIdSchema,
-                path: z.string().min(1).max(2048).default("/"),
-              })
-              .strict()
-              .safeParse(params);
-            if (!parsed.success)
-              return {
-                ok: false,
-                errorCode: "VALIDATION_ERROR",
-                summary: "Invalid preview target",
-              };
-            if (!this.#options.services || !session.projectId)
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Service context unavailable",
-              };
-            try {
-              const service = this.#options.services.get(parsed.data.serviceId);
-              if (service.projectId !== session.projectId)
-                return { ok: false, errorCode: "FORBIDDEN", summary: "Service is not accessible" };
-              if (service.status !== "RUNNING")
-                return {
-                  ok: false,
-                  errorCode: "PREVIEW_UNAVAILABLE",
-                  summary: "Service is not running",
-                };
-              return {
-                ok: true,
-                summary: `预览 ${service.name}${parsed.data.path}`,
-                data: {
-                  kind: "preview",
-                  projectId: session.projectId,
-                  serviceId: service.id,
-                  path: parsed.data.path,
-                },
-              };
-            } catch (error) {
-              return {
-                ok: false,
-                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
-                summary: "Preview target unavailable",
-              };
-            }
-          },
-          listServices: async (params) => {
-            if (!session.projectId)
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Service context unavailable",
-              };
-            try {
-              const limit =
-                typeof params === "object" && params !== null && "limit" in params
-                  ? Number(params.limit)
-                  : 50;
-              const boundedLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 200) : 50;
-              const temporary = this.#options.services?.list({
-                projectId: session.projectId,
-                limit: boundedLimit,
-              });
-              const named = this.#options.processServices?.list({
-                projectId: session.projectId,
-              });
-              return {
-                ok: true,
-                summary: `${(named?.length ?? 0) + (temporary?.items.length ?? 0)} 个服务`,
-                data: {
-                  items: [
-                    ...(named ?? []).map((service) => ({ ...service, kind: "process" })),
-                    ...(temporary?.items ?? []),
-                  ],
-                  nextCursor: temporary?.nextCursor ?? null,
-                },
-              };
-            } catch (error) {
-              return {
-                ok: false,
-                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
-                summary: "Service list failed",
               };
             }
           },
@@ -1790,32 +1526,7 @@ export class TurnRunner {
               path: fileResult?.path,
               version: fileResult?.version,
             });
-            const previewResult =
-              request.name === "resolve_service_preview"
-                ? (result.result.data as
-                    | { serviceId?: unknown; path?: unknown; projectId?: unknown }
-                    | undefined)
-                : undefined;
-            const registeredTarget = registeredServiceTarget(
-              request.name,
-              result.result.data,
-              session.projectId,
-            );
-            const previewTarget =
-              session.projectId === null
-                ? undefined
-                : PreviewResultTargetSchema.safeParse({
-                    kind: "preview",
-                    projectId: session.projectId,
-                    serviceId: registeredTarget?.serviceId ?? previewResult?.serviceId,
-                    path: registeredTarget?.path ?? previewResult?.path,
-                  });
-            const target =
-              fileTarget.success && fileResult
-                ? fileTarget.data
-                : previewTarget?.success
-                  ? previewTarget.data
-                  : undefined;
+            const target = fileTarget.success && fileResult ? fileTarget.data : undefined;
             const successKey = stableArgsKey(request.name, request.args);
             repeatFailures.delete(successKey);
             const supersededCalls = failedCalls.get(successKey);

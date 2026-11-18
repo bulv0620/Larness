@@ -20,6 +20,7 @@ export interface ToolContext {
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown) => Promise<ToolResult>;
   startProcess?: (args: unknown) => Promise<ToolResult>;
+  listProcesses?: (args: unknown) => Promise<ToolResult>;
   readProcessOutput?: (args: unknown) => Promise<ToolResult>;
   stopProcess?: (args: unknown) => Promise<ToolResult>;
   startService?: (args: unknown) => Promise<ToolResult>;

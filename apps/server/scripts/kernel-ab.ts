@@ -22,9 +22,7 @@ import { createBrowserSession } from "../src/db/repositories/browser-sessions.js
 import { createCommandTool, createShellTool } from "../src/modules/agent/commandTool.js";
 import { createObservationTool } from "../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../src/modules/agent/planTool.js";
-import { createProcessServiceTools } from "../src/modules/agent/processServiceTool.js";
 import { createProcessTools } from "../src/modules/agent/processTool.js";
-import { createServiceTools } from "../src/modules/agent/serviceTool.js";
 import { estimateRequestTokens } from "../src/modules/agent/tokenEstimator.js";
 import { TurnRunner } from "../src/modules/agent/turnRunner.js";
 import { CommandManager } from "../src/modules/commands/manager.js";
@@ -230,8 +228,6 @@ async function main(): Promise<void> {
       createCommandTool({}),
       createShellTool({}),
       ...createProcessTools({}),
-      ...createProcessServiceTools({}),
-      ...createServiceTools(),
       createObservationTool(),
     ])
       registry.register(entry);

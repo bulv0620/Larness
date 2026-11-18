@@ -14,7 +14,6 @@ export type ToolPackId =
   | "core.command"
   | "plan"
   | "process"
-  | "service"
   | "observation";
 
 export type ToolAvailability = "enabled" | "project-required" | "disabled";

@@ -783,4 +783,4 @@ type JobInput = {
 
 ### K-7 命名服务 API
 
-082 K-7 新增 `GET /api/process-services?projectId=|sessionId=`、`GET /api/process-services/:id`、`GET /api/process-services/:id/logs?after=&limit=`、`POST /api/process-services/:id/stop`。全部使用现有认证守卫，stop 受 Origin / CSRF 保护。服务 ID 为 `svc_` 前缀，DTO 含 projectId、sessionId、processId、name、executable、cwd、port、status、previewEligible、reasonCode 与时间字段。`previewEligible` 当前固定为 `false`：进程服务的预览接线留待后续切片，现有终端服务预览不受影响。日志读取复用进程输出游标语义。
+082 K-7 新增的 `/api/process-services` 已在 083 移除；项目服务改由 `/api/processes?projectId=` 提供，预览按进程 ID 按需生成。

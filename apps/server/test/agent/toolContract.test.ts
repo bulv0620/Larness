@@ -7,16 +7,11 @@ import { runMigrations } from "../../src/db/migrate.js";
 import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
-import { createProcessServiceTools } from "../../src/modules/agent/processServiceTool.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
-import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { type ExecuteToolInput, executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
 import { withTempDir } from "../helpers.js";
-
-const TERMINAL = "term_00000000-0000-4000-8000-000000000000";
-const SERVICE = "svc_00000000-0000-4000-8000-000000000000";
 
 async function openWorkspace(dir: string): Promise<OpenedDatabase> {
   const opened = openDatabase(path.join(dir, "larness.db"));
@@ -30,8 +25,6 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   registry.register(createCommandTool({}));
   registry.register(createShellTool({}));
   for (const tool of createProcessTools({})) registry.register(tool);
-  for (const tool of createProcessServiceTools({})) registry.register(tool);
-  for (const tool of createServiceTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
 }
@@ -41,14 +34,9 @@ type HandlerKey = keyof Pick<
   | "updatePlan"
   | "runCommand"
   | "startProcess"
+  | "listProcesses"
   | "readProcessOutput"
   | "stopProcess"
-  | "startService"
-  | "readServiceLogs"
-  | "stopService"
-  | "registerService"
-  | "listServices"
-  | "resolveServicePreview"
   | "refreshObservations"
 >;
 
@@ -101,41 +89,11 @@ const BOUND_TOOLS: BoundToolCase[] = [
     invalid: { processId: "nope" },
   },
   {
-    name: "start_service",
-    handler: "startService",
-    args: { name: "web", executable: "node", args: ["-e", "0"], port: 45123 },
-    invalid: { name: "web", executable: "node", port: 0 },
+    name: "list_processes",
+    handler: "listProcesses",
+    args: {},
+    invalid: { limit: 0 },
   },
-  {
-    name: "read_service_logs",
-    handler: "readServiceLogs",
-    args: { serviceId: "svc_00000000-0000-4000-8000-000000000000" },
-    invalid: { serviceId: "nope" },
-  },
-  {
-    name: "stop_service",
-    handler: "stopService",
-    args: { serviceId: "svc_00000000-0000-4000-8000-000000000000" },
-    invalid: { serviceId: "nope" },
-  },
-  {
-    name: "register_temporary_service",
-    handler: "registerService",
-    args: {
-      kind: "temporary",
-      terminalId: TERMINAL,
-      name: "dev",
-      endpoint: { host: "127.0.0.1", port: 3000, protocol: "http" },
-    },
-    invalid: { name: "dev" },
-  },
-  {
-    name: "resolve_service_preview",
-    handler: "resolveServicePreview",
-    args: { serviceId: SERVICE, path: "/" },
-    invalid: { serviceId: "nope" },
-  },
-  { name: "list_services", handler: "listServices", args: {}, invalid: { limit: 0 } },
   {
     name: "refresh_observations",
     handler: "refreshObservations",
@@ -213,14 +171,9 @@ describe("tool contract matrix", () => {
             updatePlan: handlerStub("updatePlan"),
             runCommand: handlerStub("runCommand"),
             startProcess: handlerStub("startProcess"),
+            listProcesses: handlerStub("listProcesses"),
             readProcessOutput: handlerStub("readProcessOutput"),
             stopProcess: handlerStub("stopProcess"),
-            startService: handlerStub("startService"),
-            readServiceLogs: handlerStub("readServiceLogs"),
-            stopService: handlerStub("stopService"),
-            registerService: handlerStub("registerService"),
-            listServices: handlerStub("listServices"),
-            resolveServicePreview: handlerStub("resolveServicePreview"),
             refreshObservations: handlerStub("refreshObservations"),
           });
 

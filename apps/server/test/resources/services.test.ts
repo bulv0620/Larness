@@ -8,7 +8,6 @@ import { expect, it } from "vitest";
 import { newId } from "../../src/db/ids.js";
 import { resourceActions } from "../../src/db/schema.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
-import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { createProject } from "../../src/modules/projects/service.js";
 import { listResourceEvents, ResourceEventBus } from "../../src/modules/resources/events.js";
 import {
@@ -421,11 +420,6 @@ it("registers a verified service for an authorized agent without a second approv
       const again = await services.registerAgent(input, client);
       expect(again.id).toBe(registered.id);
 
-      const tools = createServiceTools();
-      const register = tools.find((tool) => tool.name === "register_temporary_service");
-      expect(register?.riskLevel).toBe("L2");
-      const preview = tools.find((tool) => tool.name === "resolve_service_preview");
-      expect(preview?.riskLevel).toBe("L0");
       expect(decideToolAccess("autonomous", "L2")).toBe("allow");
       expect(decideToolAccess("standard", "L2")).toBe("require_approval");
       expect(decideToolAccess("readonly", "L2")).toBe("deny");

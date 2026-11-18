@@ -202,7 +202,7 @@ export function assembleContext(
     .map((risk) => `${risk}=${decideToolAccess(options.policy, risk)}`)
     .join(", ");
   const planEnabled = profileHasPack(agentProfile, "plan");
-  const serviceEnabled = profileHasPack(agentProfile, "service");
+  const serviceEnabled = agentProfile === "service-ops";
   const systemBlocks = [
     `Larness prompt version: ${PROMPT_VERSION}.`,
     planEnabled ? `${SYSTEM_POLICY_BASE}\n${PLAN_POLICY}` : SYSTEM_POLICY_BASE,

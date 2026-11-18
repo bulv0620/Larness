@@ -445,7 +445,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
 | S-1 | [合同、ADR、Profile 与迁移](083-service-model/tasks.md#s-1) | — | `done`（2026-11-18） |
-| S-2 | [后台进程模型与 coding 工具面](083-service-model/tasks.md#s-2) | S-1 | `todo` |
+| S-2 | [后台进程模型与 coding 工具面](083-service-model/tasks.md#s-2) | S-1 | `done`（2026-11-18） |
 | S-3 | [项目服务窗口与侧栏计数](083-service-model/tasks.md#s-3) | S-2 | `todo` |
 | S-4 | [按需预览](083-service-model/tasks.md#s-4) | S-2 | `todo` |
 | S-5 | [服务运维 Profile 与 PM2 投影](083-service-model/tasks.md#s-5) | S-1、S-4 | `todo` |
