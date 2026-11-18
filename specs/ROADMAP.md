@@ -436,7 +436,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | K-8 | [计划可选化](082-agent-kernel/tasks.md#k-8-计划可选化) | K-3 | `done`（2026-11-18） |
 | K-11 | [锁与审计契约收敛](082-agent-kernel/tasks.md#k-11-锁与审计契约收敛) | K-2 | `done`（2026-11-18） |
 | K-9 | [workspace Profile、迁移与 UI](082-agent-kernel/tasks.md#k-9-workspace-profile迁移与-ui) | K-4、K-7、K-8、K-11、K-12 | `done`（2026-11-18） |
-| K-10 | [A/B 验证、全量检查与文档回填](082-agent-kernel/tasks.md#k-10-ab-验证全量检查与文档回填) | K-9 | `in_progress`（确定性 A/B / 门禁完成；真实模型 A/B 待 Key） |
+| K-10 | [A/B 验证、全量检查与文档回填](082-agent-kernel/tasks.md#k-10-ab-验证全量检查与文档回填) | K-9 | `done`（限定范围；真实模型 A/B 未运行） |
 
 ## 9. 门禁
 

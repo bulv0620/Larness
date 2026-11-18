@@ -18,7 +18,7 @@
 | K-8 | 计划可选化 | K-3 | `done` |
 | K-11 | 锁与审计契约收敛 | K-2 | `done` |
 | K-9 | workspace Profile、迁移与 UI | K-4、K-7、K-8、K-11、K-12 | `done` |
-| K-10 | A/B 验证、全量检查与文档回填 | K-9 | `in_progress` |
+| K-10 | A/B 验证、全量检查与文档回填 | K-9 | `done`（限定范围，2026-11-18 人类确认） |
 
 ## 任务卡
 
@@ -291,7 +291,7 @@
 
 ### K-10 A/B 验证、全量检查与文档回填
 
-- 状态：`in_progress`（2026-11-18；确定性 A/B、全量门禁与文档已完成，真实 Provider A/B 待 Key/预算）
+- 状态：`done`（限定范围，2026-11-18 人类确认收口；真实 Provider A/B 未运行，已明确记录）
 - 依赖：K-9
 - 目标：证明轻量没有牺牲成功率和关键功能。
 - 交付物：
@@ -421,4 +421,5 @@
 - K-10 修复：执行层现在按 Profile 拒绝隐藏的内置工具（`disabledToolsForProfile`），不只依赖 schema 过滤；`toolExecutor.test.ts` 覆盖注册但未启用的 `update_plan` 返回 `TOOL_NOT_FOUND` 且不调用 handler。
 - E2E：`pnpm test:e2e` 24/24；`pnpm test:e2e:prod` 20/20。修复了四个既有/时序问题：commands 审批框在 Composer 入场动画期间取样、conversation 旧“保留阅读位置”断言与 UI-F28 冲突、m1 等 19 个 pairing 请求触发 10 次/分钟限流、demo Ctrl+B 断言错误地要求动画侧栏卸载。E2E server 通过 `StartServerOptions.rateLimiter` 注入高限流器，生产默认未改变。
 - 门禁：`pnpm check` 全绿——biome 689 文件、6 包 typecheck、web 258、agent 63（1 跳过）、server 730（14 跳过）；`pnpm build` 成功。
-- 未运行：真实 Provider 的 10 任务 coding vs workspace A/B（无 Key/预算授权）、Windows 实机 `run_shell`/进程树停止、浏览器视觉人工验收。上述项目不得标记通过；真实模型成功率仍需补跑后才能声明“不明显下降”。
+- 未运行：真实 Provider 的 10 任务 coding vs workspace A/B（无 Key/预算授权）、Windows 实机 `run_shell`/进程树停止、浏览器视觉人工验收。上述项目未标记通过；真实模型成功率仍需补跑后才能声明“不明显下降”。
+- 收口：2026-11-18 人类确认按“确定性 A/B + 全量门禁”限定收口 082；082 的后续服务模型问题转入 083。
