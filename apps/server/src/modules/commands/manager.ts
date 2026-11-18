@@ -24,13 +24,8 @@ import type { CommandExecutionRow, ResourceOperationRow } from "../../db/schema.
 import { immediateTransaction } from "../../db/transaction.js";
 import type { SecretStore } from "../../security/secretStore.js";
 import { assertFileScopeMetadata, authorizeFileTarget, resolveFileScope } from "../files/scope.js";
-import {
-  acquireResourceLock,
-  findResourceLock,
-  type ResourceLockHandle,
-  releaseResourceLock,
-  renewResourceLock,
-} from "../locks/service.js";
+import { LeaseManager } from "../locks/lease.js";
+import type { ResourceLockHandle } from "../locks/service.js";
 import { listEncryptedSecrets } from "../models/repository.js";
 import type { ResourceEventBus } from "../resources/events.js";
 import {
@@ -89,10 +84,12 @@ export interface CommandManagerOptions {
 }
 export class CommandManager {
   readonly #active = new Map<string, Runtime>();
+  readonly #leases: LeaseManager;
   readonly #instance = randomUUID();
   readonly #cleanup: ReturnType<typeof setInterval>;
   #closed = false;
   constructor(readonly options: CommandManagerOptions) {
+    this.#leases = new LeaseManager({ db: options.db, now: () => this.#now() });
     this.#cleanup = setInterval(() => {
       void this.cleanup().catch(() => {});
     }, 10 * 60_000);
@@ -186,7 +183,7 @@ export class CommandManager {
     this.options.events.publish(event);
   }
   #assertLock(lock: ResourceLockHandle) {
-    const current = findResourceLock(this.options.db, lock.resourceType, lock.resourceId);
+    const current = this.#leases.get("project", lock.resourceId);
     if (
       !current ||
       current.id !== lock.id ||
@@ -332,17 +329,13 @@ export class CommandManager {
         if (lock.executionId !== context.turnId || lock.rootRealPath !== resolved.root)
           throw new FileManagerError("FORBIDDEN", "Inherited lock does not match command");
       } else
-        lock = acquireResourceLock(
-          { db: this.options.db, now: () => this.#now() },
-          {
-            resourceType: "project",
-            resourceId: resolved.key,
-            rootRealPath: resolved.root,
-            owner: context.clientSessionId,
-            executionId: id,
-            ttlMs: this.options.lockTtlMs ?? 30_000,
-          },
-        );
+        lock = this.#leases.acquireProject({
+          projectId: resolved.key,
+          rootRealPath: resolved.root,
+          owner: context.clientSessionId,
+          executionId: id,
+          ttlMs: this.options.lockTtlMs ?? 30_000,
+        });
       if (!lock) throw new FileManagerError("RESOURCE_LOCKED", "Command root is busy");
       const operation: ResourceOperationRow = {
         id: operationId,
@@ -414,7 +407,7 @@ export class CommandManager {
           });
         },
       );
-      if (own) releaseResourceLock({ db: this.options.db }, held);
+      if (own) this.#leases.release(held);
       throw new FileManagerError("INTERNAL", "Command preparation failed");
     }
     const runtime: Runtime = {
@@ -433,17 +426,7 @@ export class CommandManager {
       const interval = setInterval(() => {
         try {
           this.#assertLock(held);
-          if (
-            own &&
-            !renewResourceLock(
-              { db: this.options.db, now: () => this.#now() },
-              {
-                id: held.id,
-                fencingToken: held.fencingToken,
-                ttlMs: this.options.lockTtlMs ?? 30_000,
-              },
-            )
-          )
+          if (own && !this.#leases.renew(held, this.options.lockTtlMs ?? 30_000))
             throw new Error("Lock lost");
           const current = getTurnById(this.options.db, turn.id);
           if (!current || !["RUNNING", "PREPARING"].includes(current.status)) {
@@ -593,8 +576,7 @@ export class CommandManager {
             });
           },
         );
-        if (own && stopped)
-          releaseResourceLock({ db: this.options.db, now: () => this.#now() }, held);
+        if (own && stopped) this.#leases.release(held);
       } catch {
         try {
           updateOperation(this.options.db, operationId, {
@@ -675,11 +657,7 @@ export class CommandManager {
           });
         },
       );
-      if (safe && operation)
-        releaseResourceLock(
-          { db: this.options.db },
-          { id: operation.lockId, fencingToken: operation.fencingToken },
-        );
+      if (safe && operation) this.#leases.releaseById(operation.lockId, operation.fencingToken);
     }
     await this.cleanup();
   }

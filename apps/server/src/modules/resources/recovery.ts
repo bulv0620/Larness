@@ -9,8 +9,8 @@ import {
 } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { commandByOperation } from "../commands/repository.js";
+import { LeaseManager } from "../locks/lease.js";
 import { quarantinedRoots } from "../locks/quarantine.js";
-import { releaseResourceLock } from "../locks/service.js";
 import { terminalByOperation } from "../terminals/repository.js";
 import { pendingOperations, updateOperation } from "./repository.js";
 
@@ -83,10 +83,10 @@ function finalizeOperation(
 }
 
 function releaseOperationLock(options: RecoveryOptions, operation: ResourceOperationRow): boolean {
-  return releaseResourceLock(
-    { db: options.db, now: options.now },
-    { id: operation.lockId, fencingToken: operation.fencingToken },
-  );
+  return new LeaseManager({
+    db: options.db,
+    ...(options.now === undefined ? {} : { now: options.now }),
+  }).releaseById(operation.lockId, operation.fencingToken);
 }
 
 function lockOwnerIsActive(db: Database, lock: ResourceLockRow): boolean {
@@ -155,10 +155,10 @@ export function finalizeUnreconciledOperations(options: RecoveryOptions): SweepS
       continue;
     }
     if (
-      releaseResourceLock(
-        { db: options.db, now: options.now },
-        { id: lock.id, fencingToken: lock.fencingToken },
-      )
+      new LeaseManager({
+        db: options.db,
+        ...(options.now === undefined ? {} : { now: options.now }),
+      }).releaseById(lock.id, lock.fencingToken)
     ) {
       releasedLocks += 1;
       options.logger?.warn(

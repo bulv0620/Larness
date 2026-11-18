@@ -16,7 +16,7 @@
 | K-6 | 后台进程能力包 | K-5 | `done` |
 | K-7 | 命名服务与可选预览 | K-6 | `done` |
 | K-8 | 计划可选化 | K-3 | `done` |
-| K-11 | 锁与审计契约收敛 | K-2 | `todo` |
+| K-11 | 锁与审计契约收敛 | K-2 | `done` |
 | K-9 | workspace Profile、迁移与 UI | K-4、K-7、K-8、K-11、K-12 | `todo` |
 | K-10 | A/B 验证、全量检查与文档回填 | K-9 | `todo` |
 
@@ -243,7 +243,7 @@
 
 ### K-11 锁与审计契约收敛
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-2
 - 目标：把锁收敛为 ProjectLease + ServiceLease，把审计分为安全关键/资源操作/调试三级；锁与审计不进入内核。
 - 交付物：
@@ -394,3 +394,12 @@
 - 旧 `plan.updated` 事件、计划卡与回放保留；`plan.test.ts` 的计划持久化/重放测试改为显式 `agentProfile: "plan"`。
 - 测试：plan/contextAssembler/profiles/toolContract/turnRunner 定向 64 项通过；workspace/coding 负向断言与 plan 正向断言覆盖。
 - 验证：`pnpm check` 全绿——biome 688 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 727（14 跳过）。
+
+### K-11（2026-11-18，macOS）
+
+- 新增 `LeaseManager`：`acquireProject` / `acquireService` / `renew` / `release` / `releaseById` / `get` / `find`；`ProjectWriteLock`、Commands、ServiceOps、Deployments、Files recovery、Resources recovery 全部改为经它访问 `resource_locks`。检索确认 `modules/locks` 之外没有 `acquireResourceLock` / `renewResourceLock` / `releaseResourceLock` 调用。
+- 锁域：ProjectLease 保留 TTL/fencing/过期接管/丢失检测/重叠根；ServiceLease 仅同一目标；人类终端只保留连接所有权；Agent 终端租约已移除。
+- 新增 `AuditSink`：`required` 失败抛 `RESOURCE_UNAVAILABLE`（fail-closed）；`resource` 直接写入并让异常传播；`debug` 不写审计表。`tool.denied` 改用 required；`tool.requested` / `tool.completed` / `terminal.input` / `terminal.resize` 审计移除；`dev-web.rejected` 按分钟聚合；`git.denied` 跳过 `VALIDATION_ERROR`。
+- 测试：`auditSink.test.ts` 覆盖 required 失败关闭与 debug 不入表；锁/命令/终端/ServiceOps/Deployments/Git 定向 90 项通过；`projectWriteLock`、`gitLockOrder`、`cross-resource-locks` 回归通过。
+- 验证：`pnpm check` 全绿——biome 691 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 729（14 跳过）。
+- 说明：既有约 100 个 `appendAudit` 调用点仍保留在各自事务内，基线已按 required/resource/debug 分类；本轮优先移除调试双写与噪声，未机械改写全部调用点，行为上安全关键路径继续失败关闭。

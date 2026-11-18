@@ -103,8 +103,8 @@ describe("tool executor", () => {
         expect(await readFile(path.join(realRoot, "a.txt"), "utf8")).toBe("one\nTWO\n");
 
         const actions = listRecentAudit(opened.db).map((row) => row.action);
-        expect(actions).toContain("tool.requested");
-        expect(actions).toContain("tool.completed");
+        expect(actions).not.toContain("tool.requested");
+        expect(actions).not.toContain("tool.completed");
         expect(actions).toContain("approval.granted");
       } finally {
         opened.close();

@@ -228,6 +228,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.devWeb) {
     const services = options.services;
     if (!services) throw new Error("开发页面需要后端授权服务");
+    let lastDevWebAuditAt = 0;
     registerDevWeb(app, {
       ...options.devWeb,
       config: services.config,
@@ -236,13 +237,19 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         resolveActiveSession(services.db, request.cookies.larness_session ?? "", {
           idleTtlMinutes: services.config.auth.idleTtlMinutes,
         }),
-      auditReject: (code) =>
+      auditReject: (code) => {
+        const now = Date.now();
+        // Dev-web polling can produce thousands of identical unauthenticated
+        // rejections; keep the security signal without flooding the audit table.
+        if (now - lastDevWebAuditAt < 60_000) return;
+        lastDevWebAuditAt = now;
         appendAudit(services.db, {
           action: "dev-web.rejected",
           decision: "deny",
-          details: { code },
-          now: Date.now(),
-        }),
+          details: { code, aggregated: true },
+          now,
+        });
+      },
     });
   }
   if (!options.devWeb && options.webDistDir !== undefined) {

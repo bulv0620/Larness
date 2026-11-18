@@ -1,11 +1,6 @@
 import type { Database } from "../../db/client.js";
-import {
-  acquireResourceLock,
-  getActiveResourceLock,
-  type ResourceLockHandle,
-  releaseResourceLock,
-  renewResourceLock,
-} from "../locks/service.js";
+import { LeaseManager } from "../locks/lease.js";
+import type { ResourceLockHandle } from "../locks/service.js";
 
 export class ProjectLockError extends Error {
   readonly code = "RESOURCE_LOCKED";
@@ -29,24 +24,25 @@ export interface ProjectWriteLockOptions {
 const DEFAULT_TTL_MS = 30_000;
 
 export class ProjectWriteLock {
-  readonly #db: Database;
   readonly #projectId: string;
   readonly #owner: string;
   readonly #executionId: string;
   readonly #ttlMs: number;
-  readonly #now: (() => number) | undefined;
   #handle: ResourceLockHandle | null = null;
   #lost = false;
   readonly #rootRealPath: string | undefined;
+  readonly #leases: LeaseManager;
 
   constructor(options: ProjectWriteLockOptions) {
-    this.#db = options.db;
     this.#projectId = options.projectId;
     this.#owner = options.owner;
     this.#executionId = options.executionId;
     this.#ttlMs = options.ttlMs ?? DEFAULT_TTL_MS;
-    this.#now = options.now;
     this.#rootRealPath = options.rootRealPath;
+    this.#leases = new LeaseManager({
+      db: options.db,
+      ...(options.now === undefined ? {} : { now: options.now }),
+    });
   }
 
   get handle(): ResourceLockHandle | null {
@@ -80,17 +76,13 @@ export class ProjectWriteLock {
       return null;
     }
 
-    this.#handle = acquireResourceLock(
-      { db: this.#db, now: this.#now },
-      {
-        resourceType: "project",
-        resourceId: this.#projectId,
-        owner: this.#owner,
-        executionId: this.#executionId,
-        ttlMs: this.#ttlMs,
-        rootRealPath: this.#rootRealPath,
-      },
-    );
+    this.#handle = this.#leases.acquireProject({
+      projectId: this.#projectId,
+      owner: this.#owner,
+      executionId: this.#executionId,
+      ttlMs: this.#ttlMs,
+      ...(this.#rootRealPath === undefined ? {} : { rootRealPath: this.#rootRealPath }),
+    });
 
     return this.#handle;
   }
@@ -126,10 +118,7 @@ export class ProjectWriteLock {
       return false;
     }
 
-    const released = releaseResourceLock(
-      { db: this.#db, now: this.#now },
-      { id: this.#handle.id, fencingToken: this.#handle.fencingToken },
-    );
+    const released = this.#leases.release(this.#handle);
 
     if (released) {
       this.#handle = null;
@@ -139,8 +128,7 @@ export class ProjectWriteLock {
   }
 
   current(): ResourceLockHandle | null {
-    const now = this.#now?.() ?? Date.now();
-    return getActiveResourceLock(this.#db, "project", this.#projectId, now);
+    return this.#leases.get("project", this.#projectId);
   }
 
   assertHeld(): ResourceLockHandle {
@@ -168,14 +156,7 @@ export class ProjectWriteLock {
       return null;
     }
 
-    const renewed = renewResourceLock(
-      { db: this.#db, now: this.#now },
-      {
-        id: this.#handle.id,
-        fencingToken: this.#handle.fencingToken,
-        ttlMs: this.#ttlMs,
-      },
-    );
+    const renewed = this.#leases.renew(this.#handle, this.#ttlMs);
 
     if (renewed !== null) {
       this.#handle = renewed;
@@ -189,10 +170,7 @@ export class ProjectWriteLock {
       try {
         // Clear our own row so a released lease cannot keep blocking the root
         // while this Turn retries. A takeover keeps its higher fencing token.
-        releaseResourceLock(
-          { db: this.#db, now: this.#now },
-          { id: this.#handle.id, fencingToken: this.#handle.fencingToken },
-        );
+        this.#leases.releaseById(this.#handle.id, this.#handle.fencingToken);
       } catch {
         /* Best effort; the row still expires and the Turn can continue read-only. */
       }

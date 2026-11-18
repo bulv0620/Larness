@@ -1002,15 +1002,6 @@ export class TerminalManager {
       if (sequence <= lease.inputSequence) return false;
       if (sequence !== lease.inputSequence + 1)
         fail("VALIDATION_ERROR", "Terminal input sequence has a gap");
-      appendAudit(tx, {
-        action: "terminal.input",
-        decision: "allow",
-        clientSessionId: client,
-        resourceType: "terminal",
-        resourceId: id,
-        details: { bytes: Buffer.byteLength(data), generation, sequence },
-        now: this.#now(),
-      });
       updateLease(tx, id, { inputSequence: sequence });
       return true;
     });
@@ -1031,15 +1022,6 @@ export class TerminalManager {
   ) {
     await this.authorize(id);
     this.#held(id, client, input.connectionId, input.leaseGeneration);
-    appendAudit(this.options.db, {
-      action: "terminal.resize",
-      decision: "allow",
-      clientSessionId: client,
-      resourceType: "terminal",
-      resourceId: id,
-      details: { cols: input.cols, rows: input.rows },
-      now: this.#now(),
-    });
     try {
       this.#active.get(id)?.pty.native.resize(input.cols, input.rows);
     } catch {

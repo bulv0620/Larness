@@ -8,7 +8,7 @@ import {
 } from "@larness/agent";
 import { OutputRedactor } from "@larness/resources";
 import type { Database } from "../../db/client.js";
-import { appendAudit } from "../../db/repositories/audit.js";
+import { AuditSink } from "../audit/sink.js";
 import {
   type ApprovalDto,
   ApprovalError,
@@ -65,10 +65,11 @@ export async function executeTool(
   input: ExecuteToolInput,
 ): Promise<ToolExecutionOutcome> {
   const now = options.now?.() ?? Date.now();
+  const audit = new AuditSink({ db: options.db, now: () => now });
   const tool = options.registry.get(input.toolName);
 
   if (tool === undefined) {
-    appendAudit(options.db, {
+    audit.required({
       action: "tool.denied",
       decision: "deny",
       clientSessionId: input.clientSessionId,
@@ -76,7 +77,6 @@ export async function executeTool(
       resourceType: "tool",
       resourceId: input.toolCallId,
       details: { turnId: input.turnId, toolName: input.toolName, reason: "unknown_tool" },
-      now,
     });
     return {
       status: "completed",
@@ -88,7 +88,7 @@ export async function executeTool(
   const access = decideToolAccess(input.policy, risk);
 
   if (access === "deny") {
-    appendAudit(options.db, {
+    audit.required({
       action: "tool.denied",
       decision: "deny",
       clientSessionId: input.clientSessionId,
@@ -102,7 +102,6 @@ export async function executeTool(
         policy: input.policy,
         reason: "policy",
       },
-      now,
     });
     return {
       status: "completed",
@@ -113,7 +112,7 @@ export async function executeTool(
   const parsed = tool.schema.safeParse(input.args);
 
   if (!parsed.success) {
-    appendAudit(options.db, {
+    audit.required({
       action: "tool.denied",
       decision: "deny",
       clientSessionId: input.clientSessionId,
@@ -125,7 +124,6 @@ export async function executeTool(
         toolName: input.toolName,
         reason: "invalid_arguments",
       },
-      now,
     });
     const issues = parsed.error.issues.map((issue) => ({
       path: issue.path.join("."),
@@ -207,22 +205,6 @@ export async function executeTool(
       },
     );
 
-    appendAudit(options.db, {
-      action: "tool.requested",
-      decision: "info",
-      clientSessionId: input.clientSessionId,
-      sessionId: input.sessionId,
-      resourceType: "tool",
-      resourceId: input.toolCallId,
-      details: {
-        turnId: input.turnId,
-        toolName: input.toolName,
-        risk,
-        approvalId: approval.id,
-      },
-      now,
-    });
-
     return { status: "approval_required", approval };
   }
 
@@ -242,7 +224,7 @@ export async function executeTool(
       }
     } catch (error) {
       if (error instanceof ApprovalError) {
-        appendAudit(options.db, {
+        audit.required({
           action: "tool.denied",
           decision: "deny",
           clientSessionId: input.clientSessionId,
@@ -255,7 +237,6 @@ export async function executeTool(
             approvalId: input.approvalId,
             reason: error.code,
           },
-          now,
         });
         return {
           status: "completed",
@@ -266,22 +247,6 @@ export async function executeTool(
       throw error;
     }
   }
-
-  appendAudit(options.db, {
-    action: "tool.requested",
-    decision: "allow",
-    clientSessionId: input.clientSessionId,
-    sessionId: input.sessionId,
-    resourceType: "tool",
-    resourceId: input.toolCallId,
-    details: {
-      turnId: input.turnId,
-      toolName: input.toolName,
-      risk,
-      ...(input.approvalId === undefined ? {} : { approvalId: input.approvalId }),
-    },
-    now,
-  });
 
   const context: ToolContext = {
     ...(input.updatePlan
@@ -425,9 +390,9 @@ export async function executeTool(
   };
   const result = await options.registry.execute(input.toolName, params, context);
 
-  appendAudit(options.db, {
+  const auditInput = {
     action: result.ok ? "tool.completed" : "tool.denied",
-    decision: result.ok ? "allow" : "deny",
+    decision: result.ok ? ("allow" as const) : ("deny" as const),
     clientSessionId: input.clientSessionId,
     sessionId: input.sessionId,
     resourceType: "tool",
@@ -439,8 +404,9 @@ export async function executeTool(
       ...(result.errorCode === undefined ? {} : { errorCode: result.errorCode }),
       ...(result.truncated === undefined ? {} : { truncated: result.truncated }),
     },
-    now,
-  });
+  };
+  if (result.ok) audit.debug(auditInput);
+  else audit.required(auditInput);
 
   return { status: "completed", result };
 }
