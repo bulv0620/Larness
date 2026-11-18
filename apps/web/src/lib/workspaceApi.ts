@@ -404,6 +404,23 @@ export async function createSession(input: {
   });
 }
 
+export interface ApiSessionUsage {
+  sessionId: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  cacheReadTokens: number | null;
+  noCacheTokens: number | null;
+  turns: number;
+  missingTurns: number;
+  partial: boolean;
+  updatedAt: number | null;
+}
+
+export async function getSessionUsage(id: string): Promise<ApiSessionUsage> {
+  return apiFetch<ApiSessionUsage>(`/api/sessions/${encodeURIComponent(id)}/usage`);
+}
+
 export async function getSession(id: string): Promise<ApiSessionDetail> {
   return apiFetch<ApiSessionDetail>(`/api/sessions/${encodeURIComponent(id)}`);
 }

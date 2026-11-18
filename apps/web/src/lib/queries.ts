@@ -1,9 +1,12 @@
 import type { GatewaySnapshot } from "@larness/shared";
 import { QueryClient, useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { USE_MOCKS } from "@/lib/env";
 import {
   type ApiModelCatalog,
+  type ApiSessionUsage,
   getSession,
+  getSessionUsage,
   listModelCatalog,
   listModels,
   listProjects,
@@ -135,7 +138,50 @@ export function useModelCatalog(): ModelCatalogResult {
 }
 
 export const sessionDetailKey = (sessionId: string | null) => ["session-detail", sessionId];
+export const sessionUsageKey = (sessionId: string | null) => ["session-usage", sessionId];
 export const saveSessionSettingsKey = (sessionId: string) => ["save-session-settings", sessionId];
+
+export function useSessionUsage(sessionId: string | null): ApiSessionUsage | null {
+  const [data, setData] = useState<ApiSessionUsage | null>(() =>
+    sessionId === null ? null : (queryClient.getQueryData(sessionUsageKey(sessionId)) ?? null),
+  );
+
+  useEffect(() => {
+    if (USE_MOCKS || sessionId === null) {
+      setData(null);
+      return;
+    }
+
+    const key = sessionUsageKey(sessionId);
+    let active = true;
+    const read = () => {
+      if (active) setData(queryClient.getQueryData<ApiSessionUsage>(key) ?? null);
+    };
+    const load = () => {
+      void queryClient
+        .fetchQuery({ queryKey: key, queryFn: () => getSessionUsage(sessionId), staleTime: 0 })
+        .then(read)
+        .catch(() => undefined);
+    };
+
+    read();
+    load();
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (event.query.queryKey[0] !== "session-usage" || event.query.queryKey[1] !== sessionId) {
+        return;
+      }
+      read();
+      if (event.type === "updated" && event.action.type === "invalidate") load();
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [sessionId]);
+
+  return data;
+}
 
 export function useSessionDetail(sessionId: string | null) {
   const query = useQuery({

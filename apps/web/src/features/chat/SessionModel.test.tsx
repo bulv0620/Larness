@@ -12,6 +12,7 @@ import { Composer } from "./Composer";
 
 const api = vi.hoisted(() => ({
   getSession: vi.fn(),
+  getSessionUsage: vi.fn(),
   updateSession: vi.fn(),
   createSession: vi.fn(),
   createTurn: vi.fn(),
@@ -88,6 +89,18 @@ beforeEach(() => {
     defaultSelection: glm,
   });
   api.getSession.mockImplementation(async (id: string) => sessions.get(id) ?? session(id));
+  api.getSessionUsage.mockResolvedValue({
+    sessionId: "ses_a",
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    cacheReadTokens: null,
+    noCacheTokens: null,
+    turns: 0,
+    missingTurns: 0,
+    partial: false,
+    updatedAt: null,
+  });
   api.updateSession.mockImplementation(async (id: string, patch: Partial<ApiSessionDetail>) => {
     const updated = { ...(sessions.get(id) ?? session(id)), ...patch };
     sessions.set(id, updated);

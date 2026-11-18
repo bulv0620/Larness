@@ -18,7 +18,12 @@ import {
   type ModelUsageEntry,
   modelUsageFromEvents,
 } from "@/lib/eventReducer";
-import { queryClient, saveSessionSettingsKey, sessionDetailKey } from "@/lib/queries";
+import {
+  queryClient,
+  saveSessionSettingsKey,
+  sessionDetailKey,
+  sessionUsageKey,
+} from "@/lib/queries";
 import { appendAssistantMessage, applyReasoningDelta, applyTurnEvent } from "@/lib/timeline";
 import {
   type ApiSession,
@@ -249,6 +254,12 @@ function applyEventToState(event: ServerEvent, live = false): void {
   if (event.type === "tool.completed") {
     const session = queryClient.getQueryData<{ clientSessionId?: string }>(["session"]);
     void applyAgentTerminalClosedEvent(payload, session?.clientSessionId);
+  }
+
+  if (terminal) {
+    void queryClient.invalidateQueries({
+      queryKey: sessionUsageKey(event.sessionId ?? state.sessionId),
+    });
   }
 
   if (

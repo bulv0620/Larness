@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- **AP-4**（084，分支 `task/084-agent-profiles-usage`，2026-11-18 21:53）：输入框下方会话 Token 与最后一步速度；随后 AP-5 → AP-6。
+- **AP-5**（084，分支 `task/084-agent-profiles-usage`，2026-11-18 21:58）：过程呈现收敛；随后 AP-6 全量验证与收口。
 
 ## 阻塞与待确认
 
@@ -19,6 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-18 | AP-4 输入框用量与速度 | 新增会话用量行：总量常驻、部分统计 `≥`、进行中最后一步 `tok/s`；终态失效重取；Web 定向 29 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-4-输入框下方用量与最后一步速度) |
 | 2026-11-18 | AP-3 会话用量与步骤耗时 | 新增 `GET /api/sessions/:id/usage` 与诚实聚合（缺失不补零）；`model.usage` 增 `durationMs`；契约同步；定向 60 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-3-会话用量-api-与步骤耗时) |
 | 2026-11-18 | AP-2 Profile 收敛与迁移 | Profile 仅 `coding` / `plan`，两者共享完整工具面，Plan 增计划；取消 PM2 观察注入；迁移 0034 将 `service-ops` 归一 `coding`；定向 96 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-2-profile-收敛提示迁移与选择器) |
 | 2026-11-18 | AP-1 规格决议、ADR 与任务卡 | 084 审核通过转 `active`；§12 十项决议固化；新增 ADR-070 取代 ADR-069 的独立 Service Ops Profile；拆分 AP-2～AP-6 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-1-规格决议adr计划与任务卡) |
@@ -28,7 +29,6 @@
 | 2026-11-18 | S-1～S-7 项目服务与 service-ops | 人类验收通过；coding 直接管理后台开发任务；项目服务改读进程；预览按需生成；service-ops 管理默认 namespace PM2；旧命令释放锁；check/build + Mock 24/24 + Prod 20/20 | [083 tasks](specs/083-service-model/tasks.md#s-72026-11-18macos) |
 | 2026-11-18 | K-10 A/B 与全量门禁 | 确定性 10 任务 A/B 10/10；check/build/Mock 24/24/Prod 20/20；真实模型 A/B 未运行，按限定范围收口，人类验收通过 | [082 tasks](specs/082-agent-kernel/tasks.md#k-102026-11-18macos真实模型-ab-未运行) |
 | 2026-11-18 | K-9 workspace Profile、迁移与 UI | 新增 `sessions.agent_profile` 默认 coding；Session API/Composer Profile 选择；TurnRunner 按会话装配；迁移计数 32 | [082 tasks](specs/082-agent-kernel/tasks.md#k-92026-11-18macos) |
-| 2026-11-18 | K-11 锁与审计收敛 | LeaseManager 成为唯一锁入口；AuditSink required/resource/debug；tool.requested/completed 与 terminal input/resize 审计移除；dev-web/git 噪声收敛 | [082 tasks](specs/082-agent-kernel/tasks.md#k-112026-11-18macos) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

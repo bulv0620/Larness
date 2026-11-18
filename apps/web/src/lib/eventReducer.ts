@@ -360,8 +360,10 @@ export function applyServerEvent(items: TimelineItem[], event: ServerEvent): Tim
 }
 
 export interface ModelUsageEntry {
-  inputTokens: number;
-  contextWindow: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  durationMs?: number;
+  contextWindow?: number;
   updatedAt: number;
 }
 
@@ -374,11 +376,20 @@ export function modelUsageFromEvents(events: ServerEvent[]): Record<string, Mode
     const source = payload(event);
     const model = stringField(source, "model");
     const inputTokens = numberField(source, "inputTokens");
+    const outputTokens = numberField(source, "outputTokens");
+    const durationMs = numberField(source, "durationMs");
     const contextWindow = numberField(source, "contextWindow");
 
-    if (model === undefined || inputTokens === undefined || contextWindow === undefined) continue;
+    if (model === undefined) continue;
 
-    usage[model] = { inputTokens, contextWindow, updatedAt: event.timestamp };
+    usage[model] = {
+      ...usage[model],
+      ...(inputTokens === undefined ? {} : { inputTokens }),
+      ...(outputTokens === undefined ? {} : { outputTokens }),
+      ...(durationMs === undefined ? {} : { durationMs }),
+      ...(contextWindow === undefined ? {} : { contextWindow }),
+      updatedAt: event.timestamp,
+    };
   }
 
   return usage;

@@ -34,6 +34,7 @@ import {
   sessionDetailKey,
   useModelCatalog,
   useSessionDetail,
+  useSessionUsage,
 } from "@/lib/queries";
 import {
   type ApiCatalogGroup,
@@ -47,6 +48,7 @@ import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { DraftScreenshot } from "./DraftScreenshot";
 import { ModelControl } from "./ModelControl";
+import { SessionUsageLine } from "./SessionUsageLine";
 
 const standardPolicy = {
   id: "standard",
@@ -267,6 +269,11 @@ export function Composer({
   const ProfileIcon = currentProfile.icon;
   const modelUsage = useTimelineStore((state) => state.modelUsage);
   const usage = model ? modelUsage[model.id] : undefined;
+  const sessionUsage = useSessionUsage(hasSession && !isDraftSession ? sessionId : null);
+  const lastStep =
+    usage?.outputTokens !== undefined && usage.durationMs !== undefined
+      ? { outputTokens: usage.outputTokens, durationMs: usage.durationMs }
+      : null;
   const pendingApproval = useTimelineStore((state) => pendingApprovals(state.items).length > 0);
 
   useEffect(
@@ -394,242 +401,248 @@ export function Composer({
   };
 
   return (
-    <div
-      data-testid="composer-surface"
-      className={cn(
-        "relative rounded-[18px] border border-line shadow-[var(--shadow-card)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:ring-2 focus-within:ring-accent/10",
-        centered ? "bg-surface/40 backdrop-blur-sm" : "bg-surface",
-      )}
-    >
-      {switchNotice?.sessionId === sessionId ? (
-        <p
-          role="status"
-          className="pointer-events-none absolute bottom-full left-2 mb-1 w-fit max-w-[calc(100%-1rem)] truncate rounded-md bg-surface/90 px-2 py-0.5 text-[10.5px] text-ink-3"
-        >
-          {switchNotice.message}
-        </p>
-      ) : null}
-      <ErrorMessage
-        message={saveError?.sessionId === sessionId ? saveError.message : null}
-        onDismiss={() => setSaveError(null)}
-      />
-      {screenshots.length > 0 ? (
-        <div className="flex flex-wrap gap-2 px-3 pt-3">
-          {screenshots.map((file, index) => (
-            <DraftScreenshot
-              key={`${file.name}:${file.lastModified}:${index}`}
-              file={file}
-              disabled={isStreaming}
-              onRemove={() => {
-                setAttachmentError("");
-                setAttachments(
-                  sessionId
-                    ? { sessionId, files: screenshots.filter((_, position) => index !== position) }
-                    : undefined,
-                );
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
-      {attachmentError || screenshotBlocked ? (
-        <p role="status" className="px-3 pt-2 text-xs text-warning">
-          {attachmentError || "当前模型连接未声明图片输入。请切换模型或移除截图。"}
-        </p>
-      ) : null}
-      <Textarea
-        variant="bare"
-        ref={textareaRef}
-        value={draft}
-        rows={1}
-        placeholder={
-          hasSession
-            ? centered
-              ? "提问、描述要做的改动…"
-              : "继续对话，或提出新的任务…"
-            : "新建或选择一个会话…"
-        }
-        onPaste={(event) => {
-          const files = [...event.clipboardData.files].filter((file) =>
-            file.type.startsWith("image/"),
-          );
-          if (!USE_MOCKS && files.length > 0) {
-            event.preventDefault();
-            addScreenshots(files);
-          }
-        }}
-        onDragOver={(event) => {
-          if (!USE_MOCKS && event.dataTransfer.types.includes("Files")) event.preventDefault();
-        }}
-        onDrop={(event) => {
-          if (!USE_MOCKS && event.dataTransfer.files.length) {
-            event.preventDefault();
-            addScreenshots([...event.dataTransfer.files]);
-          }
-        }}
-        aria-label="对话输入"
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            if (event.nativeEvent.isComposing) return;
-            event.preventDefault();
-            if (!isStreaming) submit();
-          }
-        }}
-        className="block max-h-[180px] min-h-[48px] w-full resize-none bg-transparent px-3.5 pt-3 text-[13px] leading-[1.65] text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
-      />
-      <div className="flex items-center gap-0.5 px-2 pb-2 pt-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <IconButton label="添加上下文" className="h-7 w-7">
-              <Plus size={15} />
-            </IconButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[220px]">
-            <DropdownMenuLabel>添加上下文</DropdownMenuLabel>
-            {["@README.md", "@package.json", "@apps/web/src/app/AppShell.tsx"].map((token) => (
-              <DropdownMenuItem
-                key={token}
-                onSelect={() => appendContext(token)}
-                className="font-mono text-[10.5px]"
-              >
-                {token}
-              </DropdownMenuItem>
+    <>
+      <div
+        data-testid="composer-surface"
+        className={cn(
+          "relative rounded-[18px] border border-line shadow-[var(--shadow-card)] transition-[border-color,box-shadow] focus-within:border-accent/35 focus-within:ring-2 focus-within:ring-accent/10",
+          centered ? "bg-surface/40 backdrop-blur-sm" : "bg-surface",
+        )}
+      >
+        {switchNotice?.sessionId === sessionId ? (
+          <p
+            role="status"
+            className="pointer-events-none absolute bottom-full left-2 mb-1 w-fit max-w-[calc(100%-1rem)] truncate rounded-md bg-surface/90 px-2 py-0.5 text-[10.5px] text-ink-3"
+          >
+            {switchNotice.message}
+          </p>
+        ) : null}
+        <ErrorMessage
+          message={saveError?.sessionId === sessionId ? saveError.message : null}
+          onDismiss={() => setSaveError(null)}
+        />
+        {screenshots.length > 0 ? (
+          <div className="flex flex-wrap gap-2 px-3 pt-3">
+            {screenshots.map((file, index) => (
+              <DraftScreenshot
+                key={`${file.name}:${file.lastModified}:${index}`}
+                file={file}
+                disabled={isStreaming}
+                onRemove={() => {
+                  setAttachmentError("");
+                  setAttachments(
+                    sessionId
+                      ? {
+                          sessionId,
+                          files: screenshots.filter((_, position) => index !== position),
+                        }
+                      : undefined,
+                  );
+                }}
+              />
             ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <ModelControl
-          key={sessionId}
-          groups={visibleGroups}
-          model={model}
-          credentialProfileId={credentialProfileId}
-          thinking={thinking}
-          catalogError={catalogError}
-          disabled={settingsDisabled}
-          onSelectModel={selectModel}
-          onSelectThinking={(nextThinking) => {
-            if (model && credentialProfileId) {
-              void select({ model: model.id, credentialProfileId, thinking: nextThinking });
+          </div>
+        ) : null}
+        {attachmentError || screenshotBlocked ? (
+          <p role="status" className="px-3 pt-2 text-xs text-warning">
+            {attachmentError || "当前模型连接未声明图片输入。请切换模型或移除截图。"}
+          </p>
+        ) : null}
+        <Textarea
+          variant="bare"
+          ref={textareaRef}
+          value={draft}
+          rows={1}
+          placeholder={
+            hasSession
+              ? centered
+                ? "提问、描述要做的改动…"
+                : "继续对话，或提出新的任务…"
+              : "新建或选择一个会话…"
+          }
+          onPaste={(event) => {
+            const files = [...event.clipboardData.files].filter((file) =>
+              file.type.startsWith("image/"),
+            );
+            if (!USE_MOCKS && files.length > 0) {
+              event.preventDefault();
+              addScreenshots(files);
             }
           }}
-        />
-
-        <DropdownMenu key={`profile-${sessionId}`}>
-          <DropdownMenuTrigger asChild>
-            <IconButton
-              disabled={settingsDisabled}
-              label={`Agent Profile：${currentProfile.label}`}
-              title={`${currentProfile.label} · ${currentProfile.detail}`}
-              className="h-7 w-7"
-            >
-              <ProfileIcon size={15} className="text-accent" aria-hidden="true" />
-            </IconButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[230px]">
-            <DropdownMenuLabel>Agent Profile</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={profile}
-              onValueChange={(value) => void selectProfile(value as AgentProfileId)}
-            >
-              {agentProfiles.map((item) => (
-                <DropdownMenuRadioItem key={item.id} value={item.id} className="items-start py-2">
-                  <span className="flex flex-col">
-                    <span className="text-[11.5px] font-medium text-ink">{item.label}</span>
-                    <span className="text-[10px] text-ink-3">{item.detail}</span>
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu key={`policy-${sessionId}`}>
-          <DropdownMenuTrigger asChild>
-            <IconButton
-              disabled={settingsDisabled}
-              label={`审批策略：${currentPolicy.label}`}
-              title={`${currentPolicy.label} · ${currentPolicy.detail}`}
-              className="h-7 w-7"
-            >
-              <PolicyIcon size={15} className={currentPolicy.tone} aria-hidden="true" />
-            </IconButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[230px]">
-            <DropdownMenuLabel>审批策略</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={policy}
-              onValueChange={(value) => {
-                const next = policies.find((item) => item.id === value);
-                if (!next || next.id === policy) return;
-                if (next.id === "autonomous") setAutonomousSession(sessionId);
-                else void selectPolicy(next.id);
-              }}
-            >
-              {policies.map((item) => (
-                <DropdownMenuRadioItem key={item.id} value={item.id} className="items-start py-2">
-                  <span className="flex flex-col">
-                    <span className="text-[11.5px] font-medium text-ink">{item.label}</span>
-                    <span className="text-[10px] text-ink-3">{item.detail}</span>
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <span className="flex-1" />
-        <ContextUsage
-          used={usage?.inputTokens ?? null}
-          limit={usage?.contextWindow ?? model?.contextWindow ?? 128000}
-        />
-        {isStreaming ? (
-          <button
-            type="button"
-            onClick={stop}
-            aria-label="停止执行"
-            className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-danger/10 text-danger transition-colors hover:bg-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-          >
-            <Square size={11} fill="currentColor" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={
-              (!draft.trim() && screenshots.length === 0) ||
-              !canSend ||
-              pendingApproval ||
-              screenshotBlocked
+          onDragOver={(event) => {
+            if (!USE_MOCKS && event.dataTransfer.types.includes("Files")) event.preventDefault();
+          }}
+          onDrop={(event) => {
+            if (!USE_MOCKS && event.dataTransfer.files.length) {
+              event.preventDefault();
+              addScreenshots([...event.dataTransfer.files]);
             }
-            aria-label="发送消息"
-            className={cn(
-              "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
-              (draft.trim() || screenshots.length > 0) &&
-                canSend &&
-                !pendingApproval &&
-                !screenshotBlocked
-                ? "bg-accent text-white shadow-[var(--shadow-card)] hover:brightness-110 active:brightness-95"
-                : "bg-black/[.06] text-ink-3 dark:bg-white/[.08]",
-            )}
-          >
-            <ArrowUp size={15} strokeWidth={2.2} />
-          </button>
-        )}
+          }}
+          aria-label="对话输入"
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              if (event.nativeEvent.isComposing) return;
+              event.preventDefault();
+              if (!isStreaming) submit();
+            }
+          }}
+          className="block max-h-[180px] min-h-[48px] w-full resize-none bg-transparent px-3.5 pt-3 text-[13px] leading-[1.65] text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
+        />
+        <div className="flex items-center gap-0.5 px-2 pb-2 pt-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <IconButton label="添加上下文" className="h-7 w-7">
+                <Plus size={15} />
+              </IconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[220px]">
+              <DropdownMenuLabel>添加上下文</DropdownMenuLabel>
+              {["@README.md", "@package.json", "@apps/web/src/app/AppShell.tsx"].map((token) => (
+                <DropdownMenuItem
+                  key={token}
+                  onSelect={() => appendContext(token)}
+                  className="font-mono text-[10.5px]"
+                >
+                  {token}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <ModelControl
+            key={sessionId}
+            groups={visibleGroups}
+            model={model}
+            credentialProfileId={credentialProfileId}
+            thinking={thinking}
+            catalogError={catalogError}
+            disabled={settingsDisabled}
+            onSelectModel={selectModel}
+            onSelectThinking={(nextThinking) => {
+              if (model && credentialProfileId) {
+                void select({ model: model.id, credentialProfileId, thinking: nextThinking });
+              }
+            }}
+          />
+
+          <DropdownMenu key={`profile-${sessionId}`}>
+            <DropdownMenuTrigger asChild>
+              <IconButton
+                disabled={settingsDisabled}
+                label={`Agent Profile：${currentProfile.label}`}
+                title={`${currentProfile.label} · ${currentProfile.detail}`}
+                className="h-7 w-7"
+              >
+                <ProfileIcon size={15} className="text-accent" aria-hidden="true" />
+              </IconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[230px]">
+              <DropdownMenuLabel>Agent Profile</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={profile}
+                onValueChange={(value) => void selectProfile(value as AgentProfileId)}
+              >
+                {agentProfiles.map((item) => (
+                  <DropdownMenuRadioItem key={item.id} value={item.id} className="items-start py-2">
+                    <span className="flex flex-col">
+                      <span className="text-[11.5px] font-medium text-ink">{item.label}</span>
+                      <span className="text-[10px] text-ink-3">{item.detail}</span>
+                    </span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu key={`policy-${sessionId}`}>
+            <DropdownMenuTrigger asChild>
+              <IconButton
+                disabled={settingsDisabled}
+                label={`审批策略：${currentPolicy.label}`}
+                title={`${currentPolicy.label} · ${currentPolicy.detail}`}
+                className="h-7 w-7"
+              >
+                <PolicyIcon size={15} className={currentPolicy.tone} aria-hidden="true" />
+              </IconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[230px]">
+              <DropdownMenuLabel>审批策略</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={policy}
+                onValueChange={(value) => {
+                  const next = policies.find((item) => item.id === value);
+                  if (!next || next.id === policy) return;
+                  if (next.id === "autonomous") setAutonomousSession(sessionId);
+                  else void selectPolicy(next.id);
+                }}
+              >
+                {policies.map((item) => (
+                  <DropdownMenuRadioItem key={item.id} value={item.id} className="items-start py-2">
+                    <span className="flex flex-col">
+                      <span className="text-[11.5px] font-medium text-ink">{item.label}</span>
+                      <span className="text-[10px] text-ink-3">{item.detail}</span>
+                    </span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <span className="flex-1" />
+          <ContextUsage
+            used={usage?.inputTokens ?? null}
+            limit={usage?.contextWindow ?? model?.contextWindow ?? 128000}
+          />
+          {isStreaming ? (
+            <button
+              type="button"
+              onClick={stop}
+              aria-label="停止执行"
+              className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-danger/10 text-danger transition-colors hover:bg-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+            >
+              <Square size={11} fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              disabled={
+                (!draft.trim() && screenshots.length === 0) ||
+                !canSend ||
+                pendingApproval ||
+                screenshotBlocked
+              }
+              aria-label="发送消息"
+              className={cn(
+                "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
+                (draft.trim() || screenshots.length > 0) &&
+                  canSend &&
+                  !pendingApproval &&
+                  !screenshotBlocked
+                  ? "bg-accent text-white shadow-[var(--shadow-card)] hover:brightness-110 active:brightness-95"
+                  : "bg-black/[.06] text-ink-3 dark:bg-white/[.08]",
+              )}
+            >
+              <ArrowUp size={15} strokeWidth={2.2} />
+            </button>
+          )}
+        </div>
+        <ConfirmDialog
+          open={confirmAutonomous}
+          title="启用完全自主？"
+          description="Agent 将不再逐次请求工具审批，可自行修改或删除文件、执行命令、进行 Git 推送等操作。程序以本机账户权限运行，可访问项目外文件和网络。请仅在信任当前任务时启用。此设置从下一轮起在当前会话持续生效，随时可以切回标准审批。"
+          confirmLabel="确认启用"
+          danger
+          onCancel={() => setAutonomousSession(null)}
+          onConfirm={() => {
+            if (confirmAutonomous) void selectPolicy("autonomous");
+            setAutonomousSession(null);
+          }}
+        />
       </div>
-      <ConfirmDialog
-        open={confirmAutonomous}
-        title="启用完全自主？"
-        description="Agent 将不再逐次请求工具审批，可自行修改或删除文件、执行命令、进行 Git 推送等操作。程序以本机账户权限运行，可访问项目外文件和网络。请仅在信任当前任务时启用。此设置从下一轮起在当前会话持续生效，随时可以切回标准审批。"
-        confirmLabel="确认启用"
-        danger
-        onCancel={() => setAutonomousSession(null)}
-        onConfirm={() => {
-          if (confirmAutonomous) void selectPolicy("autonomous");
-          setAutonomousSession(null);
-        }}
-      />
-    </div>
+      <SessionUsageLine usage={sessionUsage} streaming={isStreaming} lastStep={lastStep} />
+    </>
   );
 }
 
