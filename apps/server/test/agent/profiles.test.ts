@@ -5,7 +5,7 @@ import type { Pm2CommandContext } from "@larness/shared";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
-import { createCommandTool } from "../../src/modules/agent/commandTool.js";
+import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { createGitTools } from "../../src/modules/agent/gitTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
@@ -55,6 +55,7 @@ describe("agent profile assembly", () => {
         for (const tool of [
           createPlanTool({ db: opened.db }),
           createCommandTool({}),
+          createShellTool({}),
           ...createTerminalTools({ db: opened.db }),
           ...createTerminalControlTools({ db: opened.db }),
           ...createGitTools(),
@@ -106,7 +107,7 @@ describe("agent profile assembly", () => {
         const planSystem = plan.messages[0]?.content ?? "";
 
         expect(workspace.agentProfile).toBe("workspace");
-        expect(workspace.tools).toHaveLength(28);
+        expect(workspace.tools).toHaveLength(29);
         expect(workspace.tools.map((tool) => tool.name)).toContain("git_status");
         expect(workspace.tools.map((tool) => tool.name)).toContain("start_project_terminal");
         expect(workspaceSystem).toContain("Larness prompt version: m6-4.");
@@ -136,6 +137,7 @@ describe("agent profile assembly", () => {
           "list_files",
           "read_file",
           "run_command",
+          "run_shell",
           "search_code",
           "write_file",
         ]);
@@ -155,8 +157,8 @@ describe("agent profile assembly", () => {
 
         // The same Session can be assembled with both surfaces without mutating it.
         expect(sessionRow.id).toBe(session.id);
-        expect([...toolNamesForProfile("workspace")]).toHaveLength(28);
-        expect([...toolNamesForProfile("coding")]).toHaveLength(6);
+        expect([...toolNamesForProfile("workspace")]).toHaveLength(29);
+        expect([...toolNamesForProfile("coding")]).toHaveLength(7);
         expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([
           "core.read",
           "core.write",
@@ -186,6 +188,7 @@ describe("agent profile assembly", () => {
         for (const tool of [
           createPlanTool({ db: opened.db }),
           createCommandTool({}),
+          createShellTool({}),
           ...createTerminalTools({ db: opened.db }),
           ...createTerminalControlTools({ db: opened.db }),
           ...createGitTools(),

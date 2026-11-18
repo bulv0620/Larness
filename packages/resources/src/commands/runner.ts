@@ -21,6 +21,8 @@ export interface CommandRunOptions {
   args: string[];
   cwd: string;
   timeoutMs: number;
+  /** The executable/args already describe a platform shell invocation. */
+  shell?: boolean;
   env?: NodeJS.ProcessEnv;
   pm2Home?: string;
   secrets?: string[];
@@ -171,9 +173,10 @@ export async function runCommand(options: CommandRunOptions): Promise<CommandRun
       setTimeout(() => finishStop?.(), 200);
     });
   };
-  const launch = windows
-    ? windowsLaunch(options.executable, options.args, options.cwd)
-    : { executable: options.executable, args: options.args };
+  const launch =
+    options.shell === true || !windows
+      ? { executable: options.executable, args: options.args }
+      : windowsLaunch(options.executable, options.args, options.cwd);
   const child = spawn(launch.executable, launch.args, {
     cwd: options.cwd,
     env: {
@@ -235,8 +238,13 @@ export async function runCommand(options: CommandRunOptions): Promise<CommandRun
       resolve();
     });
   });
-  child.once("error", () => {
-    reason ??= "SPAWN_FAILED";
+  child.once("error", (error: NodeJS.ErrnoException) => {
+    reason ??=
+      error.code === "ENOENT"
+        ? options.shell === true
+          ? "SHELL_UNAVAILABLE"
+          : "COMMAND_NOT_FOUND"
+        : "SPAWN_FAILED";
   });
   child.once("spawn", () => {
     if (child.pid) {

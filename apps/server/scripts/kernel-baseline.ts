@@ -12,7 +12,7 @@ import BetterSqlite3 from "better-sqlite3";
 import { z } from "zod";
 import { openDatabase } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
-import { createCommandTool } from "../src/modules/agent/commandTool.js";
+import { createCommandTool, createShellTool } from "../src/modules/agent/commandTool.js";
 import { assembleContext, PROMPT_VERSION } from "../src/modules/agent/contextAssembler.js";
 import { createGitTools } from "../src/modules/agent/gitTool.js";
 import { createObservationTool } from "../src/modules/agent/observationTool.js";
@@ -119,6 +119,7 @@ async function freshWorkspaceNumbers(profile: AgentProfileId) {
     for (const tool of [
       createPlanTool({ db: opened.db }),
       createCommandTool({}),
+      createShellTool({}),
       ...createTerminalTools({ db: opened.db }),
       ...createTerminalControlTools({ db: opened.db }),
       ...createGitTools(),

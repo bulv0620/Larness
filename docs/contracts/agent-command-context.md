@@ -4,9 +4,11 @@
 
 ## 工具
 
-Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、文件准备、PM2 CLI 和有限访问检查，使用 `update_plan` 记录任务步骤。交互开发继续使用终端。专用构建、发布和正式服务启停模型工具已撤回。
+Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、测试、Git、PM2 CLI 和有限访问检查；需要管道、重定向、通配符或平台 shell 语法时使用 `run_shell`。交互终端只面向人类，不进入模型工具面；Agent 的长任务使用后台进程/命名服务（K-6/K-7）。专用构建、发布和正式服务启停模型工具已撤回。
 
-`run_command` 输入为 `executable`、`args`、根内相对 `cwd` 和 `timeoutMs`。env、项目 ID、执行身份、策略和锁由后端决定。现有审批、秘密参数检查、项目锁、fencing、命令幂等、预算、取消和有界脱敏输出继续执行。退出码非零的命令返回工具失败，PM2 命令成功还需要核对实际服务状态。
+`run_command` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd` 和 `timeoutMs`。env、项目 ID、执行身份、策略和锁由后端决定。现有审批、秘密参数检查、项目锁、fencing、命令幂等、预算、取消和有界脱敏输出继续执行。退出码非零的命令返回工具失败，PM2 命令成功还需要核对实际服务状态。常见别名 `program` / `arguments` / `workdir` / `timeout` 在 schema 校验前归一；未知字段仍拒绝。
+
+`run_shell` 输入为 `command`、根内相对 `cwd` 和 `timeoutMs`。POSIX 使用 `/bin/sh -c`，不带 `-l`；Windows 优先 `pwsh`，其次 Windows PowerShell 5.1，最后 `cmd /d /s /c`。不假设 bash，不自动翻译平台语法；结果返回实际 `shell`、`exitCode`、`stdout`、`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`run_shell` 默认 L2。交互式 TUI 命令被拒绝，返回 `INTERACTIVE_COMMAND`。稳定错误码包括 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`SPAWN_FAILED`、`NONZERO_EXIT`、`TIMED_OUT`。
 
 ## 系统信息
 
@@ -28,7 +30,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 `run_command` 的 PATH 由执行器加入已核验 PM2 的 bin 目录，PM2_HOME 固定为实例数据目录的 `pm2` 子目录。后端不把整个环境交给模型。显式使用给定 Node/PM2 绝对入口可避免 PATH 歧义。全局安装位置与 PM2 实例目录是两项运行信息。[PM2 多实例说明](https://pm2.keymetrics.io/docs/usage/specifics/)
 
-稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、服务生命周期契约、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5）。
+稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。服务生命周期契约、Git 可用性、PM2 段落与终端租约只在对应 Profile/Pack 启用时注入：`coding` 不包含这些段落，`workspace` 保持完整。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5、[ADR-068](../adr/ADR-068-agent-kernel.md)）。
 
 ## 命令示例
 
@@ -61,7 +63,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 ## 系统固定的服务生命周期契约（M4-R3）
 
-此规则每次实际模型请求都由系统注入，不要求用户复制某段提示词，不以当前聊天或窗口位置判断服务类型。
+此规则只在启用 service Pack 的 `workspace` Profile 中注入，不要求用户复制某段提示词，不以当前聊天或窗口位置判断服务类型；`coding` 不支付这段固定开销。
 
 | 项目 | development_preview | persistent_pm2 |
 |---|---|---|

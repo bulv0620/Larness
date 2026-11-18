@@ -10,7 +10,7 @@
 | K-1 | ADR-068、基线、锁/审计与契约盘点 | — | `done` |
 | K-2 | Profile / ToolPack 抽象 | K-1 | `done` |
 | K-3 | coding Profile 与核心提示 | K-2 | `done` |
-| K-12 | run_command/run_shell 跨平台执行 | K-3 | `todo` |
+| K-12 | run_command/run_shell 跨平台执行 | K-3 | `done` |
 | K-4 | Git 模型工具移除与人类 UI 分面 | K-3 | `todo` |
 | K-5 | 终端与 Agent 模型面分离 | K-3 | `todo` |
 | K-6 | 后台进程能力包 | K-5 | `todo` |
@@ -95,7 +95,7 @@
 
 ### K-12 run_command/run_shell 跨平台执行
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-3
 - 目标：让结构化命令成为跨平台主路径，shell 只作为显式逃生口。
 - 交付物：
@@ -335,3 +335,14 @@
 - 默认仍为 `workspace`；K-9 再切换默认并持久化，避免在进程/服务能力就绪前改变现有会话。
 - 测试：`profiles.test.ts` 覆盖 coding/plan/workspace 工具清单、system 负向断言、PM2/Git 观察隔离；contextAssembler/toolContract 回归通过。
 - 未完成：A1 的最终工具清单还缺 `run_shell`，由 K-12 补齐并复跑负向断言。
+
+### K-12（2026-11-18，macOS）
+
+- `run_command`：`args` 默认 `[]`；`program` / `arguments` / `workdir` / `timeout` 在 schema 前归一；错误码补 `COMMAND_NOT_FOUND` / `INVALID_CWD`。
+- `run_shell`：新增工具；POSIX `/bin/sh -c`，Windows 选择顺序 `pwsh` → Windows PowerShell 5.1 → `cmd /d /s /c`；返回实际 `shell`、`exitCode`、分离的 `stdout`/`stderr`、`reasonCode` 与 `truncated`。
+- 安全与执行：两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏、项目锁与审批；`INTERACTIVE_COMMAND` 拒绝 TUI/裸 shell；`SHELL_UNAVAILABLE` 失败关闭。
+- 固定开销：coding 7 工具 / 1 462 schema token / 253 system token / 空项目 1 727，比 workspace 5 619 降低 69.3%；见 [baseline §3.1](baseline.md#31-k-3-profile-固定开销对比2026-11-18)。
+- 测试：`commands.test.ts` 覆盖真实 `run_shell`、stdout/stderr 分离、别名与默认值；`command-runner.test.ts` 覆盖 shell 成功、缺失 shell、缺失可执行文件；`command-guard.test.ts` 覆盖 TUI/裸 shell/Git 交互；`toolContract` 矩阵加入 `run_shell`；`commands.test.ts` 资源测试覆盖 `INTERACTIVE_COMMAND` 与 `INVALID_CWD`。
+- 回归修正：`service-ops.test.ts` 的 preview 拒绝用例此前依赖默认预览端口，单跑返回 400、全量偶发因端口占用返回 503；本任务把测试固定到空闲端口，并断言正式 `tgt_` 不是合法 `svc_` preview ID（400 `VALIDATION_ERROR`）。
+- 验证：`pnpm check` 全绿——biome 686 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 740（14 跳过）。
+- 平台说明：macOS 实机通过；Windows PowerShell 7/5.1/CMD 逻辑有单元/集成测试，但本轮未在 Windows 实机复测，不冒充三端通过。A1 的最终 coding 工具面已补齐。

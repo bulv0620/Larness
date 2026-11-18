@@ -801,3 +801,55 @@ it.skipIf(process.platform === "win32")(
     });
   },
 );
+
+it("rejects interactive commands and a non-directory cwd with stable error codes", async () => {
+  await withTempDir(async (dir) => {
+    const started = await startAuthorizedServer(path.join(dir, "data"));
+    try {
+      const root = path.join(dir, "project");
+      await mkdir(root);
+      const project = await createProject({ db: started.running.db }, { rootPath: root });
+      const session = await createSession(
+        { db: started.running.db, dataDir: started.running.dataDir },
+        { projectId: project.id },
+      );
+      const turn = createTurn(
+        { db: started.running.db },
+        { sessionId: session.id, text: "invalid command" },
+      );
+      updateTurnRow(started.running.db, turn.turnId, { status: "RUNNING" });
+      const auth = (
+        await started.running.app.inject({
+          url: "/api/auth/session",
+          headers: { cookie: started.cookie },
+        })
+      ).json();
+      const context = {
+        sessionId: session.id,
+        turnId: turn.turnId,
+        toolCallId: "call_invalid",
+        policySnapshotId: "policy_test",
+        clientSessionId: auth.clientSessionId,
+        remainingMs: 5000,
+        assertAuthorized: () => {},
+      };
+
+      await expect(
+        started.running.commands.execute(
+          { ...context, toolCallId: "call_interactive" },
+          { command: "vim", cwd: ".", timeoutMs: 1000 },
+        ),
+      ).rejects.toMatchObject({ code: "INTERACTIVE_COMMAND" });
+
+      await writeFile(path.join(root, "file.txt"), "x");
+      await expect(
+        started.running.commands.execute(
+          { ...context, toolCallId: "call_bad_cwd" },
+          { executable: process.execPath, args: ["-e", "0"], cwd: "file.txt" },
+        ),
+      ).rejects.toMatchObject({ code: "INVALID_CWD" });
+    } finally {
+      await stopAuthorizedServer(started);
+    }
+  });
+});

@@ -1,11 +1,20 @@
 import { createHash, randomUUID } from "node:crypto";
 import { lstat } from "node:fs/promises";
-import { FileManagerError, resolveFilePath, runCommand } from "@larness/resources";
+import {
+  FileManagerError,
+  isInteractiveExecutable,
+  isInteractiveShellCommand,
+  resolveFilePath,
+  runCommand,
+  ShellUnavailableError,
+  selectShell,
+} from "@larness/resources";
 import {
   COMMAND_OUTPUT_RETENTION_MS,
   COMMAND_RETENTION_MS,
-  CommandParamsSchema,
+  CommandRequestSchema,
   type CommandStatus,
+  normalizeCommandRequest,
 } from "@larness/shared";
 import { z } from "zod";
 import type { Database, DbExecutor } from "../../db/client.js";
@@ -210,12 +219,35 @@ export class CommandManager {
   }
   async #execute(context: CommandContext, input: unknown) {
     const began = Date.now();
-    const parsed = CommandParamsSchema.safeParse(input);
+    const parsed = CommandRequestSchema.safeParse(normalizeCommandRequest(input));
     if (!parsed.success || !ContextSchema.safeParse(context).success)
       throw new FileManagerError("VALIDATION_ERROR", "Invalid command request");
     if (this.#closed)
       throw new FileManagerError("RESOURCE_UNAVAILABLE", "Command execution unavailable");
-    const params = parsed.data;
+    const request = parsed.data;
+    if (request.mode === "exec" && isInteractiveExecutable(request.executable, request.args)) {
+      throw new FileManagerError(
+        "INTERACTIVE_COMMAND",
+        "Interactive terminal commands are not supported; use non-interactive arguments",
+      );
+    }
+    if (request.mode === "shell" && isInteractiveShellCommand(request.command)) {
+      throw new FileManagerError(
+        "INTERACTIVE_COMMAND",
+        "Interactive terminal commands are not supported; use non-interactive arguments",
+      );
+    }
+    let shell: ReturnType<typeof selectShell> | undefined;
+    if (request.mode === "shell") {
+      try {
+        shell = selectShell(request.command);
+      } catch (error) {
+        if (error instanceof ShellUnavailableError) {
+          throw new FileManagerError("SHELL_UNAVAILABLE", "No usable platform shell was found");
+        }
+        throw error;
+      }
+    }
     const session = getSessionById(this.options.db, context.sessionId);
     const turn = getTurnById(this.options.db, context.turnId);
     if (
@@ -235,21 +267,21 @@ export class CommandManager {
       this.options.dataDir,
       session.projectId ? { projectId: session.projectId } : { sessionId: session.id },
     );
-    const cwd = await authorizeFileTarget(resolved, params.cwd);
+    const cwd = await authorizeFileTarget(resolved, request.cwd);
     const absolute = await resolveFilePath(resolved.root, cwd);
     if (!(await lstat(absolute)).isDirectory())
-      throw new FileManagerError("VALIDATION_ERROR", "Command cwd must be a directory");
+      throw new FileManagerError("INVALID_CWD", "Command cwd must be a directory");
     const encrypted = listEncryptedSecrets(this.options.db);
     if (encrypted.length && !this.options.secretStore)
       throw new FileManagerError("INTERNAL", "Output protection unavailable");
     const secrets = encrypted
       .map((secret) => this.options.secretStore?.decrypt(secret) ?? "")
       .filter(Boolean);
-    if (
-      secrets.some((secret) =>
-        [params.executable, params.cwd, ...params.args].some((value) => value.includes(secret)),
-      )
-    )
+    const argumentValues =
+      request.mode === "exec"
+        ? [request.executable, request.cwd, ...request.args]
+        : [request.command, request.cwd];
+    if (secrets.some((secret) => argumentValues.some((value) => value.includes(secret))))
       throw new FileManagerError("FORBIDDEN", "Protected credentials cannot be command arguments");
     const hash = createHash("sha256")
       .update(
@@ -258,7 +290,8 @@ export class CommandManager {
           turnId: turn.id,
           policy: context.policySnapshotId,
           root: resolved.root,
-          ...params,
+          ...request,
+          shell: shell?.name,
           cwd,
         }),
       )
@@ -453,7 +486,7 @@ export class CommandManager {
           )
         )
           throw new Error("Client revoked");
-        const remaining = Math.min(params.timeoutMs, context.remainingMs - (Date.now() - began));
+        const remaining = Math.min(request.timeoutMs, context.remainingMs - (Date.now() - began));
         if (remaining <= 0) {
           reasonCode = "TIMED_OUT";
           state = "TIMED_OUT";
@@ -463,7 +496,9 @@ export class CommandManager {
             updatedAt: this.#now(),
           });
           const result = await runCommand({
-            ...params,
+            executable: request.mode === "exec" ? request.executable : (shell?.executable ?? ""),
+            args: request.mode === "exec" ? request.args : (shell?.args ?? []),
+            ...(request.mode === "shell" ? { shell: true } : {}),
             ...this.options.environment?.(),
             cwd: absolute,
             timeoutMs: remaining,

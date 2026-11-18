@@ -46,6 +46,8 @@ created: 2026-11-06
    M6-8（2026-11-11）`search_code` 增加 `contextLines` / `glob` / `maxFiles`，结果新增 `scanBudgetExhausted`，用于缩小扫描范围并以上下文替代重复读文件。
 
    M6-5（2026-11-11）新增只读工具 `refresh_observations`（L0、无参数、不申请项目锁），用于在系统快照过时后读取当前临时服务 / 终端 / PM2 观察；系统上下文改为 Turn 起点快照，不再每步重写。
+
+   082 K-12（2026-11-18）：`run_command` 的 `args` 默认 `[]`；新增 `run_shell`（L2，`command` + 根内相对 `cwd` + `timeoutMs`），POSIX 使用 `/bin/sh -c`，Windows 优先 `pwsh`、其次 Windows PowerShell 5.1、最后 `cmd /d /s /c`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏、项目锁与审批；结果返回实际 `shell`、`exitCode`、分离的 `stdout`/`stderr`、`reasonCode` 与 `truncated`。新增稳定错误码 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`INTERACTIVE_COMMAND`；`program`/`arguments`/`workdir`/`timeout` 在 schema 校验前归一。交互式 TUI 命令明确拒绝，不做隐式翻译。
 2. 模型上下文中的状态与策略使用执行层同一已解析数据。模型工具列表按工作区适用性生成，后端仍独立核验。不得从展示文案推断授权，不得把终端存活、服务登记或预览意图写成业务健康证明。
 3. 每条影响操作范围或安全的承诺都要有执行层验收，覆盖合法输入和至少一个会扩大范围、越权或误报成功的反例。工具或 prompt 变更还要通过实际上下文组装验证模型收到的描述、schema 和作用域。禁止只核对源码常量或只用文本快照替代执行测试。
 4. 新增或修改此类能力的 spec 必须列出上述验证和受影响表面。测试纳入常规检查。无法自动化的表面需在验收中记录可复核的检查与结果。

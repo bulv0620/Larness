@@ -45,6 +45,10 @@
 | `WEBAUTHN_NOT_CONFIGURED` | 409 | WebAuthn 配置无效（如 RP ID 为 IP、缺少 canonical origin） |
 | `RATE_LIMITED` | 429 | 触发限流 |
 | `PATH_OUTSIDE_PROJECT` | 403 | 路径越界 |
+| `COMMAND_NOT_FOUND` | 404 | 可执行文件不存在 |
+| `INVALID_CWD` | 400 | 命令工作目录不是目录或不在允许范围 |
+| `SHELL_UNAVAILABLE` | 503 | 平台 shell 不可用 |
+| `INTERACTIVE_COMMAND` | 400 | 交互式 TUI 命令被拒绝；需改用非交互参数 |
 | `APPROVAL_INVALID` | 409 | 审批过期 / 被撤销 / 参数不一致 |
 | `PREVIEW_TARGET_INVALID` | 403 | 代理目标未登记或被禁止 |
 | `PREVIEW_DISABLED` | 503 | 预览网关未启用 |

@@ -4,7 +4,7 @@ import { createFileToolRegistry, type ToolRegistry } from "@larness/agent";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
-import { createCommandTool } from "../../src/modules/agent/commandTool.js";
+import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { createGitTools } from "../../src/modules/agent/gitTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
@@ -29,6 +29,7 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   const registry = createFileToolRegistry();
   registry.register(createPlanTool({ db: opened.db }));
   registry.register(createCommandTool({}));
+  registry.register(createShellTool({}));
   for (const tool of createTerminalTools({ db: opened.db })) registry.register(tool);
   for (const tool of createTerminalControlTools({ db: opened.db })) registry.register(tool);
   for (const tool of createGitTools()) registry.register(tool);
@@ -79,6 +80,12 @@ const BOUND_TOOLS: BoundToolCase[] = [
     handler: "runCommand",
     args: { executable: "node", args: ["-e", "0"] },
     invalid: { args: ["-e", "0"] },
+  },
+  {
+    name: "run_shell",
+    handler: "runCommand",
+    args: { command: "echo ok" },
+    invalid: { cwd: "." },
   },
   {
     name: "start_project_terminal",

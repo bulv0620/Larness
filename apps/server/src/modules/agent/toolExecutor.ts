@@ -157,7 +157,9 @@ export async function executeTool(
   }
 
   const contextBound =
-    input.toolName === "run_command" || input.toolName === "start_project_terminal";
+    input.toolName === "run_command" ||
+    input.toolName === "run_shell" ||
+    input.toolName === "start_project_terminal";
   const params = contextBound ? parsed.data : input.args;
   const approvalParams = contextBound
     ? {

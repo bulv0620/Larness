@@ -92,11 +92,11 @@ LARNESS_BASELINE_DATA_DIR="$HOME/Library/Application Support/larness" \
 
 | Profile | 工具数 | schema tokens | system tokens | 空项目 assembled tokens | 相对 workspace |
 |---|---:|---:|---:|---:|---:|
-| `coding` | 6 | 1 174 | 253 | 1 440 | **-73.0%** |
-| `plan` | 4 | 730 | 379 | 1 121 | **-79.0%** |
-| `workspace` | 28 | 4 577 | 747 | 5 332 | 基线 |
+| `coding` | 7 | 1 462 | 253 | 1 727 | **-69.3%** |
+| `plan` | 4 | 730 | 379 | 1 121 | **-80.1%** |
+| `workspace` | 29 | 4 865 | 747 | 5 619 | 基线 |
 
-`coding` 的 system 不再包含计划、服务生命周期、Git 可用性、PM2 或终端租约；`workspace` 保持原有内容。`run_shell` 在 K-12 加入后会使 `coding` 的工具数与 schema token 略有上升。
+`coding` 的 system 不再包含计划、服务生命周期、Git 可用性、PM2 或终端租约；`workspace` 保持原有内容。`run_shell` 已在 K-12 加入 `core.command`，上表为加入后的数字。
 
 ## 4. 真实使用基线
 

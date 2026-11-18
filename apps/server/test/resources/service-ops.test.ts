@@ -15,7 +15,7 @@ import { ensureGlobalPm2 } from "../../src/modules/service-ops/pm2.js";
 import { ServiceActionAuthorizationService } from "../../src/modules/service-ops/serviceActions.js";
 import { ServiceOpsRuntime } from "../../src/modules/service-ops/serviceOps.js";
 import { serviceOpsRow } from "../../src/modules/service-ops/serviceOpsRepository.js";
-import { withTempDir } from "../helpers.js";
+import { getFreePort, withTempDir } from "../helpers.js";
 import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
 const BUILD_SCRIPT = `
@@ -218,7 +218,12 @@ describe("PM2 initialization failure", () => {
 describe("service operations REST", () => {
   it("authenticates, enforces CSRF, and exposes plans, authorization, apply, logs and events", async () => {
     await withTempDir(async (dir) => {
-      const started = await startAuthorizedServer(dir);
+      // Pin preview to a free port so another test's gateway cannot make this
+      // route fail before body validation.
+      const previewPort = await getFreePort();
+      const started = await startAuthorizedServer(dir, {
+        preview: { enabled: true, port: previewPort },
+      });
       try {
         const auth = {
           cookie: started.cookie,
@@ -404,7 +409,12 @@ describe("service operations REST", () => {
           headers: auth,
           payload: { serviceId: targetId, path: "/", mode: "embedded" },
         });
-        expect(formalAsPreview.statusCode).toBe(503);
+        // A formal target ID is not a temporary svc_ ID, so preview resolution
+        // rejects it at the boundary instead of probing the formal domain.
+        expect(formalAsPreview.statusCode).toBe(400);
+        expect(formalAsPreview.json()).toMatchObject({
+          error: { code: "VALIDATION_ERROR" },
+        });
 
         const unauthenticated = await started.running.app.inject({
           method: "GET",

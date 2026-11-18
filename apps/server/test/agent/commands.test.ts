@@ -3,7 +3,7 @@ import path from "node:path";
 import { createFakeProvider, createFileToolRegistry } from "@larness/agent";
 import { expect, it } from "vitest";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
-import { createCommandTool } from "../../src/modules/agent/commandTool.js";
+import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { listEncryptedSecrets } from "../../src/modules/models/repository.js";
 import { createProject } from "../../src/modules/projects/service.js";
@@ -20,11 +20,24 @@ async function until(check: () => boolean) {
   }
   throw new Error("Command integration timed out");
 }
+interface CommandFixtureParams {
+  executable?: string;
+  args?: string[];
+  command?: string;
+  cwd?: string;
+  timeoutMs?: number;
+}
+
 async function fixture(
   dir: string,
   code: string,
   timeoutMs = 2000,
-  options: { lockTtlMs?: number; budget?: { maxDurationMs: number } } = {},
+  options: {
+    lockTtlMs?: number;
+    budget?: { maxDurationMs: number };
+    toolName?: "run_command" | "run_shell";
+    toolArgs?: unknown;
+  } = {},
 ) {
   const started = await startAuthorizedServer(path.join(dir, "data"));
   const root = path.join(dir, "project");
@@ -44,7 +57,12 @@ async function fixture(
     { db: started.running.db },
     { sessionId: session.id, text: "run command", clientSessionId: client.clientSessionId },
   );
-  const params = { executable: process.execPath, args: ["-e", code], timeoutMs };
+  const params: CommandFixtureParams = (options.toolArgs as CommandFixtureParams | undefined) ?? {
+    executable: process.execPath,
+    args: ["-e", code],
+    timeoutMs,
+  };
+  const toolName = options.toolName ?? "run_command";
   const provider = createFakeProvider([
     {
       chunks: [
@@ -52,7 +70,7 @@ async function fixture(
           type: "tool-call",
           toolCall: {
             id: "cmd_call",
-            name: "run_command",
+            name: toolName,
             args: params,
           },
         },
@@ -68,6 +86,7 @@ async function fixture(
   ]);
   const registry = createFileToolRegistry();
   registry.register(createCommandTool({}));
+  registry.register(createShellTool({}));
   const events: { type: string; payload: unknown }[] = [];
   const runner = new TurnRunner({
     db: started.running.db,
@@ -408,5 +427,78 @@ it("rejects known credential literals including quotes before creating approval 
     } finally {
       await stopAuthorizedServer(f.started);
     }
+  });
+});
+it("runs run_shell through the platform shell and returns separated streams", async () => {
+  const command = `"${process.execPath}" -e "console.log('shell-out'); console.error('shell-err')"`;
+  await withTempDir(async (dir) => {
+    const f = await fixture(dir, "unused", 3000, {
+      toolName: "run_shell",
+      toolArgs: { command, timeoutMs: 3000 },
+    });
+    try {
+      const running = f.runner.run(f.turn.turnId);
+      await until(() => f.approvals().length === 1);
+      decideApproval(
+        { db: f.started.running.db },
+        { id: f.approvals()[0].id, decision: "approve", decidedBy: "test-operator" },
+      );
+      await running;
+      const message = f.provider.calls.at(-1)?.messages.find((entry) => entry.role === "tool");
+      const payload = JSON.parse(String(message?.content)) as {
+        status?: string;
+        exitCode?: number;
+        stdout?: string;
+        stderr?: string;
+        shell?: string;
+      };
+      expect(payload).toMatchObject({ status: "COMPLETED", exitCode: 0, shell: "sh" });
+      expect(payload.stdout).toContain("shell-out");
+      expect(payload.stderr).toContain("shell-err");
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});
+it("normalizes structured command and shell aliases before validation", async () => {
+  await withTempDir(async (dir) => {
+    const commands: unknown[] = [];
+    const shells: unknown[] = [];
+    const command = createCommandTool({});
+    const shell = createShellTool({});
+    const runCommand = async (args: unknown) => {
+      commands.push(args);
+      return { ok: true, summary: "stub" };
+    };
+    const runShell = async (args: unknown) => {
+      shells.push(args);
+      return { ok: true, summary: "stub" };
+    };
+
+    expect(
+      await command.execute(
+        { program: "pnpm", arguments: ["test"], workdir: ".", timeout: 1000 },
+        { projectRoot: dir, runCommand },
+      ),
+    ).toMatchObject({ ok: true });
+    expect(commands[0]).toEqual({
+      executable: "pnpm",
+      args: ["test"],
+      cwd: ".",
+      timeoutMs: 1000,
+    });
+
+    expect(
+      await command.execute({ executable: "pnpm" }, { projectRoot: dir, runCommand }),
+    ).toMatchObject({ ok: true });
+    expect(commands[1]).toMatchObject({ executable: "pnpm", args: [] });
+
+    expect(
+      await shell.execute(
+        { cmd: "echo ok", workdir: ".", timeout: 1000 },
+        { projectRoot: dir, runCommand: runShell },
+      ),
+    ).toMatchObject({ ok: true });
+    expect(shells[0]).toEqual({ command: "echo ok", cwd: ".", timeoutMs: 1000 });
   });
 });

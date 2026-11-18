@@ -14,14 +14,15 @@ import {
   type ToolResult,
   type ToolSchema,
 } from "@larness/agent";
-import { FileManagerError, GitError, OutputRedactor } from "@larness/resources";
+import { FileManagerError, GitError, OutputRedactor, selectShell } from "@larness/resources";
 import {
   AcquireTerminalControlParamsSchema,
   type AssistantDeltaEvent,
   type AssistantReasoningDeltaEvent,
-  CommandParamsSchema,
+  CommandRequestSchema,
   FileResultTargetSchema,
   InterruptTerminalParamsSchema,
+  normalizeCommandRequest,
   PlanParamsSchema,
   type PreviewResultTarget,
   PreviewResultTargetSchema,
@@ -98,14 +99,21 @@ import {
 import { collectTurnFileResults, type TurnFileChange } from "./turnResults.js";
 
 function commandDisplay(params: unknown) {
-  const command = CommandParamsSchema.parse(params);
+  const request = CommandRequestSchema.parse(normalizeCommandRequest(params));
   const redact = (value: string) => new OutputRedactor([]).push(value, true);
+
+  if (request.mode === "shell") {
+    return {
+      command: redact(request.command),
+      cwd: redact(request.cwd),
+    };
+  }
+
   let hideNext = false;
   return {
-    ...command,
-    executable: redact(command.executable),
-    cwd: redact(command.cwd),
-    args: command.args.map((value) => {
+    executable: redact(request.executable),
+    cwd: redact(request.cwd),
+    args: request.args.map((value) => {
       const hide = hideNext;
       hideNext = /^--?(authorization|api[_-]?key|token|password|cookie|secret)$/i.test(value);
       return hide ? "[Redacted]" : redact(value);
@@ -536,6 +544,7 @@ export class TurnRunner {
                 summary: "Command execution context unavailable",
               };
             try {
+              const parsedRequest = CommandRequestSchema.safeParse(normalizeCommandRequest(params));
               const row = await this.#options.commands.execute(
                 {
                   sessionId: session.id,
@@ -568,13 +577,36 @@ export class TurnRunner {
               const output = await this.#options.commands.output(row.id, 0, 500);
               const completeText = output.chunks.map((chunk) => chunk.data).join("");
               // Keep the tail: test summaries and exit diagnostics live there.
-              const bounded = boundedCommandOutput(completeText, 12_000);
-              const text = bounded.text;
+              const bounded = boundedCommandOutput(completeText, 6_000);
+              const stdout = boundedCommandOutput(
+                output.chunks
+                  .filter((chunk) => chunk.channel === "stdout")
+                  .map((chunk) => chunk.data)
+                  .join(""),
+                6_000,
+              );
+              const stderr = boundedCommandOutput(
+                output.chunks
+                  .filter((chunk) => chunk.channel === "stderr")
+                  .map((chunk) => chunk.data)
+                  .join(""),
+                3_000,
+              );
+              let shellName: string | undefined;
+              if (parsedRequest.success && parsedRequest.data.mode === "shell") {
+                try {
+                  shellName = selectShell(parsedRequest.data.command).name;
+                } catch {
+                  /* The manager already failed closed if no shell was available. */
+                }
+              }
               const truncated =
                 row.truncated ||
                 output.truncated ||
                 output.resyncRequired ||
                 bounded.truncated ||
+                stdout.truncated ||
+                stderr.truncated ||
                 output.chunks.length >= 500;
               return {
                 ok: row.status === "COMPLETED" && row.exitCode === 0,
@@ -585,7 +617,10 @@ export class TurnRunner {
                   commandId: row.id,
                   status: row.status,
                   exitCode: row.exitCode,
-                  output: text,
+                  output: bounded.text,
+                  stdout: stdout.text,
+                  stderr: stderr.text,
+                  ...(shellName === undefined ? {} : { shell: shellName }),
                   truncated,
                 },
               };

@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { OutputRedactor, runCommand } from "@larness/resources";
+import { OutputRedactor, runCommand, selectShell } from "@larness/resources";
 import { expect, it } from "vitest";
 
 it("runs real commands with bounded output, cross-chunk redaction and filtered environment", async () => {
@@ -60,7 +60,7 @@ it("reports spawn failure and timeouts without leaving a process group", async (
         cwd: root,
         timeoutMs: 1000,
       }),
-    ).toMatchObject({ reasonCode: "SPAWN_FAILED", stopped: true });
+    ).toMatchObject({ reasonCode: "COMMAND_NOT_FOUND", stopped: true });
     expect(
       await runCommand({
         executable: process.execPath,
@@ -109,4 +109,36 @@ it("shows a sensitive field prompt before its value arrives without leaking a sp
   const redact = new OutputRedactor([]);
   expect(redact.push("Password: ")).toBe("Password: ");
   expect(redact.push('"hidden with space"\n')).toBe('"[Redacted]"\n');
+});
+
+it("runs an explicit platform shell and reports a missing shell separately", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "larness-command-shell-"));
+  try {
+    const command = `"${process.execPath}" -e "console.log('shell-ok')"`;
+    const shell = selectShell(command);
+    const chunks: string[] = [];
+    const result = await runCommand({
+      executable: shell.executable,
+      args: shell.args,
+      shell: true,
+      cwd: root,
+      timeoutMs: 3000,
+      onOutput: (chunk) => {
+        chunks.push(chunk.data);
+      },
+    });
+    expect(result).toMatchObject({ exitCode: 0, reasonCode: null, stopped: true });
+    expect(chunks.join("")).toContain("shell-ok");
+
+    const missing = await runCommand({
+      executable: path.join(root, "missing-shell"),
+      args: [],
+      shell: true,
+      cwd: root,
+      timeoutMs: 1000,
+    });
+    expect(missing.reasonCode).toBe("SHELL_UNAVAILABLE");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

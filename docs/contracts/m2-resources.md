@@ -271,6 +271,7 @@ stdout / stderr 分别流式 UTF-8 解码、按已知秘密与敏感字段跨块
 ### 风险与审批绑定
 
 - 只有程序名严格为 npm / pnpm / yarn，参数严格为 `[test|build|lint]` 或 `[run, test|build|lint]` 的调用分类 L1；绝对路径同名程序、额外参数 / flags、任意脚本与显式 Shell 均为 L2。直接调用 sudo / su / doas / chmod / chown / useradd / userdel / dscl / pfctl 分类 L3 并拒绝；这只是审批分类，不是完备风险检测或命令沙箱。
+- 082 K-12 新增 `run_shell`（L2）：POSIX `/bin/sh -c`，Windows 优先 `pwsh`、其次 Windows PowerShell 5.1、最后 `cmd /d /s /c`；结果返回实际 `shell`、`exitCode`、分离的 `stdout`/`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`INTERACTIVE_COMMAND` 拒绝 TUI 命令，`COMMAND_NOT_FOUND` / `INVALID_CWD` / `SHELL_UNAVAILABLE` 为稳定错误码。
 - standard 允许 L1，strict 要求审批，readonly 拒绝所有命令；L2 逐次批准，L3 即使提供批准也不放行。确认文案说明项目命令以 Larness 的本机账户权限运行，可访问项目外文件。常驻 dev 任务由开发终端工具处理。
 - 参数经 Zod 默认值 / 路径分隔符规范化后，审批哈希同时绑定参数、真实 session / Turn / client、策略快照与根。批准后重新取有效锁，真正 spawn 前再次校验同一审批与参数、客户端、Turn / 预算；批准 A 不能执行 B。审批摘要包含脱敏后的规范化程序 / 参数 / cwd / timeout，审计只记关联标识与风险，不保存原始命令正文。已知凭据字面量在产生摘要前拒绝，包括含引号的凭据；不声称识别任意编码 / 未知秘密。
 - Turn 取消使待审批失效，不启动进程或后续工具；等待审批也消耗 Turn 时长，到期失效并结束预算。执行中的 Turn AbortSignal 传给 CommandManager；运行期间 Turn 持有的锁持续续租，命令只借用有效 handle，停止 / 结果不确定仍保留 §14 冲突屏障。卡片“取消命令”只取消该资源；“停止执行”取消 Turn 并阻止后续工具。
