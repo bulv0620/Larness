@@ -9,7 +9,7 @@
 |---|---|---|---|
 | K-1 | ADR-068、基线、锁/审计与契约盘点 | — | `done` |
 | K-2 | Profile / ToolPack 抽象 | K-1 | `done` |
-| K-3 | coding Profile 与核心提示 | K-2 | `todo` |
+| K-3 | coding Profile 与核心提示 | K-2 | `done` |
 | K-12 | run_command/run_shell 跨平台执行 | K-3 | `todo` |
 | K-4 | Git 模型工具移除与人类 UI 分面 | K-3 | `todo` |
 | K-5 | 终端与 Agent 模型面分离 | K-3 | `todo` |
@@ -72,11 +72,11 @@
 
 ### K-3 coding Profile 与核心提示
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-2
 - 目标：让默认 coding 只含核心工具，并验证行为与 token 基线。
 - 交付物：
-  - coding 工具集：`list_files`、`read_file`、`search_code`、`write_file`、`apply_patch`、`run_command`、`run_shell`；
+  - coding 工具集：`list_files`、`read_file`、`search_code`、`write_file`、`apply_patch`、`run_command`（`run_shell` 在 K-12 加入）；
   - coding system 提示：不包含计划、终端租约、Git 可用性、服务生命周期；
   - `PROMPT_VERSION` 升版；
   - 固定开销对比报告。
@@ -327,3 +327,11 @@
 - `contextAssembler` 按 Profile 过滤工具；`turnRunner` 接受 `agentProfile`；生产默认仍为 `workspace`（`DEFAULT_AGENT_PROFILE`），K-9 再切默认并持久化。
 - 测试：`packages/agent/test/kernel/profile.test.ts` 覆盖 coding/workspace/未知 profile/未知 pack/project-required/disabled；`apps/server/test/agent/profiles.test.ts` 覆盖同一 Session 的 28 工具 workspace 与 6 工具 coding、plan 只读面、无项目过滤；contextAssembler/toolContract/turnRunner 回归 60 项通过。
 - 说明：`run_shell` 尚未存在，K-12 加入 core.command；K-3 的 A1 负向断言在 K-12 后补齐最终工具清单。
+
+### K-3（2026-11-18，macOS）
+
+- coding 工具面：6 个核心工具（`apply_patch`、`list_files`、`read_file`、`run_command`、`search_code`、`write_file`）；system 不含计划、服务生命周期、Git 可用性、PM2 或终端租约；`PROMPT_VERSION` 升至 `m6-4`。
+- 固定开销：coding 6 工具 / 1 174 schema token / 253 system token / 空项目 1 440 token，比 workspace 5 332 降低 73.0%；plan 4 工具 / 730 / 379 / 1 121，降低 79.0%。见 [baseline §3.1](baseline.md#31-k-3-profile-固定开销对比2026-11-18)。
+- 默认仍为 `workspace`；K-9 再切换默认并持久化，避免在进程/服务能力就绪前改变现有会话。
+- 测试：`profiles.test.ts` 覆盖 coding/plan/workspace 工具清单、system 负向断言、PM2/Git 观察隔离；contextAssembler/toolContract 回归通过。
+- 未完成：A1 的最终工具清单还缺 `run_shell`，由 K-12 补齐并复跑负向断言。

@@ -7,7 +7,7 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createFileToolRegistry, type ToolSchema } from "@larness/agent";
+import { type AgentProfileId, createFileToolRegistry, type ToolSchema } from "@larness/agent";
 import BetterSqlite3 from "better-sqlite3";
 import { z } from "zod";
 import { openDatabase } from "../src/db/client.js";
@@ -17,6 +17,7 @@ import { assembleContext, PROMPT_VERSION } from "../src/modules/agent/contextAss
 import { createGitTools } from "../src/modules/agent/gitTool.js";
 import { createObservationTool } from "../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../src/modules/agent/planTool.js";
+import { toolNamesForProfile } from "../src/modules/agent/profiles.js";
 import { createServiceTools } from "../src/modules/agent/serviceTool.js";
 import { createTerminalControlTools } from "../src/modules/agent/terminalControlTool.js";
 import { createTerminalTools } from "../src/modules/agent/terminalTool.js";
@@ -50,11 +51,16 @@ interface UsageBaseline {
   omitted: string[];
 }
 
-function toolSummaries(registry: ReturnType<typeof createFileToolRegistry>): ToolBaseline[] {
+function toolSummaries(
+  registry: ReturnType<typeof createFileToolRegistry>,
+  profile: AgentProfileId,
+): ToolBaseline[] {
+  const allowed = toolNamesForProfile(profile);
   return registry
     .list()
     .sort((left, right) => left.name.localeCompare(right.name))
     .flatMap(({ name }) => {
+      if (!allowed.has(name)) return [];
       const tool = registry.get(name);
       if (!tool) return [];
       const schema = {
@@ -87,7 +93,7 @@ function systemSections(system: string): Array<{ label: string; tokens: number; 
   });
 }
 
-async function freshWorkspaceNumbers() {
+async function freshWorkspaceNumbers(profile: AgentProfileId) {
   const dir = await mkdtemp(path.join(tmpdir(), "larness-082-baseline-"));
   const dbPath = path.join(dir, "larness.db");
   const opened = openDatabase(dbPath);
@@ -129,6 +135,7 @@ async function freshWorkspaceNumbers() {
         maxContextTokens: 128_000,
         policy: "standard",
         workspaceRoot: root,
+        agentProfile: profile,
       },
       sessionRow,
       turn,
@@ -137,9 +144,10 @@ async function freshWorkspaceNumbers() {
     const system = assembled.messages[0];
     if (system?.role !== "system") throw new Error("missing system message");
 
-    const tools = toolSummaries(registry);
+    const tools = toolSummaries(registry, profile);
 
     return {
+      profile,
       tools,
       toolCount: tools.length,
       toolSchemaTokens: tools.reduce((sum, tool) => sum + tool.schemaTokens, 0),
@@ -219,10 +227,17 @@ function usageBaseline(dataDir: string): UsageBaseline | null {
   }
 }
 
-const freshWorkspace = await freshWorkspaceNumbers();
+const profiles = Object.fromEntries(
+  await Promise.all(
+    (["coding", "plan", "workspace"] as const).map(async (profile) => [
+      profile,
+      await freshWorkspaceNumbers(profile),
+    ]),
+  ),
+);
 const report = {
   generatedAt: new Date().toISOString(),
-  freshWorkspace,
+  profiles,
   usage:
     process.env.LARNESS_BASELINE_DATA_DIR === undefined
       ? null

@@ -80,3 +80,7 @@ export const DEFAULT_AGENT_PROFILE: AgentProfileId = "workspace";
 export function toolNamesForProfile(profileId: AgentProfileId): ReadonlySet<string> {
   return profileToolNames(TOOL_PACK_CATALOG, profileId);
 }
+
+export function profileHasPack(profileId: AgentProfileId, packId: ToolPackId): boolean {
+  return TOOL_PACK_CATALOG.profiles[profileId].packs.includes(packId);
+}

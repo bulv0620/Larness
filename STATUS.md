@@ -18,6 +18,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-18 | K-3 coding Profile 与核心提示 | coding 6 工具、schema 1 174 / system 253 token，比 workspace 降 73%；`PROMPT_VERSION` → `m6-4`；默认仍 workspace | [082 tasks](specs/082-agent-kernel/tasks.md#k-32026-11-18macos) |
 | 2026-11-18 | K-2 Profile / ToolPack 抽象 | 新增 AgentProfile / ToolPack / ToolAvailability；coding 6 工具、plan 只读+计划、workspace 保持 28 工具；默认仍 workspace | [082 tasks](specs/082-agent-kernel/tasks.md#k-22026-11-18macos) |
 | 2026-11-18 | K-1 082 门禁、基线与锁/审计盘点 | spec `ready`、ADR-068 `accepted`、Q-042～Q-050 确认；28 工具 / 4 577 schema token、system 747 token、98 Turn 基线；`pnpm check` 全绿 | [082 baseline](specs/082-agent-kernel/baseline.md) |
 | 2026-11-17 | UI-F28 发送后回到底部 | 发送消息立即回到最新输出并恢复自动跟随 | [068](specs/068-ui-fixes/tasks.md#ui-f282026-11-17macos) |
@@ -27,7 +28,6 @@
 | 2026-11-16 | UI-F25 目录右键新建 | 目录菜单新增新建文件 / 新建文件夹并展开目标目录 | [068](specs/068-ui-fixes/tasks.md#ui-f252026-11-16macos) |
 | 2026-11-16 | UI-F24 新建后列表无感 | 创建后保留目录内容与滚动位置，不再跳回顶部 | [068](specs/068-ui-fixes/tasks.md#ui-f242026-11-16macos) |
 | 2026-11-16 | UI-F23 文件树双击打开 | 单击仅选中，双击打开普通文件 Tab；认证文件流程与 Web 全量通过 | [068](specs/068-ui-fixes/tasks.md#ui-f232026-11-16macos) |
-| 2026-11-16 | PT-1～PT-4 计划终态呈现 | 终态 running 步骤按结局显示「已停止 / 已中断 / 未标记完成」，摘要报未完成步数；web 249/249 | [080](specs/080-plan-terminal-state/tasks.md#验收记录) |
 
 > 更早的收口记录（含同日其余 MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

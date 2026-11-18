@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createFileToolRegistry } from "@larness/agent";
+import type { Pm2CommandContext } from "@larness/shared";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
@@ -63,6 +64,22 @@ describe("agent profile assembly", () => {
           registry.register(tool);
         }
 
+        const pm2Context: Pm2CommandContext = {
+          available: true,
+          nodeExecutable: "/usr/bin/node",
+          entry: null,
+          version: "7.1.2",
+          home: path.join(dir, "pm2"),
+          namespace: "larness",
+          serviceNamePattern: "larness:<projectId>:<serviceKey>",
+          project: {
+            id: project.id,
+            name: "project",
+            root,
+            releaseRoot: path.join(root, ".larness"),
+          },
+          services: [],
+        };
         const assemble = (agentProfile: "coding" | "plan" | "workspace") =>
           assembleContext(
             {
@@ -72,6 +89,8 @@ describe("agent profile assembly", () => {
               policy: "standard",
               workspaceRoot: root,
               agentProfile,
+              pm2Context,
+              git: { detected: true, observedAt: Date.now() },
             },
             sessionRow,
             turn,
@@ -82,10 +101,35 @@ describe("agent profile assembly", () => {
         const plan = assemble("plan");
 
         expect(DEFAULT_AGENT_PROFILE).toBe("workspace");
+        const workspaceSystem = workspace.messages[0]?.content ?? "";
+        const codingSystem = coding.messages[0]?.content ?? "";
+        const planSystem = plan.messages[0]?.content ?? "";
+
         expect(workspace.agentProfile).toBe("workspace");
         expect(workspace.tools).toHaveLength(28);
         expect(workspace.tools.map((tool) => tool.name)).toContain("git_status");
         expect(workspace.tools.map((tool) => tool.name)).toContain("start_project_terminal");
+        expect(workspaceSystem).toContain("Larness prompt version: m6-4.");
+        expect(workspaceSystem).toContain("update_plan in the same batch");
+        expect(workspaceSystem).toContain("Service lifecycle contract");
+        expect(workspaceSystem).toContain("Git availability at Turn start");
+        expect(workspaceSystem).toContain("globally installed PM2");
+        expect(workspaceSystem).toContain("terminal input leases");
+        expect(workspace.observations).toContain("PM2 runtime and service/project associations");
+
+        expect(codingSystem).toContain("Larness prompt version: m6-4.");
+        expect(codingSystem).not.toContain("update_plan");
+        expect(codingSystem).not.toContain("Service lifecycle contract");
+        expect(codingSystem).not.toContain("Git availability at Turn start");
+        expect(codingSystem).not.toContain("globally installed PM2");
+        expect(codingSystem).not.toContain("terminal input leases");
+        expect(codingSystem).not.toContain("development_preview");
+        expect(codingSystem).not.toContain("persistent_pm2");
+        expect(coding.observations).toBeNull();
+        expect(planSystem).not.toContain("Service lifecycle contract");
+        expect(planSystem).not.toContain("Git availability at Turn start");
+        expect(planSystem).not.toContain("globally installed PM2");
+        expect(plan.observations).toBeNull();
 
         expect(coding.tools.map((tool) => tool.name)).toEqual([
           "apply_patch",

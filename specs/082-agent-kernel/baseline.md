@@ -86,6 +86,18 @@ LARNESS_BASELINE_DATA_DIR="$HOME/Library/Application Support/larness" \
 
 真实项目还会追加 Git 可用性、PM2 上下文、项目指令、摘要和截图提示；终端运行时还会追加终端协议。当前空项目 `assembleContext()` 估算总量为 **5 332 token**（system + 当前请求 + 28 工具 schema）。`SERVICE_LIFECYCLE_POLICY` 单独占 system 的 48.3%，是删除/按需注入的头号目标。
 
+### 3.1 K-3 Profile 固定开销对比（2026-11-18）
+
+`apps/server/scripts/kernel-baseline.ts` 在同一个空项目上分别装配三个 Profile：
+
+| Profile | 工具数 | schema tokens | system tokens | 空项目 assembled tokens | 相对 workspace |
+|---|---:|---:|---:|---:|---:|
+| `coding` | 6 | 1 174 | 253 | 1 440 | **-73.0%** |
+| `plan` | 4 | 730 | 379 | 1 121 | **-79.0%** |
+| `workspace` | 28 | 4 577 | 747 | 5 332 | 基线 |
+
+`coding` 的 system 不再包含计划、服务生命周期、Git 可用性、PM2 或终端租约；`workspace` 保持原有内容。`run_shell` 在 K-12 加入后会使 `coding` 的工具数与 schema token 略有上升。
+
 ## 4. 真实使用基线
 
 数据目录：`~/Library/Application Support/larness`（只读）。
