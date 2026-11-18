@@ -30,6 +30,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
     "core.write": pack("core.write", "核心写入", ["write_file", "apply_patch"]),
     "core.command": pack("core.command", "核心命令", ["run_command", "run_shell"]),
     plan: pack("plan", "计划", ["update_plan"]),
+    process: pack("process", "后台进程", ["start_process", "read_process_output", "stop_process"]),
     service: pack("service", "服务", [
       "register_temporary_service",
       "resolve_service_preview",
@@ -45,6 +46,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "core.write",
       "core.command",
       "plan",
+      "process",
       "service",
       "observation",
     ]),

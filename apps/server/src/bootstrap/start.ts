@@ -33,8 +33,10 @@ import { recoverInitialization } from "../init/recovery.js";
 import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { createCommandTool, createShellTool } from "../modules/agent/commandTool.js";
+import { appendAgentEvent, toServerEvent } from "../modules/agent/events.js";
 import { createObservationTool } from "../modules/agent/observationTool.js";
 import { createPlanTool } from "../modules/agent/planTool.js";
+import { createProcessTools } from "../modules/agent/processTool.js";
 import { DEFAULT_AGENT_PROFILE } from "../modules/agent/profiles.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { continueBudgetedTurn } from "../modules/agent/recovery/continue.js";
@@ -55,6 +57,7 @@ import type { ModelProbeResolver } from "../modules/models/probe.js";
 import { ensureDefaultModelProfiles, listEncryptedSecrets } from "../modules/models/repository.js";
 import { ModelError, resolveModel } from "../modules/models/service.js";
 import { PreviewRegistry } from "../modules/previews/registry.js";
+import { ProcessManager } from "../modules/processes/manager.js";
 import { ResourceEventBus } from "../modules/resources/events.js";
 import {
   finalizeUnreconciledOperations,
@@ -72,6 +75,7 @@ import {
 import { ServiceActionAuthorizationService } from "../modules/service-ops/serviceActions.js";
 import { ServiceOpsRuntime } from "../modules/service-ops/serviceOps.js";
 import { ServiceManager } from "../modules/services/manager.js";
+import { getSessionById } from "../modules/sessions/repository.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import { SecretStore } from "../security/secretStore.js";
@@ -115,6 +119,7 @@ export interface RunningServer {
   commands: CommandManager;
   git: GitManager;
   terminals: TerminalManager;
+  processes: ProcessManager;
   services: ServiceManager;
   deployments: DeploymentManager;
   deploymentAuthorizations: DeploymentAuthorizationService;
@@ -278,6 +283,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   let jobRuntime: JobRuntime | null = null;
   let commandManager: CommandManager | null = null;
   let terminalManager: TerminalManager | null = null;
+  let processManager: ProcessManager | null = null;
   let deploymentManager: DeploymentManager | null = null;
   let requestShutdown: ((reason: string) => void) | null = null;
   let preUpgradeBackupPath: string | null = null;
@@ -357,6 +363,25 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     const git = new GitManager({ db: opened.db });
     const services = new ServiceManager({ db: opened.db, events: resourceEvents });
     services.start();
+    const processes = new ProcessManager({
+      db: opened.db,
+      dataDir,
+      secretStore,
+      idleTtlMinutes: loaded.config.auth.idleTtlMinutes,
+      onEvent: (event) => {
+        const session = getSessionById(opened.db, event.sessionId);
+        if (session === null) return;
+        const row = appendAgentEvent(opened.db, {
+          sessionId: event.sessionId,
+          turnId: event.turnId,
+          type: event.type,
+          payload: event.payload,
+          now: Date.now(),
+        });
+        publishAgentEvent(toServerEvent(row, session));
+      },
+    });
+    processManager = processes;
     let previews: PreviewRegistry | null = null;
     if (loaded.config.preview.enabled) {
       try {
@@ -479,6 +504,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       registry.register(createPlanTool({ db: opened.db, secretStore }));
       registry.register(createCommandTool({ secretStore }));
       registry.register(createShellTool({ secretStore }));
+      for (const tool of createProcessTools({ secretStore })) registry.register(tool);
       for (const tool of createServiceTools()) registry.register(tool);
       registry.register(createObservationTool());
       const runner = new TurnRunner({
@@ -488,6 +514,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         commands,
         git,
         services,
+        processes,
         agentProfile: DEFAULT_AGENT_PROFILE,
         pm2Context: (projectId) =>
           pm2CommandContext(opened.db, dataDir, pm2Global, serviceOps, projectId),
@@ -567,6 +594,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         commands,
         resourceEvents,
         terminals,
+        processes,
         git,
         services,
         deployments,
@@ -694,6 +722,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       jobRuntime,
       commands,
       terminals,
+      processes,
       git,
       services,
       deployments,
@@ -714,6 +743,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     cleanup?.stop();
     await logRetention?.stop();
 
+    await processManager?.close();
     await terminalManager?.close();
     await commandManager?.close();
     await deploymentManager?.close();

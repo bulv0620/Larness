@@ -431,7 +431,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | K-12 | [run_command/run_shell 跨平台执行](082-agent-kernel/tasks.md#k-12-run_commandrun_shell-跨平台执行) | K-3 | `done`（2026-11-18） |
 | K-4 | [Git 模型工具移除与人类 UI 分面](082-agent-kernel/tasks.md#k-4-git-模型工具移除与人类-ui-分面) | K-3 | `done`（2026-11-18） |
 | K-5 | [终端与 Agent 模型面分离](082-agent-kernel/tasks.md#k-5-终端与-agent-模型面分离) | K-3 | `done`（2026-11-18） |
-| K-6 | [后台进程能力包](082-agent-kernel/tasks.md#k-6-后台进程能力包) | K-5 | `todo` |
+| K-6 | [后台进程能力包](082-agent-kernel/tasks.md#k-6-后台进程能力包) | K-5 | `done`（2026-11-18） |
 | K-7 | [命名服务与可选预览](082-agent-kernel/tasks.md#k-7-命名服务与可选预览) | K-6 | `todo` |
 | K-8 | [计划可选化](082-agent-kernel/tasks.md#k-8-计划可选化) | K-3 | `todo` |
 | K-11 | [锁与审计契约收敛](082-agent-kernel/tasks.md#k-11-锁与审计契约收敛) | K-2 | `todo` |

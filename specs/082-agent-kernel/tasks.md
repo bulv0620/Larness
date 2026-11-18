@@ -13,7 +13,7 @@
 | K-12 | run_command/run_shell 跨平台执行 | K-3 | `done` |
 | K-4 | Git 模型工具移除与人类 UI 分面 | K-3 | `done` |
 | K-5 | 终端与 Agent 模型面分离 | K-3 | `done` |
-| K-6 | 后台进程能力包 | K-5 | `todo` |
+| K-6 | 后台进程能力包 | K-5 | `done` |
 | K-7 | 命名服务与可选预览 | K-6 | `todo` |
 | K-8 | 计划可选化 | K-3 | `todo` |
 | K-11 | 锁与审计契约收敛 | K-2 | `todo` |
@@ -170,7 +170,7 @@
 
 ### K-6 后台进程能力包
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-5
 - 目标：为 Agent 提供非 PTY 的后台进程启动、输出读取与进程组停止。
 - 交付物：
@@ -364,3 +364,14 @@
 - 测试：`apps/server/test/resources/terminals.test.ts` 16 项人类终端测试通过；`default-workspace.test.ts` 改为 Agent 文件 + `run_command` 默认工作区测试并通过；`packages/agent` 63 测试通过（1 跳过）；contextAssembler/profiles/toolContract/turnRunner/commandSecret 定向 66 项通过。
 - 验证：`pnpm check` 全绿——biome 680 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 729（14 跳过）。
 - 未运行：未跑浏览器终端窗口 E2E；API/WS 与真实 PTY 已由 server 测试覆盖，浏览器视觉留到 K-10。
+
+### K-6（2026-11-18，macOS）
+
+- 新增 `ProcessManager`：spawn、项目相对 cwd、POSIX 进程组（Windows 使用进程树终止）、1 MiB / 5000 块环形输出缓冲、cursor / resync、启动幂等键、同名重复启动冲突、启动即退出失败、停止幂等。
+- 新增 `start_process`（L2）/ `read_process_output`（L0）/ `stop_process`（L1），仅 `workspace` Profile；`ToolContext` / `ToolExecutor` / `TurnRunner` 绑定完整；`workspace` 从 12 工具升至 15 工具，schema 从 2 596 升至 3 175 token。
+- 新增 `GET /api/processes`、`GET /api/processes/:id`、`GET /api/processes/:id/output`、`POST /api/processes/:id/stop`，使用现有认证 / Origin / CSRF 守卫；不开放通用 POST 创建入口。
+- 事件：`process.started` / `process.exited` / `process.stopped` 写入 `agent_events` 后再广播；payload 不含原始参数、环境或输出正文。
+- 锁边界：后台进程启动时执行授权 / 路径 / 秘密检查，但不长期持有项目写锁，避免 dev server 阻塞源码写；停止失败返回 `STOP_UNCONFIRMED`，不伪报成功。
+- 测试：`processes.test.ts` 覆盖真实进程启动、输出游标、重复启动、同名冲突、停止、重复停止、进程组退出、启动即退出、交互命令拒绝与 REST 列表/输出；`toolContract` 矩阵加入 3 个进程工具；`profiles` 断言 workspace 15 工具。
+- 验证：`pnpm check` 全绿——biome 685 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 731（14 跳过）。
+- 未运行：Windows 实机进程树停止未复测；端口冲突未单独建集成用例（服务登记在 K-7 才引入）。

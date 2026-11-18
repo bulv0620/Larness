@@ -7,6 +7,7 @@ import { runMigrations } from "../../src/db/migrate.js";
 import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
+import { createProcessTools } from "../../src/modules/agent/processTool.js";
 import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { type ExecuteToolInput, executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -27,6 +28,7 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   registry.register(createPlanTool({ db: opened.db }));
   registry.register(createCommandTool({}));
   registry.register(createShellTool({}));
+  for (const tool of createProcessTools({})) registry.register(tool);
   for (const tool of createServiceTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
@@ -36,6 +38,9 @@ type HandlerKey = keyof Pick<
   ExecuteToolInput,
   | "updatePlan"
   | "runCommand"
+  | "startProcess"
+  | "readProcessOutput"
+  | "stopProcess"
   | "registerService"
   | "listServices"
   | "resolveServicePreview"
@@ -71,6 +76,24 @@ const BOUND_TOOLS: BoundToolCase[] = [
     handler: "runCommand",
     args: { command: "echo ok" },
     invalid: { cwd: "." },
+  },
+  {
+    name: "start_process",
+    handler: "startProcess",
+    args: { executable: "node", args: ["-e", "0"], name: "fixture" },
+    invalid: { args: ["-e", "0"] },
+  },
+  {
+    name: "read_process_output",
+    handler: "readProcessOutput",
+    args: { processId: "prc_00000000-0000-4000-8000-000000000000" },
+    invalid: { processId: "nope" },
+  },
+  {
+    name: "stop_process",
+    handler: "stopProcess",
+    args: { processId: "prc_00000000-0000-4000-8000-000000000000" },
+    invalid: { processId: "nope" },
   },
   {
     name: "register_temporary_service",
@@ -166,6 +189,9 @@ describe("tool contract matrix", () => {
             // Every tool gets every handler; the one it needs must be bound.
             updatePlan: handlerStub("updatePlan"),
             runCommand: handlerStub("runCommand"),
+            startProcess: handlerStub("startProcess"),
+            readProcessOutput: handlerStub("readProcessOutput"),
+            stopProcess: handlerStub("stopProcess"),
             registerService: handlerStub("registerService"),
             listServices: handlerStub("listServices"),
             resolveServicePreview: handlerStub("resolveServicePreview"),

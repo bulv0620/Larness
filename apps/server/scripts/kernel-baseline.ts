@@ -16,6 +16,7 @@ import { createCommandTool, createShellTool } from "../src/modules/agent/command
 import { assembleContext, PROMPT_VERSION } from "../src/modules/agent/contextAssembler.js";
 import { createObservationTool } from "../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../src/modules/agent/planTool.js";
+import { createProcessTools } from "../src/modules/agent/processTool.js";
 import { toolNamesForProfile } from "../src/modules/agent/profiles.js";
 import { createServiceTools } from "../src/modules/agent/serviceTool.js";
 import { estimateTextTokens } from "../src/modules/agent/tokenEstimator.js";
@@ -117,6 +118,7 @@ async function freshWorkspaceNumbers(profile: AgentProfileId) {
       createPlanTool({ db: opened.db }),
       createCommandTool({}),
       createShellTool({}),
+      ...createProcessTools({}),
       ...createServiceTools(),
       createObservationTool(),
     ]) {

@@ -39,6 +39,9 @@ export interface ExecuteToolInput {
   policySnapshotId?: string;
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  startProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  readProcessOutput?: (args: unknown) => Promise<ToolResult>;
+  stopProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   registerService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
@@ -144,7 +147,11 @@ export async function executeTool(
     };
   }
 
-  const contextBound = input.toolName === "run_command" || input.toolName === "run_shell";
+  const contextBound =
+    input.toolName === "run_command" ||
+    input.toolName === "run_shell" ||
+    input.toolName === "start_process" ||
+    input.toolName === "stop_process";
   const params = contextBound ? parsed.data : input.args;
   const approvalParams = contextBound
     ? {
@@ -290,6 +297,41 @@ export async function executeTool(
             return (
               input.runCommand?.(args, assertAuthorized) ??
               denied("FORBIDDEN", "Command context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.startProcess
+      ? {
+          startProcess: async (args: unknown) => {
+            if (hashApprovalParams(args) !== hashApprovalParams(params))
+              return denied("APPROVAL_INVALID", "Process parameters changed");
+            assertAuthorized();
+            return (
+              input.startProcess?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Process context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.readProcessOutput
+      ? {
+          readProcessOutput: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.readProcessOutput?.(args) ??
+              denied("FORBIDDEN", "Process output context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.stopProcess
+      ? {
+          stopProcess: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.stopProcess?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Process stop context unavailable")
             );
           },
         }

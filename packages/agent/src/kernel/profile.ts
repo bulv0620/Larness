@@ -13,6 +13,7 @@ export type ToolPackId =
   | "core.write"
   | "core.command"
   | "plan"
+  | "process"
   | "service"
   | "observation";
 

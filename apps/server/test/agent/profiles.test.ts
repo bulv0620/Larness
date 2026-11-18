@@ -9,6 +9,7 @@ import { createCommandTool, createShellTool } from "../../src/modules/agent/comm
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
+import { createProcessTools } from "../../src/modules/agent/processTool.js";
 import {
   DEFAULT_AGENT_PROFILE,
   TOOL_PACK_CATALOG,
@@ -53,6 +54,7 @@ describe("agent profile assembly", () => {
           createPlanTool({ db: opened.db }),
           createCommandTool({}),
           createShellTool({}),
+          ...createProcessTools({}),
           ...createServiceTools(),
           createObservationTool(),
         ]) {
@@ -99,7 +101,8 @@ describe("agent profile assembly", () => {
         const planSystem = plan.messages[0]?.content ?? "";
 
         expect(workspace.agentProfile).toBe("workspace");
-        expect(workspace.tools).toHaveLength(12);
+        expect(workspace.tools).toHaveLength(15);
+        expect(workspace.tools.map((tool) => tool.name)).toContain("start_process");
         expect(workspace.tools.map((tool) => tool.name)).toContain("list_services");
         expect(workspace.tools.some((tool) => tool.name.startsWith("git_"))).toBe(false);
         expect(workspace.tools.some((tool) => tool.name.includes("terminal"))).toBe(false);
@@ -150,7 +153,7 @@ describe("agent profile assembly", () => {
 
         // The same Session can be assembled with both surfaces without mutating it.
         expect(sessionRow.id).toBe(session.id);
-        expect([...toolNamesForProfile("workspace")]).toHaveLength(12);
+        expect([...toolNamesForProfile("workspace")]).toHaveLength(15);
         expect([...toolNamesForProfile("coding")]).toHaveLength(7);
         expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([
           "core.read",
@@ -182,6 +185,7 @@ describe("agent profile assembly", () => {
           createPlanTool({ db: opened.db }),
           createCommandTool({}),
           createShellTool({}),
+          ...createProcessTools({}),
           ...createServiceTools(),
           createObservationTool(),
         ]) {

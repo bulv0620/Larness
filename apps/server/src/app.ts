@@ -13,6 +13,7 @@ import { registerJobRoutes } from "./api/jobs.js";
 import { registerModelRoutes } from "./api/models.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerPreviewRoutes } from "./api/previews.js";
+import { registerProcessRoutes } from "./api/processes.js";
 import { registerProjectRoutes } from "./api/projects.js";
 import { registerResourceActionRoutes } from "./api/resource-actions.js";
 import { registerResourceEventRoutes } from "./api/resource-events.js";
@@ -36,6 +37,7 @@ import type { JobService } from "./modules/jobs/service.js";
 import type { DeepSeekCatalogFetcher } from "./modules/models/catalog.js";
 import type { ModelProbeResolver } from "./modules/models/probe.js";
 import type { PreviewRegistry } from "./modules/previews/registry.js";
+import type { ProcessManager } from "./modules/processes/manager.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
 import type { DeploymentAuthorizationService } from "./modules/service-ops/authorization.js";
 import { DeploymentManager } from "./modules/service-ops/deployments.js";
@@ -62,6 +64,7 @@ export interface AppServices {
   turnControls?: TurnControls;
   commands?: CommandManager;
   terminals?: TerminalManager;
+  processes?: ProcessManager;
   git?: GitManager;
   services?: ServiceManager;
   deployments?: DeploymentManager;
@@ -174,6 +177,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerFsRoutes(app);
     registerCommandRoutes(app, options.services, commands);
     registerTerminalRoutes(app, options.services, terminals);
+    if (options.services.processes !== undefined) {
+      registerProcessRoutes(app, options.services, options.services.processes);
+    }
     registerFileRoutes(app, options.services, resourceEvents);
     registerGitRoutes(app, options.services, git);
     registerServiceRoutes(app, options.services, serviceManager);

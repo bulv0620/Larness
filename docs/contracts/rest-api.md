@@ -775,3 +775,7 @@ type JobInput = {
 ### GX-2 Git 目录批量暂存
 
 现有 `POST /api/projects/:id/git/actions` 增加 `stageFiles`、`unstageFiles`，传精确 `paths` 与 `expectedSnapshot`。见 [M2 Git 批量契约](m2-resources.md#gx-2-目录行-git-批量动作)。
+
+### K-6 后台进程 API
+
+082 K-6 新增 `GET /api/processes?projectId=|sessionId=`、`GET /api/processes/:id`、`GET /api/processes/:id/output?after=&limit=`、`POST /api/processes/:id/stop`。全部经过现有认证守卫；stop 同样受 Origin / CSRF 保护。进程 ID 为 `prc_` 前缀，DTO 含 projectId、sessionId、name、status、executable、cwd、pid、exitCode、reasonCode、startedAt、endedAt、outputCursor、truncated。输出按游标分页，`resyncRequired` 表示旧块已淘汰；REST 不返回原始环境或秘密。`start_process` 仍只由 Agent Turn 创建，不开放通用 POST 创建入口。

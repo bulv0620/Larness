@@ -23,6 +23,7 @@ import {
   PlanParamsSchema,
   type PreviewResultTarget,
   PreviewResultTargetSchema,
+  ProcessIdSchema,
   type ServerEvent,
   ServiceIdSchema,
   ServiceRegisterInputSchema,
@@ -39,6 +40,7 @@ import { publishAgentEvent } from "../../ws/publisher.js";
 import type { CommandManager } from "../commands/manager.js";
 import type { GitManager } from "../git/manager.js";
 import { listEncryptedSecrets } from "../models/repository.js";
+import type { ProcessManager } from "../processes/manager.js";
 import { getProjectById, updateProjectRow } from "../projects/repository.js";
 import { detectGit, parseProjectSettings } from "../projects/service.js";
 import type { ServiceManager } from "../services/manager.js";
@@ -154,6 +156,7 @@ export interface TurnRunnerOptions {
   commands?: CommandManager;
   git?: GitManager;
   services?: ServiceManager;
+  processes?: ProcessManager;
   /** Session-level Profile; K-9 persists and exposes the selection. */
   agentProfile?: AgentProfileId;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
@@ -597,6 +600,131 @@ export class TurnRunner {
                 ok: false,
                 errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
                 summary: "Command execution failed",
+              };
+            }
+          },
+          startProcess: async (params, assertAuthorized) => {
+            if (!snapshot || !this.#options.processes || !session.projectId) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Process context unavailable",
+              };
+            }
+            try {
+              const dto = await this.#options.processes.start(
+                {
+                  sessionId: session.id,
+                  turnId: turn.id,
+                  toolCallId: request.id,
+                  clientSessionId: snapshot.clientSessionId,
+                  policySnapshotId: snapshot.policySnapshotId,
+                  signal: controller.signal,
+                  assertAuthorized: () => {
+                    assertAuthorized();
+                    if (checkBudget() !== "ok" || lockLost)
+                      throw new Error("Execution no longer authorized");
+                  },
+                },
+                params,
+              );
+              const output = await this.#options.processes.readOutput(
+                dto.id,
+                {
+                  sessionId: session.id,
+                  clientSessionId: snapshot.clientSessionId,
+                  projectId: session.projectId,
+                },
+                0,
+                50,
+              );
+              const tail = output.chunks
+                .map((chunk) => chunk.data)
+                .join("")
+                .slice(-4_000);
+              const running = dto.status === "RUNNING";
+              return {
+                ok: running,
+                summary: `Process ${dto.name ?? dto.id.slice(-6)} ${dto.status}`,
+                ...(running ? {} : { errorCode: dto.reasonCode ?? "PROCESS_EXITED" }),
+                data: { ...dto, output: tail, outputTruncated: output.truncated },
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Process could not be started",
+              };
+            }
+          },
+          readProcessOutput: async (params) => {
+            const parsed = z
+              .object({
+                processId: ProcessIdSchema,
+                after: z.number().int().min(0).default(0),
+                limit: z.number().int().min(1).max(500).default(100),
+              })
+              .strict()
+              .safeParse(params);
+            if (!parsed.success || !snapshot || !this.#options.processes || !session.projectId) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Process output context unavailable",
+              };
+            }
+            try {
+              const page = await this.#options.processes.readOutput(
+                parsed.data.processId,
+                {
+                  sessionId: session.id,
+                  clientSessionId: snapshot.clientSessionId,
+                  projectId: session.projectId,
+                },
+                parsed.data.after,
+                parsed.data.limit,
+              );
+              return {
+                ok: true,
+                summary: `${page.chunks.length} process output chunks`,
+                truncated: page.truncated || page.resyncRequired,
+                data: page,
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Process output could not be read",
+              };
+            }
+          },
+          stopProcess: async (params, assertAuthorized) => {
+            const parsed = z.object({ processId: ProcessIdSchema }).strict().safeParse(params);
+            if (!parsed.success || !snapshot || !this.#options.processes || !session.projectId) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Process context unavailable",
+              };
+            }
+            try {
+              assertAuthorized();
+              const result = await this.#options.processes.stop(parsed.data.processId, {
+                sessionId: session.id,
+                clientSessionId: snapshot.clientSessionId,
+                projectId: session.projectId,
+              });
+              return {
+                ok: result.stopped,
+                summary: `Process ${result.process.status}`,
+                ...(result.stopped ? {} : { errorCode: "STOP_UNCONFIRMED" }),
+                data: { ...result.process, forced: result.forced },
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Process could not be stopped",
               };
             }
           },
