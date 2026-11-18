@@ -56,6 +56,8 @@ created: 2026-11-06
    082 K-6（2026-11-18）：新增 `start_process`（L2）、`read_process_output`（L0）、`stop_process`（L1），仅 `workspace` Profile 提供。`start_process` 返回稳定 `prc_` ID、cwd 与输出游标；输出按 1 MiB 环形缓冲/游标读取；`stop_process` 停止整个进程组/进程树并幂等。交互式 TUI 命令拒绝，启动即退出返回失败与尾部输出；后台进程不长期持有项目写锁，避免 dev server 阻塞源码写。
 
    082 K-7（2026-11-18）：新增 `start_service`（L2）、`read_service_logs`（L0）、`stop_service`（L1），仅 `workspace` Profile 提供；`list_services` 同时返回命名进程服务与旧临时终端服务。服务绑定项目、processId、命令摘要、端口与可选健康检查；项目 + 名称 + 命令重复启动幂等，不同命令同名冲突，端口占用启动前拒绝。进程服务 `previewEligible` 当前为 `false`，现有终端服务预览不变。
+
+   082 K-8（2026-11-18）：计划降级为可选 `plan` Profile；`coding` 与 `workspace` 都不注册 `update_plan`、不注入计划提示或陈旧提醒；`plan` Profile 只读文件 + 计划元数据，不能编辑普通项目文件。旧 `plan.updated` 事件与 UI 回放保留。`turn/planReminder.ts` 与 `PLAN_STALE_TOOL_CALLS` 移除；`PROMPT_VERSION` 升至 `m6-6`。
 2. 模型上下文中的状态与策略使用执行层同一已解析数据。模型工具列表按工作区适用性生成，后端仍独立核验。不得从展示文案推断授权，不得把终端存活、服务登记或预览意图写成业务健康证明。
 3. 每条影响操作范围或安全的承诺都要有执行层验收，覆盖合法输入和至少一个会扩大范围、越权或误报成功的反例。工具或 prompt 变更还要通过实际上下文组装验证模型收到的描述、schema 和作用域。禁止只核对源码常量或只用文本快照替代执行测试。
 4. 新增或修改此类能力的 spec 必须列出上述验证和受影响表面。测试纳入常规检查。无法自动化的表面需在验收中记录可复核的检查与结果。

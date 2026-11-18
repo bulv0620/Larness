@@ -103,21 +103,22 @@ describe("agent profile assembly", () => {
         const planSystem = plan.messages[0]?.content ?? "";
 
         expect(workspace.agentProfile).toBe("workspace");
-        expect(workspace.tools).toHaveLength(18);
+        expect(workspace.tools).toHaveLength(17);
         expect(workspace.tools.map((tool) => tool.name)).toContain("start_process");
         expect(workspace.tools.map((tool) => tool.name)).toContain("start_service");
         expect(workspace.tools.map((tool) => tool.name)).toContain("list_services");
+        expect(workspace.tools.map((tool) => tool.name)).not.toContain("update_plan");
         expect(workspace.tools.some((tool) => tool.name.startsWith("git_"))).toBe(false);
         expect(workspace.tools.some((tool) => tool.name.includes("terminal"))).toBe(false);
-        expect(workspaceSystem).toContain("Larness prompt version: m6-5.");
-        expect(workspaceSystem).toContain("update_plan in the same batch");
+        expect(workspaceSystem).toContain("Larness prompt version: m6-6.");
+        expect(workspaceSystem).not.toContain("update_plan");
         expect(workspaceSystem).toContain("Service lifecycle contract");
         expect(workspaceSystem).not.toContain("Git availability");
         expect(workspaceSystem).toContain("globally installed PM2");
         expect(workspaceSystem).not.toContain("terminal input leases");
         expect(workspace.observations).toContain("PM2 runtime and service/project associations");
 
-        expect(codingSystem).toContain("Larness prompt version: m6-5.");
+        expect(codingSystem).toContain("Larness prompt version: m6-6.");
         expect(codingSystem).not.toContain("update_plan");
         expect(codingSystem).not.toContain("Service lifecycle contract");
         expect(codingSystem).not.toContain("Git availability");
@@ -126,6 +127,7 @@ describe("agent profile assembly", () => {
         expect(codingSystem).not.toContain("development_preview");
         expect(codingSystem).not.toContain("persistent_pm2");
         expect(coding.observations).toBeNull();
+        expect(planSystem).toContain("update_plan");
         expect(planSystem).not.toContain("Service lifecycle contract");
         expect(planSystem).not.toContain("Git availability");
         expect(planSystem).not.toContain("globally installed PM2");
@@ -156,7 +158,7 @@ describe("agent profile assembly", () => {
 
         // The same Session can be assembled with both surfaces without mutating it.
         expect(sessionRow.id).toBe(session.id);
-        expect([...toolNamesForProfile("workspace")]).toHaveLength(18);
+        expect([...toolNamesForProfile("workspace")]).toHaveLength(17);
         expect([...toolNamesForProfile("coding")]).toHaveLength(7);
         expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([
           "core.read",

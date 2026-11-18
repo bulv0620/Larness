@@ -15,7 +15,7 @@
 | K-5 | 终端与 Agent 模型面分离 | K-3 | `done` |
 | K-6 | 后台进程能力包 | K-5 | `done` |
 | K-7 | 命名服务与可选预览 | K-6 | `done` |
-| K-8 | 计划可选化 | K-3 | `todo` |
+| K-8 | 计划可选化 | K-3 | `done` |
 | K-11 | 锁与审计契约收敛 | K-2 | `todo` |
 | K-9 | workspace Profile、迁移与 UI | K-4、K-7、K-8、K-11、K-12 | `todo` |
 | K-10 | A/B 验证、全量检查与文档回填 | K-9 | `todo` |
@@ -219,7 +219,7 @@
 
 ### K-8 计划可选化
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-3
 - 目标：计划不再是 coding 默认行为；保留历史与显式 plan Profile。
 - 交付物：
@@ -385,3 +385,12 @@
 - 测试：`named-services.test.ts` 覆盖真实 HTTP 服务启动/健康检查、重复启动、同名冲突、日志、列表、停止与重复停止、端口占用；`toolContract` / `profiles` 断言 3 个服务工具与 workspace 18 工具。
 - 验证：`pnpm check` 全绿——biome 690 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 733（14 跳过）。
 - 未运行：浏览器服务卡片与预览 E2E 未跑；留到 K-9 UI / K-10 全量验收。
+
+### K-8（2026-11-18，macOS）
+
+- `coding` / `workspace` 不再包含 `update_plan`，workspace 从 18 工具降为 17 工具，schema 从 3 741 降至 3 442 token；system 不再包含计划策略，`PROMPT_VERSION` 升至 `m6-6`。
+- `plan` Profile 保留只读文件 + `update_plan`，不能编辑普通项目文件；计划只在显式 plan 模式出现。
+- 删除 `turn/planReminder.ts`、`PLAN_STALE_TOOL_CALLS` 与陈旧提醒测试；TurnRunner 不再维护计划步数/提醒状态，wrap-up 文案不再要求更新计划。
+- 旧 `plan.updated` 事件、计划卡与回放保留；`plan.test.ts` 的计划持久化/重放测试改为显式 `agentProfile: "plan"`。
+- 测试：plan/contextAssembler/profiles/toolContract/turnRunner 定向 64 项通过；workspace/coding 负向断言与 plan 正向断言覆盖。
+- 验证：`pnpm check` 全绿——biome 688 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 727（14 跳过）。

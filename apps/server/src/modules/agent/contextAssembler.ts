@@ -42,7 +42,7 @@ const SERVICE_LIFECYCLE_POLICY = [
  * Bump when the stable system core changes; it makes prompt-cache invalidation
  * explainable instead of silent.
  */
-export const PROMPT_VERSION = "m6-5";
+export const PROMPT_VERSION = "m6-6";
 const HISTORY_LIMIT = 40;
 
 export interface ContextAssemblerOptions {

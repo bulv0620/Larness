@@ -433,7 +433,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | K-5 | [终端与 Agent 模型面分离](082-agent-kernel/tasks.md#k-5-终端与-agent-模型面分离) | K-3 | `done`（2026-11-18） |
 | K-6 | [后台进程能力包](082-agent-kernel/tasks.md#k-6-后台进程能力包) | K-5 | `done`（2026-11-18） |
 | K-7 | [命名服务与可选预览](082-agent-kernel/tasks.md#k-7-命名服务与可选预览) | K-6 | `done`（2026-11-18） |
-| K-8 | [计划可选化](082-agent-kernel/tasks.md#k-8-计划可选化) | K-3 | `todo` |
+| K-8 | [计划可选化](082-agent-kernel/tasks.md#k-8-计划可选化) | K-3 | `done`（2026-11-18） |
 | K-11 | [锁与审计契约收敛](082-agent-kernel/tasks.md#k-11-锁与审计契约收敛) | K-2 | `todo` |
 | K-9 | [workspace Profile、迁移与 UI](082-agent-kernel/tasks.md#k-9-workspace-profile迁移与-ui) | K-4、K-7、K-8、K-11、K-12 | `todo` |
 | K-10 | [A/B 验证、全量检查与文档回填](082-agent-kernel/tasks.md#k-10-ab-验证全量检查与文档回填) | K-9 | `todo` |

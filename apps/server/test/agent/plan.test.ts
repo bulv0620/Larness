@@ -6,7 +6,6 @@ import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { listSessionEvents } from "../../src/modules/agent/events.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
-import { PLAN_STALE_TOOL_CALLS } from "../../src/modules/agent/turn/planReminder.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { listEncryptedSecrets } from "../../src/modules/models/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -57,6 +56,7 @@ it("persists each real plan update before publishing and replays the same turn p
       const runner = new TurnRunner({
         db: opened.db,
         registry,
+        agentProfile: "plan",
         resolveProvider: () => ({ adapter: provider, model: "fake" }),
         publish: (event) => {
           if (!("sequence" in event) || event.type !== "plan.updated") return;
@@ -174,6 +174,7 @@ it("does not write a plan after cancellation and refuses known credentials", asy
       const runner = new TurnRunner({
         db: opened.db,
         registry,
+        agentProfile: "plan",
         resolveProvider: () => ({ adapter: provider, model: "fake" }),
         publish: (event) => {
           if ("type" in event && event.type === "tool.started") runner.cancel(turn.turnId);
@@ -222,94 +223,6 @@ it("normalizes the model's status vocabulary before validating a plan", async ()
             { id: "b", title: "验证", status: "done" },
           ],
         },
-      ]);
-    } finally {
-      opened.close();
-    }
-  });
-});
-
-it("nudges a stale plan once and the model then advances it mid-turn", async () => {
-  await withTempDir(async (dir) => {
-    const opened = openDatabase(path.join(dir, "test.db"));
-    runMigrations(opened.db);
-    try {
-      const session = await createSession({ db: opened.db, dataDir: dir }, {});
-      const turn = createTurn({ db: opened.db }, { sessionId: session.id, text: "长任务" });
-      const planTool = createPlanTool({ db: opened.db });
-      // A: the tool description must ask for step-level updates in the same
-      // batch as the next action, not a single update at the end.
-      expect(planTool.description).toContain("same batch");
-      expect(planTool.description).toContain("never mark a step done");
-      const registry = createFileToolRegistry();
-      registry.register(planTool);
-
-      const planCall = (id: string, steps: { id: string; title: string; status: string }[]) => ({
-        chunks: [
-          {
-            type: "tool-call" as const,
-            toolCall: { id, name: "update_plan", args: { title: "长任务", steps } },
-          },
-          { type: "finish" as const, finishReason: "tool-calls" as const },
-        ],
-      });
-      const workBatch = (batch: string, count: number) => ({
-        chunks: [
-          ...Array.from({ length: count }, (_, index) => ({
-            type: "tool-call" as const,
-            toolCall: { id: `${batch}_${index}`, name: "list_files", args: { path: "." } },
-          })),
-          { type: "finish" as const, finishReason: "tool-calls" as const },
-        ],
-      });
-      const provider = createFakeProvider([
-        planCall("plan_0", [
-          { id: "inspect", title: "检查", status: "running" },
-          { id: "verify", title: "验证", status: "pending" },
-        ]),
-        // Enough tool calls to make the plan stale without touching it again.
-        workBatch("batch_1", PLAN_STALE_TOOL_CALLS),
-        planCall("plan_1", [
-          { id: "inspect", title: "检查", status: "done" },
-          { id: "verify", title: "验证", status: "running" },
-        ]),
-        workBatch("batch_2", 2),
-        {
-          chunks: [
-            { type: "text-delta", text: "检查完成，正在验证。" },
-            { type: "finish" as const, finishReason: "stop" as const },
-          ],
-        },
-      ]);
-      const runner = new TurnRunner({
-        db: opened.db,
-        registry,
-        resolveProvider: () => ({ adapter: provider, model: "fake" }),
-      });
-
-      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
-
-      const nudges = (index: number) =>
-        (provider.calls[index]?.messages ?? []).filter(
-          (message) =>
-            typeof message.content === "string" &&
-            message.content.includes("same batch as your next tool call"),
-        );
-
-      // Silent while the plan is fresh, sent once it is stale, and never
-      // repeated after the plan was updated.
-      expect(nudges(1)).toHaveLength(0);
-      expect(nudges(2)).toHaveLength(1);
-      expect(nudges(2)[0]?.content).toContain("inspect: 检查");
-      expect(nudges(3)).toHaveLength(1);
-      expect(nudges(4)).toHaveLength(1);
-
-      const plans = listSessionEvents(opened.db, session.id)
-        .items.filter((event) => event.type === "plan.updated")
-        .map((event) => (event.payload as { plan: { steps: { status: string }[] } }).plan);
-      expect(plans.map((plan) => plan.steps.map((step) => step.status))).toEqual([
-        ["running", "pending"],
-        ["done", "running"],
       ]);
     } finally {
       opened.close();

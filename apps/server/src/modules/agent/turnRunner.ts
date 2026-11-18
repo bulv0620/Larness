@@ -71,7 +71,6 @@ import {
 } from "./turn/budget.js";
 import { carriedSpendTokens } from "./turn/chain.js";
 import { foldOldToolResults, lastCompleteToolBatch } from "./turn/compaction.js";
-import { type PlanReminderStep, stalePlanReminder } from "./turn/planReminder.js";
 import { createSecretLoader } from "./turn/secrets.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
 import {
@@ -364,11 +363,6 @@ export class TurnRunner {
     let anchoredHeuristicTokens: number | undefined;
     let anchoredProviderTokens: number | undefined;
     let wrapUpRequested = false;
-    // Plan progress: a long Turn used to touch the plan only at the start and
-    // the end, so the list looked frozen for hundreds of tool calls.
-    let planSteps: PlanReminderStep[] = [];
-    let toolCallsSincePlanUpdate = 0;
-    let planReminderSent = false;
     const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
     // First-touch order survives; later writes only refresh the version.
     const fileChanges = new Map<string, TurnFileChange>();
@@ -494,9 +488,6 @@ export class TurnRunner {
             if (checkBudget() !== "ok")
               return { ok: false, errorCode: "FORBIDDEN", summary: "Turn no longer active" };
             facts.recordPlan(plan.data.steps);
-            planSteps = plan.data.steps;
-            toolCallsSincePlanUpdate = 0;
-            planReminderSent = false;
             this.#emit(turn, session, "plan.updated", {
               turnId: turn.id,
               plan: {
@@ -1228,24 +1219,6 @@ export class TurnRunner {
 
         appendLockNotice();
 
-        // A plan that stopped moving is a hint, never a rewrite: the model
-        // still owns every status change and the server never ticks a step it
-        // was not told about.
-        const planReminder = stalePlanReminder({
-          steps: planSteps,
-          toolCallsSincePlanUpdate,
-          alreadyReminded: planReminderSent,
-        });
-
-        if (planReminder !== null) {
-          planReminderSent = true;
-          messages.push({ role: "user", content: planReminder });
-          this.#options.logger?.info(
-            { turnId, sessionId: session.id, toolCallsSincePlanUpdate },
-            "stale plan reminder requested",
-          );
-        }
-
         // Ask the model to land the turn before the budget cuts it mid-sentence.
         const spentTokens = spentTokensTotal();
 
@@ -1256,7 +1229,7 @@ export class TurnRunner {
           wrapUpRequested = true;
           messages.push({
             role: "user",
-            content: `This turn is near its budget (${steps} steps, ${Math.round(spentTokens / 1000)}k tokens). Stop exploring: finish the operation in progress, update the plan to match reality, and reply with a concise summary of what changed, what was verified, and what remains unfinished. Do not start new work.`,
+            content: `This turn is near its budget (${steps} steps, ${Math.round(spentTokens / 1000)}k tokens). Stop exploring: finish the operation in progress and reply with a concise summary of what changed, what was verified, and what remains unfinished. Do not start new work.`,
           });
           this.#options.logger?.info(
             { turnId, sessionId: session.id, steps, maxSteps: this.#budget.maxSteps },
@@ -1627,9 +1600,6 @@ export class TurnRunner {
         }
 
         for (const request of toolRequests) {
-          // Counted before execution, so an `update_plan` in this batch resets
-          // the counter through its handler instead of being undone here.
-          toolCallsSincePlanUpdate += 1;
           const cancelState = checkBudget();
 
           if (cancelState === "budget")

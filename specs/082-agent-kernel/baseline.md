@@ -94,11 +94,11 @@ LARNESS_BASELINE_DATA_DIR="$HOME/Library/Application Support/larness" \
 
 | Profile | 工具数 | schema tokens | system tokens | 空项目 assembled tokens | 相对 workspace |
 |---|---:|---:|---:|---:|---:|
-| `coding` | 7 | 1 462 | 253 | 1 727 | **-61.5%** |
-| `plan` | 4 | 730 | 379 | 1 121 | **-75.0%** |
-| `workspace` | 18 | 3 741 | 741 | 4 492 | 基线 |
+| `coding` | 7 | 1 462 | 253 | 1 727 | **-57.5%** |
+| `plan` | 4 | 730 | 379 | 1 121 | **-72.4%** |
+| `workspace` | 17 | 3 442 | 615 | 4 067 | 基线 |
 
-`coding` 的 system 不再包含计划、服务生命周期或 PM2；`workspace` 保留后台进程、命名服务与观察能力，但不再包含终端工具或终端观察。`run_shell` 已在 K-12 加入 `core.command`；Git 在 K-4 移除，终端在 K-5 移除，后台进程在 K-6 加入，命名服务在 K-7 加入；上表为 K-7 后的数字。
+`coding` 的 system 不再包含计划、服务生命周期或 PM2；`workspace` 保留后台进程、命名服务与观察能力，但不再包含终端工具或终端观察，也不再注入计划策略。`run_shell` 已在 K-12 加入 `core.command`；Git 在 K-4 移除，终端在 K-5 移除，后台进程在 K-6 加入，命名服务在 K-7 加入，计划在 K-8 退出 coding/workspace；上表为 K-8 后的数字。
 
 ## 4. 真实使用基线
 

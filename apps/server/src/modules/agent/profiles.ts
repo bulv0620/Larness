@@ -48,7 +48,6 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "core.read",
       "core.write",
       "core.command",
-      "plan",
       "process",
       "service",
       "observation",

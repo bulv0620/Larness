@@ -21,15 +21,7 @@ const catalog: ToolPackCatalog = {
     workspace: {
       id: "workspace",
       label: "Workspace",
-      packs: [
-        "core.read",
-        "core.write",
-        "core.command",
-        "plan",
-        "process",
-        "service",
-        "observation",
-      ],
+      packs: ["core.read", "core.write", "core.command", "process", "service", "observation"],
     },
   },
 };
@@ -44,7 +36,7 @@ describe("agent profiles", () => {
   });
 
   it("resolves workspace to the full pack surface", () => {
-    expect([...profileToolNames(catalog, "workspace")]).toHaveLength(7);
+    expect([...profileToolNames(catalog, "workspace")]).toHaveLength(6);
     expect(profileToolNames(catalog, "workspace").has("start_process")).toBe(true);
     expect(profileToolNames(catalog, "workspace").has("list_services")).toBe(true);
   });
