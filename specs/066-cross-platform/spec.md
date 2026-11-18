@@ -6,12 +6,12 @@ status: done
 depends_on: [060-extension, 065-launcher-updater]
 owners: [human]
 created: 2026-11-08
-updated: 2026-11-08
+updated: 2026-11-18
 ---
 
 # 跨平台安装与运行 PoC（M5-4）
 
-> 状态：`done`（2026-11-08 人类确认当前范围通过）。macOS Apple Silicon 已开发验证；CI 已删除。Windows 11 / Ubuntu 的支持承诺保留，实机与 Windows 终端/命令实现作为发布后跟踪项，未验证项不标通过。
+> 状态：`done`（2026-11-08 人类确认当前范围通过）。macOS Apple Silicon 已开发验证；Windows 11 于 2026-11-10、Windows 10 于 2026-11-18 完成实机验证；Ubuntu 待实机。CI 已删除，未验证项不标通过。
 > 背景：`larness@0.1.0` 已发布，仅验证 macOS arm64 + Node 20/22/24。M5-4 验证 macOS Apple Silicon、Ubuntu、Windows 11，并把安装 / 预编译 / 平台限制公开。
 
 > 本切片保留首次发布时的 Node.js 要求与验证记录。现行支持范围见[支持矩阵](../../docs/known-limitations.md)。

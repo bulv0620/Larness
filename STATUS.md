@@ -11,7 +11,7 @@
 ## 阻塞与待确认
 
 - **实机验收证据边界（082/083）**：082 已按限定范围验收通过，但真实 Provider A/B、Windows 实机与 083 用户现有 PM2/旧命令数据未在本次环境复跑；不得据此声称这些场景已验证。
-- **HX-12b（`turnRunner` 循环体拆分）**：前置是把约 20 个可变闭包状态收敛为显式 `TurnRunState`；仅因改造面大而暂缓，不受环境阻塞。081 明确不动循环体，交付后该文件为 2 416 行，拆分优先级不变。
+- **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
 
@@ -19,6 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-18 | M5-F1-W10 Windows 10 实机复测 | 用户确认通过；安装 / TUI / 终端 / 命令 / PM2；Ubuntu 仍待 M5-F2 | [066 tasks](specs/066-cross-platform/tasks.md#发布后跟踪-m5-f1-w10windows-10-x64-实机复测不计入-m5-完成) |
 | 2026-11-18 | S-1～S-7 项目服务与 service-ops | 人类验收通过；coding 直接管理后台开发任务；项目服务改读进程；预览按需生成；service-ops 管理默认 namespace PM2；旧命令释放锁；check/build + Mock 24/24 + Prod 20/20 | [083 tasks](specs/083-service-model/tasks.md#s-72026-11-18macos) |
 | 2026-11-18 | K-10 A/B 与全量门禁 | 确定性 10 任务 A/B 10/10；check/build/Mock 24/24/Prod 20/20；真实模型 A/B 未运行，按限定范围收口，人类验收通过 | [082 tasks](specs/082-agent-kernel/tasks.md#k-102026-11-18macos真实模型-ab-未运行) |
 | 2026-11-18 | K-9 workspace Profile、迁移与 UI | 新增 `sessions.agent_profile` 默认 coding；Session API/Composer Profile 选择；TurnRunner 按会话装配；迁移计数 32 | [082 tasks](specs/082-agent-kernel/tasks.md#k-92026-11-18macos) |
@@ -28,7 +29,6 @@
 | 2026-11-18 | K-6 后台进程能力包 | 新增 ProcessManager、3 个 workspace 工具与进程 REST；进程组停止、环形输出游标、启动/停止幂等；workspace 15 工具 / 3 175 schema token | [082 tasks](specs/082-agent-kernel/tasks.md#k-62026-11-18macos) |
 | 2026-11-18 | K-5 终端与 Agent 模型面分离 | 7 个终端工具与 Agent 租约移除；workspace 12 工具 / 2 596 schema token；人类终端 API/WS 16 项通过；`PROMPT_VERSION` → `m6-5` | [082 tasks](specs/082-agent-kernel/tasks.md#k-52026-11-18macos) |
 | 2026-11-18 | K-4 Git 模型工具移除 | 10 个 Git 工具从所有 Profile 移除；workspace 19 工具 / 3 947 schema token；人类 Git UI 与 ProjectLease 保留；Agent 经 shell Git 提交验证 | [082 tasks](specs/082-agent-kernel/tasks.md#k-42026-11-18macos) |
-| 2026-11-18 | K-12 run_command / run_shell | `run_shell` 平台 shell、实际 shell 与 stdout/stderr 分离；新错误码与交互命令拒绝；coding 7 工具 / 1 727 token，比 workspace 降 63.3% | [082 tasks](specs/082-agent-kernel/tasks.md#k-122026-11-18macos) |
 
 > 更早的收口记录（含同日其余 MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 
@@ -59,5 +59,5 @@
 | M3 | 开发服务与隔离预览 | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 完成 |
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | `done` | M5-1a–e / M5-2 / M5-3 / M5-4 / M5-5 `done`；G5 条件通过（2026-11-08） |
-| M6 | 运行时效率与 Turn 恢复 | `done` | 070（HX）与 071（TR）于 2026-11-12 收口；HX-12b 拆分暂缓 |
+| M6 | 运行时效率与 Turn 恢复 | `done` | 070（HX）与 071（TR）于 2026-11-12 收口；HX-12b 于 2026-11-18 按用户决定废弃 |
 | 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核重构、项目服务与 service-ops |

@@ -1,6 +1,6 @@
 # 路线图与任务总表
 
-> 导航见 [规格与工程入口](README.md)。任务状态：`todo | in_progress | blocked | review | done`。
+> 导航见 [规格与工程入口](README.md)。任务状态：`todo | in_progress | blocked | review | done | dropped`；`dropped` 表示经人类确认不再执行，保留任务 ID 与原因。
 >
 > 规则：只执行依赖全部 `done` 的最小任务；一次一个任务；里程碑门禁未过不进入下一阶段（人类明确并行除外）。
 
@@ -298,9 +298,9 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | M5-F1 | Windows 终端、命令、PM2 实现与 Windows 11 实机验证 | Windows 11 实机通过：check 549/31、build、platform-smoke、pack 安装、TUI、ConPTY、命令、服务/预览、PM2 生命周期 | `done` |
 | M5-F1-R1 | [Windows 部署产物原子提交纠错](066-cross-platform/tasks.md#发布后跟踪-m5-f1-r1windows-部署产物提交) | M5-F1；用户授权排查 UI-F1 检查阻塞 | `done` |
 | M5-F1-SHELL | [Windows 交互终端自动选择 Shell](075-windows-terminal-shell/tasks.md) | M5-F1；用户确认回退顺序 | `done`（用户验收通过，整仓检查未通过） |
-| M5-F1-W10 | Windows 10 x64 1809+ 实机复测 | 同一实现；ConPTY/CIM/taskkill/Get-NetTCPConnection 均为 Windows 10 自带能力 | `todo` |
-| M5-F2 | Ubuntu 22.04 / 24.04 实机验证与修复 | node-pty 编译回退、路径/锁/PM2 | `todo` |
-| M5-F3 | 三端结果补齐后的支持矩阵与验收更新 | 未验证项不标通过 | `todo` |
+| M5-F1-W10 | Windows 10 x64 1809+ 实机复测 | 同一实现；ConPTY/CIM/taskkill/Get-NetTCPConnection 均为 Windows 10 自带能力 | `done`（2026-11-18 用户实机验证通过；版本/日志未回填） |
+| M5-F2 | Ubuntu 22.04 / 24.04 实机验证与修复 | node-pty 编译回退、路径/锁/PM2 | `todo`（待实机） |
+| M5-F3 | 三端结果补齐后的支持矩阵与验收更新 | 未验证项不标通过 | `todo`（仅剩 Ubuntu；Windows 10 已验证） |
 
 [061 DeepSeek 官方接入、模型与思考档位](061-deepseek-integration/spec.md) 于 2026-11-07 按用户确认的三项决策（旧档案忽略、思考默认开启、推理数据先实测）由 `draft` 转 `ready`，[ADR-053](../docs/adr/ADR-053-model-catalog-thinking.md) accepted。M5-1a 已交付：目录同步与缓存、模型 / 档位选择与 Turn 快照、Provider 参数、Composer 浮层与设置页；后续工具续跑与单次圆环分别由 M5-1b / M5-1c 交付。GLM、通用兼容端点、上下文压缩与跨模型迁移见 [063 规格](063-multi-provider/spec.md)（`done`，2026-11-07 人类验收）。Scheduler 见 [064 规格](064-scheduler/spec.md)（`done`，2026-11-08 当前范围验收）。
 
@@ -325,7 +325,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | HX-10 | [重复失败调用的循环干预](070-runtime-efficiency/tasks.md#hx-10-重复失败调用的循环干预) | HX-0 | `done` |
 | HX-11 | [Turn 级 token 消耗上限](070-runtime-efficiency/tasks.md#hx-11-turn-级-token-消耗上限) | HX-1 | `done`（默认关闭，待 D10） |
 | HX-12 | [turnRunner 机械拆分](070-runtime-efficiency/tasks.md#hx-12-turnrunner-机械拆分前置工程动作) | HX-0 | `done`（纯函数层；循环体见 HX-12b） |
-| HX-12b | [turnRunner 循环体拆分](070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) | HX-12 | `todo` |
+| HX-12b | [turnRunner 循环体拆分](070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) | HX-12 | `dropped`（2026-11-18 用户决定；082/083 后维持单循环，不再机械拆分） |
 
 ### 8.2 M6 后续：Turn 恢复与数据保留（071，ready）
 

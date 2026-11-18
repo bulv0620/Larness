@@ -45,7 +45,7 @@ updated: 2026-11-16
 
 ## 3. 非目标
 
-- NG-1：不拆 `turnRunner` 循环体（[070 HX-12b](070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) 仍是独立任务）。
+- NG-1：不拆 `turnRunner` 循环体（[070 HX-12b](070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) 于 2026-11-18 按用户决定废弃，本切片仍不拆循环体）。
 - NG-2：不合并工具（git 10 个仍为 10 个、终端 7 个仍为 7 个）。工具粒度直接决定调用正确率，见 ADR-067「备选方案」。
 - NG-3：不改 `@larness/shared` 的字段 `.describe()`。schema 字段描述已是当前最大单项成本，但属执行契约变更，另行评估。
 - NG-4：不并发任何写工具、需要项目锁的工具或需要审批的工具。

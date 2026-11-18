@@ -28,7 +28,7 @@
   - [x] `verify-npm-pack.mjs` 跨平台：Windows `larness.cmd` 路径、路径分隔符归一。
   - [x] `platform-smoke.mjs`：Node 版本、better-sqlite3、node-pty、文件系统；macOS Apple Silicon 通过。
   - [x] 保留 `.gitattributes` LF 与 server Vitest 超时 20s，便于实机稳定运行。
-  - [x] 本地 macOS Apple Silicon Node 24 验证通过；Windows / Ubuntu 结果待实机填写。
+  - [x] 本地 macOS Apple Silicon Node 24 验证通过；Windows 11 / Windows 10 已实机验证（Windows 10 为用户确认，2026-11-18）；Ubuntu 结果待实机填写。
 - 涉及路径：`scripts/verify-npm-pack.mjs`、`scripts/platform-smoke.mjs`、三端验收表。
 
 ### 发布后跟踪 M5-F2：Linux 验证 / 修复（不计入 M5 完成）
@@ -59,7 +59,7 @@
   - [x] TUI（源码与 dist）、ConPTY 终端、命令 `.cmd` shim、进程树停止、服务/预览。
   - [x] 真实 PM2 7.1.2 安装、启动、替换、健康失败回滚、对账。
   - [x] Mock E2E 19/19；Auth E2E 18/18；生产构建 E2E 18/18。
-  - [x] Windows 10 同构实现（ConPTY/CIM/taskkill/Get-NetTCPConnection），剩余实机复测见 M5-F1-W10。
+  - [x] Windows 10 同构实现（ConPTY/CIM/taskkill/Get-NetTCPConnection），实机复测见 M5-F1-W10（2026-11-18 用户确认通过）。
 - 涉及路径：Windows 平台层、terminals / commands / services / PM2 / 路径与测试。
 
 ### 发布后跟踪 M5-F1-R1：Windows 部署产物提交
@@ -72,11 +72,12 @@
 
 ### 发布后跟踪 M5-F1-W10：Windows 10 x64 实机复测（不计入 M5 完成）
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18 用户确认 Windows 10 x64 实机复测通过；具体 OS build、Node / npm 版本与日志未回填）
 - 依赖：M5-F1
 - 目标：在 Windows 10 x64 1809+ 复跑同一安装与核心链路，确认 ConPTY/进程树/PM2 行为一致。
 - 交付物：`pnpm check`、build、platform-smoke、pack 安装、TUI、终端、命令、PM2 实机记录。
 - 测试：Windows 10 实机；失败项回写支持矩阵，不标通过。
+- 备注：本次仅记录用户确认结果；未提供的版本号与命令输出不补写。
 
 ### 发布后跟踪 M5-F3：平台文档与整体验收（不计入 M5 完成）
 

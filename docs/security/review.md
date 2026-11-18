@@ -1,6 +1,6 @@
 # 安全复核与残余风险（M5-5）
 
-> 状态：2026-11-08 复核，范围 macOS Apple Silicon + 当前已实现功能。Windows / Ubuntu 未验证项单独标注。
+> 状态：2026-11-08 复核，范围 macOS Apple Silicon + 当前已实现功能。Windows / Ubuntu 未验证项单独标注。后续平台验证更新：Windows 11 与 Windows 10 已实机验证（Windows 10 为用户确认，2026-11-18）；Ubuntu 仍待验证。本文其余内容保留复核当时状态。
 > 方法：以代码路径、契约、ADR、现有测试与验收记录为证据；没有证据的项标“未验证”，不把“未发现”写成“已证明安全”。
 > 相关：[安全模型](../architecture/security.md)、[CONSTITUTION](../../CONSTITUTION.md)、[REST 契约](../contracts/rest-api.md)、[WS 契约](../contracts/ws-events.md)。
 

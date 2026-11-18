@@ -197,8 +197,8 @@ npm install -g larness@<old-version>
 | 平台 | 必做 |
 |---|---|
 | macOS Apple Silicon | check / build / platform-smoke / pack 安装 / TUI / 终端 / PM2 |
-| Ubuntu 22.04 / 24.04 | 同上；node-pty 可能需 build-essential / python |
-| Windows 11 x64 | build / platform-smoke / pack 待实机；终端与命令当前不可用，PM2 待验证 |
+| Ubuntu 22.04 / 24.04 | 同上；node-pty 可能需 build-essential / python；待实机 |
+| Windows 10 / 11 x64 | 同上；Windows 11 与 Windows 10 均已实机验证（Windows 10 用户确认 2026-11-18） |
 
 ## 10. 禁止
 

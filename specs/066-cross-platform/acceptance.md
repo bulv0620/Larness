@@ -1,6 +1,6 @@
-# M5-4 跨平台验收记录（2026-11-08，Windows 2026-11-10 更新）
+# M5-4 跨平台验收记录（2026-11-08，Windows 11 2026-11-10，Windows 10 2026-11-18）
 
-> 状态：`done`（2026-11-08 人类确认当前范围）。macOS Apple Silicon 已完成；Windows 11 x64 于 2026-11-10 完成终端/命令/PM2 实现与实机验证；Windows 10 与 Ubuntu 待实机复测。仓库 CI 已删除。
+> 状态：`done`（2026-11-08 人类确认当前范围）。macOS Apple Silicon 已完成；Windows 11 x64 于 2026-11-10 完成终端/命令/PM2 实现与实机验证；Windows 10 x64 于 2026-11-18 由用户确认实机复测通过；Ubuntu 仍待实机。仓库 CI 已删除。
 
 ## 已完成（macOS Apple Silicon）
 
@@ -35,11 +35,18 @@
 | Auth Playwright E2E | 通过 | `pnpm test:e2e:auth`：18/18（Chromium，虚拟认证器） |
 | 生产构建 E2E | 通过 | `pnpm test:e2e:prod`：18/18 |
 
+## Windows 10 x64（2026-11-18 用户确认）
+
+用户确认已在 Windows 10 x64 实机完成复测并通过，范围按 M5-F1-W10：安装、TUI、终端、命令、PM2。具体 OS build、Node / npm 版本与命令日志未回填；本记录不补写未提供的细节。
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 安装 / TUI / 终端 / 命令 / PM2 | 通过 | 用户确认（2026-11-18）；详细版本与日志未回填 |
+
 ## 待实机验证
 
 | 平台 | 项 | 结果 |
 |---|---|---|
-| Windows 10 x64 1809+ | 同一实现的安装、TUI、终端、命令、PM2 | 待实机；只使用 Windows 10 自带 ConPTY/CIM/taskkill/Get-NetTCPConnection |
 | Ubuntu 22.04 / 24.04 | `pnpm check` / build / platform-smoke / pack 安装 / 终端 / 命令 / PM2 | 待用户实机 |
 
 ## 手工验证命令
@@ -52,7 +59,7 @@ node scripts/platform-smoke.mjs
 node scripts/verify-npm-pack.mjs --install
 ```
 
-- Windows 当前预期：`pnpm check` 的终端/命令测试失败；先记录 build / platform-smoke / pack 结果，不标“完整支持”。
+- Windows 11 / Windows 10 已完成终端/命令/PM2 实机验证；Ubuntu 仍按待验证记录 build / platform-smoke / pack 结果，不标“完整支持”。
 - 记录 OS 版本、Node / npm 版本、失败日志与限制。
 
 ## CI
@@ -62,4 +69,4 @@ node scripts/verify-npm-pack.mjs --install
 
 ## 结论
 
-M5-4 按 macOS 当前范围完成，G5 条件通过。Windows 和 Ubuntu 的实现及实机验证见 [发布后跟踪](../../docs/open-questions.md#发布后任务与待验证项)。
+M5-4 按 macOS 当前范围完成，G5 条件通过。Windows 11 / Windows 10 的实现及实机验证已完成；Ubuntu 仍待实机，见 [发布后跟踪](../../docs/open-questions.md#发布后任务与待验证项)。

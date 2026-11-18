@@ -232,7 +232,7 @@ app.js          # 稳定入口（M0-9 创建）
 ## 9. 平台策略
 
 - 主开发与验收平台：macOS（当前开发机）。
-- 验证在本地执行。macOS Apple Silicon 已验证，Windows / Ubuntu 待实机，见 [支持矩阵](../known-limitations.md)。
+- 验证在本地执行。macOS Apple Silicon、Windows 11 与 Windows 10 已验证，Ubuntu 待实机，见 [支持矩阵](../known-limitations.md)。
 - 不假设 PTY、进程统计、PM2、开机自启在三平台一致；每项平台能力都要有单独验收记录。
 
 ## 10. 非目标

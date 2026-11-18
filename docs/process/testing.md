@@ -93,7 +93,7 @@ pnpm --filter @larness/server test
 |---|---|---|
 | macOS arm64 | 每个里程碑 | 全量 |
 | Ubuntu x64 | 发布后跟踪，待实机 | 安装、构建、PTY、路径、锁、PM2 |
-| Windows x64 | 发布后跟踪，待实现与实机 | 安装、TUI、终端、命令、路径、PM2 |
+| Windows x64 | Windows 11 已验证；Windows 10 用户确认（2026-11-18） | 安装、TUI、终端、命令、路径、PM2 |
 
 结果记录在 `STATUS.md` 或里程碑验收记录中；未实测的平台不得宣称支持。
 

@@ -1,13 +1,13 @@
 # 安装、升级与卸载
 
-> 状态：macOS Apple Silicon、Windows 11 x64 已验证；Windows 10 x64 与 Ubuntu 待实机复测。支持矩阵与限制见 [known-limitations](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)；发布流程见 [release](https://github.com/bulv0620/Larness/blob/main/docs/process/release.md)。不支持 macOS Intel。
+> 状态：macOS Apple Silicon、Windows 11 x64、Windows 10 x64 已验证；Ubuntu 待实机复测。支持矩阵与限制见 [known-limitations](https://github.com/bulv0620/Larness/blob/main/docs/known-limitations.md)；发布流程见 [release](https://github.com/bulv0620/Larness/blob/main/docs/process/release.md)。不支持 macOS Intel。
 
 ## 安装
 
 要求：
 
 - Node.js **22.22+（22.x）/ 24+**，请使用对应主版本的最新补丁版；macOS Apple Silicon 已验证 22.23.4 和 24.22.2，Windows 11 已验证 24.9.0
-- 发布包固定 `better-sqlite3@13.0.3`。其 npm 包内含 Node-API 预编译文件，macOS Apple Silicon 与 Windows 11 已实测
+- 发布包固定 `better-sqlite3@13.0.3`。其 npm 包内含 Node-API 预编译文件，macOS Apple Silicon 与 Windows 10 / 11 已实测
 - macOS 需要 Xcode Command Line Tools 仅在原生依赖没有可用预编译时使用
 - Ubuntu 的 `node-pty` 没有预编译，可能需要 `build-essential`、`python`、`make`
 - Windows 10 1809+ / Windows 11 x64 使用包内预编译；PowerShell 5.1 与 ConPTY 是系统自带，无需 WSL 或 Visual Studio Build Tools
@@ -73,7 +73,7 @@ npm uninstall -g larness
 - npm 11 会提示 `install-scripts` 未审查；脚本仍会执行。若被策略阻止，使用：
   `npm install -g larness --allow-scripts=node-pty@1.1.0`
 - npm 11 全局安装可能把 `node-pty` 的 `spawn-helper` 解压成不可执行；Larness 在创建终端前会修复该文件权限（仅 macOS），不需要用户手动 chmod。
-- Linux 安装可能需要编译 `node-pty`；Windows 11 x64 使用包内预编译并已实测。
+- Linux 安装可能需要编译 `node-pty`；Windows 10 / 11 x64 使用包内预编译并已实测。
 - Windows 数据目录位于 `%LOCALAPPDATA%\larness`，依赖当前用户 ACL 保护；不要共享同一 Windows 账户。
 - Windows 停止终端/命令使用 `taskkill /T /F` 清理进程树；这不是沙箱，源进程仍以当前用户权限运行。
 

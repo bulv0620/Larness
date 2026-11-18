@@ -6,10 +6,9 @@
 
 | ID / 领域 | 遗留项 | 证据 |
 |---|---|---|
-| M5-F1 | Windows 11 x64 原生安装、TUI、ConPTY、命令、文件/Git、服务/预览与 PM2 已实机通过。 | [平台任务卡](../specs/066-cross-platform/tasks.md) |
-| M5-F1-W10 | Windows 10 x64 1809+ 与 Windows 11 使用同一实现；尚未单独实机复测。 | [验收记录](../specs/066-cross-platform/acceptance.md) |
+| M5-F1 | Windows 11 x64 原生安装、TUI、ConPTY、命令、文件/Git、服务/预览与 PM2 已实机通过；Windows 10 x64 于 2026-11-18 由用户确认实机复测通过。 | [平台任务卡](../specs/066-cross-platform/tasks.md) |
 | M5-F2 | 在 Ubuntu 22.04 / 24.04 x64 验证安装、node-pty 编译回退、终端、PM2、路径与锁。 | [平台验收](../specs/066-cross-platform/acceptance.md) |
-| M5-F3 | F1、F2 完成后按实机结果更新支持矩阵与验收。 | [平台任务卡](../specs/066-cross-platform/tasks.md) |
+| M5-F3 | F2 完成后按实机结果更新支持矩阵与验收；Windows 10 已验证。 | [平台任务卡](../specs/066-cross-platform/tasks.md) |
 | 远程预览 | 验证独立域、通配 DNS、HTTPS 反代与浏览器行为；预览连接身份存在竞态边界。多客户端布局、外部打开和模型自主选择预览仍缺专门端到端覆盖。 | [M3 收尾](../specs/040-services-preview/closure.md) |
 | 正式服务 | 核实主机重启后恢复与 PM2 运行时升级行为；正式服务秘密注入及落盘边界见 Q-029。 | [M4 收尾](../specs/050-deploy/closure.md) |
 | 模型 | 实测真实第三方兼容端点与接近窗口阈值的长会话压缩质量及 UI。真实 GLM Coding 文本、推理和工具调用已有证据。 | [多模型验收](../specs/063-multi-provider/closure-d4.md) |
@@ -46,6 +45,9 @@
 
 ## 已解决
 
+- M5-F1-W10（2026-11-18）：用户确认 Windows 10 x64 实机复测通过；具体版本与日志未回填。见 [验收记录](../specs/066-cross-platform/acceptance.md)。
+- HX-12b（2026-11-18）：用户决定废弃 `turnRunner` 循环体拆分；082/083 后维持单循环。若后续出现具体维护痛点，按新任务重新评估。见 [070 tasks](../specs/070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分)。
+
 - Q-051（2026-11-18）：083 决定项目开发服务统一为 `ProcessManager` 的后台任务，内存 + `agent_events`，不跨重启恢复；不新增服务表，旧 `services` 仅历史读取。PM2 运维独立在 service-ops。见 [083](../specs/083-service-model/spec.md)。
 
 - Q-042～Q-050（2026-11-18）：人类批准 [082 spec](../specs/082-agent-kernel/spec.md#13-已确认决策) 与 [ADR-068](adr/ADR-068-agent-kernel.md) 的全部推荐默认。新会话与存量会话统一 `coding`，内测允许破坏性重构、不保留旧能力；`workspace` 仅显式选择。`plan` 仅 plan Profile；终端退出模型面；Git 模型工具移除；后台进程/服务工具按 3+4 粒度；`run_command` + `run_shell` 双路径；锁为 ProjectLease + ServiceLease；审计为 required/resource/debug；ADR-059/060 与 AGENTS.md 加载方式不变。K-1 基线见 [baseline.md](../specs/082-agent-kernel/baseline.md)。
@@ -60,7 +62,7 @@
 - Q-008：`packages/shared/src/config.ts` 的默认会话期限为绝对 12 小时、空闲 30 分钟，服务端执行校验。
 - Q-014：发布采用 npm 包，`package.json` 的 `bin` 指向 `app.js`，随包分发 Server / Web 构建产物及迁移文件。
 - Q-015 / Q-017 / Q-018：按 [M0 认证验收](../specs/010-foundation/acceptance.md) 和 [ADR-021](adr/ADR-021-passkey-v1.md) 执行 IP 来源引导、同步 Passkey 与临时授权。
-- Q-005：平台范围已明确；Windows 11 实现与实机验证已完成，Windows 10 实机复测见 M5-F1-W10，Ubuntu 见 M5-F2。
+- Q-005：平台范围已明确；Windows 11 与 Windows 10 实机验证已完成（Windows 10 为用户确认），Ubuntu 见 M5-F2。
 
 Q-004（2026-11-08）：用户确认 MIT 许可证；根包 `license: MIT` 并附 `LICENSE`，用于公共 npm 发布。
 
