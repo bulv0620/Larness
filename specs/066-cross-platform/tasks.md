@@ -79,6 +79,26 @@
 - 测试：Windows 10 实机；失败项回写支持矩阵，不标通过。
 - 备注：本次仅记录用户确认结果；未提供的版本号与命令输出不补写。
 
+### 发布后跟踪 M5-F1-W11：Windows 启动结算 /bin/ps 缺陷（不计入 M5 完成）
+
+- 状态：`done`（2026-11-18，分支 `task/m5-f1-w11-reconcile-ps`；Windows 10 19045 / Node 24.19.0 实机）
+- 依赖：M5-F1
+- 起因：2026-11-18 用户实机 Windows 10 无法启动，TUI 报「无法读取或校验数据，请刷新重试」。排查确认迁移 33/33 已应用、`quick_check` 正常，非数据库问题；根因为 `CommandManager.reconcileDeadStoppedCommands()`（`apps/server/src/modules/commands/manager.ts`）调用 `groupAlive()` 无 win32 分支，存在遗留 `command.run RECONCILIATION_REQUIRED (STOP_UNCONFIRMED)` 行时启动必抛 `spawn /bin/ps ENOENT`。POSIX 上 `ps` 不可用的环境（如 DSH 沙箱）同样会崩溃启动。既有测试「does not keep a project root blocked by a command whose recorded process is gone」在 Windows 同因失败，说明该路径此前未在 Windows 覆盖。
+- 修复：Windows 用 `processAlive(pid)` 判定（Windows 无 pgid，identity 仅 pid）；POSIX 保留进程组检查，快照失败保守视为无法确认、跳过该行保留屏障，不标记 FAILED 也不崩溃。
+- 交付（2026-11-18）：
+  - [x] 既有回归测试「does not keep a project root blocked…」修复前在 Windows 失败（`spawn /bin/ps ENOENT`），修复后通过；`commands.test.ts` 整文件 12 通过 / 1 平台跳过。
+  - [x] 真实数据目录实机验证：server 正常启动监听 3210，遗留 `rop_92c40cbf…` 行自愈为 `FAILED/STOP_UNCONFIRMED`，锁释放，无待结算行。
+  - [x] `biome ci`、六包 typecheck 通过；`VITEST_MAX_WORKERS=3 pnpm check` 在 apps/server 测试阶段存在 **2 个与本修复无关的存量失败**（stash 后复跑同样失败，见 M5-F1-W12），未冒充全量通过。
+- 涉及路径：`apps/server/src/modules/commands/manager.ts`、`apps/server/test/resources/commands.test.ts`（既有测试，未改动）。
+
+### 发布后跟踪 M5-F1-W12：Windows 全量 check 存量 shell 测试失败（不计入 M5 完成）
+
+- 状态：`todo`（2026-11-18 W11 排查时发现）
+- 依赖：M5-F1
+- 现象：Windows 10 实机 `VITEST_MAX_WORKERS=3 pnpm check` 在 apps/server 测试阶段失败：`test/agent/commands.test.ts`「runs run_shell through the platform shell…」与 `test/resources/command-runner.test.ts`「runs an explicit platform shell…」期望 POSIX `sh` 断言（`shell: "sh"`），本机仅有 `pwsh`，PowerShell 对 `"node.exe" -e …` 报 ParserError 导致 exit 1。另有 `terminal-shell.test.ts` worker 偶发 `exited unexpectedly`（并行运行时 1 次，单独复跑未再现）。stash 掉 W11 修复后同样失败，确认为存量，非 W11 回归；疑为 082 K-12 新增测试未在 Windows 验证（最后一次 Windows 全量 check 为 2026-11-10 Windows 11）。
+- 目标：平台条件化或补 pwsh 断言，使 Windows 全量 check 通过；worker 崩溃复现后归因。
+- 涉及路径：`apps/server/test/agent/commands.test.ts`、`apps/server/test/resources/command-runner.test.ts`、必要时 `selectShell` 相关断言。
+
 ### 发布后跟踪 M5-F3：平台文档与整体验收（不计入 M5 完成）
 
 - 状态：`todo`（发布后跟踪）

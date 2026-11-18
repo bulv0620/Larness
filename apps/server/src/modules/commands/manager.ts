@@ -655,7 +655,11 @@ export class CommandManager {
         continue;
       }
       if (pid === null) continue;
-      if ((await groupAlive(pid)) || processAlive(pid)) continue;
+      // Windows has no ps; processAlive is the whole check there. A failing
+      // POSIX snapshot must keep the barrier pending, not crash startup.
+      const groupMayLive =
+        process.platform === "win32" ? false : await groupAlive(pid).catch(() => true);
+      if (groupMayLive || processAlive(pid)) continue;
       immediateTransaction(this.options.db, (tx) => {
         updateOperation(tx, operation.id, {
           status: "FAILED",
