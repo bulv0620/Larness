@@ -237,7 +237,7 @@ it("saves the agent profile without sending and restores it after a reload", asy
   const user = userEvent.setup();
   const view = renderComposer();
   await user.click(await screen.findByRole("button", { name: "Agent Profile：Coding" }));
-  await user.click(screen.getByRole("menuitemradio", { name: /服务运维/ }));
+  await user.click(screen.getByRole("menuitemradio", { name: /Service Ops/ }));
   await waitFor(() =>
     expect(api.updateSession).toHaveBeenCalledWith("ses_a", { agentProfile: "service-ops" }),
   );
@@ -246,7 +246,7 @@ it("saves the agent profile without sending and restores it after a reload", asy
   queryClient.clear();
 
   renderComposer();
-  expect(await screen.findByRole("button", { name: "Agent Profile：服务运维" })).toBeVisible();
+  expect(await screen.findByRole("button", { name: "Agent Profile：Service Ops" })).toBeVisible();
   act(() => useNavigationStore.getState().selectSession("ses_b", null));
   expect(await screen.findByRole("button", { name: "Agent Profile：Coding" })).toBeVisible();
 });

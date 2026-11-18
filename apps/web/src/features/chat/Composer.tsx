@@ -80,7 +80,7 @@ type AgentProfileId = "coding" | "plan" | "service-ops";
 const agentProfiles = [
   { id: "coding", label: "Coding", detail: "文件、搜索与命令", icon: Code2 },
   { id: "plan", label: "Plan", detail: "只读探索与计划", icon: ListChecks },
-  { id: "service-ops", label: "服务运维", detail: "全局 PM2 服务", icon: ServerCog },
+  { id: "service-ops", label: "Service Ops", detail: "全局 PM2 服务", icon: ServerCog },
 ] as const;
 
 function defaultThinkingFor(model: {
