@@ -19,12 +19,7 @@ import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
 import type { DeploymentArtifactRow, DeploymentTargetRow } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
-import {
-  acquireResourceLock,
-  findResourceLock,
-  releaseResourceLock,
-  renewResourceLock,
-} from "../locks/service.js";
+import { LeaseManager } from "../locks/lease.js";
 import { getProjectById } from "../projects/repository.js";
 import type { ResourceEventBus } from "../resources/events.js";
 import {
@@ -119,6 +114,7 @@ async function privateDirectory(dir: string): Promise<void> {
 
 export class ServiceOpsRuntime {
   readonly #db: Database;
+  readonly #leases: LeaseManager;
   readonly #dataDir: string;
   readonly #deployments: DeploymentManager;
   readonly #authorizations: DeploymentAuthorizationService;
@@ -131,6 +127,7 @@ export class ServiceOpsRuntime {
 
   constructor(options: ServiceOpsRuntimeOptions) {
     this.#db = options.db;
+    this.#leases = new LeaseManager({ db: options.db, now: options.now ?? Date.now });
     this.#dataDir = options.dataDir;
     this.#deployments = options.deployments;
     this.#authorizations = options.authorizations;
@@ -285,16 +282,12 @@ export class ServiceOpsRuntime {
     }
 
     const deploymentId = newId("dep");
-    const lock = acquireResourceLock(
-      { db: this.#db, now: this.#now },
-      {
-        resourceType: "service",
-        resourceId: target.id,
-        owner: "service-ops",
-        executionId: deploymentId,
-        ttlMs: LOCK_TTL_MS,
-      },
-    );
+    const lock = this.#leases.acquireService({
+      serviceId: target.id,
+      owner: "service-ops",
+      executionId: deploymentId,
+      ttlMs: LOCK_TTL_MS,
+    });
     if (!lock) throw new DeploymentError("RESOURCE_LOCKED", "Formal service is busy");
 
     let authorization: DeploymentAuthorizationDto;
@@ -305,10 +298,7 @@ export class ServiceOpsRuntime {
         context: input.context,
       });
     } catch (error) {
-      releaseResourceLock(
-        { db: this.#db, now: this.#now },
-        { id: lock.id, fencingToken: lock.fencingToken },
-      );
+      this.#leases.release(lock);
       throw error;
     }
     if (
@@ -317,10 +307,7 @@ export class ServiceOpsRuntime {
       authorization.planId !== plan.id ||
       authorization.planHash !== plan.planHash
     ) {
-      releaseResourceLock(
-        { db: this.#db, now: this.#now },
-        { id: lock.id, fencingToken: lock.fencingToken },
-      );
+      this.#leases.release(lock);
       throw new DeploymentError("DEPLOY_AUTH_INVALID", "Authorization does not match plan");
     }
 
@@ -357,10 +344,7 @@ export class ServiceOpsRuntime {
 
     let lost = false;
     const renew = setInterval(() => {
-      const renewed = renewResourceLock(
-        { db: this.#db, now: this.#now },
-        { id: lock.id, fencingToken: lock.fencingToken, ttlMs: LOCK_TTL_MS },
-      );
+      const renewed = this.#leases.renew(lock, LOCK_TTL_MS);
       if (!renewed) lost = true;
     }, LOCK_RENEW_MS);
     renew.unref();
@@ -398,10 +382,7 @@ export class ServiceOpsRuntime {
         : this.#fail(target, deploymentId, reason, this.#now(), service);
     } finally {
       clearInterval(renew);
-      releaseResourceLock(
-        { db: this.#db, now: this.#now },
-        { id: lock.id, fencingToken: lock.fencingToken },
-      );
+      this.#leases.release(lock);
     }
   }
 
@@ -437,25 +418,22 @@ export class ServiceOpsRuntime {
     }
     const pm2 = this.#pm2;
     if (!pm2) throw new DeploymentError("DEPLOY_UNAVAILABLE", "PM2 is unavailable");
-    const options = { db: this.#db, now: this.#now };
     const operationId = newId("rop");
-    const projectLock = acquireResourceLock(options, {
-      resourceType: "project",
-      resourceId: project.id,
+    const projectLock = this.#leases.acquireProject({
+      projectId: project.id,
       owner: clientSessionId,
       executionId: operationId,
       ttlMs: LOCK_TTL_MS,
     });
     if (!projectLock) throw new DeploymentError("RESOURCE_LOCKED", "Project is busy");
-    const serviceLock = acquireResourceLock(options, {
-      resourceType: "service",
-      resourceId: targetId,
+    const serviceLock = this.#leases.acquireService({
+      serviceId: targetId,
       owner: clientSessionId,
       executionId: operationId,
       ttlMs: LOCK_TTL_MS,
     });
     if (!serviceLock) {
-      releaseResourceLock(options, projectLock);
+      this.#leases.release(projectLock);
       throw new DeploymentError("RESOURCE_LOCKED", "Service is busy");
     }
     const locks = [projectLock, serviceLock];
@@ -463,8 +441,7 @@ export class ServiceOpsRuntime {
     let prepared = false;
     const check = () => {
       assertAuthorized();
-      for (const lock of locks)
-        if (!renewResourceLock(options, { ...lock, ttlMs: LOCK_TTL_MS })) lost = true;
+      for (const lock of locks) if (!this.#leases.renew(lock, LOCK_TTL_MS)) lost = true;
       if (lost) throw new DeploymentError("RESOURCE_LOCKED", "Service lock was lost");
     };
     const heartbeat = setInterval(() => {
@@ -603,7 +580,7 @@ export class ServiceOpsRuntime {
       );
     } finally {
       clearInterval(heartbeat);
-      for (const lock of locks.reverse()) releaseResourceLock(options, lock);
+      for (const lock of locks.reverse()) this.#leases.release(lock);
     }
   }
 
@@ -624,16 +601,12 @@ export class ServiceOpsRuntime {
         "Formal service artifact is unavailable",
       );
     }
-    const lock = acquireResourceLock(
-      { db: this.#db, now: this.#now },
-      {
-        resourceType: "service",
-        resourceId: target.id,
-        owner: "service-ops-action",
-        executionId: newId("act"),
-        ttlMs: LOCK_TTL_MS,
-      },
-    );
+    const lock = this.#leases.acquireService({
+      serviceId: target.id,
+      owner: "service-ops-action",
+      executionId: newId("act"),
+      ttlMs: LOCK_TTL_MS,
+    });
     if (!lock) throw new DeploymentError("RESOURCE_LOCKED", "Formal service is busy");
     const now = this.#now();
     try {
@@ -763,10 +736,7 @@ export class ServiceOpsRuntime {
       this.#events.publish(event);
       throw error;
     } finally {
-      releaseResourceLock(
-        { db: this.#db, now: this.#now },
-        { id: lock.id, fencingToken: lock.fencingToken },
-      );
+      this.#leases.release(lock);
     }
   }
 
@@ -843,8 +813,7 @@ export class ServiceOpsRuntime {
     for (const operation of pendingOperations(this.#db).filter(
       (item) => item.kind === "service.control",
     )) {
-      const lock = findResourceLock(
-        this.#db,
+      const lock = this.#leases.find(
         "service",
         listServiceOpsRows(this.#db).find((item) => item.pm2Name === operation.path)?.targetId ??
           "",

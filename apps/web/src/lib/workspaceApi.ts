@@ -36,6 +36,7 @@ export interface ApiSession {
   credentialProfileId?: string | null;
   model?: string | null;
   thinking?: string | null;
+  agentProfile?: "coding" | "plan" | "workspace";
   approvalPolicyId: "standard" | "strict" | "readonly" | "autonomous";
   createdAt: number;
   updatedAt: number;
@@ -394,6 +395,7 @@ export async function listSessions(): Promise<ApiSessionSummary[]> {
 export async function createSession(input: {
   projectId?: string;
   title?: string;
+  agentProfile?: "coding" | "plan" | "workspace";
 }): Promise<ApiSession> {
   return apiFetch<ApiSession>("/api/sessions", {
     method: "POST",
@@ -414,6 +416,7 @@ export async function updateSession(
     model?: string | null;
     thinking?: string | null;
     credentialProfileId?: string | null;
+    agentProfile?: "coding" | "plan" | "workspace";
     approvalPolicyId?: "standard" | "strict" | "readonly" | "autonomous";
   },
 ): Promise<ApiSession> {

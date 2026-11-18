@@ -35,8 +35,10 @@ describe("sessions API", () => {
           workspacePath: string;
           status: string;
           title: string;
+          agentProfile: string;
         };
         expect(session.title).toBe("New session");
+        expect(session.agentProfile).toBe("coding");
         expect(session.workspacePath).toBe(
           path.join(dir, "sessions", "global-terminal", "workspace"),
         );
@@ -133,12 +135,14 @@ describe("sessions API", () => {
           payload: {
             title: "Renamed",
             modelProfileId: "mdl_next",
+            agentProfile: "workspace",
             approvalPolicyId: "strict",
           },
         });
         expect(renamed.json()).toMatchObject({
           title: "Renamed",
           modelProfileId: "mdl_next",
+          agentProfile: "workspace",
           approvalPolicyId: "strict",
         });
 

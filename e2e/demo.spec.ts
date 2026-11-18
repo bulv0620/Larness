@@ -317,8 +317,11 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.getByLabel("对话输入")).toBeFocused();
 
     await page.keyboard.press("Control+b");
-    await expect(page.getByLabel("项目与会话导航")).toHaveCount(0);
+    // The animated sidebar stays mounted while its width collapses; visibility
+    // is the observable contract, not removal from the DOM.
+    await expect(page.getByLabel("项目与会话导航")).toBeHidden();
     await page.keyboard.press("Control+b");
+    await expect(page.getByLabel("项目与会话导航")).toBeVisible();
 
     await page.getByRole("button", { name: "打开终端窗口" }).click();
     await expect(page.locator(".window-drag-handle")).toHaveCount(1);

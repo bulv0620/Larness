@@ -25,7 +25,7 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { ResourceOperationRow } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { ProjectWriteLock } from "../agent/projectWriteLock.js";
-import { releaseResourceLock } from "../locks/service.js";
+import { LeaseManager } from "../locks/lease.js";
 import {
   appendResourceEvent,
   cacheFileVersion,
@@ -404,10 +404,10 @@ export async function reconcileFileOperations(options: FileServiceOptions) {
           updatedAt: options.now?.() ?? Date.now(),
         });
       } else throw new Error("external version conflict");
-      releaseResourceLock(
-        { db: options.db, now: options.now },
-        { id: operation.lockId, fencingToken: operation.fencingToken },
-      );
+      new LeaseManager({
+        db: options.db,
+        ...(options.now === undefined ? {} : { now: options.now }),
+      }).releaseById(operation.lockId, operation.fencingToken);
     } catch {
       updateOperation(options.db, operation.id, {
         status: "RECONCILIATION_REQUIRED",

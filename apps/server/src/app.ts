@@ -13,6 +13,8 @@ import { registerJobRoutes } from "./api/jobs.js";
 import { registerModelRoutes } from "./api/models.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerPreviewRoutes } from "./api/previews.js";
+import { registerProcessServiceRoutes } from "./api/process-services.js";
+import { registerProcessRoutes } from "./api/processes.js";
 import { registerProjectRoutes } from "./api/projects.js";
 import { registerResourceActionRoutes } from "./api/resource-actions.js";
 import { registerResourceEventRoutes } from "./api/resource-events.js";
@@ -36,12 +38,14 @@ import type { JobService } from "./modules/jobs/service.js";
 import type { DeepSeekCatalogFetcher } from "./modules/models/catalog.js";
 import type { ModelProbeResolver } from "./modules/models/probe.js";
 import type { PreviewRegistry } from "./modules/previews/registry.js";
+import type { ProcessManager } from "./modules/processes/manager.js";
 import { ResourceEventBus } from "./modules/resources/events.js";
 import type { DeploymentAuthorizationService } from "./modules/service-ops/authorization.js";
 import { DeploymentManager } from "./modules/service-ops/deployments.js";
 import type { ServiceActionAuthorizationService } from "./modules/service-ops/serviceActions.js";
 import type { ServiceOpsRuntime } from "./modules/service-ops/serviceOps.js";
 import { ServiceManager } from "./modules/services/manager.js";
+import type { NamedServiceManager } from "./modules/services/named.js";
 import { createHostMetricsService } from "./modules/system/metrics.js";
 import { TerminalManager } from "./modules/terminals/manager.js";
 import { resolveRequestId } from "./request-id.js";
@@ -62,6 +66,8 @@ export interface AppServices {
   turnControls?: TurnControls;
   commands?: CommandManager;
   terminals?: TerminalManager;
+  processes?: ProcessManager;
+  processServices?: NamedServiceManager;
   git?: GitManager;
   services?: ServiceManager;
   deployments?: DeploymentManager;
@@ -76,6 +82,8 @@ export interface AppServices {
 export interface CreateAppOptions {
   startedAt?: number;
   logger?: FastifyBaseLogger;
+  /** Test fixtures may raise limits; production uses the default limiter. */
+  rateLimiter?: RateLimiter;
   services?: AppServices;
   webDistDir?: string;
   devWeb?: Pick<DevWebOptions, "target" | "webRoot" | "roots">;
@@ -110,7 +118,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.services) {
     installSecurityGuard(app, {
       ...options.services,
-      limiter: new RateLimiter(),
+      limiter: options.rateLimiter ?? new RateLimiter(),
     });
     registerBootstrapRoutes(app, options.services);
     registerSystemRoutes(app, {
@@ -174,6 +182,12 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerFsRoutes(app);
     registerCommandRoutes(app, options.services, commands);
     registerTerminalRoutes(app, options.services, terminals);
+    if (options.services.processes !== undefined) {
+      registerProcessRoutes(app, options.services, options.services.processes);
+    }
+    if (options.services.processServices !== undefined) {
+      registerProcessServiceRoutes(app, options.services, options.services.processServices);
+    }
     registerFileRoutes(app, options.services, resourceEvents);
     registerGitRoutes(app, options.services, git);
     registerServiceRoutes(app, options.services, serviceManager);
@@ -216,6 +230,7 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
   if (options.devWeb) {
     const services = options.services;
     if (!services) throw new Error("开发页面需要后端授权服务");
+    let lastDevWebAuditAt = 0;
     registerDevWeb(app, {
       ...options.devWeb,
       config: services.config,
@@ -224,13 +239,19 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         resolveActiveSession(services.db, request.cookies.larness_session ?? "", {
           idleTtlMinutes: services.config.auth.idleTtlMinutes,
         }),
-      auditReject: (code) =>
+      auditReject: (code) => {
+        const now = Date.now();
+        // Dev-web polling can produce thousands of identical unauthenticated
+        // rejections; keep the security signal without flooding the audit table.
+        if (now - lastDevWebAuditAt < 60_000) return;
+        lastDevWebAuditAt = now;
         appendAudit(services.db, {
           action: "dev-web.rejected",
           decision: "deny",
-          details: { code },
-          now: Date.now(),
-        }),
+          details: { code, aggregated: true },
+          now,
+        });
+      },
     });
   }
   if (!options.devWeb && options.webDistDir !== undefined) {

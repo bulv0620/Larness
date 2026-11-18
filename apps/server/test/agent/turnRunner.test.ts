@@ -820,7 +820,7 @@ describe("TurnRunner", () => {
 
       try {
         const sessionOptions = { db: opened.db, dataDir: dir };
-        const session = await createSession(sessionOptions, {});
+        const session = await createSession(sessionOptions, { agentProfile: "workspace" });
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "prefix" });
         let pm2Calls = 0;
         const pm2 = {
@@ -953,7 +953,7 @@ describe("TurnRunner", () => {
 
       try {
         const sessionOptions = { db: opened.db, dataDir: dir };
-        const session = await createSession(sessionOptions, {});
+        const session = await createSession(sessionOptions, { agentProfile: "workspace" });
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "refresh" });
         const registry = createFileToolRegistry();
         registry.register(createObservationTool());
@@ -984,12 +984,12 @@ describe("TurnRunner", () => {
         const parsed = JSON.parse(result.content) as {
           observedAt: number;
           preview: unknown[];
-          terminals: unknown[];
+          terminals?: unknown[];
           pm2: unknown;
         };
         expect(typeof parsed.observedAt).toBe("number");
         expect(Array.isArray(parsed.preview)).toBe(true);
-        expect(Array.isArray(parsed.terminals)).toBe(true);
+        expect(parsed.terminals).toBeUndefined();
         expect(parsed.pm2).toBeNull();
         expect(result.isError).toBe(false);
       } finally {
@@ -1308,8 +1308,8 @@ describe("TurnRunner", () => {
         const firstTurn = createTurn(sessionOptions, { sessionId: session.id, text: "before" });
         expect((await firstRunner.run(firstTurn.turnId)).status).toBe("COMPLETED");
         const firstSystem = first.calls[0]?.messages[0];
-        expect(firstSystem?.role === "system" && firstSystem.content).toContain(
-          "no Git repository was detected",
+        expect(firstSystem?.role === "system" && firstSystem.content).not.toContain(
+          "Git availability",
         );
 
         execFileSync("git", ["init", "-q", root]);
@@ -1322,8 +1322,8 @@ describe("TurnRunner", () => {
         const secondTurn = createTurn(sessionOptions, { sessionId: session.id, text: "after" });
         expect((await secondRunner.run(secondTurn.turnId)).status).toBe("COMPLETED");
         const secondSystem = second.calls[0]?.messages[0];
-        expect(secondSystem?.role === "system" && secondSystem.content).toContain(
-          "this project is a Git repository",
+        expect(secondSystem?.role === "system" && secondSystem.content).not.toContain(
+          "Git availability",
         );
 
         // The stored flag self-heals so the sidebar stops claiming "no git".

@@ -1,6 +1,6 @@
 # STATUS
 
-> 最后更新：2026-11-17 (+08:00)
+> 最后更新：2026-11-18 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
@@ -10,6 +10,8 @@
 
 ## 阻塞与待确认
 
+- **082 真实模型 A/B**：K-10 已按人类 2026-11-18 确认限定收口；真实 Provider A/B、Windows 实机与人工视觉未运行，不得声称模型成功率已验证。
+- **Q-051 命名服务持久化**：082 的命名后台服务为内存 + `agent_events`，Larness 重启后不恢复；现有 `services` 表继续只表示终端临时服务与预览源。是否要求跨重启历史待确认。
 - **HX-12b（`turnRunner` 循环体拆分）**：前置是把约 20 个可变闭包状态收敛为显式 `TurnRunState`；仅因改造面大而暂缓，不受环境阻塞。081 明确不动循环体，交付后该文件为 2 416 行，拆分优先级不变。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
@@ -18,16 +20,16 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
-| 2026-11-17 | UI-F28 发送后回到底部 | 发送消息立即回到最新输出并恢复自动跟随 | [068](specs/068-ui-fixes/tasks.md#ui-f282026-11-17macos) |
-| 2026-11-17 | UI-F27 项目条目标识 | Git 改为图标，运行中终端在 Git 图标左侧显示终端图标；服务端项目响应新增 `runningTerminals` | [068](specs/068-ui-fixes/tasks.md#ui-f272026-11-17macos) |
-| 2026-11-16 | LE-1～LE-7 Agent 内核轻量化 | 观察块移出缓存前缀、生命周期文案三处合一处、纯读批并发、批结果 12k 预算、system 精炼输出约束；`test/agent` 179/179 | [081](specs/081-agent-lean/tasks.md#验收记录) |
-| 2026-11-16 | UI-F26 定位居中 | 定位目标行滚动到文件列表中段，顶部按边界停靠 | [068](specs/068-ui-fixes/tasks.md#ui-f262026-11-16macos) |
-| 2026-11-16 | UI-F25 目录右键新建 | 目录菜单新增新建文件 / 新建文件夹并展开目标目录 | [068](specs/068-ui-fixes/tasks.md#ui-f252026-11-16macos) |
-| 2026-11-16 | UI-F24 新建后列表无感 | 创建后保留目录内容与滚动位置，不再跳回顶部 | [068](specs/068-ui-fixes/tasks.md#ui-f242026-11-16macos) |
-| 2026-11-16 | UI-F23 文件树双击打开 | 单击仅选中，双击打开普通文件 Tab；认证文件流程与 Web 全量通过 | [068](specs/068-ui-fixes/tasks.md#ui-f232026-11-16macos) |
-| 2026-11-16 | PT-1～PT-4 计划终态呈现 | 终态 running 步骤按结局显示「已停止 / 已中断 / 未标记完成」，摘要报未完成步数；web 249/249 | [080](specs/080-plan-terminal-state/tasks.md#验收记录) |
-| 2026-11-16 | PG-1～PG-4 计划步骤即时更新 | 系统提示与工具描述要求「完成一步即同批更新」；计划 6 次工具调用未更新时提醒一次；`test/agent` 174/174 | [079](specs/079-plan-progress/tasks.md#验收记录) |
-| 2026-11-15 | UI-F22 添加项目目录选择 | 目录浏览成功即选中，支持回车提交与磁盘 / 卷切换；用户验收通过 | [068](specs/068-ui-fixes/tasks.md#ui-f222026-11-15windows) |
+| 2026-11-18 | K-10 A/B 与全量门禁 | 确定性 10 任务 A/B 10/10；check/build/Mock 24/24/Prod 20/20；真实模型 A/B 未运行，按限定范围收口 | [082 tasks](specs/082-agent-kernel/tasks.md#k-102026-11-18macos真实模型-ab-未运行) |
+| 2026-11-18 | K-9 workspace Profile、迁移与 UI | 新增 `sessions.agent_profile` 默认 coding；Session API/Composer Profile 选择；TurnRunner 按会话装配；迁移计数 32 | [082 tasks](specs/082-agent-kernel/tasks.md#k-92026-11-18macos) |
+| 2026-11-18 | K-11 锁与审计收敛 | LeaseManager 成为唯一锁入口；AuditSink required/resource/debug；tool.requested/completed 与 terminal input/resize 审计移除；dev-web/git 噪声收敛 | [082 tasks](specs/082-agent-kernel/tasks.md#k-112026-11-18macos) |
+| 2026-11-18 | K-8 计划可选化 | coding/workspace 移除 update_plan 与计划提醒；plan Profile 只读+计划；workspace 17 工具 / 3 442 schema token；`PROMPT_VERSION` → `m6-6` | [082 tasks](specs/082-agent-kernel/tasks.md#k-82026-11-18macos) |
+| 2026-11-18 | K-7 命名服务 | 新增 NamedServiceManager、3 个 workspace 工具与服务 REST；项目+名称+命令幂等、端口冲突、健康检查与日志；workspace 18 工具 / 3 741 schema token | [082 tasks](specs/082-agent-kernel/tasks.md#k-72026-11-18macos) |
+| 2026-11-18 | K-6 后台进程能力包 | 新增 ProcessManager、3 个 workspace 工具与进程 REST；进程组停止、环形输出游标、启动/停止幂等；workspace 15 工具 / 3 175 schema token | [082 tasks](specs/082-agent-kernel/tasks.md#k-62026-11-18macos) |
+| 2026-11-18 | K-5 终端与 Agent 模型面分离 | 7 个终端工具与 Agent 租约移除；workspace 12 工具 / 2 596 schema token；人类终端 API/WS 16 项通过；`PROMPT_VERSION` → `m6-5` | [082 tasks](specs/082-agent-kernel/tasks.md#k-52026-11-18macos) |
+| 2026-11-18 | K-4 Git 模型工具移除 | 10 个 Git 工具从所有 Profile 移除；workspace 19 工具 / 3 947 schema token；人类 Git UI 与 ProjectLease 保留；Agent 经 shell Git 提交验证 | [082 tasks](specs/082-agent-kernel/tasks.md#k-42026-11-18macos) |
+| 2026-11-18 | K-12 run_command / run_shell | `run_shell` 平台 shell、实际 shell 与 stdout/stderr 分离；新错误码与交互命令拒绝；coding 7 工具 / 1 727 token，比 workspace 降 63.3% | [082 tasks](specs/082-agent-kernel/tasks.md#k-122026-11-18macos) |
+| 2026-11-18 | K-3 coding Profile 与核心提示 | coding 6 工具、schema 1 174 / system 253 token，比 workspace 降 73%；`PROMPT_VERSION` → `m6-4`；默认仍 workspace | [082 tasks](specs/082-agent-kernel/tasks.md#k-32026-11-18macos) |
 
 > 更早的收口记录（含同日其余 MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

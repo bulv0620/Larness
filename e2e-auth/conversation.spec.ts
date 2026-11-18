@@ -34,6 +34,11 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
   await page.getByRole("button", { name: "兑换配对码" }).click();
   await expect(page.getByTestId("workspace-home")).toBeVisible();
   await page.getByRole("button", { name: "在 默认工作区 中新建会话" }).click();
+  // K-8: planning belongs to the explicit plan profile; coding/workspace no
+  // longer advertise or execute update_plan.
+  await page.getByRole("button", { name: "Agent Profile：Coding" }).click();
+  await page.getByRole("menuitemradio", { name: /Plan/ }).click();
+  await expect(page.getByRole("button", { name: "Agent Profile：Plan" })).toBeVisible();
   const input = page.getByLabel("对话输入");
   const composerDock = page.getByTestId("composer-dock");
   await expect(composerDock).toHaveAttribute("data-placement", "center");
@@ -74,7 +79,18 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
   await expect(page.getByText("项目文件已列出。", { exact: true })).toHaveCount(1, {
     timeout: 20_000,
   });
-  expect(await log.evaluate((element) => element.scrollTop)).toBeLessThan(100);
+  // UI-F28: sending from a scrolled-up transcript re-attaches to the newest
+  // output instead of preserving the old reading position.
+  expect(
+    await log.evaluate(
+      (element) => element.scrollHeight - element.scrollTop - element.clientHeight,
+    ),
+  ).toBeLessThan(100);
+  await expect(page.getByRole("button", { name: "回到最新消息" })).toHaveCount(0);
+  await log.evaluate((element) => {
+    element.scrollTop = 0;
+    element.dispatchEvent(new Event("scroll"));
+  });
   await expect(page.getByRole("button", { name: "回到最新消息" })).toBeVisible();
   await page.getByRole("button", { name: "回到最新消息" }).click();
   await expect(page.getByText("项目文件已列出。", { exact: true })).toBeVisible();
@@ -106,10 +122,12 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
   await page.getByRole("button", { name: "停止执行" }).click();
   await expect(page.getByText("已停止当前执行。")).toBeVisible();
   await expect(steps.locator(".animate-spin")).toHaveCount(0);
-  await expect(steps.getByText("未完成", { exact: true })).toBeVisible();
+  // PT-1: a cancelled turn labels the open step as stopped, not failed.
+  await expect(steps.getByText("已停止", { exact: true })).toBeVisible();
+  await expect(unfinished).toContainText("另有 2 步未完成");
   await page.reload();
   await unfinished.click();
-  await expect(steps.getByText("未完成", { exact: true })).toBeVisible();
+  await expect(steps.getByText("已停止", { exact: true })).toBeVisible();
   await expect(steps.locator(".animate-spin")).toHaveCount(0);
   expect(errors).toEqual([]);
 });

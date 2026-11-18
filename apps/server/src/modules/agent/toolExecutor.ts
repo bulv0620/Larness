@@ -8,7 +8,7 @@ import {
 } from "@larness/agent";
 import { OutputRedactor } from "@larness/resources";
 import type { Database } from "../../db/client.js";
-import { appendAudit } from "../../db/repositories/audit.js";
+import { AuditSink } from "../audit/sink.js";
 import {
   type ApprovalDto,
   ApprovalError,
@@ -20,6 +20,8 @@ import {
 export interface ToolExecutorOptions {
   db: Database;
   registry: ToolRegistry;
+  /** Catalog tools the session's current agent profile must not execute. */
+  disabledTools?: ReadonlySet<string>;
   now?: () => number;
 }
 
@@ -39,18 +41,12 @@ export interface ExecuteToolInput {
   policySnapshotId?: string;
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
-  startTerminal?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
-  readTerminalOutput?: (args: unknown) => Promise<ToolResult>;
-  stopTerminal?: (args: unknown) => Promise<ToolResult>;
-  acquireTerminalControl?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
-  sendTerminalInput?: (args: unknown) => Promise<ToolResult>;
-  interruptTerminal?: (args: unknown) => Promise<ToolResult>;
-  releaseTerminalControl?: (args: unknown) => Promise<ToolResult>;
-  gitRead?: (
-    operation: "status" | "diff" | "log" | "branches",
-    args: unknown,
-  ) => Promise<ToolResult>;
-  gitAction?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  startProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  readProcessOutput?: (args: unknown) => Promise<ToolResult>;
+  stopProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  startService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  readServiceLogs?: (args: unknown) => Promise<ToolResult>;
+  stopService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   registerService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
@@ -71,18 +67,22 @@ export async function executeTool(
   input: ExecuteToolInput,
 ): Promise<ToolExecutionOutcome> {
   const now = options.now?.() ?? Date.now();
+  const audit = new AuditSink({ db: options.db, now: () => now });
   const tool = options.registry.get(input.toolName);
 
-  if (tool === undefined) {
-    appendAudit(options.db, {
+  if (tool === undefined || options.disabledTools?.has(input.toolName) === true) {
+    audit.required({
       action: "tool.denied",
       decision: "deny",
       clientSessionId: input.clientSessionId,
       sessionId: input.sessionId,
       resourceType: "tool",
       resourceId: input.toolCallId,
-      details: { turnId: input.turnId, toolName: input.toolName, reason: "unknown_tool" },
-      now,
+      details: {
+        turnId: input.turnId,
+        toolName: input.toolName,
+        reason: tool === undefined ? "unknown_tool" : "disabled_tool",
+      },
     });
     return {
       status: "completed",
@@ -94,7 +94,7 @@ export async function executeTool(
   const access = decideToolAccess(input.policy, risk);
 
   if (access === "deny") {
-    appendAudit(options.db, {
+    audit.required({
       action: "tool.denied",
       decision: "deny",
       clientSessionId: input.clientSessionId,
@@ -108,7 +108,6 @@ export async function executeTool(
         policy: input.policy,
         reason: "policy",
       },
-      now,
     });
     return {
       status: "completed",
@@ -119,7 +118,7 @@ export async function executeTool(
   const parsed = tool.schema.safeParse(input.args);
 
   if (!parsed.success) {
-    appendAudit(options.db, {
+    audit.required({
       action: "tool.denied",
       decision: "deny",
       clientSessionId: input.clientSessionId,
@@ -131,7 +130,6 @@ export async function executeTool(
         toolName: input.toolName,
         reason: "invalid_arguments",
       },
-      now,
     });
     const issues = parsed.error.issues.map((issue) => ({
       path: issue.path.join("."),
@@ -157,7 +155,12 @@ export async function executeTool(
   }
 
   const contextBound =
-    input.toolName === "run_command" || input.toolName === "start_project_terminal";
+    input.toolName === "run_command" ||
+    input.toolName === "run_shell" ||
+    input.toolName === "start_process" ||
+    input.toolName === "stop_process" ||
+    input.toolName === "start_service" ||
+    input.toolName === "stop_service";
   const params = contextBound ? parsed.data : input.args;
   const approvalParams = contextBound
     ? {
@@ -208,22 +211,6 @@ export async function executeTool(
       },
     );
 
-    appendAudit(options.db, {
-      action: "tool.requested",
-      decision: "info",
-      clientSessionId: input.clientSessionId,
-      sessionId: input.sessionId,
-      resourceType: "tool",
-      resourceId: input.toolCallId,
-      details: {
-        turnId: input.turnId,
-        toolName: input.toolName,
-        risk,
-        approvalId: approval.id,
-      },
-      now,
-    });
-
     return { status: "approval_required", approval };
   }
 
@@ -243,7 +230,7 @@ export async function executeTool(
       }
     } catch (error) {
       if (error instanceof ApprovalError) {
-        appendAudit(options.db, {
+        audit.required({
           action: "tool.denied",
           decision: "deny",
           clientSessionId: input.clientSessionId,
@@ -256,7 +243,6 @@ export async function executeTool(
             approvalId: input.approvalId,
             reason: error.code,
           },
-          now,
         });
         return {
           status: "completed",
@@ -267,22 +253,6 @@ export async function executeTool(
       throw error;
     }
   }
-
-  appendAudit(options.db, {
-    action: "tool.requested",
-    decision: "allow",
-    clientSessionId: input.clientSessionId,
-    sessionId: input.sessionId,
-    resourceType: "tool",
-    resourceId: input.toolCallId,
-    details: {
-      turnId: input.turnId,
-      toolName: input.toolName,
-      risk,
-      ...(input.approvalId === undefined ? {} : { approvalId: input.approvalId }),
-    },
-    now,
-  });
 
   const context: ToolContext = {
     ...(input.updatePlan
@@ -307,15 +277,72 @@ export async function executeTool(
           },
         }
       : {}),
-    ...(input.startTerminal
+    ...(input.startProcess
       ? {
-          startTerminal: async (args: unknown) => {
+          startProcess: async (args: unknown) => {
             if (hashApprovalParams(args) !== hashApprovalParams(params))
-              return denied("APPROVAL_INVALID", "Terminal parameters changed");
+              return denied("APPROVAL_INVALID", "Process parameters changed");
             assertAuthorized();
             return (
-              input.startTerminal?.(args, assertAuthorized) ??
-              denied("FORBIDDEN", "Terminal context unavailable")
+              input.startProcess?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Process context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.readProcessOutput
+      ? {
+          readProcessOutput: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.readProcessOutput?.(args) ??
+              denied("FORBIDDEN", "Process output context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.stopProcess
+      ? {
+          stopProcess: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.stopProcess?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Process stop context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.startService
+      ? {
+          startService: async (args: unknown) => {
+            if (hashApprovalParams(args) !== hashApprovalParams(params))
+              return denied("APPROVAL_INVALID", "Service parameters changed");
+            assertAuthorized();
+            return (
+              input.startService?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Service context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.readServiceLogs
+      ? {
+          readServiceLogs: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.readServiceLogs?.(args) ??
+              denied("FORBIDDEN", "Service log context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.stopService
+      ? {
+          stopService: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.stopService?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Service stop context unavailable")
             );
           },
         }
@@ -352,93 +379,6 @@ export async function executeTool(
           },
         }
       : {}),
-    ...(input.readTerminalOutput
-      ? {
-          readTerminalOutput: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.readTerminalOutput?.(args) ??
-              denied("FORBIDDEN", "Terminal read context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.stopTerminal
-      ? {
-          stopTerminal: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.stopTerminal?.(args) ?? denied("FORBIDDEN", "Terminal stop context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.acquireTerminalControl
-      ? {
-          acquireTerminalControl: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.acquireTerminalControl?.(args, assertAuthorized) ??
-              denied("FORBIDDEN", "Terminal control context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.sendTerminalInput
-      ? {
-          sendTerminalInput: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.sendTerminalInput?.(args) ??
-              denied("FORBIDDEN", "Terminal input context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.interruptTerminal
-      ? {
-          interruptTerminal: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.interruptTerminal?.(args) ??
-              denied("FORBIDDEN", "Terminal interrupt context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.releaseTerminalControl
-      ? {
-          releaseTerminalControl: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.releaseTerminalControl?.(args) ??
-              denied("FORBIDDEN", "Terminal release context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.gitRead
-      ? {
-          gitRead: async (operation, args) => {
-            assertAuthorized();
-            return (
-              input.gitRead?.(operation, args) ??
-              denied("FORBIDDEN", "Git read context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.gitAction
-      ? {
-          gitAction: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.gitAction?.(args, assertAuthorized) ??
-              denied("FORBIDDEN", "Git action context unavailable")
-            );
-          },
-        }
-      : {}),
     ...(input.loadSecrets ? { loadSecrets: input.loadSecrets } : {}),
     ...(input.refreshObservations
       ? {
@@ -456,9 +396,9 @@ export async function executeTool(
   };
   const result = await options.registry.execute(input.toolName, params, context);
 
-  appendAudit(options.db, {
+  const auditInput = {
     action: result.ok ? "tool.completed" : "tool.denied",
-    decision: result.ok ? "allow" : "deny",
+    decision: result.ok ? ("allow" as const) : ("deny" as const),
     clientSessionId: input.clientSessionId,
     sessionId: input.sessionId,
     resourceType: "tool",
@@ -470,8 +410,9 @@ export async function executeTool(
       ...(result.errorCode === undefined ? {} : { errorCode: result.errorCode }),
       ...(result.truncated === undefined ? {} : { truncated: result.truncated }),
     },
-    now,
-  });
+  };
+  if (result.ok) audit.debug(auditInput);
+  else audit.required(auditInput);
 
   return { status: "completed", result };
 }

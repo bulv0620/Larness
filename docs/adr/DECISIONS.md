@@ -190,3 +190,7 @@ accepted，人工 Git 面板显式发起的推拉直接按项目、快照和客�
 ## ADR-067 · Agent 内核轻量化（2026-11-16）
 
 accepted，用户要求「把应该优化的都一步步优化」。运行时观察移出缓存前缀、作为尾部独立消息；服务生命周期文案只写一份；纯只读批次并发预取但事件与消息顺序不变；单批结果 12 000 token 预算从最旧折叠；system 增加精炼输出约束（`PROMPT_VERSION` → `m6-3`）。REST / WS / 数据库零变更。见 [ADR-067](ADR-067-lean-agent-context.md) 与 [081 规格](../../specs/081-agent-lean/spec.md)。
+
+## ADR-068 · Agent 内核与人类操作面分离（2026-11-18）
+
+accepted，2026-11-18 人类确认 082 spec、本 ADR 与 Q-042～Q-050 全部推荐默认；内测允许破坏性重构，存量会话不保留旧能力。单循环、无 subagent；新增 coding/plan/workspace Profile；模型移除 Git 与交互终端工具，Git/终端/PM2/预览保留为人类操作面；Agent 使用后台进程与命名服务；计划降级为 plan Profile；锁域收敛为 ProjectLease + ServiceLease；审计分级为安全关键/资源操作/调试；命令采用 run_command 结构化 + run_shell 平台 shell 双路径。替代 ADR-030 的 Agent 终端服务模型与 ADR-038 的 Agent 终端交互规则；ADR-048/059/060 不替代。见 [ADR-068](ADR-068-agent-kernel.md)、[K-1 基线](../../specs/082-agent-kernel/baseline.md) 与 [082 规格](../../specs/082-agent-kernel/spec.md)。

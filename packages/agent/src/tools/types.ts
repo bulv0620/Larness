@@ -19,18 +19,12 @@ export interface ToolContext {
   signal?: AbortSignal;
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown) => Promise<ToolResult>;
-  startTerminal?: (args: unknown) => Promise<ToolResult>;
-  readTerminalOutput?: (args: unknown) => Promise<ToolResult>;
-  stopTerminal?: (args: unknown) => Promise<ToolResult>;
-  acquireTerminalControl?: (args: unknown) => Promise<ToolResult>;
-  sendTerminalInput?: (args: unknown) => Promise<ToolResult>;
-  interruptTerminal?: (args: unknown) => Promise<ToolResult>;
-  releaseTerminalControl?: (args: unknown) => Promise<ToolResult>;
-  gitRead?: (
-    operation: "status" | "diff" | "log" | "branches",
-    args: unknown,
-  ) => Promise<ToolResult>;
-  gitAction?: (args: unknown) => Promise<ToolResult>;
+  startProcess?: (args: unknown) => Promise<ToolResult>;
+  readProcessOutput?: (args: unknown) => Promise<ToolResult>;
+  stopProcess?: (args: unknown) => Promise<ToolResult>;
+  startService?: (args: unknown) => Promise<ToolResult>;
+  readServiceLogs?: (args: unknown) => Promise<ToolResult>;
+  stopService?: (args: unknown) => Promise<ToolResult>;
   registerService?: (args: unknown) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;

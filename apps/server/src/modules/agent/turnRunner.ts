@@ -10,29 +10,22 @@ import {
   type ProviderUsage,
   type ToolCallRequest,
   type ToolRegistry,
-  type ToolResult,
   type ToolSchema,
 } from "@larness/agent";
-import { FileManagerError, GitError, OutputRedactor } from "@larness/resources";
+import { FileManagerError, OutputRedactor, selectShell } from "@larness/resources";
 import {
-  AcquireTerminalControlParamsSchema,
   type AssistantDeltaEvent,
   type AssistantReasoningDeltaEvent,
-  CommandParamsSchema,
+  CommandRequestSchema,
   FileResultTargetSchema,
-  InterruptTerminalParamsSchema,
+  normalizeCommandRequest,
   PlanParamsSchema,
   type PreviewResultTarget,
   PreviewResultTargetSchema,
-  ReadTerminalOutputParamsSchema,
-  ReleaseTerminalControlParamsSchema,
-  SendTerminalInputParamsSchema,
+  ProcessIdSchema,
   type ServerEvent,
   ServiceIdSchema,
   ServiceRegisterInputSchema,
-  StopProjectTerminalParamsSchema,
-  TerminalDevSchema,
-  TerminalResultTargetSchema,
   type TurnBudgetCause,
   type TurnFileResult,
 } from "@larness/shared";
@@ -46,17 +39,19 @@ import { publishAgentEvent } from "../../ws/publisher.js";
 import type { CommandManager } from "../commands/manager.js";
 import type { GitManager } from "../git/manager.js";
 import { listEncryptedSecrets } from "../models/repository.js";
+import type { ProcessManager } from "../processes/manager.js";
 import { getProjectById, updateProjectRow } from "../projects/repository.js";
 import { detectGit, parseProjectSettings } from "../projects/service.js";
 import type { ServiceManager } from "../services/manager.js";
+import type { NamedServiceManager } from "../services/named.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
-import type { TerminalManager } from "../terminals/manager.js";
 import { isDefaultWorkspace } from "../workspaces/default.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
 import { assembleContext } from "./contextAssembler.js";
 import { compressContext, shouldCompress } from "./contextCompressor.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
 import { buildObservationSnapshot } from "./observationSnapshot.js";
+import { disabledToolsForProfile } from "./profiles.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
 import {
   calibrateEstimate,
@@ -75,12 +70,10 @@ import {
 } from "./turn/budget.js";
 import { carriedSpendTokens } from "./turn/chain.js";
 import { foldOldToolResults, lastCompleteToolBatch } from "./turn/compaction.js";
-import { type PlanReminderStep, stalePlanReminder } from "./turn/planReminder.js";
 import { createSecretLoader } from "./turn/secrets.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
 import {
   boundedCommandOutput,
-  boundedTerminalOutput,
   foldBatchToolResults,
   MAX_BATCH_TOOL_RESULT_TOKENS,
   toolFailureIssues,
@@ -96,14 +89,21 @@ import {
 import { collectTurnFileResults, type TurnFileChange } from "./turnResults.js";
 
 function commandDisplay(params: unknown) {
-  const command = CommandParamsSchema.parse(params);
+  const request = CommandRequestSchema.parse(normalizeCommandRequest(params));
   const redact = (value: string) => new OutputRedactor([]).push(value, true);
+
+  if (request.mode === "shell") {
+    return {
+      command: redact(request.command),
+      cwd: redact(request.cwd),
+    };
+  }
+
   let hideNext = false;
   return {
-    ...command,
-    executable: redact(command.executable),
-    cwd: redact(command.cwd),
-    args: command.args.map((value) => {
+    executable: redact(request.executable),
+    cwd: redact(request.cwd),
+    args: request.args.map((value) => {
       const hide = hideNext;
       hideNext = /^--?(authorization|api[_-]?key|token|password|cookie|secret)$/i.test(value);
       return hide ? "[Redacted]" : redact(value);
@@ -153,9 +153,10 @@ export interface TurnRunnerOptions {
   lockWaitMs?: number;
   lockPollMs?: number;
   commands?: CommandManager;
-  terminals?: TerminalManager;
   git?: GitManager;
   services?: ServiceManager;
+  processes?: ProcessManager;
+  processServices?: NamedServiceManager;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
   logger?: TurnTimingLogger;
 }
@@ -187,24 +188,6 @@ function isTerminal(status: TurnStatus): boolean {
 
 function approvalPolicy(value: string): ApprovalPolicy {
   return value === "strict" || value === "readonly" || value === "autonomous" ? value : "standard";
-}
-
-function gitFailure(error: unknown, summary: string): ToolResult {
-  const code =
-    error instanceof GitError
-      ? error.code
-      : typeof (error as { code?: unknown } | null)?.code === "string"
-        ? ((error as { code: string }).code as string)
-        : "TOOL_ERROR";
-  return { ok: false, errorCode: code, summary };
-}
-
-function terminalFailure(error: unknown, summary: string): ToolResult {
-  return {
-    ok: false,
-    errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
-    summary,
-  };
 }
 
 function delay(ms: number, signal: AbortSignal): Promise<void> {
@@ -331,12 +314,10 @@ export class TurnRunner {
     // Project-configured ignore patterns apply to list/search for the whole Turn.
     const projectIgnore =
       project === null ? undefined : parseProjectSettings(project.settingsJson).ignore;
-    // One probe per Turn keeps the snapshot fresh while staying prefix-stable.
-    let gitObservation: { detected: boolean; observedAt: number } | undefined;
-
+    // One probe per Turn keeps the project metadata fresh; Git is a human UI
+    // concern now, so it is not injected into the model context.
     if (project !== null) {
       const detected = await detectGit(project.realPath);
-      gitObservation = { detected, observedAt: this.#now() };
 
       // Self-heal the stored flag so the sidebar is not stale after `git init`.
       if (detected !== project.gitDetected) {
@@ -379,12 +360,11 @@ export class TurnRunner {
     let anchoredHeuristicTokens: number | undefined;
     let anchoredProviderTokens: number | undefined;
     let wrapUpRequested = false;
-    // Plan progress: a long Turn used to touch the plan only at the start and
-    // the end, so the list looked frozen for hundreds of tool calls.
-    let planSteps: PlanReminderStep[] = [];
-    let toolCallsSincePlanUpdate = 0;
-    let planReminderSent = false;
     const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
+    // Profile membership is enforced at execution, not only in the advertised
+    // schema: a model that hallucinates a hidden built-in tool must not reach
+    // its handler. Extension/test tools outside the catalog stay available.
+    const disabledTools = disabledToolsForProfile(session.agentProfile);
     // First-touch order survives; later writes only refresh the version.
     const fileChanges = new Map<string, TurnFileChange>();
     const repeatFailures = new Map<string, number>();
@@ -483,7 +463,12 @@ export class TurnRunner {
     heartbeat.unref();
     const execute = (request: ToolCallRequest, approvalId?: string) =>
       executeTool(
-        { db: this.#options.db, registry: this.#options.registry, now: this.#options.now },
+        {
+          db: this.#options.db,
+          registry: this.#options.registry,
+          disabledTools,
+          now: this.#options.now,
+        },
         {
           sessionId: session.id,
           turnId: turn.id,
@@ -509,9 +494,6 @@ export class TurnRunner {
             if (checkBudget() !== "ok")
               return { ok: false, errorCode: "FORBIDDEN", summary: "Turn no longer active" };
             facts.recordPlan(plan.data.steps);
-            planSteps = plan.data.steps;
-            toolCallsSincePlanUpdate = 0;
-            planReminderSent = false;
             this.#emit(turn, session, "plan.updated", {
               turnId: turn.id,
               plan: {
@@ -532,6 +514,7 @@ export class TurnRunner {
                 summary: "Command execution context unavailable",
               };
             try {
+              const parsedRequest = CommandRequestSchema.safeParse(normalizeCommandRequest(params));
               const row = await this.#options.commands.execute(
                 {
                   sessionId: session.id,
@@ -564,13 +547,36 @@ export class TurnRunner {
               const output = await this.#options.commands.output(row.id, 0, 500);
               const completeText = output.chunks.map((chunk) => chunk.data).join("");
               // Keep the tail: test summaries and exit diagnostics live there.
-              const bounded = boundedCommandOutput(completeText, 12_000);
-              const text = bounded.text;
+              const bounded = boundedCommandOutput(completeText, 6_000);
+              const stdout = boundedCommandOutput(
+                output.chunks
+                  .filter((chunk) => chunk.channel === "stdout")
+                  .map((chunk) => chunk.data)
+                  .join(""),
+                6_000,
+              );
+              const stderr = boundedCommandOutput(
+                output.chunks
+                  .filter((chunk) => chunk.channel === "stderr")
+                  .map((chunk) => chunk.data)
+                  .join(""),
+                3_000,
+              );
+              let shellName: string | undefined;
+              if (parsedRequest.success && parsedRequest.data.mode === "shell") {
+                try {
+                  shellName = selectShell(parsedRequest.data.command).name;
+                } catch {
+                  /* The manager already failed closed if no shell was available. */
+                }
+              }
               const truncated =
                 row.truncated ||
                 output.truncated ||
                 output.resyncRequired ||
                 bounded.truncated ||
+                stdout.truncated ||
+                stderr.truncated ||
                 output.chunks.length >= 500;
               return {
                 ok: row.status === "COMPLETED" && row.exitCode === 0,
@@ -581,7 +587,10 @@ export class TurnRunner {
                   commandId: row.id,
                   status: row.status,
                   exitCode: row.exitCode,
-                  output: text,
+                  output: bounded.text,
+                  stdout: stdout.text,
+                  stderr: stderr.text,
+                  ...(shellName === undefined ? {} : { shell: shellName }),
                   truncated,
                 },
               };
@@ -593,33 +602,23 @@ export class TurnRunner {
               };
             }
           },
-          startTerminal: async (params, assertAuthorized) => {
-            const parsed = TerminalDevSchema.safeParse(params);
-            if (!parsed.success)
-              return {
-                ok: false,
-                errorCode: "VALIDATION_ERROR",
-                summary: "Invalid terminal parameters",
-              };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+          startProcess: async (params, assertAuthorized) => {
+            if (!snapshot || !this.#options.processes || !session.projectId) {
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
-                summary: "Project terminal context unavailable",
+                summary: "Process context unavailable",
               };
+            }
             try {
-              const before = await this.#options.terminals.activeDevByRole(
-                session.projectId,
-                parsed.data.role,
-              );
-              const row = await this.#options.terminals.createDev(
+              const dto = await this.#options.processes.start(
                 {
-                  clientSessionId: snapshot.clientSessionId,
-                  projectId: session.projectId,
                   sessionId: session.id,
                   turnId: turn.id,
                   toolCallId: request.id,
+                  clientSessionId: snapshot.clientSessionId,
                   policySnapshotId: snapshot.policySnapshotId,
+                  projectId: session.projectId,
                   signal: controller.signal,
                   assertAuthorized: () => {
                     assertAuthorized();
@@ -627,313 +626,231 @@ export class TurnRunner {
                       throw new Error("Execution no longer authorized");
                   },
                 },
-                parsed.data,
+                params,
               );
-              return {
-                ok: true,
-                summary: `开发终端 ${row.role ?? "dev"} ${row.status}；仅表示终端状态，服务状态请读取输出核对`,
-                data: {
-                  terminalId: row.id,
-                  role: row.role,
-                  status: row.status,
-                  exitCode: row.exitCode,
-                  reused: before?.id === row.id,
+              const output = await this.#options.processes.readOutput(
+                dto.id,
+                {
+                  sessionId: session.id,
+                  clientSessionId: snapshot.clientSessionId,
+                  projectId: session.projectId,
                 },
+                0,
+                50,
+              );
+              const tail = output.chunks
+                .map((chunk) => chunk.data)
+                .join("")
+                .slice(-4_000);
+              const running = dto.status === "RUNNING";
+              return {
+                ok: running,
+                summary: `Process ${dto.name ?? dto.id.slice(-6)} ${dto.status}`,
+                ...(running ? {} : { errorCode: dto.reasonCode ?? "PROCESS_EXITED" }),
+                data: { ...dto, output: tail, outputTruncated: output.truncated },
               };
             } catch (error) {
-              return terminalFailure(error, "Project terminal could not be started");
-            }
-          },
-          readTerminalOutput: async (params) => {
-            const parsed = ReadTerminalOutputParamsSchema.safeParse(params);
-            if (!parsed.success)
               return {
                 ok: false,
-                errorCode: "VALIDATION_ERROR",
-                summary: "Invalid terminal read parameters",
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Process could not be started",
               };
-            if (!this.#options.terminals)
+            }
+          },
+          readProcessOutput: async (params) => {
+            const parsed = z
+              .object({
+                processId: ProcessIdSchema,
+                after: z.number().int().min(0).default(0),
+                limit: z.number().int().min(1).max(500).default(100),
+              })
+              .strict()
+              .safeParse(params);
+            if (!parsed.success || !snapshot || !this.#options.processes || !session.projectId) {
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
-                summary: "Project terminal context unavailable",
+                summary: "Process output context unavailable",
               };
+            }
             try {
-              const row = await this.#options.terminals.readSessionTerminal(
-                parsed.data.terminalId,
-                session.id,
-              );
-              const page = await this.#options.terminals.readSessionTerminalOutput(
-                parsed.data.terminalId,
-                session.id,
+              const page = await this.#options.processes.readOutput(
+                parsed.data.processId,
+                {
+                  sessionId: session.id,
+                  clientSessionId: snapshot.clientSessionId,
+                  projectId: session.projectId,
+                },
                 parsed.data.after,
                 parsed.data.limit,
               );
-              const complete = page.chunks.map((chunk) => chunk.data).join("");
-              const bounded = boundedTerminalOutput(complete);
-              const truncated =
-                page.truncated ||
-                page.resyncRequired ||
-                bounded.truncated ||
-                complete !== bounded.text;
               return {
                 ok: true,
-                summary: `读取终端 ${row.role ?? row.id.slice(-6)} 输出（${page.chunks.length} 块）`,
-                truncated,
-                data: {
-                  terminalId: row.id,
-                  role: row.role,
-                  status: row.status,
-                  output: bounded.text,
-                  nextCursor: page.nextCursor,
-                  truncated,
-                  resyncRequired: page.resyncRequired,
-                },
+                summary: `${page.chunks.length} process output chunks`,
+                truncated: page.truncated || page.resyncRequired,
+                data: page,
               };
             } catch (error) {
-              return terminalFailure(error, "Terminal output could not be read");
-            }
-          },
-          stopTerminal: async (params) => {
-            const parsed = StopProjectTerminalParamsSchema.safeParse(params);
-            if (!parsed.success)
               return {
                 ok: false,
-                errorCode: "VALIDATION_ERROR",
-                summary: "Invalid terminal stop parameters",
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Process output could not be read",
               };
-            if (!snapshot || !this.#options.terminals || !session.projectId)
+            }
+          },
+          stopProcess: async (params, assertAuthorized) => {
+            const parsed = z.object({ processId: ProcessIdSchema }).strict().safeParse(params);
+            if (!parsed.success || !snapshot || !this.#options.processes || !session.projectId) {
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
-                summary: "Project terminal context unavailable",
+                summary: "Process context unavailable",
               };
-            try {
-              const row = await this.#options.terminals.stopProjectDev(
-                parsed.data.terminalId,
-                session.projectId,
-                snapshot.clientSessionId,
-              );
-              const stopped = row.status === "TERMINATED" || row.status === "EXITED";
-              return {
-                ok: stopped,
-                summary: `项目终端 ${row.role ?? row.id.slice(-6)} ${row.status}`,
-                ...(stopped ? {} : { errorCode: row.reasonCode ?? "STOP_UNCONFIRMED" }),
-                data: {
-                  terminalId: row.id,
-                  role: row.role,
-                  status: row.status,
-                  exitCode: row.exitCode,
-                  reasonCode: row.reasonCode,
-                },
-              };
-            } catch (error) {
-              return terminalFailure(error, "Project terminal could not be stopped");
             }
-          },
-          acquireTerminalControl: async (params, assertAuthorized) => {
-            const parsed = AcquireTerminalControlParamsSchema.safeParse(params);
-            if (!parsed.success)
-              return {
-                ok: false,
-                errorCode: "VALIDATION_ERROR",
-                summary: "Invalid terminal control parameters",
-              };
-            if (!snapshot || !this.#options.terminals)
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Project terminal context unavailable",
-              };
             try {
-              const row = await this.#options.terminals.acquireAgent(parsed.data.terminalId, {
+              assertAuthorized();
+              const result = await this.#options.processes.stop(parsed.data.processId, {
+                sessionId: session.id,
                 clientSessionId: snapshot.clientSessionId,
                 projectId: session.projectId,
-                sessionId: session.id,
-                turnId: turn.id,
-                toolCallId: request.id,
-                signal: controller.signal,
-                assertAuthorized: () => {
-                  assertAuthorized();
-                  if (checkBudget() !== "ok" || lockLost)
-                    throw new Error("Execution no longer authorized");
-                },
               });
               return {
-                ok: true,
-                summary: `终端 ${row.role ?? row.id.slice(-6)} 控制权已获取`,
-                data: {
-                  terminalId: row.id,
-                  role: row.role,
-                  generation: row.lease?.generation ?? null,
-                  expiresAt: row.lease?.expiresAt ?? null,
-                  ownerType: row.lease?.ownerType ?? null,
-                },
+                ok: result.stopped,
+                summary: `Process ${result.process.status}`,
+                ...(result.stopped ? {} : { errorCode: "STOP_UNCONFIRMED" }),
+                data: { ...result.process, forced: result.forced },
               };
             } catch (error) {
-              return terminalFailure(error, "Terminal control could not be acquired");
-            }
-          },
-          sendTerminalInput: async (params) => {
-            const parsed = SendTerminalInputParamsSchema.safeParse(params);
-            if (!parsed.success)
               return {
                 ok: false,
-                errorCode: "VALIDATION_ERROR",
-                summary: "Invalid terminal input parameters",
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Process could not be stopped",
               };
-            if (!snapshot || !this.#options.terminals)
+            }
+          },
+          startService: async (params, assertAuthorized) => {
+            if (!snapshot || !this.#options.processServices || !session.projectId) {
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
-                summary: "Project terminal context unavailable",
+                summary: "Service context unavailable",
               };
+            }
             try {
-              const result = await this.#options.terminals.inputAgent(
-                parsed.data.terminalId,
+              const service = await this.#options.processServices.start(
                 {
-                  clientSessionId: snapshot.clientSessionId,
-                  projectId: session.projectId,
                   sessionId: session.id,
                   turnId: turn.id,
                   toolCallId: request.id,
+                  clientSessionId: snapshot.clientSessionId,
+                  policySnapshotId: snapshot.policySnapshotId,
+                  projectId: session.projectId,
                   signal: controller.signal,
+                  assertAuthorized: () => {
+                    assertAuthorized();
+                    if (checkBudget() !== "ok" || lockLost)
+                      throw new Error("Execution no longer authorized");
+                  },
                 },
-                parsed.data.leaseGeneration,
-                parsed.data.inputSequence,
-                parsed.data.data,
+                params,
               );
+              const running = service.status === "RUNNING";
               return {
-                ok: true,
-                summary: result.accepted
-                  ? `已向终端发送 ${Buffer.byteLength(parsed.data.data)} 字节输入`
-                  : `输入序号 ${result.inputSequence} 已处理，未重复发送`,
-                data: { terminalId: parsed.data.terminalId, ...result },
+                ok: running,
+                summary: `Service ${service.name} ${service.status}`,
+                ...(running ? {} : { errorCode: service.reasonCode ?? "SERVICE_FAILED" }),
+                data: service,
               };
             } catch (error) {
-              return terminalFailure(error, "Terminal input could not be sent");
-            }
-          },
-          interruptTerminal: async (params) => {
-            const parsed = InterruptTerminalParamsSchema.safeParse(params);
-            if (!parsed.success)
               return {
                 ok: false,
-                errorCode: "VALIDATION_ERROR",
-                summary: "Invalid terminal interrupt parameters",
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Service could not be started",
               };
-            if (!snapshot || !this.#options.terminals)
+            }
+          },
+          readServiceLogs: async (params) => {
+            const parsed = z
+              .object({
+                serviceId: z.string().min(1),
+                after: z.number().int().min(0).default(0),
+                limit: z.number().int().min(1).max(500).default(100),
+              })
+              .strict()
+              .safeParse(params);
+            if (
+              !parsed.success ||
+              !snapshot ||
+              !this.#options.processServices ||
+              !session.projectId
+            ) {
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
-                summary: "Project terminal context unavailable",
+                summary: "Service log context unavailable",
               };
+            }
             try {
-              const result = await this.#options.terminals.interruptAgent(
-                parsed.data.terminalId,
+              const page = await this.#options.processServices.logs(
+                parsed.data.serviceId,
                 {
+                  sessionId: session.id,
                   clientSessionId: snapshot.clientSessionId,
                   projectId: session.projectId,
-                  sessionId: session.id,
-                  turnId: turn.id,
-                  toolCallId: request.id,
-                  signal: controller.signal,
                 },
-                parsed.data.leaseGeneration,
+                parsed.data.after,
+                parsed.data.limit,
               );
               return {
                 ok: true,
-                summary: "终端中断已发送；未确认进程退出，请重读输出 / 状态",
-                data: { terminalId: parsed.data.terminalId, ...result },
+                summary: `${page.chunks.length} service log chunks`,
+                truncated: page.truncated || page.resyncRequired,
+                data: page,
               };
             } catch (error) {
-              return terminalFailure(error, "Terminal interrupt could not be sent");
-            }
-          },
-          releaseTerminalControl: async (params) => {
-            const parsed = ReleaseTerminalControlParamsSchema.safeParse(params);
-            if (!parsed.success)
               return {
                 ok: false,
-                errorCode: "VALIDATION_ERROR",
-                summary: "Invalid terminal release parameters",
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Service logs could not be read",
               };
-            if (!snapshot || !this.#options.terminals)
+            }
+          },
+          stopService: async (params, assertAuthorized) => {
+            const parsed = z
+              .object({ serviceId: z.string().min(1) })
+              .strict()
+              .safeParse(params);
+            if (
+              !parsed.success ||
+              !snapshot ||
+              !this.#options.processServices ||
+              !session.projectId
+            ) {
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
-                summary: "Project terminal context unavailable",
+                summary: "Service context unavailable",
               };
+            }
             try {
-              const row = await this.#options.terminals.releaseAgent(
-                parsed.data.terminalId,
-                {
-                  clientSessionId: snapshot.clientSessionId,
-                  projectId: session.projectId,
-                  sessionId: session.id,
-                  turnId: turn.id,
-                  toolCallId: request.id,
-                  signal: controller.signal,
-                },
-                parsed.data.leaseGeneration,
-              );
+              assertAuthorized();
+              const result = await this.#options.processServices.stop(parsed.data.serviceId, {
+                sessionId: session.id,
+                clientSessionId: snapshot.clientSessionId,
+                projectId: session.projectId,
+              });
               return {
-                ok: true,
-                summary: `终端 ${row.role ?? row.id.slice(-6)} 控制权已释放`,
-                data: { terminalId: row.id, role: row.role, status: row.status },
+                ok: result.stopped,
+                summary: `Service ${result.service.status}`,
+                ...(result.stopped ? {} : { errorCode: "STOP_UNCONFIRMED" }),
+                data: result.service,
               };
             } catch (error) {
-              return terminalFailure(error, "Terminal control could not be released");
-            }
-          },
-          gitRead: async (operation, params) => {
-            if (!this.#options.git || !session.projectId)
               return {
                 ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Git context unavailable",
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Service could not be stopped",
               };
-            try {
-              if (operation === "status") {
-                const result = await this.#options.git.status(session.projectId);
-                return {
-                  ok: true,
-                  summary: `Git ${result.branch}${result.ahead || result.behind ? ` (+${result.ahead}/-${result.behind})` : ""}`,
-                  data: result,
-                };
-              }
-              if (operation === "diff") {
-                const parsed = params as { path: string; staged?: boolean };
-                const result = await this.#options.git.diff(
-                  session.projectId,
-                  parsed.path,
-                  parsed.staged === true,
-                );
-                return {
-                  ok: true,
-                  summary: `Git diff ${result.path}${result.staged ? " (staged)" : ""}${result.truncated ? " (truncated)" : ""}`,
-                  truncated: result.truncated,
-                  data: result,
-                };
-              }
-              if (operation === "log") {
-                const parsed = params as { limit?: number; cursor?: number };
-                const result = await this.#options.git.log(
-                  session.projectId,
-                  parsed.limit ?? 50,
-                  parsed.cursor ?? 0,
-                );
-                return { ok: true, summary: `${result.length} commits`, data: { items: result } };
-              }
-              const parsed = params as { limit?: number; cursor?: number };
-              const result = await this.#options.git.branches(
-                session.projectId,
-                parsed.limit ?? 100,
-                parsed.cursor ?? 0,
-              );
-              return { ok: true, summary: `${result.length} branches`, data: { items: result } };
-            } catch (error) {
-              return gitFailure(error, "Git query failed");
             }
           },
           registerService: async (params, assertAuthorized) => {
@@ -1034,7 +951,7 @@ export class TurnRunner {
             }
           },
           listServices: async (params) => {
-            if (!this.#options.services || !session.projectId)
+            if (!session.projectId)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -1045,14 +962,24 @@ export class TurnRunner {
                 typeof params === "object" && params !== null && "limit" in params
                   ? Number(params.limit)
                   : 50;
-              const result = this.#options.services.list({
+              const boundedLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 200) : 50;
+              const temporary = this.#options.services?.list({
                 projectId: session.projectId,
-                limit: Number.isInteger(limit) && limit > 0 ? Math.min(limit, 200) : 50,
+                limit: boundedLimit,
+              });
+              const named = this.#options.processServices?.list({
+                projectId: session.projectId,
               });
               return {
                 ok: true,
-                summary: `${result.items.length} 个临时服务`,
-                data: result,
+                summary: `${(named?.length ?? 0) + (temporary?.items.length ?? 0)} 个服务`,
+                data: {
+                  items: [
+                    ...(named ?? []).map((service) => ({ ...service, kind: "process" })),
+                    ...(temporary?.items ?? []),
+                  ],
+                  nextCursor: temporary?.nextCursor ?? null,
+                },
               };
             } catch (error) {
               return {
@@ -1060,49 +987,6 @@ export class TurnRunner {
                 errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
                 summary: "Service list failed",
               };
-            }
-          },
-          gitAction: async (params, assertAuthorized) => {
-            if (!this.#options.git || !session.projectId)
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Git context unavailable",
-              };
-            try {
-              const args = params as Record<string, unknown>;
-              const action =
-                request.name === "git_add"
-                  ? { action: "add", paths: args.paths }
-                  : request.name === "git_commit"
-                    ? { action: "commit", message: args.message }
-                    : request.name === "git_create_branch"
-                      ? { action: "createBranch", name: args.name }
-                      : request.name === "git_switch_branch"
-                        ? { action: "switchBranch", name: args.name }
-                        : request.name === "git_pull"
-                          ? { action: "pull" }
-                          : { action: "push" };
-              const result = await this.#options.git.runAgentAction(session.projectId, action, {
-                turnId: turn.id,
-                toolCallId: request.id,
-                signal: controller.signal,
-                ...(projectLock?.handle === null || projectLock === null
-                  ? {}
-                  : { inheritedLock: projectLock.handle }),
-                assertAuthorized: () => {
-                  assertAuthorized();
-                  if (checkBudget() !== "ok" || lockLost)
-                    throw new GitError("GIT_CONFLICT", "Execution no longer authorized");
-                },
-              });
-              return {
-                ok: true,
-                summary: `Git ${(params as { action?: string }).action ?? "action"} completed`,
-                data: result,
-              };
-            } catch (error) {
-              return gitFailure(error, "Git action failed");
             }
           },
           loadSecrets,
@@ -1137,7 +1021,6 @@ export class TurnRunner {
               const snapshot = buildObservationSnapshot({
                 db: this.#options.db,
                 session,
-                workspaceRoot: projectRoot,
                 pm2: pm2 ?? null,
                 git,
                 now: this.#now(),
@@ -1196,9 +1079,8 @@ export class TurnRunner {
         maxContextTokens: inputWindow,
         policy,
         contextRatio: this.#budget.contextRatio,
-        workspaceRoot: projectRoot,
         pm2Context: await this.#options.pm2Context?.(session.projectId),
-        ...(gitObservation === undefined ? {} : { git: gitObservation }),
+        agentProfile: session.agentProfile,
       };
       const assembleStarted = this.#now();
       let context = assembleContext(contextOptions, session, turn);
@@ -1343,24 +1225,6 @@ export class TurnRunner {
 
         appendLockNotice();
 
-        // A plan that stopped moving is a hint, never a rewrite: the model
-        // still owns every status change and the server never ticks a step it
-        // was not told about.
-        const planReminder = stalePlanReminder({
-          steps: planSteps,
-          toolCallsSincePlanUpdate,
-          alreadyReminded: planReminderSent,
-        });
-
-        if (planReminder !== null) {
-          planReminderSent = true;
-          messages.push({ role: "user", content: planReminder });
-          this.#options.logger?.info(
-            { turnId, sessionId: session.id, toolCallsSincePlanUpdate },
-            "stale plan reminder requested",
-          );
-        }
-
         // Ask the model to land the turn before the budget cuts it mid-sentence.
         const spentTokens = spentTokensTotal();
 
@@ -1371,7 +1235,7 @@ export class TurnRunner {
           wrapUpRequested = true;
           messages.push({
             role: "user",
-            content: `This turn is near its budget (${steps} steps, ${Math.round(spentTokens / 1000)}k tokens). Stop exploring: finish the operation in progress, update the plan to match reality, and reply with a concise summary of what changed, what was verified, and what remains unfinished. Do not start new work.`,
+            content: `This turn is near its budget (${steps} steps, ${Math.round(spentTokens / 1000)}k tokens). Stop exploring: finish the operation in progress and reply with a concise summary of what changed, what was verified, and what remains unfinished. Do not start new work.`,
           });
           this.#options.logger?.info(
             { turnId, sessionId: session.id, steps, maxSteps: this.#budget.maxSteps },
@@ -1717,6 +1581,7 @@ export class TurnRunner {
           toolRequests.length <= READ_PREFETCH_LIMIT &&
           checkBudget() === "ok" &&
           toolRequests.every((request) => {
+            if (disabledTools.has(request.name)) return false;
             const definition = this.#options.registry.get(request.name);
             if (definition === undefined) return false;
             const risk = definition.classifyRisk?.(request.args) ?? definition.riskLevel;
@@ -1742,9 +1607,6 @@ export class TurnRunner {
         }
 
         for (const request of toolRequests) {
-          // Counted before execution, so an `update_plan` in this batch resets
-          // the counter through its handler instead of being undone here.
-          toolCallsSincePlanUpdate += 1;
           const cancelState = checkBudget();
 
           if (cancelState === "budget")
@@ -1767,7 +1629,9 @@ export class TurnRunner {
             });
           }
 
-          const definition = this.#options.registry.get(request.name);
+          const definition = disabledTools.has(request.name)
+            ? undefined
+            : this.#options.registry.get(request.name);
           const argsSummary = definition?.summarize?.(request.args) ?? request.name;
 
           this.#emit(turn, session, "tool.requested", {
@@ -1926,10 +1790,6 @@ export class TurnRunner {
               path: fileResult?.path,
               version: fileResult?.version,
             });
-            const terminalResult =
-              request.name === "start_project_terminal"
-                ? (result.result.data as { terminalId?: unknown; role?: unknown } | undefined)
-                : undefined;
             const previewResult =
               request.name === "resolve_service_preview"
                 ? (result.result.data as
@@ -1950,42 +1810,12 @@ export class TurnRunner {
                     serviceId: registeredTarget?.serviceId ?? previewResult?.serviceId,
                     path: registeredTarget?.path ?? previewResult?.path,
                   });
-            const terminalTarget =
-              session.projectId === null
-                ? undefined
-                : TerminalResultTargetSchema.safeParse({
-                    kind: "terminal",
-                    projectId: session.projectId,
-                    terminalId: terminalResult?.terminalId,
-                    role: terminalResult?.role ?? null,
-                  });
             const target =
               fileTarget.success && fileResult
                 ? fileTarget.data
                 : previewTarget?.success
                   ? previewTarget.data
-                  : terminalTarget?.success
-                    ? terminalTarget.data
-                    : undefined;
-            const stoppedTerminal =
-              request.name === "stop_project_terminal"
-                ? z
-                    .object({
-                      terminalId: z.string(),
-                      role: z.string().nullable(),
-                      status: z.enum(["EXITED", "TERMINATED"]),
-                    })
-                    .safeParse(result.result.data)
-                : undefined;
-            const closedTarget =
-              stoppedTerminal?.success && session.projectId !== null
-                ? TerminalResultTargetSchema.safeParse({
-                    kind: "terminal",
-                    projectId: session.projectId,
-                    terminalId: stoppedTerminal.data.terminalId,
-                    role: stoppedTerminal.data.role,
-                  })
-                : undefined;
+                  : undefined;
             const successKey = stableArgsKey(request.name, request.args);
             repeatFailures.delete(successKey);
             const supersededCalls = failedCalls.get(successKey);
@@ -2020,10 +1850,6 @@ export class TurnRunner {
               resultSummary: result.result.summary,
               ...(fileRead === undefined ? {} : { fileRead }),
               ...(target === undefined ? {} : { resourceTarget: target }),
-              ...(closedTarget?.success ? { closedTerminalTarget: closedTarget.data } : {}),
-              ...((terminalTarget?.success || closedTarget?.success) && snapshot
-                ? { originClientSessionId: snapshot.clientSessionId }
-                : {}),
               ...(result.result.truncated === undefined
                 ? {}
                 : { truncated: result.result.truncated }),
@@ -2165,11 +1991,6 @@ export class TurnRunner {
         },
         "turn timing",
       );
-      try {
-        this.#options.terminals?.releaseAgentLeases(turn.id);
-      } catch {
-        // A failed release is cleared by the manager timer when the Turn is no longer active.
-      }
       if (controller.signal.aborted)
         invalidateTurnApprovals({ db: this.#options.db, now: this.#options.now }, turn.id);
       (projectLock as ProjectWriteLock | null)?.release();

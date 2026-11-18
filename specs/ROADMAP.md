@@ -417,6 +417,27 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | LE-6 | [验证](081-agent-lean/tasks.md#验收记录) | LE-5 | `done` |
 | LE-7 | [文档与状态回填](081-agent-lean/tasks.md#验收记录) | LE-6 | `done` |
 
+### 8.8 发布后：Agent 内核重构（082，ready）
+
+目标：在保留人类终端、Git、服务与 PM2 操作面的前提下，把 Agent 内核收成单循环 + core 工具 + 可选能力包；模型移除 Git 与交互终端工具，计划降级为 plan Profile，Agent 长任务使用后台进程/命名服务，锁收敛为 ProjectLease + ServiceLease，审计按安全关键/资源操作/调试分级。网络搜索与 subagent 不在本切片。规格见 [082](082-agent-kernel/spec.md)，基线见 [K-1](082-agent-kernel/baseline.md)，决策见 [ADR-068](../docs/adr/ADR-068-agent-kernel.md)。
+
+门禁：G-082-Spec 于 2026-11-18 通过（spec `ready`、ADR-068 `accepted`、Q-042～Q-050 全部确认；内测允许破坏性重构，存量会话不保留旧能力）；G-082 = K-1～K-12 完成且 A1–A14 通过。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| K-1 | [ADR-068、基线、锁/审计与契约盘点](082-agent-kernel/tasks.md#k-1-adr-068基线锁审计与契约盘点) | — | `done`（2026-11-18） |
+| K-2 | [Profile / ToolPack 抽象](082-agent-kernel/tasks.md#k-2-profile--toolpack-抽象) | K-1 | `done`（2026-11-18） |
+| K-3 | [coding Profile 与核心提示](082-agent-kernel/tasks.md#k-3-coding-profile-与核心提示) | K-2 | `done`（2026-11-18） |
+| K-12 | [run_command/run_shell 跨平台执行](082-agent-kernel/tasks.md#k-12-run_commandrun_shell-跨平台执行) | K-3 | `done`（2026-11-18） |
+| K-4 | [Git 模型工具移除与人类 UI 分面](082-agent-kernel/tasks.md#k-4-git-模型工具移除与人类-ui-分面) | K-3 | `done`（2026-11-18） |
+| K-5 | [终端与 Agent 模型面分离](082-agent-kernel/tasks.md#k-5-终端与-agent-模型面分离) | K-3 | `done`（2026-11-18） |
+| K-6 | [后台进程能力包](082-agent-kernel/tasks.md#k-6-后台进程能力包) | K-5 | `done`（2026-11-18） |
+| K-7 | [命名服务与可选预览](082-agent-kernel/tasks.md#k-7-命名服务与可选预览) | K-6 | `done`（2026-11-18） |
+| K-8 | [计划可选化](082-agent-kernel/tasks.md#k-8-计划可选化) | K-3 | `done`（2026-11-18） |
+| K-11 | [锁与审计契约收敛](082-agent-kernel/tasks.md#k-11-锁与审计契约收敛) | K-2 | `done`（2026-11-18） |
+| K-9 | [workspace Profile、迁移与 UI](082-agent-kernel/tasks.md#k-9-workspace-profile迁移与-ui) | K-4、K-7、K-8、K-11、K-12 | `done`（2026-11-18） |
+| K-10 | [A/B 验证、全量检查与文档回填](082-agent-kernel/tasks.md#k-10-ab-验证全量检查与文档回填) | K-9 | `done`（限定范围；真实模型 A/B 未运行） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

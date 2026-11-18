@@ -145,6 +145,11 @@ ACTIVE → REVOKED
 
 字段：`id`、`client_session_id`、`session_id`、`action`、`resource_type`、`resource_id`、`decision`、`details_json`（脱敏）、`created_at`。审计只追加，不提供普通删除接口。
 
+082 K-11（2026-11-18）：
+- **锁域**：实际业务锁只有 ProjectLease（项目根写串行化）与 ServiceLease（单服务运维）；Files/Git/Commands/ServiceOps/Deployments 统一经 `LeaseManager`，不再直接调用 `resource_locks`。ProjectLease 保留 TTL、fencing、过期接管、丢失检测与重叠根规则；ServiceLease 只覆盖同一目标；人类终端仅保留连接所有权。
+- **审计分级**：`AuditSink.required` 用于认证、配对、审批、拒绝、权限/凭据、部署、服务启停与秘密相关事件，写入失败即失败关闭；`resource` 用于文件/命令/Git/进程/服务生命周期，调用方在同一事务写入；`debug` 只进 `agent_events`/日志。`tool.requested`、`tool.completed`、`terminal.input`、`terminal.resize` 不再写审计；`tool.denied` 仍为 required。
+- **噪声控制**：`dev-web.rejected` 按分钟聚合；`git.denied` 不再记录 `VALIDATION_ERROR`。安全拒绝仍保留，不因降噪删除证据。
+
 ## 8. 失败关闭矩阵
 
 | 条件 | 行为 | 错误码 |

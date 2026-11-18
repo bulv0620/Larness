@@ -45,6 +45,10 @@
 | `WEBAUTHN_NOT_CONFIGURED` | 409 | WebAuthn 配置无效（如 RP ID 为 IP、缺少 canonical origin） |
 | `RATE_LIMITED` | 429 | 触发限流 |
 | `PATH_OUTSIDE_PROJECT` | 403 | 路径越界 |
+| `COMMAND_NOT_FOUND` | 404 | 可执行文件不存在 |
+| `INVALID_CWD` | 400 | 命令工作目录不是目录或不在允许范围 |
+| `SHELL_UNAVAILABLE` | 503 | 平台 shell 不可用 |
+| `INTERACTIVE_COMMAND` | 400 | 交互式 TUI 命令被拒绝；需改用非交互参数 |
 | `APPROVAL_INVALID` | 409 | 审批过期 / 被撤销 / 参数不一致 |
 | `PREVIEW_TARGET_INVALID` | 403 | 代理目标未登记或被禁止 |
 | `PREVIEW_DISABLED` | 503 | 预览网关未启用 |
@@ -565,6 +569,7 @@ OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模
 Session / Turn 的模型选择：
 
 - `model` 为目录中的模型 id；`thinking` 为 `off` / `low` / `medium` / `high`（旧 `default` 读取归一为 `medium`）。Provider 侧按 `low`→`low`、`medium`→`high`、`high`→`max` 发送。`PATCH /api/sessions/:id` 保存选择，`POST /api/sessions/:id/turns` 可覆盖本轮选择。
+- `agentProfile` 为 `coding` / `plan` / `workspace`；`POST /api/sessions` 可显式指定，缺省 `coding`；`PATCH /api/sessions/:id` 可切换。会话级字段持久化，Turn 开始时按当前会话 Profile 装配工具集；旧客户端不传时使用默认。
 - Turn 创建时快照 `provider`、`model`、`thinking`、预算（总窗口或保守窗口、最大输入／输出）与连接版本；运行中改选只影响下一 Turn。
 - 模型不在目录内或档位不属于该模型时返回 `400 MODEL_UNSUPPORTED`，不创建 Turn，也不调用上游。
 - 旧客户端传 `modelProfileId` 仍按快照兼容解析；档案已忽略或凭据缺失时失败关闭。`GET /api/models` 保留兼容但不再被 UI 使用。
@@ -771,3 +776,11 @@ type JobInput = {
 ### GX-2 Git 目录批量暂存
 
 现有 `POST /api/projects/:id/git/actions` 增加 `stageFiles`、`unstageFiles`，传精确 `paths` 与 `expectedSnapshot`。见 [M2 Git 批量契约](m2-resources.md#gx-2-目录行-git-批量动作)。
+
+### K-6 后台进程 API
+
+082 K-6 新增 `GET /api/processes?projectId=|sessionId=`、`GET /api/processes/:id`、`GET /api/processes/:id/output?after=&limit=`、`POST /api/processes/:id/stop`。全部经过现有认证守卫；stop 同样受 Origin / CSRF 保护。进程 ID 为 `prc_` 前缀，DTO 含 projectId、sessionId、name、status、executable、cwd、pid、exitCode、reasonCode、startedAt、endedAt、outputCursor、truncated。输出按游标分页，`resyncRequired` 表示旧块已淘汰；REST 不返回原始环境或秘密。`start_process` 仍只由 Agent Turn 创建，不开放通用 POST 创建入口。
+
+### K-7 命名服务 API
+
+082 K-7 新增 `GET /api/process-services?projectId=|sessionId=`、`GET /api/process-services/:id`、`GET /api/process-services/:id/logs?after=&limit=`、`POST /api/process-services/:id/stop`。全部使用现有认证守卫，stop 受 Origin / CSRF 保护。服务 ID 为 `svc_` 前缀，DTO 含 projectId、sessionId、processId、name、executable、cwd、port、status、previewEligible、reasonCode 与时间字段。`previewEligible` 当前固定为 `false`：进程服务的预览接线留待后续切片，现有终端服务预览不受影响。日志读取复用进程输出游标语义。

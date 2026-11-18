@@ -271,6 +271,7 @@ stdout / stderr 分别流式 UTF-8 解码、按已知秘密与敏感字段跨块
 ### 风险与审批绑定
 
 - 只有程序名严格为 npm / pnpm / yarn，参数严格为 `[test|build|lint]` 或 `[run, test|build|lint]` 的调用分类 L1；绝对路径同名程序、额外参数 / flags、任意脚本与显式 Shell 均为 L2。直接调用 sudo / su / doas / chmod / chown / useradd / userdel / dscl / pfctl 分类 L3 并拒绝；这只是审批分类，不是完备风险检测或命令沙箱。
+- 082 K-12 新增 `run_shell`（L2）：POSIX `/bin/sh -c`，Windows 优先 `pwsh`、其次 Windows PowerShell 5.1、最后 `cmd /d /s /c`；结果返回实际 `shell`、`exitCode`、分离的 `stdout`/`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`INTERACTIVE_COMMAND` 拒绝 TUI 命令，`COMMAND_NOT_FOUND` / `INVALID_CWD` / `SHELL_UNAVAILABLE` 为稳定错误码。
 - standard 允许 L1，strict 要求审批，readonly 拒绝所有命令；L2 逐次批准，L3 即使提供批准也不放行。确认文案说明项目命令以 Larness 的本机账户权限运行，可访问项目外文件。常驻 dev 任务由开发终端工具处理。
 - 参数经 Zod 默认值 / 路径分隔符规范化后，审批哈希同时绑定参数、真实 session / Turn / client、策略快照与根。批准后重新取有效锁，真正 spawn 前再次校验同一审批与参数、客户端、Turn / 预算；批准 A 不能执行 B。审批摘要包含脱敏后的规范化程序 / 参数 / cwd / timeout，审计只记关联标识与风险，不保存原始命令正文。已知凭据字面量在产生摘要前拒绝，包括含引号的凭据；不声称识别任意编码 / 未知秘密。
 - Turn 取消使待审批失效，不启动进程或后续工具；等待审批也消耗 Turn 时长，到期失效并结束预算。执行中的 Turn AbortSignal 传给 CommandManager；运行期间 Turn 持有的锁持续续租，命令只借用有效 handle，停止 / 结果不确定仍保留 §14 冲突屏障。卡片“取消命令”只取消该资源；“停止执行”取消 Turn 并阻止后续工具。
@@ -402,6 +403,8 @@ Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical
 ### Agent 工具
 
 - `git_status` / `git_diff` / `git_log` / `git_branches` 为 L0；`git_add` / `git_commit` / `git_create_branch` / `git_switch_branch` 为 L1；`git_pull` / `git_push` 为 L2。工具经 ToolRegistry 与既有 Turn 审批，不创建人工 actionId，也不把 resource_action 伪装成 toolCallId。
+- 082 K-4（2026-11-18）：上述 10 个模型 Git 工具已从所有 Profile 移除；人类 Git 资源区继续使用 REST/WS、逐次审批与 ProjectLease，Agent 通过 `run_command` / `run_shell` 执行 `git`。旧的 Git 事件与审批记录保持可回放。
+- 082 K-5（2026-11-18）：7 个模型终端工具已从所有 Profile 移除；人类终端 REST/WS 与 UI 保留。`terminal_leases` 只用于人类多连接输入归属与旧记录，Agent 不再获取/续租/接管终端；旧 Agent 租约在过期时清理。
 - 工具作用域由真实 session.projectId 注入；参数 mapping 后才进入同一 Manager。写工具 `requiresProjectLock:false`，由 Manager 使用以 Turn + toolCall 唯一 executionId 的项目锁；Agent 写快照在锁前 / 锁后一致才执行。结果只返回结构化 summary / hash / 状态，不返回原始 Git 输出。
 - 严格 / 宽松策略仍不得放行定义为逐次批准的 pull / push；Git 读在模型离线时仍可由 M2-5b UI 直接调用 REST。M2-5 不提供 Git 资源窗口 / Diff / 审批 UI，不新增 WS git 事件；这些在 M2-5b 实施。
 

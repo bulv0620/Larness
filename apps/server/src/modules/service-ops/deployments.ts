@@ -34,7 +34,8 @@ import type {
   DeploymentTargetRow,
 } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
-import { acquireResourceLock, releaseResourceLock, renewResourceLock } from "../locks/service.js";
+import { LeaseManager } from "../locks/lease.js";
+import type { ResourceLockHandle } from "../locks/service.js";
 import { getProjectById } from "../projects/repository.js";
 import { canonicalJson, sha256 } from "./canonical.js";
 import { DeploymentError } from "./errors.js";
@@ -159,6 +160,7 @@ function hasGitSegment(value: string): boolean {
 
 export class DeploymentManager {
   readonly db: Database;
+  readonly #leases: LeaseManager;
   readonly #dataDir: string;
   readonly #now: () => number;
   readonly #secrets: () => string[];
@@ -169,6 +171,7 @@ export class DeploymentManager {
 
   constructor(options: DeploymentManagerOptions) {
     this.db = options.db;
+    this.#leases = new LeaseManager({ db: options.db, now: options.now ?? Date.now });
     this.#dataDir = options.dataDir;
     this.#now = options.now ?? Date.now;
     this.#secrets = options.secrets ?? (() => []);
@@ -288,17 +291,13 @@ export class DeploymentManager {
 
     const buildId = newId("bld");
     const now = this.#now();
-    const lock = acquireResourceLock(
-      { db: this.db, now: this.#now },
-      {
-        resourceType: "project",
-        resourceId: input.projectId,
-        owner: `deployment:${requestedBy}`,
-        executionId: buildId,
-        ttlMs: DEFAULT_LOCK_TTL_MS,
-        rootRealPath: root,
-      },
-    );
+    const lock = this.#leases.acquireProject({
+      projectId: input.projectId,
+      owner: `deployment:${requestedBy}`,
+      executionId: buildId,
+      ttlMs: DEFAULT_LOCK_TTL_MS,
+      rootRealPath: root,
+    });
     if (!lock) {
       throw new DeploymentError("RESOURCE_LOCKED", "Project has an active writer");
     }
@@ -329,10 +328,7 @@ export class DeploymentManager {
         reasonCode: "DEPLOY_UNAVAILABLE",
         endedAt: this.#now(),
       });
-      releaseResourceLock(
-        { db: this.db, now: this.#now },
-        { id: lock.id, fencingToken: lock.fencingToken },
-      );
+      this.#leases.release(lock);
       throw new DeploymentError("DEPLOY_UNAVAILABLE", "Deployment log is unavailable");
     }
 
@@ -348,10 +344,7 @@ export class DeploymentManager {
         input.onStarted?.(started);
       } catch {
         log.close();
-        releaseResourceLock(
-          { db: this.db, now: this.#now },
-          { id: lock.id, fencingToken: lock.fencingToken },
-        );
+        this.#leases.release(lock);
         updateBuild(this.db, buildId, {
           status: "FAILED",
           reasonCode: "START_FAILED",
@@ -393,18 +386,11 @@ export class DeploymentManager {
     cwd: string;
     controller: AbortController;
     log: BuildLog;
-    lock: NonNullable<ReturnType<typeof acquireResourceLock>>;
+    lock: ResourceLockHandle;
   }): Promise<DeploymentBuildDto> {
     let lockLost = false;
     const renew = setInterval(() => {
-      const renewed = renewResourceLock(
-        { db: this.db, now: this.#now },
-        {
-          id: input.lock.id,
-          fencingToken: input.lock.fencingToken,
-          ttlMs: DEFAULT_LOCK_TTL_MS,
-        },
-      );
+      const renewed = this.#leases.renew(input.lock, DEFAULT_LOCK_TTL_MS);
       if (!renewed) {
         lockLost = true;
         input.controller.abort();
@@ -429,10 +415,7 @@ export class DeploymentManager {
     } finally {
       clearInterval(renew);
       input.log.close();
-      releaseResourceLock(
-        { db: this.db, now: this.#now },
-        { id: input.lock.id, fencingToken: input.lock.fencingToken },
-      );
+      this.#leases.release(input.lock);
     }
 
     if (result === null) {

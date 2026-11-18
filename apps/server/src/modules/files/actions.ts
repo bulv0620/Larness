@@ -22,7 +22,7 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { ResourceOperationRow } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { ProjectWriteLock } from "../agent/projectWriteLock.js";
-import { releaseResourceLock } from "../locks/service.js";
+import { LeaseManager } from "../locks/lease.js";
 import {
   appendResourceEvent,
   deleteCachedFile,
@@ -384,13 +384,7 @@ export async function applyFileAction(
 export async function reconcileFileActions(options: FileServiceOptions) {
   for (const operation of pendingOperations(options.db).filter((row) => row.kind === kind)) {
     const release = () =>
-      releaseResourceLock(
-        { db: options.db },
-        {
-          id: operation.lockId,
-          fencingToken: operation.fencingToken,
-        },
-      );
+      new LeaseManager({ db: options.db }).releaseById(operation.lockId, operation.fencingToken);
     const failed = () =>
       updateOperation(options.db, operation.id, {
         status: "FAILED",

@@ -29,6 +29,7 @@ const CreateSessionSchema = z
   .object({
     projectId: z.string().min(1).max(128).optional(),
     title: z.string().min(1).max(128).optional(),
+    agentProfile: z.enum(["coding", "plan", "workspace"]).optional(),
   })
   .strict();
 
@@ -39,6 +40,7 @@ const UpdateSessionSchema = z
     model: z.string().min(1).max(128).nullable().optional(),
     thinking: z.string().min(1).max(32).nullable().optional(),
     credentialProfileId: z.string().min(1).max(128).nullable().optional(),
+    agentProfile: z.enum(["coding", "plan", "workspace"]).optional(),
     approvalPolicyId: z.enum(["standard", "strict", "readonly", "autonomous"]).optional(),
   })
   .strict();
@@ -140,6 +142,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
       const session = await createSession(options, {
         projectId: body.projectId,
         title: body.title,
+        agentProfile: body.agentProfile,
         clientSessionId: request.clientSession?.id,
       });
       return reply.code(201).send(session);
@@ -170,6 +173,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
         model: body.model,
         thinking: body.thinking,
         credentialProfileId: body.credentialProfileId,
+        agentProfile: body.agentProfile,
         approvalPolicyId: body.approvalPolicyId,
         clientSessionId: request.clientSession?.id,
       });

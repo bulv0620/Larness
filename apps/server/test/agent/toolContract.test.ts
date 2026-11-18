@@ -4,13 +4,12 @@ import { createFileToolRegistry, type ToolRegistry } from "@larness/agent";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
-import { createCommandTool } from "../../src/modules/agent/commandTool.js";
-import { createGitTools } from "../../src/modules/agent/gitTool.js";
+import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
+import { createProcessServiceTools } from "../../src/modules/agent/processServiceTool.js";
+import { createProcessTools } from "../../src/modules/agent/processTool.js";
 import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
-import { createTerminalControlTools } from "../../src/modules/agent/terminalControlTool.js";
-import { createTerminalTools } from "../../src/modules/agent/terminalTool.js";
 import { type ExecuteToolInput, executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -29,9 +28,9 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   const registry = createFileToolRegistry();
   registry.register(createPlanTool({ db: opened.db }));
   registry.register(createCommandTool({}));
-  for (const tool of createTerminalTools({ db: opened.db })) registry.register(tool);
-  for (const tool of createTerminalControlTools({ db: opened.db })) registry.register(tool);
-  for (const tool of createGitTools()) registry.register(tool);
+  registry.register(createShellTool({}));
+  for (const tool of createProcessTools({})) registry.register(tool);
+  for (const tool of createProcessServiceTools({})) registry.register(tool);
   for (const tool of createServiceTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
@@ -41,15 +40,12 @@ type HandlerKey = keyof Pick<
   ExecuteToolInput,
   | "updatePlan"
   | "runCommand"
-  | "startTerminal"
-  | "readTerminalOutput"
-  | "stopTerminal"
-  | "acquireTerminalControl"
-  | "sendTerminalInput"
-  | "interruptTerminal"
-  | "releaseTerminalControl"
-  | "gitRead"
-  | "gitAction"
+  | "startProcess"
+  | "readProcessOutput"
+  | "stopProcess"
+  | "startService"
+  | "readServiceLogs"
+  | "stopService"
   | "registerService"
   | "listServices"
   | "resolveServicePreview"
@@ -81,67 +77,47 @@ const BOUND_TOOLS: BoundToolCase[] = [
     invalid: { args: ["-e", "0"] },
   },
   {
-    name: "start_project_terminal",
-    handler: "startTerminal",
-    args: { role: "dev", executable: "node", args: ["server.js"] },
-    invalid: { role: "dev", args: ["server.js"] },
+    name: "run_shell",
+    handler: "runCommand",
+    args: { command: "echo ok" },
+    invalid: { cwd: "." },
   },
   {
-    name: "read_terminal_output",
-    handler: "readTerminalOutput",
-    args: { terminalId: TERMINAL },
-    invalid: { terminalId: "nope" },
+    name: "start_process",
+    handler: "startProcess",
+    args: { executable: "node", args: ["-e", "0"], name: "fixture" },
+    invalid: { args: ["-e", "0"] },
   },
   {
-    name: "stop_project_terminal",
-    handler: "stopTerminal",
-    args: { terminalId: TERMINAL },
-    invalid: { terminalId: "nope" },
+    name: "read_process_output",
+    handler: "readProcessOutput",
+    args: { processId: "prc_00000000-0000-4000-8000-000000000000" },
+    invalid: { processId: "nope" },
   },
   {
-    name: "acquire_terminal_control",
-    handler: "acquireTerminalControl",
-    args: { terminalId: TERMINAL },
-    invalid: { terminalId: "nope" },
+    name: "stop_process",
+    handler: "stopProcess",
+    args: { processId: "prc_00000000-0000-4000-8000-000000000000" },
+    invalid: { processId: "nope" },
   },
   {
-    name: "send_terminal_input",
-    handler: "sendTerminalInput",
-    args: { terminalId: TERMINAL, leaseGeneration: 1, inputSequence: 1, data: "ls\n" },
-    invalid: { terminalId: TERMINAL },
+    name: "start_service",
+    handler: "startService",
+    args: { name: "web", executable: "node", args: ["-e", "0"], port: 45123 },
+    invalid: { name: "web", executable: "node", port: 0 },
   },
   {
-    name: "interrupt_terminal",
-    handler: "interruptTerminal",
-    args: { terminalId: TERMINAL, leaseGeneration: 1 },
-    invalid: { terminalId: TERMINAL },
+    name: "read_service_logs",
+    handler: "readServiceLogs",
+    args: { serviceId: "svc_00000000-0000-4000-8000-000000000000" },
+    invalid: { serviceId: "nope" },
   },
   {
-    name: "release_terminal_control",
-    handler: "releaseTerminalControl",
-    args: { terminalId: TERMINAL, leaseGeneration: 1 },
-    invalid: { terminalId: TERMINAL },
+    name: "stop_service",
+    handler: "stopService",
+    args: { serviceId: "svc_00000000-0000-4000-8000-000000000000" },
+    invalid: { serviceId: "nope" },
   },
-  { name: "git_status", handler: "gitRead", args: {}, invalid: { bogus: true } },
-  { name: "git_diff", handler: "gitRead", args: { path: "a.txt" }, invalid: {} },
-  { name: "git_log", handler: "gitRead", args: {}, invalid: { limit: 0 } },
-  { name: "git_branches", handler: "gitRead", args: {}, invalid: { limit: 0 } },
-  { name: "git_add", handler: "gitAction", args: { paths: ["a.txt"] }, invalid: { paths: [] } },
-  { name: "git_commit", handler: "gitAction", args: { message: "m" }, invalid: { message: "" } },
-  {
-    name: "git_create_branch",
-    handler: "gitAction",
-    args: { name: "feature" },
-    invalid: {},
-  },
-  {
-    name: "git_switch_branch",
-    handler: "gitAction",
-    args: { name: "feature" },
-    invalid: { name: "" },
-  },
-  { name: "git_pull", handler: "gitAction", args: {}, invalid: { force: true } },
-  { name: "git_push", handler: "gitAction", args: {}, invalid: { force: true } },
   {
     name: "register_temporary_service",
     handler: "registerService",
@@ -236,15 +212,12 @@ describe("tool contract matrix", () => {
             // Every tool gets every handler; the one it needs must be bound.
             updatePlan: handlerStub("updatePlan"),
             runCommand: handlerStub("runCommand"),
-            startTerminal: handlerStub("startTerminal"),
-            readTerminalOutput: handlerStub("readTerminalOutput"),
-            stopTerminal: handlerStub("stopTerminal"),
-            acquireTerminalControl: handlerStub("acquireTerminalControl"),
-            sendTerminalInput: handlerStub("sendTerminalInput"),
-            interruptTerminal: handlerStub("interruptTerminal"),
-            releaseTerminalControl: handlerStub("releaseTerminalControl"),
-            gitRead: handlerStub("gitRead"),
-            gitAction: handlerStub("gitAction"),
+            startProcess: handlerStub("startProcess"),
+            readProcessOutput: handlerStub("readProcessOutput"),
+            stopProcess: handlerStub("stopProcess"),
+            startService: handlerStub("startService"),
+            readServiceLogs: handlerStub("readServiceLogs"),
+            stopService: handlerStub("stopService"),
             registerService: handlerStub("registerService"),
             listServices: handlerStub("listServices"),
             resolveServicePreview: handlerStub("resolveServicePreview"),

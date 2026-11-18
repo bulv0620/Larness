@@ -4,13 +4,19 @@
 
 ## 工具
 
-Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、文件准备、PM2 CLI 和有限访问检查，使用 `update_plan` 记录任务步骤。交互开发继续使用终端。专用构建、发布和正式服务启停模型工具已撤回。
+Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、测试、Git、PM2 CLI 和有限访问检查；需要管道、重定向、通配符或平台 shell 语法时使用 `run_shell`。交互终端只面向人类，不进入模型工具面；Agent 的长任务使用后台进程/命名服务（K-6/K-7）。专用构建、发布和正式服务启停模型工具已撤回。
 
-`run_command` 输入为 `executable`、`args`、根内相对 `cwd` 和 `timeoutMs`。env、项目 ID、执行身份、策略和锁由后端决定。现有审批、秘密参数检查、项目锁、fencing、命令幂等、预算、取消和有界脱敏输出继续执行。退出码非零的命令返回工具失败，PM2 命令成功还需要核对实际服务状态。
+`run_command` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd` 和 `timeoutMs`。env、项目 ID、执行身份、策略和锁由后端决定。现有审批、秘密参数检查、项目锁、fencing、命令幂等、预算、取消和有界脱敏输出继续执行。退出码非零的命令返回工具失败，PM2 命令成功还需要核对实际服务状态。常见别名 `program` / `arguments` / `workdir` / `timeout` 在 schema 校验前归一；未知字段仍拒绝。
+
+`run_shell` 输入为 `command`、根内相对 `cwd` 和 `timeoutMs`。POSIX 使用 `/bin/sh -c`，不带 `-l`；Windows 优先 `pwsh`，其次 Windows PowerShell 5.1，最后 `cmd /d /s /c`。不假设 bash，不自动翻译平台语法；结果返回实际 `shell`、`exitCode`、`stdout`、`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`run_shell` 默认 L2。交互式 TUI 命令被拒绝，返回 `INTERACTIVE_COMMAND`。稳定错误码包括 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`SPAWN_FAILED`、`NONZERO_EXIT`、`TIMED_OUT`。
+
+`start_process` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd` 和可选 `name`；返回稳定 `processId`、`cwd` 与输出游标。`read_process_output` 用 `after` / `limit` 读取有界新输出，`nextCursor` 为下一次游标，`resyncRequired` 表示旧块已淘汰；`stop_process` 幂等停止整个进程组/进程树。后台进程不长期持有项目写锁（否则 dev server 会阻塞所有源码写），启动时仍执行授权、路径、秘密和交互命令检查；停止失败返回 `STOP_UNCONFIRMED`。进程输出使用 1 MiB 环形缓冲并脱敏，不进入审计或原始事件。
+
+`start_service` 在后台进程之上绑定项目、名称、进程、命令摘要、端口与可选 `healthPath`，返回 `svc_` 服务 ID；同一项目 + 名称 + 命令重复启动返回原服务，不同命令同名冲突，端口占用在启动前拒绝。`read_service_logs` 复用进程输出游标；`stop_service` 停止底层进程组并幂等。服务状态在进程退出后按需降级为 `FAILED`/`STOPPED`。进程服务的 `previewEligible` 当前为 `false`，预览仍只服务既有终端服务；关闭预览不影响服务运行与日志。
 
 ## 系统信息
 
-运行时观察在 **Turn 起点**取一次真实快照（PM2、临时服务、终端），并在整个 Turn 内保持不变（[ADR-057](../adr/ADR-057-runtime-efficiency.md)、[ADR-067](../adr/ADR-067-lean-agent-context.md)）。快照**不进入 system 消息**，而是作为一条独立消息追加在当前请求之后：前缀缓存从请求开头逐字节匹配，system 里只要有一个会变的字节，下一 Turn 的整段历史都会变成未命中（[ADR-067](../adr/ADR-067-lean-agent-context.md) D1）。快照**不带逐 Turn 时间戳**，工作区没有变化时它与上一 Turn 逐字节相同，跨轮可直接命中缓存。Turn 内不再每步刷新：需要当前状态时，模型调用只读工具 `refresh_observations`，或使用既有的服务 / 终端 / PM2 查询；状态变更类工具的结果自带最新观察。声明状态前必须先刷新；`running` / 在线不构成健康证明。系统 JSON 的字段如下。
+运行时观察在 **Turn 起点**取一次真实快照（PM2、临时服务），并在整个 Turn 内保持不变（[ADR-057](../adr/ADR-057-runtime-efficiency.md)、[ADR-067](../adr/ADR-067-lean-agent-context.md)）。快照**不进入 system 消息**，而是作为一条独立消息追加在当前请求之后：前缀缓存从请求开头逐字节匹配，system 里只要有一个会变的字节，下一 Turn 的整段历史都会变成未命中（[ADR-067](../adr/ADR-067-lean-agent-context.md) D1）。快照**不带逐 Turn 时间戳**，工作区没有变化时它与上一 Turn 逐字节相同，跨轮可直接命中缓存。Turn 内不再每步刷新：需要当前状态时，模型调用只读工具 `refresh_observations`，或使用既有的服务 / 终端 / PM2 查询；状态变更类工具的结果自带最新观察。声明状态前必须先刷新；`running` / 在线不构成健康证明。系统 JSON 的字段如下。
 
 | 字段 | 含义 |
 |---|---|
@@ -19,7 +25,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 | home / namespace | 后端注入的 PM2_HOME 和 `larness` 命名空间 |
 | serviceNamePattern | `larness:<projectId>:<serviceKey>` |
 
-`refresh_observations` 无参数、风险级别 `L0`（只读、不申请项目锁），返回 `{ observedAt, preview, terminals, pm2, git }`：`preview` 为当前项目的临时开发预览（含端点与观察时间），`terminals` 为运行中终端（`terminalId / title / mode`），`pm2` 与系统快照同字段；`git` 为 `{ detected, observedAt }`，表示项目当前是否为 Git 仓库（非项目会话为 `null`）。它不缓存跨 Turn 状态，也不会改变执行授权。
+`refresh_observations` 无参数、风险级别 `L0`（只读、不申请项目锁），返回 `{ observedAt, preview, pm2, git }`：`preview` 为当前项目的临时开发预览（含端点与观察时间），`pm2` 与系统快照同字段；`git` 为 `{ detected, observedAt }`，仅保留给人类侧栏自愈，不暴露 Git 工具。它不返回终端列表，也不缓存跨 Turn 状态、不会改变执行授权。
 - `project`：当前真实登记项目的 id/name/root/releaseRoot，未选项目为 null。
 - `services`：服务的 projectId/projectName/name/pm2Name/observedState/pid/updatedAt。
 - `unassociatedServices`：名称归属缺失、重名或与旧记录冲突的本实例服务。
@@ -28,7 +34,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 `run_command` 的 PATH 由执行器加入已核验 PM2 的 bin 目录，PM2_HOME 固定为实例数据目录的 `pm2` 子目录。后端不把整个环境交给模型。显式使用给定 Node/PM2 绝对入口可避免 PATH 歧义。全局安装位置与 PM2 实例目录是两项运行信息。[PM2 多实例说明](https://pm2.keymetrics.io/docs/usage/specifics/)
 
-稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、服务生命周期契约、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5）。
+稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。服务生命周期契约与 PM2 段落只在对应 Profile/Pack 启用时注入：`coding` 不包含这些段落，`workspace` 保持完整。计划工具与计划提示只属于 `plan` Profile；`coding` 与 `workspace` 都不注册 `update_plan`、不注入计划提醒。新会话与存量会话默认 `coding`，`workspace` 仅由用户显式选择；Profile 在 Turn 开始时固定。执行层同时拒绝 catalog 内未启用的内置工具（返回 `TOOL_NOT_FOUND`，审计 `disabled_tool`），不只依赖 schema 过滤。Agent 不再拥有终端租约、终端输入或终端观察协议。Git 不再作为模型工具面或 system 段落出现；Agent 需要 Git 时通过 `run_command` 执行 `git`，人类 Git 面板继续使用独立 REST/WS 与 ProjectLease。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5、[ADR-068](../adr/ADR-068-agent-kernel.md)）。
 
 ## 命令示例
 
@@ -61,7 +67,9 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 ## 系统固定的服务生命周期契约（M4-R3）
 
-此规则每次实际模型请求都由系统注入，不要求用户复制某段提示词，不以当前聊天或窗口位置判断服务类型。
+此规则只在启用 service Pack 的 `workspace` Profile 中注入，不要求用户复制某段提示词，不以当前聊天或窗口位置判断服务类型；`coding` 不支付这段固定开销。
+
+082 K-5（2026-11-18）：交互终端只面向人类；Agent 不再拥有启动、读取、输入、中断、停止或租约工具，也不接收终端观察。人类终端的多客户端输入继续使用连接所有权；旧 Agent 终端租约记录在升级后清理，不会阻塞人类接管。下表的 temporary 服务生命周期仍适用于人类终端登记的服务，但 Agent 不能自行创建或控制该终端。
 
 | 项目 | development_preview | persistent_pm2 |
 |---|---|---|

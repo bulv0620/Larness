@@ -1,17 +1,13 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createFileToolRegistry } from "@larness/agent";
-import { TerminalDevSchema } from "@larness/shared";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { immediateTransaction } from "../../src/db/transaction.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { appendAgentEvent } from "../../src/modules/agent/events.js";
-import { createGitTools } from "../../src/modules/agent/gitTool.js";
 import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
-import { createTerminalControlTools } from "../../src/modules/agent/terminalControlTool.js";
-import { createTerminalTools } from "../../src/modules/agent/terminalTool.js";
 import { createProject, updateProject } from "../../src/modules/projects/service.js";
 import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -37,13 +33,8 @@ describe("context assembler", () => {
         );
         const sessionOptions = { db: opened.db, dataDir: dir };
         const registry = createFileToolRegistry();
-        const projectTools = [...createGitTools(), ...createServiceTools()];
-        for (const tool of [
-          ...projectTools,
-          ...createTerminalTools({ db: opened.db }),
-          ...createTerminalControlTools({ db: opened.db }),
-        ])
-          registry.register(tool);
+        const projectTools = createServiceTools();
+        for (const tool of projectTools) registry.register(tool);
 
         for (const projectId of [project.id, undefined]) {
           const session = await createSession(sessionOptions, { projectId });
@@ -58,16 +49,19 @@ describe("context assembler", () => {
             ["autonomous", "allow"],
           ] as const) {
             const context = assembleContext(
-              { db: opened.db, registry, maxContextTokens: 128_000, policy },
+              {
+                db: opened.db,
+                registry,
+                maxContextTokens: 128_000,
+                policy,
+                agentProfile: "workspace",
+              },
               sessionRow,
               turn,
             );
             expect(context.messages[0]?.content).toContain(`Turn approval policy: ${policy}`);
             expect(context.messages[0]?.content).toContain(`L2=${l2}`);
-            expect(context.messages[0]?.content).toContain(
-              "update_plan in the same batch as your next action",
-            );
-            expect(context.messages[0]?.content).toMatch(/never mark a step done/i);
+            expect(context.messages[0]?.content).not.toContain("update_plan");
             expect(context.messages[0]?.content).toContain("Service lifecycle contract");
             expect(context.messages[0]?.content).toContain("development_preview");
             expect(context.messages[0]?.content).toContain("persistent_pm2");
@@ -78,35 +72,17 @@ describe("context assembler", () => {
             );
             const byName = new Map(context.tools.map((tool) => [tool.name, tool]));
             expect(byName.has("read_file")).toBe(true);
-            expect(byName.has("read_terminal_output")).toBe(true);
-            expect(byName.get("send_terminal_input")?.description).toMatch(
-              /echo.*terminal output/i,
-            );
-            expect(byName.get("send_terminal_input")?.description).toContain(
-              "Read the prompt and use the active shell's syntax",
-            );
-            for (const name of [
-              ...projectTools.map((tool) => tool.name),
-              "start_project_terminal",
-              "stop_project_terminal",
-            ])
+            expect(byName.has("git_status")).toBe(false);
+            expect(byName.has("git_commit")).toBe(false);
+            expect(byName.has("read_terminal_output")).toBe(false);
+            expect(byName.has("send_terminal_input")).toBe(false);
+            expect(byName.has("start_project_terminal")).toBe(false);
+            expect(byName.has("stop_project_terminal")).toBe(false);
+            for (const name of projectTools.map((tool) => tool.name))
               expect(byName.has(name)).toBe(Boolean(projectId));
             if (projectId) {
-              const start = byName.get("start_project_terminal");
-              expect(start?.description).toMatch(/project.*scripts.*cwd/i);
-              expect(start?.description).toContain("PowerShell 7, Windows PowerShell 5.1, or CMD");
-              expect(start?.description).not.toMatch(/requires per-call approval/i);
-              expect(start?.parameters).toMatchObject({
-                properties: {
-                  cwd: { description: expect.stringMatching(/defaults to the project root/i) },
-                },
-              });
-              expect(start?.parameters.required).not.toContain("cwd");
               const register = byName.get("register_temporary_service");
               expect(register?.description).toContain("not PM2");
-              expect(byName.get("start_project_terminal")?.description).not.toContain(
-                "persistent project terminal",
-              );
               expect(register?.description).toMatch(/wildcard.*0\.0\.0\.0.*without.*restart/i);
               expect(register?.parameters).toMatchObject({
                 properties: {
@@ -124,16 +100,13 @@ describe("context assembler", () => {
             }
           }
         }
-        expect(
-          TerminalDevSchema.parse({ role: "web", executable: "pnpm", args: ["dev"] }).cwd,
-        ).toBe(".");
       } finally {
         opened.close();
       }
     });
   });
 
-  it("states Git availability from the Turn-start observation", async () => {
+  it("does not inject Git availability or Git tools after the model surface moved to shell", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
 
@@ -150,32 +123,19 @@ describe("context assembler", () => {
         const turnRow = getTurnById(opened.db, turn.turnId);
         if (turnRow === null) throw new Error("turn missing");
 
-        const without = assembleContext(
+        const context = assembleContext(
           {
             db: opened.db,
             registry: createFileToolRegistry(),
             maxContextTokens: 128_000,
             policy: "standard",
-            git: { detected: false, observedAt: 1 },
           },
           session,
           turnRow,
         );
-        expect(without.messages[0]?.content).toContain("no Git repository was detected");
-        expect(without.messages[0]?.content).toContain("GIT_UNAVAILABLE");
-
-        const withRepo = assembleContext(
-          {
-            db: opened.db,
-            registry: createFileToolRegistry(),
-            maxContextTokens: 128_000,
-            policy: "standard",
-            git: { detected: true, observedAt: 1 },
-          },
-          session,
-          turnRow,
-        );
-        expect(withRepo.messages[0]?.content).toContain("this project is a Git repository");
+        expect(context.messages[0]?.content).not.toContain("Git availability");
+        expect(context.messages[0]?.content).not.toContain("GIT_UNAVAILABLE");
+        expect(context.tools.map((tool) => tool.name)).not.toContain("git_status");
       } finally {
         opened.close();
       }
@@ -297,6 +257,7 @@ describe("context assembler", () => {
           registry: createFileToolRegistry(),
           maxContextTokens: 128_000,
           policy: "standard" as const,
+          agentProfile: "workspace" as const,
         };
         const first = assembleContext({ ...base, pm2Context: pm2("7.1.2") }, sessionRow, turn);
         const second = assembleContext({ ...base, pm2Context: pm2("7.2.0") }, sessionRow, turn);

@@ -1,5 +1,7 @@
+export * from "./commands/guard.js";
 export * from "./commands/redactor.js";
 export * from "./commands/runner.js";
+export * from "./commands/shell.js";
 export * from "./commands/windows.js";
 export * from "./files/fileManager.js";
 export * from "./files/fileService.js";

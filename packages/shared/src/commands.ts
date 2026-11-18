@@ -9,7 +9,7 @@ import { FilePathSchema } from "./files";
 export const MAX_COMMAND_TIMEOUT_MS = 1_800_000;
 export const DEFAULT_COMMAND_TIMEOUT_MS = 300_000;
 
-export const CommandParamsSchema = z
+const CommandParamsObject = z
   .object({
     executable: z
       .string()
@@ -23,7 +23,8 @@ export const CommandParamsSchema = z
           .max(8192)
           .refine((value) => !value.includes("\0")),
       )
-      .max(256),
+      .max(256)
+      .default([]),
     cwd: FilePathSchema.default("."),
     timeoutMs: z
       .number()
@@ -32,12 +33,62 @@ export const CommandParamsSchema = z
       .max(MAX_COMMAND_TIMEOUT_MS)
       .default(DEFAULT_COMMAND_TIMEOUT_MS),
   })
-  .strict()
-  .refine(
-    (value) =>
-      value.args.reduce((size, arg) => size + arg.length, value.executable.length) <= 65_536,
-  );
+  .strict();
+
+export const CommandParamsSchema = CommandParamsObject.refine(
+  (value) => value.args.reduce((size, arg) => size + arg.length, value.executable.length) <= 65_536,
+);
 export type CommandParams = z.infer<typeof CommandParamsSchema>;
+
+/** Explicit shell escape hatch. The platform shell is selected by the backend. */
+const ShellCommandParamsObject = z
+  .object({
+    command: z
+      .string()
+      .min(1)
+      .max(65_536)
+      .refine((value) => !value.includes("\0")),
+    cwd: FilePathSchema.default("."),
+    timeoutMs: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_COMMAND_TIMEOUT_MS)
+      .default(DEFAULT_COMMAND_TIMEOUT_MS),
+  })
+  .strict();
+
+export const ShellCommandParamsSchema = ShellCommandParamsObject;
+export type ShellCommandParams = z.infer<typeof ShellCommandParamsSchema>;
+
+/**
+ * Internal request consumed by CommandManager. The tools keep `mode` out of
+ * their public schemas and set it before calling the shared handler.
+ */
+export const CommandRequestSchema = z
+  .discriminatedUnion("mode", [
+    CommandParamsObject.extend({ mode: z.literal("exec") }),
+    ShellCommandParamsObject.extend({ mode: z.literal("shell") }),
+  ])
+  .superRefine((value, context) => {
+    if (
+      value.mode === "exec" &&
+      value.args.reduce((size, arg) => size + arg.length, value.executable.length) > 65_536
+    ) {
+      context.addIssue({ code: "custom", message: "command arguments exceed the 64 KiB limit" });
+    }
+  });
+export type CommandRequest = z.infer<typeof CommandRequestSchema>;
+
+/**
+ * Internal callers may omit `mode`: a `command` field means shell mode, an
+ * `executable` field means exec mode. Public tool schemas never expose `mode`.
+ */
+export function normalizeCommandRequest(input: unknown): unknown {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) return input;
+  if ("mode" in input) return input;
+  return { ...input, mode: "command" in input ? "shell" : "exec" };
+}
 export const CommandStatusSchema = z.enum([
   "CREATED",
   "RUNNING",

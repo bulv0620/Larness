@@ -134,7 +134,7 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | 表 | 关键列 | 说明 |
 |---|---|---|
 | `projects` | `id, name, root_path, real_path, settings_json, git_detected, sort_order, created_at, updated_at` | `real_path` canonical 且唯一；`settings_json` 含默认模型 / 指令 / ignore；`sort_order` 为列表顺序；删除只删行 |
-| `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, credential_profile_id?, model?, thinking?, approval_policy_id, created_at, updated_at, last_activity_at` | `status`: `active / archived`；归档不删 workspace；独立会话 workspace 在 dataDir 下；`model` / `thinking` / `credential_profile_id` 为 M5-1 当前选择（可空，旧行无值） |
+| `sessions` | `id, project_id?, workspace_path, title, status, model_profile_id?, credential_profile_id?, model?, thinking?, agent_profile, approval_policy_id, created_at, updated_at, last_activity_at` | `status`: `active / archived`；归档不删 workspace；独立会话 workspace 在 dataDir 下；`model` / `thinking` / `credential_profile_id` 为 M5-1 当前选择（可空，旧行无值）；`agent_profile` 默认 `coding`，可选 `plan` / `workspace`，升级时存量也归一为 `coding` |
 | `turns` | `id, session_id, model_profile_id, credential_profile_id?, provider, model, thinking?, context_window?, status, input_json, usage_json, error_json, terminal_reason?, resumed_from_turn_id?, idempotency_key, created_at, started_at, ended_at` | 一个 Session 同时最多一个活跃 Turn；provider / model / thinking / 窗口 / 凭据在 Turn 运行时快照；`thinking` 取值 `off / on / low / medium / high`（旧行可能是 `default`） |
 | `agent_events` | `id, session_id, turn_id, seq, type, payload_json, created_at`；`UNIQUE(session_id, seq)` | `seq` 在 Session 内递增，事务内分配 |
 | `model_profiles` | `id, label, provider, model, credential_profile_id, endpoint, capabilities_json, created_at` | 不含密钥；M5-1 起旧档案被忽略，行保留，不再进入选择器 |
@@ -145,7 +145,8 @@ Passkey 的 RP ID / Origin 来自配置，不入库；`webauthn_challenges` 由�
 | `credential_profiles` | `id, provider, label, secret_ref, created_at` | 密钥在 SecretStore |
 | `secrets` | `id, ciphertext, nonce, tag, created_at` | AES-256-GCM；主密钥在文件系统 |
 | `approvals` | `id, turn_id, tool_call_id, tool_name, risk, status, scope_json, params_hash, expires_at, decided_at, decided_by, created_at` | `status`: `pending / approved / denied / expired`；审批参数绑定与审计 |
-| `resource_locks` | `id, resource_type, resource_id, owner, execution_id, fencing_token, expires_at, heartbeat_at, created_at`；`UNIQUE(resource_type, resource_id)` | M1 最小项目写锁；M2 扩展 file / git / service |
+| `resource_locks` | `id, resource_type, resource_id, owner, execution_id, fencing_token, expires_at, heartbeat_at, created_at`；`UNIQUE(resource_type, resource_id)` | 082 K-11 起实际业务锁只创建 `project` / `service`；`file` / `git` / `global-maintenance` 类型仅为旧记录/预留，不再创建 |
+| 后台进程 / 命名服务 | 无新表；运行状态在 `ProcessManager` / `NamedServiceManager` 内存中，生命周期写入 `agent_events` | 082 K-6/K-7：临时开发资源不跨重启恢复；`services` 表继续只表示终端临时服务与预览源，进程服务 `previewEligible=false` |
 
 索引：`agent_events(session_id, seq)`、`turns(session_id, created_at)`、`sessions(project_id, updated_at)`、`projects(real_path)`、`projects(sort_order, updated_at)`。
 

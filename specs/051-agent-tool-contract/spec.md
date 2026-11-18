@@ -46,6 +46,24 @@ created: 2026-11-06
    M6-8（2026-11-11）`search_code` 增加 `contextLines` / `glob` / `maxFiles`，结果新增 `scanBudgetExhausted`，用于缩小扫描范围并以上下文替代重复读文件。
 
    M6-5（2026-11-11）新增只读工具 `refresh_observations`（L0、无参数、不申请项目锁），用于在系统快照过时后读取当前临时服务 / 终端 / PM2 观察；系统上下文改为 Turn 起点快照，不再每步重写。
+
+   082 K-12（2026-11-18）：`run_command` 的 `args` 默认 `[]`；新增 `run_shell`（L2，`command` + 根内相对 `cwd` + `timeoutMs`），POSIX 使用 `/bin/sh -c`，Windows 优先 `pwsh`、其次 Windows PowerShell 5.1、最后 `cmd /d /s /c`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏、项目锁与审批；结果返回实际 `shell`、`exitCode`、分离的 `stdout`/`stderr`、`reasonCode` 与 `truncated`。新增稳定错误码 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`INTERACTIVE_COMMAND`；`program`/`arguments`/`workdir`/`timeout` 在 schema 校验前归一。交互式 TUI 命令明确拒绝，不做隐式翻译。
+
+   082 K-4（2026-11-18）：10 个模型 Git 工具（`git_status`、`git_diff`、`git_log`、`git_branches`、`git_add`、`git_commit`、`git_create_branch`、`git_switch_branch`、`git_pull`、`git_push`）从所有 Profile 移除；人类 Git UI 与 REST/WS 保留。Agent 通过 `run_command` / `run_shell` 执行 Git，命令工具的项目锁与人类 Git 写操作共用同一把 ProjectLease，因此并发写继续串行化。system 不再注入 Git 可用性；`refresh_observations` 的 Git 探测仅保留给人类侧栏自愈。
+
+   082 K-5（2026-11-18）：7 个模型终端工具（`start_project_terminal`、`read_terminal_output`、`stop_project_terminal`、`acquire_terminal_control`、`send_terminal_input`、`interrupt_terminal`、`release_terminal_control`）从所有 Profile 移除；`ToolContext` / `TurnRunner` 不再绑定终端 handler。人类终端 REST/WS、输入租约、resize、接管与断开清理保留；`terminal_leases` 只服务人类连接所有权与旧记录。Agent 的终端租约/takeover 方法移除，旧 Agent 租约在过期时清理，不再阻塞人类接管。
+
+   082 K-6（2026-11-18）：新增 `start_process`（L2）、`read_process_output`（L0）、`stop_process`（L1），仅 `workspace` Profile 提供。`start_process` 返回稳定 `prc_` ID、cwd 与输出游标；输出按 1 MiB 环形缓冲/游标读取；`stop_process` 停止整个进程组/进程树并幂等。交互式 TUI 命令拒绝，启动即退出返回失败与尾部输出；后台进程不长期持有项目写锁，避免 dev server 阻塞源码写。
+
+   082 K-7（2026-11-18）：新增 `start_service`（L2）、`read_service_logs`（L0）、`stop_service`（L1），仅 `workspace` Profile 提供；`list_services` 同时返回命名进程服务与旧临时终端服务。服务绑定项目、processId、命令摘要、端口与可选健康检查；项目 + 名称 + 命令重复启动幂等，不同命令同名冲突，端口占用启动前拒绝。进程服务 `previewEligible` 当前为 `false`，现有终端服务预览不变。
+
+   082 K-8（2026-11-18）：计划降级为可选 `plan` Profile；`coding` 与 `workspace` 都不注册 `update_plan`、不注入计划提示或陈旧提醒；`plan` Profile 只读文件 + 计划元数据，不能编辑普通项目文件。旧 `plan.updated` 事件与 UI 回放保留。`turn/planReminder.ts` 与 `PLAN_STALE_TOOL_CALLS` 移除；`PROMPT_VERSION` 升至 `m6-6`。
+
+   082 K-11（2026-11-18）：锁收敛为 `LeaseManager.acquireProject` / `acquireService` / `renew` / `release`；Files/Git/Commands/ServiceOps/Deployments 不再直接操作 `resource_locks`，Agent 终端租约已退出。审计新增 `AuditSink.required/resource/debug`；`tool.requested`、`tool.completed`、`terminal.input`、`terminal.resize` 不再写审计，`tool.denied` 保持 required 且审计失败关闭。`dev-web.rejected` 按分钟聚合，`git.denied` 跳过 `VALIDATION_ERROR`。
+
+   082 K-9（2026-11-18）：`sessions.agent_profile` 迁移默认 `coding`，新会话与存量会话统一归一到 `coding`；`workspace` 仅显式选择。会话 DTO / `POST /api/sessions` / `PATCH /api/sessions/:id` 暴露 Profile，Composer 增加 Profile 选择与当前模式提示；Turn 开始时按会话 Profile 装配工具集。旧事件、旧终端/服务记录与旧 Git/计划回放保留。
+
+   082 K-10（2026-11-18）：Profile 在**执行层**同样生效。`disabledToolsForProfile()` 计算 catalog 内未启用的内置工具；`ToolExecutor` 对注册但未启用的工具返回 `TOOL_NOT_FOUND`，审计 `tool.denied` 的 `reason=disabled_tool` 且不调用 handler。扩展/测试注册的非 catalog 工具不受影响。`toolExecutor.test.ts` 覆盖 coding 会话调用 `update_plan` 的隐藏工具路径。
 2. 模型上下文中的状态与策略使用执行层同一已解析数据。模型工具列表按工作区适用性生成，后端仍独立核验。不得从展示文案推断授权，不得把终端存活、服务登记或预览意图写成业务健康证明。
 3. 每条影响操作范围或安全的承诺都要有执行层验收，覆盖合法输入和至少一个会扩大范围、越权或误报成功的反例。工具或 prompt 变更还要通过实际上下文组装验证模型收到的描述、schema 和作用域。禁止只核对源码常量或只用文本快照替代执行测试。
 4. 新增或修改此类能力的 spec 必须列出上述验证和受影响表面。测试纳入常规检查。无法自动化的表面需在验收中记录可复核的检查与结果。

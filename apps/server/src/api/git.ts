@@ -47,16 +47,20 @@ export function registerGitRoutes(app: FastifyInstance, deps: AppServices, git: 
       return result;
     } catch (error) {
       const failure = mapFailure(error);
-      try {
-        appendAudit(deps.db, {
-          action: "git.denied",
-          decision: "deny",
-          clientSessionId: request.clientSession?.id,
-          resourceType: "git",
-          details: { code: failure.code, requestId: request.id },
-        });
-      } catch {
-        throw new HttpError("INTERNAL", "Git audit unavailable");
+      // Validation failures are model/client shape errors, not authorization
+      // denials; the security-relevant denials still hit the audit table.
+      if (failure.code !== "VALIDATION_ERROR") {
+        try {
+          appendAudit(deps.db, {
+            action: "git.denied",
+            decision: "deny",
+            clientSessionId: request.clientSession?.id,
+            resourceType: "git",
+            details: { code: failure.code, requestId: request.id },
+          });
+        } catch {
+          throw new HttpError("INTERNAL", "Git audit unavailable");
+        }
       }
       throw failure;
     }

@@ -79,7 +79,7 @@ async function fixture(dir: string) {
   const project = await createProject({ db: f.running.db }, { rootPath: root });
   const session = await createSession(
     { db: f.running.db, dataDir: f.running.dataDir },
-    { projectId: project.id },
+    { projectId: project.id, agentProfile: "workspace" },
   );
   const client = (
     await f.running.app.inject({ url: "/api/auth/session", headers: { cookie: f.cookie } })
@@ -197,6 +197,7 @@ it("registers a verified temporary service, replays events and unregisters when 
         registry: createFileToolRegistry(),
         maxContextTokens: 128_000,
         policy: "autonomous" as const,
+        agentProfile: "workspace" as const,
       };
       const model = assembleContext(options, sessionRow, turnRow);
       // Runtime observations left the cached system prefix (ADR-067 D1): they

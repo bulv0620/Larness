@@ -84,7 +84,7 @@ it("uses the authenticated autonomous Turn snapshot without approval, still vali
         f.running.sqlite
           .prepare("SELECT count(*) AS n FROM audit_logs WHERE action='tool.completed'")
           .get(),
-      ).toEqual({ n: 2 });
+      ).toEqual({ n: 0 });
     } finally {
       await stopAuthorizedServer(f);
     }
