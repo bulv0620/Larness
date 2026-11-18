@@ -11,7 +11,7 @@
 | K-2 | Profile / ToolPack 抽象 | K-1 | `done` |
 | K-3 | coding Profile 与核心提示 | K-2 | `done` |
 | K-12 | run_command/run_shell 跨平台执行 | K-3 | `done` |
-| K-4 | Git 模型工具移除与人类 UI 分面 | K-3 | `todo` |
+| K-4 | Git 模型工具移除与人类 UI 分面 | K-3 | `done` |
 | K-5 | 终端与 Agent 模型面分离 | K-3 | `todo` |
 | K-6 | 后台进程能力包 | K-5 | `todo` |
 | K-7 | 命名服务与可选预览 | K-6 | `todo` |
@@ -121,7 +121,7 @@
 
 ### K-4 Git 模型工具移除与人类 UI 分面
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-3
 - 目标：模型只通过 shell 使用 Git；人类 Git 面板保持独立。
 - 交付物：
@@ -346,3 +346,12 @@
 - 回归修正：`service-ops.test.ts` 的 preview 拒绝用例此前依赖默认预览端口，单跑返回 400、全量偶发因端口占用返回 503；本任务把测试固定到空闲端口，并断言正式 `tgt_` 不是合法 `svc_` preview ID（400 `VALIDATION_ERROR`）。
 - 验证：`pnpm check` 全绿——biome 686 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 740（14 跳过）。
 - 平台说明：macOS 实机通过；Windows PowerShell 7/5.1/CMD 逻辑有单元/集成测试，但本轮未在 Windows 实机复测，不冒充三端通过。A1 的最终 coding 工具面已补齐。
+
+### K-4（2026-11-18，macOS）
+
+- 模型面：删除 `gitTool.ts` 与 10 个 Git 工具注册；`ToolPackId` 移除 `git`；`ToolContext` / `ToolExecutor` / `TurnRunner` 移除 `gitRead` / `gitAction` 绑定；`GitManager.runAgentAction` 与 `AgentGitContext` 删除。`workspace` 从 29 工具降为 19 工具，schema 从 4 865 降至 3 947 token。
+- 人类面：`GitManager`、Git REST/WS、逐次审批与 ProjectWriteLock 保留；`apps/server/test/git/manager.test.ts` 全流程通过。
+- 并发：`run_command` / `run_shell` 均 `requiresProjectLock: true`，与人类 Git 写操作共用同一把 project 锁；因此 Agent shell Git 与 Git UI 写操作继续串行，不需要单独的 Git 命令扫描器。`gitLockOrder.test.ts` 改写为真实 `apply_patch` → `git add` → `git commit`，并断言模型注册表没有 `git_commit`。
+- 上下文：system 不再注入 Git 可用性；`refresh_observations` 的 Git 探测保留给人类侧栏自愈，不暴露 Git 工具。
+- 验证：`pnpm check` 全绿——biome 684 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 739（14 跳过）。定向覆盖 contextAssembler、profiles、toolContract、Git shell commit 与人类 Git manager。
+- 未运行：本轮未跑 Playwright Git 面板 E2E；留到 K-10 全量 E2E 与人工视觉验收。

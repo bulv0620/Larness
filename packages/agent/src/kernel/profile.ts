@@ -13,7 +13,6 @@ export type ToolPackId =
   | "core.write"
   | "core.command"
   | "plan"
-  | "git"
   | "terminal"
   | "service"
   | "observation";

@@ -14,7 +14,7 @@ import {
   type ToolResult,
   type ToolSchema,
 } from "@larness/agent";
-import { FileManagerError, GitError, OutputRedactor, selectShell } from "@larness/resources";
+import { FileManagerError, OutputRedactor, selectShell } from "@larness/resources";
 import {
   AcquireTerminalControlParamsSchema,
   type AssistantDeltaEvent,
@@ -201,16 +201,6 @@ function approvalPolicy(value: string): ApprovalPolicy {
   return value === "strict" || value === "readonly" || value === "autonomous" ? value : "standard";
 }
 
-function gitFailure(error: unknown, summary: string): ToolResult {
-  const code =
-    error instanceof GitError
-      ? error.code
-      : typeof (error as { code?: unknown } | null)?.code === "string"
-        ? ((error as { code: string }).code as string)
-        : "TOOL_ERROR";
-  return { ok: false, errorCode: code, summary };
-}
-
 function terminalFailure(error: unknown, summary: string): ToolResult {
   return {
     ok: false,
@@ -343,12 +333,10 @@ export class TurnRunner {
     // Project-configured ignore patterns apply to list/search for the whole Turn.
     const projectIgnore =
       project === null ? undefined : parseProjectSettings(project.settingsJson).ignore;
-    // One probe per Turn keeps the snapshot fresh while staying prefix-stable.
-    let gitObservation: { detected: boolean; observedAt: number } | undefined;
-
+    // One probe per Turn keeps the project metadata fresh; Git is a human UI
+    // concern now, so it is not injected into the model context.
     if (project !== null) {
       const detected = await detectGit(project.realPath);
-      gitObservation = { detected, observedAt: this.#now() };
 
       // Self-heal the stored flag so the sidebar is not stale after `git init`.
       if (detected !== project.gitDetected) {
@@ -925,56 +913,6 @@ export class TurnRunner {
               return terminalFailure(error, "Terminal control could not be released");
             }
           },
-          gitRead: async (operation, params) => {
-            if (!this.#options.git || !session.projectId)
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Git context unavailable",
-              };
-            try {
-              if (operation === "status") {
-                const result = await this.#options.git.status(session.projectId);
-                return {
-                  ok: true,
-                  summary: `Git ${result.branch}${result.ahead || result.behind ? ` (+${result.ahead}/-${result.behind})` : ""}`,
-                  data: result,
-                };
-              }
-              if (operation === "diff") {
-                const parsed = params as { path: string; staged?: boolean };
-                const result = await this.#options.git.diff(
-                  session.projectId,
-                  parsed.path,
-                  parsed.staged === true,
-                );
-                return {
-                  ok: true,
-                  summary: `Git diff ${result.path}${result.staged ? " (staged)" : ""}${result.truncated ? " (truncated)" : ""}`,
-                  truncated: result.truncated,
-                  data: result,
-                };
-              }
-              if (operation === "log") {
-                const parsed = params as { limit?: number; cursor?: number };
-                const result = await this.#options.git.log(
-                  session.projectId,
-                  parsed.limit ?? 50,
-                  parsed.cursor ?? 0,
-                );
-                return { ok: true, summary: `${result.length} commits`, data: { items: result } };
-              }
-              const parsed = params as { limit?: number; cursor?: number };
-              const result = await this.#options.git.branches(
-                session.projectId,
-                parsed.limit ?? 100,
-                parsed.cursor ?? 0,
-              );
-              return { ok: true, summary: `${result.length} branches`, data: { items: result } };
-            } catch (error) {
-              return gitFailure(error, "Git query failed");
-            }
-          },
           registerService: async (params, assertAuthorized) => {
             const parsed = ServiceRegisterInputSchema.safeParse(params);
             if (!parsed.success)
@@ -1101,49 +1039,6 @@ export class TurnRunner {
               };
             }
           },
-          gitAction: async (params, assertAuthorized) => {
-            if (!this.#options.git || !session.projectId)
-              return {
-                ok: false,
-                errorCode: "FORBIDDEN",
-                summary: "Git context unavailable",
-              };
-            try {
-              const args = params as Record<string, unknown>;
-              const action =
-                request.name === "git_add"
-                  ? { action: "add", paths: args.paths }
-                  : request.name === "git_commit"
-                    ? { action: "commit", message: args.message }
-                    : request.name === "git_create_branch"
-                      ? { action: "createBranch", name: args.name }
-                      : request.name === "git_switch_branch"
-                        ? { action: "switchBranch", name: args.name }
-                        : request.name === "git_pull"
-                          ? { action: "pull" }
-                          : { action: "push" };
-              const result = await this.#options.git.runAgentAction(session.projectId, action, {
-                turnId: turn.id,
-                toolCallId: request.id,
-                signal: controller.signal,
-                ...(projectLock?.handle === null || projectLock === null
-                  ? {}
-                  : { inheritedLock: projectLock.handle }),
-                assertAuthorized: () => {
-                  assertAuthorized();
-                  if (checkBudget() !== "ok" || lockLost)
-                    throw new GitError("GIT_CONFLICT", "Execution no longer authorized");
-                },
-              });
-              return {
-                ok: true,
-                summary: `Git ${(params as { action?: string }).action ?? "action"} completed`,
-                data: result,
-              };
-            } catch (error) {
-              return gitFailure(error, "Git action failed");
-            }
-          },
           loadSecrets,
           refreshObservations: async () => {
             if (checkBudget() !== "ok") {
@@ -1238,7 +1133,6 @@ export class TurnRunner {
         workspaceRoot: projectRoot,
         pm2Context: await this.#options.pm2Context?.(session.projectId),
         agentProfile: this.#options.agentProfile ?? DEFAULT_AGENT_PROFILE,
-        ...(gitObservation === undefined ? {} : { git: gitObservation }),
       };
       const assembleStarted = this.#now();
       let context = assembleContext(contextOptions, session, turn);

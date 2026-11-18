@@ -46,11 +46,6 @@ export interface ExecuteToolInput {
   sendTerminalInput?: (args: unknown) => Promise<ToolResult>;
   interruptTerminal?: (args: unknown) => Promise<ToolResult>;
   releaseTerminalControl?: (args: unknown) => Promise<ToolResult>;
-  gitRead?: (
-    operation: "status" | "diff" | "log" | "branches",
-    args: unknown,
-  ) => Promise<ToolResult>;
-  gitAction?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   registerService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
@@ -415,28 +410,6 @@ export async function executeTool(
             return (
               input.releaseTerminalControl?.(args) ??
               denied("FORBIDDEN", "Terminal release context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.gitRead
-      ? {
-          gitRead: async (operation, args) => {
-            assertAuthorized();
-            return (
-              input.gitRead?.(operation, args) ??
-              denied("FORBIDDEN", "Git read context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.gitAction
-      ? {
-          gitAction: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.gitAction?.(args, assertAuthorized) ??
-              denied("FORBIDDEN", "Git action context unavailable")
             );
           },
         }

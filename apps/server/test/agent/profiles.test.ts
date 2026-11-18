@@ -7,7 +7,6 @@ import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
-import { createGitTools } from "../../src/modules/agent/gitTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import {
@@ -58,7 +57,6 @@ describe("agent profile assembly", () => {
           createShellTool({}),
           ...createTerminalTools({ db: opened.db }),
           ...createTerminalControlTools({ db: opened.db }),
-          ...createGitTools(),
           ...createServiceTools(),
           createObservationTool(),
         ]) {
@@ -91,7 +89,6 @@ describe("agent profile assembly", () => {
               workspaceRoot: root,
               agentProfile,
               pm2Context,
-              git: { detected: true, observedAt: Date.now() },
             },
             sessionRow,
             turn,
@@ -107,13 +104,13 @@ describe("agent profile assembly", () => {
         const planSystem = plan.messages[0]?.content ?? "";
 
         expect(workspace.agentProfile).toBe("workspace");
-        expect(workspace.tools).toHaveLength(29);
-        expect(workspace.tools.map((tool) => tool.name)).toContain("git_status");
+        expect(workspace.tools).toHaveLength(19);
         expect(workspace.tools.map((tool) => tool.name)).toContain("start_project_terminal");
+        expect(workspace.tools.some((tool) => tool.name.startsWith("git_"))).toBe(false);
         expect(workspaceSystem).toContain("Larness prompt version: m6-4.");
         expect(workspaceSystem).toContain("update_plan in the same batch");
         expect(workspaceSystem).toContain("Service lifecycle contract");
-        expect(workspaceSystem).toContain("Git availability at Turn start");
+        expect(workspaceSystem).not.toContain("Git availability");
         expect(workspaceSystem).toContain("globally installed PM2");
         expect(workspaceSystem).toContain("terminal input leases");
         expect(workspace.observations).toContain("PM2 runtime and service/project associations");
@@ -121,14 +118,14 @@ describe("agent profile assembly", () => {
         expect(codingSystem).toContain("Larness prompt version: m6-4.");
         expect(codingSystem).not.toContain("update_plan");
         expect(codingSystem).not.toContain("Service lifecycle contract");
-        expect(codingSystem).not.toContain("Git availability at Turn start");
+        expect(codingSystem).not.toContain("Git availability");
         expect(codingSystem).not.toContain("globally installed PM2");
         expect(codingSystem).not.toContain("terminal input leases");
         expect(codingSystem).not.toContain("development_preview");
         expect(codingSystem).not.toContain("persistent_pm2");
         expect(coding.observations).toBeNull();
         expect(planSystem).not.toContain("Service lifecycle contract");
-        expect(planSystem).not.toContain("Git availability at Turn start");
+        expect(planSystem).not.toContain("Git availability");
         expect(planSystem).not.toContain("globally installed PM2");
         expect(plan.observations).toBeNull();
 
@@ -157,7 +154,7 @@ describe("agent profile assembly", () => {
 
         // The same Session can be assembled with both surfaces without mutating it.
         expect(sessionRow.id).toBe(session.id);
-        expect([...toolNamesForProfile("workspace")]).toHaveLength(29);
+        expect([...toolNamesForProfile("workspace")]).toHaveLength(19);
         expect([...toolNamesForProfile("coding")]).toHaveLength(7);
         expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([
           "core.read",
@@ -191,7 +188,6 @@ describe("agent profile assembly", () => {
           createShellTool({}),
           ...createTerminalTools({ db: opened.db }),
           ...createTerminalControlTools({ db: opened.db }),
-          ...createGitTools(),
           ...createServiceTools(),
           createObservationTool(),
         ]) {

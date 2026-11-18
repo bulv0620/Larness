@@ -14,7 +14,6 @@ import { openDatabase } from "../src/db/client.js";
 import { runMigrations } from "../src/db/migrate.js";
 import { createCommandTool, createShellTool } from "../src/modules/agent/commandTool.js";
 import { assembleContext, PROMPT_VERSION } from "../src/modules/agent/contextAssembler.js";
-import { createGitTools } from "../src/modules/agent/gitTool.js";
 import { createObservationTool } from "../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../src/modules/agent/planTool.js";
 import { toolNamesForProfile } from "../src/modules/agent/profiles.js";
@@ -122,7 +121,6 @@ async function freshWorkspaceNumbers(profile: AgentProfileId) {
       createShellTool({}),
       ...createTerminalTools({ db: opened.db }),
       ...createTerminalControlTools({ db: opened.db }),
-      ...createGitTools(),
       ...createServiceTools(),
       createObservationTool(),
     ]) {

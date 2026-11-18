@@ -7,7 +7,6 @@ const catalog: ToolPackCatalog = {
     "core.write": { id: "core.write", label: "write", tools: ["write_file"] },
     "core.command": { id: "core.command", label: "command", tools: ["run_command"] },
     plan: { id: "plan", label: "plan", tools: ["update_plan"] },
-    git: { id: "git", label: "git", tools: ["git_status"] },
     terminal: { id: "terminal", label: "terminal", tools: ["start_project_terminal"] },
     service: { id: "service", label: "service", tools: ["list_services"] },
     observation: { id: "observation", label: "observation", tools: ["refresh_observations"] },
@@ -27,7 +26,6 @@ const catalog: ToolPackCatalog = {
         "core.write",
         "core.command",
         "plan",
-        "git",
         "terminal",
         "service",
         "observation",
@@ -46,8 +44,8 @@ describe("agent profiles", () => {
   });
 
   it("resolves workspace to the full pack surface", () => {
-    expect([...profileToolNames(catalog, "workspace")]).toHaveLength(8);
-    expect(profileToolNames(catalog, "workspace").has("git_status")).toBe(true);
+    expect([...profileToolNames(catalog, "workspace")]).toHaveLength(7);
+    expect(profileToolNames(catalog, "workspace").has("start_project_terminal")).toBe(true);
   });
 
   it("rejects unknown profiles and packs instead of silently exposing tools", () => {
@@ -70,7 +68,9 @@ describe("agent profiles", () => {
 
   it("reports project-required and disabled availability", () => {
     expect(toolAvailability(catalog, "coding", "read_file", false)).toBe("enabled");
-    expect(toolAvailability(catalog, "coding", "git_status", true)).toBe("disabled");
-    expect(toolAvailability(catalog, "workspace", "git_status", true)).toBe("project-required");
+    expect(toolAvailability(catalog, "coding", "start_project_terminal", true)).toBe("disabled");
+    expect(toolAvailability(catalog, "workspace", "start_project_terminal", true)).toBe(
+      "project-required",
+    );
   });
 });

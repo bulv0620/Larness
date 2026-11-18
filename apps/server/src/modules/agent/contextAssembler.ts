@@ -67,7 +67,6 @@ export interface ContextAssemblerOptions {
   contextRatio?: number;
   workspaceRoot?: string;
   pm2Context?: Pm2CommandContext;
-  git?: { detected: boolean; observedAt: number };
   /** Session-level Profile. Defaults to the pre-K-9 workspace surface. */
   agentProfile?: AgentProfileId;
 }
@@ -248,16 +247,8 @@ export function assembleContext(
     session,
     ...(options.workspaceRoot === undefined ? {} : { workspaceRoot: options.workspaceRoot }),
     ...(options.pm2Context === undefined ? {} : { pm2: options.pm2Context }),
-    ...(options.git === undefined ? {} : { git: options.git }),
   });
 
-  if (snapshot.git !== null && profileHasPack(agentProfile, "git")) {
-    systemBlocks.push(
-      snapshot.git.detected
-        ? "Git availability at Turn start: this project is a Git repository, so git_status / git_diff / git_log / git_branches work."
-        : "Git availability at Turn start: no Git repository was detected, so Git tools will fail with GIT_UNAVAILABLE. Do not retry them; call refresh_observations if the repository may have just been created.",
-    );
-  }
   if (options.pm2Context && serviceEnabled)
     systemBlocks.push(
       "Larness uses a globally installed PM2 for persistent services: prepare with run_command, then drive the PM2 CLI through run_command, not dedicated deployment tools. PM2_HOME is injected by the backend. Use the namespace larness and the exact project-qualified name larness:<projectId>:<serviceKey>; legacy names in the supplied list stay valid through their exact pm2Name. Never infer ownership from a PID or cwd, never touch unrelated apps, keep logs bounded (--nostream), and never dump raw jlist, environment or dump into the conversation. A CLI success and an online process do not prove HTTP health.",

@@ -4,19 +4,16 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createFakeProvider, createFileToolRegistry, type ProviderChunk } from "@larness/agent";
 import { describe, expect, it } from "vitest";
-import { openDatabase } from "../../src/db/client.js";
-import { runMigrations } from "../../src/db/migrate.js";
-import { listSessionEvents } from "../../src/modules/agent/events.js";
-import { createGitTools } from "../../src/modules/agent/gitTool.js";
+import { createCommandTool } from "../../src/modules/agent/commandTool.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
-import { GitManager } from "../../src/modules/git/manager.js";
 import { createProject } from "../../src/modules/projects/service.js";
-import { createSession } from "../../src/modules/sessions/service.js";
+import { createSession, updateSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
 import { withTempDir } from "../helpers.js";
+import { startAuthorizedServer, stopAuthorizedServer } from "../support/server.js";
 
-function git(cwd: string, ...args: string[]): void {
-  execFileSync("git", args, { cwd, stdio: "ignore" });
+function git(cwd: string, ...args: string[]): string {
+  return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 }
 
 function toolStep(id: string, name: string, args: unknown): { chunks: ProviderChunk[] } {
@@ -37,12 +34,10 @@ function textStep(text: string): { chunks: ProviderChunk[] } {
   };
 }
 
-describe("git tools after a write in the same turn", () => {
-  it("can commit a file the agent patched earlier in the turn", async () => {
+describe("agent Git through the command tool", () => {
+  it("commits a patched file with shell Git and no dedicated Git tools", async () => {
     await withTempDir(async (dir) => {
-      const opened = openDatabase(path.join(dir, "larness.db"));
-      runMigrations(opened.db);
-
+      const started = await startAuthorizedServer(path.join(dir, "data"));
       try {
         const repo = path.join(dir, "repo");
         await mkdir(repo);
@@ -54,42 +49,64 @@ describe("git tools after a write in the same turn", () => {
         git(repo, "commit", "-q", "-m", "initial");
 
         const project = await createProject(
-          { db: opened.db, detectGit: async () => true },
+          { db: started.running.db, detectGit: async () => true },
           { rootPath: repo },
         );
-        const sessionOptions = { db: opened.db, dataDir: dir };
-        const session = await createSession(sessionOptions, { projectId: project.id });
+        const session = await createSession(
+          { db: started.running.db, dataDir: started.running.dataDir },
+          { projectId: project.id },
+        );
+        updateSession(
+          { db: started.running.db, dataDir: started.running.dataDir },
+          { id: session.id, approvalPolicyId: "autonomous" },
+        );
+        const auth = (
+          await started.running.app.inject({
+            url: "/api/auth/session",
+            headers: { cookie: started.cookie },
+          })
+        ).json() as { clientSessionId: string };
         const version = createHash("sha256").update("old\n").digest("hex");
-        const turn = createTurn(sessionOptions, {
-          sessionId: session.id,
-          text: "patch and commit",
-        });
+        const turn = createTurn(
+          { db: started.running.db },
+          {
+            sessionId: session.id,
+            text: "patch and commit through shell",
+            clientSessionId: auth.clientSessionId,
+          },
+        );
         const provider = createFakeProvider([
           toolStep("p1", "apply_patch", {
             path: "a.txt",
             expectedVersion: version,
             patch: "--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new\n",
           }),
-          toolStep("g1", "git_add", { paths: ["a.txt"] }),
-          toolStep("g2", "git_commit", { message: "agent commit" }),
+          toolStep("g1", "run_command", {
+            executable: "git",
+            args: ["add", "a.txt"],
+            cwd: ".",
+          }),
+          toolStep("g2", "run_command", {
+            executable: "git",
+            args: ["commit", "-m", "agent commit"],
+            cwd: ".",
+          }),
           textStep("done"),
         ]);
         const registry = createFileToolRegistry();
-        for (const tool of createGitTools()) registry.register(tool);
+        registry.register(createCommandTool({}));
         const runner = new TurnRunner({
-          db: opened.db,
+          db: started.running.db,
           registry,
-          git: new GitManager({ db: opened.db }),
+          commands: started.running.commands,
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
         });
 
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
-
-        const events = listSessionEvents(opened.db, session.id).items;
-        const failed = events.filter((event) => event.type === "tool.failed");
-        expect(failed.map((event) => event.payload)).toEqual([]);
+        expect(git(repo, "log", "-1", "--pretty=%s")).toBe("agent commit");
+        expect(registry.has("git_commit")).toBe(false);
       } finally {
-        opened.close();
+        await stopAuthorizedServer(started);
       }
     });
   });

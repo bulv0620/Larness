@@ -8,7 +8,6 @@ import { runMigrations } from "../../src/db/migrate.js";
 import { immediateTransaction } from "../../src/db/transaction.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { appendAgentEvent } from "../../src/modules/agent/events.js";
-import { createGitTools } from "../../src/modules/agent/gitTool.js";
 import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { createTerminalControlTools } from "../../src/modules/agent/terminalControlTool.js";
 import { createTerminalTools } from "../../src/modules/agent/terminalTool.js";
@@ -37,7 +36,7 @@ describe("context assembler", () => {
         );
         const sessionOptions = { db: opened.db, dataDir: dir };
         const registry = createFileToolRegistry();
-        const projectTools = [...createGitTools(), ...createServiceTools()];
+        const projectTools = createServiceTools();
         for (const tool of [
           ...projectTools,
           ...createTerminalTools({ db: opened.db }),
@@ -78,6 +77,8 @@ describe("context assembler", () => {
             );
             const byName = new Map(context.tools.map((tool) => [tool.name, tool]));
             expect(byName.has("read_file")).toBe(true);
+            expect(byName.has("git_status")).toBe(false);
+            expect(byName.has("git_commit")).toBe(false);
             expect(byName.has("read_terminal_output")).toBe(true);
             expect(byName.get("send_terminal_input")?.description).toMatch(
               /echo.*terminal output/i,
@@ -133,7 +134,7 @@ describe("context assembler", () => {
     });
   });
 
-  it("states Git availability from the Turn-start observation", async () => {
+  it("does not inject Git availability or Git tools after the model surface moved to shell", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
 
@@ -150,32 +151,19 @@ describe("context assembler", () => {
         const turnRow = getTurnById(opened.db, turn.turnId);
         if (turnRow === null) throw new Error("turn missing");
 
-        const without = assembleContext(
+        const context = assembleContext(
           {
             db: opened.db,
             registry: createFileToolRegistry(),
             maxContextTokens: 128_000,
             policy: "standard",
-            git: { detected: false, observedAt: 1 },
           },
           session,
           turnRow,
         );
-        expect(without.messages[0]?.content).toContain("no Git repository was detected");
-        expect(without.messages[0]?.content).toContain("GIT_UNAVAILABLE");
-
-        const withRepo = assembleContext(
-          {
-            db: opened.db,
-            registry: createFileToolRegistry(),
-            maxContextTokens: 128_000,
-            policy: "standard",
-            git: { detected: true, observedAt: 1 },
-          },
-          session,
-          turnRow,
-        );
-        expect(withRepo.messages[0]?.content).toContain("this project is a Git repository");
+        expect(context.messages[0]?.content).not.toContain("Git availability");
+        expect(context.messages[0]?.content).not.toContain("GIT_UNAVAILABLE");
+        expect(context.tools.map((tool) => tool.name)).not.toContain("git_status");
       } finally {
         opened.close();
       }

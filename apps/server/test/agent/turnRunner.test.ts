@@ -1308,8 +1308,8 @@ describe("TurnRunner", () => {
         const firstTurn = createTurn(sessionOptions, { sessionId: session.id, text: "before" });
         expect((await firstRunner.run(firstTurn.turnId)).status).toBe("COMPLETED");
         const firstSystem = first.calls[0]?.messages[0];
-        expect(firstSystem?.role === "system" && firstSystem.content).toContain(
-          "no Git repository was detected",
+        expect(firstSystem?.role === "system" && firstSystem.content).not.toContain(
+          "Git availability",
         );
 
         execFileSync("git", ["init", "-q", root]);
@@ -1322,8 +1322,8 @@ describe("TurnRunner", () => {
         const secondTurn = createTurn(sessionOptions, { sessionId: session.id, text: "after" });
         expect((await secondRunner.run(secondTurn.turnId)).status).toBe("COMPLETED");
         const secondSystem = second.calls[0]?.messages[0];
-        expect(secondSystem?.role === "system" && secondSystem.content).toContain(
-          "this project is a Git repository",
+        expect(secondSystem?.role === "system" && secondSystem.content).not.toContain(
+          "Git availability",
         );
 
         // The stored flag self-heals so the sidebar stops claiming "no git".

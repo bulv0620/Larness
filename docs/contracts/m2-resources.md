@@ -403,6 +403,7 @@ Terminal DTO 新增 `writeBlocked: boolean`，从资源创建记录的 canonical
 ### Agent 工具
 
 - `git_status` / `git_diff` / `git_log` / `git_branches` 为 L0；`git_add` / `git_commit` / `git_create_branch` / `git_switch_branch` 为 L1；`git_pull` / `git_push` 为 L2。工具经 ToolRegistry 与既有 Turn 审批，不创建人工 actionId，也不把 resource_action 伪装成 toolCallId。
+- 082 K-4（2026-11-18）：上述 10 个模型 Git 工具已从所有 Profile 移除；人类 Git 资源区继续使用 REST/WS、逐次审批与 ProjectLease，Agent 通过 `run_command` / `run_shell` 执行 `git`。旧的 Git 事件与审批记录保持可回放。
 - 工具作用域由真实 session.projectId 注入；参数 mapping 后才进入同一 Manager。写工具 `requiresProjectLock:false`，由 Manager 使用以 Turn + toolCall 唯一 executionId 的项目锁；Agent 写快照在锁前 / 锁后一致才执行。结果只返回结构化 summary / hash / 状态，不返回原始 Git 输出。
 - 严格 / 宽松策略仍不得放行定义为逐次批准的 pull / push；Git 读在模型离线时仍可由 M2-5b UI 直接调用 REST。M2-5 不提供 Git 资源窗口 / Diff / 审批 UI，不新增 WS git 事件；这些在 M2-5b 实施。
 

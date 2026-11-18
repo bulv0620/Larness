@@ -57,6 +57,8 @@ LARNESS_BASELINE_DATA_DIR="$HOME/Library/Application Support/larness" \
 | `write_file` | L1 | 否 | 是 | 177 | 693 |
 | **合计** | | | | **4 577** | **17 816** |
 
+> K-4 后 10 个 Git 工具已从模型面移除；`workspace` 变为 19 工具 / 3 947 schema token。本表保留 K-1 的重构前基线，便于对照。
+
 ### 2.1 按能力分组
 
 | 组 | 工具数 | schema tokens | 占固定工具开销 |
@@ -92,11 +94,11 @@ LARNESS_BASELINE_DATA_DIR="$HOME/Library/Application Support/larness" \
 
 | Profile | 工具数 | schema tokens | system tokens | 空项目 assembled tokens | 相对 workspace |
 |---|---:|---:|---:|---:|---:|
-| `coding` | 7 | 1 462 | 253 | 1 727 | **-69.3%** |
-| `plan` | 4 | 730 | 379 | 1 121 | **-80.1%** |
-| `workspace` | 29 | 4 865 | 747 | 5 619 | 基线 |
+| `coding` | 7 | 1 462 | 253 | 1 727 | **-63.3%** |
+| `plan` | 4 | 730 | 379 | 1 121 | **-76.2%** |
+| `workspace` | 19 | 3 947 | 747 | 4 703 | 基线 |
 
-`coding` 的 system 不再包含计划、服务生命周期、Git 可用性、PM2 或终端租约；`workspace` 保持原有内容。`run_shell` 已在 K-12 加入 `core.command`，上表为加入后的数字。
+`coding` 的 system 不再包含计划、服务生命周期、PM2 或终端租约；`workspace` 保持服务/终端/观察能力。`run_shell` 已在 K-12 加入 `core.command`；Git 工具已在 K-4 移除；上表为 K-4 后的数字。
 
 ## 4. 真实使用基线
 

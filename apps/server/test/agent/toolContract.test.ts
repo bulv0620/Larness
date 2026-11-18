@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
-import { createGitTools } from "../../src/modules/agent/gitTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
@@ -32,7 +31,6 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   registry.register(createShellTool({}));
   for (const tool of createTerminalTools({ db: opened.db })) registry.register(tool);
   for (const tool of createTerminalControlTools({ db: opened.db })) registry.register(tool);
-  for (const tool of createGitTools()) registry.register(tool);
   for (const tool of createServiceTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
@@ -49,8 +47,6 @@ type HandlerKey = keyof Pick<
   | "sendTerminalInput"
   | "interruptTerminal"
   | "releaseTerminalControl"
-  | "gitRead"
-  | "gitAction"
   | "registerService"
   | "listServices"
   | "resolveServicePreview"
@@ -129,26 +125,6 @@ const BOUND_TOOLS: BoundToolCase[] = [
     args: { terminalId: TERMINAL, leaseGeneration: 1 },
     invalid: { terminalId: TERMINAL },
   },
-  { name: "git_status", handler: "gitRead", args: {}, invalid: { bogus: true } },
-  { name: "git_diff", handler: "gitRead", args: { path: "a.txt" }, invalid: {} },
-  { name: "git_log", handler: "gitRead", args: {}, invalid: { limit: 0 } },
-  { name: "git_branches", handler: "gitRead", args: {}, invalid: { limit: 0 } },
-  { name: "git_add", handler: "gitAction", args: { paths: ["a.txt"] }, invalid: { paths: [] } },
-  { name: "git_commit", handler: "gitAction", args: { message: "m" }, invalid: { message: "" } },
-  {
-    name: "git_create_branch",
-    handler: "gitAction",
-    args: { name: "feature" },
-    invalid: {},
-  },
-  {
-    name: "git_switch_branch",
-    handler: "gitAction",
-    args: { name: "feature" },
-    invalid: { name: "" },
-  },
-  { name: "git_pull", handler: "gitAction", args: {}, invalid: { force: true } },
-  { name: "git_push", handler: "gitAction", args: {}, invalid: { force: true } },
   {
     name: "register_temporary_service",
     handler: "registerService",
@@ -250,8 +226,6 @@ describe("tool contract matrix", () => {
             sendTerminalInput: handlerStub("sendTerminalInput"),
             interruptTerminal: handlerStub("interruptTerminal"),
             releaseTerminalControl: handlerStub("releaseTerminalControl"),
-            gitRead: handlerStub("gitRead"),
-            gitAction: handlerStub("gitAction"),
             registerService: handlerStub("registerService"),
             listServices: handlerStub("listServices"),
             resolveServicePreview: handlerStub("resolveServicePreview"),
