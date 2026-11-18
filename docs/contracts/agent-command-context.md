@@ -12,6 +12,8 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 `start_process` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd` 和可选 `name`；返回稳定 `processId`、`cwd` 与输出游标。`read_process_output` 用 `after` / `limit` 读取有界新输出，`nextCursor` 为下一次游标，`resyncRequired` 表示旧块已淘汰；`stop_process` 幂等停止整个进程组/进程树。后台进程不长期持有项目写锁（否则 dev server 会阻塞所有源码写），启动时仍执行授权、路径、秘密和交互命令检查；停止失败返回 `STOP_UNCONFIRMED`。进程输出使用 1 MiB 环形缓冲并脱敏，不进入审计或原始事件。
 
+`start_service` 在后台进程之上绑定项目、名称、进程、命令摘要、端口与可选 `healthPath`，返回 `svc_` 服务 ID；同一项目 + 名称 + 命令重复启动返回原服务，不同命令同名冲突，端口占用在启动前拒绝。`read_service_logs` 复用进程输出游标；`stop_service` 停止底层进程组并幂等。服务状态在进程退出后按需降级为 `FAILED`/`STOPPED`。进程服务的 `previewEligible` 当前为 `false`，预览仍只服务既有终端服务；关闭预览不影响服务运行与日志。
+
 ## 系统信息
 
 运行时观察在 **Turn 起点**取一次真实快照（PM2、临时服务），并在整个 Turn 内保持不变（[ADR-057](../adr/ADR-057-runtime-efficiency.md)、[ADR-067](../adr/ADR-067-lean-agent-context.md)）。快照**不进入 system 消息**，而是作为一条独立消息追加在当前请求之后：前缀缓存从请求开头逐字节匹配，system 里只要有一个会变的字节，下一 Turn 的整段历史都会变成未命中（[ADR-067](../adr/ADR-067-lean-agent-context.md) D1）。快照**不带逐 Turn 时间戳**，工作区没有变化时它与上一 Turn 逐字节相同，跨轮可直接命中缓存。Turn 内不再每步刷新：需要当前状态时，模型调用只读工具 `refresh_observations`，或使用既有的服务 / 终端 / PM2 查询；状态变更类工具的结果自带最新观察。声明状态前必须先刷新；`running` / 在线不构成健康证明。系统 JSON 的字段如下。

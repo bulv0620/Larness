@@ -779,3 +779,7 @@ type JobInput = {
 ### K-6 后台进程 API
 
 082 K-6 新增 `GET /api/processes?projectId=|sessionId=`、`GET /api/processes/:id`、`GET /api/processes/:id/output?after=&limit=`、`POST /api/processes/:id/stop`。全部经过现有认证守卫；stop 同样受 Origin / CSRF 保护。进程 ID 为 `prc_` 前缀，DTO 含 projectId、sessionId、name、status、executable、cwd、pid、exitCode、reasonCode、startedAt、endedAt、outputCursor、truncated。输出按游标分页，`resyncRequired` 表示旧块已淘汰；REST 不返回原始环境或秘密。`start_process` 仍只由 Agent Turn 创建，不开放通用 POST 创建入口。
+
+### K-7 命名服务 API
+
+082 K-7 新增 `GET /api/process-services?projectId=|sessionId=`、`GET /api/process-services/:id`、`GET /api/process-services/:id/logs?after=&limit=`、`POST /api/process-services/:id/stop`。全部使用现有认证守卫，stop 受 Origin / CSRF 保护。服务 ID 为 `svc_` 前缀，DTO 含 projectId、sessionId、processId、name、executable、cwd、port、status、previewEligible、reasonCode 与时间字段。`previewEligible` 当前固定为 `false`：进程服务的预览接线留待后续切片，现有终端服务预览不受影响。日志读取复用进程输出游标语义。

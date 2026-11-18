@@ -45,6 +45,7 @@ export interface ProcessContext {
   toolCallId: string;
   clientSessionId: string;
   policySnapshotId: string;
+  projectId?: string | null;
   assertAuthorized: () => void;
   signal?: AbortSignal;
 }

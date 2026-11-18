@@ -13,6 +13,7 @@ import { registerJobRoutes } from "./api/jobs.js";
 import { registerModelRoutes } from "./api/models.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerPreviewRoutes } from "./api/previews.js";
+import { registerProcessServiceRoutes } from "./api/process-services.js";
 import { registerProcessRoutes } from "./api/processes.js";
 import { registerProjectRoutes } from "./api/projects.js";
 import { registerResourceActionRoutes } from "./api/resource-actions.js";
@@ -44,6 +45,7 @@ import { DeploymentManager } from "./modules/service-ops/deployments.js";
 import type { ServiceActionAuthorizationService } from "./modules/service-ops/serviceActions.js";
 import type { ServiceOpsRuntime } from "./modules/service-ops/serviceOps.js";
 import { ServiceManager } from "./modules/services/manager.js";
+import type { NamedServiceManager } from "./modules/services/named.js";
 import { createHostMetricsService } from "./modules/system/metrics.js";
 import { TerminalManager } from "./modules/terminals/manager.js";
 import { resolveRequestId } from "./request-id.js";
@@ -65,6 +67,7 @@ export interface AppServices {
   commands?: CommandManager;
   terminals?: TerminalManager;
   processes?: ProcessManager;
+  processServices?: NamedServiceManager;
   git?: GitManager;
   services?: ServiceManager;
   deployments?: DeploymentManager;
@@ -179,6 +182,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
     registerTerminalRoutes(app, options.services, terminals);
     if (options.services.processes !== undefined) {
       registerProcessRoutes(app, options.services, options.services.processes);
+    }
+    if (options.services.processServices !== undefined) {
+      registerProcessServiceRoutes(app, options.services, options.services.processServices);
     }
     registerFileRoutes(app, options.services, resourceEvents);
     registerGitRoutes(app, options.services, git);

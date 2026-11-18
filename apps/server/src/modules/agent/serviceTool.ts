@@ -43,7 +43,7 @@ export function createServiceTools(): ToolDefinition[] {
     defineTool({
       name: "list_services",
       description:
-        "List only this project's temporary terminal services with their observed status and endpoints; persistent PM2 services arrive in the runtime observations instead. Read-only, and ended services are omitted by default.",
+        "List this project's services: named background process services and legacy temporary terminal services, with their observed status, endpoints and processId when available. Persistent PM2 services arrive in the runtime observations instead. Read-only; ended services are omitted by default.",
       riskLevel: "L0",
       requiresProject: true,
       requiresProjectLock: false,

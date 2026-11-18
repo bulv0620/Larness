@@ -22,6 +22,9 @@ export interface ToolContext {
   startProcess?: (args: unknown) => Promise<ToolResult>;
   readProcessOutput?: (args: unknown) => Promise<ToolResult>;
   stopProcess?: (args: unknown) => Promise<ToolResult>;
+  startService?: (args: unknown) => Promise<ToolResult>;
+  readServiceLogs?: (args: unknown) => Promise<ToolResult>;
+  stopService?: (args: unknown) => Promise<ToolResult>;
   registerService?: (args: unknown) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;

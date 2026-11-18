@@ -42,6 +42,9 @@ export interface ExecuteToolInput {
   startProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   readProcessOutput?: (args: unknown) => Promise<ToolResult>;
   stopProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  startService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
+  readServiceLogs?: (args: unknown) => Promise<ToolResult>;
+  stopService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   registerService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
@@ -151,7 +154,9 @@ export async function executeTool(
     input.toolName === "run_command" ||
     input.toolName === "run_shell" ||
     input.toolName === "start_process" ||
-    input.toolName === "stop_process";
+    input.toolName === "stop_process" ||
+    input.toolName === "start_service" ||
+    input.toolName === "stop_service";
   const params = contextBound ? parsed.data : input.args;
   const approvalParams = contextBound
     ? {
@@ -332,6 +337,41 @@ export async function executeTool(
             return (
               input.stopProcess?.(args, assertAuthorized) ??
               denied("FORBIDDEN", "Process stop context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.startService
+      ? {
+          startService: async (args: unknown) => {
+            if (hashApprovalParams(args) !== hashApprovalParams(params))
+              return denied("APPROVAL_INVALID", "Service parameters changed");
+            assertAuthorized();
+            return (
+              input.startService?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Service context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.readServiceLogs
+      ? {
+          readServiceLogs: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.readServiceLogs?.(args) ??
+              denied("FORBIDDEN", "Service log context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.stopService
+      ? {
+          stopService: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.stopService?.(args, assertAuthorized) ??
+              denied("FORBIDDEN", "Service stop context unavailable")
             );
           },
         }

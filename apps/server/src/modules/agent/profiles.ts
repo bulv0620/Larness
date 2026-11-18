@@ -32,6 +32,9 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
     plan: pack("plan", "计划", ["update_plan"]),
     process: pack("process", "后台进程", ["start_process", "read_process_output", "stop_process"]),
     service: pack("service", "服务", [
+      "start_service",
+      "read_service_logs",
+      "stop_service",
       "register_temporary_service",
       "resolve_service_preview",
       "list_services",

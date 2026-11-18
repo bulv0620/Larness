@@ -7,6 +7,7 @@ import { runMigrations } from "../../src/db/migrate.js";
 import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
+import { createProcessServiceTools } from "../../src/modules/agent/processServiceTool.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
 import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
 import { type ExecuteToolInput, executeTool } from "../../src/modules/agent/toolExecutor.js";
@@ -29,6 +30,7 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   registry.register(createCommandTool({}));
   registry.register(createShellTool({}));
   for (const tool of createProcessTools({})) registry.register(tool);
+  for (const tool of createProcessServiceTools({})) registry.register(tool);
   for (const tool of createServiceTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
@@ -41,6 +43,9 @@ type HandlerKey = keyof Pick<
   | "startProcess"
   | "readProcessOutput"
   | "stopProcess"
+  | "startService"
+  | "readServiceLogs"
+  | "stopService"
   | "registerService"
   | "listServices"
   | "resolveServicePreview"
@@ -94,6 +99,24 @@ const BOUND_TOOLS: BoundToolCase[] = [
     handler: "stopProcess",
     args: { processId: "prc_00000000-0000-4000-8000-000000000000" },
     invalid: { processId: "nope" },
+  },
+  {
+    name: "start_service",
+    handler: "startService",
+    args: { name: "web", executable: "node", args: ["-e", "0"], port: 45123 },
+    invalid: { name: "web", executable: "node", port: 0 },
+  },
+  {
+    name: "read_service_logs",
+    handler: "readServiceLogs",
+    args: { serviceId: "svc_00000000-0000-4000-8000-000000000000" },
+    invalid: { serviceId: "nope" },
+  },
+  {
+    name: "stop_service",
+    handler: "stopService",
+    args: { serviceId: "svc_00000000-0000-4000-8000-000000000000" },
+    invalid: { serviceId: "nope" },
   },
   {
     name: "register_temporary_service",
@@ -192,6 +215,9 @@ describe("tool contract matrix", () => {
             startProcess: handlerStub("startProcess"),
             readProcessOutput: handlerStub("readProcessOutput"),
             stopProcess: handlerStub("stopProcess"),
+            startService: handlerStub("startService"),
+            readServiceLogs: handlerStub("readServiceLogs"),
+            stopService: handlerStub("stopService"),
             registerService: handlerStub("registerService"),
             listServices: handlerStub("listServices"),
             resolveServicePreview: handlerStub("resolveServicePreview"),

@@ -9,6 +9,7 @@ export * from "./gateway";
 export * from "./git";
 export * from "./jobs";
 export * from "./plans";
+export * from "./process-services";
 export * from "./processes";
 export * from "./resources";
 export * from "./services";

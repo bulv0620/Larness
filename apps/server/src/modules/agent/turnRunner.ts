@@ -44,6 +44,7 @@ import type { ProcessManager } from "../processes/manager.js";
 import { getProjectById, updateProjectRow } from "../projects/repository.js";
 import { detectGit, parseProjectSettings } from "../projects/service.js";
 import type { ServiceManager } from "../services/manager.js";
+import type { NamedServiceManager } from "../services/named.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
 import { isDefaultWorkspace } from "../workspaces/default.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
@@ -157,6 +158,7 @@ export interface TurnRunnerOptions {
   git?: GitManager;
   services?: ServiceManager;
   processes?: ProcessManager;
+  processServices?: NamedServiceManager;
   /** Session-level Profile; K-9 persists and exposes the selection. */
   agentProfile?: AgentProfileId;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
@@ -619,6 +621,7 @@ export class TurnRunner {
                   toolCallId: request.id,
                   clientSessionId: snapshot.clientSessionId,
                   policySnapshotId: snapshot.policySnapshotId,
+                  projectId: session.projectId,
                   signal: controller.signal,
                   assertAuthorized: () => {
                     assertAuthorized();
@@ -728,6 +731,131 @@ export class TurnRunner {
               };
             }
           },
+          startService: async (params, assertAuthorized) => {
+            if (!snapshot || !this.#options.processServices || !session.projectId) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Service context unavailable",
+              };
+            }
+            try {
+              const service = await this.#options.processServices.start(
+                {
+                  sessionId: session.id,
+                  turnId: turn.id,
+                  toolCallId: request.id,
+                  clientSessionId: snapshot.clientSessionId,
+                  policySnapshotId: snapshot.policySnapshotId,
+                  projectId: session.projectId,
+                  signal: controller.signal,
+                  assertAuthorized: () => {
+                    assertAuthorized();
+                    if (checkBudget() !== "ok" || lockLost)
+                      throw new Error("Execution no longer authorized");
+                  },
+                },
+                params,
+              );
+              const running = service.status === "RUNNING";
+              return {
+                ok: running,
+                summary: `Service ${service.name} ${service.status}`,
+                ...(running ? {} : { errorCode: service.reasonCode ?? "SERVICE_FAILED" }),
+                data: service,
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Service could not be started",
+              };
+            }
+          },
+          readServiceLogs: async (params) => {
+            const parsed = z
+              .object({
+                serviceId: z.string().min(1),
+                after: z.number().int().min(0).default(0),
+                limit: z.number().int().min(1).max(500).default(100),
+              })
+              .strict()
+              .safeParse(params);
+            if (
+              !parsed.success ||
+              !snapshot ||
+              !this.#options.processServices ||
+              !session.projectId
+            ) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Service log context unavailable",
+              };
+            }
+            try {
+              const page = await this.#options.processServices.logs(
+                parsed.data.serviceId,
+                {
+                  sessionId: session.id,
+                  clientSessionId: snapshot.clientSessionId,
+                  projectId: session.projectId,
+                },
+                parsed.data.after,
+                parsed.data.limit,
+              );
+              return {
+                ok: true,
+                summary: `${page.chunks.length} service log chunks`,
+                truncated: page.truncated || page.resyncRequired,
+                data: page,
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Service logs could not be read",
+              };
+            }
+          },
+          stopService: async (params, assertAuthorized) => {
+            const parsed = z
+              .object({ serviceId: z.string().min(1) })
+              .strict()
+              .safeParse(params);
+            if (
+              !parsed.success ||
+              !snapshot ||
+              !this.#options.processServices ||
+              !session.projectId
+            ) {
+              return {
+                ok: false,
+                errorCode: "FORBIDDEN",
+                summary: "Service context unavailable",
+              };
+            }
+            try {
+              assertAuthorized();
+              const result = await this.#options.processServices.stop(parsed.data.serviceId, {
+                sessionId: session.id,
+                clientSessionId: snapshot.clientSessionId,
+                projectId: session.projectId,
+              });
+              return {
+                ok: result.stopped,
+                summary: `Service ${result.service.status}`,
+                ...(result.stopped ? {} : { errorCode: "STOP_UNCONFIRMED" }),
+                data: result.service,
+              };
+            } catch (error) {
+              return {
+                ok: false,
+                errorCode: error instanceof FileManagerError ? error.code : "TOOL_ERROR",
+                summary: "Service could not be stopped",
+              };
+            }
+          },
           registerService: async (params, assertAuthorized) => {
             const parsed = ServiceRegisterInputSchema.safeParse(params);
             if (!parsed.success)
@@ -826,7 +954,7 @@ export class TurnRunner {
             }
           },
           listServices: async (params) => {
-            if (!this.#options.services || !session.projectId)
+            if (!session.projectId)
               return {
                 ok: false,
                 errorCode: "FORBIDDEN",
@@ -837,14 +965,24 @@ export class TurnRunner {
                 typeof params === "object" && params !== null && "limit" in params
                   ? Number(params.limit)
                   : 50;
-              const result = this.#options.services.list({
+              const boundedLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 200) : 50;
+              const temporary = this.#options.services?.list({
                 projectId: session.projectId,
-                limit: Number.isInteger(limit) && limit > 0 ? Math.min(limit, 200) : 50,
+                limit: boundedLimit,
+              });
+              const named = this.#options.processServices?.list({
+                projectId: session.projectId,
               });
               return {
                 ok: true,
-                summary: `${result.items.length} 个临时服务`,
-                data: result,
+                summary: `${(named?.length ?? 0) + (temporary?.items.length ?? 0)} 个服务`,
+                data: {
+                  items: [
+                    ...(named ?? []).map((service) => ({ ...service, kind: "process" })),
+                    ...(temporary?.items ?? []),
+                  ],
+                  nextCursor: temporary?.nextCursor ?? null,
+                },
               };
             } catch (error) {
               return {

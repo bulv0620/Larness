@@ -14,7 +14,7 @@
 | K-4 | Git 模型工具移除与人类 UI 分面 | K-3 | `done` |
 | K-5 | 终端与 Agent 模型面分离 | K-3 | `done` |
 | K-6 | 后台进程能力包 | K-5 | `done` |
-| K-7 | 命名服务与可选预览 | K-6 | `todo` |
+| K-7 | 命名服务与可选预览 | K-6 | `done` |
 | K-8 | 计划可选化 | K-3 | `todo` |
 | K-11 | 锁与审计契约收敛 | K-2 | `todo` |
 | K-9 | workspace Profile、迁移与 UI | K-4、K-7、K-8、K-11、K-12 | `todo` |
@@ -195,7 +195,7 @@
 
 ### K-7 命名服务与可选预览
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-6
 - 目标：在后台进程上提供命名服务、日志与可选预览。
 - 交付物：
@@ -375,3 +375,13 @@
 - 测试：`processes.test.ts` 覆盖真实进程启动、输出游标、重复启动、同名冲突、停止、重复停止、进程组退出、启动即退出、交互命令拒绝与 REST 列表/输出；`toolContract` 矩阵加入 3 个进程工具；`profiles` 断言 workspace 15 工具。
 - 验证：`pnpm check` 全绿——biome 685 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 731（14 跳过）。
 - 未运行：Windows 实机进程树停止未复测；端口冲突未单独建集成用例（服务登记在 K-7 才引入）。
+
+### K-7（2026-11-18，macOS）
+
+- 新增 `NamedServiceManager`：在 `ProcessManager` 上绑定项目、`processId`、命令摘要、端口、可选 `healthPath` 与状态；同一项目 + 名称 + 命令幂等，不同命令同名冲突，端口占用启动前拒绝，健康检查失败停止进程并失败关闭，进程退出后按需降级状态。
+- 新增 `start_service`（L2）/ `read_service_logs`（L0）/ `stop_service`（L1），仅 `workspace`；`list_services` 合并命名进程服务与旧临时终端服务。
+- 新增 `GET /api/process-services`、`/:id`、`/:id/logs`、`/:id/stop`，沿用认证 / Origin / CSRF 守卫。
+- 预览边界：进程服务 `previewEligible=false`，预览仍只服务既有终端服务；关闭预览不影响服务运行与日志。该缺口在验收中明确，不冒充进程服务已可预览。
+- 测试：`named-services.test.ts` 覆盖真实 HTTP 服务启动/健康检查、重复启动、同名冲突、日志、列表、停止与重复停止、端口占用；`toolContract` / `profiles` 断言 3 个服务工具与 workspace 18 工具。
+- 验证：`pnpm check` 全绿——biome 690 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 733（14 跳过）。
+- 未运行：浏览器服务卡片与预览 E2E 未跑；留到 K-9 UI / K-10 全量验收。
