@@ -274,7 +274,9 @@ it("classifies only exact development scripts as L1; arbitrary arguments and she
 
 it("executes an exact project test script under standard policy without creating an approval", async () => {
   await withTempDir(async (dir) => {
-    const f = await fixture(dir, "unused");
+    // The default 2s command budget flakes on Windows, where the pnpm .cmd
+    // shim chain can spend seconds before the script even starts.
+    const f = await fixture(dir, "unused", 30_000);
     try {
       await writeFile(
         path.join(f.root, "package.json"),
@@ -430,7 +432,12 @@ it("rejects known credential literals including quotes before creating approval 
   });
 });
 it("runs run_shell through the platform shell and returns separated streams", async () => {
-  const command = `"${process.execPath}" -e "console.log('shell-out'); console.error('shell-err')"`;
+  const windows = process.platform === "win32";
+  // PowerShell invokes a quoted path through the call operator; POSIX sh
+  // accepts the bare quoted command line.
+  const command = windows
+    ? `& "${process.execPath}" -e "console.log('shell-out'); console.error('shell-err')"`
+    : `"${process.execPath}" -e "console.log('shell-out'); console.error('shell-err')"`;
   await withTempDir(async (dir) => {
     const f = await fixture(dir, "unused", 3000, {
       toolName: "run_shell",
@@ -452,7 +459,9 @@ it("runs run_shell through the platform shell and returns separated streams", as
         stderr?: string;
         shell?: string;
       };
-      expect(payload).toMatchObject({ status: "COMPLETED", exitCode: 0, shell: "sh" });
+      expect(payload).toMatchObject({ status: "COMPLETED", exitCode: 0 });
+      if (windows) expect(["pwsh", "powershell"]).toContain(payload.shell);
+      else expect(payload.shell).toBe("sh");
       expect(payload.stdout).toContain("shell-out");
       expect(payload.stderr).toContain("shell-err");
     } finally {

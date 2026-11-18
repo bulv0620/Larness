@@ -114,7 +114,12 @@ it("shows a sensitive field prompt before its value arrives without leaking a sp
 it("runs an explicit platform shell and reports a missing shell separately", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "larness-command-shell-"));
   try {
-    const command = `"${process.execPath}" -e "console.log('shell-ok')"`;
+    // PowerShell invokes a quoted path through the call operator; POSIX sh
+    // accepts the bare quoted command line.
+    const command =
+      process.platform === "win32"
+        ? `& "${process.execPath}" -e "console.log('shell-ok')"`
+        : `"${process.execPath}" -e "console.log('shell-ok')"`;
     const shell = selectShell(command);
     const chunks: string[] = [];
     const result = await runCommand({
