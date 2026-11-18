@@ -40,8 +40,6 @@ import { TurnQueue } from "../modules/agent/queue.js";
 import { continueBudgetedTurn } from "../modules/agent/recovery/continue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { createServiceTools } from "../modules/agent/serviceTool.js";
-import { createTerminalControlTools } from "../modules/agent/terminalControlTool.js";
-import { createTerminalTools } from "../modules/agent/terminalTool.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
 import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileActions } from "../modules/files/actions.js";
@@ -481,10 +479,6 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       registry.register(createPlanTool({ db: opened.db, secretStore }));
       registry.register(createCommandTool({ secretStore }));
       registry.register(createShellTool({ secretStore }));
-      for (const tool of createTerminalTools({ db: opened.db, secretStore }))
-        registry.register(tool);
-      for (const tool of createTerminalControlTools({ db: opened.db, secretStore }))
-        registry.register(tool);
       for (const tool of createServiceTools()) registry.register(tool);
       registry.register(createObservationTool());
       const runner = new TurnRunner({
@@ -492,7 +486,6 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         db: opened.db,
         registry,
         commands,
-        terminals,
         git,
         services,
         agentProfile: DEFAULT_AGENT_PROFILE,

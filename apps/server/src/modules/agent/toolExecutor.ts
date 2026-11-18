@@ -39,13 +39,6 @@ export interface ExecuteToolInput {
   policySnapshotId?: string;
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
-  startTerminal?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
-  readTerminalOutput?: (args: unknown) => Promise<ToolResult>;
-  stopTerminal?: (args: unknown) => Promise<ToolResult>;
-  acquireTerminalControl?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
-  sendTerminalInput?: (args: unknown) => Promise<ToolResult>;
-  interruptTerminal?: (args: unknown) => Promise<ToolResult>;
-  releaseTerminalControl?: (args: unknown) => Promise<ToolResult>;
   registerService?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
@@ -151,10 +144,7 @@ export async function executeTool(
     };
   }
 
-  const contextBound =
-    input.toolName === "run_command" ||
-    input.toolName === "run_shell" ||
-    input.toolName === "start_project_terminal";
+  const contextBound = input.toolName === "run_command" || input.toolName === "run_shell";
   const params = contextBound ? parsed.data : input.args;
   const approvalParams = contextBound
     ? {
@@ -304,19 +294,6 @@ export async function executeTool(
           },
         }
       : {}),
-    ...(input.startTerminal
-      ? {
-          startTerminal: async (args: unknown) => {
-            if (hashApprovalParams(args) !== hashApprovalParams(params))
-              return denied("APPROVAL_INVALID", "Terminal parameters changed");
-            assertAuthorized();
-            return (
-              input.startTerminal?.(args, assertAuthorized) ??
-              denied("FORBIDDEN", "Terminal context unavailable")
-            );
-          },
-        }
-      : {}),
     ...(input.registerService
       ? {
           registerService: async (args: unknown) => {
@@ -345,71 +322,6 @@ export async function executeTool(
             return (
               input.resolveServicePreview?.(args) ??
               denied("FORBIDDEN", "Service context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.readTerminalOutput
-      ? {
-          readTerminalOutput: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.readTerminalOutput?.(args) ??
-              denied("FORBIDDEN", "Terminal read context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.stopTerminal
-      ? {
-          stopTerminal: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.stopTerminal?.(args) ?? denied("FORBIDDEN", "Terminal stop context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.acquireTerminalControl
-      ? {
-          acquireTerminalControl: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.acquireTerminalControl?.(args, assertAuthorized) ??
-              denied("FORBIDDEN", "Terminal control context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.sendTerminalInput
-      ? {
-          sendTerminalInput: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.sendTerminalInput?.(args) ??
-              denied("FORBIDDEN", "Terminal input context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.interruptTerminal
-      ? {
-          interruptTerminal: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.interruptTerminal?.(args) ??
-              denied("FORBIDDEN", "Terminal interrupt context unavailable")
-            );
-          },
-        }
-      : {}),
-    ...(input.releaseTerminalControl
-      ? {
-          releaseTerminalControl: async (args: unknown) => {
-            assertAuthorized();
-            return (
-              input.releaseTerminalControl?.(args) ??
-              denied("FORBIDDEN", "Terminal release context unavailable")
             );
           },
         }

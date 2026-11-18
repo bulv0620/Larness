@@ -19,13 +19,6 @@ export interface ToolContext {
   signal?: AbortSignal;
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown) => Promise<ToolResult>;
-  startTerminal?: (args: unknown) => Promise<ToolResult>;
-  readTerminalOutput?: (args: unknown) => Promise<ToolResult>;
-  stopTerminal?: (args: unknown) => Promise<ToolResult>;
-  acquireTerminalControl?: (args: unknown) => Promise<ToolResult>;
-  sendTerminalInput?: (args: unknown) => Promise<ToolResult>;
-  interruptTerminal?: (args: unknown) => Promise<ToolResult>;
-  releaseTerminalControl?: (args: unknown) => Promise<ToolResult>;
   registerService?: (args: unknown) => Promise<ToolResult>;
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;

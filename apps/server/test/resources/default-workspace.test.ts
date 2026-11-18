@@ -6,8 +6,7 @@ import { createPatch } from "diff";
 import { expect, it } from "vitest";
 import WebSocket from "ws";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
-import { createTerminalControlTools } from "../../src/modules/agent/terminalControlTool.js";
-import { createTerminalTools } from "../../src/modules/agent/terminalTool.js";
+import { createCommandTool } from "../../src/modules/agent/commandTool.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { acquireResourceLock, releaseResourceLock } from "../../src/modules/locks/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -223,7 +222,7 @@ it("uses shared file locks and authenticated WebSocket notifications for the def
   });
 });
 
-it("runs approved Agent control and file tools in the default workspace while isolating legacy roots", async () => {
+it("runs approved Agent file and command tools in the default workspace while isolating legacy roots", async () => {
   await withTempDir(async (dir) => {
     const f = await startAuthorizedServer(path.join(dir, "data"));
     try {
@@ -231,26 +230,9 @@ it("runs approved Agent control and file tools in the default workspace while is
       const auth = (
         await f.running.app.inject({ url: "/api/auth/session", headers: { cookie: f.cookie } })
       ).json();
-      const terminal = await f.running.terminals.create(auth.clientSessionId, "default-ai", {
-        scope: { workspace: "default" },
-        riskAcknowledged: true,
-      });
-      if (process.platform === "win32") {
-        const prefix = path.basename(terminal.shell).toLowerCase() === "cmd.exe" ? "" : "PS ";
-        await until(async () =>
-          (await f.running.terminals.output(terminal.id, 0, 100)).chunks
-            .map((chunk) => chunk.data)
-            .join("")
-            .includes(`${prefix}${terminal.cwd}>`),
-        );
-      }
       await writeFile(path.join(session.workspacePath, "agent.txt"), "old\n");
       const registry = createFileToolRegistry();
-      for (const tool of [
-        ...createTerminalControlTools({ db: f.running.db }),
-        ...createTerminalTools({ db: f.running.db }),
-      ])
-        registry.register(tool);
+      registry.register(createCommandTool({}));
       const step = (id: string, name: string, args: unknown): { chunks: ProviderChunk[] } => ({
         chunks: [
           { type: "tool-call", toolCall: { id, name, args } },
@@ -263,17 +245,14 @@ it("runs approved Agent control and file tools in the default workspace while is
           expectedVersion: createHash("sha256").update("old\n").digest("hex"),
           patch: createPatch("agent.txt", "old\n", "new\n"),
         }),
-        step("acquire", "acquire_terminal_control", { terminalId: terminal.id }),
-        step("send", "send_terminal_input", {
-          terminalId: terminal.id,
-          leaseGeneration: 1,
-          inputSequence: 1,
-          data:
-            process.platform === "win32"
-              ? "echo DEFAULT_AI_ok\r"
-              : "printf 'DEFAULT_AI_%s\\n' ok\r",
+        step("command", "run_command", {
+          executable: process.execPath,
+          args: [
+            "-e",
+            "require('node:fs').writeFileSync('cmd.txt','ok');console.log('default-ok')",
+          ],
+          cwd: ".",
         }),
-        step("read", "read_terminal_output", { terminalId: terminal.id }),
         {
           chunks: [
             { type: "text-delta", text: "done" },
@@ -286,7 +265,7 @@ it("runs approved Agent control and file tools in the default workspace while is
         db: f.running.db,
         dataDir: f.running.dataDir,
         registry,
-        terminals: f.running.terminals,
+        commands: f.running.commands,
         resolveProvider: () => ({ adapter: provider, model: "fake" }),
         publish: (event) => {
           if ("type" in event) events.push(event);
@@ -312,31 +291,12 @@ it("runs approved Agent control and file tools in the default workspace while is
       );
       expect((await run).status).toBe("COMPLETED");
       expect(await readFile(path.join(session.workspacePath, "agent.txt"), "utf8")).toBe("new\n");
+      expect(await readFile(path.join(session.workspacePath, "cmd.txt"), "utf8")).toBe("ok");
       expect(JSON.stringify(events)).toContain('"workspace":"default"');
-      const systemPrompt = JSON.stringify(provider.calls[0]?.messages[0]);
       const turnMessages = provider.calls[0]?.messages ?? [];
       const observed = JSON.stringify(turnMessages[turnMessages.length - 1]);
-      // Terminals and the input protocol are runtime observations now: they must
-      // stay out of the stable system prefix and arrive with the last message.
-      expect(systemPrompt).not.toContain(terminal.id);
-      expect(observed).toContain(terminal.id);
-      expect(observed).toContain("Identify PowerShell or CMD from the actual prompt");
-      await until(async () =>
-        (await f.running.terminals.output(terminal.id, 0, 100)).chunks
-          .map((chunk) => chunk.data)
-          .join("")
-          .includes("DEFAULT_AI_ok"),
-      );
-      expect((await f.running.terminals.read(terminal.id)).lease).toBeNull();
-      const legacy = await createSession({ db: f.running.db, dataDir: f.running.dataDir }, {});
-      const root = path.join(f.running.dataDir, "sessions", legacy.id, "workspace");
-      await mkdir(root, { recursive: true });
-      f.running.sqlite
-        .prepare("UPDATE sessions SET workspace_path = ? WHERE id = ?")
-        .run(root, legacy.id);
-      await expect(
-        f.running.terminals.readSessionTerminal(terminal.id, legacy.id),
-      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(observed).not.toContain("workspace terminals");
+      expect(observed).not.toContain("terminal");
     } finally {
       await f.running.shutdown("test");
     }

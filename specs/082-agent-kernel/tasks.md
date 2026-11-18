@@ -12,7 +12,7 @@
 | K-3 | coding Profile 与核心提示 | K-2 | `done` |
 | K-12 | run_command/run_shell 跨平台执行 | K-3 | `done` |
 | K-4 | Git 模型工具移除与人类 UI 分面 | K-3 | `done` |
-| K-5 | 终端与 Agent 模型面分离 | K-3 | `todo` |
+| K-5 | 终端与 Agent 模型面分离 | K-3 | `done` |
 | K-6 | 后台进程能力包 | K-5 | `todo` |
 | K-7 | 命名服务与可选预览 | K-6 | `todo` |
 | K-8 | 计划可选化 | K-3 | `todo` |
@@ -145,7 +145,7 @@
 
 ### K-5 终端与 Agent 模型面分离
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-3
 - 目标：交互终端只属于人类；Agent 不再创建、读取、输入或停止终端。
 - 交付物：
@@ -355,3 +355,12 @@
 - 上下文：system 不再注入 Git 可用性；`refresh_observations` 的 Git 探测保留给人类侧栏自愈，不暴露 Git 工具。
 - 验证：`pnpm check` 全绿——biome 684 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 739（14 跳过）。定向覆盖 contextAssembler、profiles、toolContract、Git shell commit 与人类 Git manager。
 - 未运行：本轮未跑 Playwright Git 面板 E2E；留到 K-10 全量 E2E 与人工视觉验收。
+
+### K-5（2026-11-18，macOS）
+
+- 模型面：删除 `terminalTool.ts` / `terminalControlTool.ts` 与 7 个终端工具注册；`ToolPackId` 移除 `terminal`；`ToolContext` / `ToolExecutor` / `TurnRunner` 移除终止、读取、输入、中断、租约 handler；`workspace` 从 19 工具降为 12 工具，schema 从 3 947 降至 2 596 token。
+- 上下文：system 与观察块移除终端租约/输入协议；`refresh_observations` 不再返回终端列表；`PROMPT_VERSION` 升至 `m6-5`。
+- 人类终端：`TerminalManager`、REST/WS、输入租约、resize、takeover、断开清理与旧记录保留；删除 `acquireAgent` / `inputAgent` / `interruptAgent` / `releaseAgent` / `releaseAgentLeases` / `renewAgentLeases` 与 `AgentTerminalContext`。旧 Agent 租约在 `expireLeases` 时清理，不再阻塞人类接管。
+- 测试：`apps/server/test/resources/terminals.test.ts` 16 项人类终端测试通过；`default-workspace.test.ts` 改为 Agent 文件 + `run_command` 默认工作区测试并通过；`packages/agent` 63 测试通过（1 跳过）；contextAssembler/profiles/toolContract/turnRunner/commandSecret 定向 66 项通过。
+- 验证：`pnpm check` 全绿——biome 680 文件、6 包 typecheck、web 257、agent 63（1 跳过）、server 729（14 跳过）。
+- 未运行：未跑浏览器终端窗口 E2E；API/WS 与真实 PTY 已由 server 测试覆盖，浏览器视觉留到 K-10。

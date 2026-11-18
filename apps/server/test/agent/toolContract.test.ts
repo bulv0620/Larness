@@ -8,8 +8,6 @@ import { createCommandTool, createShellTool } from "../../src/modules/agent/comm
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import { createServiceTools } from "../../src/modules/agent/serviceTool.js";
-import { createTerminalControlTools } from "../../src/modules/agent/terminalControlTool.js";
-import { createTerminalTools } from "../../src/modules/agent/terminalTool.js";
 import { type ExecuteToolInput, executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -29,8 +27,6 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   registry.register(createPlanTool({ db: opened.db }));
   registry.register(createCommandTool({}));
   registry.register(createShellTool({}));
-  for (const tool of createTerminalTools({ db: opened.db })) registry.register(tool);
-  for (const tool of createTerminalControlTools({ db: opened.db })) registry.register(tool);
   for (const tool of createServiceTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
@@ -40,13 +36,6 @@ type HandlerKey = keyof Pick<
   ExecuteToolInput,
   | "updatePlan"
   | "runCommand"
-  | "startTerminal"
-  | "readTerminalOutput"
-  | "stopTerminal"
-  | "acquireTerminalControl"
-  | "sendTerminalInput"
-  | "interruptTerminal"
-  | "releaseTerminalControl"
   | "registerService"
   | "listServices"
   | "resolveServicePreview"
@@ -82,48 +71,6 @@ const BOUND_TOOLS: BoundToolCase[] = [
     handler: "runCommand",
     args: { command: "echo ok" },
     invalid: { cwd: "." },
-  },
-  {
-    name: "start_project_terminal",
-    handler: "startTerminal",
-    args: { role: "dev", executable: "node", args: ["server.js"] },
-    invalid: { role: "dev", args: ["server.js"] },
-  },
-  {
-    name: "read_terminal_output",
-    handler: "readTerminalOutput",
-    args: { terminalId: TERMINAL },
-    invalid: { terminalId: "nope" },
-  },
-  {
-    name: "stop_project_terminal",
-    handler: "stopTerminal",
-    args: { terminalId: TERMINAL },
-    invalid: { terminalId: "nope" },
-  },
-  {
-    name: "acquire_terminal_control",
-    handler: "acquireTerminalControl",
-    args: { terminalId: TERMINAL },
-    invalid: { terminalId: "nope" },
-  },
-  {
-    name: "send_terminal_input",
-    handler: "sendTerminalInput",
-    args: { terminalId: TERMINAL, leaseGeneration: 1, inputSequence: 1, data: "ls\n" },
-    invalid: { terminalId: TERMINAL },
-  },
-  {
-    name: "interrupt_terminal",
-    handler: "interruptTerminal",
-    args: { terminalId: TERMINAL, leaseGeneration: 1 },
-    invalid: { terminalId: TERMINAL },
-  },
-  {
-    name: "release_terminal_control",
-    handler: "releaseTerminalControl",
-    args: { terminalId: TERMINAL, leaseGeneration: 1 },
-    invalid: { terminalId: TERMINAL },
   },
   {
     name: "register_temporary_service",
@@ -219,13 +166,6 @@ describe("tool contract matrix", () => {
             // Every tool gets every handler; the one it needs must be bound.
             updatePlan: handlerStub("updatePlan"),
             runCommand: handlerStub("runCommand"),
-            startTerminal: handlerStub("startTerminal"),
-            readTerminalOutput: handlerStub("readTerminalOutput"),
-            stopTerminal: handlerStub("stopTerminal"),
-            acquireTerminalControl: handlerStub("acquireTerminalControl"),
-            sendTerminalInput: handlerStub("sendTerminalInput"),
-            interruptTerminal: handlerStub("interruptTerminal"),
-            releaseTerminalControl: handlerStub("releaseTerminalControl"),
             registerService: handlerStub("registerService"),
             listServices: handlerStub("listServices"),
             resolveServicePreview: handlerStub("resolveServicePreview"),

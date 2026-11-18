@@ -50,6 +50,8 @@ created: 2026-11-06
    082 K-12（2026-11-18）：`run_command` 的 `args` 默认 `[]`；新增 `run_shell`（L2，`command` + 根内相对 `cwd` + `timeoutMs`），POSIX 使用 `/bin/sh -c`，Windows 优先 `pwsh`、其次 Windows PowerShell 5.1、最后 `cmd /d /s /c`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏、项目锁与审批；结果返回实际 `shell`、`exitCode`、分离的 `stdout`/`stderr`、`reasonCode` 与 `truncated`。新增稳定错误码 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`INTERACTIVE_COMMAND`；`program`/`arguments`/`workdir`/`timeout` 在 schema 校验前归一。交互式 TUI 命令明确拒绝，不做隐式翻译。
 
    082 K-4（2026-11-18）：10 个模型 Git 工具（`git_status`、`git_diff`、`git_log`、`git_branches`、`git_add`、`git_commit`、`git_create_branch`、`git_switch_branch`、`git_pull`、`git_push`）从所有 Profile 移除；人类 Git UI 与 REST/WS 保留。Agent 通过 `run_command` / `run_shell` 执行 Git，命令工具的项目锁与人类 Git 写操作共用同一把 ProjectLease，因此并发写继续串行化。system 不再注入 Git 可用性；`refresh_observations` 的 Git 探测仅保留给人类侧栏自愈。
+
+   082 K-5（2026-11-18）：7 个模型终端工具（`start_project_terminal`、`read_terminal_output`、`stop_project_terminal`、`acquire_terminal_control`、`send_terminal_input`、`interrupt_terminal`、`release_terminal_control`）从所有 Profile 移除；`ToolContext` / `TurnRunner` 不再绑定终端 handler。人类终端 REST/WS、输入租约、resize、接管与断开清理保留；`terminal_leases` 只服务人类连接所有权与旧记录。Agent 的终端租约/takeover 方法移除，旧 Agent 租约在过期时清理，不再阻塞人类接管。
 2. 模型上下文中的状态与策略使用执行层同一已解析数据。模型工具列表按工作区适用性生成，后端仍独立核验。不得从展示文案推断授权，不得把终端存活、服务登记或预览意图写成业务健康证明。
 3. 每条影响操作范围或安全的承诺都要有执行层验收，覆盖合法输入和至少一个会扩大范围、越权或误报成功的反例。工具或 prompt 变更还要通过实际上下文组装验证模型收到的描述、schema 和作用域。禁止只核对源码常量或只用文本快照替代执行测试。
 4. 新增或修改此类能力的 spec 必须列出上述验证和受影响表面。测试纳入常规检查。无法自动化的表面需在验收中记录可复核的检查与结果。

@@ -18,8 +18,6 @@ import { createObservationTool } from "../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../src/modules/agent/planTool.js";
 import { toolNamesForProfile } from "../src/modules/agent/profiles.js";
 import { createServiceTools } from "../src/modules/agent/serviceTool.js";
-import { createTerminalControlTools } from "../src/modules/agent/terminalControlTool.js";
-import { createTerminalTools } from "../src/modules/agent/terminalTool.js";
 import { estimateTextTokens } from "../src/modules/agent/tokenEstimator.js";
 import { createProject } from "../src/modules/projects/service.js";
 import { getSessionById, getTurnById } from "../src/modules/sessions/repository.js";
@@ -119,8 +117,6 @@ async function freshWorkspaceNumbers(profile: AgentProfileId) {
       createPlanTool({ db: opened.db }),
       createCommandTool({}),
       createShellTool({}),
-      ...createTerminalTools({ db: opened.db }),
-      ...createTerminalControlTools({ db: opened.db }),
       ...createServiceTools(),
       createObservationTool(),
     ]) {
@@ -133,7 +129,6 @@ async function freshWorkspaceNumbers(profile: AgentProfileId) {
         registry,
         maxContextTokens: 128_000,
         policy: "standard",
-        workspaceRoot: root,
         agentProfile: profile,
       },
       sessionRow,

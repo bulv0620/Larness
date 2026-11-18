@@ -984,12 +984,12 @@ describe("TurnRunner", () => {
         const parsed = JSON.parse(result.content) as {
           observedAt: number;
           preview: unknown[];
-          terminals: unknown[];
+          terminals?: unknown[];
           pm2: unknown;
         };
         expect(typeof parsed.observedAt).toBe("number");
         expect(Array.isArray(parsed.preview)).toBe(true);
-        expect(Array.isArray(parsed.terminals)).toBe(true);
+        expect(parsed.terminals).toBeUndefined();
         expect(parsed.pm2).toBeNull();
         expect(result.isError).toBe(false);
       } finally {
