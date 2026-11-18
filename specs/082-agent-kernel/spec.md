@@ -2,7 +2,7 @@
 id: 082-agent-kernel
 title: Agent 内核重构：单循环、核心工具与人类操作面分离
 milestone: 发布后
-status: ready
+status: done
 depends_on: [051-agent-tool-contract, 030-dev-resources, 040-services-preview, 081-agent-lean]
 owners: []
 created: 2026-11-18
@@ -11,7 +11,7 @@ updated: 2026-11-18
 
 # Agent 内核重构：单循环、核心工具与人类操作面分离
 
-> 状态：`ready`（2026-11-18 人类批准）。[ADR-068](../../docs/adr/ADR-068-agent-kernel.md) 已 accepted；Q-042～Q-050 按推荐默认确认；内测版本允许破坏性重构，存量会话不保留旧能力。K-1 只做基线与文档，K-2 起进入实现。网络搜索与 subagent 明确不在本切片范围内。
+> 状态：`done`（2026-11-18 人类验收通过；按限定范围收口）。[ADR-068](../../docs/adr/ADR-068-agent-kernel.md) 已 accepted；Q-042～Q-050 按推荐默认确认；内测版本允许破坏性重构，存量会话不保留旧能力。K-1 只做基线与文档，K-2 起进入实现。网络搜索与 subagent 明确不在本切片范围内。
 
 ## 1. 背景与问题
 

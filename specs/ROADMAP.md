@@ -417,7 +417,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | LE-6 | [验证](081-agent-lean/tasks.md#验收记录) | LE-5 | `done` |
 | LE-7 | [文档与状态回填](081-agent-lean/tasks.md#验收记录) | LE-6 | `done` |
 
-### 8.8 发布后：Agent 内核重构（082，ready）
+### 8.8 发布后：Agent 内核重构（082，done）
 
 目标：在保留人类终端、Git、服务与 PM2 操作面的前提下，把 Agent 内核收成单循环 + core 工具 + 可选能力包；模型移除 Git 与交互终端工具，计划降级为 plan Profile，Agent 长任务使用后台进程/命名服务，锁收敛为 ProjectLease + ServiceLease，审计按安全关键/资源操作/调试分级。网络搜索与 subagent 不在本切片。规格见 [082](082-agent-kernel/spec.md)，基线见 [K-1](082-agent-kernel/baseline.md)，决策见 [ADR-068](../docs/adr/ADR-068-agent-kernel.md)。
 
