@@ -36,6 +36,7 @@ import { createCommandTool } from "../modules/agent/commandTool.js";
 import { createGitTools } from "../modules/agent/gitTool.js";
 import { createObservationTool } from "../modules/agent/observationTool.js";
 import { createPlanTool } from "../modules/agent/planTool.js";
+import { DEFAULT_AGENT_PROFILE } from "../modules/agent/profiles.js";
 import { TurnQueue } from "../modules/agent/queue.js";
 import { continueBudgetedTurn } from "../modules/agent/recovery/continue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
@@ -495,6 +496,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         terminals,
         git,
         services,
+        agentProfile: DEFAULT_AGENT_PROFILE,
         pm2Context: (projectId) =>
           pm2CommandContext(opened.db, dataDir, pm2Global, serviceOps, projectId),
         resolveProvider:

@@ -426,7 +426,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
 | K-1 | [ADR-068、基线、锁/审计与契约盘点](082-agent-kernel/tasks.md#k-1-adr-068基线锁审计与契约盘点) | — | `done`（2026-11-18） |
-| K-2 | [Profile / ToolPack 抽象](082-agent-kernel/tasks.md#k-2-profile--toolpack-抽象) | K-1 | `todo` |
+| K-2 | [Profile / ToolPack 抽象](082-agent-kernel/tasks.md#k-2-profile--toolpack-抽象) | K-1 | `done`（2026-11-18） |
 | K-3 | [coding Profile 与核心提示](082-agent-kernel/tasks.md#k-3-coding-profile-与核心提示) | K-2 | `todo` |
 | K-12 | [run_command/run_shell 跨平台执行](082-agent-kernel/tasks.md#k-12-run_commandrun_shell-跨平台执行) | K-3 | `todo` |
 | K-4 | [Git 模型工具移除与人类 UI 分面](082-agent-kernel/tasks.md#k-4-git-模型工具移除与人类-ui-分面) | K-3 | `todo` |

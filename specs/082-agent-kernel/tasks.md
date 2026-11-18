@@ -8,7 +8,7 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | K-1 | ADR-068、基线、锁/审计与契约盘点 | — | `done` |
-| K-2 | Profile / ToolPack 抽象 | K-1 | `todo` |
+| K-2 | Profile / ToolPack 抽象 | K-1 | `done` |
 | K-3 | coding Profile 与核心提示 | K-2 | `todo` |
 | K-12 | run_command/run_shell 跨平台执行 | K-3 | `todo` |
 | K-4 | Git 模型工具移除与人类 UI 分面 | K-3 | `todo` |
@@ -49,7 +49,7 @@
 
 ### K-2 Profile / ToolPack 抽象
 
-- 状态：`todo`
+- 状态：`done`（2026-11-18）
 - 依赖：K-1
 - 目标：引入按 Profile 过滤工具面的最小抽象，不改变现有默认行为。
 - 交付物：
@@ -68,7 +68,7 @@
   - `packages/agent/src/kernel/*`（新增）
   - `apps/server/src/modules/agent/profiles.ts`（新增）
   - `contextAssembler.ts`、`bootstrap/start.ts`
-- 备注：此任务不做行为删除，只做装配边界。
+- 备注：此任务不做行为删除，只做装配边界。实际实现：`packages/agent/src/kernel/profile.ts` 提供类型与解析；`apps/server/src/modules/agent/profiles.ts` 提供具体 pack 目录；`contextAssembler` / `turnRunner` 接受 `agentProfile`，默认仍为 `workspace`。`run_shell` 在 K-12 加入 `core.command`。
 
 ### K-3 coding Profile 与核心提示
 
@@ -319,3 +319,11 @@
 - 审计：104 个调用点、188 170 行；`tool.requested/completed`、`terminal.input/resize`、Turn 细节降为 debug；`dev-web.rejected`（169 061）与 `git.denied`（13 923）需去重/聚合，但安全拒绝不删除。
 - 验证：`pnpm check` 全绿——biome 678 文件、6 包 typecheck、web 257、agent 59（1 跳过）、server 730（14 跳过）。
 - 结论：K-2 可以开始；实现前不再需要新的产品决策。
+
+### K-2（2026-11-18，macOS）
+
+- 新增 `packages/agent/src/kernel/profile.ts`：`AgentProfileId`、`ToolPackId`、`ToolPack`、`AgentProfile`、`ToolPackCatalog`、`ToolAvailability`，以及 `profileToolNames()` / `toolAvailability()`。
+- 新增 `apps/server/src/modules/agent/profiles.ts`：core.read（3）、core.write（2）、core.command（1）、plan（1）、git（10）、terminal（7）、service（3）、observation（1）；coding = core 三包，plan = core.read + plan，workspace = 全部 8 包。
+- `contextAssembler` 按 Profile 过滤工具；`turnRunner` 接受 `agentProfile`；生产默认仍为 `workspace`（`DEFAULT_AGENT_PROFILE`），K-9 再切默认并持久化。
+- 测试：`packages/agent/test/kernel/profile.test.ts` 覆盖 coding/workspace/未知 profile/未知 pack/project-required/disabled；`apps/server/test/agent/profiles.test.ts` 覆盖同一 Session 的 28 工具 workspace 与 6 工具 coding、plan 只读面、无项目过滤；contextAssembler/toolContract/turnRunner 回归 60 项通过。
+- 说明：`run_shell` 尚未存在，K-12 加入 core.command；K-3 的 A1 负向断言在 K-12 后补齐最终工具清单。

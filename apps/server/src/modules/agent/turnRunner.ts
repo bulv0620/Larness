@@ -1,5 +1,6 @@
 import { realpath } from "node:fs/promises";
 import {
+  type AgentProfileId,
   type ApprovalPolicy,
   decideToolAccess,
   type ModelMessage,
@@ -57,6 +58,7 @@ import { assembleContext } from "./contextAssembler.js";
 import { compressContext, shouldCompress } from "./contextCompressor.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
 import { buildObservationSnapshot } from "./observationSnapshot.js";
+import { DEFAULT_AGENT_PROFILE } from "./profiles.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
 import {
   calibrateEstimate,
@@ -156,6 +158,8 @@ export interface TurnRunnerOptions {
   terminals?: TerminalManager;
   git?: GitManager;
   services?: ServiceManager;
+  /** Session-level Profile; K-9 persists and exposes the selection. */
+  agentProfile?: AgentProfileId;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
   logger?: TurnTimingLogger;
 }
@@ -1198,6 +1202,7 @@ export class TurnRunner {
         contextRatio: this.#budget.contextRatio,
         workspaceRoot: projectRoot,
         pm2Context: await this.#options.pm2Context?.(session.projectId),
+        agentProfile: this.#options.agentProfile ?? DEFAULT_AGENT_PROFILE,
         ...(gitObservation === undefined ? {} : { git: gitObservation }),
       };
       const assembleStarted = this.#now();

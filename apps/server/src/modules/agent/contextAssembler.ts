@@ -1,4 +1,5 @@
 import {
+  type AgentProfileId,
   type ApprovalPolicy,
   decideToolAccess,
   type ModelMessage,
@@ -19,6 +20,7 @@ import {
   type PreviewObservation,
   type TerminalObservation,
 } from "./observationSnapshot.js";
+import { DEFAULT_AGENT_PROFILE, toolNamesForProfile } from "./profiles.js";
 import { estimateRequestTokens } from "./tokenEstimator.js";
 
 const SYSTEM_POLICY = [
@@ -64,6 +66,8 @@ export interface ContextAssemblerOptions {
   workspaceRoot?: string;
   pm2Context?: Pm2CommandContext;
   git?: { detected: boolean; observedAt: number };
+  /** Session-level Profile. Defaults to the pre-K-9 workspace surface. */
+  agentProfile?: AgentProfileId;
 }
 
 export interface AssembledContext {
@@ -72,6 +76,7 @@ export interface AssembledContext {
   estimatedTokens: number;
   truncatedHistory: boolean;
   summaryUsed: boolean;
+  agentProfile: AgentProfileId;
   /**
    * Volatile Turn-start observation block. It is already appended to
    * `messages`; it is returned separately so callers can log or rebuild the
@@ -138,12 +143,18 @@ function observationBlock(options: {
   ].join("\n");
 }
 
-function providerTools(registry: ToolRegistry, hasProject: boolean): ToolSchema[] {
+function providerTools(
+  registry: ToolRegistry,
+  hasProject: boolean,
+  agentProfile: AgentProfileId,
+): ToolSchema[] {
+  const allowed = toolNamesForProfile(agentProfile);
   // Stable order keeps the tool array byte-identical across steps of a Turn.
   return registry
     .list()
     .sort((left, right) => left.name.localeCompare(right.name))
     .flatMap(({ name }) => {
+      if (!allowed.has(name)) return [];
       const tool = registry.get(name);
       if (!tool || (tool.requiresProject && !hasProject)) return [];
       return [
@@ -209,7 +220,8 @@ export function assembleContext(
   turn: TurnRow,
 ): AssembledContext {
   const hasProject = session.projectId !== null;
-  const tools = providerTools(options.registry, hasProject);
+  const agentProfile = options.agentProfile ?? DEFAULT_AGENT_PROFILE;
+  const tools = providerTools(options.registry, hasProject, agentProfile);
   const decisions = (["L0", "L1", "L2", "L3"] as const)
     .map((risk) => `${risk}=${decideToolAccess(options.policy, risk)}`)
     .join(", ");
@@ -342,5 +354,6 @@ export function assembleContext(
     truncatedHistory,
     summaryUsed: latestSummary !== null,
     observations,
+    agentProfile,
   };
 }
