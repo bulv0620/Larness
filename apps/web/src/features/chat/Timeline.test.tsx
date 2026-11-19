@@ -188,7 +188,7 @@ it("shows a pulsing icon and a short category instead of the full command", () =
   });
   render(<Timeline />);
   const header = screen.getByRole("button", { name: /执行过程 · Running\.\.\. · 命令/ });
-  expect(header.querySelector(".process-pulse")).not.toBeNull();
+  expect(header.querySelector(".process-sparkle")).not.toBeNull();
   expect(header.querySelector(".process-status-shimmer")).not.toBeNull();
   expect(header).not.toHaveTextContent("pnpm");
   expect(screen.queryByTestId("turn-running-spinner")).toBeNull();
@@ -401,7 +401,7 @@ it("folds failed steps into the record once the turn has an answer", () => {
   const summary = screen.getByRole("button", {
     name: /执行过程 · Completed.*1 步 · 失败 1 项/,
   });
-  expect(summary.querySelector(".process-pulse")).toBeNull();
+  expect(summary.querySelector(".process-sparkle")).toBeNull();
   expect(summary.querySelector(".process-status-shimmer")).toBeNull();
   expect(summary).toHaveAttribute("aria-expanded", "false");
   expect(screen.queryByRole("button", { name: /运行命令.*失败/ })).toBeNull();

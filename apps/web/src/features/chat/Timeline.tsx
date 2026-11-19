@@ -127,12 +127,21 @@ function useElapsedSeconds(active: boolean): number | null {
   return Math.max(0, Math.floor((now - startedAt) / 1_000));
 }
 
-function ProcessPulse() {
+function ProcessSparkle() {
   return (
-    <span aria-hidden="true" className="process-pulse" data-active="true">
-      {[0, 1, 2, 3].map((dot) => (
-        <span key={dot} />
-      ))}
+    <span aria-hidden="true" className="process-sparkle" data-active="true">
+      <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path
+          className="process-sparkle-main"
+          d="M7.6 2.2c.5 4.2 1.9 5.6 6.1 6.1-4.2.5-5.6 1.9-6.1 6.1-.5-4.2-1.9-5.6-6.1-6.1 4.2-.5 5.6-1.9 6.1-6.1Z"
+          fill="currentColor"
+        />
+        <path
+          className="process-sparkle-small"
+          d="M15.4 11.2c.3 2.3 1 3 3.3 3.3-2.3.3-3 1-3.3 3.3-.3-2.3-1-3-3.3-3.3 2.3-.3 3-1 3.3-3.3Z"
+          fill="currentColor"
+        />
+      </svg>
     </span>
   );
 }
@@ -384,7 +393,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
               onClick={() => setExpanded((value) => !value)}
               className="process-status-row flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:text-accent"
             >
-              {turnActive ? <ProcessPulse /> : null}
+              {turnActive ? <ProcessSparkle /> : null}
               <span
                 className={cn(
                   "shrink-0 font-medium text-ink-2",

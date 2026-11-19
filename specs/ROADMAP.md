@@ -465,6 +465,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | AP-5 | [过程呈现收敛（状态行、波形、思考）](084-agent-profiles-and-usage/tasks.md#ap-5-过程呈现收敛状态行波形思考) | AP-1 | `done` |
 | AP-6 | [全量验证、契约与状态回填](084-agent-profiles-and-usage/tasks.md#ap-6-全量验证契约与状态回填) | AP-2～AP-5 | `done` |
 | AP-7 | [过程标题行视觉细化（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-7-过程标题行视觉细化用户反馈) | AP-5 | `done` |
+| AP-8 | [星光图标与灰底黑扫文字（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-8-星光图标与灰底黑扫文字用户反馈) | AP-7 | `done` |
 
 ## 9. 门禁
 

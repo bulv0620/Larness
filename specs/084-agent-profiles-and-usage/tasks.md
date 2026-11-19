@@ -14,6 +14,7 @@
 | AP-5 | 过程呈现收敛（状态行、波形、思考） | AP-1 | `done` |
 | AP-6 | 全量验证、契约与状态回填 | AP-2～AP-5 | `done` |
 | AP-7 | 过程标题行视觉细化（用户反馈） | AP-5 | `done` |
+| AP-8 | 星光图标与灰底黑扫文字（用户反馈） | AP-7 | `done` |
 
 ## 任务卡
 
@@ -135,3 +136,17 @@
 - 测试：`Timeline.test.tsx` 覆盖脉冲图标、文字流光类、命令不泄漏与完成态无图标；聊天定向 67 项通过。
 - 涉及路径：`apps/web/src/features/chat/Timeline.tsx`、`apps/web/src/styles/global.css`、`apps/web/src/features/chat/Timeline.test.tsx`。
 - 备注：视觉确认仍待用户；未新增后端事件或 API。
+
+### AP-8 星光图标与灰底黑扫文字（用户反馈）
+
+- 状态：`done`（2026-11-19）
+- 依赖：AP-7
+- 目标：按用户二次反馈替换过程标题行的图标与文字扫描效果。
+- 交付物：
+  - 图标改为一大一小两颗四角星，轻微缩放、旋转并依次闪烁。
+  - 状态文字基色改为灰色，主题前景色从左向右缓慢扫过（约 4.2 秒）；浅色主题为黑扫，深色主题为白扫。
+  - 完成/失败/停止仍不显示图标与扫描。
+- 验收：活动态有星光与慢速文字扫描；完成态只剩文字；`prefers-reduced-motion` 下静止。
+- 测试：`Timeline.test.tsx` 断言星光类与扫描类存在、完成态不存在；定向 33 项通过。
+- 涉及路径：`apps/web/src/features/chat/Timeline.tsx`、`apps/web/src/styles/global.css`、`apps/web/src/features/chat/Timeline.test.tsx`。
+- 备注：视觉确认待用户；未新增后端事件或 API。
