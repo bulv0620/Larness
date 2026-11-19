@@ -50,6 +50,7 @@ interface NavigationState {
   toggleResource: () => void;
   setMobileSidebar: (open: boolean) => void;
   toggleProject: (projectId: string) => void;
+  expandProject: (projectId: string) => void;
   setExpandedProjects: (expandedProjects: Record<string, boolean>) => void;
   focusComposer: () => void;
 }
@@ -196,6 +197,14 @@ export const useNavigationStore = create<NavigationState>()(
           expandedProjects: {
             ...state.expandedProjects,
             [projectId]: !(state.expandedProjects[projectId] ?? true),
+          },
+        })),
+
+      expandProject: (projectId) =>
+        set((state) => ({
+          expandedProjects: {
+            ...state.expandedProjects,
+            [projectId]: true,
           },
         })),
 

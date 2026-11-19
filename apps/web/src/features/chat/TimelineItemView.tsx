@@ -157,7 +157,7 @@ export function MessageBubble({
       ) : null}
       {children}
       {!item.streaming && item.text ? (
-        <div className="mt-1 flex items-center gap-2 px-0.5">
+        <div className="mt-2 flex items-center gap-2 px-0.5">
           <button
             type="button"
             aria-label={copied ? "已复制答复" : "复制答复"}

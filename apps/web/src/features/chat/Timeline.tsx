@@ -379,7 +379,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
           turnOutcome={stateUser?.turnOutcome}
         />
       ) : null}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {process.length > 0 ||
         tools.length > 0 ||
         streamingReasoning ||

@@ -75,6 +75,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     sidebarWidth,
     expandedProjects,
     toggleProject,
+    expandProject,
     setExpandedProjects,
     selectSession,
     startDraft,
@@ -168,7 +169,10 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
     [extra, data.sessions],
   );
 
+  // Starting a session reveals it in the project's session list, so a collapsed
+  // project expands instead of hiding the fresh draft row.
   const newProjectSession = (projectId: string): void => {
+    expandProject(projectId);
     startDraft(projectId === DEFAULT_PROJECT_ID ? null : projectId);
     focusComposer();
   };

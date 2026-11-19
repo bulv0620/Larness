@@ -131,6 +131,31 @@ describe("ProjectSidebar project ordering", () => {
     expect(useNavigationStore.getState().draftSession?.projectId).toBeNull();
   });
 
+  it("expands a collapsed project when starting a session from its plus button", () => {
+    renderSidebar();
+    const alpha = screen.getByRole("button", { name: "Alpha" });
+    fireEvent.click(alpha);
+    expect(alpha).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: "在 Alpha 中新建会话" }));
+
+    expect(useNavigationStore.getState().draftSession?.projectId).toBe("prj_alpha");
+    expect(alpha).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /新会话/ })).toBeVisible();
+  });
+
+  it("expands the current project from the new session button", () => {
+    renderSidebar();
+    const defaultProject = screen.getByRole("button", { name: "默认工作区" });
+    fireEvent.click(defaultProject);
+    expect(defaultProject).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByRole("button", { name: /^新建会话/ }));
+
+    expect(useNavigationStore.getState().sessionId).toMatch(/^draft_/);
+    expect(defaultProject).toHaveAttribute("aria-expanded", "true");
+  });
+
   it("shows git and running-terminal indicators instead of git text", async () => {
     const first = renderSidebar();
     const alpha = screen.getByRole("button", { name: "Alpha" });
