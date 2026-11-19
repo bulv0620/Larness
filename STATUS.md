@@ -10,7 +10,7 @@
 
 ## 阻塞与待确认
 
-- **084 UI 视觉验收**：AP-1～AP-8 完成且自动化门禁通过；过程标题行（一大一小四角星、灰底慢速前景色扫描、简短工具类别、完成态无图标）、用量行与 Plan 文案待用户视觉确认。
+- **084 UI 视觉验收**：AP-1～AP-9 完成且自动化门禁通过；过程标题行（四角星、灰底前景色 1 秒同步扫描、简短工具类别、完成态无图标）、用量行与 Plan 文案待用户视觉确认。
 - **实机验收证据边界（082/083）**：082 已按限定范围验收通过，但真实 Provider A/B、Windows 实机与 083 用户现有 PM2/旧命令数据未在本次环境复跑；不得据此声称这些场景已验证。
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
@@ -20,6 +20,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-19 | AP-9 动画同步 1 秒一轮 | 两颗星与文字扫描统一 1 秒、同相位；去掉错峰延迟；视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-9-动画同步为-1-秒一轮用户反馈) |
 | 2026-11-19 | AP-8 星光图标与慢速文字扫描 | 一大一小四角星依次闪烁；状态文字灰底、主题前景色约 4.2s 缓慢扫过；完成态无图标与扫描；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-8-星光图标与灰底黑扫文字用户反馈) |
 | 2026-11-19 | AP-7 过程标题行视觉细化 | 脉冲节点图标；流光只扫状态文字；Running 只显示工具类别；完成态无图标、主标签只留 Completed；聊天定向 67 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-7-过程标题行视觉细化用户反馈) |
 | 2026-11-18 | AP-6 全量验证与收口 | check 通过（Web 262 / Agent 63+1 / Server 734+14）；build 通过；Mock 24/24、认证 20/20、生产 20/20；契约与状态同步；UI 视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |
@@ -29,7 +30,6 @@
 | 2026-11-18 | AP-2 Profile 收敛与迁移 | Profile 仅 `coding` / `plan`，两者共享完整工具面，Plan 增计划；取消 PM2 观察注入；迁移 0034 将 `service-ops` 归一 `coding`；定向 96 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-2-profile-收敛提示迁移与选择器) |
 | 2026-11-18 | AP-1 规格决议、ADR 与任务卡 | 084 审核通过转 `active`；§12 十项决议固化；新增 ADR-070 取代 ADR-069 的独立 Service Ops Profile；拆分 AP-2～AP-6 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-1-规格决议adr计划与任务卡) |
 | 2026-11-18 | M5-F1-W12 Windows 全量 check 存量 shell 失败 | shell 测试补 PowerShell `&` 调用符与平台断言；pnpm test 预算 2s→30s；cmd 兜底夹具移出 %TEMP%（副本执行被主机安全软件杀 worker，已归因）；check 全绿 712 通过 / 31 跳过 | [066 tasks](specs/066-cross-platform/tasks.md#发布后跟踪-m5-f1-w12windows-全量-check-存量-shell-测试失败不计入-m5-完成) |
-| 2026-11-18 | M5-F1-W11 Windows 启动结算 /bin/ps 缺陷 | 遗留 STOP_UNCONFIRMED 行导致启动必失败已修复；回归测试 Windows 复现后通过；真实数据目录启动自愈；biome/typecheck 过，全量 check 余 2 个存量 shell 失败（W12 待修） | [066 tasks](specs/066-cross-platform/tasks.md#发布后跟踪-m5-f1-w11windows-启动结算-binps-缺陷不计入-m5-完成) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

@@ -148,12 +148,11 @@
   }
 
   .process-sparkle[data-active="true"] .process-sparkle-main {
-    animation: process-sparkle-main 2.6s ease-in-out infinite;
+    animation: process-sparkle-main 1s ease-in-out infinite;
   }
 
   .process-sparkle[data-active="true"] .process-sparkle-small {
-    animation: process-sparkle-small 2.6s ease-in-out infinite;
-    animation-delay: 0.45s;
+    animation: process-sparkle-small 1s ease-in-out infinite;
   }
 
   .process-status-row {
@@ -175,7 +174,7 @@
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: process-status-shimmer 4.2s linear infinite;
+    animation: process-status-shimmer 1s linear infinite;
   }
 
   .window-drag {
@@ -208,7 +207,7 @@
     opacity: 0.55;
     transform: scale(0.9) rotate(-5deg);
   }
-  45% {
+  50% {
     opacity: 1;
     transform: scale(1.08) rotate(4deg);
   }
@@ -220,7 +219,7 @@
     opacity: 0.35;
     transform: scale(0.8) rotate(7deg);
   }
-  40% {
+  50% {
     opacity: 1;
     transform: scale(1.18) rotate(-5deg);
   }

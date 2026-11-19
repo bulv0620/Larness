@@ -15,6 +15,7 @@
 | AP-6 | 全量验证、契约与状态回填 | AP-2～AP-5 | `done` |
 | AP-7 | 过程标题行视觉细化（用户反馈） | AP-5 | `done` |
 | AP-8 | 星光图标与灰底黑扫文字（用户反馈） | AP-7 | `done` |
+| AP-9 | 动画同步为 1 秒一轮（用户反馈） | AP-8 | `done` |
 
 ## 任务卡
 
@@ -150,3 +151,17 @@
 - 测试：`Timeline.test.tsx` 断言星光类与扫描类存在、完成态不存在；定向 33 项通过。
 - 涉及路径：`apps/web/src/features/chat/Timeline.tsx`、`apps/web/src/styles/global.css`、`apps/web/src/features/chat/Timeline.test.tsx`。
 - 备注：视觉确认待用户；未新增后端事件或 API。
+
+### AP-9 动画同步为 1 秒一轮（用户反馈）
+
+- 状态：`done`（2026-11-19）
+- 依赖：AP-8
+- 目标：让星光与文字扫描同步，并按用户要求统一为 1 秒一轮。
+- 交付物：
+  - 一大一小两颗四角星都使用 1 秒无限动画，同相位闪烁，不再错峰延迟。
+  - 状态文字扫描改为 1 秒一轮，与星星同步：每周期扫过一次。
+  - `prefers-reduced-motion` 下保持静止。
+- 验收：活动态动画周期一致；完成态无图标与扫描。
+- 测试：CSS 变更；聊天定向测试、`pnpm check`、`pnpm build`、Mock E2E 通过。
+- 涉及路径：`apps/web/src/styles/global.css`。
+- 备注：视觉确认待用户。
