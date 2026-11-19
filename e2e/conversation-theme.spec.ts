@@ -91,7 +91,7 @@ test("conversation actions follow the outer light/dark theme without expanding t
   const process = page.getByRole("button", { name: /执行过程/ }).last();
   await expect(process).toBeVisible();
   await process.click();
-  await expect(page.getByRole("button", { name: /计划 ·/ }).last()).toBeVisible();
+  await expect(page.getByRole("list", { name: /计划 ·/ }).last()).toBeVisible();
   await page.getByRole("button", { name: "停止执行" }).click();
   await expect(page.getByRole("button", { name: "发送消息" })).toBeVisible();
   for (const width of [736, 390, 320]) {

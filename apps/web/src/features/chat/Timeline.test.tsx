@@ -191,6 +191,12 @@ it("shows a pulsing icon and a short category instead of the full command", () =
   expect(header.querySelector(".process-sparkle")).not.toBeNull();
   expect(header.querySelector(".process-status-shimmer")).not.toBeNull();
   expect(header).not.toHaveTextContent("pnpm");
+  // The step count is a right-edge measurement, not part of the truncating
+  // activity text that gives way on narrow screens.
+  const metrics = within(header).getByTestId("process-metrics");
+  expect(metrics).toHaveTextContent("1 步");
+  expect(header.querySelector(".truncate")?.contains(metrics)).toBe(false);
+  expect(header).toHaveAccessibleName(/Running\.\.\. · 命令 · 1 步/);
   expect(screen.queryByTestId("turn-running-spinner")).toBeNull();
 });
 
@@ -596,8 +602,11 @@ it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (te
     activeTurnId: turnId,
   });
   const view = render(<Timeline />);
-  fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 修改样式" }));
-  const plan = screen.getByRole("list", { name: "样式调整" });
+  // Steps are always visible: no click, no progress bar, no duplicated title.
+  const plan = screen.getByRole("list", { name: "计划 · 1/3 · 样式调整" });
+  expect(plan).toHaveAccessibleName("计划 · 1/3 · 样式调整");
+  // The running step is the current one, not a failure and not a second glow.
+  expect(plan.querySelector('li[aria-current="step"]')).toHaveTextContent("修改样式");
   expect(plan.querySelector(".animate-spin")).toBeInTheDocument();
   // While the turn runs, the step is just in progress.
   expect(within(plan).queryByText(label, { exact: true })).toBeNull();
@@ -612,9 +621,9 @@ it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (te
   // The settled summary reports how many steps stayed open, and the reason is
   // stated instead of a red failure mark.
   expect(
-    screen.getByRole("button", { name: "计划 · 1/3 · 样式调整 · 另有 2 步未完成" }),
+    screen.getByRole("list", { name: "计划 · 1/3 · 样式调整 · 另有 2 步未完成" }),
   ).toBeTruthy();
-  const finishedPlan = screen.getByRole("list", { name: "样式调整" });
+  const finishedPlan = screen.getByRole("list", { name: /^计划 · 1\/3 · 样式调整/ });
   expect(finishedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
   expect(within(finishedPlan).getByText(label, { exact: true })).toBeVisible();
   expect(finishedPlan.querySelector(".text-danger")).toBeNull();
@@ -628,8 +637,7 @@ it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (te
     activeTurnId: "turn-next",
   });
   render(<Timeline />);
-  fireEvent.click(screen.getByRole("button", { name: /^计划 · 1\/3/ }));
-  const replayedPlan = screen.getByRole("list", { name: "样式调整" });
+  const replayedPlan = screen.getByRole("list", { name: /^计划 · 1\/3 · 样式调整/ });
   expect(replayedPlan.querySelector(".animate-spin")).not.toBeInTheDocument();
   expect(within(replayedPlan).getByText(label, { exact: true })).toBeVisible();
   expect(replayedPlan.querySelector(".text-danger")).toBeNull();
@@ -668,8 +676,10 @@ it("counts only open steps in the summary and keeps a failure a failure", () => 
   render(<Timeline />);
 
   // A failure already reads as one; only the open step is counted.
-  fireEvent.click(screen.getByRole("button", { name: "计划 · 1/3 · 发布检查 · 另有 1 步未完成" }));
-  const plan = screen.getByRole("list", { name: "发布检查" });
+  expect(
+    screen.getByRole("list", { name: "计划 · 1/3 · 发布检查 · 另有 1 步未完成" }),
+  ).toBeTruthy();
+  const plan = screen.getByRole("list", { name: /^计划 · 1\/3 · 发布检查/ });
   expect(within(plan).getByText("失败：", { exact: true })).toBeInTheDocument();
   expect(within(plan).getByText("待做：", { exact: true })).toBeInTheDocument();
   expect(plan.querySelector(".text-danger")).toBeInTheDocument();
@@ -707,7 +717,7 @@ it("adds no open counter when every step is settled", () => {
 
   render(<Timeline />);
 
-  expect(screen.getByRole("button", { name: "计划 · 2/3 · 发布检查" })).toBeTruthy();
+  expect(screen.getByRole("list", { name: "计划 · 2/3 · 发布检查" })).toBeTruthy();
 });
 
 it("reads a turn that never settled as unmarked rather than failed", () => {
@@ -740,10 +750,9 @@ it("reads a turn that never settled as unmarked rather than failed", () => {
   render(<Timeline />);
 
   expect(
-    screen.getByRole("button", { name: "计划 · 0/2 · 整理文档 · 另有 2 步未完成" }),
+    screen.getByRole("list", { name: "计划 · 0/2 · 整理文档 · 另有 2 步未完成" }),
   ).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: /^计划 · 0\/2/ }));
-  const plan = screen.getByRole("list", { name: "整理文档" });
+  const plan = screen.getByRole("list", { name: /^计划 · 0\/2 · 整理文档/ });
   expect(within(plan).getByText("未标记完成", { exact: true })).toBeVisible();
   expect(plan.querySelector(".text-danger")).toBeNull();
 });
@@ -802,6 +811,12 @@ it("shows Thinking... without rendering reasoning text", () => {
 
   const finished = screen.getByRole("button", { name: /执行过程 · Completed · 2s/ });
   expect(finished).not.toHaveTextContent("先分析目录结构。");
+  // The clock stays with the left-hand activity; only the step count is pinned
+  // to the right edge.
+  expect(within(finished).getByText("2s")).toBeVisible();
+  expect(within(finished).getByTestId("process-metrics")).toHaveTextContent("1 步");
+  expect(within(finished).getByTestId("process-metrics")).not.toHaveTextContent("2s");
+  expect(finished).toHaveAccessibleName(/Completed · 2s · 1 步/);
   fireEvent.click(finished);
   expect(screen.getByText("完成")).toBeVisible();
   expect(screen.queryByText("先分析目录结构。")).toBeNull();

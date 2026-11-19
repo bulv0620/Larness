@@ -1,6 +1,6 @@
 import type { ArtifactItem, MessageItem, PlanItem, TimelineItem, ToolItem } from "@larness/shared";
 import { cn } from "@larness/ui";
-import { Check, ChevronRight, Circle, CircleDashed, Copy, Loader2, X } from "lucide-react";
+import { Check, ChevronRight, Circle, Copy, Loader2, X } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { FileResultCard } from "@/features/files/FileResultCard";
 import { PreviewResultCard } from "@/features/services/PreviewResultCard";
@@ -236,61 +236,75 @@ function PlanCard({
   turnActive: boolean;
   turnOutcome?: MessageItem["turnOutcome"];
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const total = item.steps.length;
   const done = item.steps.filter((step) => step.status === "done").length;
-  const current = turnActive ? item.steps.find((step) => step.status === "running") : undefined;
+  const failed = item.steps.filter((step) => step.status === "failed").length;
   // A settled plan reports how many steps it left open: a turn can end while the
   // model never marked them, and the count says so without claiming they failed.
   const open = turnActive
     ? 0
     : item.steps.filter((step) => step.status === "running" || step.status === "pending").length;
+  // The card is a list, not a status line: steps are always visible, so the
+  // summary stays one sentence for assistive tech instead of a collapsed row.
+  const summary = `计划 · ${done}/${total} · ${item.title}${
+    open > 0 ? ` · 另有 ${open} 步未完成` : ""
+  }`;
   return (
-    <div className="text-[12px] text-ink-3">
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={() => setExpanded((value) => !value)}
-        className="flex w-full items-start gap-1.5 rounded-md py-1 text-left transition-colors hover:text-accent"
-      >
-        <ChevronRight size={13} className={cn("mt-0.5 shrink-0", expanded && "rotate-90")} />
-        <span className={current ? "text-accent" : undefined}>
-          计划 · {done}/{item.steps.length}
-          {current ? ` · ${current.title}` : ` · ${item.title}`}
-          {open > 0 ? ` · 另有 ${open} 步未完成` : null}
+    // The fill separates the plan from the process row below it; the compact
+    // width keeps four short steps from stretching into a full-width band.
+    <div className="mb-2 min-w-0 rounded-lg bg-surface-3 px-2.5 py-2 text-[12px] text-ink-2 sm:max-w-[28rem]">
+      <div aria-hidden="true" className="mb-1.5 flex items-center gap-2">
+        <span className="shrink-0 font-medium">计划</span>
+        <span className="shrink-0 text-[11px] tabular-nums">
+          {done}/{total}
         </span>
-      </button>
-      {expanded ? (
-        <ol aria-label={item.title} className="ml-5 mt-1 space-y-1.5">
-          {item.steps.map((step) => {
-            const status = displayStepStatus(step.status, turnActive, turnOutcome);
-            return (
-              <li key={step.id} className="flex items-start gap-2">
-                {status === "done" ? (
-                  <Check size={13} className="mt-0.5 shrink-0 text-success" />
-                ) : status === "running" ? (
-                  <Loader2
-                    size={13}
-                    className="mt-0.5 shrink-0 animate-spin text-accent motion-reduce:animate-none"
-                  />
-                ) : status === "failed" ? (
-                  <X size={13} className="mt-0.5 shrink-0 text-danger" />
-                ) : status === "pending" ? (
-                  <Circle size={13} className="mt-0.5 shrink-0" />
-                ) : (
-                  <CircleDashed size={13} className="mt-0.5 shrink-0" />
-                )}
-                <span className="min-w-0 break-words">
-                  {step.title}
-                  <span className={planStepStated.has(status) ? "ml-2" : "sr-only"}>
-                    {planStepLabels[status]}
-                  </span>
-                  {step.detail ? <span className="ml-2">{step.detail}</span> : null}
+        <span className="flex-1" />
+        {failed > 0 ? (
+          <span className="shrink-0 text-[10.5px] text-danger">{failed} 步失败</span>
+        ) : open > 0 ? (
+          <span className="shrink-0 text-[10.5px]">{open} 步未完成</span>
+        ) : null}
+      </div>
+      <ol aria-label={summary} className="space-y-[3px]">
+        {item.steps.map((step) => {
+          const status = displayStepStatus(step.status, turnActive, turnOutcome);
+          return (
+            <li
+              key={step.id}
+              aria-current={status === "running" ? "step" : undefined}
+              className="flex items-start gap-1.5"
+            >
+              {status === "done" ? (
+                <Check size={13} className="mt-[2px] shrink-0 text-success" />
+              ) : status === "running" ? (
+                <Loader2
+                  size={13}
+                  className="mt-[2px] shrink-0 animate-spin text-accent motion-reduce:animate-none"
+                />
+              ) : status === "failed" ? (
+                <X size={13} className="mt-[2px] shrink-0 text-danger" />
+              ) : (
+                <Circle size={13} className="mt-[2px] shrink-0 text-ink-3" />
+              )}
+              <span
+                className={cn("min-w-0 flex-1 break-words", status === "running" && "text-ink")}
+              >
+                {step.title}
+                <span
+                  className={cn(planStepStated.has(status) ? "ml-2" : "sr-only", "text-[11px]")}
+                >
+                  {planStepLabels[status]}
                 </span>
-              </li>
-            );
-          })}
-        </ol>
-      ) : null}
+              </span>
+              {step.detail ? (
+                <span className="max-w-[45%] shrink-0 text-right text-[11px] leading-[17.4px] break-words">
+                  {step.detail}
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

@@ -154,8 +154,8 @@ it("reads a continued chain from its latest slice, not the budget-stopped first 
   // The first slice's budget stop must not label a running chain.
   expect(screen.queryByRole("button", { name: /预算停止/ })).toBeNull();
   // Each slice publishing its own plan must not stack two plan cards.
-  expect(screen.getByRole("button", { name: "计划 · 0/1 · 改写样式" })).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /第一片计划/ })).toBeNull();
+  expect(screen.getByRole("list", { name: "计划 · 0/1 · 第二片计划" })).toBeTruthy();
+  expect(screen.queryByRole("list", { name: /第一片计划/ })).toBeNull();
 });
 
 it("accumulates the results of every slice in a continued chain", () => {
@@ -284,7 +284,9 @@ it("accumulates the results of every slice in a continued chain", () => {
   expect(within(results).queryByRole("button", { name: "查看文件 · tmp/probe.mjs" })).toBeNull();
   expect(screen.getByText("另有 2 个文件未列出")).toBeTruthy();
   // The chain reports the summed wall clock and the last slice's outcome.
-  expect(screen.getByRole("button", { name: /Completed · 90s/ })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: /Completed · 90s · 已自动继续 1 次 · 3 步/ }),
+  ).toBeTruthy();
   expect(screen.queryByRole("button", { name: /预算停止/ })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: /^执行过程/ }));
   expect(screen.getByText("报告已成文。")).toBeTruthy();

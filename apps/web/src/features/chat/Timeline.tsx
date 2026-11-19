@@ -272,18 +272,27 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
             : "Completed";
   }
   const autoContinued = Math.max(0, group.users.length - 1);
+  const elapsedLabel =
+    turnActive && elapsed !== null
+      ? `${elapsed}s`
+      : !turnActive && duration !== undefined
+        ? `${Math.round(duration / 1000)}s`
+        : "";
+  // The clock belongs to the activity on the left, so it keeps its place next to
+  // the status. Only the step count is pinned to the right edge, where a growing
+  // activity label cannot truncate it.
+  const stepCount = tools.length;
+  const stepLabel = stepCount > 0 ? `${stepCount} 步` : "";
   const secondary = [
+    elapsedLabel,
     runningTool ? runningToolLabel(runningTool) : "",
-    tools.length > 0 && turnActive ? `${tools.length} 步` : "",
-    turnActive && elapsed !== null ? `${elapsed}s` : "",
-    !turnActive && duration !== undefined ? `${Math.round(duration / 1000)}s` : "",
-    !turnActive && tools.length > 0 ? `${tools.length} 步` : "",
     autoContinued > 0 ? `已自动继续 ${autoContinued} 次` : "",
     !turnActive && budgetStopped ? budgetStopLabel(stateUser?.budgetCause) : "",
     !turnActive && truncated ? "输出被截断" : "",
   ]
     .filter(Boolean)
     .join(" · ");
+  const summary = ["执行过程", status, secondary, stepLabel].filter(Boolean).join(" · ");
   // While the turn is running, failures stay inside the collapsible record; the
   // summary count keeps surfacing them without interrupting the flow. After the
   // turn ends they stay collapsed when there is an answer, and surface without
@@ -388,7 +397,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
           <div className="text-[12px] text-ink-3">
             <button
               type="button"
-              aria-label={`执行过程 · ${status}${secondary === "" ? "" : ` · ${secondary}`}`}
+              aria-label={summary}
               aria-expanded={expanded}
               onClick={() => setExpanded((value) => !value)}
               className="process-status-row flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:text-accent"
@@ -408,10 +417,21 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
                 </span>
               )}
               <span className="flex-1" />
-              <ChevronRight
-                size={13}
-                className={cn("shrink-0 transition-transform", expanded && "rotate-90")}
-              />
+              <span className="flex shrink-0 items-center gap-1.5">
+                {stepLabel === "" ? null : (
+                  <span
+                    data-testid="process-metrics"
+                    className="text-[11px] text-ink-3 tabular-nums"
+                  >
+                    {stepLabel}
+                  </span>
+                )}
+                {stepLabel === "" ? null : <span aria-hidden="true" className="h-3 w-px bg-line" />}
+                <ChevronRight
+                  size={13}
+                  className={cn("shrink-0 transition-transform", expanded && "rotate-90")}
+                />
+              </span>
             </button>
             {visibleProcess.length > 0 ? (
               <div className="ml-1.5 mt-1 space-y-1 border-l border-line pl-3">

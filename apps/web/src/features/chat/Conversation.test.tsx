@@ -135,7 +135,7 @@ it("shows no empty process for a plain answer and renders a real collapsible pla
       ],
     }),
   );
-  fireEvent.click(screen.getByText(/计划 · 1\/2/));
+  expect(screen.getByRole("list", { name: /^计划 · 1\/2/ })).toBeTruthy();
   expect(screen.getByText("检查")).toBeVisible();
   view.unmount();
 });

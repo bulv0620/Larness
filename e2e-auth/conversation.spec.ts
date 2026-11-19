@@ -49,7 +49,7 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
   // The fake provider can finish the two steps before a slower CI host renders
   // the intermediate 0/2 label; accepting any plan state keeps this E2E about
   // the durable plan/replay result rather than a scheduling race.
-  await expect(page.getByRole("button", { name: /计划 · [012]\/2/ })).toBeVisible({
+  await expect(page.getByRole("list", { name: /计划 · [012]\/2/ })).toBeVisible({
     timeout: 15_000,
   });
   await input.fill("保留的草稿");
@@ -59,10 +59,10 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
     timeout: 30_000,
   });
   expect(await initialInput?.evaluate((element) => element.isConnected)).toBe(true);
-  await expect(page.getByRole("button", { name: /计划 · 2\/2/ })).toHaveCount(1);
+  await expect(page.getByRole("list", { name: /计划 · 2\/2/ })).toHaveCount(1);
   await page.screenshot({ path: path.join(tmpdir(), "larness-m2-15-desktop.png") });
   await page.reload();
-  const plan = page.getByRole("button", { name: /计划 · 2\/2/ });
+  const plan = page.getByRole("list", { name: /计划 · 2\/2/ });
   await expect(plan).toHaveCount(1);
   await expect(composerDock).toHaveAttribute("data-placement", "bottom");
   const log = page.getByRole("log", { name: "会话时间线" });
@@ -70,9 +70,8 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
     element.scrollTop = 0;
     element.dispatchEvent(new Event("scroll"));
   });
-  await plan.click();
   await expect(
-    page.getByRole("list", { name: "检查项目" }).getByText("检查文件", { exact: false }),
+    page.getByRole("list", { name: /· 检查项目/ }).getByText("检查文件", { exact: false }),
   ).toBeVisible();
   await input.fill("list");
   await page.getByRole("button", { name: "发送消息" }).click();
@@ -115,9 +114,8 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
   await page.setViewportSize({ width: 1440, height: 900 });
   await input.fill("conversation plan cancel");
   await page.getByRole("button", { name: "发送消息" }).click();
-  const unfinished = page.getByRole("button", { name: /计划 · 0\/2/ });
-  await unfinished.click();
-  const steps = page.getByRole("list", { name: "检查项目", exact: true }).last();
+  const unfinished = page.getByRole("list", { name: /计划 · 0\/2/ });
+  const steps = page.getByRole("list", { name: /· 检查项目/ }).last();
   await expect(steps.locator(".animate-spin")).toBeVisible();
   await page.getByRole("button", { name: "停止执行" }).click();
   await expect(page.getByText("已停止当前执行。")).toBeVisible();
@@ -126,7 +124,6 @@ test("M2-15 real plan updates, replay, compact composer, reading position and re
   await expect(steps.getByText("已停止", { exact: true })).toBeVisible();
   await expect(unfinished).toContainText("另有 2 步未完成");
   await page.reload();
-  await unfinished.click();
   await expect(steps.getByText("已停止", { exact: true })).toBeVisible();
   await expect(steps.locator(".animate-spin")).toHaveCount(0);
   expect(errors).toEqual([]);

@@ -89,11 +89,11 @@ export function SessionUsageLine({
         <>
           <span aria-hidden="true">·</span>
           <Hint label={cacheDetail ?? "缓存命中率"} side="top">
-            <span className="tabular-nums text-ink-2">缓存命中 {cachePercent}%</span>
+            <span className="tabular-nums">缓存命中 {cachePercent}%</span>
           </Hint>
         </>
       )}
-      {partial ? <span className="text-warning">· 部分统计</span> : null}
+      {partial ? <span>· 部分统计</span> : null}
       {streaming && speed !== null && lastStep !== null ? (
         <>
           <span aria-hidden="true">·</span>
@@ -101,7 +101,7 @@ export function SessionUsageLine({
             label={`最后一步输出 ${formatTokenCount(lastStep.outputTokens)} tokens · ${formatDuration(lastStep.durationMs)}`}
             side="top"
           >
-            <span className="tabular-nums text-ink-2">{speed} tok/s</span>
+            <span className="tabular-nums">{speed} tok/s</span>
           </Hint>
         </>
       ) : null}
