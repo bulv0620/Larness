@@ -49,11 +49,13 @@ export function incompleteTurnError(
   const message =
     reason === "budget"
       ? "Agent 任务因预算耗尽提前结束，请复核已完成的部分"
-      : reason === "output_truncated"
-        ? "Agent 输出被截断，任务未完整完成"
-        : reason === "cancelled" || reason === "interrupted"
-          ? "Agent 任务未正常结束"
-          : "Agent 任务失败";
+      : reason === "continued"
+        ? "Agent 任务分片结束但尚未完成"
+        : reason === "output_truncated"
+          ? "Agent 输出被截断，任务未完整完成"
+          : reason === "cancelled" || reason === "interrupted"
+            ? "Agent 任务未正常结束"
+            : "Agent 任务失败";
 
   return { errorCode: JOB_AGENT_INCOMPLETE, errorMessage: message };
 }

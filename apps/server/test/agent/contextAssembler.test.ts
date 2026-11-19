@@ -124,6 +124,53 @@ describe("context assembler", () => {
     });
   });
 
+  it("loads conversation history by token budget rather than a fixed 40 messages", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const first = createTurn(sessionOptions, { sessionId: session.id, text: "seed" });
+
+        for (let index = 0; index < 60; index += 1) {
+          appendAgentEvent(opened.db, {
+            sessionId: session.id,
+            turnId: first.turnId,
+            type: index % 2 === 0 ? "user.message" : "assistant.message",
+            payload: { turnId: first.turnId, text: `history-${index} ${"x".repeat(12)}` },
+            now: 10 + index,
+          });
+        }
+
+        opened.sqlite
+          .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+          .run(first.turnId);
+        const current = createTurn(sessionOptions, { sessionId: session.id, text: "current" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turnRow = getTurnById(opened.db, current.turnId);
+        if (sessionRow === null || turnRow === null) throw new Error("fixture missing");
+
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+          },
+          sessionRow,
+          turnRow,
+        );
+
+        const content = context.messages.map((message) => message.content).join("\n");
+        expect(content).toContain("history-0");
+        expect(content).toContain("history-59");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("orders safety, project instructions, history and the current request", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

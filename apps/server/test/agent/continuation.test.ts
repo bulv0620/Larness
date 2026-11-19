@@ -38,7 +38,78 @@ function finishAsBudget(
   });
 }
 
+function finishAsContinued(
+  opened: ReturnType<typeof openDatabase>,
+  _sessionId: string,
+  turnId: string,
+): void {
+  updateTurnRow(opened.db, turnId, {
+    status: "COMPLETED",
+    terminalReason: "continued",
+    endedAt: NOW,
+  });
+}
+
 describe("automatic continuation", () => {
+  it("continues a context rollover with a fallback when there are no tool facts", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+
+      try {
+        const options = { db: opened.db, dataDir: dir, now: () => NOW };
+        const session = await createSession(options, {});
+        const first = createTurn(options, { sessionId: session.id, text: "analyze this" });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: first.turnId,
+          type: "assistant.message",
+          payload: { turnId: first.turnId, messageId: "msg_1", text: "intermediate conclusion" },
+          now: NOW,
+        });
+        finishAsContinued(opened, session.id, first.turnId);
+
+        const next = continueBudgetedTurn(
+          { db: opened.db, now: () => NOW },
+          { turnId: first.turnId },
+        );
+
+        expect(next).toMatchObject({ fromTurnId: first.turnId, depth: 1 });
+        const created = getTurnById(opened.db, next?.turnId ?? "");
+        expect(created?.resumedFromTurnId).toBe(first.turnId);
+        const input = JSON.parse(created?.inputJson ?? "{}") as { text?: string };
+        expect(input.text).toContain("Work state checkpoint");
+        expect(input.text).toContain("fallback");
+        expect(input.text).toContain("intermediate conclusion");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("does not impose the old three-slice cap by default", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+
+      try {
+        const options = { db: opened.db, dataDir: dir, now: () => NOW };
+        const session = await createSession(options, {});
+        let turnId = createTurn(options, { sessionId: session.id, text: "very long chain" }).turnId;
+
+        for (let depth = 1; depth <= 5; depth += 1) {
+          finishAsContinued(opened, session.id, turnId);
+          const next = continueBudgetedTurn({ db: opened.db, now: () => NOW }, { turnId });
+
+          expect(next?.depth).toBe(depth);
+          turnId = next?.turnId ?? "";
+        }
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("starts a new turn carrying facts and records the chain", async () => {
     await withTempDir(async (dir) => {
       const opened = openDatabase(path.join(dir, "larness.db"));
@@ -258,12 +329,6 @@ describe("automatic continuation", () => {
         updateTurnRow(opened.db, normal.turnId, { status: "COMPLETED", terminalReason: "normal" });
         expect(
           continueBudgetedTurn({ db: opened.db, now: () => NOW }, { turnId: normal.turnId }),
-        ).toBeNull();
-
-        const empty = createTurn(options, { sessionId: session.id, text: "nothing yet" });
-        updateTurnRow(opened.db, empty.turnId, { status: "COMPLETED", terminalReason: "budget" });
-        expect(
-          continueBudgetedTurn({ db: opened.db, now: () => NOW }, { turnId: empty.turnId }),
         ).toBeNull();
       } finally {
         opened.close();

@@ -363,6 +363,24 @@ it("keeps identical provider call IDs distinct across turns and restores termina
     durationMs: 900,
   });
 
+  const continuedItems = applyServerEvent(
+    [{ id: "u1", kind: "message", role: "user", text: "go", createdAt: 1, turnId: "t1" }],
+    {
+      ...budgetEvent,
+      payload: {
+        turnId: "t1",
+        status: "COMPLETED",
+        terminalReason: "continued",
+        durationMs: 900,
+      },
+    },
+  );
+  expect(continuedItems[0]).toMatchObject({
+    turnOutcome: "completed",
+    terminalReason: "continued",
+    durationMs: 900,
+  });
+
   const unknownReasonItems = applyServerEvent(
     [{ id: "u1", kind: "message", role: "user", text: "go", createdAt: 1, turnId: "t1" }],
     {

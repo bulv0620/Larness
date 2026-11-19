@@ -35,6 +35,7 @@ function numberField(source: Payload, key: string): number | undefined {
 
 const TERMINAL_REASONS = new Set<TurnTerminalReason>([
   "normal",
+  "continued",
   "budget",
   "output_truncated",
   "provider_error",

@@ -198,3 +198,7 @@ accepted，用户要求「把应该优化的都一步步优化」。运行时观
 accepted，人类明确要求 coding 直接启动项目后台开发服务、项目服务显示这些任务、预览手动点击才注册、终端纯人类、workspace 改为服务运维并管理 Larness 隔离 PM2。见 [ADR-069](ADR-069-project-services-and-service-ops.md) 与 [083 规格](../../specs/083-service-model/spec.md)。
 
 accepted，2026-11-18 人类确认 082 spec、本 ADR 与 Q-042～Q-050 全部推荐默认；内测允许破坏性重构，存量会话不保留旧能力。单循环、无 subagent；新增 coding/plan/workspace Profile；模型移除 Git 与交互终端工具，Git/终端/PM2/预览保留为人类操作面；Agent 使用后台进程与命名服务；计划降级为 plan Profile；锁域收敛为 ProjectLease + ServiceLease；审计分级为安全关键/资源操作/调试；命令采用 run_command 结构化 + run_shell 平台 shell 双路径。替代 ADR-030 的 Agent 终端服务模型与 ADR-038 的 Agent 终端交互规则；ADR-048/059/060 不替代。见 [ADR-068](ADR-068-agent-kernel.md)、[K-1 基线](../../specs/082-agent-kernel/baseline.md) 与 [082 规格](../../specs/082-agent-kernel/spec.md)。
+
+## ADR-071 · 长任务连续执行（2026-11-19）
+
+accepted，2026-11-19 人类确认 085 全部推荐默认：默认关闭任务级 token 上限，紧急兜底改为 24h / 1000 步；输入窗口 85% 触发上下文换页，新增 `terminalReason=continued`；无工具事实时使用最近消息 + 摘要承接；单次请求、命令、锁与审批超时保留；无进展 10 分钟暂停。取代 ADR-059 的任务级默认值，保留接续事件、检查点、usage 统计与安全约束。见 [ADR-071](ADR-071-long-task-continuity.md) 与 [085 规格](../../specs/085-long-task-continuity/spec.md)。

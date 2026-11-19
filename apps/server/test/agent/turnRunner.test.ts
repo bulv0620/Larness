@@ -275,6 +275,29 @@ describe("event ordering", () => {
 });
 
 describe("TurnRunner", () => {
+  it("caps a single model request instead of passing the 24h emergency clock", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "timeout" });
+        const provider = createFakeProvider([textStep("done")]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+        expect(provider.calls[0]?.timeoutMs).toBe(600_000);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("runs a text-only turn, persists events and records usage", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

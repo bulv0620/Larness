@@ -245,7 +245,7 @@ app.js          # 稳定入口（M0-9 创建）
 
 服务运维的人工启动/停止/重启按 [ADR-051](../adr/ADR-051-human-pm2-service-control.md) 经独立 REST 调用 ServiceOpsRuntime，在项目→服务锁内复核身份并控制已有 PM2 应用，使用资源操作表持久化幂等意图。该入口不依赖当前聊天；`coding` 与 `plan` 两个 Profile 都提供受控的 list/logs/control 模型工具，按需读取 PM2 状态。
 
-TurnQueue 默认最多同时执行两个不同会话，同一会话保持单个活跃 Turn。TurnRunner 组装系统约束、会话历史、项目指令与工具 schema，调用 Provider，再把工具调用交给 ToolExecutor 和各资源 Manager。PM2 / 后台进程状态由模型按需通过工具读取，不在 Turn 起点注入快照。工具结果回填模型，直到返回答复、失败、取消或达到预算。默认不限制步数与工具调用次数，花费上限为模型窗口 × 30 且按整个任务累计（接续轮继承前序花费），挂钟 180 分钟只作卡死兜底（[ADR-059](../adr/ADR-059-long-task-budget-and-continuation.md)）。上下文分三级处理：达到窗口 55% 先把旧工具结果折叠为标识（可逆，正文仍在 `agent_events`），70%/90% 才用检查点替换历史，检查点保留当前需求原文、结构化事实与最近一个完整工具批次。
+TurnQueue 默认最多同时执行两个不同会话，同一会话保持单个活跃 Turn。TurnRunner 组装系统约束、会话历史、项目指令与工具 schema，调用 Provider，再把工具调用交给 ToolExecutor 和各资源 Manager。PM2 / 后台进程状态由模型按需通过工具读取，不在 Turn 起点注入快照。工具结果回填模型，直到返回答复、失败、取消或紧急兜底。ADR-071 后默认不设任务级 token 上限，24h / 1000 步仅作 bug 兜底；单次模型请求、单条命令、锁与审批保留独立超时。上下文分三级处理：达到窗口 55% 先把旧工具结果折叠为标识（可逆，正文仍在 `agent_events`），约 80% 触发摘要压缩/检查点，输入窗口达到 85% 时以 `terminalReason=continued` 创建接续 Turn；检查点保留当前需求原文、结构化事实与最近一个完整工具批次。
 
 模型请求和流式协议经 ProviderAdapter 适配，生产 resolver 接入 DeepSeek、GLM 和 OpenAI 兼容端点，测试使用 FakeProvider。上下文构建支持摘要压缩，模型和凭据在 Turn 创建时固定。
 

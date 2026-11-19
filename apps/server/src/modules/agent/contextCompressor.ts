@@ -12,7 +12,7 @@ import {
 import { screenshotIds } from "../sessions/attachments.js";
 import { estimateRequestTokens, reservedOutputTokens } from "./tokenEstimator.js";
 
-export const COMPRESSION_RATIO = 0.7;
+export const COMPRESSION_RATIO = 0.8;
 const KEEP_RECENT = 12;
 /** Raised with the longer Turn wall clock: a merge pass may need a second call. */
 const SUMMARY_TIMEOUT_MS = 60_000;

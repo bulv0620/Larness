@@ -122,8 +122,14 @@ export function shouldFoldToolResults(
   return contextWindow > 0 && estimatedInputTokens / contextWindow >= FOLD_WATERMARK_RATIO;
 }
 
-export const SOFT_WATERMARK_RATIO = 0.7;
+export const SOFT_WATERMARK_RATIO = 0.8;
 export const HARD_WATERMARK_RATIO = 0.9;
+/** Normal context rollover (ADR-071): start a new Turn before the hard limit. */
+export const CONTEXT_ROLLOVER_RATIO = 0.85;
+
+export function contextRolloverThreshold(inputWindow: number): number {
+  return Math.max(1_024, Math.floor(inputWindow * CONTEXT_ROLLOVER_RATIO));
+}
 
 export function contextWatermark(
   estimatedInputTokens: number,

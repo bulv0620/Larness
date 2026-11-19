@@ -20,6 +20,40 @@ beforeEach(() => {
 const checkpoint = (goal: string, at: number) =>
   `Work state checkpoint (verified facts, observed at ${at}).\n{"goal":"${goal}"}`;
 
+it("labels a context-rollover slice as continuing and does not show its answer as final", () => {
+  useTimelineStore.setState({
+    isStreaming: false,
+    activeTurnId: null,
+    items: [
+      {
+        id: "u1",
+        kind: "message",
+        role: "user",
+        text: "长任务",
+        createdAt: 1,
+        turnId: "t1",
+        turnOutcome: "completed",
+        terminalReason: "continued",
+        durationMs: 60_000,
+      },
+      {
+        id: "a1",
+        kind: "message",
+        role: "assistant",
+        text: "阶段性结论，任务还没结束。",
+        createdAt: 2,
+        turnId: "t1",
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  expect(screen.getByRole("button", { name: /执行过程 · Continuing\.\.\./ })).toBeInTheDocument();
+  expect(screen.queryByText(/执行过程 · Completed/)).toBeNull();
+  expect(screen.queryByTestId("final-answer-bubble")).toBeNull();
+});
+
 it("reads a continued chain from its latest slice, not the budget-stopped first one", () => {
   useTimelineStore.setState({
     isStreaming: true,

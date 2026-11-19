@@ -63,13 +63,13 @@
    - 单次请求/命令超时只失败当前操作；
    - 用户取消优先于换页；
    - 接续仍走授权、锁、审批与审计。
-2. **预算默认值**：将 `DEFAULT_BUDGET` 的任务级花费/时长默认关闭；明确 `maxDurationMs` 的关闭语义（当前 `0` 会立即超时），避免误配置。
-3. **上下文换页**：在 `TurnRunner` 接近窗口前触发检查点与接续；把 `continueBudgetedTurn` 泛化为按原因接续，正常换页不要求 `terminalReason=budget`。
-4. **无事实接续**：`factsAreEmpty` 不再直接阻止；用最近消息/摘要生成承接输入，并标记为降级。
-5. **操作级超时**：保留请求、命令、锁、审批超时；移除 Turn 总墙钟对在途操作的统一 abort；命令超时返回结构化结果。
-6. **无进展检测**：记录最近一次模型输出、工具输出、文件变更和计划更新时间；超过阈值进入暂停/询问，不默认终止。
-7. **上下文阈值**：提高装配/压缩阈值，历史加载改为 token 预算；为长窗口模型保留更多历史。
-8. **终态与 UI**：正常换页不记 `budget`；保留 `output_truncated` 独立提示；界面显示“自动继续”。
+2. **预算默认值**：关闭任务级 token 上限；保留 24h / 1000 步紧急兜底，明确 `maxDurationMs=0` 会立即超时的语义，避免误配置。
+3. **上下文换页**：在 `TurnRunner` 输入窗口 85% 前触发检查点与接续；把 `continueBudgetedTurn` 泛化为按原因接续，正常换页使用 `terminalReason=continued`。
+4. **无事实接续**：`factsAreEmpty` 不再直接阻止；用最近 assistant 消息/摘要生成承接输入，并标记为降级。
+5. **操作级超时**：保留请求、命令、锁、审批超时；单次请求上限 600s，Turn 的 24h 墙钟只作紧急兜底。
+6. **无进展检测**：记录最近一次模型输出、工具输出、文件变更和计划更新时间；超过 10 分钟进入 `INTERRUPTED` / 恢复入口，不默认无限重试。
+7. **上下文阈值**：装配保持 80%，压缩阈值 80%，输入窗口 85% 换页；历史加载改为 token 预算，保留 400 条扫描上限。
+8. **终态与 UI**：正常换页使用 `continued`，Job 判为未完成；保留 `output_truncated` 独立提示；界面显示“自动继续”。
 9. **验证与文档**：按第 7 节运行检查，更新 ADR、契约、ROADMAP、STATUS 与任务卡。
 
 ## 5. 数据与迁移
@@ -91,8 +91,8 @@ pnpm check
 pnpm build
 pnpm test:e2e
 # 定向验证
-pnpm --filter @larness/server test -- test/agent/longTaskContinuity.test.ts
-pnpm --filter @larness/web test:file src/features/<affected>.test.tsx
+pnpm --filter @larness/server exec vitest run test/agent/contextRollover.test.ts
+pnpm --filter @larness/web test:file src/features/chat/TimelineContinuation.test.tsx
 ```
 
 ## 8. 风险

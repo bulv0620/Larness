@@ -201,6 +201,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const answer =
     lastAssistant >= 0 &&
     !turnActive &&
+    stateUser?.terminalReason !== "continued" &&
     (lastAssistant > lastOperation || stateUser?.turnOutcome === "completed")
       ? items[lastAssistant]
       : undefined;
@@ -221,6 +222,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const interrupted = stateUser?.turnOutcome === "interrupted";
   const failed = stateUser?.turnOutcome === "failed";
   const stopped = stateUser?.turnOutcome === "cancelled";
+  const continuing = stateUser?.terminalReason === "continued";
   // The resume banner states the interruption and offers the way forward, so
   // the generic notice underneath would only repeat it and add a weaker second
   // action: resending the original text without the facts already gathered.
@@ -259,7 +261,15 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
             ? "Thinking..."
             : "Starting...";
   } else {
-    status = stopped ? "Stopped" : interrupted ? "Interrupted" : failed ? "Failed" : "Completed";
+    status = continuing
+      ? "Continuing..."
+      : stopped
+        ? "Stopped"
+        : interrupted
+          ? "Interrupted"
+          : failed
+            ? "Failed"
+            : "Completed";
   }
   const autoContinued = Math.max(0, group.users.length - 1);
   const secondary = [

@@ -144,6 +144,7 @@ describe("incomplete turn mapping", () => {
       errorCode: "JOB_AGENT_INCOMPLETE",
       errorMessage: "Agent 任务因预算耗尽提前结束，请复核已完成的部分",
     });
+    expect(incompleteTurnError("continued")?.errorCode).toBe("JOB_AGENT_INCOMPLETE");
     expect(incompleteTurnError("output_truncated")?.errorCode).toBe("JOB_AGENT_INCOMPLETE");
     expect(incompleteTurnError("provider_error")?.errorCode).toBe("JOB_AGENT_INCOMPLETE");
     expect(incompleteTurnError("cancelled")?.errorCode).toBe("JOB_AGENT_INCOMPLETE");

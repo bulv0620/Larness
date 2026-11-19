@@ -51,8 +51,8 @@ describe("context compression", () => {
       const { opened, session, turn } = await fixture(dir);
 
       try {
-        expect(shouldCompress(700, 1_000)).toBe(true);
-        expect(shouldCompress(699, 1_000)).toBe(false);
+        expect(shouldCompress(800, 1_000)).toBe(true);
+        expect(shouldCompress(799, 1_000)).toBe(false);
 
         const adapter = createFakeProvider([
           {

@@ -107,7 +107,7 @@ interface ServerEvent<T = unknown> {
 | `turn.cancelled` | `turnId, reason, terminalReason, fileResults?, fileResultsOmitted?` | 是 |
 | `turn.interrupted` | `turnId, reason, terminalReason, fileResults?, fileResultsOmitted?` | 是 |
 | `turn.resumed` | `turnId, fromTurnId`（M6 TR-2：新 Turn 接手被中断的 Turn） | 是 |
-| `turn.continued` | `turnId, fromTurnId, depth`（ADR-059：预算分片结束后自动接续的新 Turn） | 是 |
+| `turn.continued` | `turnId, fromTurnId, depth, reason?`（ADR-071：上下文换页或显式预算分片结束后自动接续的新 Turn；`reason` 为 `context_rollover` 或预算原因） | 是 |
 
 `assistant.reasoning.delta` 使用与 `assistant.delta` 相同的临时信封，不含 `sequence`，不写 `agent_events`，刷新 / 重连后不重放；只发给订阅该会话的已认证客户端。推理正文不得进入日志、审计、其他会话或跨模型上下文。
 
@@ -117,17 +117,17 @@ interface ServerEvent<T = unknown> {
 
 `repeatCount` 只在同一调用连续失败达到阈值时由后端记录，并同时在 tool result 之后追加一条模型可见的事实说明；它不改变执行策略、授权或审批。
 
-`turn.continued` 由自动接续写入：`depth` 是接续链深度（原始 Turn 为 0），默认最多 3。`turn.resumed` 由恢复操作写入新 Turn：`fromTurnId` 是被中断的原 Turn，原 Turn 本身不被改写。
+`turn.continued` 由自动接续写入：`depth` 是接续链深度（原始 Turn 为 0），ADR-071 起不再有固定的 3 次上限；`reason=context_rollover` 表示正常上下文换页，其他值表示显式启用的预算分片。`turn.resumed` 由恢复操作写入新 Turn：`fromTurnId` 是被中断的原 Turn，原 Turn 本身不被改写。
 
-`budgetCause`（ADR-059）说明是哪一项预算结束了本轮：`tokens`（花费上限，可自动接续）/ `context`（上下文放不下，可自动接续）/ `duration`（卡死兜底，不接续）/ `steps` / `tool_calls`（仅在显式配置上限时出现）。`tokens` 的额度按**整个任务**计算：接续轮累加其前序切片已花的 token，共用同一份上限，不会每片重新领满额；因此 `tokens` 表示「这条任务的总花费到了」，而不是「这一段到了」。若某片以 `tokens` 结束但自身花费为 0（额度此前已被前序切片用尽），不再接续，避免链尾堆出空轮。历史事件缺少 `budgetCause` 时，客户端按 `terminalReason=budget` 回落到笼统的「预算停止」文案。
+`budgetCause`（ADR-059，ADR-071 后默认不再出现）说明是哪一项预算结束了本轮：`tokens`（显式花费上限，可自动接续）/ `context`（物理窗口放不下，可自动接续）/ `duration`（紧急兜底，不接续）/ `steps` / `tool_calls`（仅在显式配置上限时出现）。默认任务级 token 上限已关闭，正常长任务通过 85% 输入窗口换页继续；`tokens` 的额度按**整个任务**计算：接续轮累加其前序切片已花的 token，共用同一份上限，不会每片重新领满额。若某片以 `tokens` 结束但自身花费为 0（额度此前已被前序切片用尽），不再接续，避免链尾堆出空轮。历史事件缺少 `budgetCause` 时，客户端按 `terminalReason=budget` 回落到笼统的「预算停止」文案。
 
 `fileResults`（074）是 Turn 终态的文件处置：仅在本轮确有文件写入时出现，`{ path, changeType: "created"|"modified", version, existed, category: "deliverable"|"process" }[]`，按首次改动顺序、同路径去重。`existed=false` 表示 Turn 结束时文件已不存在；`category=process` 表示临时 / 生成 / 项目忽略 / 已删除文件。字段只含项目内相对路径与版本哈希，不含正文、绝对路径或命令。单 Turn 上限 200 条，超出部分只给 `fileResultsOmitted` 计数，不渲染条目。历史事件与旧客户端忽略这两个字段，继续按 `file.changed` / `resourceTarget` 渲染。
 
-`terminalReason`（M6-3，[ADR-057](../adr/ADR-057-runtime-efficiency.md)）在每个 `turn.*` 终态事件中给出结束原因：`normal / budget / output_truncated / provider_error / error / cancelled / interrupted`。它和事件类型正交——`turn.completed` 也可能是 `budget` 或 `output_truncated`，客户端必须按 `terminalReason` 而不是仅按事件类型判断「任务是否真的做完」。
+`terminalReason`（M6-3，[ADR-057](../adr/ADR-057-runtime-efficiency.md)；ADR-071 增补 `continued`）在每个 `turn.*` 终态事件中给出结束原因：`normal / continued / budget / output_truncated / provider_error / error / cancelled / interrupted`。它和事件类型正交——`turn.completed` 也可能是 `budget`、`output_truncated` 或 `continued`，客户端必须按 `terminalReason` 而不是仅按事件类型判断「任务是否真的做完」。`continued` 表示当前片段结束、任务仍将继续，不能显示为“完成”。
 
 082 K-6/K-7（2026-11-18）：后台进程与命名服务使用 Agent 会话事件 `process.started` / `process.exited` / `process.stopped` 与 `service.started` / `service.stopped`，topic 为 `agent`，写入 `agent_events` 后广播。payload 只含 process/service ID、名称、状态、端口、exitCode 与 reasonCode，不含命令参数、环境、日志正文或秘密。进程/服务 REST 使用独立路径，不改变 `terminal` 事件的所有权语义；进程与服务状态当前为进程内存 + 事件，不跨 Larness 重启恢复。
 
-`context.checkpoint` 在 Turn 内发生上下文压力时写入：替换的是**当前 Turn 的消息历史**，事实来自已持久化事件（文件与版本、只读查看过的文件与版本、命令摘要、失败诊断、未完成计划步骤、资源 ID），不含模型摘要、prompt 或工具输出正文；`tokensBefore` / `tokensAfter` 为同一启发式口径下的整包体积，便于直接比较。替换后的历史固定为：system 前缀、当前需求的原文（超长按头尾裁剪并标注省略字符数）、一条检查点消息，以及最近一个完整工具批次（每条结果先折叠为标识，调用与结果成对保留；放不下时整批丢弃）。检查点正文按字段裁剪，始终是合法 JSON，被省略的条目按分组计入 `omitted` 计数，不会因截断而丢掉末尾分组。`reads` 为只读查看过的文件数，`retainedToolBatch` 为保留的工具结果条数（0 表示未保留），`pinnedRequestChars` 为需求原文长度（0 表示本轮输入没有文本）。检查点只存 `session_context_summaries` 的 `scope='turn'` 行，跨轮压缩（`scope='session'`）不会读到它们。
+`context.checkpoint` 在 Turn 内发生上下文压力时写入：替换的是**当前 Turn 的消息历史**，事实来自已持久化事件（文件与版本、只读查看过的文件与版本、命令摘要、失败诊断、未完成计划步骤、资源 ID），不含模型摘要、prompt 或工具输出正文；`tokensBefore` / `tokensAfter` 为同一启发式口径下的整包体积，便于直接比较。ADR-071 后压缩阈值约为输入窗口 80%，输入窗口达到 85% 时以 `reason=context_rollover` 结束当前片段并创建接续 Turn。替换后的历史固定为：system 前缀、当前需求的原文（超长按头尾裁剪并标注省略字符数）、一条检查点消息，以及最近一个完整工具批次（每条结果先折叠为标识，调用与结果成对保留；放不下时整批丢弃）。检查点正文按字段裁剪，始终是合法 JSON，被省略的条目按分组计入 `omitted` 计数，不会因截断而丢掉末尾分组。`reads` 为只读查看过的文件数，`retainedToolBatch` 为保留的工具结果条数（0 表示未保留），`pinnedRequestChars` 为需求原文长度（0 表示本轮输入没有文本）。检查点只存 `session_context_summaries` 的 `scope='turn'` 行，跨轮压缩（`scope='session'`）不会读到它们。
 
 `context.compressed` 在压缩成功后先持久化再广播；`degraded: true` 表示摘要失败，Turn 继续使用截断历史。摘要正文只存 `session_context_summaries`，不进入事件、日志或审计。
 

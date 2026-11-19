@@ -51,6 +51,7 @@ import { disabledToolsForProfile } from "./profiles.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
 import {
   calibrateEstimate,
+  contextRolloverThreshold,
   contextWatermark,
   estimateRequestTokens,
   reservedOutputTokens,
@@ -67,6 +68,7 @@ import {
 import { carriedSpendTokens } from "./turn/chain.js";
 import { foldOldToolResults, lastCompleteToolBatch } from "./turn/compaction.js";
 import { createSecretLoader } from "./turn/secrets.js";
+import { isStalled } from "./turn/stall.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
 import {
   boundedCommandOutput,
@@ -111,6 +113,10 @@ const APPROVAL_POLL_MS = 100;
 const CHECKPOINT_MIN_GAIN = 200;
 const DEFAULT_LOCK_WAIT_MS = 10_000;
 const DEFAULT_LOCK_POLL_MS = 250;
+/** Per-request cap; the Turn wall clock is only an emergency guard. */
+const DEFAULT_REQUEST_TIMEOUT_MS = 600_000;
+/** Pause/ask when nothing has moved for this long; never a total task budget. */
+const DEFAULT_STALL_TIMEOUT_MS = 10 * 60_000;
 /**
  * Upper bound on a batch that may be executed concurrently. Only a batch made
  * entirely of pure reads qualifies, so the ordering the serial loop guarantees
@@ -148,6 +154,10 @@ export interface TurnRunnerOptions {
   /** How long a write tool waits for a busy project lock before failing. */
   lockWaitMs?: number;
   lockPollMs?: number;
+  /** Per-model-request timeout; defaults to 10 minutes. */
+  requestTimeoutMs?: number;
+  /** No-progress pause threshold; 0 disables the check. Defaults to 10 minutes. */
+  stallTimeoutMs?: number;
   commands?: CommandManager;
   git?: GitManager;
   processes?: ProcessManager;
@@ -158,6 +168,7 @@ export interface TurnRunnerOptions {
 
 export interface TurnTimingLogger {
   info(fields: Record<string, unknown>, message: string): void;
+  warn(fields: Record<string, unknown>, message: string): void;
 }
 
 // The cause union lives in @larness/shared so the timeline can label a stop
@@ -270,6 +281,15 @@ export class TurnRunner {
     this.#controllers.set(turnId, controller);
     const startedAt = turn.startedAt ?? this.#now();
     const deadline = startedAt + this.#budget.maxDurationMs;
+    const requestTimeoutMs = Math.max(
+      1_000,
+      this.#options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS,
+    );
+    const stallTimeoutMs = Math.max(0, this.#options.stallTimeoutMs ?? DEFAULT_STALL_TIMEOUT_MS);
+    let lastProgressAt = this.#now();
+    const markProgress = (): void => {
+      lastProgressAt = this.#now();
+    };
     // A request must not outlive the turn budget: cancel only stops on demand.
     let deadlineReached = false;
     const deadlineTimer = setTimeout(
@@ -356,6 +376,7 @@ export class TurnRunner {
         budgetExhausted?: boolean;
         budgetCause?: TurnBudgetCause;
         finishReason?: ProviderFinishReason;
+        terminalReason?: TurnTerminalReason;
       },
     ): Promise<TurnRunResult> => {
       const fileResults = await this.#collectFileResults(projectRoot, projectIgnore, fileChanges);
@@ -468,6 +489,7 @@ export class TurnRunner {
             if (checkBudget() !== "ok")
               return { ok: false, errorCode: "FORBIDDEN", summary: "Turn no longer active" };
             facts.recordPlan(plan.data.steps);
+            markProgress();
             this.#emit(turn, session, "plan.updated", {
               turnId: turn.id,
               plan: {
@@ -903,11 +925,13 @@ export class TurnRunner {
       const inputWindow = Math.min(contextWindow, resolved.maxInputTokens ?? contextWindow);
       // Scale the spend cap with the window reported for this turn: a fixed
       // token cap buys fewer steps on large-context models, which is backwards
-      // exactly where long tasks run (ADR-059).
+      // exactly where long tasks run (ADR-059), but task-level caps are off by
+      // default since ADR-071; an explicit positive value still wins.
       const spendCap = resolveSpendCap(this.#budget, contextWindow);
       // The cap covers the whole task, so a continuation inherits what its
       // slices already spent instead of getting a fresh allowance.
-      const carriedTokens = carriedSpendTokens(this.#options.db, turn.resumedFromTurnId);
+      const carriedTokens =
+        spendCap > 0 ? carriedSpendTokens(this.#options.db, turn.resumedFromTurnId) : 0;
       const spentTokensTotal = (): number =>
         carriedTokens + (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0);
       const configuredOutputCap = this.#budget.maxOutputTokens;
@@ -958,7 +982,7 @@ export class TurnRunner {
             tokensBefore: context.estimatedTokens,
             now: () => this.#now(),
             signal: controller.signal,
-            timeoutMs: Math.max(1_000, deadline - this.#now()),
+            timeoutMs: Math.max(1_000, Math.min(deadline - this.#now(), requestTimeoutMs)),
           });
 
           if (compression !== null) {
@@ -1043,7 +1067,26 @@ export class TurnRunner {
         });
       };
 
+      markProgress();
+
       while (this.#budget.maxSteps === 0 || steps < this.#budget.maxSteps) {
+        if (isStalled(lastProgressAt, this.#now(), stallTimeoutMs)) {
+          this.#options.logger?.warn(
+            {
+              turnId,
+              sessionId: session.id,
+              idleMs: this.#now() - lastProgressAt,
+              stallTimeoutMs,
+            },
+            "turn stalled",
+          );
+          return await finalize("INTERRUPTED", {
+            eventType: "turn.interrupted",
+            reason: "stalled",
+            message: "No model, tool or plan progress was observed; the task is paused.",
+          });
+        }
+
         const budgetState = checkBudget();
 
         if (budgetState === "cancel") {
@@ -1065,6 +1108,7 @@ export class TurnRunner {
         appendLockNotice();
 
         steps += 1;
+        markProgress();
         const assistantMessageId = newId("msg");
         let text = "";
         let reasoning = "";
@@ -1073,7 +1117,7 @@ export class TurnRunner {
         let stepUsage: ProviderUsage | undefined;
         let providerError: { code: string; message: string } | null = null;
 
-        const remainingMs = Math.max(1_000, deadline - this.#now());
+        const remainingMs = Math.max(1_000, Math.min(deadline - this.#now(), requestTimeoutMs));
         const stepStartedAt = this.#now();
         let heuristicTokens = estimateRequestTokens(messages, tools);
         let estimatedInputTokens = calibrateEstimate({
@@ -1193,6 +1237,71 @@ export class TurnRunner {
           }
         }
 
+        // Normal context rollover (ADR-071): the slice hands off before the
+        // hard window limit, so a long task is not reported as budget-stopped.
+        const rolloverThreshold = contextRolloverThreshold(inputWindow);
+        if (steps > 1 && estimatedInputTokens >= rolloverThreshold) {
+          const rolloverAt = this.#now();
+          const snapshot = facts.snapshot();
+
+          if (!facts.isEmpty()) {
+            try {
+              const coveredUpToSeq = latestEventSeq(this.#options.db, session.id);
+              const saved = saveTurnCheckpoint(this.#options.db, {
+                sessionId: session.id,
+                turnId: turn.id,
+                coveredUpToSeq,
+                summary: JSON.stringify(snapshot),
+                tokensBefore: heuristicTokens,
+                tokensAfter: estimatedInputTokens,
+                degraded: false,
+                reason: "context_rollover",
+                now: rolloverAt,
+              });
+
+              this.#emit(turn, session, "context.checkpoint", {
+                turnId: turn.id,
+                summaryId: saved.id,
+                scope: "turn",
+                reason: "context_rollover",
+                coveredUpToSeq: saved.coveredUpToSeq,
+                tokensBefore: heuristicTokens,
+                tokensAfter: estimatedInputTokens,
+                files: snapshot.files.length,
+                reads: snapshot.reads.length,
+                failures: snapshot.failures.length,
+                openSteps: snapshot.openSteps.length,
+                retainedToolBatch: 0,
+                pinnedRequestChars: turnInputText(turn.inputJson).length,
+              });
+            } catch (error) {
+              // The events are still the source of truth for the next Turn;
+              // a failed summary must not turn a normal rollover into a crash.
+              this.#options.logger?.warn(
+                { err: error, turnId },
+                "context rollover checkpoint failed",
+              );
+            }
+          }
+
+          this.#options.logger?.info(
+            {
+              turnId,
+              sessionId: session.id,
+              step: steps,
+              estimatedInputTokens,
+              rolloverThreshold,
+              factsEmpty: facts.isEmpty(),
+            },
+            "context rollover",
+          );
+
+          return await finalize("COMPLETED", {
+            eventType: "turn.completed",
+            terminalReason: "continued",
+          });
+        }
+
         if (projectedTokens > contextWindow || estimatedInputTokens > inputWindow) {
           // Stop honestly instead of letting the provider reject the request.
           return await finalize("COMPLETED", {
@@ -1247,6 +1356,8 @@ export class TurnRunner {
           ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
           ...(resolved.thinking === undefined ? {} : { thinking: resolved.thinking }),
         })) {
+          markProgress();
+
           if (chunk.type === "text-delta") {
             if (steps === 1 && timing.firstTokenMs === undefined) {
               timing.firstTokenMs = this.#now() - stepStartedAt;
@@ -1698,6 +1809,7 @@ export class TurnRunner {
             content: toolMessageContent(result.result),
             isError: !result.result.ok,
           });
+          markProgress();
 
           const repeatCount = repeatFailures.get(stableArgsKey(request.name, request.args));
 

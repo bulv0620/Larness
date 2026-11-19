@@ -67,6 +67,7 @@ export interface AssistantDeltaEvent {
 
 export type TurnTerminalReason =
   | "normal"
+  | "continued"
   | "budget"
   | "output_truncated"
   | "provider_error"
@@ -75,8 +76,9 @@ export type TurnTerminalReason =
   | "interrupted";
 
 /**
- * Which budget ended a turn (ADR-059). `tokens` and `context` are the ones a
- * chain can continue past; the rest are stall guards.
+ * Which budget ended a turn (ADR-059). Since ADR-071 task-level budgets are
+ * disabled by default; `tokens` / `context` remain continuable when a caller
+ * explicitly enables a cap.
  */
 export type TurnBudgetCause = "duration" | "tokens" | "context" | "steps" | "tool_calls";
 
@@ -111,7 +113,7 @@ export interface MessageItem {
   streaming?: boolean;
   turnOutcome?: "completed" | "failed" | "cancelled" | "interrupted";
   terminalReason?: TurnTerminalReason;
-  /** Which budget ended this slice; absent on turns that ran before ADR-059. */
+  /** Which budget ended this slice; absent on turns that ran before ADR-059 or after ADR-071 defaults. */
   budgetCause?: TurnBudgetCause;
   durationMs?: number;
   /** Per-file disposition emitted with the terminal event; absent on old turns. */

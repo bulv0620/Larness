@@ -65,7 +65,8 @@ describe("token estimation", () => {
 
   it("applies soft and hard watermarks and reserves output room", () => {
     expect(contextWatermark(10, 100)).toBe("ok");
-    expect(contextWatermark(75, 100)).toBe("soft");
+    expect(contextWatermark(75, 100)).toBe("ok");
+    expect(contextWatermark(80, 100)).toBe("soft");
     expect(contextWatermark(95, 100)).toBe("hard");
     expect(contextWatermark(10, 0)).toBe("hard");
 

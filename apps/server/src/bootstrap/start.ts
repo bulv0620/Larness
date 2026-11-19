@@ -538,20 +538,29 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
           activeLogger.error({ err: error, turnId }, "turn runner failed");
         },
         onSettled: (turnId, _sessionId, result) => {
-          if (result.status !== "COMPLETED" || result.terminalReason !== "budget") {
+          if (result.status !== "COMPLETED") {
             return;
           }
 
-          // Wall-clock and step stops are stall guards, not "the work needs
-          // another slice"; only spend or context pressure is continued.
-          if (result.budgetCause !== "tokens" && result.budgetCause !== "context") {
+          // A normal context rollover (ADR-071) is continued just like an
+          // explicitly enabled spend/context budget stop. Wall-clock and step
+          // stops are emergency guards, not "the work needs another slice".
+          const rollover = result.terminalReason === "continued";
+          const budgetContinuation =
+            result.terminalReason === "budget" &&
+            (result.budgetCause === "tokens" || result.budgetCause === "context");
+
+          if (!rollover && !budgetContinuation) {
             return;
           }
 
           try {
             const next = continueBudgetedTurn(
               { db: opened.db, now: () => Date.now() },
-              { turnId, budgetCause: result.budgetCause },
+              {
+                turnId,
+                ...(result.budgetCause === undefined ? {} : { budgetCause: result.budgetCause }),
+              },
             );
 
             if (next === null) {
@@ -560,7 +569,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
             activeLogger.info(
               { turnId: next.turnId, fromTurnId: next.fromTurnId, depth: next.depth },
-              "turn continued automatically",
+              rollover ? "turn continued after context rollover" : "turn continued automatically",
             );
             turnQueue?.enqueue(next.turnId, next.sessionId);
           } catch (error) {

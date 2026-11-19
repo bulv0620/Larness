@@ -430,7 +430,7 @@
 
 独立会话的 `workspacePath` 是 `dataDir/sessions/<sessionId>/workspace`，创建时为空目录；项目会话使用项目 `realPath`。列表只返回 `active` 会话。
 
-`activeTurn.terminalReason`（M6-3）在终态给出结束原因（`normal / budget / output_truncated / provider_error / error / cancelled / interrupted`）；进行中的 Turn 与迁移前的旧 Turn 为 `null`，读取方按 `normal` 处理。
+`activeTurn.terminalReason`（M6-3）在终态给出结束原因（`normal / continued / budget / output_truncated / provider_error / error / cancelled / interrupted`）；进行中的 Turn 与迁移前的旧 Turn 为 `null`，读取方按 `normal` 处理。`continued` 表示上下文换页或显式预算分片结束，任务仍会继续。
 
 `GET /api/sessions` 的每个列表项另含布尔值 `hasActiveTurn`。当该会话有 `QUEUED`、`PREPARING`、`RUNNING`、`WAITING_APPROVAL` 或 `CANCELLING` 的持久化 Turn 时为 `true`。
 

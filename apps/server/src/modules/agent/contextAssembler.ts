@@ -46,7 +46,12 @@ const SERVICE_OPS_LIFECYCLE_POLICY = [
  * explainable instead of silent.
  */
 export const PROMPT_VERSION = "m6-7";
-const HISTORY_LIMIT = 40;
+/**
+ * Safety scan cap, not a conversational limit: the assembly loop below trims
+ * the history by token budget (ADR-071). Keeping a generous row cap avoids
+ * loading an unbounded number of old messages for a very long session.
+ */
+const HISTORY_SCAN_LIMIT = 400;
 
 export interface ContextAssemblerOptions {
   db: Database;
@@ -117,7 +122,7 @@ function historyMessages(
       ),
     )
     .orderBy(desc(agentEvents.seq))
-    .limit(HISTORY_LIMIT * 2)
+    .limit(HISTORY_SCAN_LIMIT)
     .all();
 
   const messages: ModelMessage[] = [];
@@ -144,7 +149,7 @@ function historyMessages(
     });
   }
 
-  return messages.reverse().slice(-HISTORY_LIMIT);
+  return messages.reverse();
 }
 
 export function assembleContext(
