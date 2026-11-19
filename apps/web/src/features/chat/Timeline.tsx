@@ -127,14 +127,40 @@ function useElapsedSeconds(active: boolean): number | null {
   return Math.max(0, Math.floor((now - startedAt) / 1_000));
 }
 
-function ProcessWaveform({ active }: { active: boolean }) {
+function ProcessPulse() {
   return (
-    <span aria-hidden="true" className="process-waveform" data-active={active ? "true" : "false"}>
-      {[0, 1, 2, 3, 4].map((bar) => (
-        <span key={bar} />
+    <span aria-hidden="true" className="process-pulse" data-active="true">
+      {[0, 1, 2, 3].map((dot) => (
+        <span key={dot} />
       ))}
     </span>
   );
+}
+
+function runningToolLabel(tool: ToolItem): string {
+  switch (tool.name) {
+    case "run_command":
+    case "run_shell":
+      return "命令";
+    case "read_file":
+    case "list_files":
+    case "search_code":
+      return "读取";
+    case "write_file":
+    case "apply_patch":
+      return "修改文件";
+    case "start_process":
+    case "list_processes":
+    case "read_process_output":
+    case "stop_process":
+      return "后台进程";
+    case "list_service_ops":
+    case "read_service_ops_logs":
+    case "control_service_ops":
+      return "服务运维";
+    default:
+      return "";
+  }
 }
 
 function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
@@ -233,20 +259,15 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
             ? "Thinking..."
             : "Starting...";
   } else {
-    const suffix = duration === undefined ? "" : ` · ${Math.round(duration / 1000)}s`;
-    status = stopped
-      ? `Stopped${suffix}`
-      : interrupted
-        ? `Interrupted${suffix}`
-        : failed
-          ? `Failed${suffix}`
-          : `Completed${suffix}`;
+    status = stopped ? "Stopped" : interrupted ? "Interrupted" : failed ? "Failed" : "Completed";
   }
   const autoContinued = Math.max(0, group.users.length - 1);
   const secondary = [
-    runningTool ? runningTool.commandLabel || runningTool.summary || runningTool.name : "",
-    tools.length > 0 ? `${tools.length} 步` : "",
+    runningTool ? runningToolLabel(runningTool) : "",
+    tools.length > 0 && turnActive ? `${tools.length} 步` : "",
     turnActive && elapsed !== null ? `${elapsed}s` : "",
+    !turnActive && duration !== undefined ? `${Math.round(duration / 1000)}s` : "",
+    !turnActive && tools.length > 0 ? `${tools.length} 步` : "",
     autoContinued > 0 ? `已自动继续 ${autoContinued} 次` : "",
     failureLabel,
     !turnActive && budgetStopped ? budgetStopLabel(stateUser?.budgetCause) : "",
@@ -361,13 +382,17 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
               aria-label={`执行过程 · ${status}${secondary === "" ? "" : ` · ${secondary}`}`}
               aria-expanded={expanded}
               onClick={() => setExpanded((value) => !value)}
-              className={cn(
-                "process-status-row flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:text-accent",
-                turnActive && "process-status-active",
-              )}
+              className="process-status-row flex w-full items-center gap-2 rounded-md px-1 py-1 text-left transition-colors hover:text-accent"
             >
-              <ProcessWaveform active={turnActive} />
-              <span className="shrink-0 font-medium text-ink-2">{status}</span>
+              {turnActive ? <ProcessPulse /> : null}
+              <span
+                className={cn(
+                  "shrink-0 font-medium text-ink-2",
+                  turnActive && "process-status-shimmer",
+                )}
+              >
+                {status}
+              </span>
               {secondary === "" ? null : (
                 <span className="min-w-0 truncate text-[11px] text-ink-3">{secondary}</span>
               )}

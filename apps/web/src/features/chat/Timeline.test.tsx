@@ -160,7 +160,7 @@ it("grows the streamed reply as commentary and promotes it to the answer at comp
   expect(within(bubble).queryByRole("button", { name: "复制答复" })).toBeNull();
 });
 
-it("shows the current tool and a spinner outside the scrollable transcript", () => {
+it("shows a pulsing icon and a short category instead of the full command", () => {
   useTimelineStore.setState({
     items: [
       {
@@ -174,8 +174,9 @@ it("shows the current tool and a spinner outside the scrollable transcript", () 
       {
         id: "tool-running",
         kind: "tool",
-        name: "start_project_terminal",
-        summary: "启动终端",
+        name: "run_command",
+        summary: "运行命令（本机账户权限）",
+        commandLabel: "pnpm --filter @larness/web build --debug",
         args: "",
         status: "running",
         createdAt: 2,
@@ -186,7 +187,10 @@ it("shows the current tool and a spinner outside the scrollable transcript", () 
     isStreaming: true,
   });
   render(<Timeline />);
-  expect(screen.getByRole("button", { name: /执行过程 · Running\.\.\. · 启动终端/ })).toBeTruthy();
+  const header = screen.getByRole("button", { name: /执行过程 · Running\.\.\. · 命令/ });
+  expect(header.querySelector(".process-pulse")).not.toBeNull();
+  expect(header.querySelector(".process-status-shimmer")).not.toBeNull();
+  expect(header).not.toHaveTextContent("pnpm");
   expect(screen.queryByTestId("turn-running-spinner")).toBeNull();
 });
 
@@ -397,6 +401,8 @@ it("folds failed steps into the record once the turn has an answer", () => {
   const summary = screen.getByRole("button", {
     name: /执行过程 · Completed.*1 步 · 失败 1 项/,
   });
+  expect(summary.querySelector(".process-pulse")).toBeNull();
+  expect(summary.querySelector(".process-status-shimmer")).toBeNull();
   expect(summary).toHaveAttribute("aria-expanded", "false");
   expect(screen.queryByRole("button", { name: /运行命令.*失败/ })).toBeNull();
 
