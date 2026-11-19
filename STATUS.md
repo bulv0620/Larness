@@ -20,7 +20,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
-| 2026-11-19 | AP-9 动画同步 1 秒一轮 | 两颗星与文字扫描统一 1 秒、同相位；去掉错峰延迟；视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-9-动画同步为-1-秒一轮用户反馈) |
+| 2026-11-19 | AP-9 动画同步 1 秒一轮 | 两颗星与文字扫描统一 1 秒、同相位；扫描位移修正为每秒恰好一次；视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-9-动画同步为-1-秒一轮用户反馈) |
 | 2026-11-19 | AP-8 星光图标与慢速文字扫描 | 一大一小四角星依次闪烁；状态文字灰底、主题前景色约 4.2s 缓慢扫过；完成态无图标与扫描；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-8-星光图标与灰底黑扫文字用户反馈) |
 | 2026-11-19 | AP-7 过程标题行视觉细化 | 脉冲节点图标；流光只扫状态文字；Running 只显示工具类别；完成态无图标、主标签只留 Completed；聊天定向 67 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-7-过程标题行视觉细化用户反馈) |
 | 2026-11-18 | AP-6 全量验证与收口 | check 通过（Web 262 / Agent 63+1 / Server 734+14）；build 通过；Mock 24/24、认证 20/20、生产 20/20；契约与状态同步；UI 视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |

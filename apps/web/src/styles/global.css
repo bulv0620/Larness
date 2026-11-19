@@ -170,7 +170,7 @@
       var(--ink-3) 60%,
       var(--ink-3) 100%
     );
-    background-size: 300% 100%;
+    background-size: 200% 100%;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -227,10 +227,10 @@
 
 @keyframes process-status-shimmer {
   from {
-    background-position: 120% 0;
+    background-position: 100% 0;
   }
   to {
-    background-position: -120% 0;
+    background-position: 0% 0;
   }
 }
 
