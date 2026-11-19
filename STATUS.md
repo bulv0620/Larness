@@ -1,6 +1,6 @@
 # STATUS
 
-> 最后更新：2026-11-18 22:30 (+08:00)
+> 最后更新：2026-11-19 10:10 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
@@ -10,7 +10,6 @@
 
 ## 阻塞与待确认
 
-- **084 UI 视觉验收**：AP-1～AP-13 完成且自动化门禁通过；过程标题行（四角星、灰底前景色 1.6 秒同步扫描、简短工具类别、完成态无图标、外层只显示步数）、用量行（常驻并含缓存命中率）与 Plan 文案待用户视觉确认。
 - **实机验收证据边界（082/083）**：082 已按限定范围验收通过，但真实 Provider A/B、Windows 实机与 083 用户现有 PM2/旧命令数据未在本次环境复跑；不得据此声称这些场景已验证。
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
@@ -20,6 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-19 | 084 Agent Profile 收敛与用量 | 人类验收通过；AP-1～AP-13 完成；Profile 收敛 coding/plan、usage API 与缓存命中率、Token 行常驻、过程标题行视觉；check/build + Mock 24/24 + 认证 20/20 + 生产 20/20 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |
 | 2026-11-19 | AP-13 过程标题行只显示步数 | 外层移除失败/重试计数，只保留步数、耗时与自动继续；失败详情仍在展开过程内；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-13-过程标题行只显示步数用户反馈) |
 | 2026-11-19 | AP-12 Token 行会话页常驻 | 真实会话加载中也保留 Token 行并显示占位；新建会话页与 Mock 隐藏；定向 24 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-12-token-行在会话页常驻用户反馈) |
 | 2026-11-19 | AP-11 会话缓存命中率 | usage API 增加按 `model.usage` 聚合的 `cache`（命中率、命中/未命中、已知/未知请求）；未知请求不进分母；Token 行显示命中率；定向测试通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-11-会话缓存命中率用户反馈) |
@@ -29,7 +29,6 @@
 | 2026-11-19 | AP-7 过程标题行视觉细化 | 脉冲节点图标；流光只扫状态文字；Running 只显示工具类别；完成态无图标、主标签只留 Completed；聊天定向 67 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-7-过程标题行视觉细化用户反馈) |
 | 2026-11-18 | AP-6 全量验证与收口 | check 通过（Web 262 / Agent 63+1 / Server 734+14）；build 通过；Mock 24/24、认证 20/20、生产 20/20；契约与状态同步；UI 视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |
 | 2026-11-18 | AP-5 过程呈现收敛 | 删除底部状态栏；状态收敛到折叠标题行（波形 + Thinking/Generating/Running/Waiting/Completed/Failed/Stopped + 步数与耗时）；reasoning 不渲染、不触发滚动；聊天定向 67 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-5-过程呈现收敛状态行波形思考) |
-| 2026-11-18 | AP-4 输入框用量与速度 | 新增会话用量行：总量常驻、部分统计 `≥`、进行中最后一步 `tok/s`；终态失效重取；Web 定向 29 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-4-输入框下方用量与最后一步速度) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 
@@ -61,4 +60,4 @@
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | `done` | M5-1a–e / M5-2 / M5-3 / M5-4 / M5-5 `done`；G5 条件通过（2026-11-08） |
 | M6 | 运行时效率与 Turn 恢复 | `done` | 070（HX）与 071（TR）于 2026-11-12 收口；HX-12b 于 2026-11-18 按用户决定废弃 |
-| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核重构、项目服务与 service-ops |
+| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 / 084 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核重构、项目服务与 service-ops、Agent Profile 收敛与用量 |

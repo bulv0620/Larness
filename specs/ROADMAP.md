@@ -452,7 +452,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | S-6 | [旧命令锁恢复](083-service-model/tasks.md#s-6) | S-2 | `done`（2026-11-18） |
 | S-7 | [全量验证与收口](083-service-model/tasks.md#s-7) | S-1～S-6 | `done`（2026-11-18） |
 
-### 8.10 Agent Profile 收敛与会话 Token 统计（084，active）
+### 8.10 Agent Profile 收敛与会话 Token 统计（084，done）
 
 把 Profile 收敛为 `coding`（完整工具、无 `update_plan`）与 `plan`（相同工具 + `update_plan`），将 Service Ops 工具合并进两者；旧 `service-ops` 会话迁移为 `coding`。同时在输入框下方增加会话累计 Token 与最后一步实测输出速度，不做不可精确的逐字实时 speed。2026-11-18 人类审核通过 spec 与 §12 决议，实施见 [ADR-070](../docs/adr/ADR-070-agent-profiles-and-usage.md)。
 
