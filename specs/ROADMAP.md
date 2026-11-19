@@ -467,6 +467,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | AP-7 | [过程标题行视觉细化（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-7-过程标题行视觉细化用户反馈) | AP-5 | `done` |
 | AP-8 | [星光图标与灰底黑扫文字（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-8-星光图标与灰底黑扫文字用户反馈) | AP-7 | `done` |
 | AP-9 | [动画同步为 1 秒一轮（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-9-动画同步为-1-秒一轮用户反馈) | AP-8 | `done` |
+| AP-10 | [过程动画降速（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-10-过程动画降速用户反馈) | AP-9 | `done` |
 
 ## 9. 门禁
 

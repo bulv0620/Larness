@@ -10,7 +10,7 @@
 
 ## 阻塞与待确认
 
-- **084 UI 视觉验收**：AP-1～AP-9 完成且自动化门禁通过；过程标题行（四角星、灰底前景色 1 秒同步扫描、简短工具类别、完成态无图标）、用量行与 Plan 文案待用户视觉确认。
+- **084 UI 视觉验收**：AP-1～AP-10 完成且自动化门禁通过；过程标题行（四角星、灰底前景色 1.6 秒同步扫描、简短工具类别、完成态无图标）、用量行与 Plan 文案待用户视觉确认。
 - **实机验收证据边界（082/083）**：082 已按限定范围验收通过，但真实 Provider A/B、Windows 实机与 083 用户现有 PM2/旧命令数据未在本次环境复跑；不得据此声称这些场景已验证。
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
@@ -20,6 +20,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-19 | AP-10 过程动画降速 | 星星与文字扫描统一放慢到 1.6 秒一轮，保持同相位与单次扫过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-10-过程动画降速用户反馈) |
 | 2026-11-19 | AP-9 动画同步 1 秒一轮 | 两颗星与文字扫描统一 1 秒、同相位；扫描位移修正为每秒恰好一次；视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-9-动画同步为-1-秒一轮用户反馈) |
 | 2026-11-19 | AP-8 星光图标与慢速文字扫描 | 一大一小四角星依次闪烁；状态文字灰底、主题前景色约 4.2s 缓慢扫过；完成态无图标与扫描；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-8-星光图标与灰底黑扫文字用户反馈) |
 | 2026-11-19 | AP-7 过程标题行视觉细化 | 脉冲节点图标；流光只扫状态文字；Running 只显示工具类别；完成态无图标、主标签只留 Completed；聊天定向 67 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-7-过程标题行视觉细化用户反馈) |
@@ -29,7 +30,6 @@
 | 2026-11-18 | AP-3 会话用量与步骤耗时 | 新增 `GET /api/sessions/:id/usage` 与诚实聚合（缺失不补零）；`model.usage` 增 `durationMs`；契约同步；定向 60 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-3-会话用量-api-与步骤耗时) |
 | 2026-11-18 | AP-2 Profile 收敛与迁移 | Profile 仅 `coding` / `plan`，两者共享完整工具面，Plan 增计划；取消 PM2 观察注入；迁移 0034 将 `service-ops` 归一 `coding`；定向 96 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-2-profile-收敛提示迁移与选择器) |
 | 2026-11-18 | AP-1 规格决议、ADR 与任务卡 | 084 审核通过转 `active`；§12 十项决议固化；新增 ADR-070 取代 ADR-069 的独立 Service Ops Profile；拆分 AP-2～AP-6 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-1-规格决议adr计划与任务卡) |
-| 2026-11-18 | M5-F1-W12 Windows 全量 check 存量 shell 失败 | shell 测试补 PowerShell `&` 调用符与平台断言；pnpm test 预算 2s→30s；cmd 兜底夹具移出 %TEMP%（副本执行被主机安全软件杀 worker，已归因）；check 全绿 712 通过 / 31 跳过 | [066 tasks](specs/066-cross-platform/tasks.md#发布后跟踪-m5-f1-w12windows-全量-check-存量-shell-测试失败不计入-m5-完成) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

@@ -148,11 +148,11 @@
   }
 
   .process-sparkle[data-active="true"] .process-sparkle-main {
-    animation: process-sparkle-main 1s ease-in-out infinite;
+    animation: process-sparkle-main 1.6s ease-in-out infinite;
   }
 
   .process-sparkle[data-active="true"] .process-sparkle-small {
-    animation: process-sparkle-small 1s ease-in-out infinite;
+    animation: process-sparkle-small 1.6s ease-in-out infinite;
   }
 
   .process-status-row {
@@ -174,7 +174,7 @@
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    animation: process-status-shimmer 1s linear infinite;
+    animation: process-status-shimmer 1.6s linear infinite;
   }
 
   .window-drag {
