@@ -1,7 +1,7 @@
 # 任务：长任务连续执行
 
 > 状态：`todo | in_progress | blocked | review | done | dropped`。一个任务一个提交。
-> **spec 状态 `active`；ADR-071 accepted。** LC-1～LC-5 已完成，LC-6 处于 review（真实 Provider 长任务与视觉验收待人类确认）。
+> **spec 状态 `done`；ADR-071 accepted。** LC-1～LC-6 已完成，2026-11-19 人类验收通过。
 > 开始任务前在 `STATUS.md` 的「当前进行中」登记；完成后勾选本表、更新 `ROADMAP.md`，并把该任务移入「最近收口」。
 
 ## 状态总表
@@ -13,7 +13,7 @@
 | LC-3 | 操作级超时与无进展检测 | LC-1 | `done` |
 | LC-4 | 上下文阈值与历史加载校准 | LC-2 | `done` |
 | LC-5 | 终态、UI 与可观测性 | LC-2、LC-3 | `done` |
-| LC-6 | 全量验证、契约与状态回填 | LC-1～LC-5 | `review` |
+| LC-6 | 全量验证、契约与状态回填 | LC-1～LC-5 | `done` |
 
 ## 任务卡
 
@@ -151,7 +151,7 @@
 
 ### LC-6 全量验证、契约与状态回填
 
-- 状态：`review`
+- 状态：`done`
 - 依赖：LC-1～LC-5
 - 目标：完成验收、文档与状态同步。
 - 交付物：
@@ -170,4 +170,4 @@
   - 本切片文档
   - 根 `STATUS.md`
   - `specs/ROADMAP.md`
-- 备注：一个任务一个提交；全量失败必须逐项给出结论。2026-11-19 自动门禁：首次 `pnpm check` 通过（Web 265 / Agent 63+1 skip / Server 743+14 skip）；复跑出现既有 `m2-poc` native watcher 超时，单文件 4/4 通过；`pnpm build` 通过、`pnpm test:e2e` 24/24；真实 Provider 长任务与视觉验收待人类执行，见 [acceptance](acceptance.md)。
+- 备注：一个任务一个提交；全量失败必须逐项给出结论。2026-11-19 自动门禁：首次 `pnpm check` 通过（Web 265 / Agent 63+1 skip / Server 743+14 skip）；复跑出现既有 `m2-poc` native watcher 超时，单文件 4/4 通过；`pnpm build` 通过、`pnpm test:e2e` 24/24；人类验收通过，见 [acceptance](acceptance.md)。

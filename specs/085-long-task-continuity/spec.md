@@ -2,7 +2,7 @@
 id: 085-long-task-continuity
 title: 长任务连续执行：取消任务级预算并改为上下文换页
 milestone: 发布后
-status: active
+status: done
 depends_on: [070-runtime-efficiency, 071-turn-recovery, 084-agent-profiles-and-usage]
 owners: []
 created: 2026-11-19
@@ -11,7 +11,7 @@ updated: 2026-11-19
 
 # 085 长任务连续执行
 
-> 状态：`ready`（2026-11-19 人类确认按默认值实施）。本切片改变 [ADR-059](../../docs/adr/ADR-059-long-task-budget-and-continuation.md) 的默认行为，新决策见 [ADR-071](../../docs/adr/ADR-071-long-task-continuity.md)（accepted）。
+> 状态：`done`（2026-11-19 人类验收通过）。本切片改变 [ADR-059](../../docs/adr/ADR-059-long-task-budget-and-continuation.md) 的默认行为，新决策见 [ADR-071](../../docs/adr/ADR-071-long-task-continuity.md)（accepted）；验证记录见 [acceptance](acceptance.md)。
 
 ## 1. 背景与问题
 
@@ -271,8 +271,8 @@ And 用户可展开查看换页原因与检查点事实
 
 ## 14. 完成定义
 
-- [ ] A1–A11 全部通过；
-- [ ] 单元、集成、安全、E2E/视觉与真实长任务验证有记录；
-- [ ] 契约、配置（如新增）、`STATUS.md` 与 `ROADMAP.md` 已同步；
-- [ ] 新 ADR 已 accepted，并明确与 ADR-059 的关系；
-- [ ] 人类负责人确认正常长任务不再被任务级预算截断。
+- [x] A1–A11 全部通过；
+- [x] 单元、集成、安全、E2E/视觉与真实长任务验证有记录；
+- [x] 契约、配置（如新增）、`STATUS.md` 与 `ROADMAP.md` 已同步；
+- [x] 新 ADR 已 accepted，并明确与 ADR-059 的关系；
+- [x] 人类负责人确认正常长任务不再被任务级预算截断。

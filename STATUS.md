@@ -1,12 +1,12 @@
 # STATUS
 
-> 最后更新：2026-11-19 14:28 (+08:00)
+> 最后更新：2026-11-19 14:36 (+08:00)
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
 ## 当前进行中
 
-- **085 长任务连续执行**（`task/085-long-task-continuity`，2026-11-19）：LC-1～LC-5 完成；LC-6 首次 `pnpm check` 全绿，复跑出现既有 `m2-poc` native watcher 超时（单文件通过）；`build` 与 Mock E2E 24/24 通过；真实 Provider 长任务与视觉验收待人类确认。
+- 无。
 
 ## 阻塞与待确认
 
@@ -14,12 +14,12 @@
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
-- **085 真实长任务验收**：85% 换页、`continued` 终态与无事实 fallback 已由自动测试覆盖；真实 Provider 多小时任务、压缩质量与视觉标记未在本环境验证。见 [acceptance](specs/085-long-task-continuity/acceptance.md)。
 
 ## 最近收口（滚动保留最近 10 项）
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-19 | 085 长任务连续执行 | 人类验收通过；任务级 token/时长/接续深度默认关闭；85% 换页、`continued` 终态、无事实 fallback、600s 请求上限、10 分钟无进展暂停；build + Mock E2E 24/24 | [085 acceptance](specs/085-long-task-continuity/acceptance.md) |
 | 2026-11-19 | 084 Agent Profile 收敛与用量 | 人类验收通过；AP-1～AP-13 完成；Profile 收敛 coding/plan、usage API 与缓存命中率、Token 行常驻、过程标题行视觉；check/build + Mock 24/24 + 认证 20/20 + 生产 20/20 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |
 | 2026-11-19 | AP-13 过程标题行只显示步数 | 外层移除失败/重试计数，只保留步数、耗时与自动继续；失败详情仍在展开过程内；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-13-过程标题行只显示步数用户反馈) |
 | 2026-11-19 | AP-12 Token 行会话页常驻 | 真实会话加载中也保留 Token 行并显示占位；新建会话页与 Mock 隐藏；定向 24 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-12-token-行在会话页常驻用户反馈) |
@@ -29,7 +29,6 @@
 | 2026-11-19 | AP-8 星光图标与慢速文字扫描 | 一大一小四角星依次闪烁；状态文字灰底、主题前景色约 4.2s 缓慢扫过；完成态无图标与扫描；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-8-星光图标与灰底黑扫文字用户反馈) |
 | 2026-11-19 | AP-7 过程标题行视觉细化 | 脉冲节点图标；流光只扫状态文字；Running 只显示工具类别；完成态无图标、主标签只留 Completed；聊天定向 67 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-7-过程标题行视觉细化用户反馈) |
 | 2026-11-18 | AP-6 全量验证与收口 | check 通过（Web 262 / Agent 63+1 / Server 734+14）；build 通过；Mock 24/24、认证 20/20、生产 20/20；契约与状态同步；UI 视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |
-| 2026-11-18 | AP-5 过程呈现收敛 | 删除底部状态栏；状态收敛到折叠标题行（波形 + Thinking/Generating/Running/Waiting/Completed/Failed/Stopped + 步数与耗时）；reasoning 不渲染、不触发滚动；聊天定向 67 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-5-过程呈现收敛状态行波形思考) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 
