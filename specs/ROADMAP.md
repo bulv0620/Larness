@@ -470,6 +470,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | AP-10 | [过程动画降速（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-10-过程动画降速用户反馈) | AP-9 | `done` |
 | AP-11 | [会话缓存命中率（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-11-会话缓存命中率用户反馈) | AP-3、AP-4 | `done` |
 | AP-12 | [Token 行在会话页常驻（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-12-token-行在会话页常驻用户反馈) | AP-4、AP-11 | `done` |
+| AP-13 | [过程标题行只显示步数（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-13-过程标题行只显示步数用户反馈) | AP-5 | `done` |
 
 ## 9. 门禁
 

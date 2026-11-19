@@ -19,6 +19,7 @@
 | AP-10 | 过程动画降速（用户反馈） | AP-9 | `done` |
 | AP-11 | 会话缓存命中率（用户反馈） | AP-3、AP-4 | `done` |
 | AP-12 | Token 行在会话页常驻（用户反馈） | AP-4、AP-11 | `done` |
+| AP-13 | 过程标题行只显示步数（用户反馈） | AP-5 | `done` |
 
 ## 任务卡
 
@@ -211,4 +212,18 @@
 - 验收：切换会话时 Token 行不闪烁消失；新建会话页不显示；真实会话始终占位。
 - 测试：`SessionUsageLine` 加载态与 `SessionModel` 常驻断言；定向 24 项通过。
 - 涉及路径：`apps/web/src/features/chat/SessionUsageLine.tsx`、`apps/web/src/features/chat/Composer.tsx`。
+- 备注：视觉确认待用户。
+
+### AP-13 过程标题行只显示步数（用户反馈）
+
+- 状态：`done`（2026-11-19）
+- 依赖：AP-5
+- 目标：外层过程标题行不显示失败项数与重试次数，只保留步数等进度信息。
+- 交付物：
+  - 移除标题行右侧的“失败 N 项”“重试成功 N 次”。
+  - 失败工具仍保留在展开的执行过程中；未完成且无答复的 Turn 仍显示失败条目。
+  - 步数、耗时、自动继续次数与预算原因继续显示。
+- 验收：外层标题行不出现失败/重试计数；展开后失败详情可见。
+- 测试：`Timeline.test.tsx` 断言外层无“失败/重试”，展开后失败工具仍存在；定向 33 项通过。
+- 涉及路径：`apps/web/src/features/chat/Timeline.tsx`、`apps/web/src/features/chat/Timeline.test.tsx`。
 - 备注：视觉确认待用户。

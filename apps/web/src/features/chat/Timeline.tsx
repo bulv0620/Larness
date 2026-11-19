@@ -235,15 +235,6 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     undefined,
   );
   const elapsed = useElapsedSeconds(turnActive);
-  const failedTools = tools.filter((tool) => tool.status === "error");
-  const retriedFailures = failedTools.filter((tool) => tool.retried === true).length;
-  const unresolvedFailures = failedTools.length - retriedFailures;
-  const failureLabel = [
-    unresolvedFailures > 0 ? `失败 ${unresolvedFailures} 项` : "",
-    retriedFailures > 0 ? `重试成功 ${retriedFailures} 次` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
   const waiting = turnActive && pendingApprovals(items).length > 0;
   const runningTool = [...items]
     .reverse()
@@ -278,7 +269,6 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     !turnActive && duration !== undefined ? `${Math.round(duration / 1000)}s` : "",
     !turnActive && tools.length > 0 ? `${tools.length} 步` : "",
     autoContinued > 0 ? `已自动继续 ${autoContinued} 次` : "",
-    failureLabel,
     !turnActive && budgetStopped ? budgetStopLabel(stateUser?.budgetCause) : "",
     !turnActive && truncated ? "输出被截断" : "",
   ]

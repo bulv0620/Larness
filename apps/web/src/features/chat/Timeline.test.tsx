@@ -399,8 +399,9 @@ it("folds failed steps into the record once the turn has an answer", () => {
   render(<Timeline />);
 
   const summary = screen.getByRole("button", {
-    name: /执行过程 · Completed.*1 步 · 失败 1 项/,
+    name: /执行过程 · Completed.*1 步/,
   });
+  expect(summary).not.toHaveTextContent("失败");
   expect(summary.querySelector(".process-sparkle")).toBeNull();
   expect(summary.querySelector(".process-status-shimmer")).toBeNull();
   expect(summary).toHaveAttribute("aria-expanded", "false");
@@ -410,7 +411,7 @@ it("folds failed steps into the record once the turn has an answer", () => {
   expect(screen.getByRole("button", { name: /运行命令.*失败/ })).toBeTruthy();
 });
 
-it("counts only unresolved failures in the summary and marks retried attempts", () => {
+it("does not surface failure counts in the outer header", () => {
   const failure = (id: string, retried?: boolean): ToolItem => ({
     id,
     kind: "tool",
@@ -449,9 +450,11 @@ it("counts only unresolved failures in the summary and marks retried attempts", 
   render(<Timeline />);
 
   const summary = screen.getByRole("button", {
-    name: /执行过程 · Completed · 2 步 · 失败 1 项 · 重试成功 1 次/,
+    name: /执行过程 · Completed · 2 步/,
   });
   expect(summary).toBeTruthy();
+  expect(summary).not.toHaveTextContent("失败");
+  expect(summary).not.toHaveTextContent("重试");
   expect(screen.queryByRole("button", { name: /运行命令.*失败/ })).toBeNull();
 });
 
