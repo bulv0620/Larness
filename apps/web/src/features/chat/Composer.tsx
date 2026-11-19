@@ -641,7 +641,9 @@ export function Composer({
           }}
         />
       </div>
-      <SessionUsageLine usage={sessionUsage} streaming={isStreaming} lastStep={lastStep} />
+      {hasSession && !isDraftSession && !USE_MOCKS ? (
+        <SessionUsageLine usage={sessionUsage} streaming={isStreaming} lastStep={lastStep} />
+      ) : null}
     </>
   );
 }

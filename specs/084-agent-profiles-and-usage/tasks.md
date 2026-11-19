@@ -18,6 +18,7 @@
 | AP-9 | 动画同步为 1 秒一轮（用户反馈） | AP-8 | `done` |
 | AP-10 | 过程动画降速（用户反馈） | AP-9 | `done` |
 | AP-11 | 会话缓存命中率（用户反馈） | AP-3、AP-4 | `done` |
+| AP-12 | Token 行在会话页常驻（用户反馈） | AP-4、AP-11 | `done` |
 
 ## 任务卡
 
@@ -197,3 +198,17 @@
 - 测试：Server 命中率聚合正反例；Web 命中率显示与未知隐藏；定向测试通过。
 - 涉及路径：`apps/server/src/modules/sessions/usage.ts`、`apps/web/src/features/chat/SessionUsageLine.tsx`、`apps/web/src/lib/workspaceApi.ts`。
 - 备注：不同 Provider 的缓存字段可用性不同；未验证真实长会话命中率。
+
+### AP-12 Token 行在会话页常驻（用户反馈）
+
+- 状态：`done`（2026-11-19）
+- 依赖：AP-4、AP-11
+- 目标：已创建会话中 Token 行始终显示在输入框下方；新建会话页不显示。
+- 交付物：
+  - 真实会话中即使用量尚未加载，也保留 Token 行并显示“Token 统计加载中…”，避免出现/消失造成跳动。
+  - 加载完成后显示总量、缓存命中率与最后一步速度。
+  - 草稿会话、新建会话页与 Mock 页面保持隐藏。
+- 验收：切换会话时 Token 行不闪烁消失；新建会话页不显示；真实会话始终占位。
+- 测试：`SessionUsageLine` 加载态与 `SessionModel` 常驻断言；定向 24 项通过。
+- 涉及路径：`apps/web/src/features/chat/SessionUsageLine.tsx`、`apps/web/src/features/chat/Composer.tsx`。
+- 备注：视觉确认待用户。

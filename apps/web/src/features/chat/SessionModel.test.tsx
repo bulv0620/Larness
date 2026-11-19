@@ -247,6 +247,11 @@ it("saves approval policy without sending and restores it after a reload", async
   expect(await screen.findByRole("button", { name: "审批策略：标准审批" })).toBeVisible();
 });
 
+it("keeps the session token row visible in a real session", async () => {
+  renderComposer();
+  expect(await screen.findByText("0 tokens")).toBeVisible();
+});
+
 it("saves the agent profile without sending and restores it after a reload", async () => {
   const user = userEvent.setup();
   const view = renderComposer();

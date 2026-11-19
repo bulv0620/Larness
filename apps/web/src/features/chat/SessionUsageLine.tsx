@@ -40,7 +40,17 @@ export function SessionUsageLine({
   streaming: boolean;
   lastStep: { outputTokens: number; durationMs: number } | null;
 }) {
-  if (usage === null) return null;
+  if (usage === null) {
+    return (
+      <div
+        role="status"
+        aria-label="会话用量"
+        className="mt-1 flex min-h-[16px] flex-wrap items-center gap-1 px-1 text-[10.5px] text-ink-3"
+      >
+        <span>Token 统计加载中…</span>
+      </div>
+    );
+  }
 
   const partial = usage.partial;
   const total = `${partial ? "≥ " : ""}${formatTokenCount(usage.totalTokens)} tokens`;

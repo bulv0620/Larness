@@ -86,7 +86,7 @@ it("hides the hit rate when no request reported cache fields", () => {
   expect(screen.queryByText(/缓存命中/)).toBeNull();
 });
 
-it("renders nothing before usage is available", () => {
+it("shows a loading row before usage is available", () => {
   const view = renderLine({ usage: null, streaming: false, lastStep: null });
-  expect(view.container).toBeEmptyDOMElement();
+  expect(view.getByRole("status", { name: "会话用量" })).toHaveTextContent("Token 统计加载中…");
 });
