@@ -77,6 +77,13 @@ describe("sessions API", () => {
           totalTokens: 0,
           cacheReadTokens: null,
           noCacheTokens: null,
+          cache: {
+            hitRate: null,
+            readTokens: 0,
+            missTokens: 0,
+            knownRequests: 0,
+            unknownRequests: 0,
+          },
           turns: 0,
           missingTurns: 0,
           partial: false,

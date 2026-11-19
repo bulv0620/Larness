@@ -17,6 +17,7 @@
 | AP-8 | 星光图标与灰底黑扫文字（用户反馈） | AP-7 | `done` |
 | AP-9 | 动画同步为 1 秒一轮（用户反馈） | AP-8 | `done` |
 | AP-10 | 过程动画降速（用户反馈） | AP-9 | `done` |
+| AP-11 | 会话缓存命中率（用户反馈） | AP-3、AP-4 | `done` |
 
 ## 任务卡
 
@@ -181,3 +182,18 @@
 - 测试：CSS 变更；`pnpm check`、`pnpm build`、Mock E2E 通过。
 - 涉及路径：`apps/web/src/styles/global.css`。
 - 备注：视觉确认待用户。
+
+### AP-11 会话缓存命中率（用户反馈）
+
+- 状态：`done`（2026-11-19）
+- 依赖：AP-3、AP-4
+- 目标：在会话用量行显示 Provider 实测缓存命中率。
+- 交付物：
+  - usage API 增加 `cache`：`hitRate`、`readTokens`、`missTokens`、`knownRequests`、`unknownRequests`。
+  - 命中率只聚合 `model.usage` 请求；`usageSource=unknown` 或缺少 miss 字段的请求不进入分母，另计未知次数。
+  - 若 Provider 只给 `inputTokens` 与 `cacheReadTokens`，用 `input - read` 推导未命中；结果仍只来自实测字段。
+  - Token 行显示 `缓存命中 N%`；Hint 显示命中/未命中 token 与未知请求数。
+- 验收：有 Provider 缓存字段时显示命中率；完全未知时不伪造 0%；部分统计标记保持独立。
+- 测试：Server 命中率聚合正反例；Web 命中率显示与未知隐藏；定向测试通过。
+- 涉及路径：`apps/server/src/modules/sessions/usage.ts`、`apps/web/src/features/chat/SessionUsageLine.tsx`、`apps/web/src/lib/workspaceApi.ts`。
+- 备注：不同 Provider 的缓存字段可用性不同；未验证真实长会话命中率。

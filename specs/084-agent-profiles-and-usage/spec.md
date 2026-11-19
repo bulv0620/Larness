@@ -183,7 +183,7 @@ And 用户点击标题行可展开查看执行过程
 
 ## 7. 接口与契约变更
 
-- REST：新增 `GET /api/sessions/:id/usage`，返回会话级累计 usage 与缺失统计；沿用认证守卫。
+- REST：新增 `GET /api/sessions/:id/usage`，返回会话级累计 usage 与缺失统计；084 增加 `cache` 对象：`hitRate`（仅 Provider 回报的请求，0–1）、`readTokens`、`missTokens`、`knownRequests`、`unknownRequests`；未知请求不进入命中率分母。沿用认证守卫。
 - REST：Profile 枚举从 `coding \| plan \| service-ops` 改为 `coding \| plan`。
 - WS / 事件：`model.usage` payload 增加 `durationMs`（模型步骤墙钟耗时）；不新增逐 token 事件。
 - DB：无新表；会话累计统计从 `turns.usage_json` 聚合。

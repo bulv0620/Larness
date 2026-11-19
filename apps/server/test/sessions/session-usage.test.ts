@@ -2,6 +2,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
+import { appendAgentEvent } from "../../src/modules/agent/events.js";
 import { updateTurnRow } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -47,6 +48,13 @@ describe("session usage", () => {
           totalTokens: 375,
           cacheReadTokens: null,
           noCacheTokens: null,
+          cache: {
+            hitRate: null,
+            readTokens: 0,
+            missTokens: 0,
+            knownRequests: 0,
+            unknownRequests: 0,
+          },
           turns: 2,
           missingTurns: 0,
           partial: false,
@@ -104,6 +112,58 @@ describe("session usage", () => {
     });
   });
 
+  it("computes cache hit rate only from provider-reported requests", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+      try {
+        const options = { db: opened.db, dataDir: dir };
+        const session = await createSession(options, {});
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          type: "model.usage",
+          payload: {
+            model: "deepseek-chat",
+            inputTokens: 1_000,
+            cacheReadTokens: 800,
+            noCacheTokens: 200,
+            usageSource: "provider",
+          },
+          now: 1,
+        });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          type: "model.usage",
+          payload: {
+            model: "deepseek-chat",
+            inputTokens: 600,
+            cacheReadTokens: 300,
+            usageSource: "provider",
+          },
+          now: 2,
+        });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          type: "model.usage",
+          payload: { model: "deepseek-chat", inputTokens: 500, usageSource: "unknown" },
+          now: 3,
+        });
+
+        const usage = getSessionUsage(opened.db, session.id);
+        expect(usage.cache).toEqual({
+          hitRate: 1_100 / 1_600,
+          readTokens: 1_100,
+          missTokens: 500,
+          knownRequests: 2,
+          unknownRequests: 1,
+        });
+        expect(usage.cache.hitRate).toBeCloseTo(0.6875);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("returns zeros for a session without terminal turns", async () => {
     await withTempDir(async (dir) => {
       const opened = openDatabase(path.join(dir, "larness.db"));
@@ -119,6 +179,13 @@ describe("session usage", () => {
           totalTokens: 0,
           cacheReadTokens: null,
           noCacheTokens: null,
+          cache: {
+            hitRate: null,
+            readTokens: 0,
+            missTokens: 0,
+            knownRequests: 0,
+            unknownRequests: 0,
+          },
           turns: 0,
           missingTurns: 0,
           partial: false,

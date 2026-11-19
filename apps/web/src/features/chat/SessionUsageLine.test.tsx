@@ -11,6 +11,13 @@ const usage: ApiSessionUsage = {
   totalTokens: 1_240_000,
   cacheReadTokens: 900_000,
   noCacheTokens: 300_000,
+  cache: {
+    hitRate: 0.78,
+    readTokens: 1_170_000,
+    missTokens: 330_000,
+    knownRequests: 5,
+    unknownRequests: 1,
+  },
   turns: 4,
   missingTurns: 0,
   partial: false,
@@ -45,6 +52,7 @@ it("shows the session total and measured last-step speed", () => {
   renderLine({ usage, streaming: true, lastStep: { outputTokens: 320, durationMs: 8_000 } });
 
   expect(screen.getByRole("status", { name: "会话用量" })).toHaveTextContent("1.24M tokens");
+  expect(screen.getByText("缓存命中 78%")).toBeVisible();
   expect(screen.getByText("40 tok/s")).toBeVisible();
   expect(screen.queryByText("部分统计")).toBeNull();
 });
@@ -63,6 +71,19 @@ it("marks partial aggregates instead of pretending completeness", () => {
 
   expect(screen.getByRole("status", { name: "会话用量" })).toHaveTextContent("≥ 12.3k tokens");
   expect(screen.getByText("· 部分统计")).toBeVisible();
+});
+
+it("hides the hit rate when no request reported cache fields", () => {
+  renderLine({
+    usage: {
+      ...usage,
+      cache: { hitRate: null, readTokens: 0, missTokens: 0, knownRequests: 0, unknownRequests: 3 },
+    },
+    streaming: false,
+    lastStep: null,
+  });
+
+  expect(screen.queryByText(/缓存命中/)).toBeNull();
 });
 
 it("renders nothing before usage is available", () => {

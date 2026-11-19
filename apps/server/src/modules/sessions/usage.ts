@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Database } from "../../db/client.js";
-import { type TurnStatus, turns } from "../../db/schema.js";
+import { agentEvents, type TurnStatus, turns } from "../../db/schema.js";
 import { SessionError } from "./errors.js";
 import { getSessionById } from "./repository.js";
 
@@ -11,6 +11,15 @@ const TERMINAL_STATUSES: readonly TurnStatus[] = [
   "INTERRUPTED",
 ];
 
+export interface SessionCacheUsageDto {
+  /** Cache hit share over requests that reported both read and miss tokens. */
+  hitRate: number | null;
+  readTokens: number;
+  missTokens: number;
+  knownRequests: number;
+  unknownRequests: number;
+}
+
 export interface SessionUsageDto {
   sessionId: string;
   inputTokens: number;
@@ -18,6 +27,7 @@ export interface SessionUsageDto {
   totalTokens: number;
   cacheReadTokens: number | null;
   noCacheTokens: number | null;
+  cache: SessionCacheUsageDto;
   /** Terminal Turns considered by the aggregate. */
   turns: number;
   /** Terminal Turns with no reported usage, or with at least one missing step. */
@@ -79,6 +89,67 @@ function hasTokens(usage: UsageFields | null): usage is UsageFields {
       usage.outputTokens !== undefined ||
       usage.totalTokens !== undefined)
   );
+}
+
+/**
+ * Cache hit rate is a per-request property: turn-level `usage_json` collapses
+ * unknown and known steps together. Use the persisted `model.usage` events so
+ * requests without provider cache fields are excluded from the denominator
+ * instead of being counted as misses.
+ */
+function cacheUsageFromEvents(db: Database, sessionId: string): SessionCacheUsageDto {
+  const rows = db
+    .select({ payloadJson: agentEvents.payloadJson })
+    .from(agentEvents)
+    .where(and(eq(agentEvents.sessionId, sessionId), eq(agentEvents.type, "model.usage")))
+    .all();
+
+  let readTokens = 0;
+  let missTokens = 0;
+  let knownRequests = 0;
+  let unknownRequests = 0;
+
+  for (const row of rows) {
+    let payload: Record<string, unknown>;
+    try {
+      const parsed = JSON.parse(row.payloadJson) as unknown;
+      if (parsed === null || typeof parsed !== "object") {
+        unknownRequests += 1;
+        continue;
+      }
+      payload = parsed as Record<string, unknown>;
+    } catch {
+      unknownRequests += 1;
+      continue;
+    }
+
+    const read = tokenCount(payload.cacheReadTokens);
+    const reportedMiss = tokenCount(payload.noCacheTokens);
+    const input = tokenCount(payload.inputTokens);
+    if (read === undefined || payload.usageSource === "unknown") {
+      unknownRequests += 1;
+      continue;
+    }
+
+    const miss = reportedMiss ?? (input !== undefined && input >= read ? input - read : undefined);
+    if (miss === undefined) {
+      unknownRequests += 1;
+      continue;
+    }
+
+    readTokens += read;
+    missTokens += miss;
+    knownRequests += 1;
+  }
+
+  const denominator = readTokens + missTokens;
+  return {
+    hitRate: knownRequests > 0 && denominator > 0 ? readTokens / denominator : null,
+    readTokens,
+    missTokens,
+    knownRequests,
+    unknownRequests,
+  };
 }
 
 /**
@@ -161,6 +232,7 @@ export function getSessionUsage(db: Database, sessionId: string): SessionUsageDt
     totalTokens,
     cacheReadTokens: cacheReadSeen && cacheReadComplete ? cacheReadTokens : null,
     noCacheTokens: noCacheSeen && noCacheComplete ? noCacheTokens : null,
+    cache: cacheUsageFromEvents(db, sessionId),
     turns: considered,
     missingTurns,
     partial: missingTurns > 0,

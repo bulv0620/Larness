@@ -44,12 +44,23 @@ export function SessionUsageLine({
 
   const partial = usage.partial;
   const total = `${partial ? "≥ " : ""}${formatTokenCount(usage.totalTokens)} tokens`;
+  const cachePercent = usage.cache.hitRate === null ? null : Math.round(usage.cache.hitRate * 100);
+  const cacheDetail =
+    usage.cache.knownRequests > 0
+      ? [
+          `缓存命中 ${formatTokenCount(usage.cache.readTokens)} tokens`,
+          `未命中 ${formatTokenCount(usage.cache.missTokens)} tokens`,
+          ...(usage.cache.unknownRequests > 0
+            ? [`未知 ${usage.cache.unknownRequests} 次请求`]
+            : []),
+        ].join(" · ")
+      : usage.cache.unknownRequests > 0
+        ? `缓存未知 · ${usage.cache.unknownRequests} 次请求未回报缓存字段`
+        : null;
   const detail = [
     `输入 ${formatTokenCount(usage.inputTokens)}`,
     `输出 ${formatTokenCount(usage.outputTokens)}`,
-    ...(usage.cacheReadTokens === null
-      ? []
-      : [`缓存读取 ${formatTokenCount(usage.cacheReadTokens)}`]),
+    ...(cacheDetail === null ? [] : [cacheDetail]),
     ...(partial ? [`部分统计 · ${usage.missingTurns} 轮缺失`] : []),
   ].join(" · ");
   const speed =
@@ -64,6 +75,14 @@ export function SessionUsageLine({
       <Hint label={detail} side="top">
         <span className="tabular-nums">{total}</span>
       </Hint>
+      {cachePercent === null ? null : (
+        <>
+          <span aria-hidden="true">·</span>
+          <Hint label={cacheDetail ?? "缓存命中率"} side="top">
+            <span className="tabular-nums text-ink-2">缓存命中 {cachePercent}%</span>
+          </Hint>
+        </>
+      )}
       {partial ? <span className="text-warning">· 部分统计</span> : null}
       {streaming && speed !== null && lastStep !== null ? (
         <>

@@ -411,6 +411,13 @@ export interface ApiSessionUsage {
   totalTokens: number;
   cacheReadTokens: number | null;
   noCacheTokens: number | null;
+  cache: {
+    hitRate: number | null;
+    readTokens: number;
+    missTokens: number;
+    knownRequests: number;
+    unknownRequests: number;
+  };
   turns: number;
   missingTurns: number;
   partial: boolean;
