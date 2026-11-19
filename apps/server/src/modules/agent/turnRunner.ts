@@ -332,7 +332,6 @@ export class TurnRunner {
     };
     let anchoredHeuristicTokens: number | undefined;
     let anchoredProviderTokens: number | undefined;
-    let wrapUpRequested = false;
     const facts = new TurnFactsBuilder(turnInputText(turn.inputJson));
     // Profile membership is enforced at execution, not only in the advertised
     // schema: a model that hallucinates a hidden built-in tool must not reach
@@ -1064,24 +1063,6 @@ export class TurnRunner {
         }
 
         appendLockNotice();
-
-        // Ask the model to land the turn before the budget cuts it mid-sentence.
-        const spentTokens = spentTokensTotal();
-
-        if (
-          !wrapUpRequested &&
-          this.#shouldRequestWrapUp(steps, startedAt, spentTokens, spendCap)
-        ) {
-          wrapUpRequested = true;
-          messages.push({
-            role: "user",
-            content: `This turn is near its budget (${steps} steps, ${Math.round(spentTokens / 1000)}k tokens). Stop exploring: finish the operation in progress and reply with a concise summary of what changed, what was verified, and what remains unfinished. Do not start new work.`,
-          });
-          this.#options.logger?.info(
-            { turnId, sessionId: session.id, steps, maxSteps: this.#budget.maxSteps },
-            "turn wrap-up requested",
-          );
-        }
 
         steps += 1;
         const assistantMessageId = newId("msg");
@@ -2030,20 +2011,6 @@ export class TurnRunner {
     } catch {
       // Broadcasting is best effort; the event is already durable.
     }
-  }
-
-  /** True when the remaining step, time or spend budget is about to end the turn. */
-  #shouldRequestWrapUp(
-    steps: number,
-    startedAt: number,
-    spentTokens: number,
-    spendCap: number,
-  ): boolean {
-    const nearSteps = this.#budget.maxSteps >= 8 && steps >= this.#budget.maxSteps - 4;
-    const nearTime = this.#now() - startedAt >= this.#budget.maxDurationMs * 0.8;
-    const nearTokens = spendCap > 0 && spentTokens >= spendCap * 0.8;
-
-    return nearSteps || nearTime || nearTokens;
   }
 
   #now(): number {

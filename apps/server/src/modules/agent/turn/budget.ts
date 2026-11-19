@@ -13,18 +13,14 @@ import type { TurnStatus, TurnTerminalReason } from "../../../db/schema.js";
 export const SPEND_CAP_CONTEXTS = 30;
 
 /**
- * Wall clock is only a stall guard (ADR-059). It was raised from 60 to 180
- * minutes because the spend cap — not the clock — is the real budget: a
- * chatty coding loop exhausts `contextWindow × 30` in well under an hour,
- * while verification-heavy Turns (builds, e2e, `install`) spend most of
- * their time waiting with a small context and were being cut mid-work.
+ * Emergency wall clock only (ADR-071). Normal long tasks are bounded by
+ * progress and operation timeouts, not by a task budget.
  */
-export const DEFAULT_MAX_DURATION_MS = 180 * 60_000;
+export const DEFAULT_MAX_DURATION_MS = 24 * 60 * 60_000;
 
 export const DEFAULT_BUDGET = {
-  // 0 = no step cap. A turn runs until it finishes or hits the spend cap;
-  // wall clock is only a stall guard (ADR-059, option A).
-  maxSteps: 0,
+  // Emergency bug guard only; normal tasks should finish far below this.
+  maxSteps: 1_000,
   maxToolCalls: 0,
   maxDurationMs: DEFAULT_MAX_DURATION_MS,
   contextRatio: 0.8,
@@ -33,12 +29,12 @@ export const DEFAULT_BUDGET = {
   maxOutputTokens: 0,
   repeatFailureThreshold: 3,
   /**
-   * Absolute spend cap in tokens. `> 0` wins over the adaptive default;
-   * `<= 0` means "derive from the model window" (see `resolveSpendCap`).
+   * Absolute spend cap in tokens. Default 0 = disabled (ADR-071); a positive
+   * value remains available as an explicit diagnostic/experiment switch.
    */
   maxTotalTokens: 0,
   /** Windows of spend allowed when `maxTotalTokens` is not set. 0 disables the cap. */
-  spendCapContexts: SPEND_CAP_CONTEXTS,
+  spendCapContexts: 0,
 } as const;
 
 export interface TurnBudget {

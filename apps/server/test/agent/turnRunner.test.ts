@@ -1314,7 +1314,7 @@ describe("TurnRunner", () => {
     });
   });
 
-  it("asks the model to wrap up before the step budget runs out", async () => {
+  it("does not ask the model to wrap up near a configured step budget", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
 
@@ -1322,7 +1322,8 @@ describe("TurnRunner", () => {
         const sessionOptions = { db: opened.db, dataDir: dir };
         const session = await createSession(sessionOptions, {});
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "long task" });
-        // Six tool steps then a text answer: maxSteps 8 puts the wrap-up at step 4.
+        // Six tool steps then a text answer. ADR-071 removed the 80% wrap-up
+        // prompt, so none of the requests should ask the model to stop.
         const script = Array.from({ length: 6 }, (_, index) => ({
           chunks: [
             {
@@ -1342,20 +1343,11 @@ describe("TurnRunner", () => {
 
         expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
 
-        const isWrapUp = (message: { role: string; content: string }) =>
+        const wrapUp = (message: { role: string; content: string }) =>
           message.role === "user" && message.content.includes("near its budget");
-
-        // Injected once, then carried along like any other message.
-        const lastCall = provider.calls.at(-1);
-        const hints = lastCall?.messages.filter((message) => isWrapUp(message)) ?? [];
-        expect(hints).toHaveLength(1);
-
-        // The hint is appended at the tail so the request prefix stays intact.
-        const hinted = provider.calls.find((call) => {
-          const tail = call.messages.at(-1);
-          return tail !== undefined && isWrapUp(tail);
-        });
-        expect(hinted?.messages.at(-1)?.content).toContain("Do not start new work.");
+        expect(
+          provider.calls.flatMap((call) => call.messages.filter((message) => wrapUp(message))),
+        ).toHaveLength(0);
       } finally {
         opened.close();
       }

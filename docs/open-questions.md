@@ -45,6 +45,8 @@
 
 ## 已解决
 
+- Q-052～Q-059（2026-11-19）：085 按默认值实施——任务级 token 上限关闭、紧急兜底 24h/1000 步、换页阈值 85%、无事实用最近消息+摘要、初版不暴露配置、定时 Job 保持自身超时、输出截断单独处理、ADR-071 accepted、新增 `terminalReason=continued`、无进展 10 分钟暂停。见 [085 spec](../specs/085-long-task-continuity/spec.md#13-开放问题) 与 [ADR-071](adr/ADR-071-long-task-continuity.md)。
+
 - M5-F1-W10（2026-11-18）：用户确认 Windows 10 x64 实机复测通过；具体版本与日志未回填。见 [验收记录](../specs/066-cross-platform/acceptance.md)。
 - HX-12b（2026-11-18）：用户决定废弃 `turnRunner` 循环体拆分；082/083 后维持单循环。若后续出现具体维护痛点，按新任务重新评估。见 [070 tasks](../specs/070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分)。
 
