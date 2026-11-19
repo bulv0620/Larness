@@ -239,6 +239,13 @@
       "when": 1795009482851,
       "tag": "0034_agent_profile_coding_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1795073646998,
+      "tag": "0035_session_title_source",
+      "breakpoints": true
     }
   ]
 }

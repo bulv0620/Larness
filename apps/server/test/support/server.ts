@@ -25,6 +25,7 @@ export async function startAuthorizedServer(
   dir: string,
   options: {
     turnRunner?: boolean;
+    titleSummarizer?: boolean;
     providerResolver?: ProviderResolver;
     catalogFetcher?: DeepSeekCatalogFetcher;
     preview?: { enabled: boolean; port?: number };
@@ -40,6 +41,7 @@ export async function startAuthorizedServer(
     env: { LARNESS_DATA_DIR: dir, LARNESS_PORT: String(port), ...options.env },
     logDestination: createLogSink().stream,
     turnRunner: options.turnRunner ?? false,
+    titleSummarizer: options.titleSummarizer ?? true,
     ...(options.providerResolver === undefined
       ? {}
       : { providerResolver: options.providerResolver }),

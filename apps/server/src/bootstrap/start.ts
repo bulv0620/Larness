@@ -41,6 +41,7 @@ import { TurnQueue } from "../modules/agent/queue.js";
 import { continueBudgetedTurn } from "../modules/agent/recovery/continue.js";
 import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { createServiceOpsTools } from "../modules/agent/serviceOpsTool.js";
+import { summarizeSessionTitle } from "../modules/agent/titleSummarizer.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
 import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileActions } from "../modules/files/actions.js";
@@ -95,6 +96,8 @@ export interface StartServerOptions {
   onShutdownTimeout?: () => void;
   version?: string;
   turnRunner?: boolean;
+  /** E2E fixtures can disable the extra title-summary model call. */
+  titleSummarizer?: boolean;
   providerResolver?: ProviderResolver;
   catalogFetcher?: DeepSeekCatalogFetcher;
   pm2Global?: Pm2Global;
@@ -531,6 +534,23 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
           options.providerResolver ?? createDefaultProviderResolver(opened.db, secretStore),
         publish: publishAgentEvent,
         logger: activeLogger,
+        // E2E fixtures can disable the extra title-summary model call.
+        ...(options.titleSummarizer === false
+          ? {}
+          : {
+              titleSummarizer: ({ session, turn, resolved }) =>
+                summarizeSessionTitle({
+                  db: opened.db,
+                  sessionId: session.id,
+                  turnId: turn.id,
+                  provider: {
+                    adapter: resolved.adapter,
+                    model: resolved.model,
+                    ...(resolved.apiKey === undefined ? {} : { apiKey: resolved.apiKey }),
+                    ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
+                  },
+                }).then(() => undefined),
+            }),
       });
       turnQueue = new TurnQueue({
         runner,

@@ -24,6 +24,7 @@ export type ChallengeType = "registration" | "authentication";
 export type AuditDecision = "allow" | "deny" | "info";
 export type SessionStatus = "active" | "archived";
 export type SessionOrigin = "user" | "scheduled";
+export type SessionTitleSource = "auto" | "user";
 export type TurnStatus =
   | "QUEUED"
   | "PREPARING"
@@ -97,6 +98,8 @@ export const sessions = sqliteTable(
     projectId: text("project_id").references(() => projects.id, { onDelete: "set null" }),
     workspacePath: text("workspace_path").notNull(),
     title: text("title").notNull(),
+    /** `auto` titles may be replaced by generated summaries; `user` titles never are. */
+    titleSource: text("title_source").$type<SessionTitleSource>().notNull().default("user"),
     status: text("status").$type<SessionStatus>().notNull().default("active"),
     origin: text("origin").$type<SessionOrigin>().notNull().default("user"),
     modelProfileId: text("model_profile_id"),

@@ -30,6 +30,7 @@ describe("turn runner API integration", () => {
       ]);
       const started = await startAuthorizedServer(dir, {
         turnRunner: true,
+        titleSummarizer: false,
         providerResolver: () => ({ adapter: provider, model: "fake" }),
       });
 
@@ -93,6 +94,7 @@ describe("turn runner API integration", () => {
       ]);
       const started = await startAuthorizedServer(dir, {
         turnRunner: true,
+        titleSummarizer: false,
         providerResolver: () => ({ adapter: provider, model: "fake" }),
       });
 

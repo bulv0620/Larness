@@ -2,7 +2,7 @@ import { DEFAULT_PROJECT_ID } from "@larness/shared";
 import type { Database } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { appendAudit } from "../../db/repositories/audit.js";
-import type { SessionRow, SessionStatus } from "../../db/schema.js";
+import type { SessionRow, SessionStatus, SessionTitleSource } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { getModelDefaultSelection, resolveCatalogSelection } from "../models/catalog.js";
 import { ModelError } from "../models/service.js";
@@ -28,6 +28,7 @@ export interface SessionDto {
   workspacePath: string;
   workspaceKind: "project" | "default" | "session";
   title: string;
+  titleSource: SessionTitleSource;
   status: SessionStatus;
   origin: "user" | "scheduled";
   modelProfileId: string | null;
@@ -86,6 +87,7 @@ export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
         ? "default"
         : "session",
     title: row.title,
+    titleSource: row.titleSource,
     status: row.status,
     origin: row.origin,
     modelProfileId: row.modelProfileId,
@@ -192,6 +194,7 @@ function insertSession(
     projectId: string | null;
     workspacePath: string;
     title: string;
+    titleSource: SessionTitleSource;
     modelProfileId: string | null;
     credentialProfileId?: string | null;
     model?: string | null;
@@ -207,6 +210,7 @@ function insertSession(
       projectId: input.projectId,
       workspacePath: input.workspacePath,
       title: input.title,
+      titleSource: input.titleSource,
       modelProfileId: input.modelProfileId,
       credentialProfileId: input.credentialProfileId ?? null,
       model: input.model ?? null,
@@ -234,6 +238,9 @@ export async function createSession(
   input: CreateSessionInput,
 ): Promise<SessionDto> {
   const title = normalizeTitle(input.title);
+  // A placeholder title may later be replaced by a generated summary; a title
+  // the caller chose is explicit and must be kept verbatim.
+  const titleSource: SessionTitleSource = title === "New session" ? "auto" : "user";
   const now = options.now?.() ?? Date.now();
   let projectId: string | null = null;
   const modelProfileId: string | null = null;
@@ -262,6 +269,7 @@ export async function createSession(
     projectId,
     workspacePath,
     title,
+    titleSource,
     modelProfileId,
     credentialProfileId: defaultSelection?.credentialProfileId ?? null,
     model: defaultSelection?.model ?? null,
@@ -323,6 +331,8 @@ export function updateSession(
 
     const updated = updateSessionRow(tx, input.id, {
       title,
+      // An explicit rename permanently wins over generated summaries.
+      ...(title === undefined ? {} : { titleSource: "user" as const }),
       modelProfileId,
       credentialProfileId,
       model,

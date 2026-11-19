@@ -164,6 +164,15 @@ export interface TurnRunnerOptions {
   serviceOps?: ServiceOpsRuntime;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
   logger?: TurnTimingLogger;
+  /**
+   * Best-effort session title summary when the session's first turn starts.
+   * Opt-in: the wiring decides whether a process spends a model call on titles.
+   */
+  titleSummarizer?: (context: {
+    session: SessionRow;
+    turn: TurnRow;
+    resolved: ResolvedProvider;
+  }) => Promise<void>;
 }
 
 export interface TurnTimingLogger {
@@ -219,6 +228,18 @@ export class TurnRunner {
   readonly #options: TurnRunnerOptions;
   readonly #budget: TurnBudget;
   readonly #controllers = new Map<string, AbortController>();
+  readonly #titleWork = new Set<Promise<unknown>>();
+
+  #trackTitleWork(task: Promise<void>): void {
+    const guarded = task.catch(() => {}) as Promise<unknown>;
+    this.#titleWork.add(guarded);
+    void guarded.finally(() => this.#titleWork.delete(guarded));
+  }
+
+  /** Background title summaries never block a turn; tests and shutdown await this. */
+  async pendingTitleWork(): Promise<void> {
+    await Promise.all([...this.#titleWork]);
+  }
 
   constructor(options: TurnRunnerOptions) {
     this.#options = options;
@@ -384,13 +405,15 @@ export class TurnRunner {
       const persistedUsage: ProviderUsage & { missingSteps?: number } =
         missingUsageSteps === 0 ? usage : { ...usage, missingSteps: missingUsageSteps };
       finalized = true;
-      return this.#finalize(turn, session, status, {
+      const result = this.#finalize(turn, session, status, {
         ...options,
         usage: persistedUsage,
         durationMs: this.#now() - startedAt,
         ...(fileResults.length === 0 ? {} : { fileResults }),
         ...(omitted <= 0 ? {} : { fileResultsOmitted: omitted }),
       });
+
+      return result;
     };
 
     const checkBudget = (): "ok" | "cancel" | "budget" => {
@@ -920,6 +943,12 @@ export class TurnRunner {
           model: resolved.model,
         });
       });
+      // The title names the conversation from its opening question, so it
+      // fires now — at turn start, before any answer exists — and races the
+      // turn instead of delaying it.
+      this.#trackTitleWork(
+        this.#options.titleSummarizer?.({ session, turn, resolved }) ?? Promise.resolve(),
+      );
       const contextWindow =
         resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens;
       const inputWindow = Math.min(contextWindow, resolved.maxInputTokens ?? contextWindow);

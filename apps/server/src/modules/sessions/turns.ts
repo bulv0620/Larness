@@ -282,9 +282,11 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       );
     }
 
-    if (session.title === DEFAULT_SESSION_TITLE) {
+    if (session.title === DEFAULT_SESSION_TITLE && session.titleSource === "auto") {
       updateSessionRow(tx, session.id, {
         title: deriveSessionTitle(validated.text || "截图"),
+        // Still derivable: the summary pass may replace it once the answer lands.
+        titleSource: "auto",
         updatedAt: now,
         lastActivityAt: now,
       });

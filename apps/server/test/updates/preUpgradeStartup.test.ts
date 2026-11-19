@@ -29,7 +29,7 @@ describe("pre-upgrade startup backup", () => {
       const opened = openDatabase(path.join(dataDir, "larness.db"));
       try {
         runMigrations(opened.db, oldMigrations);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(33);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(34);
       } finally {
         opened.close();
       }
@@ -46,7 +46,7 @@ describe("pre-upgrade startup backup", () => {
 
       try {
         const backups = readdirSync(path.join(dataDir, "backups")).filter((entry) =>
-          entry.startsWith("pre-upgrade-33-34-"),
+          entry.startsWith("pre-upgrade-34-35-"),
         );
         expect(backups).toHaveLength(1);
       } finally {

@@ -32,6 +32,7 @@ it("stores screenshot bytes behind their session and refuses image input to text
     let imageSupport = false;
     const started = await startAuthorizedServer(dir, {
       turnRunner: true,
+      titleSummarizer: false,
       providerResolver: () => ({ adapter: fake, model: "deepseek-flash" }),
       catalogFetcher: async () => ({
         data: [

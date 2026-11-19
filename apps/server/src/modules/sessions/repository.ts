@@ -4,6 +4,7 @@ import { newId } from "../../db/ids.js";
 import {
   type SessionOrigin,
   type SessionRow,
+  type SessionTitleSource,
   sessions,
   type TurnRow,
   type TurnStatus,
@@ -30,6 +31,8 @@ export interface CreateSessionRowInput {
   projectId: string | null;
   workspacePath: string;
   title: string;
+  /** Defaults to `user`; only derivable placeholder titles are `auto`. */
+  titleSource?: SessionTitleSource;
   modelProfileId: string | null;
   credentialProfileId?: string | null;
   model?: string | null;
@@ -46,6 +49,7 @@ export function createSessionRow(db: DbExecutor, input: CreateSessionRowInput): 
     projectId: input.projectId,
     workspacePath: input.workspacePath,
     title: input.title,
+    titleSource: input.titleSource ?? "user",
     status: "active",
     origin: input.origin ?? "user",
     modelProfileId: input.modelProfileId,
@@ -97,6 +101,7 @@ export function updateSessionRow(
   id: string,
   input: {
     title?: string;
+    titleSource?: SessionTitleSource;
     modelProfileId?: string | null;
     credentialProfileId?: string | null;
     model?: string | null;
@@ -110,6 +115,7 @@ export function updateSessionRow(
 ): SessionRow | null {
   const changes = {
     ...(input.title === undefined ? {} : { title: input.title }),
+    ...(input.titleSource === undefined ? {} : { titleSource: input.titleSource }),
     ...(input.modelProfileId === undefined ? {} : { modelProfileId: input.modelProfileId }),
     ...(input.credentialProfileId === undefined
       ? {}
