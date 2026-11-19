@@ -393,7 +393,9 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
                 {status}
               </span>
               {secondary === "" ? null : (
-                <span className="min-w-0 truncate text-[11px] text-ink-3">{secondary}</span>
+                <span className="relative top-[0.5px] min-w-0 truncate text-[11px] text-ink-3">
+                  {secondary}
+                </span>
               )}
               <span className="flex-1" />
               <ChevronRight

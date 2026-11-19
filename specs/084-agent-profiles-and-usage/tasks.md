@@ -228,3 +228,10 @@
 - 测试：`Timeline.test.tsx` 断言外层无“失败/重试”，展开后失败工具仍存在；定向 33 项通过。
 - 涉及路径：`apps/web/src/features/chat/Timeline.tsx`、`apps/web/src/features/chat/Timeline.test.tsx`。
 - 备注：视觉确认待用户。
+
+### 验收后修正：标题行次要信息光学对齐（2026-11-19）
+
+- 状态：`done`
+- 问题：状态文字为 12px、右侧次要信息为 11px，行盒中心一致但字形光学中心约差 0.5px，主观上像不在同一中线。
+- 修正：给次要信息加 `relative top-[0.5px]`，只下移 0.5px；不改字号、行高或布局。
+- 验证：浏览器计算后两者光学中心差约 0.01px；聊天定向测试、jsdom/浏览器构建通过。
