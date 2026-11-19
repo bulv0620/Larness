@@ -1,7 +1,9 @@
 import { TooltipProvider } from "@larness/ui";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
+import { queryClient } from "@/lib/queries";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
@@ -85,13 +87,19 @@ beforeEach(() => {
     },
   });
 });
+function renderComposer() {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Composer />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+}
+
 it("offers the approval policies and reflects each selection on the shield", async () => {
   const user = userEvent.setup();
-  render(
-    <TooltipProvider>
-      <Composer />
-    </TooltipProvider>,
-  );
+  renderComposer();
   await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
   const menu = screen.getByRole("menu");
   const options = within(menu).getAllByRole("menuitemradio");
@@ -108,11 +116,7 @@ it("offers the approval policies and reflects each selection on the shield", asy
   await waitFor(() => expect(screen.getByRole("button", { name: "审批策略：只读" })).toBeVisible());
 });
 it("shows bounded context usage immediately before send/stop and distinguishes unknown usage", () => {
-  render(
-    <TooltipProvider>
-      <Composer />
-    </TooltipProvider>,
-  );
+  renderComposer();
   const ring = screen.getByRole("progressbar", { name: "上下文用量" });
   expect(ring).toHaveAttribute("aria-valuenow", "25");
   expect(ring).toHaveAttribute(
@@ -138,11 +142,7 @@ it("shows bounded context usage immediately before send/stop and distinguishes u
 
 it("requires risk confirmation before switching to autonomous, with cancellation preserving policy", async () => {
   const user = userEvent.setup();
-  render(
-    <TooltipProvider>
-      <Composer />
-    </TooltipProvider>,
-  );
+  renderComposer();
   await user.click(screen.getByRole("button", { name: "审批策略：标准审批" }));
   await user.click(screen.getByRole("menuitemradio", { name: /完全自主/ }));
   expect(
@@ -162,11 +162,7 @@ it("requires risk confirmation before switching to autonomous, with cancellation
 
 it("opens separate model and thinking submenus with small Key headings", async () => {
   const user = userEvent.setup();
-  render(
-    <TooltipProvider>
-      <Composer />
-    </TooltipProvider>,
-  );
+  renderComposer();
   const trigger = screen.getByRole("button", { name: "模型与思考：DeepSeek Flash · 中" });
   expect(trigger).not.toHaveTextContent("DeepSeek Key");
   await user.click(trigger);
