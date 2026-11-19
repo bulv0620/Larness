@@ -2,7 +2,7 @@
 id: 085-long-task-continuity
 title: 长任务连续执行：取消任务级预算并改为上下文换页
 milestone: 发布后
-status: ready
+status: active
 depends_on: [070-runtime-efficiency, 071-turn-recovery, 084-agent-profiles-and-usage]
 owners: []
 created: 2026-11-19

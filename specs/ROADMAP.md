@@ -472,7 +472,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | AP-12 | [Token 行在会话页常驻（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-12-token-行在会话页常驻用户反馈) | AP-4、AP-11 | `done` |
 | AP-13 | [过程标题行只显示步数（用户反馈）](084-agent-profiles-and-usage/tasks.md#ap-13-过程标题行只显示步数用户反馈) | AP-5 | `done` |
 
-### 8.11 发布后：长任务连续执行（085，ready）
+### 8.11 发布后：长任务连续执行（085，active）
 
 目标：按用户“成本不敏感、长任务必须完成”的要求，取消任务级 token / 总墙钟 / 固定接续深度限制，改为操作级超时 + 上下文自动换页 + 无进展检测。规格见 [085](085-long-task-continuity/spec.md)，决策见 [ADR-071](../docs/adr/ADR-071-long-task-continuity.md)（accepted）。2026-11-19 人类确认按默认值实施；自动门禁通过，真实 Provider 长任务待验收。
 

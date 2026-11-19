@@ -1,7 +1,7 @@
 # 任务：长任务连续执行
 
 > 状态：`todo | in_progress | blocked | review | done | dropped`。一个任务一个提交。
-> **当前 spec 为 `draft`，以下任务仅作为拆分草案，不能开始实现；** 新 ADR 批准、spec 转 `ready` 后才按依赖执行。
+> **spec 状态 `active`；ADR-071 accepted。** LC-1～LC-5 已完成，LC-6 处于 review（真实 Provider 长任务与视觉验收待人类确认）。
 > 开始任务前在 `STATUS.md` 的「当前进行中」登记；完成后勾选本表、更新 `ROADMAP.md`，并把该任务移入「最近收口」。
 
 ## 状态总表
