@@ -170,4 +170,4 @@
   - 本切片文档
   - 根 `STATUS.md`
   - `specs/ROADMAP.md`
-- 备注：一个任务一个提交；全量失败必须逐项给出结论。2026-11-19 自动门禁：`pnpm check` 通过（Web 265 / Agent 63+1 skip / Server 743+14 skip）、`pnpm build` 通过、`pnpm test:e2e` 24/24；真实 Provider 长任务与视觉验收待人类执行，见 [acceptance](acceptance.md)。
+- 备注：一个任务一个提交；全量失败必须逐项给出结论。2026-11-19 自动门禁：首次 `pnpm check` 通过（Web 265 / Agent 63+1 skip / Server 743+14 skip）；复跑出现既有 `m2-poc` native watcher 超时，单文件 4/4 通过；`pnpm build` 通过、`pnpm test:e2e` 24/24；真实 Provider 长任务与视觉验收待人类执行，见 [acceptance](acceptance.md)。

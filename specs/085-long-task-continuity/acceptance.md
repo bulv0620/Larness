@@ -4,10 +4,10 @@
 
 ## 2026-11-19 自动门禁（macOS）
 
-- `pnpm check`：通过
+- `pnpm check`：首次完整运行通过（14:24）；后续复跑在 `test/resources/m2-poc.test.ts` 的 native watcher 用例超时（`PoC timeout: native watcher change`），单文件复跑 4/4 通过。该用例与本切片改动无关（085 未改文件监听），按既有环境性脆弱用例记录，不冒充最终全量绿。
   - Biome：690 files，无修复
   - Typecheck：shared / ui / web / resources / agent / server 全部通过
-  - Tests：Web 265、Agent 63（+1 skip）、Server 743（+14 skip）
+  - Tests：Web 265、Agent 63（+1 skip）、Server 742+（+14 skip；仅上述 m2-poc 1 项失败）
 - `pnpm build`：通过（Vite 大 chunk 警告为既有）
 - `pnpm test:e2e`：24/24 通过（Chromium，Mock）
 - 定向测试：

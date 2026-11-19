@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- **085 长任务连续执行**（`task/085-long-task-continuity`，2026-11-19）：LC-1～LC-5 完成；LC-6 自动门禁通过（`pnpm check` / `build` / Mock E2E 24/24），真实 Provider 长任务与视觉验收待人类确认。
+- **085 长任务连续执行**（`task/085-long-task-continuity`，2026-11-19）：LC-1～LC-5 完成；LC-6 首次 `pnpm check` 全绿，复跑出现既有 `m2-poc` native watcher 超时（单文件通过）；`build` 与 Mock E2E 24/24 通过；真实 Provider 长任务与视觉验收待人类确认。
 
 ## 阻塞与待确认
 
