@@ -81,6 +81,8 @@ describe("automatic continuation", () => {
         expect(input.text).toContain("Work state checkpoint");
         expect(input.text).toContain("fallback");
         expect(input.text).toContain("intermediate conclusion");
+        const events = listSessionEvents(opened.db, session.id).items;
+        expect(events.some((event) => event.type === "turn.continued")).toBe(true);
       } finally {
         opened.close();
       }
