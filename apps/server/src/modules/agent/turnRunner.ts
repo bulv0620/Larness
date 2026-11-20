@@ -1052,6 +1052,8 @@ export class TurnRunner {
         policy,
         contextRatio: this.#budget.contextRatio,
         agentProfile: session.agentProfile,
+        ...(this.#options.memory === undefined ? {} : { memory: this.#options.memory }),
+        now: () => this.#now(),
       };
       const assembleStarted = this.#now();
       let context = assembleContext(contextOptions, session, turn);

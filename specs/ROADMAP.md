@@ -500,7 +500,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | PM-2 | [记忆存储、预算与保留期](086-project-memory/tasks.md#pm-2-记忆存储预算与保留期) | PM-0 | `done`（2026-11-20） |
 | PM-3 | [remember/read 工具与自动学习](086-project-memory/tasks.md#pm-3-rememberread-工具与自动学习) | PM-2 | `done`（2026-11-20） |
 | PM-4 | [全局用户偏好与隐私隔离](086-project-memory/tasks.md#pm-4-全局用户偏好与隐私隔离) | PM-2、PM-3 | `done`（2026-11-20） |
-| PM-5 | [上下文注入与提示](086-project-memory/tasks.md#pm-5-上下文注入与提示) | PM-1、PM-2、PM-3、PM-4 | `todo` |
+| PM-5 | [上下文注入与提示](086-project-memory/tasks.md#pm-5-上下文注入与提示) | PM-1、PM-2、PM-3、PM-4 | `done`（2026-11-20） |
 | PM-6 | [REST、WS 与契约](086-project-memory/tasks.md#pm-6-restws-与契约) | PM-2 | `todo` |
 | PM-7 | [设置页记忆与偏好管理](086-project-memory/tasks.md#pm-7-设置页记忆与偏好管理) | PM-6 | `todo` |
 | PM-8 | [安全、E2E 与验收](086-project-memory/tasks.md#pm-8-安全e2e-与验收) | PM-1～PM-7 | `todo` |

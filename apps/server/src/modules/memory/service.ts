@@ -772,8 +772,15 @@ export class MemoryService {
     }
 
     for (const row of rows) incrementMemoryUsage(this.#db, row.id, now);
+    const items = rows.map((row) => ({
+      ...this.#toDto(row, now),
+      body: row.body.slice(0, 1_000),
+    }));
 
-    return { items: rows.map((row) => this.#toDto(row, now)), truncated: rows.length >= limit };
+    return {
+      items,
+      truncated: rows.length >= limit || rows.some((row) => row.body.length > 1_000),
+    };
   }
 
   update(

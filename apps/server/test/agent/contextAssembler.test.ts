@@ -9,6 +9,7 @@ import { createCommandTool, createShellTool } from "../../src/modules/agent/comm
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { appendAgentEvent } from "../../src/modules/agent/events.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
+import { MemoryService } from "../../src/modules/memory/service.js";
 import { createProject, updateProject } from "../../src/modules/projects/service.js";
 import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
@@ -246,6 +247,120 @@ describe("context assembler", () => {
           turnRow,
         );
         expect(narrow.truncatedHistory).toBe(true);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("injects global preferences and a bounded project index after instructions", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      try {
+        const root = path.join(dir, "project");
+        await mkdir(root);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false },
+          { rootPath: root },
+        );
+        const clock = { value: 1_000 };
+        const sessionOptions = { db: opened.db, dataDir: dir, now: () => clock.value };
+        const session = await createSession(sessionOptions, { projectId: project.id });
+        const first = createTurn(
+          { db: opened.db, now: () => clock.value },
+          {
+            sessionId: session.id,
+            text: "以后都用 pnpm",
+          },
+        );
+        const user = appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: first.turnId,
+          type: "user.message",
+          payload: { text: "以后都用 pnpm" },
+          now: clock.value,
+        });
+        const memory = new MemoryService({ db: opened.db, now: () => clock.value });
+        memory.remember({
+          scope: "global",
+          kind: "preference",
+          key: "workflow.package-manager",
+          title: "Package manager",
+          body: "以后都用 pnpm",
+          evidence: {
+            kind: "user_statement",
+            turnId: first.turnId,
+            eventSeq: user.seq,
+            quote: "以后都用 pnpm",
+          },
+        });
+        memory.remember({
+          scope: "project",
+          kind: "fact",
+          key: "build.test.command",
+          title: "Test command",
+          body: "pnpm test",
+          evidence: {
+            kind: "user_statement",
+            turnId: first.turnId,
+            eventSeq: user.seq,
+            quote: "以后都用 pnpm",
+          },
+        });
+
+        const firstSession = getSessionById(opened.db, session.id);
+        const firstTurn = getTurnById(opened.db, first.turnId);
+        if (!firstSession || !firstTurn) throw new Error("fixture missing");
+
+        const current = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+            memory,
+            now: () => clock.value,
+          },
+          firstSession,
+          firstTurn,
+        );
+        expect(current.memoryInjected).toBe(0);
+
+        clock.value = 2_000;
+        const nextSession = await createSession(sessionOptions, { projectId: project.id });
+        const second = createTurn(
+          { db: opened.db, now: () => clock.value },
+          {
+            sessionId: nextSession.id,
+            text: "run tests",
+          },
+        );
+        const secondTurn = getTurnById(opened.db, second.turnId);
+        if (!secondTurn) throw new Error("fixture missing");
+        const secondSession = getSessionById(opened.db, nextSession.id);
+        if (!secondSession) throw new Error("fixture missing");
+
+        const next = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+            memory,
+            now: () => clock.value,
+          },
+          secondSession,
+          secondTurn,
+        );
+        const system = String(next.messages[0]?.content);
+        expect(next.memoryInjected).toBe(2);
+        expect(system).toContain("User preferences");
+        expect(system).toContain("workflow.package-manager");
+        expect(system).toContain("Project memory index");
+        expect(system).toContain("build.test.command");
+        expect(system.indexOf("User preferences")).toBeLessThan(
+          system.indexOf("Project memory index"),
+        );
       } finally {
         opened.close();
       }
