@@ -270,6 +270,15 @@ it("saves the agent profile without sending and restores it after a reload", asy
   expect(await screen.findByRole("button", { name: "Agent Profile：Coding" })).toBeVisible();
 });
 
+it("describes what each agent profile does in the menu", async () => {
+  const user = userEvent.setup();
+  renderComposer();
+  await user.click(await screen.findByRole("button", { name: "Agent Profile：Coding" }));
+  const menu = await screen.findByRole("menu");
+  expect(within(menu).getByText("快速完成编程任务")).toBeVisible();
+  expect(within(menu).getByText("按需创建任务计划完成")).toBeVisible();
+});
+
 it("uses the session's stored approval policy when sending", async () => {
   const user = userEvent.setup();
   sessions.set("ses_a", { ...session("ses_a"), approvalPolicyId: "readonly" });
