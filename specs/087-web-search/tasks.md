@@ -13,6 +13,7 @@
 | WS-3 | Agent 工具、会话开关与上下文 | WS-1、WS-2 | `done`（2026-11-20） |
 | WS-4 | 设置弹窗、侧栏入口与地球按钮 | WS-2、WS-3 | `done`（2026-11-20） |
 | WS-5 | 契约、E2E、真实 Key 验证与收口 | WS-1～WS-4 | `review`（真实 Key 待验） |
+| WS-6 | 交互收敛：地球禁用、列表弹窗与统一命名（用户反馈） | WS-4 | `done`（2026-11-20） |
 
 ## 任务卡
 
@@ -156,6 +157,32 @@
   - `apps/web/src/lib/queries.ts`
   - `apps/web/src/stores/settingsStore.ts`
 - 备注：移除的加号只包含硬编码上下文快捷项，不承载截图上传；截图拖拽保持不变。
+
+### WS-6 交互收敛：地球禁用、列表弹窗与统一命名（用户反馈）
+
+- 状态：`done`（2026-11-20）
+- 依赖：WS-4
+- 目标：按用户反馈收敛搜索交互，减少误触与弹窗层级。
+- 交付物：
+  - 地球按钮仅在存在活动搜索 Key 时可交互；未配置时置灰禁用，不再打开设置。
+  - 联网搜索主体改为单一 Key 列表；编辑、设为当前、测试、删除均为行内图标操作。
+  - Header 右侧新增「每轮配额」「添加 Key」，分别打开小弹窗。
+  - 测试连接显示行内 loading 与 `aria-busy`，完成后显示结果数与延迟。
+  - 侧栏「设置与模型」统一为「模型与凭据」。
+- 验收：
+  - 未配置时地球禁用且不调用更新接口；
+  - 配置后可点亮/熄灭；
+  - 列表行操作与两个 Header 小弹窗可用；
+  - 测试中 spinner 可见、动作禁用；完成后提示结果。
+- 测试：
+  - `apps/web/src/features/webSearch/WebSearchSettingsDialog.test.tsx`
+  - `apps/web/src/features/chat/Composer.test.tsx`
+  - `e2e/web-search.spec.ts`
+- 涉及路径：
+  - `apps/web/src/features/webSearch/WebSearchSettingsDialog.tsx`
+  - `apps/web/src/features/chat/Composer.tsx`
+  - `apps/web/src/components/layout/ProjectSidebar.tsx`
+- 备注：2026-11-20 用户直接反馈；不改变后端契约。
 
 ### WS-5 契约、E2E、真实 Key 验证与收口
 

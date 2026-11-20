@@ -8,6 +8,7 @@ import {
   deleteWebSearchConnection,
   saveWebSearchSettings,
   testWebSearchConnection,
+  updateWebSearchConnection,
 } from "@/lib/workspaceApi";
 import { WebSearchSettingsDialog } from "./WebSearchSettingsDialog";
 
@@ -23,6 +24,16 @@ vi.mock("@/lib/workspaceApi", () => ({
   testWebSearchConnection: vi.fn(),
   updateWebSearchConnection: vi.fn(),
 }));
+
+const connection = {
+  id: "wsc_1",
+  provider: "deepseek" as const,
+  label: "DeepSeek 搜索",
+  region: null,
+  endpoint: "https://api.deepseek.com",
+  maskedKey: "••••••",
+  createdAt: 1,
+};
 
 function emptySettings() {
   return {
@@ -47,17 +58,7 @@ function configuredSettings() {
       maxResults: 5,
       maxSearchesPerTurn: 6,
       maxFetchesPerTurn: 4,
-      connections: [
-        {
-          id: "wsc_1",
-          provider: "deepseek" as const,
-          label: "DeepSeek 搜索",
-          region: null,
-          endpoint: "https://api.deepseek.com",
-          maskedKey: "••••••",
-          createdAt: 1,
-        },
-      ],
+      connections: [connection],
     },
   };
 }
@@ -76,42 +77,8 @@ function renderDialog() {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(useWebSearchSettings).mockReturnValue(emptySettings());
-  vi.mocked(createWebSearchConnection).mockResolvedValue({
-    id: "wsc_1",
-    provider: "deepseek",
-    label: "DeepSeek 搜索",
-    region: null,
-    endpoint: "https://api.deepseek.com",
-    maskedKey: "••••••",
-    createdAt: 1,
-  });
-});
-
-it("adds a DeepSeek search connection without exposing the key in the list", async () => {
-  renderDialog();
-
-  expect(await screen.findByText("还没有搜索连接")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "添加搜索连接" }));
-  fireEvent.change(screen.getByPlaceholderText("例如：DeepSeek 搜索"), {
-    target: { value: "DeepSeek 搜索" },
-  });
-  fireEvent.change(screen.getByPlaceholderText("sk-…"), {
-    target: { value: "sk-search-secret" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "保存连接" }));
-
-  await waitFor(() =>
-    expect(createWebSearchConnection).toHaveBeenCalledWith({
-      provider: "deepseek",
-      label: "DeepSeek 搜索",
-      apiKey: "sk-search-secret",
-    }),
-  );
-  expect(screen.queryByText("sk-search-secret")).not.toBeInTheDocument();
-});
-
-it("shows the active connection and tests or deletes it", async () => {
-  vi.mocked(useWebSearchSettings).mockReturnValue(configuredSettings());
+  vi.mocked(createWebSearchConnection).mockResolvedValue(connection);
+  vi.mocked(updateWebSearchConnection).mockResolvedValue({ ...connection, label: "Edited" });
   vi.mocked(testWebSearchConnection).mockResolvedValue({
     ok: true,
     latencyMs: 42,
@@ -123,15 +90,79 @@ it("shows the active connection and tests or deletes it", async () => {
     maxResults: 5,
     maxSearchesPerTurn: 6,
     maxFetchesPerTurn: 4,
-    connections: [],
+    connections: [connection],
   });
+});
+
+it("adds a DeepSeek search key from the header without exposing it in the list", async () => {
   renderDialog();
 
-  fireEvent.click(await screen.findByRole("button", { name: "选择连接：DeepSeek 搜索" }));
-  fireEvent.click(screen.getByRole("button", { name: /测试连接/ }));
-  await waitFor(() => expect(screen.getByText("连接可用：1 条结果，42 ms")).toBeInTheDocument());
+  expect(await screen.findByText("还没有搜索 Key")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "添加 Key" }));
+  fireEvent.change(screen.getByPlaceholderText("例如：DeepSeek 搜索"), {
+    target: { value: "DeepSeek 搜索" },
+  });
+  fireEvent.change(screen.getByPlaceholderText("sk-…"), {
+    target: { value: "sk-search-secret" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
-  fireEvent.click(screen.getByRole("button", { name: /删除/ }));
+  await waitFor(() =>
+    expect(createWebSearchConnection).toHaveBeenCalledWith({
+      provider: "deepseek",
+      label: "DeepSeek 搜索",
+      apiKey: "sk-search-secret",
+    }),
+  );
+  expect(screen.queryByText("sk-search-secret")).not.toBeInTheDocument();
+});
+
+it("keeps key actions in the list, shows test loading, and deletes with confirmation", async () => {
+  vi.mocked(useWebSearchSettings).mockReturnValue(configuredSettings());
+  let resolveTest: (value: { ok: boolean; latencyMs: number; resultCount: number }) => void = () =>
+    undefined;
+  vi.mocked(testWebSearchConnection).mockReturnValue(
+    new Promise((resolve) => {
+      resolveTest = resolve;
+    }),
+  );
+  renderDialog();
+
+  const testButton = await screen.findByRole("button", { name: "测试连接 DeepSeek 搜索" });
+  fireEvent.click(testButton);
+  expect(testButton).toHaveAttribute("aria-busy", "true");
+  resolveTest({ ok: true, latencyMs: 42, resultCount: 1 });
+  await waitFor(() =>
+    expect(screen.getByText("「DeepSeek 搜索」连接可用：1 条结果 · 42 ms")).toBeInTheDocument(),
+  );
+  expect(testButton).toHaveAttribute("aria-busy", "false");
+
+  fireEvent.click(screen.getByRole("button", { name: "删除 DeepSeek 搜索" }));
   fireEvent.click(await screen.findByRole("button", { name: "删除" }));
   await waitFor(() => expect(deleteWebSearchConnection).toHaveBeenCalledWith("wsc_1"));
+});
+
+it("edits a key and saves every-round quotas in separate dialogs", async () => {
+  vi.mocked(useWebSearchSettings).mockReturnValue(configuredSettings());
+  renderDialog();
+
+  fireEvent.click(await screen.findByRole("button", { name: "编辑 DeepSeek 搜索" }));
+  fireEvent.change(screen.getByLabelText("名称"), { target: { value: "Edited" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存" }));
+  await waitFor(() =>
+    expect(updateWebSearchConnection).toHaveBeenCalledWith("wsc_1", { label: "Edited" }),
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "每轮配额" }));
+  fireEvent.change(screen.getByLabelText("每轮搜索次数"), { target: { value: "3" } });
+  fireEvent.change(screen.getByLabelText("每轮抓取次数"), { target: { value: "2" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存" }));
+  await waitFor(() =>
+    expect(saveWebSearchSettings).toHaveBeenCalledWith({
+      activeConnectionId: "wsc_1",
+      maxResults: 5,
+      maxSearchesPerTurn: 3,
+      maxFetchesPerTurn: 2,
+    }),
+  );
 });

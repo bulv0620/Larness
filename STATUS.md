@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- **087 联网搜索（WS-5 review）**：2026-11-20；分支 `task/087-web-search`；WS-0～WS-4 完成，自动化检查、构建与 Mock E2E 通过；真实 DeepSeek/GLM Key 手工验证与界面验收待完成，见 [acceptance](specs/087-web-search/acceptance.md)。
+- **087 联网搜索（WS-5 review / WS-6 done）**：2026-11-20；分支 `task/087-web-search`；WS-0～WS-4 与交互收敛完成，自动化检查、构建与 Mock E2E 通过；真实 DeepSeek/GLM Key 手工验证与界面验收待完成，见 [acceptance](specs/087-web-search/acceptance.md)。
 
 ## 阻塞与待确认
 

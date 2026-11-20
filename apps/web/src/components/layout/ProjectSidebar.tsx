@@ -700,7 +700,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
         />
         <BottomItem
           icon={Settings}
-          label="设置与模型"
+          label="模型与凭据"
           onClick={USE_MOCKS ? undefined : () => setSettingsOpen(true)}
         />
         <div className="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-black/[.035] dark:hover:bg-white/[.05]">

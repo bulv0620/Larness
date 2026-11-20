@@ -92,6 +92,19 @@ vi.mock("@/lib/queries", async (importOriginal) => {
   };
 });
 beforeEach(() => {
+  vi.mocked(useSessionDetail).mockReturnValue(null);
+  vi.mocked(useWebSearchSettings).mockReturnValue({
+    data: {
+      activeConnectionId: null,
+      maxResults: 5,
+      maxSearchesPerTurn: 6,
+      maxFetchesPerTurn: 4,
+      connections: [],
+    },
+    isPending: false,
+    error: null,
+    refetch: async () => undefined,
+  });
   useComposerStore.setState({
     draft: "任务",
   });
@@ -264,4 +277,10 @@ it("replaces the context shortcut with a globe that toggles web search", async (
   await waitFor(() =>
     expect(updateSession).toHaveBeenCalledWith("test", { webSearchEnabled: true }),
   );
+});
+it("disables the globe when no web search key is configured", () => {
+  renderComposer();
+
+  expect(screen.getByRole("button", { name: "联网搜索：未配置" })).toBeDisabled();
+  expect(updateSession).not.toHaveBeenCalled();
 });

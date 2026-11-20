@@ -45,7 +45,6 @@ import {
 } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { DraftScreenshot } from "./DraftScreenshot";
 import { ModelControl } from "./ModelControl";
@@ -247,7 +246,6 @@ export function Composer({
     );
   const webSearchEnabled = USE_MOCKS ? false : (sessionDetail?.webSearchEnabled ?? false);
   const webSearchActive = webSearchEnabled && webSearchConfigured;
-  const openWebSearchSettings = useSettingsStore((state) => state.openWebSearch);
   const canSend =
     hasSession &&
     model !== undefined &&
@@ -381,11 +379,7 @@ export function Composer({
   };
 
   const toggleWebSearch = async (): Promise<void> => {
-    if (!hasSession || isDraftSession || !webSearchConfigured) {
-      openWebSearchSettings();
-      return;
-    }
-    if (settingsDisabled) return;
+    if (!hasSession || isDraftSession || settingsDisabled || !webSearchConfigured) return;
     setSaveError(null);
     setSwitchNotice(null);
     try {
@@ -521,14 +515,14 @@ export function Composer({
           <IconButton
             label={
               !webSearchConfigured
-                ? "联网搜索：未配置，点击配置"
+                ? "联网搜索：未配置"
                 : webSearchActive
                   ? "联网搜索：已开启"
                   : "联网搜索：已关闭"
             }
             active={webSearchActive}
             aria-pressed={webSearchActive}
-            disabled={!hasSession || settingsDisabled}
+            disabled={!hasSession || isDraftSession || settingsDisabled || !webSearchConfigured}
             onClick={() => void toggleWebSearch()}
             className="h-7 w-7"
           >

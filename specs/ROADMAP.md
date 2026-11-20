@@ -519,6 +519,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | WS-3 | [Agent 工具、会话开关与上下文](087-web-search/tasks.md#ws-3-agent-工具会话开关与上下文) | WS-1、WS-2 | `done`（2026-11-20） |
 | WS-4 | [设置弹窗、侧栏入口与地球按钮](087-web-search/tasks.md#ws-4-设置弹窗侧栏入口与地球按钮) | WS-2、WS-3 | `done`（2026-11-20） |
 | WS-5 | [契约、E2E、真实 Key 验证与收口](087-web-search/tasks.md#ws-5-契约e2e真实-key-验证与收口) | WS-1～WS-4 | `review`（真实 Key 待验） |
+| WS-6 | [交互收敛：地球禁用、列表弹窗与统一命名](087-web-search/tasks.md#ws-6-交互收敛地球禁用列表弹窗与统一命名用户反馈) | WS-4 | `done`（2026-11-20） |
 
 ## 9. 门禁
 

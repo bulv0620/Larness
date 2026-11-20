@@ -1,6 +1,27 @@
-import { Button, ConfirmDialog, Dialog, ErrorMessage, FormSelect, Input } from "@larness/ui";
+import {
+  Button,
+  ConfirmDialog,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  ErrorMessage,
+  FormSelect,
+  IconButton,
+  Input,
+} from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, Globe, Loader2, Plus, Trash2, Zap } from "lucide-react";
+import {
+  Check,
+  Globe,
+  KeyRound,
+  Loader2,
+  Pencil,
+  Plus,
+  Settings2,
+  Trash2,
+  Zap,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { AdminDialogShell, AdminEmptyState } from "@/components/common/AdminDialogShell";
 import { operationError } from "@/lib/api";
@@ -22,15 +43,25 @@ const providerOptions = [
 ] as const;
 
 const regionOptions = [
-  { value: "cn", label: "国内（open.bigmodel.cn）" },
-  { value: "global", label: "国际（api.z.ai）" },
+  { value: "cn", label: "国内 · open.bigmodel.cn" },
+  { value: "global", label: "国际 · api.z.ai" },
 ] as const;
 
 const maxResultOptions = ["3", "5", "8", "10"].map((value) => ({ value, label: `${value} 条` }));
 
+const subdialogClass =
+  "z-[311] max-h-[calc(100dvh-32px)] w-[min(400px,calc(100vw-28px))] space-y-3 overflow-y-auto";
+
 function providerLabel(provider: ApiWebSearchProvider): string {
   return provider === "deepseek" ? "DeepSeek" : "GLM";
 }
+
+function regionLabel(connection: ApiWebSearchConnection): string {
+  if (connection.provider === "deepseek") return "固定端点";
+  return connection.region === "global" ? "国际" : "国内";
+}
+
+type Subdialog = "add" | "edit" | "quota" | null;
 
 export function WebSearchSettingsDialog({
   open,
@@ -42,31 +73,29 @@ export function WebSearchSettingsDialog({
   const queryClient = useQueryClient();
   const settings = useWebSearchSettings();
   const connections = settings.data.connections;
-  const active = connections.find((item) => item.id === settings.data.activeConnectionId);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
+  const activeId = settings.data.activeConnectionId;
+  const [subdialog, setSubdialog] = useState<Subdialog>(null);
+  const [editing, setEditing] = useState<ApiWebSearchConnection | null>(null);
   const [provider, setProvider] = useState<ApiWebSearchProvider>("deepseek");
   const [region, setRegion] = useState<ApiWebSearchRegion>("cn");
   const [label, setLabel] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<ApiWebSearchConnection | null>(null);
   const [maxResults, setMaxResults] = useState("5");
   const [maxSearches, setMaxSearches] = useState("6");
   const [maxFetches, setMaxFetches] = useState("4");
+  const [busy, setBusy] = useState(false);
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<ApiWebSearchConnection | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setSelectedId(null);
-    setEditing(false);
+    setSubdialog(null);
+    setEditing(null);
     setError(null);
     setNotice(null);
-    setApiKey("");
-    setProvider("deepseek");
-    setRegion("cn");
-    setLabel("");
+    setTestingId(null);
   }, [open]);
 
   useEffect(() => {
@@ -75,56 +104,133 @@ export function WebSearchSettingsDialog({
     setMaxFetches(String(settings.data.maxFetchesPerTurn));
   }, [settings.data.maxResults, settings.data.maxSearchesPerTurn, settings.data.maxFetchesPerTurn]);
 
-  const selected = connections.find((item) => item.id === selectedId) ?? null;
-
   const refresh = async (): Promise<void> => {
     await queryClient.invalidateQueries({ queryKey: webSearchSettingsKey });
   };
 
-  const select = (connection: ApiWebSearchConnection | null): void => {
-    setSelectedId(connection?.id ?? null);
-    setEditing(connection === null);
-    setNotice(null);
-    setError(null);
+  const openAdd = (): void => {
+    setEditing(null);
+    setProvider("deepseek");
+    setRegion("cn");
+    setLabel("");
     setApiKey("");
-    if (connection === null) {
-      setProvider("deepseek");
-      setRegion("cn");
-      setLabel("");
-      return;
-    }
+    setError(null);
+    setNotice(null);
+    setSubdialog("add");
+  };
+
+  const openEdit = (connection: ApiWebSearchConnection): void => {
+    setEditing(connection);
     setProvider(connection.provider);
     setRegion(connection.region ?? "cn");
     setLabel(connection.label);
+    setApiKey("");
+    setError(null);
+    setNotice(null);
+    setSubdialog("edit");
+  };
+
+  const openQuota = (): void => {
+    setMaxResults(String(settings.data.maxResults));
+    setMaxSearches(String(settings.data.maxSearchesPerTurn));
+    setMaxFetches(String(settings.data.maxFetchesPerTurn));
+    setError(null);
+    setNotice(null);
+    setSubdialog("quota");
+  };
+
+  const closeSubdialog = (): void => {
+    if (busy) return;
+    setSubdialog(null);
+    setEditing(null);
+    setError(null);
   };
 
   const saveConnection = async (): Promise<void> => {
     setBusy(true);
     setError(null);
-    setNotice(null);
     try {
-      if (selected === null) {
+      if (editing === null) {
         await createWebSearchConnection({
           provider,
           label: label.trim(),
           apiKey,
           ...(provider === "glm" ? { region } : {}),
         });
+        setNotice("搜索 Key 已添加");
       } else {
-        await updateWebSearchConnection(selected.id, {
+        await updateWebSearchConnection(editing.id, {
           label: label.trim(),
           ...(provider === "glm" ? { region } : {}),
           ...(apiKey.trim().length > 0 ? { apiKey } : {}),
         });
+        setNotice("搜索 Key 已更新");
       }
       await refresh();
-      setSelectedId(null);
-      setEditing(false);
+      setSubdialog(null);
+      setEditing(null);
       setApiKey("");
-      setNotice("搜索连接已保存");
     } catch (cause) {
-      setError(operationError(cause, "保存搜索连接失败"));
+      setError(operationError(cause, "保存搜索 Key 失败"));
     } finally {
+      setBusy(false);
+    }
+  };
+
+  const saveQuota = async (): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    try {
+      await saveWebSearchSettings({
+        activeConnectionId: activeId,
+        maxResults: Number(maxResults),
+        maxSearchesPerTurn: Number(maxSearches),
+        maxFetchesPerTurn: Number(maxFetches),
+      });
+      await refresh();
+      setSubdialog(null);
+      setNotice("每轮配额已保存");
+    } catch (cause) {
+      setError(operationError(cause, "保存每轮配额失败"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const activate = async (connection: ApiWebSearchConnection): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await saveWebSearchSettings({
+        activeConnectionId: connection.id,
+        maxResults: Number(maxResults),
+        maxSearchesPerTurn: Number(maxSearches),
+        maxFetchesPerTurn: Number(maxFetches),
+      });
+      await refresh();
+      setNotice(`当前搜索 Key：${connection.label}`);
+    } catch (cause) {
+      setError(operationError(cause, "切换搜索 Key 失败"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const test = async (connection: ApiWebSearchConnection): Promise<void> => {
+    setBusy(true);
+    setTestingId(connection.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await testWebSearchConnection(connection.id);
+      setNotice(
+        `「${connection.label}」连接可用：${result.resultCount} 条结果 · ${result.latencyMs} ms`,
+      );
+    } catch (cause) {
+      setError(operationError(cause, "搜索 Key 测试失败"));
+    } finally {
+      setTestingId(null);
       setBusy(false);
     }
   };
@@ -133,69 +239,14 @@ export function WebSearchSettingsDialog({
     if (confirmDelete === null) return;
     setBusy(true);
     setError(null);
-    setNotice(null);
     try {
       await deleteWebSearchConnection(confirmDelete.id);
       setConfirmDelete(null);
-      setSelectedId(null);
-      setEditing(false);
       await refresh();
+      setNotice("搜索 Key 已删除");
     } catch (cause) {
-      setError(operationError(cause, "删除搜索连接失败"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const activate = async (id: string): Promise<void> => {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      await saveWebSearchSettings({
-        activeConnectionId: id,
-        maxResults: Number(maxResults),
-        maxSearchesPerTurn: Number(maxSearches),
-        maxFetchesPerTurn: Number(maxFetches),
-      });
-      await refresh();
-      setNotice("已切换当前搜索连接");
-    } catch (cause) {
-      setError(operationError(cause, "切换搜索连接失败"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const test = async (connection: ApiWebSearchConnection): Promise<void> => {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const result = await testWebSearchConnection(connection.id);
-      setNotice(`连接可用：${result.resultCount} 条结果，${result.latencyMs} ms`);
-    } catch (cause) {
-      setError(operationError(cause, "搜索连接测试失败"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const saveLimits = async (): Promise<void> => {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      await saveWebSearchSettings({
-        activeConnectionId: settings.data.activeConnectionId,
-        maxResults: Number(maxResults),
-        maxSearchesPerTurn: Number(maxSearches),
-        maxFetchesPerTurn: Number(maxFetches),
-      });
-      await refresh();
-      setNotice("配额已保存");
-    } catch (cause) {
-      setError(operationError(cause, "保存配额失败"));
+      setError(operationError(cause, "删除搜索 Key 失败"));
+      setConfirmDelete(null);
     } finally {
       setBusy(false);
     }
@@ -207,273 +258,291 @@ export function WebSearchSettingsDialog({
         <AdminDialogShell
           icon={Globe}
           title="联网搜索"
-          description="独立管理联网搜索的连接与 Key，与模型 Key 隔离"
+          description="独立管理搜索 Key 与每轮配额"
           closeLabel="关闭联网搜索"
           count={connections.length}
+          onEscapeKeyDown={(event) => {
+            if (subdialog !== null) {
+              event.preventDefault();
+              closeSubdialog();
+            }
+          }}
           actions={
-            active === undefined ? null : (
-              <span className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-1 text-[9.5px] text-success">
-                <Check size={10} /> {active.label}
-              </span>
-            )
+            <>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy}
+                onClick={openQuota}
+                aria-label="每轮配额"
+              >
+                <Settings2 size={13} aria-hidden="true" />
+                每轮配额
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy}
+                onClick={openAdd}
+                aria-label="添加 Key"
+              >
+                <Plus size={13} aria-hidden="true" />
+                添加 Key
+              </Button>
+            </>
           }
         >
-          {error ? (
+          {error !== null && subdialog === null ? (
             <div className="shrink-0 px-5 pt-3">
               <ErrorMessage message={error} onDismiss={() => setError(null)} />
             </div>
           ) : null}
-          {notice ? (
+          {notice !== null ? (
             <div className="shrink-0 px-5 pt-3 text-[10.5px] text-success">{notice}</div>
           ) : null}
 
-          <div className="flex min-h-0 flex-1">
-            <div className="flex min-h-0 w-[40%] min-w-0 flex-col border-r border-line">
-              <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
-                <span className="text-[10.5px] font-semibold text-ink-3">搜索连接</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => select(null)}
-                  aria-label="添加搜索连接"
-                >
-                  <Plus size={13} />
-                </Button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-2">
-                {connections.length === 0 ? (
-                  <AdminEmptyState
-                    icon={Globe}
-                    title="还没有搜索连接"
-                    hint="添加 DeepSeek 或 GLM 的搜索 Key 后，才能在输入框点亮地球按钮。"
-                    compact
-                  />
-                ) : (
-                  <div className="space-y-1">
-                    {connections.map((connection) => (
-                      <button
-                        key={connection.id}
-                        type="button"
-                        aria-label={`选择连接：${connection.label}`}
-                        onClick={() => select(connection)}
-                        className={`w-full rounded-lg border px-2.5 py-2 text-left ${
-                          connection.id === selectedId
-                            ? "border-accent/40 bg-accent-soft"
-                            : "border-transparent hover:bg-surface-2"
-                        }`}
-                      >
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {connections.length === 0 ? (
+              <AdminEmptyState
+                icon={KeyRound}
+                title="还没有搜索 Key"
+                hint="添加 DeepSeek 或 GLM 的搜索 Key 后，输入框的地球按钮才可点亮。"
+                action={
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={openAdd}
+                    disabled={busy}
+                    aria-label="添加第一个 Key"
+                  >
+                    <Plus size={13} aria-hidden="true" />
+                    添加 Key
+                  </Button>
+                }
+              />
+            ) : (
+              <ul className="divide-y divide-line/70">
+                {connections.map((connection) => {
+                  const isActive = connection.id === activeId;
+                  const isTesting = testingId === connection.id;
+                  return (
+                    <li key={connection.id} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-2 text-ink-3">
+                        <Globe size={14} aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="truncate text-[11.5px] font-medium text-ink">
+                          <span className="truncate text-[12px] font-medium text-ink">
                             {connection.label}
                           </span>
-                          {connection.id === settings.data.activeConnectionId ? (
-                            <span className="rounded-full bg-success/10 px-1.5 py-[1px] text-[8.5px] text-success">
+                          {isActive ? (
+                            <span className="shrink-0 rounded-full bg-success/10 px-1.5 py-[1px] text-[8.5px] text-success">
                               当前
                             </span>
                           ) : null}
                         </div>
                         <div className="mt-0.5 truncate text-[9.5px] text-ink-3">
-                          {providerLabel(connection.provider)}
-                          {connection.region === null ? "" : ` · ${connection.region}`} ·{" "}
-                          {connection.maskedKey}
+                          {providerLabel(connection.provider)} · {regionLabel(connection)} ·{" "}
+                          <span className="font-mono">{connection.maskedKey}</span>
                         </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex min-h-0 w-[60%] flex-col">
-              <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                {!editing ? (
-                  <div className="space-y-4">
-                    <div className="rounded-lg border border-line bg-surface-2/50 p-3">
-                      <div className="flex items-center gap-2 text-[11px] font-medium text-ink">
-                        <Zap size={13} className="text-accent" /> 每轮搜索配额
                       </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        <FormSelect
-                          label="结果数"
-                          showLabel
-                          value={maxResults}
-                          onValueChange={setMaxResults}
-                          options={maxResultOptions}
-                        />
-                        <label
-                          htmlFor="web-search-max-searches"
-                          className="block text-[10px] text-ink-3"
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        <IconButton
+                          label={`编辑 ${connection.label}`}
+                          disabled={busy}
+                          onClick={() => openEdit(connection)}
                         >
-                          搜索次数
-                          <Input
-                            id="web-search-max-searches"
-                            className="mt-1"
-                            inputMode="numeric"
-                            value={maxSearches}
-                            onChange={(event) => setMaxSearches(event.target.value)}
-                          />
-                        </label>
-                        <label
-                          htmlFor="web-search-max-fetches"
-                          className="block text-[10px] text-ink-3"
+                          <Pencil size={13} aria-hidden="true" />
+                        </IconButton>
+                        <IconButton
+                          label={`设为当前 ${connection.label}`}
+                          active={isActive}
+                          disabled={busy || isActive}
+                          onClick={() => void activate(connection)}
                         >
-                          抓取次数
-                          <Input
-                            id="web-search-max-fetches"
-                            className="mt-1"
-                            inputMode="numeric"
-                            value={maxFetches}
-                            onChange={(event) => setMaxFetches(event.target.value)}
-                          />
-                        </label>
+                          <Check size={13} aria-hidden="true" />
+                        </IconButton>
+                        <IconButton
+                          label={`测试连接 ${connection.label}`}
+                          aria-busy={isTesting}
+                          disabled={busy}
+                          onClick={() => void test(connection)}
+                        >
+                          {isTesting ? (
+                            <Loader2
+                              size={13}
+                              className="animate-spin motion-reduce:animate-none"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <Zap size={13} aria-hidden="true" />
+                          )}
+                        </IconButton>
+                        <IconButton
+                          label={`删除 ${connection.label}`}
+                          tone="danger"
+                          disabled={busy}
+                          onClick={() => setConfirmDelete(connection)}
+                        >
+                          <Trash2 size={13} aria-hidden="true" />
+                        </IconButton>
                       </div>
-                      <Button
-                        className="mt-3"
-                        size="sm"
-                        variant="secondary"
-                        disabled={busy}
-                        onClick={() => void saveLimits()}
-                      >
-                        保存配额
-                      </Button>
-                    </div>
-
-                    {selected === null ? (
-                      <p className="text-[10.5px] leading-relaxed text-ink-3">
-                        选择一个连接后可以测试或设为当前连接。搜索 Key
-                        只保存在本机加密存储，不会进入模型上下文。
-                      </p>
-                    ) : (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={busy}
-                          onClick={() => setEditing(true)}
-                        >
-                          编辑
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={busy || selected.id === settings.data.activeConnectionId}
-                          onClick={() => void activate(selected.id)}
-                        >
-                          设为当前
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          title="测试会发起一次真实搜索并计费"
-                          disabled={busy}
-                          onClick={() => void test(selected)}
-                        >
-                          {busy ? <Loader2 size={12} className="animate-spin" /> : null}
-                          测试连接
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          disabled={busy}
-                          onClick={() => setConfirmDelete(selected)}
-                        >
-                          <Trash2 size={12} /> 删除
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <FormSelect
-                      label="服务商"
-                      showLabel
-                      value={provider}
-                      onValueChange={(value) => setProvider(value as ApiWebSearchProvider)}
-                      options={[...providerOptions]}
-                      disabled={selected !== null}
-                    />
-                    {provider === "glm" ? (
-                      <FormSelect
-                        label="区域"
-                        showLabel
-                        value={region}
-                        onValueChange={(value) => setRegion(value as ApiWebSearchRegion)}
-                        options={[...regionOptions]}
-                      />
-                    ) : null}
-                    <label
-                      htmlFor="web-search-connection-label"
-                      className="block text-[10.5px] font-semibold text-ink-3"
-                    >
-                      名称
-                      <Input
-                        id="web-search-connection-label"
-                        className="mt-1"
-                        value={label}
-                        onChange={(event) => setLabel(event.target.value)}
-                        placeholder="例如：DeepSeek 搜索"
-                      />
-                    </label>
-                    <label
-                      htmlFor="web-search-connection-key"
-                      className="block text-[10.5px] font-semibold text-ink-3"
-                    >
-                      API Key
-                      <Input
-                        id="web-search-connection-key"
-                        className="mt-1 font-mono text-[11px]"
-                        type="password"
-                        value={apiKey}
-                        onChange={(event) => setApiKey(event.target.value)}
-                        placeholder={selected === null ? "sk-…" : "留空表示不修改"}
-                        autoComplete="off"
-                      />
-                    </label>
-                    <p className="text-[9.5px] leading-relaxed text-ink-3">
-                      搜索 Key 与模型 Key 分开保存。DeepSeek 使用 Search & Fetch API；GLM 使用 Web
-                      Search / Reader API。
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        disabled={busy || !label.trim() || (selected === null && !apiKey.trim())}
-                        onClick={() => void saveConnection()}
-                      >
-                        保存连接
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={busy}
-                        onClick={() => {
-                          if (selected === null) {
-                            setEditing(false);
-                            setSelectedId(null);
-                            setLabel("");
-                            setApiKey("");
-                          } else {
-                            setEditing(false);
-                          }
-                        }}
-                      >
-                        取消
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </AdminDialogShell>
       </Dialog>
 
+      <Dialog
+        open={subdialog === "add" || subdialog === "edit"}
+        onOpenChange={(next) => {
+          if (!next) closeSubdialog();
+        }}
+      >
+        <DialogContent overlayClassName="z-[310]" className={subdialogClass}>
+          <DialogTitle>{editing === null ? "添加搜索 Key" : "编辑搜索 Key"}</DialogTitle>
+          <DialogDescription className="sr-only">
+            搜索 Key 与模型 Key 分开保存，只保存在本机加密存储。
+          </DialogDescription>
+          {error !== null ? (
+            <ErrorMessage message={error} onDismiss={() => setError(null)} />
+          ) : null}
+          <FormSelect
+            label="服务商"
+            showLabel
+            value={provider}
+            onValueChange={(value) => setProvider(value as ApiWebSearchProvider)}
+            options={[...providerOptions]}
+            disabled={editing !== null}
+          />
+          {provider === "glm" ? (
+            <FormSelect
+              label="区域"
+              showLabel
+              value={region}
+              onValueChange={(value) => setRegion(value as ApiWebSearchRegion)}
+              options={[...regionOptions]}
+            />
+          ) : null}
+          <label
+            htmlFor="web-search-key-label"
+            className="block text-[10.5px] font-semibold text-ink-3"
+          >
+            名称
+            <Input
+              id="web-search-key-label"
+              className="mt-1"
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="例如：DeepSeek 搜索"
+            />
+          </label>
+          <label
+            htmlFor="web-search-key-secret"
+            className="block text-[10.5px] font-semibold text-ink-3"
+          >
+            API Key
+            <Input
+              id="web-search-key-secret"
+              className="mt-1 font-mono text-[11px]"
+              type="password"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value)}
+              placeholder={editing === null ? "sk-…" : "留空表示不修改"}
+              autoComplete="off"
+            />
+          </label>
+          <p className="text-[9.5px] leading-relaxed text-ink-3">
+            搜索 Key 与模型 Key 完全隔离。DeepSeek 使用 Search & Fetch API；GLM 使用 Web Search /
+            Reader API。
+          </p>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button size="sm" variant="ghost" disabled={busy} onClick={closeSubdialog}>
+              取消
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={busy || !label.trim() || (editing === null && !apiKey.trim())}
+              onClick={() => void saveConnection()}
+            >
+              保存
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={subdialog === "quota"}
+        onOpenChange={(next) => {
+          if (!next) closeSubdialog();
+        }}
+      >
+        <DialogContent overlayClassName="z-[310]" className={subdialogClass}>
+          <DialogTitle>每轮配额</DialogTitle>
+          <DialogDescription className="sr-only">
+            控制每轮搜索的结果数、搜索次数与抓取次数。
+          </DialogDescription>
+          {error !== null ? (
+            <ErrorMessage message={error} onDismiss={() => setError(null)} />
+          ) : null}
+          <FormSelect
+            label="结果数"
+            showLabel
+            value={maxResults}
+            onValueChange={setMaxResults}
+            options={maxResultOptions}
+          />
+          <label
+            htmlFor="web-search-quota-searches"
+            className="block text-[10.5px] font-semibold text-ink-3"
+          >
+            每轮搜索次数
+            <Input
+              id="web-search-quota-searches"
+              className="mt-1"
+              inputMode="numeric"
+              value={maxSearches}
+              onChange={(event) => setMaxSearches(event.target.value)}
+            />
+          </label>
+          <label
+            htmlFor="web-search-quota-fetches"
+            className="block text-[10.5px] font-semibold text-ink-3"
+          >
+            每轮抓取次数
+            <Input
+              id="web-search-quota-fetches"
+              className="mt-1"
+              inputMode="numeric"
+              value={maxFetches}
+              onChange={(event) => setMaxFetches(event.target.value)}
+            />
+          </label>
+          <p className="text-[9.5px] leading-relaxed text-ink-3">
+            每轮配额对当前会话的每次 Turn 生效；0 表示禁止该类调用。
+          </p>
+          <div className="flex justify-end gap-2 pt-1">
+            <Button size="sm" variant="ghost" disabled={busy} onClick={closeSubdialog}>
+              取消
+            </Button>
+            <Button size="sm" variant="primary" disabled={busy} onClick={() => void saveQuota()}>
+              保存
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         open={confirmDelete !== null}
-        title="删除搜索连接？"
+        title="删除搜索 Key？"
         description={`将删除「${confirmDelete?.label ?? ""}」及其加密 Key。已开启联网搜索的会话会在下一轮失败关闭，直到重新配置。`}
         confirmLabel="删除"
         danger
+        pending={busy}
         onCancel={() => setConfirmDelete(null)}
         onConfirm={() => void remove()}
       />
