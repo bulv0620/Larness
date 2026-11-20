@@ -244,7 +244,11 @@ export function Composer({
     webSearchSettings.data.connections.some(
       (connection) => connection.id === webSearchSettings.data.activeConnectionId,
     );
-  const webSearchEnabled = USE_MOCKS ? false : (sessionDetail?.webSearchEnabled ?? false);
+  const webSearchEnabled = isDraftSession
+    ? (draftSession?.webSearchEnabled ?? false)
+    : USE_MOCKS
+      ? false
+      : (sessionDetail?.webSearchEnabled ?? false);
   const webSearchActive = webSearchEnabled && webSearchConfigured;
   const canSend =
     hasSession &&
@@ -379,9 +383,15 @@ export function Composer({
   };
 
   const toggleWebSearch = async (): Promise<void> => {
-    if (!hasSession || isDraftSession || settingsDisabled || !webSearchConfigured) return;
+    if (!hasSession || settingsDisabled || !webSearchConfigured) return;
     setSaveError(null);
     setSwitchNotice(null);
+    if (isDraftSession) {
+      const next = !webSearchEnabled;
+      useNavigationStore.getState().setDraftWebSearch(sessionId, next);
+      setSwitchNotice({ sessionId, message: next ? "已开启联网搜索" : "已关闭联网搜索" });
+      return;
+    }
     try {
       await saveSettings.mutateAsync({
         id: sessionId,
@@ -404,19 +414,30 @@ export function Composer({
     const selection = { model: model.id, credentialProfileId, thinking };
     const initialPolicy = isDraftSession ? policy : undefined;
     const initialProfile = isDraftSession ? profile : undefined;
+    const initialWebSearch =
+      isDraftSession && webSearchEnabled && webSearchConfigured ? true : undefined;
     if (USE_MOCKS) void send(value);
-    else if (screenshots.length === 0) void send(value, selection, initialPolicy, initialProfile);
+    else if (screenshots.length === 0)
+      void send(value, selection, initialPolicy, initialProfile, initialWebSearch);
     else {
-      void send(value, selection, initialPolicy, initialProfile, screenshots, () => {
-        setAttachments((current) =>
-          current?.sessionId === sessionId && current.files === screenshots ? undefined : current,
-        );
-        if (
-          useNavigationStore.getState().sessionId === sessionId &&
-          useComposerStore.getState().draft === draft
-        )
-          setDraft("");
-      });
+      void send(
+        value,
+        selection,
+        initialPolicy,
+        initialProfile,
+        initialWebSearch,
+        screenshots,
+        () => {
+          setAttachments((current) =>
+            current?.sessionId === sessionId && current.files === screenshots ? undefined : current,
+          );
+          if (
+            useNavigationStore.getState().sessionId === sessionId &&
+            useComposerStore.getState().draft === draft
+          )
+            setDraft("");
+        },
+      );
     }
     if (screenshots.length === 0) setDraft("");
     requestAnimationFrame(() => textareaRef.current?.focus());
@@ -529,7 +550,7 @@ export function Composer({
                   : "开启联网搜索"
                 : "请先在左侧「联网搜索」添加搜索 Key"
             }
-            disabled={!hasSession || isDraftSession || settingsDisabled || !webSearchConfigured}
+            disabled={!hasSession || settingsDisabled || !webSearchConfigured}
             onClick={() => void toggleWebSearch()}
             className="h-7 w-7"
           >

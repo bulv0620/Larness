@@ -92,6 +92,7 @@ interface TimelineState {
     selection?: ModelSelection,
     draftPolicy?: ApiSession["approvalPolicyId"],
     draftProfile?: ApiSession["agentProfile"],
+    draftWebSearch?: boolean,
     screenshots?: File[],
     onAccepted?: () => void,
   ) => Promise<void>;
@@ -466,7 +467,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }
   },
 
-  send: async (text, selection, draftPolicy, draftProfile, screenshots = [], onAccepted) => {
+  send: async (
+    text,
+    selection,
+    draftPolicy,
+    draftProfile,
+    draftWebSearch,
+    screenshots = [],
+    onAccepted,
+  ) => {
     const trimmed = text.trim();
     if ((!trimmed && screenshots.length === 0) || get().isStreaming) return;
     const sessionId = get().sessionId;
@@ -538,6 +547,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         await updateSession(real.id, {
           ...selection,
           approvalPolicyId: draftPolicy,
+          ...(draftWebSearch === undefined ? {} : { webSearchEnabled: draftWebSearch }),
         });
         const attachmentIds = screenshots.length
           ? await uploadScreenshots(real.id, screenshots)

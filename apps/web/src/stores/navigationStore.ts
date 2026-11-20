@@ -7,6 +7,7 @@ interface DraftSession {
   id: string;
   projectId: string | null;
   selection?: ModelSelection;
+  webSearchEnabled?: boolean;
 }
 
 interface NavigationState {
@@ -43,6 +44,7 @@ interface NavigationState {
   openPinnedSession: (sessionId: string, projectId: string | null) => void;
   startDraft: (projectId: string | null) => void;
   setDraftModel: (id: string, selection: ModelSelection) => void;
+  setDraftWebSearch: (id: string, enabled: boolean) => void;
   commitDraft: (draftId: string, sessionId: string, projectId: string | null) => void;
   setSidebarWidth: (width: number) => void;
   setResourceWidth: (width: number) => void;
@@ -172,6 +174,13 @@ export const useNavigationStore = create<NavigationState>()(
         set((state) =>
           state.draftSession?.id === id
             ? { draftSession: { ...state.draftSession, selection } }
+            : state,
+        ),
+
+      setDraftWebSearch: (id, webSearchEnabled) =>
+        set((state) =>
+          state.draftSession?.id === id
+            ? { draftSession: { ...state.draftSession, webSearchEnabled } }
             : state,
         ),
 

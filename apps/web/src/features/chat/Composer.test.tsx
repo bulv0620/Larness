@@ -284,3 +284,45 @@ it("disables the globe when no web search key is configured", () => {
   expect(screen.getByRole("button", { name: "联网搜索：未配置" })).toBeDisabled();
   expect(updateSession).not.toHaveBeenCalled();
 });
+
+it("presets web search on a draft session without calling the session API", async () => {
+  vi.mocked(useWebSearchSettings).mockReturnValue({
+    data: {
+      activeConnectionId: "wsc_1",
+      maxResults: 5,
+      maxSearchesPerTurn: 6,
+      maxFetchesPerTurn: 4,
+      connections: [
+        {
+          id: "wsc_1",
+          provider: "deepseek",
+          label: "DeepSeek 搜索",
+          region: null,
+          endpoint: "https://api.deepseek.com",
+          maskedKey: "••••••",
+          createdAt: 1,
+        },
+      ],
+    },
+    isPending: false,
+    error: null,
+    refetch: async () => undefined,
+  });
+  useNavigationStore.setState({ projectId: null, draftSession: null, sessionId: "" });
+  useNavigationStore.getState().startDraft(null);
+  useTimelineStore.setState({ sessionId: useNavigationStore.getState().sessionId });
+  const user = userEvent.setup();
+  renderComposer();
+
+  const globe = screen.getByRole("button", { name: "联网搜索：已关闭" });
+  expect(globe).toBeEnabled();
+  await user.click(globe);
+
+  expect(screen.getByRole("button", { name: "联网搜索：已开启" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(useNavigationStore.getState().draftSession?.webSearchEnabled).toBe(true);
+  expect(screen.getByText("已开启联网搜索")).toBeVisible();
+  expect(updateSession).not.toHaveBeenCalled();
+});
