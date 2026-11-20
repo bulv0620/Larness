@@ -46,7 +46,7 @@ Larness 没有跨会话记忆：`contextAssembler` 只读取数据库里的 `pro
 
 - **产品 / UI**：设置页新增“Larness 记住了什么”（全局偏好 + 项目记忆）、预算条、活动记录、review、编辑/固定/忘记/恢复；默认不弹确认。
 - **API / 契约**：新增项目/全局记忆 CRUD、预算、`memory.changed` 事件；新增 `MEMORY_*` 错误码；同步 `docs/contracts/*`。
-- **数据 / 迁移**：新增 `memories`、`memory_revisions`、`memory_suppressions`（预计迁移 `0034`）；`scope` 从一开始存在，避免后续迁移；active key 使用 partial unique index。
+- **数据 / 迁移**：新增 `memories`、`memory_revisions`、`memory_suppressions`（实际迁移 `0036`）；`scope` 从一开始存在，避免后续迁移；active key 使用 partial unique index。
 - **Agent 能力**：新增 `memory` tool pack（`remember`、`read_memory`），加入 `coding` / `plan`；`PROMPT_VERSION` bump；按 051 契约同步描述、schema、提示与正反例。
 - **安全 / 权限**：记忆不参与授权；秘密扫描；项目隔离；全局只允许 preference；同一 Turn 隔离；审计不含正文。
 - **成本**：每 Turn 增加最多 3+1 次记忆写入；注入固定 2,000 token 上限；不增加额外 LLM 调用。

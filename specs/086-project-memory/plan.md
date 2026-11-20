@@ -39,7 +39,7 @@
   apps/server/src/modules/memory/{repository,service,budget,eviction,retention}.ts
   apps/server/src/api/memories.ts
   apps/server/src/modules/agent/memoryTool.ts
-  apps/server/drizzle/0034_memory.sql
+  apps/server/drizzle/0036_project_memory.sql
   apps/server/test/projects/instructions.test.ts
   apps/server/test/memory/{repository,service,budget,retention,api}.test.ts
   apps/server/test/agent/{memoryTools,memoryContext}.test.ts
@@ -75,7 +75,7 @@
    - 预算淘汰、固定项、保留期清理、抑制项、跨项目隔离、私有项目。
    - 秘密拒绝与“记忆不能授权”的反例。
 2. **指令解析**：新增 `instructions.ts`；`realpath` 校验在 `project.realPath` 内；单文件 64 KiB、合计 20k 字符；产出 `sources`、`warnings`、`blocks`。
-3. **数据层**：Drizzle schema + `0034` 迁移；`memories`、`memory_revisions`、`memory_suppressions`；`scope` 从第一天存在；active key 唯一用 partial unique index；repository 只暴露带 `projectId` 的方法。
+3. **数据层**：Drizzle schema + `0036` 迁移；`memories`、`memory_revisions`、`memory_suppressions`；`scope` 从第一天存在；active key 唯一用 partial unique index；repository 只暴露带 `projectId` 的方法。
 4. **预算与淘汰**：`budget.ts` 负责字节统计、90%/80% 水位、评分与淘汰；`retention.ts` 负责 revision/review/rejected/expired/evicted/suppression 的保留期清理；所有写操作在事务内完成“改行 + revision + 审计 + 预算检查”。
 5. **Agent 工具**：`remember`、`read_memory`；`requiresProject: true`；加入 `memory` pack 与 `coding`/`plan` Profile；证据校验、scope/kind 矩阵、限流与秘密扫描在工具层执行。
 6. **全局偏好**：`scope=global` 只允许 `preference`；写入要求 `user_statement`；内容过滤项目路径/代码/项目名/业务数据；项目可关闭全局偏好读写。
@@ -88,7 +88,7 @@
 
 - 新表：`memories`、`memory_revisions`、`memory_suppressions`。
 - 新索引：active key 唯一（partial，scope + project + key）、`(scope,project_id,status)`、`(expires_at)`、revision 唯一。
-- 迁移 `0034` 只新增表/索引，不改现有列；旧库升级后无记忆，行为与现状一致。
+- 迁移 `0036` 只新增表/索引，不改现有列；旧库升级后无记忆，行为与现状一致。
 - `bytes` 在写入时按 key + title + body 的 UTF-8 字节计算，避免用字符数低估中文/emoji 占用。
 - 回滚：先关闭 `agent.memory.enabled` 与项目开关；彻底回滚时 drop 三张新表。
 - 备份：沿用升级前数据库备份；记忆清理只删旧 revision/review/rejected/expired/evicted 与抑制项。

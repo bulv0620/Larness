@@ -71,7 +71,7 @@
 - 依赖：PM-0
 - 目标：建立统一记忆存储、状态机、字节预算、淘汰评分、revision 与保留期清理。
 - 交付物：
-  - Drizzle schema 与 `0034` 迁移：`memories`、`memory_revisions`、`memory_suppressions`；
+  - Drizzle schema 与 `0036` 迁移：`memories`、`memory_revisions`、`memory_suppressions`；
   - `repository` / `service`：创建、更新、状态转移、忘记、抑制、恢复、过期；
   - `budget`：字节/条数统计、90%/80% 水位、评分与淘汰；
   - `retention`：revision/review/rejected/expired/evicted/suppression 清理；
@@ -89,7 +89,7 @@
   - 集成：淘汰/恢复、抑制、并发 409、项目删除级联。
 - 涉及路径：
   - `apps/server/src/db/schema.ts`
-  - `apps/server/drizzle/0034_memory.sql`
+  - `apps/server/drizzle/0036_project_memory.sql`
   - `apps/server/src/modules/memory/{repository,service,budget,eviction,retention}.ts`
   - `apps/server/src/db/cleanup.ts`
   - `apps/server/test/memory/{repository,service,budget,retention}.test.ts`

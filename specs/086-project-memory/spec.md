@@ -399,13 +399,14 @@ And 被淘汰或过期的记忆不进入上下文
 
 ## 8. 数据与迁移
 
-新增三张表（编号以实施时为准，预计 `0034`）：
+新增三张表（实际迁移 `0036`）：
 
 ```sql
 memories (
   id TEXT PRIMARY KEY,
   scope TEXT NOT NULL CHECK (scope IN ('project','global')),
   project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+  project_key TEXT NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('fact','command','gotcha','decision','preference')),
   key TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -445,6 +446,7 @@ memory_suppressions (
   id TEXT PRIMARY KEY,
   scope TEXT NOT NULL,
   project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+  project_key TEXT NOT NULL,
   key TEXT NOT NULL,
   body_hash TEXT NOT NULL,
   created_at INTEGER NOT NULL,
@@ -453,7 +455,7 @@ memory_suppressions (
 )
 ```
 
-- 索引 / 约束：`UNIQUE INDEX ... ON memories(scope, IFNULL(project_id,''), key) WHERE status = 'active'`；`(scope, project_id, status)`；`(expires_at)`；`UNIQUE(memory_id, revision)`；`(project_id, expires_at)`。
+- 索引 / 约束：`UNIQUE INDEX ... ON memories(scope, project_key, key) WHERE status = 'active'`；`(scope, project_id, status)`；`(expires_at)`；`UNIQUE(memory_id, revision)`；`(project_id, expires_at)`。
 - `bytes` 按 key + title + body 的 UTF-8 字节计算；预算统计包含 active、revision、review、evicted 与 suppression。
 - 迁移只新增表与索引，不改动现有列；旧数据无记忆时行为与现状一致。
 - 时间统一 Unix 毫秒（UTC）；ID 使用 `mem_` / `mrev_` / `msup_` 前缀加 `crypto.randomUUID()`；所有 REST、工具与配置输入用 Zod 校验。
