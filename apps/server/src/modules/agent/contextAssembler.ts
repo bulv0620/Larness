@@ -59,7 +59,7 @@ const SERVICE_OPS_LIFECYCLE_POLICY = [
  * Bump when the stable system core changes; it makes prompt-cache invalidation
  * explainable instead of silent.
  */
-export const PROMPT_VERSION = "m7-1";
+export const PROMPT_VERSION = "087-1";
 /**
  * Safety scan cap, not a conversational limit: the assembly loop below trims
  * the history by token budget (ADR-071). Keeping a generous row cap avoids

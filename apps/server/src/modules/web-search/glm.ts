@@ -68,6 +68,10 @@ function snippetOf(content: string): string {
   return content.length <= 200 ? content : `${content.slice(0, 200).trimEnd()}…`;
 }
 
+function absoluteUrl(link: string): string {
+  return /^https?:\/\//i.test(link) ? link : `https://${link.replace(/^\/+/, "")}`;
+}
+
 export function createGlmProvider(options: GlmProviderOptions): WebSearchProvider {
   const preset = GLM_SEARCH_REGIONS[options.region];
   const endpoint = (options.baseUrl ?? preset.baseUrl).replace(/\/$/, "");
@@ -104,7 +108,7 @@ export function createGlmProvider(options: GlmProviderOptions): WebSearchProvide
         const summary = item.content ?? "";
         return {
           title: item.title,
-          url: item.link,
+          url: absoluteUrl(item.link),
           snippet: snippetOf(summary),
           summary,
           ...(item.media === null || item.media === undefined ? {} : { siteName: item.media }),

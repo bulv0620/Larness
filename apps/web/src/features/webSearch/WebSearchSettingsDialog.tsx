@@ -446,8 +446,14 @@ export function WebSearchSettingsDialog({
                         variant="ghost"
                         disabled={busy}
                         onClick={() => {
-                          if (selected === null) select(null);
-                          else setEditing(false);
+                          if (selected === null) {
+                            setEditing(false);
+                            setSelectedId(null);
+                            setLabel("");
+                            setApiKey("");
+                          } else {
+                            setEditing(false);
+                          }
                         }}
                       >
                         取消
