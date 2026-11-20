@@ -3,6 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { Database } from "../db/client.js";
 import { HttpError } from "../errors.js";
+import { resolveProjectInstructions } from "../modules/projects/instructions.js";
+import { getProjectById } from "../modules/projects/repository.js";
 import {
   createProject,
   deleteProject,
@@ -155,6 +157,24 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
     } catch (error) {
       throwProject(error);
     }
+  });
+
+  app.get<{ Params: { id: string } }>("/api/projects/:id/instructions", async (request) => {
+    const id = parse(ProjectIdSchema, request.params.id);
+    const project = getProjectById(deps.db, id);
+
+    if (project === null) {
+      throw new HttpError("NOT_FOUND", "project not found");
+    }
+
+    const resolved = resolveProjectInstructions(project);
+
+    return {
+      sources: resolved.sources,
+      warnings: resolved.warnings,
+      totalChars: resolved.totalChars,
+      maxChars: resolved.maxChars,
+    };
   });
 
   app.patch<{ Params: { id: string } }>("/api/projects/:id", async (request) => {

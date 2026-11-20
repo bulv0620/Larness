@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createFileToolRegistry } from "@larness/agent";
 import { describe, expect, it } from "vitest";
@@ -246,6 +246,60 @@ describe("context assembler", () => {
           turnRow,
         );
         expect(narrow.truncatedHistory).toBe(true);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("loads project instruction files before database instructions", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      try {
+        const root = path.join(dir, "project");
+        await mkdir(path.join(root, ".larness"), { recursive: true });
+        await writeFile(path.join(root, "AGENTS.md"), "agents rules");
+        await writeFile(path.join(root, ".larness", "instructions.md"), "larness rules");
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false },
+          { rootPath: root },
+        );
+        updateProject(
+          { db: opened.db },
+          { id: project.id, settings: { instructions: "db rules" } },
+        );
+
+        const session = await createSession(
+          { db: opened.db, dataDir: dir },
+          { projectId: project.id },
+        );
+        const created = createTurn({ db: opened.db }, { sessionId: session.id, text: "hi" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, created.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+            agentProfile: "coding",
+          },
+          sessionRow,
+          turn,
+        );
+        const system = String(context.messages[0]?.content);
+        const agentsAt = system.indexOf("agents rules");
+        const larnessAt = system.indexOf("larness rules");
+        const dbAt = system.indexOf("db rules");
+
+        expect(agentsAt).toBeGreaterThan(-1);
+        expect(larnessAt).toBeGreaterThan(agentsAt);
+        expect(dbAt).toBeGreaterThan(larnessAt);
+        expect(system).toContain("Project instructions from AGENTS.md");
+        expect(system).toContain("Project instructions from .larness/instructions.md");
+        expect(system).toContain("Project instructions from project settings");
       } finally {
         opened.close();
       }

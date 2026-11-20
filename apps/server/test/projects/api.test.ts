@@ -98,6 +98,26 @@ describe("projects API", () => {
         expect(project.gitDetected).toBe(true);
         expect(project.settings.ignore).toEqual([]);
 
+        await writeFile(path.join(projectDir, "AGENTS.md"), "Use pnpm for tests.\n");
+        const instructions = await started.running.app.inject({
+          method: "GET",
+          url: `/api/projects/${project.id}/instructions`,
+          headers: { cookie: started.cookie },
+        });
+        expect(instructions.statusCode).toBe(200);
+        expect(instructions.json()).toMatchObject({
+          totalChars: "Use pnpm for tests.".length,
+          maxChars: 20_000,
+          sources: expect.arrayContaining([
+            expect.objectContaining({
+              source: "agents-md",
+              path: "AGENTS.md",
+              present: true,
+              chars: "Use pnpm for tests.".length,
+            }),
+          ]),
+        });
+
         const duplicate = await started.running.app.inject({
           method: "POST",
           url: "/api/projects",

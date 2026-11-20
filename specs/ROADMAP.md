@@ -496,7 +496,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
 | PM-0 | [规格确认与 ADR](086-project-memory/tasks.md#pm-0-规格确认与-adr) | — | `done`（2026-11-20） |
-| PM-1 | [指令文件解析与装配](086-project-memory/tasks.md#pm-1-指令文件解析与装配) | PM-0 | `todo` |
+| PM-1 | [指令文件解析与装配](086-project-memory/tasks.md#pm-1-指令文件解析与装配) | PM-0 | `done`（2026-11-20） |
 | PM-2 | [记忆存储、预算与保留期](086-project-memory/tasks.md#pm-2-记忆存储预算与保留期) | PM-0 | `todo` |
 | PM-3 | [remember/read 工具与自动学习](086-project-memory/tasks.md#pm-3-rememberread-工具与自动学习) | PM-2 | `todo` |
 | PM-4 | [全局用户偏好与隐私隔离](086-project-memory/tasks.md#pm-4-全局用户偏好与隐私隔离) | PM-2、PM-3 | `todo` |
