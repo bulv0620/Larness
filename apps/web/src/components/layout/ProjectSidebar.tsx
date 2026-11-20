@@ -1,28 +1,28 @@
 import { DEFAULT_PROJECT_ID, type GatewaySnapshot, type SessionSummary } from "@larness/shared";
 import { ConfirmDialog, cn, ErrorMessage, Input, Kbd } from "@larness/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { LucideIcon } from "lucide-react";
 import {
-  Activity,
   Archive,
   Brain,
   ChevronDown,
   ChevronRight,
+  Clock,
   Clock3,
   Folder,
   FolderPlus,
   GitBranch,
   Globe,
+  KeyRound,
   Loader2,
   LogOut,
   Pencil,
   Plus,
   Search,
   Server,
-  Settings,
   SquareTerminal,
   Trash2,
   UserRound,
-  Zap,
 } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { StatusDot } from "@/components/common/StatusDot";
@@ -669,40 +669,55 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <div className="shrink-0 border-t border-line px-2 py-2">
-        <BottomItem icon={Activity} label="服务运维" onClick={() => setServiceOpsOpen(true)} />
-        <BottomItem
-          icon={Zap}
-          label="自动化任务"
-          badge={jobsBadge}
-          onClick={USE_MOCKS ? undefined : () => setJobsOpen(true)}
-        />
-        <BottomItem
-          icon={Brain}
-          label="记忆与偏好"
-          onClick={
-            USE_MOCKS
-              ? undefined
-              : () => {
-                  setMemoryProjectId(
-                    projectId !== null && projectId !== DEFAULT_PROJECT_ID ? projectId : null,
-                  );
-                  setMemoryScope(
-                    projectId !== null && projectId !== DEFAULT_PROJECT_ID ? "project" : "global",
-                  );
-                  setMemoryOpen(true);
-                }
-          }
-        />
-        <BottomItem
-          icon={Globe}
-          label="联网搜索"
-          onClick={USE_MOCKS ? undefined : () => setWebSearchOpen(true)}
-        />
-        <BottomItem
-          icon={Settings}
-          label="模型与凭据"
-          onClick={USE_MOCKS ? undefined : () => setSettingsOpen(true)}
-        />
+        <fieldset aria-label="服务与设置" className="m-0 min-w-0 border-0 p-0">
+          <div className="grid grid-cols-5 gap-0.5">
+            <BottomItem
+              icon={Server}
+              title="服务运维"
+              short="服务"
+              onClick={() => setServiceOpsOpen(true)}
+            />
+            <BottomItem
+              icon={Clock}
+              title="自动化任务"
+              short="任务"
+              badge={jobsBadge}
+              onClick={USE_MOCKS ? undefined : () => setJobsOpen(true)}
+            />
+            <BottomItem
+              icon={Brain}
+              title="记忆与偏好"
+              short="记忆"
+              onClick={
+                USE_MOCKS
+                  ? undefined
+                  : () => {
+                      setMemoryProjectId(
+                        projectId !== null && projectId !== DEFAULT_PROJECT_ID ? projectId : null,
+                      );
+                      setMemoryScope(
+                        projectId !== null && projectId !== DEFAULT_PROJECT_ID
+                          ? "project"
+                          : "global",
+                      );
+                      setMemoryOpen(true);
+                    }
+              }
+            />
+            <BottomItem
+              icon={Globe}
+              title="联网搜索"
+              short="搜索"
+              onClick={USE_MOCKS ? undefined : () => setWebSearchOpen(true)}
+            />
+            <BottomItem
+              icon={KeyRound}
+              title="模型与凭据"
+              short="模型"
+              onClick={USE_MOCKS ? undefined : () => setSettingsOpen(true)}
+            />
+          </div>
+        </fieldset>
         <div className="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-black/[.035] dark:hover:bg-white/[.05]">
           <div className="relative flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-[#ffd60a] to-[#ff9f0a] text-[10px] font-semibold text-[#1d1d1f]">
             B
@@ -903,32 +918,48 @@ function SessionSpinner() {
 
 function BottomItem({
   icon: Icon,
-  label,
+  title,
+  short,
   badge,
   onClick,
 }: {
-  icon: typeof Zap;
-  label: string;
+  icon: LucideIcon;
+  title: string;
+  short: string;
   badge?: number;
   onClick?: () => void;
 }) {
+  const badgeText = badge !== undefined && badge > 0 ? `，${badge} 个失败任务` : "";
+  const badgeCount = badge !== undefined && badge > 0 ? (badge > 99 ? "99+" : String(badge)) : null;
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={onClick === undefined}
-      className="flex h-7 w-full items-center gap-2 rounded-lg px-2 text-[11.5px] text-ink-2 transition-colors hover:bg-black/[.035] hover:text-ink disabled:cursor-default disabled:opacity-60 dark:hover:bg-white/[.05]"
+      aria-label={`${title}${badgeText}`}
+      title={`${title}${badgeText}`}
+      className="group flex h-9 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg text-ink-2 transition-colors hover:bg-black/[.035] hover:text-ink disabled:cursor-default disabled:opacity-60 dark:hover:bg-white/[.05]"
     >
-      <Icon size={13.5} strokeWidth={1.75} className="text-ink-3" />
-      <span className="flex-1 text-left">{label}</span>
-      {badge !== undefined && badge > 0 ? (
-        <span
-          title={`${badge} 个失败任务`}
-          className="rounded-full bg-danger px-1.5 text-[9px] font-semibold leading-4 text-white"
-        >
-          {badge > 99 ? "99+" : badge}
-        </span>
-      ) : null}
+      <span className="relative flex h-4 w-4 items-center justify-center">
+        <Icon
+          size={14}
+          strokeWidth={1.75}
+          aria-hidden="true"
+          className="text-ink-3 transition-colors group-hover:text-ink"
+        />
+        {badgeCount !== null ? (
+          <span
+            aria-hidden="true"
+            className="absolute -right-2.5 -top-1.5 min-w-[12px] rounded-full bg-danger px-0.5 text-center text-[8px] font-semibold leading-[12px] text-white"
+          >
+            {badgeCount}
+          </span>
+        ) : null}
+      </span>
+      <span aria-hidden="true" className="w-full truncate text-center text-[9px] leading-none">
+        {short}
+      </span>
     </button>
   );
 }
