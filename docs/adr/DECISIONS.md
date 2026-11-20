@@ -202,3 +202,7 @@ accepted，2026-11-18 人类确认 082 spec、本 ADR 与 Q-042～Q-050 全部�
 ## ADR-071 · 长任务连续执行（2026-11-19）
 
 accepted，2026-11-19 人类确认 085 全部推荐默认：默认关闭任务级 token 上限，紧急兜底改为 24h / 1000 步；输入窗口 85% 触发上下文换页，新增 `terminalReason=continued`；无工具事实时使用最近消息 + 摘要承接；单次请求、命令、锁与审批超时保留；无进展 10 分钟暂停。取代 ADR-059 的任务级默认值，保留接续事件、检查点、usage 统计与安全约束。见 [ADR-071](ADR-071-long-task-continuity.md) 与 [085 规格](../../specs/085-long-task-continuity/spec.md)。
+
+## ADR-073 · 联网搜索：普通 Agent 工具、独立搜索连接与默认关闭（2026-11-20）
+
+accepted，2026-11-20 人类确认 087 决策：默认关闭、会话级地球开关显式开启；先支持 DeepSeek 与 GLM，Provider 层保持通用；搜索 Key 与模型 Key 完全隔离；`web_search` L0、`fetch_url` L1，配合每 Turn 配额、结果上限、秘密扫描与 URL 白名单；不使用厂商内置 server-side 搜索。输入框加号按钮改为地球按钮。见 [ADR-073](ADR-073-web-search.md) 与 [087 规格](../../specs/087-web-search/spec.md)。

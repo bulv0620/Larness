@@ -109,6 +109,8 @@ interface ServerEvent<T = unknown> {
 | `turn.resumed` | `turnId, fromTurnId`（M6 TR-2：新 Turn 接手被中断的 Turn） | 是 |
 | `turn.continued` | `turnId, fromTurnId, depth, reason?`（ADR-071：上下文换页或显式预算分片结束后自动接续的新 Turn；`reason` 为 `context_rollover` 或预算原因） | 是 |
 
+087 的 `web_search` / `fetch_url` 沿用 `tool.completed` / `tool.failed`，`argsSummary` 为查询或主机名、`resultSummary` 为结果数/页面标题；不新增事件类型，不写入 query 正文、页面正文或搜索 Key。
+
 `assistant.reasoning.delta` 使用与 `assistant.delta` 相同的临时信封，不含 `sequence`，不写 `agent_events`，刷新 / 重连后不重放；只发给订阅该会话的已认证客户端。推理正文不得进入日志、审计、其他会话或跨模型上下文。
 
 `assistant.delta` 可使用独立信封 `{ kind: "assistant.delta", topic: "agent", streamId, sessionId, turnId, messageId, text, timestamp }`，不占用持久化 `sequence`，刷新后不重放；最终 `assistant.message` 使用相同 `messageId` 覆盖完整文本。可按 50 ms / 16 KiB 聚合；`turn.*`、审批与工具状态不得仅存在内存。

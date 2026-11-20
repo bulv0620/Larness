@@ -11,6 +11,7 @@ import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
 import { createServiceOpsTools } from "../../src/modules/agent/serviceOpsTool.js";
 import { type ExecuteToolInput, executeTool } from "../../src/modules/agent/toolExecutor.js";
+import { createWebTools } from "../../src/modules/agent/webTool.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
 import { withTempDir } from "../helpers.js";
@@ -29,6 +30,7 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   for (const tool of createProcessTools({})) registry.register(tool);
   for (const tool of createServiceOpsTools()) registry.register(tool);
   for (const tool of createMemoryTools()) registry.register(tool);
+  for (const tool of createWebTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
 }
@@ -47,6 +49,8 @@ type HandlerKey = keyof Pick<
   | "refreshObservations"
   | "rememberMemory"
   | "readMemory"
+  | "webSearch"
+  | "fetchUrl"
 >;
 
 interface BoundToolCase {
@@ -146,6 +150,18 @@ const BOUND_TOOLS: BoundToolCase[] = [
     args: { query: "test" },
     invalid: { limit: 0 },
   },
+  {
+    name: "web_search",
+    handler: "webSearch",
+    args: { query: "latest release", count: 3 },
+    invalid: { query: "" },
+  },
+  {
+    name: "fetch_url",
+    handler: "fetchUrl",
+    args: { url: "https://example.com/article" },
+    invalid: { url: "" },
+  },
 ];
 
 const FILE_TOOLS: Array<{ name: string; args: unknown; invalid: unknown }> = [
@@ -226,6 +242,8 @@ describe("tool contract matrix", () => {
             refreshObservations: handlerStub("refreshObservations"),
             rememberMemory: handlerStub("rememberMemory"),
             readMemory: handlerStub("readMemory"),
+            webSearch: handlerStub("webSearch"),
+            fetchUrl: handlerStub("fetchUrl"),
           });
 
           expect(ok.status, tool.name).toBe("completed");

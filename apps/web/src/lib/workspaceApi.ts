@@ -39,6 +39,7 @@ export interface ApiSession {
   thinking?: string | null;
   agentProfile?: "coding" | "plan";
   approvalPolicyId: "standard" | "strict" | "readonly" | "autonomous";
+  webSearchEnabled?: boolean;
   createdAt: number;
   updatedAt: number;
   lastActivityAt: number;
@@ -54,6 +55,7 @@ export interface ApiTurn {
   model: string | null;
   thinking?: string | null;
   contextWindow?: number | null;
+  webSearchEnabled?: boolean;
   input: { text: string; attachmentIds?: string[] };
   usage: unknown;
   error: unknown;
@@ -449,10 +451,89 @@ export async function updateSession(
     credentialProfileId?: string | null;
     agentProfile?: "coding" | "plan";
     approvalPolicyId?: "standard" | "strict" | "readonly" | "autonomous";
+    webSearchEnabled?: boolean;
   },
 ): Promise<ApiSession> {
   return apiFetch<ApiSession>(`/api/sessions/${encodeURIComponent(id)}`, {
     method: "PATCH",
+    body: input,
+    csrf: true,
+  });
+}
+
+export type ApiWebSearchProvider = "deepseek" | "glm";
+export type ApiWebSearchRegion = "cn" | "global";
+
+export interface ApiWebSearchConnection {
+  id: string;
+  provider: ApiWebSearchProvider;
+  label: string;
+  region: ApiWebSearchRegion | null;
+  endpoint: string;
+  maskedKey: string;
+  createdAt: number;
+}
+
+export interface ApiWebSearchSettings {
+  activeConnectionId: string | null;
+  maxResults: number;
+  maxSearchesPerTurn: number;
+  maxFetchesPerTurn: number;
+  connections: ApiWebSearchConnection[];
+}
+
+export async function getWebSearchSettings(): Promise<ApiWebSearchSettings> {
+  return apiFetch<ApiWebSearchSettings>("/api/web-search/settings");
+}
+
+export async function createWebSearchConnection(input: {
+  provider: ApiWebSearchProvider;
+  label: string;
+  apiKey: string;
+  region?: ApiWebSearchRegion;
+}): Promise<ApiWebSearchConnection> {
+  return apiFetch<ApiWebSearchConnection>("/api/web-search/connections", {
+    method: "POST",
+    body: input,
+    csrf: true,
+  });
+}
+
+export async function updateWebSearchConnection(
+  id: string,
+  input: { label?: string; apiKey?: string; region?: ApiWebSearchRegion },
+): Promise<ApiWebSearchConnection> {
+  return apiFetch<ApiWebSearchConnection>(`/api/web-search/connections/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: input,
+    csrf: true,
+  });
+}
+
+export async function deleteWebSearchConnection(id: string): Promise<void> {
+  await apiFetch(`/api/web-search/connections/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    csrf: true,
+  });
+}
+
+export async function testWebSearchConnection(
+  id: string,
+): Promise<{ ok: boolean; latencyMs: number; resultCount: number }> {
+  return apiFetch(`/api/web-search/connections/${encodeURIComponent(id)}/test`, {
+    method: "POST",
+    csrf: true,
+  });
+}
+
+export async function saveWebSearchSettings(input: {
+  activeConnectionId: string | null;
+  maxResults: number;
+  maxSearchesPerTurn: number;
+  maxFetchesPerTurn: number;
+}): Promise<ApiWebSearchSettings> {
+  return apiFetch<ApiWebSearchSettings>("/api/web-search/settings", {
+    method: "PUT",
     body: input,
     csrf: true,
   });

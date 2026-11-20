@@ -22,6 +22,7 @@ import {
 } from "../modules/sessions/service.js";
 import { cancelTurn, createTurn } from "../modules/sessions/turns.js";
 import { getSessionUsage } from "../modules/sessions/usage.js";
+import { hasActiveWebSearchConnection } from "../modules/web-search/connections.js";
 import { publishWorkspaceSessionsChanged } from "../ws/publisher.js";
 
 const SessionIdSchema = z.string().min(1).max(128);
@@ -43,6 +44,7 @@ const UpdateSessionSchema = z
     credentialProfileId: z.string().min(1).max(128).nullable().optional(),
     agentProfile: z.enum(["coding", "plan"]).optional(),
     approvalPolicyId: z.enum(["standard", "strict", "readonly", "autonomous"]).optional(),
+    webSearchEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -166,6 +168,10 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
     const id = parse(SessionIdSchema, request.params.id);
     const body = parse(UpdateSessionSchema, request.body);
 
+    if (body.webSearchEnabled === true && !hasActiveWebSearchConnection(options.db)) {
+      throw new HttpError("VALIDATION_ERROR", "configure a web search connection first");
+    }
+
     try {
       return updateSession(options, {
         id,
@@ -176,6 +182,7 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
         credentialProfileId: body.credentialProfileId,
         agentProfile: body.agentProfile,
         approvalPolicyId: body.approvalPolicyId,
+        webSearchEnabled: body.webSearchEnabled,
         clientSessionId: request.clientSession?.id,
       });
     } catch (error) {

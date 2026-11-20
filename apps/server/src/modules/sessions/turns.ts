@@ -43,6 +43,7 @@ export interface TurnDto {
   model: string | null;
   thinking: string | null;
   contextWindow: number | null;
+  webSearchEnabled: boolean;
   input: { text: string; attachmentIds?: string[] };
   usage: unknown;
   error: unknown;
@@ -111,6 +112,7 @@ export function turnDto(row: TurnRow): TurnDto {
     model: row.model,
     thinking: row.thinking,
     contextWindow: row.contextWindow,
+    webSearchEnabled: row.webSearchEnabled,
     input:
       typeof input === "object" &&
       input !== null &&
@@ -317,6 +319,7 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       model: selection === null ? null : selection.model,
       thinking: selection === null ? null : selection.thinking,
       contextWindow: selection?.contextWindow ?? null,
+      webSearchEnabled: session.webSearchEnabled,
       maxInputTokens: selection?.maxInputTokens,
       maxOutputTokens: selection?.maxOutputTokens,
       status: "QUEUED",

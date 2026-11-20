@@ -44,6 +44,7 @@ import { repairInterruptedTurns } from "../modules/agent/repair.js";
 import { createServiceOpsTools } from "../modules/agent/serviceOpsTool.js";
 import { summarizeSessionTitle } from "../modules/agent/titleSummarizer.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
+import { createWebTools } from "../modules/agent/webTool.js";
 import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileActions } from "../modules/files/actions.js";
 import { reconcileFileOperations } from "../modules/files/service.js";
@@ -79,6 +80,8 @@ import { ServiceOpsRuntime } from "../modules/service-ops/serviceOps.js";
 import { ServiceManager } from "../modules/services/manager.js";
 import { getSessionById } from "../modules/sessions/repository.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
+import { createWebSearchRuntime, type WebSearchRuntime } from "../modules/web-search/runtime.js";
+import type { WebSearchService } from "../modules/web-search/service.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import type { RateLimiter } from "../security/rate-limit.js";
 import { SecretStore } from "../security/secretStore.js";
@@ -102,6 +105,8 @@ export interface StartServerOptions {
   titleSummarizer?: boolean;
   providerResolver?: ProviderResolver;
   catalogFetcher?: DeepSeekCatalogFetcher;
+  webSearchService?: WebSearchService;
+  webSearchRuntime?: WebSearchRuntime;
   pm2Global?: Pm2Global;
   pm2?: Pm2Adapter | null;
   /** E2E fixtures can raise pairing limits without changing production rules. */
@@ -520,6 +525,14 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       publish: publishMemoryChanged,
     });
 
+    const webSearchRuntime =
+      options.webSearchRuntime ??
+      createWebSearchRuntime({
+        db: opened.db,
+        secretStore,
+        ...(options.webSearchService === undefined ? {} : { service: options.webSearchService }),
+      });
+
     if (options.turnRunner !== false) {
       const registry = createFileToolRegistry();
       registry.register(createPlanTool({ db: opened.db, secretStore }));
@@ -528,6 +541,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       for (const tool of createProcessTools({ secretStore })) registry.register(tool);
       for (const tool of createServiceOpsTools()) registry.register(tool);
       for (const tool of createMemoryTools()) registry.register(tool);
+      for (const tool of createWebTools({ secretStore })) registry.register(tool);
       registry.register(createObservationTool());
       const runner = new TurnRunner({
         dataDir,
@@ -538,6 +552,8 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         git,
         processes,
         serviceOps,
+        webSearch: webSearchRuntime,
+        secretStore,
         pm2Context: (projectId) =>
           pm2CommandContext(opened.db, dataDir, pm2Global, serviceOps, projectId),
         resolveProvider:
@@ -641,6 +657,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         secretStore,
         modelProbeResolver: createDefaultProviderResolver(opened.db, secretStore),
         ...(options.catalogFetcher === undefined ? {} : { catalogFetcher: options.catalogFetcher }),
+        webSearchService: webSearchRuntime.service,
         commands,
         resourceEvents,
         terminals,

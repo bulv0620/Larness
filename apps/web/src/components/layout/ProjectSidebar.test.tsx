@@ -38,6 +38,9 @@ vi.mock("@/features/jobs/api", async (importOriginal) => {
 
 vi.mock("@/features/jobs/JobsDialog", () => ({ JobsDialog: () => null }));
 vi.mock("@/features/models/ModelSettingsDialog", () => ({ ModelSettingsDialog: () => null }));
+vi.mock("@/features/webSearch/WebSearchSettingsDialog", () => ({
+  WebSearchSettingsDialog: () => null,
+}));
 vi.mock("@/features/serviceOps/ServiceOpsDialog", () => ({ ServiceOpsDialog: () => null }));
 vi.mock("@/features/projects/ProjectDialog", () => ({ ProjectDialog: () => null }));
 vi.mock("@/features/projects/RenameProjectDialog", () => ({ RenameProjectDialog: () => null }));

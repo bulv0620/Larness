@@ -11,6 +11,7 @@ import {
   Folder,
   FolderPlus,
   GitBranch,
+  Globe,
   Loader2,
   LogOut,
   Pencil,
@@ -35,6 +36,7 @@ import { listProcesses, processesKey } from "@/features/processes/api";
 import { ProjectDialog } from "@/features/projects/ProjectDialog";
 import { RenameProjectDialog } from "@/features/projects/RenameProjectDialog";
 import { ServiceOpsDialog } from "@/features/serviceOps/ServiceOpsDialog";
+import { WebSearchSettingsDialog } from "@/features/webSearch/WebSearchSettingsDialog";
 import { operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { relativeTime } from "@/lib/format";
@@ -44,6 +46,7 @@ import { useNewSession } from "@/lib/useNewSession";
 import { archiveSession, deleteProject, reorderProjects } from "@/lib/workspaceApi";
 import { useLocalSessionsStore } from "@/stores/localSessionsStore";
 import { useNavigationStore } from "@/stores/navigationStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 
 const PROJECT_SESSION_LIMIT = 5;
@@ -94,6 +97,8 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const [expandedSessionLists, setExpandedSessionLists] = useState<Record<string, boolean>>({});
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const webSearchOpen = useSettingsStore((state) => state.webSearchOpen);
+  const setWebSearchOpen = useSettingsStore((state) => state.setWebSearchOpen);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [memoryProjectId, setMemoryProjectId] = useState<string | null>(null);
   const [memoryScope, setMemoryScope] = useState<"project" | "global">("global");
@@ -689,8 +694,13 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
           }
         />
         <BottomItem
+          icon={Globe}
+          label="联网搜索"
+          onClick={USE_MOCKS ? undefined : () => setWebSearchOpen(true)}
+        />
+        <BottomItem
           icon={Settings}
-          label="设置与模型"
+          label="模型与凭据"
           onClick={USE_MOCKS ? undefined : () => setSettingsOpen(true)}
         />
         <div className="mt-1 flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-black/[.035] dark:hover:bg-white/[.05]">
@@ -834,6 +844,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       {!USE_MOCKS ? (
         <ModelSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       ) : null}
+      <WebSearchSettingsDialog open={webSearchOpen} onOpenChange={setWebSearchOpen} />
     </aside>
   );
 }

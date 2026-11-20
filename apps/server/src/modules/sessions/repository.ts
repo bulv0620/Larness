@@ -39,6 +39,7 @@ export interface CreateSessionRowInput {
   thinking?: string | null;
   agentProfile?: "coding" | "plan";
   approvalPolicyId: string;
+  webSearchEnabled?: boolean;
   origin?: SessionOrigin;
   now: number;
 }
@@ -58,6 +59,7 @@ export function createSessionRow(db: DbExecutor, input: CreateSessionRowInput): 
     thinking: input.thinking ?? null,
     agentProfile: input.agentProfile ?? "coding",
     approvalPolicyId: input.approvalPolicyId,
+    webSearchEnabled: input.webSearchEnabled ?? false,
     createdAt: input.now,
     updatedAt: input.now,
     lastActivityAt: input.now,
@@ -108,6 +110,7 @@ export function updateSessionRow(
     thinking?: string | null;
     agentProfile?: SessionRow["agentProfile"];
     approvalPolicyId?: string;
+    webSearchEnabled?: boolean;
     status?: SessionRow["status"];
     updatedAt: number;
     lastActivityAt?: number;
@@ -124,6 +127,7 @@ export function updateSessionRow(
     ...(input.thinking === undefined ? {} : { thinking: input.thinking }),
     ...(input.agentProfile === undefined ? {} : { agentProfile: input.agentProfile }),
     ...(input.approvalPolicyId === undefined ? {} : { approvalPolicyId: input.approvalPolicyId }),
+    ...(input.webSearchEnabled === undefined ? {} : { webSearchEnabled: input.webSearchEnabled }),
     ...(input.status === undefined ? {} : { status: input.status }),
     updatedAt: input.updatedAt,
     ...(input.lastActivityAt === undefined ? {} : { lastActivityAt: input.lastActivityAt }),
@@ -149,6 +153,7 @@ export interface CreateTurnRowInput {
   model: string | null;
   thinking?: string | null;
   contextWindow?: number | null;
+  webSearchEnabled?: boolean;
   maxInputTokens?: number;
   maxOutputTokens?: number;
   status: TurnStatus;
@@ -170,6 +175,7 @@ export function createTurnRow(db: DbExecutor, input: CreateTurnRowInput): TurnRo
     model: input.model,
     thinking: input.thinking ?? null,
     contextWindow: input.contextWindow ?? null,
+    webSearchEnabled: input.webSearchEnabled ?? false,
     maxInputTokens: input.maxInputTokens ?? null,
     maxOutputTokens: input.maxOutputTokens ?? null,
     status: input.status,

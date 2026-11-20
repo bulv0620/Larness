@@ -27,7 +27,7 @@ describe("migrations", () => {
         expect(opened.sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
         expect(opened.sqlite.pragma("busy_timeout", { simple: true })).toBe(5000);
         expect(quickCheck(opened.sqlite)).toBe(true);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(36);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(37);
 
         const sessionColumns = opened.sqlite.prepare("PRAGMA table_info(sessions)").all() as {
           name: string;
@@ -103,7 +103,7 @@ describe("migrations", () => {
       const { db, sqlite, close } = openDatabase(path.join(dir, "larness.db"));
       try {
         runMigrations(db, migrations);
-        expect(appliedMigrationCount(sqlite)).toBe(29);
+        expect(appliedMigrationCount(sqlite)).toBe(30);
         sqlite.exec(`
           INSERT INTO secrets VALUES ('sec_old', 'ciphertext', 'nonce', 'tag', 1);
           INSERT INTO credential_profiles
@@ -158,7 +158,7 @@ describe("migrations", () => {
 
       try {
         runMigrations(opened.db);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(36);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(37);
       } finally {
         opened.close();
       }
@@ -267,7 +267,7 @@ describe("migrations", () => {
         const copy = openDatabase(target);
 
         try {
-          expect(appliedMigrationCount(copy.sqlite)).toBe(36);
+          expect(appliedMigrationCount(copy.sqlite)).toBe(37);
         } finally {
           copy.close();
         }
@@ -288,7 +288,7 @@ describe("migrations", () => {
       const latest = journal.entries.at(-1);
       if (latest === undefined) throw new Error("missing migration journal entry");
       // Stop before the coding/plan normalization so the upgrade replays 0034.
-      journal.entries = journal.entries.slice(0, -3);
+      journal.entries = journal.entries.slice(0, -4);
       await writeFile(journalPath, JSON.stringify(journal));
       await rm(path.join(oldMigrations, `${latest.tag}.sql`));
 
@@ -304,7 +304,7 @@ describe("migrations", () => {
 
         runMigrations(opened.db);
 
-        expect(appliedMigrationCount(opened.sqlite)).toBe(36);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(37);
         expect(
           opened.sqlite.prepare("SELECT agent_profile FROM sessions WHERE id = ?").get("ses_old"),
         ).toMatchObject({ agent_profile: "coding" });

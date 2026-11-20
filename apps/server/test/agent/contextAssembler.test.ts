@@ -9,6 +9,7 @@ import { createCommandTool, createShellTool } from "../../src/modules/agent/comm
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { appendAgentEvent } from "../../src/modules/agent/events.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
+import { createWebTools } from "../../src/modules/agent/webTool.js";
 import { MemoryService } from "../../src/modules/memory/service.js";
 import { createProject, updateProject } from "../../src/modules/projects/service.js";
 import { getSessionById, getTurnById } from "../../src/modules/sessions/repository.js";
@@ -415,6 +416,69 @@ describe("context assembler", () => {
         expect(system).toContain("Project instructions from AGENTS.md");
         expect(system).toContain("Project instructions from .larness/instructions.md");
         expect(system).toContain("Project instructions from project settings");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("advertises web tools only when the Turn enables an available connection", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      try {
+        const root = path.join(dir, "project");
+        await mkdir(root);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false },
+          { rootPath: root },
+        );
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, { projectId: project.id });
+        const created = createTurn(sessionOptions, { sessionId: session.id, text: "web" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, created.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const registry = createFileToolRegistry();
+        for (const tool of createWebTools()) registry.register(tool);
+
+        const enabled = assembleContext(
+          {
+            db: opened.db,
+            registry,
+            maxContextTokens: 128_000,
+            policy: "standard",
+            agentProfile: "coding",
+            webSearchAvailable: true,
+            now: () => Date.parse("2026-11-20T00:00:00Z"),
+          },
+          sessionRow,
+          turn,
+        );
+        expect(enabled.tools.map((tool) => tool.name)).toEqual(
+          expect.arrayContaining(["web_search", "fetch_url"]),
+        );
+        const system = String(enabled.messages[0]?.content);
+        expect(system).toContain("Web search and page fetching are available");
+        expect(system).toContain("untrusted data");
+        expect(system).toContain("Current date: 2026-11-20");
+
+        const disabled = assembleContext(
+          {
+            db: opened.db,
+            registry,
+            maxContextTokens: 128_000,
+            policy: "standard",
+            agentProfile: "coding",
+          },
+          sessionRow,
+          turn,
+        );
+        expect(disabled.tools.map((tool) => tool.name)).not.toContain("web_search");
+        expect(disabled.tools.map((tool) => tool.name)).not.toContain("fetch_url");
+        expect(String(disabled.messages[0]?.content)).not.toContain(
+          "Web search and page fetching are available",
+        );
       } finally {
         opened.close();
       }

@@ -120,6 +120,7 @@ export const sessions = sqliteTable(
     thinking: text("thinking"),
     agentProfile: text("agent_profile").$type<"coding" | "plan">().notNull().default("coding"),
     approvalPolicyId: text("approval_policy_id").notNull().default("standard"),
+    webSearchEnabled: integer("web_search_enabled", { mode: "boolean" }).notNull().default(false),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     lastActivityAt: integer("last_activity_at").notNull(),
@@ -168,6 +169,7 @@ export const turns = sqliteTable(
     model: text("model"),
     thinking: text("thinking"),
     contextWindow: integer("context_window"),
+    webSearchEnabled: integer("web_search_enabled", { mode: "boolean" }).notNull().default(false),
     status: text("status").$type<TurnStatus>().notNull(),
     inputJson: text("input_json").notNull(),
     usageJson: text("usage_json"),
@@ -272,6 +274,28 @@ export const credentialProfiles = sqliteTable(
     createdAt: integer("created_at").notNull(),
   },
   (table) => [index("idx_credential_profiles_provider").on(table.provider)],
+);
+
+export const WEB_SEARCH_PROVIDER_IDS = ["deepseek", "glm"] as const;
+export type WebSearchProviderId = (typeof WEB_SEARCH_PROVIDER_IDS)[number];
+export const WEB_SEARCH_REGIONS = ["cn", "global"] as const;
+export type WebSearchRegion = (typeof WEB_SEARCH_REGIONS)[number];
+
+/** Search credentials are intentionally separate from model credentials. */
+export const webSearchConnections = sqliteTable(
+  "web_search_connections",
+  {
+    id: text("id").primaryKey(),
+    provider: text("provider").$type<WebSearchProviderId>().notNull(),
+    label: text("label").notNull(),
+    region: text("region").$type<WebSearchRegion>(),
+    endpoint: text("endpoint").notNull(),
+    secretRef: text("secret_ref")
+      .notNull()
+      .references(() => secrets.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [index("idx_web_search_connections_provider").on(table.provider)],
 );
 
 export const modelProfiles = sqliteTable(
@@ -565,6 +589,7 @@ export type MemoryRevisionRow = typeof memoryRevisions.$inferSelect;
 export type MemorySuppressionRow = typeof memorySuppressions.$inferSelect;
 export type SecretRow = typeof secrets.$inferSelect;
 export type CredentialProfileRow = typeof credentialProfiles.$inferSelect;
+export type WebSearchConnectionRow = typeof webSearchConnections.$inferSelect;
 export type ModelProfileRow = typeof modelProfiles.$inferSelect;
 export type SessionRow = typeof sessions.$inferSelect;
 export type TurnRow = typeof turns.$inferSelect;
