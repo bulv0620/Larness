@@ -4,9 +4,6 @@ import {
   ConfirmDialog,
   cn,
   Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
   ErrorMessage,
   FormSelect,
   Input,
@@ -15,6 +12,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Brain, Pin, PinOff, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
+import { AdminDialogShell, AdminEmptyState } from "@/components/common/AdminDialogShell";
 import { operationError } from "@/lib/api";
 import { getProject, updateProject } from "@/lib/workspaceApi";
 import {
@@ -211,17 +209,13 @@ export function MemoryDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="flex h-[min(680px,calc(100dvh-24px))] w-[min(900px,calc(100vw-24px))] flex-col overflow-hidden p-0">
-          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4">
-            <div className="min-w-0">
-              <DialogTitle className="flex items-center gap-2 text-sm">
-                <Brain size={15} className="text-accent" aria-hidden="true" />
-                Larness 记住了什么
-              </DialogTitle>
-              <DialogDescription className="mt-1 text-[11px] text-ink-3">
-                项目记忆只影响当前项目；偏好会跨项目生效。默认自动学习，你可以随时纠正或忘记。
-              </DialogDescription>
-            </div>
+        <AdminDialogShell
+          icon={Brain}
+          title="记忆与偏好"
+          description="管理项目记忆与跨项目用户偏好"
+          closeLabel="关闭记忆与偏好"
+          count={budget?.activeCount}
+          actions={
             <div className="flex shrink-0 items-center gap-1 rounded-lg bg-surface-2 p-0.5">
               {(["project", "global"] as const).map((entry) => (
                 <button
@@ -242,8 +236,8 @@ export function MemoryDialog({
                 </button>
               ))}
             </div>
-          </div>
-
+          }
+        >
           {error ? (
             <div className="shrink-0 px-5 pt-3">
               <ErrorMessage message={error} onDismiss={() => setError(null)} />
@@ -329,9 +323,12 @@ export function MemoryDialog({
                     正在读取记忆…
                   </div>
                 ) : items.length === 0 ? (
-                  <div className="px-3 py-8 text-center text-[11px] text-ink-3">
-                    还没有记忆。Agent 会在发现稳定事实时自动学习。
-                  </div>
+                  <AdminEmptyState
+                    icon={Brain}
+                    title="还没有记忆"
+                    hint="Agent 会在发现稳定事实时自动学习。"
+                    compact
+                  />
                 ) : (
                   items.map((item) => (
                     <button
@@ -535,7 +532,7 @@ export function MemoryDialog({
               )}
             </div>
           </div>
-        </DialogContent>
+        </AdminDialogShell>
       </Dialog>
 
       <ConfirmDialog

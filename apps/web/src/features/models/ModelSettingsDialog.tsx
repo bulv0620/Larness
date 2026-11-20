@@ -12,8 +12,9 @@ import {
   Input,
 } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Loader2, Plus, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { KeyRound, Loader2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useEffect, useId, useState } from "react";
+import { AdminDialogShell, AdminEmptyState } from "@/components/common/AdminDialogShell";
 import { operationError } from "@/lib/api";
 import {
   type ApiCatalogGroup,
@@ -451,20 +452,19 @@ export function ModelSettingsDialog({
         if (next || !subdialogOpen) onOpenChange(next);
       }}
     >
-      <DialogContent
-        className="flex h-[min(690px,calc(100dvh-24px))] w-[min(880px,calc(100vw-24px))] flex-col overflow-hidden p-0"
+      <AdminDialogShell
+        icon={KeyRound}
+        title="模型与凭据"
+        description="按 Key 管理模型和连接"
+        closeLabel="关闭模型设置"
+        count={credentials.length}
         onEscapeKeyDown={(event) => {
           if (subdialogOpen) {
             event.preventDefault();
             closeSubdialog();
           }
         }}
-      >
-        <header className="flex shrink-0 items-start gap-2 border-b border-line px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <DialogTitle>模型与凭据</DialogTitle>
-            <DialogDescription className="sr-only">按 Key 管理模型和连接。</DialogDescription>
-          </div>
+        actions={
           <Button
             size="sm"
             variant="secondary"
@@ -480,13 +480,8 @@ export function ModelSettingsDialog({
             <Plus size={13} aria-hidden="true" />
             添加 Key
           </Button>
-          <DialogClose asChild>
-            <Button variant="ghost" size="sm" aria-label="关闭模型设置">
-              <X size={14} />
-            </Button>
-          </DialogClose>
-        </header>
-
+        }
+      >
         {!adding && !connectionOpen && !editing ? (
           <ErrorMessage message={error} onDismiss={() => setError(null)} />
         ) : null}
@@ -616,13 +611,20 @@ export function ModelSettingsDialog({
                 </div>
 
                 {!activeGroup || models.length === 0 ? (
-                  <p className="px-4 py-5 text-xs text-ink-3">
-                    {!activeGroup
-                      ? "目录不可用，请刷新。"
-                      : query
-                        ? "这把 Key 下没有匹配的模型。"
-                        : "此 Key 暂无模型。可刷新目录或手动登记。"}
-                  </p>
+                  <AdminEmptyState
+                    icon={Search}
+                    title={
+                      !activeGroup ? "目录不可用" : query ? "没有匹配的模型" : "此 Key 暂无模型"
+                    }
+                    hint={
+                      !activeGroup
+                        ? "刷新目录后重试。"
+                        : query
+                          ? "换个关键词试试。"
+                          : "刷新目录或手动登记。"
+                    }
+                    compact
+                  />
                 ) : (
                   <ul className="divide-y divide-line/70 px-3 sm:px-4">
                     {models.map((model) => (
@@ -664,9 +666,11 @@ export function ModelSettingsDialog({
                 />
               </section>
             ) : !loading ? (
-              <p className="m-4 rounded-xl border border-dashed border-line p-6 text-center text-xs text-ink-3">
-                还没有 Key。添加后即可同步官方模型目录。
-              </p>
+              <AdminEmptyState
+                icon={KeyRound}
+                title="还没有 Key"
+                hint="添加后即可同步官方模型目录。"
+              />
             ) : null}
           </div>
         </div>
@@ -1021,7 +1025,7 @@ export function ModelSettingsDialog({
             <Loader2 size={11} className="animate-spin" /> 正在读取…
           </p>
         ) : null}
-      </DialogContent>
+      </AdminDialogShell>
     </Dialog>
   );
 }

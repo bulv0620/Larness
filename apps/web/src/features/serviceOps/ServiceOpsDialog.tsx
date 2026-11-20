@@ -1,15 +1,5 @@
 import type { ServiceOpsDeploymentDto, ServiceOpsServiceDto } from "@larness/shared";
-import {
-  Button,
-  ConfirmDialog,
-  cn,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-  ErrorMessage,
-} from "@larness/ui";
+import { Button, ConfirmDialog, cn, Dialog, ErrorMessage } from "@larness/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -20,9 +10,9 @@ import {
   Server,
   Square,
   Terminal,
-  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AdminDialogShell, AdminEmptyState } from "@/components/common/AdminDialogShell";
 import { relativeTime } from "@/lib/format";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -144,20 +134,14 @@ export function ServiceOpsDialog({
         onOpenChange(value);
       }}
     >
-      <DialogContent
-        className="flex h-[min(660px,calc(100dvh-32px))] w-[min(900px,calc(100vw-32px))] flex-col overflow-hidden p-0"
-        data-testid="service-ops-dialog"
-      >
-        <header className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-2">
-          <Server size={14} className="text-ink-3" />
-          <DialogTitle className="text-[12px] font-semibold">服务运维</DialogTitle>
-          <DialogDescription className="sr-only">
-            查看正式服务状态、日志及启停操作
-          </DialogDescription>
-          <span className="rounded bg-surface-2 px-1.5 text-[10px] text-ink-3">
-            {services.data?.items.length ?? 0}
-          </span>
-          <div className="flex-1" />
+      <AdminDialogShell
+        icon={Server}
+        title="服务运维"
+        description="查看正式服务状态、日志及启停操作"
+        closeLabel="关闭服务运维"
+        count={services.data?.items.length ?? 0}
+        testId="service-ops-dialog"
+        actions={
           <Button
             size="sm"
             variant="ghost"
@@ -167,12 +151,8 @@ export function ServiceOpsDialog({
             <RefreshCw size={12} className={services.isFetching ? "animate-spin" : undefined} />
             刷新
           </Button>
-          <DialogClose asChild>
-            <Button size="sm" variant="ghost" aria-label="关闭服务运维">
-              <X size={14} />
-            </Button>
-          </DialogClose>
-        </header>
+        }
+      >
         <ErrorMessage
           message={
             controlError
@@ -350,13 +330,11 @@ export function ServiceOpsDialog({
               </div>
             ) : (
               !services.isError && (
-                <div className="grid h-full content-center justify-items-center gap-2 text-center">
-                  <Server size={22} className="text-ink-3" />
-                  <p className="text-[12px] font-medium">暂无正式服务</p>
-                  <p className="max-w-sm text-[11px] text-ink-3">
-                    在项目会话中让 Agent 用 PM2 部署正式服务，部署后即可在这里启停和查看日志。
-                  </p>
-                </div>
+                <AdminEmptyState
+                  icon={Server}
+                  title="暂无正式服务"
+                  hint="在项目会话中部署后，在这里启停和查看日志。"
+                />
               )
             )}
             {!!services.data?.unassociated.length && (
@@ -409,7 +387,7 @@ export function ServiceOpsDialog({
             </p>
           </div>
         </ConfirmDialog>
-      </DialogContent>
+      </AdminDialogShell>
     </Dialog>
   );
 }

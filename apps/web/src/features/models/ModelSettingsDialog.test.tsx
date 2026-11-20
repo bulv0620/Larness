@@ -109,7 +109,7 @@ async function addKey() {
       </TooltipProvider>
     </QueryClientProvider>,
   );
-  await screen.findByText("还没有 Key。添加后即可同步官方模型目录。");
+  await screen.findByText("还没有 Key");
   fireEvent.click(screen.getByRole("button", { name: "添加 Key" }));
   const dialog = screen.getByRole("dialog", { name: "添加 Key" });
   fireEvent.change(within(dialog).getByLabelText("API Key"), { target: { value: "placeholder" } });
@@ -127,7 +127,7 @@ it("selects a GLM endpoint through the shared dropdown", async () => {
       </TooltipProvider>
     </QueryClientProvider>,
   );
-  await screen.findByText("还没有 Key。添加后即可同步官方模型目录。");
+  await screen.findByText("还没有 Key");
   await user.click(screen.getByRole("button", { name: "添加 Key" }));
   await user.click(screen.getByRole("button", { name: "GLM" }));
   await user.click(screen.getByRole("button", { name: "Key 来源" }));
@@ -338,7 +338,7 @@ it("keeps saved Keys selectable when the catalog is unavailable", async () => {
     </QueryClientProvider>,
   );
   expect(await screen.findByRole("button", { name: /测试凭据/ })).toBeVisible();
-  expect(screen.getByText("目录不可用，请刷新。")).toBeVisible();
+  expect(screen.getAllByText("目录不可用").length).toBeGreaterThan(0);
   expect(screen.getByRole("button", { name: "刷新目录" })).toBeEnabled();
 });
 
@@ -374,7 +374,7 @@ it("places the compatible platform after official platforms", async () => {
       </TooltipProvider>
     </QueryClientProvider>,
   );
-  await screen.findByText("还没有 Key。添加后即可同步官方模型目录。");
+  await screen.findByText("还没有 Key");
   await user.click(screen.getByRole("button", { name: "添加 Key" }));
   expect(screen.getAllByRole("button", { name: /^(DeepSeek|OpenCode Go|兼容)$/ })).toEqual([
     screen.getByRole("button", { name: "DeepSeek" }),
