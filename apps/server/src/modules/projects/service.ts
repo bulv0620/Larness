@@ -29,6 +29,13 @@ export const ProjectSettingsSchema = z
     defaultModelProfileId: z.string().min(1).max(128).nullable().default(null),
     instructions: z.string().max(20_000).default(""),
     ignore: z.array(z.string().min(1).max(512)).max(500).default([]),
+    memory: z
+      .object({
+        enabled: z.boolean().default(true),
+        globalEnabled: z.boolean().default(true),
+      })
+      .strict()
+      .default({ enabled: true, globalEnabled: true }),
   })
   .strict();
 
@@ -72,6 +79,7 @@ const EMPTY_SETTINGS: ProjectSettings = {
   defaultModelProfileId: null,
   instructions: "",
   ignore: [],
+  memory: { enabled: true, globalEnabled: true },
 };
 
 export function defaultProjectSettings(): ProjectSettings {

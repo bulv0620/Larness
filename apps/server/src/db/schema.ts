@@ -5,6 +5,7 @@ import {
   check,
   index,
   integer,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -38,6 +39,17 @@ export type TurnStatus =
 export type { TurnTerminalReason } from "@larness/shared";
 
 export type ContextSummaryScope = "session" | "turn";
+
+export type MemoryScope = "project" | "global";
+export type MemoryKind = "fact" | "command" | "gotcha" | "decision" | "preference";
+export type MemoryStatus = "active" | "review" | "rejected" | "superseded" | "expired" | "evicted";
+export type MemoryEvidenceKind =
+  | "user_statement"
+  | "command_succeeded"
+  | "file_observed"
+  | "failure_then_success"
+  | "agent_inference";
+export type MemoryChangedBy = "agent" | "user" | "system";
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
 export type ResourceLockType = "project" | "service" | "file" | "git" | "global-maintenance";
@@ -331,6 +343,90 @@ export const sessionContextSummaries = sqliteTable(
   ],
 );
 
+export const memories = sqliteTable(
+  "memories",
+  {
+    id: text("id").primaryKey(),
+    scope: text("scope").$type<MemoryScope>().notNull(),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    projectKey: text("project_key").notNull(),
+    kind: text("kind").$type<MemoryKind>().notNull(),
+    key: text("key").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    status: text("status").$type<MemoryStatus>().notNull(),
+    confidence: real("confidence").notNull(),
+    evidenceKind: text("evidence_kind").$type<MemoryEvidenceKind>().notNull(),
+    sourceTurnId: text("source_turn_id"),
+    sourceEventSeq: integer("source_event_seq"),
+    createdBy: text("created_by").$type<"agent" | "user">().notNull(),
+    useCount: integer("use_count").notNull().default(0),
+    lastUsedAt: integer("last_used_at"),
+    lastConfirmedAt: integer("last_confirmed_at"),
+    correctionCount: integer("correction_count").notNull().default(0),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
+    bytes: integer("bytes").notNull(),
+    verifiedAt: integer("verified_at"),
+    expiresAt: integer("expires_at"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("memories_active_key_unique")
+      .on(table.scope, table.projectKey, table.key)
+      .where(sql`${table.status} = 'active'`),
+    index("idx_memories_scope_project_status").on(table.scope, table.projectId, table.status),
+    index("idx_memories_expires").on(table.expiresAt),
+    check(
+      "memories_scope_check",
+      sql`(${table.scope} = 'global' AND ${table.projectId} IS NULL AND ${table.kind} = 'preference') OR (${table.scope} = 'project' AND ${table.projectId} IS NOT NULL)`,
+    ),
+  ],
+);
+
+export const memoryRevisions = sqliteTable(
+  "memory_revisions",
+  {
+    id: text("id").primaryKey(),
+    memoryId: text("memory_id")
+      .notNull()
+      .references(() => memories.id, { onDelete: "cascade" }),
+    revision: integer("revision").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    status: text("status").$type<MemoryStatus>().notNull(),
+    changedBy: text("changed_by").$type<MemoryChangedBy>().notNull(),
+    changedAt: integer("changed_at").notNull(),
+    reason: text("reason"),
+  },
+  (table) => [
+    uniqueIndex("memory_revisions_unique").on(table.memoryId, table.revision),
+    index("idx_memory_revisions_memory").on(table.memoryId, table.changedAt),
+  ],
+);
+
+export const memorySuppressions = sqliteTable(
+  "memory_suppressions",
+  {
+    id: text("id").primaryKey(),
+    scope: text("scope").$type<MemoryScope>().notNull(),
+    projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }),
+    projectKey: text("project_key").notNull(),
+    key: text("key").notNull(),
+    bodyHash: text("body_hash").notNull(),
+    createdAt: integer("created_at").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("memory_suppressions_key_unique").on(table.scope, table.projectKey, table.key),
+    index("idx_memory_suppressions_expiry").on(table.expiresAt),
+    check(
+      "memory_suppressions_scope_check",
+      sql`(${table.scope} = 'global' AND ${table.projectId} IS NULL) OR (${table.scope} = 'project' AND ${table.projectId} IS NOT NULL)`,
+    ),
+  ],
+);
+
 export const modelDefaults = sqliteTable(
   "model_defaults",
   {
@@ -464,6 +560,9 @@ export const auditLogs = sqliteTable(
 );
 
 export type ProjectRow = typeof projects.$inferSelect;
+export type MemoryRow = typeof memories.$inferSelect;
+export type MemoryRevisionRow = typeof memoryRevisions.$inferSelect;
+export type MemorySuppressionRow = typeof memorySuppressions.$inferSelect;
 export type SecretRow = typeof secrets.$inferSelect;
 export type CredentialProfileRow = typeof credentialProfiles.$inferSelect;
 export type ModelProfileRow = typeof modelProfiles.$inferSelect;
