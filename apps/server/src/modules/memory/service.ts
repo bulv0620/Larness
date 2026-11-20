@@ -583,6 +583,20 @@ export class MemoryService {
       );
     }
 
+    if (scope === "global" && sourceSession.projectId !== null) {
+      const sourceProject = getProjectById(this.#db, sourceSession.projectId);
+
+      if (
+        sourceProject !== null &&
+        !parseProjectSettings(sourceProject.settingsJson).memory.globalEnabled
+      ) {
+        throw new MemoryError(
+          "MEMORY_SCOPE_FORBIDDEN",
+          "this project does not allow global preferences",
+        );
+      }
+    }
+
     const projectRow = projectId === null ? null : this.project(projectId);
     this.#assertEnabled(projectRow);
 
@@ -992,8 +1006,17 @@ export class MemoryService {
     });
   }
 
-  activeGlobalPreferences(): MemoryRow[] {
+  activeGlobalPreferences(projectId?: string): MemoryRow[] {
     if (!this.#enabled()) return [];
+
+    if (projectId !== undefined) {
+      const project = getProjectById(this.#db, projectId);
+
+      if (project === null || !parseProjectSettings(project.settingsJson).memory.globalEnabled) {
+        return [];
+      }
+    }
+
     expireDueMemoryRows(this.#db, this.#now());
     return activeMemoryRows(this.#db, "global", "").filter((row) => row.kind === "preference");
   }

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Writable } from "node:stream";
 import {
+  type AgentConfig,
   type AppConfig,
   type AuthConfig,
   type CleanupConfig,
@@ -53,6 +54,7 @@ export interface TestConfigOverrides {
   updates?: Partial<UpdatesConfig>;
   preview?: Partial<PreviewConfig>;
   cleanup?: Partial<CleanupConfig>;
+  agent?: Partial<AgentConfig>;
 }
 
 export function testConfig(overrides: TestConfigOverrides = {}): AppConfig {
@@ -66,6 +68,7 @@ export function testConfig(overrides: TestConfigOverrides = {}): AppConfig {
     updates: { ...base.updates, ...overrides.updates },
     preview: { ...base.preview, ...overrides.preview },
     cleanup: { ...base.cleanup, ...overrides.cleanup },
+    agent: { ...base.agent, ...overrides.agent },
   };
 }
 

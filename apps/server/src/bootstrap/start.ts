@@ -516,7 +516,10 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
     if (options.turnRunner !== false) {
       const registry = createFileToolRegistry();
-      const memory = new MemoryService({ db: opened.db });
+      const memory = new MemoryService({
+        db: opened.db,
+        enabled: () => loaded.config.agent.memory.enabled,
+      });
       registry.register(createPlanTool({ db: opened.db, secretStore }));
       registry.register(createCommandTool({ secretStore }));
       registry.register(createShellTool({ secretStore }));

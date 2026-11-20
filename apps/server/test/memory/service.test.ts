@@ -10,7 +10,7 @@ import {
   memoryById,
 } from "../../src/modules/memory/repository.js";
 import { MemoryError, MemoryService } from "../../src/modules/memory/service.js";
-import { createProject, deleteProject } from "../../src/modules/projects/service.js";
+import { createProject, deleteProject, updateProject } from "../../src/modules/projects/service.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
 import { withTempDir } from "../helpers.js";
@@ -299,6 +299,57 @@ describe("memory service", () => {
         ).toThrowError(/exact user quote/);
       } finally {
         f.opened.close();
+      }
+    });
+  });
+
+  it("keeps global preferences visible across projects but private projects opt out", async () => {
+    await withTempDir(async (dir) => {
+      const a = await fixture(dir, "以后都用 pnpm");
+      try {
+        const svc = service(a.opened);
+        svc.rememberFromTurn(
+          {
+            scope: "global",
+            kind: "preference",
+            key: "workflow.package-manager",
+            title: "Package manager",
+            body: "以后都用 pnpm",
+            evidence: { kind: "user_statement", quote: "以后都用 pnpm" },
+          },
+          { sessionId: a.session.id, turnId: a.turn.turnId },
+        );
+
+        const otherRoot = path.join(dir, "other");
+        await mkdir(otherRoot);
+        const other = await createProject(
+          { db: a.opened.db, detectGit: async () => false },
+          { rootPath: otherRoot },
+        );
+        expect(svc.activeGlobalPreferences(other.id).map((row) => row.key)).toContain(
+          "workflow.package-manager",
+        );
+
+        updateProject(
+          { db: a.opened.db },
+          { id: a.project.id, settings: { memory: { enabled: true, globalEnabled: false } } },
+        );
+        expect(svc.activeGlobalPreferences(a.project.id)).toEqual([]);
+        expect(() =>
+          svc.rememberFromTurn(
+            {
+              scope: "global",
+              kind: "preference",
+              key: "workflow.shell",
+              title: "Shell",
+              body: "use zsh",
+              evidence: { kind: "user_statement", quote: "以后都用 pnpm" },
+            },
+            { sessionId: a.session.id, turnId: a.turn.turnId },
+          ),
+        ).toThrowError(/does not allow global/);
+      } finally {
+        a.opened.close();
       }
     });
   });
