@@ -455,10 +455,6 @@ export function WebSearchSettingsDialog({
               autoComplete="off"
             />
           </label>
-          <p className="text-[9.5px] leading-relaxed text-ink-3">
-            搜索 Key 与模型 Key 完全隔离。DeepSeek 使用 Search & Fetch API；GLM 使用 Web Search /
-            Reader API。
-          </p>
           <div className="flex justify-end gap-2 pt-1">
             <Button size="sm" variant="ghost" disabled={busy} onClick={closeSubdialog}>
               取消
@@ -522,9 +518,6 @@ export function WebSearchSettingsDialog({
               onChange={(event) => setMaxFetches(event.target.value)}
             />
           </label>
-          <p className="text-[9.5px] leading-relaxed text-ink-3">
-            每轮配额对当前会话的每次 Turn 生效；0 表示禁止该类调用。
-          </p>
           <div className="flex justify-end gap-2 pt-1">
             <Button size="sm" variant="ghost" disabled={busy} onClick={closeSubdialog}>
               取消
