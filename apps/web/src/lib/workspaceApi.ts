@@ -17,6 +17,7 @@ export interface ApiProject {
     defaultModelProfileId: string | null;
     instructions: string;
     ignore: string[];
+    memory: { enabled: boolean; globalEnabled: boolean };
   };
   gitDetected: boolean;
   runningTerminals?: number;

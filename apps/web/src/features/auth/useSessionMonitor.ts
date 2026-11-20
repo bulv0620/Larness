@@ -1,5 +1,6 @@
 import {
   WorkspaceJobsNotificationSchema,
+  WorkspaceMemoryNotificationSchema,
   WorkspaceSessionNotificationSchema,
 } from "@larness/shared";
 import { useQueryClient } from "@tanstack/react-query";
@@ -46,6 +47,9 @@ export function useSessionMonitor(): void {
           }
           if (WorkspaceJobsNotificationSchema.safeParse(data).success) {
             void queryClient.invalidateQueries({ queryKey: ["jobs"] });
+          }
+          if (WorkspaceMemoryNotificationSchema.safeParse(data).success) {
+            void queryClient.invalidateQueries({ queryKey: ["memory"] });
           }
         } catch {
           // Ignore malformed frames.

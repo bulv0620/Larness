@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   Archive,
+  Brain,
   ChevronDown,
   ChevronRight,
   Clock3,
@@ -28,6 +29,7 @@ import { useLogout } from "@/features/auth/useAuth";
 import { RenameSessionDialog } from "@/features/chat/RenameSessionDialog";
 import { getJobsSummary, jobsSummaryKey } from "@/features/jobs/api";
 import { JobsDialog } from "@/features/jobs/JobsDialog";
+import { MemoryDialog } from "@/features/memory/MemoryDialog";
 import { ModelSettingsDialog } from "@/features/models/ModelSettingsDialog";
 import { listProcesses, processesKey } from "@/features/processes/api";
 import { ProjectDialog } from "@/features/projects/ProjectDialog";
@@ -92,6 +94,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const [expandedSessionLists, setExpandedSessionLists] = useState<Record<string, boolean>>({});
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+  const [memoryProjectId, setMemoryProjectId] = useState<string | null>(null);
+  const [memoryScope, setMemoryScope] = useState<"project" | "global">("global");
   const [serviceOpsOpen, setServiceOpsOpen] = useState(false);
   const [jobsOpen, setJobsOpen] = useState(false);
   const [jobsSeenFailures, setJobsSeenFailures] = useState(0);
@@ -667,6 +672,23 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
           onClick={USE_MOCKS ? undefined : () => setJobsOpen(true)}
         />
         <BottomItem
+          icon={Brain}
+          label="记忆与偏好"
+          onClick={
+            USE_MOCKS
+              ? undefined
+              : () => {
+                  setMemoryProjectId(
+                    projectId !== null && projectId !== DEFAULT_PROJECT_ID ? projectId : null,
+                  );
+                  setMemoryScope(
+                    projectId !== null && projectId !== DEFAULT_PROJECT_ID ? "project" : "global",
+                  );
+                  setMemoryOpen(true);
+                }
+          }
+        />
+        <BottomItem
           icon={Settings}
           label="设置与模型"
           onClick={USE_MOCKS ? undefined : () => setSettingsOpen(true)}
@@ -724,6 +746,22 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
             <Pencil size={13} className="text-ink-3" />
             {context.kind === "project" ? "重命名项目" : "重命名会话"}
           </button>
+          {context.kind === "project" ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMemoryProjectId(context.id);
+                setMemoryScope("project");
+                setMemoryOpen(true);
+                setContext(null);
+              }}
+              className="flex h-8 w-full items-center gap-2 rounded-lg px-2.5 text-left text-[11.5px] text-ink-2 hover:bg-black/[.045] hover:text-ink dark:hover:bg-white/[.07]"
+            >
+              <Brain size={13} className="text-ink-3" />
+              项目记忆…
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"
@@ -785,6 +823,12 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       />
 
       <ProjectDialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen} />
+      <MemoryDialog
+        open={memoryOpen}
+        onOpenChange={setMemoryOpen}
+        projectId={memoryProjectId}
+        initialScope={memoryScope}
+      />
       <ServiceOpsDialog open={serviceOpsOpen} onOpenChange={setServiceOpsOpen} />
       <JobsDialog open={jobsOpen} onOpenChange={setJobsOpen} />
       {!USE_MOCKS ? (
