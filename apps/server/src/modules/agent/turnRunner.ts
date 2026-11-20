@@ -34,6 +34,7 @@ import { immediateTransaction } from "../../db/transaction.js";
 import { publishAgentEvent } from "../../ws/publisher.js";
 import type { CommandManager } from "../commands/manager.js";
 import type { GitManager } from "../git/manager.js";
+import { MemoryError, type MemoryService } from "../memory/service.js";
 import { listEncryptedSecrets } from "../models/repository.js";
 import type { ProcessManager } from "../processes/manager.js";
 import { getProjectById, updateProjectRow } from "../projects/repository.js";
@@ -162,6 +163,7 @@ export interface TurnRunnerOptions {
   git?: GitManager;
   processes?: ProcessManager;
   serviceOps?: ServiceOpsRuntime;
+  memory?: MemoryService;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
   logger?: TurnTimingLogger;
   /**
@@ -386,6 +388,8 @@ export class TurnRunner {
     const failedCalls = new Map<string, string[]>();
     // One secret table read per Turn (D8); plaintext is still decrypted per call.
     const loadSecrets = createSecretLoader(() => listEncryptedSecrets(this.#options.db));
+    let projectMemoryWrites = 0;
+    let globalMemoryWrites = 0;
 
     const finalize = async (
       status: TurnStatus,
@@ -880,6 +884,76 @@ export class TurnRunner {
             }
           },
           loadSecrets,
+          rememberMemory: async (raw) => {
+            if (this.#options.memory === undefined) {
+              return { ok: false, errorCode: "FORBIDDEN", summary: "memory is unavailable" };
+            }
+
+            const input = raw as import("@larness/shared").RememberToolInput;
+
+            if (input.scope === "project" && projectMemoryWrites >= 3) {
+              return {
+                ok: false,
+                errorCode: "MEMORY_RATE_LIMITED",
+                summary: "at most 3 project memories can be written per Turn",
+              };
+            }
+
+            if (input.scope === "global" && globalMemoryWrites >= 1) {
+              return {
+                ok: false,
+                errorCode: "MEMORY_RATE_LIMITED",
+                summary: "at most 1 global preference can be written per Turn",
+              };
+            }
+
+            try {
+              const memory = this.#options.memory.rememberFromTurn(input, {
+                sessionId: session.id,
+                turnId: turn.id,
+              });
+
+              if (input.scope === "project") projectMemoryWrites += 1;
+              else globalMemoryWrites += 1;
+
+              return {
+                ok: true,
+                summary: `remembered ${memory.scope}/${memory.kind}: ${memory.key} (${memory.status})`,
+                data: { memoryId: memory.id, status: memory.status },
+              };
+            } catch (error) {
+              if (error instanceof MemoryError) {
+                return { ok: false, errorCode: error.code, summary: error.message };
+              }
+
+              return { ok: false, errorCode: "TOOL_ERROR", summary: "memory write failed" };
+            }
+          },
+          readMemory: async (raw) => {
+            if (this.#options.memory === undefined || session.projectId === null) {
+              return { ok: false, errorCode: "FORBIDDEN", summary: "memory is unavailable" };
+            }
+
+            try {
+              const result = this.#options.memory.read(
+                session.projectId,
+                raw as import("@larness/shared").ReadMemoryInput,
+              );
+
+              return {
+                ok: true,
+                summary: `read ${result.items.length} active memories`,
+                data: { items: result.items, truncated: result.truncated },
+                ...(result.truncated ? { truncated: true } : {}),
+              };
+            } catch (error) {
+              if (error instanceof MemoryError) {
+                return { ok: false, errorCode: error.code, summary: error.message };
+              }
+
+              return { ok: false, errorCode: "TOOL_ERROR", summary: "memory read failed" };
+            }
+          },
           refreshObservations: async () => {
             if (checkBudget() !== "ok") {
               return {

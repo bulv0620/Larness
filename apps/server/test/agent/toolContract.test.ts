@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
+import { createMemoryTools } from "../../src/modules/agent/memoryTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
@@ -27,6 +28,7 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   registry.register(createShellTool({}));
   for (const tool of createProcessTools({})) registry.register(tool);
   for (const tool of createServiceOpsTools()) registry.register(tool);
+  for (const tool of createMemoryTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
 }
@@ -43,6 +45,8 @@ type HandlerKey = keyof Pick<
   | "readServiceOpsLogs"
   | "controlServiceOps"
   | "refreshObservations"
+  | "rememberMemory"
+  | "readMemory"
 >;
 
 interface BoundToolCase {
@@ -123,6 +127,25 @@ const BOUND_TOOLS: BoundToolCase[] = [
     args: {},
     invalid: { stale: true },
   },
+  {
+    name: "remember",
+    handler: "rememberMemory",
+    args: {
+      scope: "project",
+      kind: "fact",
+      key: "build.test.command",
+      title: "Test command",
+      body: "pnpm test",
+      evidence: { kind: "user_statement", quote: "pnpm test" },
+    },
+    invalid: { scope: "project", kind: "fact", key: "x" },
+  },
+  {
+    name: "read_memory",
+    handler: "readMemory",
+    args: { query: "test" },
+    invalid: { limit: 0 },
+  },
 ];
 
 const FILE_TOOLS: Array<{ name: string; args: unknown; invalid: unknown }> = [
@@ -201,6 +224,8 @@ describe("tool contract matrix", () => {
             readServiceOpsLogs: handlerStub("readServiceOpsLogs"),
             controlServiceOps: handlerStub("controlServiceOps"),
             refreshObservations: handlerStub("refreshObservations"),
+            rememberMemory: handlerStub("rememberMemory"),
+            readMemory: handlerStub("readMemory"),
           });
 
           expect(ok.status, tool.name).toBe("completed");

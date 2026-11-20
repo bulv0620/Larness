@@ -53,6 +53,36 @@ export const RememberInputSchema = z
 
 export type RememberInput = z.infer<typeof RememberInputSchema>;
 
+/** Model-facing shape: turn/event ids are resolved server-side from the current Turn. */
+export const RememberToolInputSchema = z
+  .object({
+    scope: MemoryScopeSchema,
+    kind: MemoryKindSchema,
+    key: MemoryKeySchema,
+    title: MemoryTitleSchema,
+    body: MemoryBodySchema,
+    evidence: z
+      .object({
+        kind: MemoryEvidenceKindSchema,
+        quote: z.string().min(1).max(2_000).optional(),
+      })
+      .strict(),
+    confidence: z.number().min(0).max(1).optional(),
+  })
+  .strict();
+
+export type RememberToolInput = z.infer<typeof RememberToolInputSchema>;
+
+export const ReadMemoryInputSchema = z
+  .object({
+    keys: z.array(MemoryKeySchema).min(1).max(5).optional(),
+    query: z.string().min(1).max(200).optional(),
+    limit: z.number().int().min(1).max(5).optional(),
+  })
+  .strict();
+
+export type ReadMemoryInput = z.infer<typeof ReadMemoryInputSchema>;
+
 export const MemoryDtoSchema = z.object({
   id: z.string(),
   scope: MemoryScopeSchema,

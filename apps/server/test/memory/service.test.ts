@@ -266,6 +266,43 @@ describe("memory service", () => {
     });
   });
 
+  it("resolves tool evidence from the current Turn instead of trusting ids", async () => {
+    await withTempDir(async (dir) => {
+      const f = await fixture(dir, "以后用 pnpm 测试");
+      try {
+        const svc = service(f.opened);
+        const memory = svc.rememberFromTurn(
+          {
+            scope: "project",
+            kind: "fact",
+            key: "build.test.command",
+            title: "Test command",
+            body: "pnpm test",
+            evidence: { kind: "user_statement", quote: "pnpm" },
+          },
+          { sessionId: f.session.id, turnId: f.turn.turnId },
+        );
+        expect(memory.status).toBe("active");
+
+        expect(() =>
+          svc.rememberFromTurn(
+            {
+              scope: "global",
+              kind: "preference",
+              key: "workflow.package-manager",
+              title: "Package manager",
+              body: "use pnpm",
+              evidence: { kind: "user_statement" },
+            },
+            { sessionId: f.session.id, turnId: f.turn.turnId },
+          ),
+        ).toThrowError(/exact user quote/);
+      } finally {
+        f.opened.close();
+      }
+    });
+  });
+
   it("cascades memory rows when a project is deleted", async () => {
     await withTempDir(async (dir) => {
       const f = await fixture(dir);

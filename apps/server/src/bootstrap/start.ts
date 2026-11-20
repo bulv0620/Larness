@@ -34,6 +34,7 @@ import { createIpcHandler } from "../ipc/handlers.js";
 import { type IpcServer, startIpcServer } from "../ipc/server.js";
 import { createCommandTool, createShellTool } from "../modules/agent/commandTool.js";
 import { appendAgentEvent, toServerEvent } from "../modules/agent/events.js";
+import { createMemoryTools } from "../modules/agent/memoryTool.js";
 import { createObservationTool } from "../modules/agent/observationTool.js";
 import { createPlanTool } from "../modules/agent/planTool.js";
 import { createProcessTools } from "../modules/agent/processTool.js";
@@ -50,6 +51,7 @@ import { GitManager } from "../modules/git/manager.js";
 import { AgentJobExecutor } from "../modules/jobs/agentRunner.js";
 import { JobRuntime } from "../modules/jobs/runtime.js";
 import { JobService } from "../modules/jobs/service.js";
+import { MemoryService } from "../modules/memory/service.js";
 import { type DeepSeekCatalogFetcher, resolveCatalogProvider } from "../modules/models/catalog.js";
 import { assertSafeEndpoint } from "../modules/models/endpoint.js";
 import { presetForCredential } from "../modules/models/presets.js";
@@ -514,16 +516,19 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
 
     if (options.turnRunner !== false) {
       const registry = createFileToolRegistry();
+      const memory = new MemoryService({ db: opened.db });
       registry.register(createPlanTool({ db: opened.db, secretStore }));
       registry.register(createCommandTool({ secretStore }));
       registry.register(createShellTool({ secretStore }));
       for (const tool of createProcessTools({ secretStore })) registry.register(tool);
       for (const tool of createServiceOpsTools()) registry.register(tool);
+      for (const tool of createMemoryTools()) registry.register(tool);
       registry.register(createObservationTool());
       const runner = new TurnRunner({
         dataDir,
         db: opened.db,
         registry,
+        memory,
         commands,
         git,
         processes,

@@ -52,6 +52,8 @@ export interface ExecuteToolInput {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  rememberMemory?: (args: unknown) => Promise<ToolResult>;
+  readMemory?: (args: unknown) => Promise<ToolResult>;
   listServiceOps?: () => Promise<ToolResult>;
   readServiceOpsLogs?: (args: unknown) => Promise<ToolResult>;
   controlServiceOps?: (args: unknown) => Promise<ToolResult>;
@@ -405,6 +407,24 @@ export async function executeTool(
         }
       : {}),
     ...(input.loadSecrets ? { loadSecrets: input.loadSecrets } : {}),
+    ...(input.rememberMemory
+      ? {
+          rememberMemory: async (args: unknown) => {
+            assertAuthorized();
+            return (
+              input.rememberMemory?.(args) ?? denied("FORBIDDEN", "Memory context unavailable")
+            );
+          },
+        }
+      : {}),
+    ...(input.readMemory
+      ? {
+          readMemory: async (args: unknown) => {
+            assertAuthorized();
+            return input.readMemory?.(args) ?? denied("FORBIDDEN", "Memory context unavailable");
+          },
+        }
+      : {}),
     ...(input.refreshObservations
       ? {
           refreshObservations: async () => {

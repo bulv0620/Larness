@@ -15,7 +15,8 @@ export type ToolPackId =
   | "plan"
   | "process"
   | "observation"
-  | "serviceOps";
+  | "serviceOps"
+  | "memory";
 
 export type ToolAvailability = "enabled" | "project-required" | "disabled";
 

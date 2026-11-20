@@ -5,6 +5,7 @@ import type {
   MemoryChangedPayload,
   MemoryDto,
   RememberInput,
+  RememberToolInput,
 } from "@larness/shared";
 import { DEFAULT_PROJECT_ID } from "@larness/shared";
 import { and, desc, eq, inArray, like, lt, or } from "drizzle-orm";
@@ -308,6 +309,147 @@ export class MemoryService {
         .from(agentEvents)
         .where(and(eq(agentEvents.sessionId, sessionId), eq(agentEvents.seq, seq)))
         .get() ?? null
+    );
+  }
+
+  #eventsForTurn(db: DbExecutor, sessionId: string, turnId: string, type: string): AgentEventRow[] {
+    return db
+      .select()
+      .from(agentEvents)
+      .where(
+        and(
+          eq(agentEvents.sessionId, sessionId),
+          eq(agentEvents.turnId, turnId),
+          eq(agentEvents.type, type),
+        ),
+      )
+      .orderBy(desc(agentEvents.seq))
+      .all();
+  }
+
+  #resolveEvidence(
+    db: DbExecutor,
+    context: { sessionId: string; turnId: string },
+    input: RememberToolInput,
+  ): { turnId: string; eventSeq: number; quote?: string } {
+    const evidence = input.evidence.kind;
+
+    if (evidence === "user_statement") {
+      const message = this.#eventsForTurn(db, context.sessionId, context.turnId, "user.message")[0];
+
+      if (message === undefined) {
+        throw new MemoryError("MEMORY_INVALID_EVIDENCE", "no user message in this Turn");
+      }
+
+      const text = parsePayload(message.payloadJson).text;
+      const quote = input.evidence.quote ?? (typeof text === "string" ? text : undefined);
+
+      if (input.scope === "global" && input.evidence.quote === undefined) {
+        throw new MemoryError(
+          "MEMORY_INVALID_EVIDENCE",
+          "global preferences need an exact user quote",
+        );
+      }
+
+      return {
+        turnId: context.turnId,
+        eventSeq: message.seq,
+        ...(quote === undefined ? {} : { quote }),
+      };
+    }
+
+    if (evidence === "command_succeeded") {
+      const completed = this.#eventsForTurn(
+        db,
+        context.sessionId,
+        context.turnId,
+        "tool.completed",
+      ).find((event) => {
+        const payload = parsePayload(event.payloadJson);
+        return (
+          typeof payload.resultSummary === "string" && payload.resultSummary.includes("exit code 0")
+        );
+      });
+
+      if (completed === undefined) {
+        throw new MemoryError("MEMORY_INVALID_EVIDENCE", "no successful command in this Turn");
+      }
+
+      return { turnId: context.turnId, eventSeq: completed.seq };
+    }
+
+    if (evidence === "file_observed") {
+      const read = this.#eventsForTurn(
+        db,
+        context.sessionId,
+        context.turnId,
+        "tool.completed",
+      ).find((event) => parsePayload(event.payloadJson).fileRead !== undefined);
+
+      if (read === undefined) {
+        throw new MemoryError("MEMORY_INVALID_EVIDENCE", "no file read in this Turn");
+      }
+
+      return { turnId: context.turnId, eventSeq: read.seq };
+    }
+
+    if (evidence === "failure_then_success") {
+      const completed = this.#eventsForTurn(
+        db,
+        context.sessionId,
+        context.turnId,
+        "tool.completed",
+      )[0];
+      const failed = this.#eventsForTurn(db, context.sessionId, context.turnId, "tool.failed")[0];
+
+      if (completed === undefined || failed === undefined || failed.seq > completed.seq) {
+        throw new MemoryError(
+          "MEMORY_INVALID_EVIDENCE",
+          "no failure-then-success sequence in this Turn",
+        );
+      }
+
+      return { turnId: context.turnId, eventSeq: completed.seq };
+    }
+
+    const inference =
+      this.#eventsForTurn(db, context.sessionId, context.turnId, "assistant.message")[0] ??
+      this.#eventsForTurn(db, context.sessionId, context.turnId, "tool.completed")[0];
+
+    if (inference === undefined) {
+      throw new MemoryError("MEMORY_INVALID_EVIDENCE", "no assistant evidence in this Turn");
+    }
+
+    return { turnId: context.turnId, eventSeq: inference.seq };
+  }
+
+  /**
+   * Model-facing entry point: evidence ids are derived from the current Turn so
+   * the model cannot point at another session or forge an event sequence.
+   */
+  rememberFromTurn(
+    input: RememberToolInput,
+    context: { sessionId: string; turnId: string },
+    actor: "agent" | "user" = "agent",
+  ): MemoryDto {
+    const evidence = this.#resolveEvidence(this.#db, context, input);
+
+    return this.remember(
+      {
+        scope: input.scope,
+        kind: input.kind,
+        key: input.key,
+        title: input.title,
+        body: input.body,
+        evidence: {
+          kind: input.evidence.kind,
+          turnId: evidence.turnId,
+          eventSeq: evidence.eventSeq,
+          ...(evidence.quote === undefined ? {} : { quote: evidence.quote }),
+        },
+        ...(input.confidence === undefined ? {} : { confidence: input.confidence }),
+      },
+      actor,
     );
   }
 
