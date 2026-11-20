@@ -76,6 +76,16 @@
 | `MODEL_CREDENTIAL_MISSING` | 409 | 尚无可用模型凭据，无法同步官方目录 |
 | `MODEL_CATALOG_INVALID` | 502 | 官方目录响应不合规，未写入缓存 |
 | `MODEL_UNSUPPORTED` | 400 | 模型不在目录内，或档位不属于该模型 |
+| `MEMORY_NOT_FOUND` | 404 | 记忆不存在或不属于当前项目 |
+| `MEMORY_BUDGET_FULL` | 409 | 固定项已占满记忆预算，拒绝新写入 |
+| `MEMORY_KEY_TAKEN` | 409 | 用户创建时该 key 已有 active 记忆 |
+| `MEMORY_SECRET_REJECTED` | 422 | 记忆内容命中秘密、绝对路径或安全指令策略 |
+| `MEMORY_SUPPRESSED` | 409 | 该 key 或正文在抑制期内，拒绝重新学习 |
+| `MEMORY_RATE_LIMITED` | 429 | 单 Turn 记忆写入超过 3 条项目 / 1 条全局 |
+| `MEMORY_INVALID_EVIDENCE` | 422 | 证据不足、Turn/事件不存在或类型不匹配 |
+| `MEMORY_INVALID_STATE` | 409 | 记忆状态不允许当前操作 |
+| `MEMORY_SCOPE_FORBIDDEN` | 403 | 默认工作区无项目记忆，或全局记忆不是偏好 |
+| `MEMORY_DISABLED` | 409 | 全局或项目记忆已关闭 |
 | `INTERNAL` | 500 | 未预期错误（不返回堆栈） |
 
 ## 3. 公开接口（M0）
@@ -787,3 +797,28 @@ type JobInput = {
 ### K-7 命名服务 API
 
 082 K-7 新增的 `/api/process-services` 已在 083 移除；项目服务改由 `/api/processes?projectId=` 提供，预览按进程 ID 按需生成。
+
+
+## 086 项目记忆与用户偏好（2026-11-20）
+
+认证、Origin 与 CSRF 规则同现有 API。项目记忆只属于已登记项目；默认工作区 `prj_default` 没有项目记忆，返回 `MEMORY_SCOPE_FORBIDDEN`。
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/projects/:id/memories` | `status`（默认 `active`）、`kind`、`q`、`limit`、`offset`；返回 `{ items, total, budget }` |
+| GET | `/api/projects/:id/memories/budget` | 返回 active/total 字节、active/review/evicted 计数与上限 |
+| POST | `/api/projects/:id/memories` | 用户创建，body `{ kind, key, title, body, expiresAt? }`；201；key 已 active 返回 `MEMORY_KEY_TAKEN` |
+| PATCH | `/api/projects/:id/memories/:memoryId` | 编辑 `title/body/expiresAt/pinned`；`status` 只允许 review → active/rejected；需 `expectedUpdatedAt` |
+| DELETE | `/api/projects/:id/memories/:memoryId` | 忘记并写抑制项；query 需 `expectedUpdatedAt` |
+| POST | `/api/projects/:id/memories/:memoryId/restore` | 恢复 7 天内被淘汰的条目 |
+| GET | `/api/memories/global` | 全局偏好列表；只返回 `preference` |
+| GET | `/api/memories/global/budget` | 全局预算 |
+| POST | `/api/memories/global` | 用户创建全局偏好 |
+| PATCH | `/api/memories/global/:memoryId` | 编辑/固定/接受 review |
+| DELETE | `/api/memories/global/:memoryId` | 忘记并写抑制项 |
+| POST | `/api/memories/global/:memoryId/restore` | 恢复淘汰项 |
+
+- 列表项包含 `id, scope, projectId, kind, key, title, body, status, confidence, evidenceKind, sourceTurnId, sourceEventSeq, createdBy, useCount, lastUsedAt, lastConfirmedAt, correctionCount, pinned, bytes, verifiedAt, expiresAt, createdAt, updatedAt, stale, revisionCount`。
+- 所有写操作需认证、Origin 与 `x-csrf-token`；PATCH/DELETE 使用 `expectedUpdatedAt`，不匹配返回 `VERSION_CONFLICT`。
+- 记忆关闭时读写返回 `MEMORY_DISABLED`；秘密内容返回 `MEMORY_SECRET_REJECTED`，错误详情不回显正文。
+- 审计动作：`memory.learned/updated/reviewed/forgotten/evicted/restored/purged`；日志与审计只记录 id、scope、kind、状态与字节数，不记录正文。

@@ -10,6 +10,7 @@ import { registerFsRoutes } from "./api/fs.js";
 import { registerGitRoutes } from "./api/git.js";
 import { registerHealthRoute } from "./api/health.js";
 import { registerJobRoutes } from "./api/jobs.js";
+import { registerMemoryRoutes } from "./api/memories.js";
 import { registerModelRoutes } from "./api/models.js";
 import { registerPairingRoutes } from "./api/pairing.js";
 import { registerPreviewRoutes } from "./api/previews.js";
@@ -34,6 +35,7 @@ import { knownCredentialGuard } from "./modules/files/credentials.js";
 import { FileWatchManager } from "./modules/files/watcher.js";
 import { GitManager } from "./modules/git/manager.js";
 import type { JobService } from "./modules/jobs/service.js";
+import type { MemoryService } from "./modules/memory/service.js";
 import type { DeepSeekCatalogFetcher } from "./modules/models/catalog.js";
 import type { ModelProbeResolver } from "./modules/models/probe.js";
 import type { PreviewRegistry } from "./modules/previews/registry.js";
@@ -72,6 +74,7 @@ export interface AppServices {
   serviceActionAuthorizations?: ServiceActionAuthorizationService;
   serviceOps?: ServiceOpsRuntime;
   jobs?: JobService;
+  memory?: MemoryService;
   previews?: PreviewRegistry | null;
   resourceEvents?: ResourceEventBus;
 }
@@ -209,6 +212,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       registerJobRoutes(app, { service: options.services.jobs });
     }
     registerProjectRoutes(app, { db: options.services.db, dataDir: options.services.dataDir });
+    if (options.services.memory !== undefined) {
+      registerMemoryRoutes(app, { db: options.services.db, memory: options.services.memory });
+    }
     registerSessionRoutes(app, {
       db: options.services.db,
       dataDir: options.services.dataDir,

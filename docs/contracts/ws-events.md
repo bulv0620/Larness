@@ -258,3 +258,25 @@ registered/status/unregistered拟含kind/status/terminalId/terminalExecutionId/e
 ### 用户消息的会话截图
 
 `user.message` 的 payload 可含 `attachmentIds: string[]`。客户端使用事件的会话标识与附件 ID，从认证 REST 地址读取图片。回放和广播均只传引用。
+
+
+## 086 记忆变更通知（2026-11-20）
+
+记忆写入、审核、忘记、淘汰与恢复通过 `system` 主题发送非持久通知，不带序号，也不携带正文：
+
+```json
+{
+  "kind": "memory.changed",
+  "scope": "project",
+  "projectId": "prj_...",
+  "memoryId": "mem_...",
+  "action": "learned",
+  "status": "active"
+}
+```
+
+- `scope` 为 `project` / `global`；`projectId` 仅 project 范围出现。
+- `action`：`learned | updated | reviewed | forgotten | evicted | restored | purged`。
+- `status`：`active | review | rejected | superseded | expired | evicted`。
+- 客户端收到后重拉当前项目的记忆列表与预算；丢失通知可由轮询或重连后重拉补齐。
+- 通知不进入 `agent_events`，不改变会话时间线；记忆正文只经认证 REST 读取。

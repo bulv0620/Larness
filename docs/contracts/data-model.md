@@ -1,6 +1,6 @@
 # 数据模型与迁移
 
-> 当前迁移版本为 27。表格为索引，完整字段以对应的迁移和下文实施条款为准。
+> 当前迁移版本为 36。表格为索引，完整字段以对应的迁移和下文实施条款为准。
 > 实现：SQLite + Drizzle ORM；迁移由 drizzle-kit 生成，启动时执行。
 
 ## 1. 约定
@@ -397,3 +397,14 @@ CREATE INDEX idx_sessions_origin ON sessions(origin, updated_at);
 ### 0031 · 会话截图（MC-8）
 
 `schemaVersion 30 → 31`。新增 `session_attachments`，保存会话外键、图片 MIME、尺寸、摘要、字节与时间，按会话级联删除。Turn 输入和用户消息事件仅保存截图 ID。
+
+
+### 0036 · 项目记忆与用户偏好（086）
+
+`schemaVersion 35 → 36`。新增：
+
+- `memories`：`scope`、`project_id`、`project_key`、`kind`、`key`、`title`、`body`、`status`、`confidence`、`evidence_kind`、来源 Turn/事件、创建者、使用/纠正计数、固定、字节、验证/过期与时间戳。`scope=global` 时 `project_id` 为空且 kind 只能是 `preference`；project 范围使用 `project_key` 做 active key 唯一索引。
+- `memory_revisions`：每条记忆的标题、正文、状态、操作者、时间与原因；最多保留 3 个 / 30 天。
+- `memory_suppressions`：忘记/拒绝后的 key、正文哈希与 90 天过期时间，防止重新学习。
+
+索引：active key 唯一（scope + project_key + key，partial）、`(scope, project_id, status)`、`expires_at`、revision 唯一、suppression key 唯一。项目删除级联删除三张表的数据。迁移只新增表与索引，不改现有列；回滚时删除三张新表。

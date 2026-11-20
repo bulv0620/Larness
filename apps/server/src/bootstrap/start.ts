@@ -83,7 +83,7 @@ import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import type { RateLimiter } from "../security/rate-limit.js";
 import { SecretStore } from "../security/secretStore.js";
 import { SERVER_VERSION } from "../version.js";
-import { publishAgentEvent } from "../ws/publisher.js";
+import { publishAgentEvent, publishMemoryChanged } from "../ws/publisher.js";
 import { type LoadedConfig, loadConfig } from "./config.js";
 import { acquireInstanceLock, type InstanceLock, releaseInstanceLock } from "./lock.js";
 import { pruneExpiredLogs, startLogRetention } from "./log-retention.js";
@@ -514,12 +514,14 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
     });
     ipc = ipcServer;
 
+    const memory = new MemoryService({
+      db: opened.db,
+      enabled: () => loaded.config.agent.memory.enabled,
+      publish: publishMemoryChanged,
+    });
+
     if (options.turnRunner !== false) {
       const registry = createFileToolRegistry();
-      const memory = new MemoryService({
-        db: opened.db,
-        enabled: () => loaded.config.agent.memory.enabled,
-      });
       registry.register(createPlanTool({ db: opened.db, secretStore }));
       registry.register(createCommandTool({ secretStore }));
       registry.register(createShellTool({ secretStore }));
@@ -649,6 +651,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         serviceActionAuthorizations,
         serviceOps,
         jobs,
+        memory,
         previews,
         ...(turnQueue === null
           ? {}

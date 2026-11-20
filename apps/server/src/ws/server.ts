@@ -6,6 +6,7 @@ import {
   type CommandOutputEvent,
   CommandSubscriptionSchema,
   FileSubscriptionSchema,
+  type MemoryChangedPayload,
   type ServerEvent,
   ServiceOpsSubscriptionSchema,
   ServiceSubscriptionSchema,
@@ -14,6 +15,7 @@ import {
   TerminalSubscriptionSchema,
   type WebAuthnRuntime,
   WORKSPACE_JOBS_CHANGED,
+  WORKSPACE_MEMORY_CHANGED,
   WORKSPACE_SESSIONS_CHANGED,
 } from "@larness/shared";
 import { eq, max } from "drizzle-orm";
@@ -275,6 +277,15 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           send(socket, { kind: WORKSPACE_JOBS_CHANGED });
         };
         agentEventBus.on(WORKSPACE_JOBS_CHANGED, onWorkspaceJobsChanged);
+        const onMemoryChanged = (payload: MemoryChangedPayload): void => {
+          if (!subscriptions.has("system")) return;
+          if (!sessionActive()) {
+            socket.close(1008, "session expired");
+            return;
+          }
+          send(socket, { kind: WORKSPACE_MEMORY_CHANGED, ...payload });
+        };
+        agentEventBus.on(WORKSPACE_MEMORY_CHANGED, onMemoryChanged);
         const onResourceEvent = (event: ServerEvent): void => {
           if (!subscriptions.has(event.streamId)) return;
           if (!sessionActive()) {
@@ -781,6 +792,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
           agentEventBus.off("event", onAgentEvent);
           agentEventBus.off(WORKSPACE_SESSIONS_CHANGED, onWorkspaceSessionsChanged);
           agentEventBus.off(WORKSPACE_JOBS_CHANGED, onWorkspaceJobsChanged);
+          agentEventBus.off(WORKSPACE_MEMORY_CHANGED, onMemoryChanged);
           deps.resourceEvents.off(onResourceEvent);
           deps.resourceEvents.offOutput(onOutput);
           deps.resourceEvents.offTerminalOutput(onTerminalOutput);
