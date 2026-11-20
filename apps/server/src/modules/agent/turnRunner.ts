@@ -53,7 +53,6 @@ import { appendAgentEvent, toServerEvent } from "./events.js";
 import { buildObservationSnapshot } from "./observationSnapshot.js";
 import { disabledToolsForProfile } from "./profiles.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
-import { secretVerdict } from "./secretGuard.js";
 import {
   calibrateEstimate,
   contextRolloverThreshold,
@@ -63,6 +62,7 @@ import {
   shouldFoldToolResults,
 } from "./tokenEstimator.js";
 import { executeTool, type ToolExecutionOutcome } from "./toolExecutor.js";
+import { safeToolSummary } from "./toolSummary.js";
 import {
   addUsage,
   DEFAULT_BUDGET,
@@ -1801,11 +1801,11 @@ export class TurnRunner {
           const definition = disabledTools.has(request.name)
             ? undefined
             : this.#options.registry.get(request.name);
-          const rawArgsSummary = definition?.summarize?.(request.args) ?? request.name;
-          const argsSummary =
-            secretVerdict([rawArgsSummary], loadSecrets(), this.#options.secretStore) === "ok"
-              ? rawArgsSummary
-              : "tool arguments redacted";
+          const argsSummary = safeToolSummary(
+            definition?.summarize?.(request.args) ?? request.name,
+            loadSecrets(),
+            this.#options.secretStore,
+          );
 
           this.#emit(turn, session, "tool.requested", {
             turnId: turn.id,
