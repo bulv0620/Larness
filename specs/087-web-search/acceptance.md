@@ -7,7 +7,7 @@
 
 | 检查 | 结果 | 备注 |
 |---|---|---|
-| `pnpm check` | 通过 | biome + 6 包 typecheck + 全量单测；server 847 passed / 14 skipped；web 275 passed；agent 63 passed / 1 skipped |
+| `pnpm check` | 通过 | biome + 6 包 typecheck + 全量单测；server 850 passed / 14 skipped；web 275 passed；agent 63 passed / 1 skipped |
 | `pnpm build` | 通过 | server 四入口 + web；仅保留既有大 chunk 提示 |
 | `pnpm test:e2e` | 通过 | 25/25，含新增“加号已移除、地球按钮存在且默认关闭” |
 | Provider 定向测试 | 通过 | `test/web-search/*`：DeepSeek / GLM 请求映射、HTTP 错误、URL 防护、重试、工具参数与秘密扫描 |
