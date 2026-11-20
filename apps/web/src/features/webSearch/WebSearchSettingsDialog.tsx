@@ -364,6 +364,7 @@ export function WebSearchSettingsDialog({
                         <Button
                           size="sm"
                           variant="secondary"
+                          title="测试会发起一次真实搜索并计费"
                           disabled={busy}
                           onClick={() => void test(selected)}
                         >
