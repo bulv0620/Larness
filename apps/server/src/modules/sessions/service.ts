@@ -37,6 +37,7 @@ export interface SessionDto {
   thinking: string | null;
   agentProfile: AgentProfile;
   approvalPolicyId: string;
+  webSearchEnabled: boolean;
   createdAt: number;
   updatedAt: number;
   lastActivityAt: number;
@@ -70,6 +71,7 @@ export interface UpdateSessionInput {
   thinking?: string | null;
   agentProfile?: AgentProfile;
   approvalPolicyId?: ApprovalPolicy;
+  webSearchEnabled?: boolean;
   clientSessionId?: string;
 }
 
@@ -96,6 +98,7 @@ export function sessionDto(row: SessionRow, dataDir: string): SessionDto {
     thinking: row.thinking,
     agentProfile: row.agentProfile,
     approvalPolicyId: row.approvalPolicyId,
+    webSearchEnabled: row.webSearchEnabled,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     lastActivityAt: row.lastActivityAt,
@@ -339,6 +342,7 @@ export function updateSession(
       thinking,
       agentProfile,
       approvalPolicyId,
+      ...(input.webSearchEnabled === undefined ? {} : { webSearchEnabled: input.webSearchEnabled }),
       updatedAt: now,
     });
 
@@ -368,6 +372,22 @@ export function updateSession(
         resourceType: "session",
         resourceId: updated.id,
         details: { from: current.model, to: model, thinking: thinking ?? null },
+        now,
+      });
+    }
+
+    if (
+      input.webSearchEnabled !== undefined &&
+      input.webSearchEnabled !== current.webSearchEnabled
+    ) {
+      appendAudit(tx, {
+        action: "web_search.session.toggled",
+        decision: "allow",
+        clientSessionId: input.clientSessionId,
+        sessionId: updated.id,
+        resourceType: "session",
+        resourceId: updated.id,
+        details: { enabled: input.webSearchEnabled },
         now,
       });
     }

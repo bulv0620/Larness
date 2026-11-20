@@ -9,8 +9,8 @@
 |---|---|---|---|
 | WS-0 | 规格确认与 ADR | — | `done`（2026-11-20） |
 | WS-1 | Provider 层：DeepSeek / GLM 适配器 | WS-0 | `done`（2026-11-20） |
-| WS-2 | 搜索连接存储、REST 与审计 | WS-0 | `in_progress` |
-| WS-3 | Agent 工具、会话开关与上下文 | WS-1、WS-2 | `todo` |
+| WS-2 | 搜索连接存储、REST 与审计 | WS-0 | `done`（2026-11-20） |
+| WS-3 | Agent 工具、会话开关与上下文 | WS-1、WS-2 | `in_progress` |
 | WS-4 | 设置弹窗、侧栏入口与地球按钮 | WS-2、WS-3 | `todo` |
 | WS-5 | 契约、E2E、真实 Key 验证与收口 | WS-1～WS-4 | `todo` |
 
@@ -66,7 +66,7 @@
 
 ### WS-2 搜索连接存储、REST 与审计
 
-- 状态：`in_progress`
+- 状态：`done`（2026-11-20）
 - 依赖：WS-0
 - 目标：新增独立搜索连接表与设置，Key 加密、REST 掩码、活动连接可选。
 - 交付物：
@@ -96,7 +96,7 @@
 
 ### WS-3 Agent 工具、会话开关与上下文
 
-- 状态：`todo`
+- 状态：`in_progress`
 - 依赖：WS-1、WS-2
 - 目标：把联网搜索接入 Agent 工具表、Profile、上下文组装与执行层，并增加会话开关快照。
 - 交付物：

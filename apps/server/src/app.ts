@@ -25,6 +25,7 @@ import { registerStaticRoutes } from "./api/static.js";
 import { registerSystemRoutes } from "./api/system.js";
 import { registerTerminalRoutes } from "./api/terminals.js";
 import { registerWebAuthnRoutes } from "./api/webauthn.js";
+import { registerWebSearchRoutes } from "./api/webSearch.js";
 import { resolveActiveSession } from "./auth/sessions.js";
 import type { Database } from "./db/client.js";
 import { appendAudit } from "./db/repositories/audit.js";
@@ -48,6 +49,7 @@ import type { ServiceOpsRuntime } from "./modules/service-ops/serviceOps.js";
 import { ServiceManager } from "./modules/services/manager.js";
 import { createHostMetricsService } from "./modules/system/metrics.js";
 import { TerminalManager } from "./modules/terminals/manager.js";
+import type { WebSearchService } from "./modules/web-search/service.js";
 import { resolveRequestId } from "./request-id.js";
 import { installSecurityGuard } from "./security/guard.js";
 import { RateLimiter } from "./security/rate-limit.js";
@@ -75,6 +77,7 @@ export interface AppServices {
   serviceOps?: ServiceOpsRuntime;
   jobs?: JobService;
   memory?: MemoryService;
+  webSearchService?: WebSearchService;
   previews?: PreviewRegistry | null;
   resourceEvents?: ResourceEventBus;
 }
@@ -176,6 +179,13 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
         secretStore: options.services.secretStore,
         catalogFetcher: options.services.catalogFetcher,
         modelProbeResolver: options.services.modelProbeResolver,
+      });
+      registerWebSearchRoutes(app, {
+        db: options.services.db,
+        secretStore: options.services.secretStore,
+        ...(options.services.webSearchService === undefined
+          ? {}
+          : { service: options.services.webSearchService }),
       });
     }
     registerApprovalRoutes(app, { db: options.services.db });

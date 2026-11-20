@@ -79,6 +79,7 @@ import { ServiceOpsRuntime } from "../modules/service-ops/serviceOps.js";
 import { ServiceManager } from "../modules/services/manager.js";
 import { getSessionById } from "../modules/sessions/repository.js";
 import { TerminalManager } from "../modules/terminals/manager.js";
+import { WebSearchService } from "../modules/web-search/service.js";
 import { ensureDataDirs, resolveDataDir } from "../platform/paths.js";
 import type { RateLimiter } from "../security/rate-limit.js";
 import { SecretStore } from "../security/secretStore.js";
@@ -102,6 +103,7 @@ export interface StartServerOptions {
   titleSummarizer?: boolean;
   providerResolver?: ProviderResolver;
   catalogFetcher?: DeepSeekCatalogFetcher;
+  webSearchService?: WebSearchService;
   pm2Global?: Pm2Global;
   pm2?: Pm2Adapter | null;
   /** E2E fixtures can raise pairing limits without changing production rules. */
@@ -641,6 +643,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         secretStore,
         modelProbeResolver: createDefaultProviderResolver(opened.db, secretStore),
         ...(options.catalogFetcher === undefined ? {} : { catalogFetcher: options.catalogFetcher }),
+        webSearchService: options.webSearchService ?? new WebSearchService(),
         commands,
         resourceEvents,
         terminals,

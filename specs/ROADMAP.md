@@ -515,8 +515,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 |---|---|---|---|
 | WS-0 | [规格确认与 ADR](087-web-search/tasks.md#ws-0-规格确认与-adr) | — | `done`（2026-11-20） |
 | WS-1 | [Provider 层：DeepSeek / GLM 适配器](087-web-search/tasks.md#ws-1-provider-层deepseek--glm-适配器) | WS-0 | `done`（2026-11-20） |
-| WS-2 | [搜索连接存储、REST 与审计](087-web-search/tasks.md#ws-2-搜索连接存储rest-与审计) | WS-0 | `in_progress` |
-| WS-3 | [Agent 工具、会话开关与上下文](087-web-search/tasks.md#ws-3-agent-工具会话开关与上下文) | WS-1、WS-2 | `todo` |
+| WS-2 | [搜索连接存储、REST 与审计](087-web-search/tasks.md#ws-2-搜索连接存储rest-与审计) | WS-0 | `done`（2026-11-20） |
+| WS-3 | [Agent 工具、会话开关与上下文](087-web-search/tasks.md#ws-3-agent-工具会话开关与上下文) | WS-1、WS-2 | `in_progress` |
 | WS-4 | [设置弹窗、侧栏入口与地球按钮](087-web-search/tasks.md#ws-4-设置弹窗侧栏入口与地球按钮) | WS-2、WS-3 | `todo` |
 | WS-5 | [契约、E2E、真实 Key 验证与收口](087-web-search/tasks.md#ws-5-契约e2e真实-key-验证与收口) | WS-1～WS-4 | `todo` |
 
