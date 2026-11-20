@@ -23,6 +23,8 @@ export interface AdminDialogShellProps {
   actions?: ReactNode;
   children: ReactNode;
   testId?: string;
+  /** Overrides the shared 920px width for dialogs with a single narrow pane. */
+  widthClassName?: string;
   bodyClassName?: string;
   onEscapeKeyDown?: (event: KeyboardEvent) => void;
 }
@@ -41,12 +43,17 @@ export function AdminDialogShell({
   actions,
   children,
   testId,
+  widthClassName,
   bodyClassName,
   onEscapeKeyDown,
 }: AdminDialogShellProps) {
   return (
     <DialogContent
-      className={cn("flex flex-col overflow-hidden p-0", ADMIN_DIALOG_HEIGHT, ADMIN_DIALOG_WIDTH)}
+      className={cn(
+        "flex flex-col overflow-hidden p-0",
+        ADMIN_DIALOG_HEIGHT,
+        widthClassName ?? ADMIN_DIALOG_WIDTH,
+      )}
       {...(testId === undefined ? {} : { "data-testid": testId })}
       {...(onEscapeKeyDown === undefined ? {} : { onEscapeKeyDown })}
     >

@@ -1,4 +1,4 @@
-import { cn, ErrorMessage } from "@larness/ui";
+import { cn, Toast } from "@larness/ui";
 import { SquareTerminal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ResultCard } from "@/features/chat/ResultCard";
@@ -103,13 +103,11 @@ function CheckedTerminalButton({
           <span className="break-all">{label}</span>
         </button>
       )}
-      {notice?.error ? (
-        <ErrorMessage message={notice.text} onDismiss={() => setNotice(null)} />
-      ) : notice ? (
-        <p role="status" className="mt-1 text-[11px] text-ink-3">
-          {notice.text}
-        </p>
-      ) : null}
+      <Toast
+        message={notice?.text ?? null}
+        tone={notice?.error ? "error" : "info"}
+        onDismiss={() => setNotice(null)}
+      />
     </div>
   );
 }

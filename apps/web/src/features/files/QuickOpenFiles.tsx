@@ -1,5 +1,13 @@
 import type { FileScope } from "@larness/shared";
-import { cn, Dialog, DialogContent, DialogDescription, DialogTitle, Input } from "@larness/ui";
+import {
+  cn,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  ErrorMessage,
+  Input,
+} from "@larness/ui";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
@@ -158,16 +166,17 @@ function FileSearch({
           Esc
         </button>
       </div>
-      {error || (current === term && query.isError) ? (
-        <p className="border-t border-line px-5 py-3 text-xs text-danger" role="alert">
-          {error || "搜索文件失败，请修改关键词或重试。"}
-          {!error ? (
-            <button type="button" className="ml-2 text-accent" onClick={() => void query.refetch()}>
-              重试
-            </button>
-          ) : null}
-        </p>
-      ) : null}
+      <ErrorMessage
+        message={
+          error || (current === term && query.isError ? "搜索文件失败，请修改关键词或重试。" : null)
+        }
+        onDismiss={error ? () => setError("") : undefined}
+        retry={
+          !error && current === term && query.isError
+            ? { label: "重试", run: () => void query.refetch() }
+            : undefined
+        }
+      />
       <div
         id={listId}
         role="listbox"

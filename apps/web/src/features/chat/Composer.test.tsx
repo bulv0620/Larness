@@ -216,7 +216,7 @@ it("opens separate model and thinking submenus with small Key headings", async (
   await user.click(popover().getByRole("button", { name: "GLM-4.6" }));
   const switchNotice = screen.getByText("已切换到 GLM-4.6");
   expect(switchNotice).toBeVisible();
-  expect(switchNotice).toHaveClass("absolute", "bottom-full");
+  expect(switchNotice.closest<HTMLElement>('[role="status"]')?.className).toContain("top-4");
 
   await user.click(trigger);
   await user.click(popover().getByRole("button", { name: "思考强度：开启" }));

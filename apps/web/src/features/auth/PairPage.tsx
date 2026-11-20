@@ -1,4 +1,4 @@
-import { Input } from "@larness/ui";
+import { ErrorMessage, Input } from "@larness/ui";
 import {
   browserSupportsWebAuthn,
   type PublicKeyCredentialCreationOptionsJSON,
@@ -449,11 +449,7 @@ export function PairPage() {
           </div>
         ) : null}
 
-        {error ? (
-          <p role="alert" className="mt-4 rounded-md bg-surface-2 p-3 text-sm text-danger">
-            {error}
-          </p>
-        ) : null}
+        <ErrorMessage message={error} onDismiss={() => setError(null)} />
 
         {request ? (
           <p className="mt-5 text-xs text-ink-3">

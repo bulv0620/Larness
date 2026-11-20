@@ -7,6 +7,7 @@
 | [architecture/overview.md](architecture/overview.md) | 系统拓扑、进程边界、模块职责、关键数据流 | 每次开始新里程碑 |
 | [architecture/stack.md](architecture/stack.md) | 冻结技术栈、workspace 结构、依赖升级规则 | 选型、加依赖、搭脚手架 |
 | [architecture/security.md](architecture/security.md) | 信任模型、审批分级、认证、秘密、预览隔离、失败关闭矩阵 | 涉及认证 / 工具 / 代理 / 审批 |
+| [architecture/ui-feedback.md](architecture/ui-feedback.md) | 统一消息反馈：Toast 的用法、位置、例外与检查清单 | 新增任何成功 / 失败 / 状态提示 |
 | [contracts/rest-api.md](contracts/rest-api.md) | REST 约定、错误码、M0–M5 接口契约 | 写 API 或前端请求 |
 | [contracts/ws-events.md](contracts/ws-events.md) | 事件包络、序号、重放、主题与事件类型 | 写实时链路 |
 | [contracts/ipc.md](contracts/ipc.md) | 本机 TUI ↔ Server 的 NDJSON 协议、方法与事件 | 写 TUI / IPC |

@@ -1,6 +1,7 @@
 import {
   Button,
   ConfirmDialog,
+  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -9,6 +10,7 @@ import {
   FormSelect,
   IconButton,
   Input,
+  Toast,
 } from "@larness/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -261,6 +263,7 @@ export function WebSearchSettingsDialog({
           description="独立管理搜索 Key 与每轮配额"
           closeLabel="关闭联网搜索"
           count={connections.length}
+          widthClassName="w-[min(560px,calc(100vw-24px))]"
           onEscapeKeyDown={(event) => {
             if (subdialog !== null) {
               event.preventDefault();
@@ -292,16 +295,15 @@ export function WebSearchSettingsDialog({
             </>
           }
         >
-          {error !== null && subdialog === null ? (
-            <div className="shrink-0 px-5 pt-3">
-              <ErrorMessage message={error} onDismiss={() => setError(null)} />
-            </div>
-          ) : null}
-          {notice !== null ? (
-            <div className="shrink-0 px-5 pt-3 text-[10.5px] text-success">{notice}</div>
+          {subdialog === null ? (
+            <Toast
+              message={error ?? notice}
+              tone={error ? "error" : "success"}
+              onDismiss={() => (error ? setError(null) : setNotice(null))}
+            />
           ) : null}
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {connections.length === 0 ? (
               <AdminEmptyState
                 icon={KeyRound}
@@ -321,13 +323,24 @@ export function WebSearchSettingsDialog({
                 }
               />
             ) : (
-              <ul className="divide-y divide-line/70">
+              <ul className="space-y-2">
                 {connections.map((connection) => {
                   const isActive = connection.id === activeId;
                   const isTesting = testingId === connection.id;
                   return (
-                    <li key={connection.id} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
-                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-2 text-ink-3">
+                    <li
+                      key={connection.id}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-xl border px-3 py-2.5",
+                        isActive ? "border-accent/30 bg-accent-soft/50" : "border-line bg-surface",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "grid size-8 shrink-0 place-items-center rounded-lg",
+                          isActive ? "bg-surface text-accent" : "bg-surface-2 text-ink-3",
+                        )}
+                      >
                         <Globe size={14} aria-hidden="true" />
                       </span>
                       <div className="min-w-0 flex-1">
@@ -341,9 +354,12 @@ export function WebSearchSettingsDialog({
                             </span>
                           ) : null}
                         </div>
-                        <div className="mt-0.5 truncate text-[9.5px] text-ink-3">
-                          {providerLabel(connection.provider)} · {regionLabel(connection)} ·{" "}
-                          <span className="font-mono">{connection.maskedKey}</span>
+                        <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[9.5px] text-ink-3">
+                          <span className="shrink-0">{providerLabel(connection.provider)}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="shrink-0">{regionLabel(connection)}</span>
+                          <span aria-hidden="true">·</span>
+                          <span className="truncate font-mono">{connection.maskedKey}</span>
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-0.5">

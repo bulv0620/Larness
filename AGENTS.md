@@ -55,6 +55,7 @@
 - 数据库访问集中在 repository 层；事务内完成“写事件 + 递增序号”。
 - 前端：函数组件 + hooks；服务端状态用 TanStack Query，视图状态用 Zustand；不复制服务器状态到本地 store。
 - 样式：Tailwind + 语义 token；不引入第二套 UI 框架或 CSS-in-JS。
+- 反馈：用户动作的成功 / 失败 / 状态提示统一用 `@larness/ui` 的 `Toast`（顶部浮动，不占布局）；字段校验与区域状态留在原位；规范见 [统一消息反馈](docs/architecture/ui-feedback.md)。
 - 不提交注释掉的代码、调试输出、临时开关。
 
 ## 6. 安全红线（详见 CONSTITUTION）

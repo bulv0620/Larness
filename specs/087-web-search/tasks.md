@@ -14,6 +14,7 @@
 | WS-4 | 设置弹窗、侧栏入口与地球按钮 | WS-2、WS-3 | `done`（2026-11-20） |
 | WS-5 | 契约、E2E、真实 Key 验证与收口 | WS-1～WS-4 | `done`（2026-11-20，人类验收通过） |
 | WS-6 | 交互收敛：地球禁用、列表弹窗与统一命名（用户反馈） | WS-4 | `done`（2026-11-20） |
+| WS-7 | 设置弹窗视觉收敛：窄版卡片列表与顶部 toast（用户反馈） | WS-6 | `done`（2026-11-20） |
 
 ## 任务卡
 
@@ -184,6 +185,30 @@
   - `apps/web/src/components/layout/ProjectSidebar.tsx`
 - 备注：2026-11-20 用户直接反馈；不改变后端契约。
 
+### WS-7 设置弹窗视觉收敛：窄版卡片列表与顶部 toast（用户反馈）
+
+- 状态：`done`（2026-11-20）
+- 依赖：WS-6
+- 目标：按用户反馈收紧联网搜索弹窗的宽度与信息层级。
+- 交付物：
+  - 弹窗宽度由 920px 收窄到 560px；`AdminDialogShell` 新增可选 `widthClassName`，其余管理弹窗不变；
+  - Key 列表改为卡片布局：当前连接高亮，其余 hover 反馈，操作图标仍在卡片右侧；
+  - 移除弹窗顶部成功提示栏；操作结果与测试连接结果改由顶部浮动 `Toast` 提示，约 3.2 秒自动消失；
+  - 错误继续使用全局浮动 `ErrorMessage`，不占弹窗布局。
+- 验收：
+  - 弹窗变窄后 Header、卡片与操作图标不重叠；
+  - 添加/编辑/配额/设为当前/测试/删除的结果均通过顶部 toast 呈现，自动消失且不遮挡卡片操作；
+  - 弹窗内部无顶部提示栏，错误提示不挤占列表空间。
+- 测试：
+  - `apps/web/src/features/webSearch/WebSearchSettingsDialog.test.tsx`（toast 断言）
+  - `apps/web/src/components/common/Toast.test.tsx`（自动消失）
+- 涉及路径：
+  - `apps/web/src/features/webSearch/WebSearchSettingsDialog.tsx`
+  - `apps/web/src/components/common/AdminDialogShell.tsx`
+  - `packages/ui/src/toast.tsx`
+  - `apps/web/src/styles/global.css`
+- 备注：2026-11-20 用户直接反馈；不改变后端契约与数据。
+
 ### WS-5 契约、E2E、真实 Key 验证与收口
 
 - 状态：`done`（2026-11-20，人类验收通过）
@@ -209,3 +234,28 @@
   - `STATUS.md`
   - `specs/ROADMAP.md`
 - 备注：真实 Key 不写入仓库、日志或验收记录。
+
+### WS-8 全局消息反馈统一：Toast 组件与规范（用户反馈）
+
+- 状态：`done`（2026-11-20）
+- 依赖：WS-7
+- 目标：把成功 / 失败 / 中性提示统一到同一个顶部浮动组件，禁止新增占位提示条。
+- 交付物：
+  - `Toast` 提升到 `@larness/ui`，支持 `success` / `info` / `error`、自动消失、重试与关闭；`ErrorMessage` 变为 `error` 别名；
+  - 联网搜索弹窗改用通用 `Toast`，删除 `apps/web/src/components/common/Toast.tsx`；
+  - 终端打开结果、模型切换、文件结果变化、配对错误、移动目录错误、快速打开搜索错误迁到顶部 Toast；
+  - 新增 `docs/architecture/ui-feedback.md`，并在 `AGENTS.md`、`specs/README.md`、spec 模板中登记规范。
+- 验收：
+  - 所有操作反馈浮于顶部，不占布局；错误可关闭 / 重试；成功与中性自动消失；
+  - 字段校验、加载、空态、数据内容仍留在原位；
+  - 新功能 spec 模板包含消息反馈检查项。
+- 测试：
+  - `apps/web/src/components/common/Toast.test.tsx`（成功自动消失、错误持久关闭、重试）
+  - `apps/web/src/features/chat/Composer.test.tsx`（顶部提示）
+  - `apps/web/src/features/webSearch/WebSearchSettingsDialog.test.tsx`
+- 涉及路径：
+  - `packages/ui/src/toast.tsx`、`packages/ui/src/error-message.tsx`
+  - `apps/web/src/features/**` 受影响提示点
+  - `docs/architecture/ui-feedback.md`
+- 验证：web 284 项、web/ui typecheck、web build 通过；全量 `pnpm check` 的 server 套件有 5 个文件 / 7 项超时，`git/manager` 与 `resources/services` 单独复跑通过（与本改动无关）。
+- 备注：2026-11-20 用户直接反馈；不改变后端契约。

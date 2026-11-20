@@ -132,9 +132,8 @@ it("keeps key actions in the list, shows test loading, and deletes with confirma
   fireEvent.click(testButton);
   expect(testButton).toHaveAttribute("aria-busy", "true");
   resolveTest({ ok: true, latencyMs: 42, resultCount: 1 });
-  await waitFor(() =>
-    expect(screen.getByText("「DeepSeek 搜索」连接可用：1 条结果 · 42 ms")).toBeInTheDocument(),
-  );
+  const testResult = await screen.findByRole("status");
+  expect(testResult).toHaveTextContent("「DeepSeek 搜索」连接可用：1 条结果 · 42 ms");
   expect(testButton).toHaveAttribute("aria-busy", "false");
 
   fireEvent.click(screen.getByRole("button", { name: "删除 DeepSeek 搜索" }));
@@ -152,6 +151,8 @@ it("edits a key and saves every-round quotas in separate dialogs", async () => {
   await waitFor(() =>
     expect(updateWebSearchConnection).toHaveBeenCalledWith("wsc_1", { label: "Edited" }),
   );
+  const updated = await screen.findByRole("status");
+  expect(updated).toHaveTextContent("搜索 Key 已更新");
 
   fireEvent.click(screen.getByRole("button", { name: "每轮配额" }));
   fireEvent.change(screen.getByLabelText("每轮搜索次数"), { target: { value: "3" } });
@@ -165,4 +166,5 @@ it("edits a key and saves every-round quotas in separate dialogs", async () => {
       maxFetchesPerTurn: 2,
     }),
   );
+  expect(await screen.findByRole("status")).toHaveTextContent("每轮配额已保存");
 });

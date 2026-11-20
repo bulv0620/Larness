@@ -1,5 +1,5 @@
 import type { FileResultTarget } from "@larness/shared";
-import { ErrorMessage } from "@larness/ui";
+import { Toast } from "@larness/ui";
 import { FileText } from "lucide-react";
 import { useState } from "react";
 import { ResultCard } from "@/features/chat/ResultCard";
@@ -32,12 +32,11 @@ export function FileResultCard({ target }: { target: FileResultTarget }) {
             .finally(() => setPending(false));
         }}
       />
-      {changed ? (
-        <p role="status" className="mt-1 text-[10.5px] text-ink-3">
-          文件已变化，已打开当前版本。
-        </p>
-      ) : null}
-      <ErrorMessage message={error} onDismiss={() => setError(null)} />
+      <Toast
+        message={error ?? (changed ? "文件已变化，已打开当前版本。" : null)}
+        tone={error ? "error" : "success"}
+        onDismiss={() => (error ? setError(null) : setChanged(false))}
+      />
     </div>
   );
 }

@@ -180,6 +180,10 @@
   .window-drag {
     -webkit-app-region: drag;
   }
+
+  .toast-slide-in {
+    animation: toast-slide-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 }
 
 @keyframes blink {
@@ -231,6 +235,17 @@
   }
   to {
     background-position: 0% 0;
+  }
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 

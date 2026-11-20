@@ -7,10 +7,10 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-  ErrorMessage,
   Hint,
   IconButton,
   Textarea,
+  Toast,
 } from "@larness/ui";
 import { useIsMutating, useMutation } from "@tanstack/react-query";
 import {
@@ -302,12 +302,6 @@ export function Composer({
     if (focusNonce > 0) textareaRef.current?.focus();
   }, [focusNonce]);
 
-  useEffect(() => {
-    if (switchNotice === null) return;
-    const timer = setTimeout(() => setSwitchNotice(null), 4_000);
-    return () => clearTimeout(timer);
-  }, [switchNotice]);
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: draft is the resize trigger
   useEffect(() => {
     const element = textareaRef.current;
@@ -452,17 +446,20 @@ export function Composer({
           centered ? "bg-surface/40 backdrop-blur-sm" : "bg-surface",
         )}
       >
-        {switchNotice?.sessionId === sessionId ? (
-          <p
-            role="status"
-            className="pointer-events-none absolute bottom-full left-2 mb-1 w-fit max-w-[calc(100%-1rem)] truncate rounded-md bg-surface/90 px-2 py-0.5 text-[10.5px] text-ink-3"
-          >
-            {switchNotice.message}
-          </p>
-        ) : null}
-        <ErrorMessage
-          message={saveError?.sessionId === sessionId ? saveError.message : null}
-          onDismiss={() => setSaveError(null)}
+        <Toast
+          message={
+            saveError?.sessionId === sessionId
+              ? saveError.message
+              : attachmentError ||
+                (switchNotice?.sessionId === sessionId ? switchNotice.message : null)
+          }
+          tone={saveError?.sessionId === sessionId || attachmentError ? "error" : "success"}
+          durationMs={!saveError && attachmentError ? 4000 : undefined}
+          onDismiss={() => {
+            if (saveError?.sessionId === sessionId) setSaveError(null);
+            else if (attachmentError) setAttachmentError("");
+            else setSwitchNotice(null);
+          }}
         />
         {screenshots.length > 0 ? (
           <div className="flex flex-wrap gap-2 px-3 pt-3">
@@ -486,9 +483,9 @@ export function Composer({
             ))}
           </div>
         ) : null}
-        {attachmentError || screenshotBlocked ? (
+        {screenshotBlocked ? (
           <p role="status" className="px-3 pt-2 text-xs text-warning">
-            {attachmentError || "当前模型连接未声明图片输入。请切换模型或移除截图。"}
+            当前模型连接未声明图片输入。请切换模型或移除截图。
           </p>
         ) : null}
         <Textarea

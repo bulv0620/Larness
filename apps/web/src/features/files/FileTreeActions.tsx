@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  ErrorMessage,
   Input,
 } from "@larness/ui";
 import { useInfiniteQuery } from "@tanstack/react-query";
@@ -232,11 +233,10 @@ export function MoveFileDialog({
             正在读取目录…
           </p>
         ) : null}
-        {error || query.isError ? (
-          <p role="alert" className="text-xs text-danger">
-            {error ?? fileError(query.error)}
-          </p>
-        ) : null}
+        <ErrorMessage
+          message={error ?? (query.isError ? fileError(query.error) : null)}
+          retry={query.isError ? { label: "重试", run: () => void query.refetch() } : undefined}
+        />
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" disabled={busy} onClick={close}>
             取消
