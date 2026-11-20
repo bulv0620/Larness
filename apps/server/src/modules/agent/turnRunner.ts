@@ -10,6 +10,7 @@ import {
   type ProviderUsage,
   type ToolCallRequest,
   type ToolRegistry,
+  type ToolResult,
   type ToolSchema,
 } from "@larness/agent";
 import { FileManagerError, OutputRedactor, selectShell } from "@larness/resources";
@@ -42,6 +43,8 @@ import { detectGit, parseProjectSettings } from "../projects/service.js";
 import { DeploymentError } from "../service-ops/errors.js";
 import type { ServiceOpsRuntime } from "../service-ops/serviceOps.js";
 import { getSessionById, getTurnById, updateTurnRow } from "../sessions/repository.js";
+import type { WebSearchRuntime } from "../web-search/runtime.js";
+import { DEFAULT_WEB_SEARCH_SETTINGS } from "../web-search/settings.js";
 import { isDefaultWorkspace } from "../workspaces/default.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
 import { assembleContext } from "./contextAssembler.js";
@@ -86,6 +89,7 @@ import {
   TurnFactsBuilder,
 } from "./turnCheckpoint.js";
 import { collectTurnFileResults, type TurnFileChange } from "./turnResults.js";
+import { FetchUrlToolSchema, WEB_TOOL_NAMES, WebSearchToolSchema } from "./webTool.js";
 
 function commandDisplay(params: unknown) {
   const request = CommandRequestSchema.parse(normalizeCommandRequest(params));
@@ -164,6 +168,7 @@ export interface TurnRunnerOptions {
   processes?: ProcessManager;
   serviceOps?: ServiceOpsRuntime;
   memory?: MemoryService;
+  webSearch?: WebSearchRuntime;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
   logger?: TurnTimingLogger;
   /**
@@ -379,7 +384,17 @@ export class TurnRunner {
     // Profile membership is enforced at execution, not only in the advertised
     // schema: a model that hallucinates a hidden built-in tool must not reach
     // its handler. Extension/test tools outside the catalog stay available.
-    const disabledTools = disabledToolsForProfile(session.agentProfile);
+    const webRuntime = this.#options.webSearch;
+    const webSettings = webRuntime?.settings() ?? DEFAULT_WEB_SEARCH_SETTINGS;
+    const webSearchAvailable = turn.webSearchEnabled && (webRuntime?.available() ?? false);
+    const disabledTools = new Set(disabledToolsForProfile(session.agentProfile));
+    if (!webSearchAvailable) {
+      for (const name of WEB_TOOL_NAMES) disabledTools.add(name);
+    }
+    let webSearchCalls = 0;
+    let webFetchCalls = 0;
+    const webSearchCache = new Map<string, ToolResult>();
+    const webFetchCache = new Map<string, ToolResult>();
     // First-touch order survives; later writes only refresh the version.
     const fileChanges = new Map<string, TurnFileChange>();
     const repeatFailures = new Map<string, number>();
@@ -883,6 +898,119 @@ export class TurnRunner {
               };
             }
           },
+          ...(webSearchAvailable && webRuntime !== undefined
+            ? {
+                webSearch: async (raw) => {
+                  const parsed = WebSearchToolSchema.safeParse(raw);
+                  if (!parsed.success) {
+                    return {
+                      ok: false,
+                      errorCode: "VALIDATION_ERROR",
+                      summary: "invalid web_search arguments",
+                    };
+                  }
+
+                  if (
+                    webSettings.maxSearchesPerTurn <= 0 ||
+                    webSearchCalls >= webSettings.maxSearchesPerTurn
+                  ) {
+                    return {
+                      ok: false,
+                      errorCode: "WEB_SEARCH_LIMIT",
+                      summary: `web search limit reached for this Turn (${webSettings.maxSearchesPerTurn}); use the results you already have`,
+                    };
+                  }
+
+                  const count = Math.min(parsed.data.count, webSettings.maxResults);
+                  const cacheKey = `${parsed.data.query}\u0000${count}`;
+                  const cached = webSearchCache.get(cacheKey);
+                  if (cached !== undefined) return cached;
+
+                  const active = webRuntime.resolveActive();
+                  if (active === null) {
+                    return {
+                      ok: false,
+                      errorCode: "WEB_SEARCH_NOT_CONFIGURED",
+                      summary: "no active web search connection",
+                    };
+                  }
+
+                  webSearchCalls += 1;
+                  const results = await webRuntime.service.search(
+                    active.connection,
+                    active.apiKey,
+                    { query: parsed.data.query, count, signal: controller.signal },
+                  );
+                  const result: ToolResult = {
+                    ok: true,
+                    summary: `${results.length} web results for "${parsed.data.query}"`,
+                    data: { query: parsed.data.query, count: results.length, results },
+                  };
+                  webSearchCache.set(cacheKey, result);
+                  return result;
+                },
+                fetchUrl: async (raw) => {
+                  const parsed = FetchUrlToolSchema.safeParse(raw);
+                  if (!parsed.success) {
+                    return {
+                      ok: false,
+                      errorCode: "VALIDATION_ERROR",
+                      summary: "invalid fetch_url arguments",
+                    };
+                  }
+
+                  if (
+                    webSettings.maxFetchesPerTurn <= 0 ||
+                    webFetchCalls >= webSettings.maxFetchesPerTurn
+                  ) {
+                    return {
+                      ok: false,
+                      errorCode: "WEB_FETCH_LIMIT",
+                      summary: `web fetch limit reached for this Turn (${webSettings.maxFetchesPerTurn}); use the content you already have`,
+                    };
+                  }
+
+                  const cacheKey = `${parsed.data.url}\u0000${parsed.data.offset}\u0000${parsed.data.maxChars}`;
+                  const cached = webFetchCache.get(cacheKey);
+                  if (cached !== undefined) return cached;
+
+                  const active = webRuntime.resolveActive();
+                  if (active === null) {
+                    return {
+                      ok: false,
+                      errorCode: "WEB_SEARCH_NOT_CONFIGURED",
+                      summary: "no active web search connection",
+                    };
+                  }
+
+                  webFetchCalls += 1;
+                  const page = await webRuntime.service.fetchPage(
+                    active.connection,
+                    active.apiKey,
+                    { url: parsed.data.url, signal: controller.signal },
+                  );
+                  const start = Math.min(parsed.data.offset, page.content.length);
+                  const content = page.content.slice(start, start + parsed.data.maxChars);
+                  const nextOffset =
+                    start + content.length < page.content.length ? start + content.length : null;
+                  const result: ToolResult = {
+                    ok: true,
+                    summary: `fetched ${page.title.length > 0 ? page.title : parsed.data.url}`,
+                    data: {
+                      url: parsed.data.url,
+                      title: page.title,
+                      content,
+                      offset: start,
+                      nextOffset,
+                      contentLength: page.content.length,
+                      truncated: nextOffset !== null,
+                    },
+                  };
+                  webFetchCache.set(cacheKey, result);
+                  return result;
+                },
+              }
+            : {}),
           loadSecrets,
           rememberMemory: async (raw) => {
             if (this.#options.memory === undefined) {
@@ -1053,6 +1181,7 @@ export class TurnRunner {
         contextRatio: this.#budget.contextRatio,
         agentProfile: session.agentProfile,
         ...(this.#options.memory === undefined ? {} : { memory: this.#options.memory }),
+        webSearchAvailable,
         now: () => this.#now(),
       };
       const assembleStarted = this.#now();

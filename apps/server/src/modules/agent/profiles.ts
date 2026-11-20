@@ -43,6 +43,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "control_service_ops",
     ]),
     memory: pack("memory", "项目记忆", ["remember", "read_memory"]),
+    web: pack("web", "联网搜索", ["web_search", "fetch_url"]),
   },
   profiles: {
     coding: profile("coding", "Coding", [
@@ -52,6 +53,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "process",
       "serviceOps",
       "memory",
+      "web",
     ]),
     plan: profile("plan", "Plan", [
       "core.read",
@@ -60,6 +62,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "process",
       "serviceOps",
       "memory",
+      "web",
       "plan",
     ]),
   },

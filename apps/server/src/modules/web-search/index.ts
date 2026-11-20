@@ -3,6 +3,7 @@ export * from "./deepseek.js";
 export * from "./errors.js";
 export * from "./glm.js";
 export * from "./repository.js";
+export * from "./runtime.js";
 export * from "./service.js";
 export * from "./settings.js";
 export * from "./types.js";

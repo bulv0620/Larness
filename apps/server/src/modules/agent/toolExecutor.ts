@@ -52,6 +52,8 @@ export interface ExecuteToolInput {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  webSearch?: (args: unknown) => Promise<ToolResult>;
+  fetchUrl?: (args: unknown) => Promise<ToolResult>;
   rememberMemory?: (args: unknown) => Promise<ToolResult>;
   readMemory?: (args: unknown) => Promise<ToolResult>;
   listServiceOps?: () => Promise<ToolResult>;
@@ -433,6 +435,22 @@ export async function executeTool(
               input.refreshObservations?.() ??
               denied("FORBIDDEN", "Observation context unavailable")
             );
+          },
+        }
+      : {}),
+    ...(input.webSearch
+      ? {
+          webSearch: async (args: unknown) => {
+            assertAuthorized();
+            return input.webSearch?.(args) ?? denied("FORBIDDEN", "Web search context unavailable");
+          },
+        }
+      : {}),
+    ...(input.fetchUrl
+      ? {
+          fetchUrl: async (args: unknown) => {
+            assertAuthorized();
+            return input.fetchUrl?.(args) ?? denied("FORBIDDEN", "Web fetch context unavailable");
           },
         }
       : {}),

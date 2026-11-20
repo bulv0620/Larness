@@ -30,6 +30,8 @@ export interface ToolContext {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  webSearch?: (args: unknown) => Promise<ToolResult>;
+  fetchUrl?: (args: unknown) => Promise<ToolResult>;
   rememberMemory?: (input: unknown) => Promise<ToolResult>;
   readMemory?: (input: unknown) => Promise<ToolResult>;
   listServiceOps?: () => Promise<ToolResult>;

@@ -158,4 +158,71 @@ describe("web search API", () => {
       }
     });
   });
+
+  it("requires a connection before enabling the session toggle and snapshots it on the Turn", async () => {
+    await withTempDir(async (dir) => {
+      const started = await startAuthorizedServer(dir, { webSearchService: fakeService() });
+      const app = started.running.app;
+      const headers = {
+        cookie: started.cookie,
+        origin: started.origin,
+        "x-csrf-token": started.csrf,
+      };
+      try {
+        const session = await app.inject({
+          method: "POST",
+          url: "/api/sessions",
+          headers,
+          payload: {},
+        });
+        const sessionId = session.json<{ id: string }>().id;
+
+        expect(
+          (
+            await app.inject({
+              method: "PATCH",
+              url: `/api/sessions/${sessionId}`,
+              headers,
+              payload: { webSearchEnabled: true },
+            })
+          ).statusCode,
+        ).toBe(400);
+
+        const connection = await app.inject({
+          method: "POST",
+          url: "/api/web-search/connections",
+          headers,
+          payload: { provider: "deepseek", label: "Search", apiKey: "sk-test" },
+        });
+        expect(connection.statusCode).toBe(201);
+
+        const enabled = await app.inject({
+          method: "PATCH",
+          url: `/api/sessions/${sessionId}`,
+          headers,
+          payload: { webSearchEnabled: true },
+        });
+        expect(enabled.statusCode).toBe(200);
+        expect(enabled.json()).toMatchObject({ webSearchEnabled: true });
+
+        const turn = await app.inject({
+          method: "POST",
+          url: `/api/sessions/${sessionId}/turns`,
+          headers,
+          payload: { input: "hello" },
+        });
+        expect(turn.statusCode).toBe(202);
+        const detail = await app.inject({
+          url: `/api/sessions/${sessionId}`,
+          headers,
+        });
+        expect(detail.json()).toMatchObject({
+          webSearchEnabled: true,
+          activeTurn: { webSearchEnabled: true },
+        });
+      } finally {
+        await stopAuthorizedServer(started);
+      }
+    });
+  });
 });
