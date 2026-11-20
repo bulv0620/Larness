@@ -17,6 +17,15 @@ vi.mock("./api", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/queries", () => ({}));
+
+vi.mock("@/lib/workspaceApi", () => ({
+  getProject: vi.fn(async () => ({
+    settings: { memory: { enabled: true, globalEnabled: true } },
+  })),
+  updateProject: vi.fn(),
+}));
+
 const api = await import("./api");
 const listProjectMemories = vi.mocked(api.listProjectMemories);
 const forgetProjectMemory = vi.mocked(api.forgetProjectMemory);

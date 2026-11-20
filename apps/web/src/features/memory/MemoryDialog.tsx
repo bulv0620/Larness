@@ -16,6 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Brain, Pin, PinOff, Plus, RotateCcw, Save, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { operationError } from "@/lib/api";
+import { getProject, updateProject } from "@/lib/workspaceApi";
 import {
   createGlobalMemory,
   createProjectMemory,
@@ -72,6 +73,13 @@ export function MemoryDialog({
   initialScope = "project",
 }: MemoryDialogProps) {
   const queryClient = useQueryClient();
+  const projectQuery = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => getProject(projectId ?? ""),
+    enabled: open && projectId !== null,
+  });
+  const memoryEnabled = projectQuery.data?.settings.memory?.enabled ?? true;
+  const globalEnabled = projectQuery.data?.settings.memory?.globalEnabled ?? true;
   const [scope, setScope] = useState<Scope>(projectId === null ? "global" : initialScope);
   const [status, setStatus] = useState("active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -133,6 +141,18 @@ export function MemoryDialog({
 
   const run = (task: () => Promise<unknown>): void => {
     mutation.mutate(task);
+  };
+
+  const toggleSetting = (key: "enabled" | "globalEnabled"): void => {
+    if (projectId === null) return;
+    const next =
+      key === "enabled"
+        ? { enabled: !memoryEnabled, globalEnabled }
+        : { enabled: memoryEnabled, globalEnabled: !globalEnabled };
+    run(async () => {
+      await updateProject(projectId, { settings: { memory: next } });
+      await queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    });
   };
 
   const saveSelected = (): void => {
@@ -232,6 +252,28 @@ export function MemoryDialog({
 
           {budget ? (
             <div className="border-b border-line px-5 py-2.5">
+              {projectId !== null ? (
+                <div className="mb-2 flex flex-wrap items-center gap-4 text-[10px] text-ink-3">
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      className="accent-accent"
+                      checked={memoryEnabled}
+                      onChange={() => toggleSetting("enabled")}
+                    />
+                    启用项目记忆
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      className="accent-accent"
+                      checked={globalEnabled}
+                      onChange={() => toggleSetting("globalEnabled")}
+                    />
+                    允许跨项目偏好
+                  </label>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between text-[10px] text-ink-3">
                 <span>
                   active {budget.activeCount} 条 · {formatBytes(budget.activeBytes)} /{" "}

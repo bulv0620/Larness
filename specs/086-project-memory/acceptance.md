@@ -40,7 +40,7 @@
 - **未做真实 Provider 行为验收**：模型是否稳定调用 `remember`、是否会把一次性状态误记为事实，尚未用真实会话统计。
 - **未做浏览器中的记忆面板视觉验收**：`MemoryDialog` 只做了 happy-dom 组件测试；窄屏、长文本、大量记忆滚动未人工检查。
 - **`memory.changed` 未做浏览器 E2E**：服务端广播与客户端 schema 已接线，但没有 Playwright 用例覆盖实时刷新。
-- **项目设置 UI 未提供记忆开关**：`memory.enabled` / `globalEnabled` 已进入 settings schema 与 API，但没有在设置页暴露开关；关闭需通过 API 或配置文件。
+- **项目设置开关**：记忆对话框已提供“启用项目记忆 / 允许跨项目偏好”开关；未做浏览器视觉验收。
 - **`remember` 的自动覆盖率未验证**：v1 依赖 Agent 主动调用，未加入 Turn 结束 curator；若真实使用中覆盖率低，需要后续切片。
 - **淘汰恢复与总预算压力**：总占用超限时可能直接删除 recovery/evicted 行以守住 192 KiB，此时 7 天恢复窗口不再保证。
 - **迁移编号**：spec 写预计 0034，实际因存量迁移为 `0036_project_memory`；已同步契约与 ADR。
