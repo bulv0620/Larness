@@ -243,7 +243,7 @@
 - 交付物：
   - `Toast` 提升到 `@larness/ui`，支持 `success` / `info` / `error`、自动消失、重试与关闭；`ErrorMessage` 变为 `error` 别名；
   - 联网搜索弹窗改用通用 `Toast`，删除 `apps/web/src/components/common/Toast.tsx`；
-  - 终端打开结果、模型切换、文件结果变化、配对错误、移动目录错误、快速打开搜索错误迁到顶部 Toast；
+  - 终端打开结果、文件结果变化、配对错误、移动目录错误、快速打开搜索错误迁到顶部 Toast；
   - 新增 `docs/architecture/ui-feedback.md`，并在 `AGENTS.md`、`specs/README.md`、spec 模板中登记规范。
 - 验收：
   - 所有操作反馈浮于顶部，不占布局；错误可关闭 / 重试；成功与中性自动消失；
@@ -251,7 +251,7 @@
   - 新功能 spec 模板包含消息反馈检查项。
 - 测试：
   - `apps/web/src/components/common/Toast.test.tsx`（成功自动消失、错误持久关闭、重试）
-  - `apps/web/src/features/chat/Composer.test.tsx`（顶部提示）
+  - `apps/web/src/features/chat/Composer.test.tsx`（模型切换与联网开关小字浮标留在输入框上方）
   - `apps/web/src/features/webSearch/WebSearchSettingsDialog.test.tsx`
 - 涉及路径：
   - `packages/ui/src/toast.tsx`、`packages/ui/src/error-message.tsx`
@@ -259,3 +259,4 @@
   - `docs/architecture/ui-feedback.md`
 - 验证：web 284 项、web/ui typecheck、web build 通过；全量 `pnpm check` 的 server 套件有 5 个文件 / 7 项超时，`git/manager` 与 `resources/services` 单独复跑通过（与本改动无关）。
 - 备注：2026-11-20 用户直接反馈；不改变后端契约。
+- 后续修正：同日人工验收要求模型切换与联网搜索开关恢复为输入框上方小字，其余操作反馈仍用顶部 Toast；`docs/architecture/ui-feedback.md` 第 3 节列为显式例外。

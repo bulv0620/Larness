@@ -5,7 +5,7 @@
 
 ## 1. 强制规则
 
-- 所有由用户动作触发的成功 / 失败 / 中性提示，必须使用 `@larness/ui` 导出的 `Toast`。
+- 所有由用户动作触发的成功 / 失败 / 中性提示，必须使用 `@larness/ui` 导出的 `Toast`；唯一例外是输入框内的会话级轻量开关（见第 3 节）。
 - `Toast` 固定在视口顶部居中，浮于弹窗之上，不参与布局；禁止在按钮、表单、列表、卡片或弹窗内部新增“提示条 / 提示栏 / 结果行”。
 - 失败使用 `tone="error"`（或既有别名 `ErrorMessage`），成功使用 `tone="success"`，中性状态使用 `tone="info"`。
 - 同一区域同一时刻只显示一条消息；新消息替换旧消息，不堆叠。
@@ -45,6 +45,7 @@ import { Toast } from "@larness/ui";
 - **加载 / 空态 / 占位**：例如“正在读取…”“暂无日志”“终端不可用”“无法访问预览”。
 - **数据内容**：任务运行 `errorMessage`、服务 `reasonCode`、文件冲突提示等属于记录或状态，不是操作反馈。
 - **持久安全提示**：例如截图输入不被当前模型支持、审批已过期等需要持续可见的区域说明。
+- **会话内轻量开关反馈**：输入框上方的模型切换、思考强度与联网搜索开关，沿用 Composer 上方的 10.5px 小字浮标（`absolute bottom-full`，4 秒后自动消失）。动作就发生在输入框内，视口顶部的 Toast 距离过远且会打断连续调整；不要迁到 Toast，也不要扩大成占位提示条。
 
 判断标准：提示是否由一次用户动作产生、完成后即可消失？是则用 Toast；否则留在区域内。
 
@@ -54,6 +55,7 @@ import { Toast } from "@larness/ui";
 - 错误别名：`packages/ui/src/error-message.tsx`。
 - 顶部滑入动画：`apps/web/src/styles/global.css` 的 `.toast-slide-in`；全局 `prefers-reduced-motion` 会关闭动画。
 - 组件测试：`apps/web/src/components/common/Toast.test.tsx`。
+- 会话内轻量开关的小字浮标：`apps/web/src/features/chat/Composer.tsx` 的 `switchNotice`（`absolute bottom-full`，4 秒后自动消失）。
 
 ## 5. 新功能检查清单
 
@@ -62,9 +64,10 @@ import { Toast } from "@larness/ui";
 - [ ] 提示不遮挡主要操作、不抢焦点、不堆叠；
 - [ ] `role="status"` / `role="alert"` 与关闭按钮标签正确；
 - [ ] 字段校验和区域状态留在原位；
+- [ ] 输入框内的开关类反馈沿用 Composer 小字浮标，没有另起提示条；
 - [ ] 文案简短、中文、无秘密。
 
 ## 6. 迁移记录
 
 - 2026-11-20：把联网搜索弹窗的局部 `Toast` 与 `ErrorMessage` 合并为 `@larness/ui` 的单一 `Toast`；`ErrorMessage` 变为 `error` 别名。
-- 同日把终端打开结果、模型切换提示、文件结果变化、配对错误、移动目录错误与快速打开搜索错误从行内提示迁到顶部 Toast。
+- 同日把终端打开结果、文件结果变化、配对错误、移动目录错误与快速打开搜索错误从行内提示迁到顶部 Toast；按人工验收反馈，模型切换与联网搜索开关保留输入框上方小字。
