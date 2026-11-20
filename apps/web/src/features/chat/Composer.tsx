@@ -522,6 +522,13 @@ export function Composer({
             }
             active={webSearchActive}
             aria-pressed={webSearchActive}
+            title={
+              webSearchConfigured
+                ? webSearchEnabled
+                  ? "关闭联网搜索"
+                  : "开启联网搜索"
+                : "请先在左侧「联网搜索」添加搜索 Key"
+            }
             disabled={!hasSession || isDraftSession || settingsDisabled || !webSearchConfigured}
             onClick={() => void toggleWebSearch()}
             className="h-7 w-7"
