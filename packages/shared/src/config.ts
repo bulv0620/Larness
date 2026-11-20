@@ -88,6 +88,16 @@ export const CleanupConfigSchema = z.strictObject({
 
 export const DEFAULT_CLEANUP_CONFIG = CleanupConfigSchema.parse({});
 
+export const AgentMemoryConfigSchema = z.strictObject({
+  enabled: z.boolean().default(true),
+});
+
+export const AgentConfigSchema = z.strictObject({
+  memory: AgentMemoryConfigSchema.default({ enabled: true }),
+});
+
+const DEFAULT_AGENT_CONFIG = AgentConfigSchema.parse({});
+
 export const AppConfigSchema = z.strictObject({
   version: z.literal(1),
   server: ServerConfigSchema,
@@ -97,6 +107,7 @@ export const AppConfigSchema = z.strictObject({
   updates: UpdatesConfigSchema,
   preview: PreviewConfigSchema.default(DEFAULT_PREVIEW_CONFIG),
   cleanup: CleanupConfigSchema.default(DEFAULT_CLEANUP_CONFIG),
+  agent: AgentConfigSchema.default(DEFAULT_AGENT_CONFIG),
 });
 
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
@@ -108,6 +119,7 @@ export type UpdateChannel = z.infer<typeof UpdateChannelSchema>;
 export type UpdatesConfig = z.infer<typeof UpdatesConfigSchema>;
 export type PreviewConfig = z.infer<typeof PreviewConfigSchema>;
 export type CleanupConfig = z.infer<typeof CleanupConfigSchema>;
+export type AgentConfig = z.infer<typeof AgentConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema>;
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
@@ -139,6 +151,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   },
   preview: DEFAULT_PREVIEW_CONFIG,
   cleanup: DEFAULT_CLEANUP_CONFIG,
+  agent: DEFAULT_AGENT_CONFIG,
 };
 
 export type WebAuthnDisabledReason = "rp_id_is_ip" | "remote_http";

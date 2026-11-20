@@ -27,7 +27,7 @@ describe("migrations", () => {
         expect(opened.sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
         expect(opened.sqlite.pragma("busy_timeout", { simple: true })).toBe(5000);
         expect(quickCheck(opened.sqlite)).toBe(true);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(35);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(36);
 
         const sessionColumns = opened.sqlite.prepare("PRAGMA table_info(sessions)").all() as {
           name: string;
@@ -74,6 +74,9 @@ describe("migrations", () => {
             "service_action_authorizations",
             "scheduled_jobs",
             "scheduled_job_runs",
+            "memories",
+            "memory_revisions",
+            "memory_suppressions",
           ]),
         );
 
@@ -95,7 +98,7 @@ describe("migrations", () => {
       const journal = JSON.parse(journalText) as { entries: unknown[] };
       await writeFile(
         journalPath,
-        JSON.stringify({ ...journal, entries: journal.entries.slice(0, -6) }),
+        JSON.stringify({ ...journal, entries: journal.entries.slice(0, -7) }),
       );
       const { db, sqlite, close } = openDatabase(path.join(dir, "larness.db"));
       try {
@@ -155,7 +158,7 @@ describe("migrations", () => {
 
       try {
         runMigrations(opened.db);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(35);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(36);
       } finally {
         opened.close();
       }
@@ -264,7 +267,7 @@ describe("migrations", () => {
         const copy = openDatabase(target);
 
         try {
-          expect(appliedMigrationCount(copy.sqlite)).toBe(35);
+          expect(appliedMigrationCount(copy.sqlite)).toBe(36);
         } finally {
           copy.close();
         }
@@ -285,7 +288,7 @@ describe("migrations", () => {
       const latest = journal.entries.at(-1);
       if (latest === undefined) throw new Error("missing migration journal entry");
       // Stop before the coding/plan normalization so the upgrade replays 0034.
-      journal.entries = journal.entries.slice(0, -2);
+      journal.entries = journal.entries.slice(0, -3);
       await writeFile(journalPath, JSON.stringify(journal));
       await rm(path.join(oldMigrations, `${latest.tag}.sql`));
 
@@ -301,7 +304,7 @@ describe("migrations", () => {
 
         runMigrations(opened.db);
 
-        expect(appliedMigrationCount(opened.sqlite)).toBe(35);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(36);
         expect(
           opened.sqlite.prepare("SELECT agent_profile FROM sessions WHERE id = ?").get("ses_old"),
         ).toMatchObject({ agent_profile: "coding" });

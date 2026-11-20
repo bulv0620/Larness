@@ -3,6 +3,7 @@ import type { ResourceTarget } from "./terminals";
 
 export const WORKSPACE_SESSIONS_CHANGED = "workspace.sessions.changed";
 export const WORKSPACE_JOBS_CHANGED = "workspace.jobs.changed";
+export const WORKSPACE_MEMORY_CHANGED = "memory.changed";
 
 export const WorkspaceSessionNotificationSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -14,6 +15,15 @@ export const WorkspaceSessionNotificationSchema = z.discriminatedUnion("kind", [
 
 export const WorkspaceJobsNotificationSchema = z.object({
   kind: z.literal(WORKSPACE_JOBS_CHANGED),
+});
+
+export const WorkspaceMemoryNotificationSchema = z.object({
+  kind: z.literal(WORKSPACE_MEMORY_CHANGED),
+  scope: z.enum(["project", "global"]),
+  projectId: z.string().optional(),
+  memoryId: z.string(),
+  action: z.enum(["learned", "updated", "reviewed", "forgotten", "evicted", "restored", "purged"]),
+  status: z.enum(["active", "review", "rejected", "superseded", "expired", "evicted"]),
 });
 
 export type EventTopic =

@@ -1,6 +1,7 @@
 import { type CleanupConfig, RESOURCE_EVENT_RETENTION_MS } from "@larness/shared";
 import { and, inArray, lt } from "drizzle-orm";
 import { expirePendingApprovals } from "../modules/agent/approvalService.js";
+import { purgeMemoryRetention } from "../modules/memory/retention.js";
 import { pruneResourceEvents } from "../modules/resources/repository.js";
 import { runRetentionCleanup } from "../modules/system/retention.js";
 import type { Database } from "./client.js";
@@ -11,6 +12,7 @@ export interface CleanupResult {
   sessions: number;
   requests: number;
   approvals: number;
+  memories: number;
 }
 
 export function cleanupExpired(db: Database, now = Date.now()): CleanupResult {
@@ -36,8 +38,16 @@ export function cleanupExpired(db: Database, now = Date.now()): CleanupResult {
 
   const approvals = expirePendingApprovals({ db, now: () => now });
   pruneResourceEvents(db, now - RESOURCE_EVENT_RETENTION_MS);
+  const memory = purgeMemoryRetention(db, now);
 
-  return { challenges, sessions, requests, approvals };
+  return {
+    challenges,
+    sessions,
+    requests,
+    approvals,
+    memories:
+      memory.expired + memory.revisions + memory.reviews + memory.statuses + memory.suppressions,
+  };
 }
 
 export interface CleanupSchedulerLogger {
@@ -91,7 +101,8 @@ export function startCleanupScheduler(
   const run = (): void => {
     try {
       const result = cleanupExpired(db, (options.now ?? Date.now)());
-      const removed = result.challenges + result.sessions + result.requests + result.approvals;
+      const removed =
+        result.challenges + result.sessions + result.requests + result.approvals + result.memories;
 
       if (removed > 0) {
         options.logger?.info({ ...result }, "expired rows cleaned");

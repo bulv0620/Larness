@@ -2,8 +2,10 @@ import { EventEmitter } from "node:events";
 import {
   type AssistantDeltaEvent,
   type AssistantReasoningDeltaEvent,
+  type MemoryChangedPayload,
   type ServerEvent,
   WORKSPACE_JOBS_CHANGED,
+  WORKSPACE_MEMORY_CHANGED,
   WORKSPACE_SESSIONS_CHANGED,
 } from "@larness/shared";
 
@@ -20,6 +22,10 @@ export function publishWorkspaceSessionsChanged(): void {
 
 export function publishJobsChanged(): void {
   agentEventBus.emit(WORKSPACE_JOBS_CHANGED);
+}
+
+export function publishMemoryChanged(payload: MemoryChangedPayload): void {
+  agentEventBus.emit(WORKSPACE_MEMORY_CHANGED, payload);
 }
 
 export function publishAgentEvent(event: AgentStreamEvent): void {

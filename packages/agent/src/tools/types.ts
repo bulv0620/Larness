@@ -30,6 +30,8 @@ export interface ToolContext {
   listServices?: (args: unknown) => Promise<ToolResult>;
   resolveServicePreview?: (args: unknown) => Promise<ToolResult>;
   refreshObservations?: () => Promise<ToolResult>;
+  rememberMemory?: (input: unknown) => Promise<ToolResult>;
+  readMemory?: (input: unknown) => Promise<ToolResult>;
   listServiceOps?: () => Promise<ToolResult>;
   readServiceOpsLogs?: (args: unknown) => Promise<ToolResult>;
   controlServiceOps?: (args: unknown) => Promise<ToolResult>;

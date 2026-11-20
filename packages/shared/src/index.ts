@@ -8,6 +8,7 @@ export * from "./files";
 export * from "./gateway";
 export * from "./git";
 export * from "./jobs";
+export * from "./memory";
 export * from "./plans";
 export * from "./processes";
 export * from "./resources";

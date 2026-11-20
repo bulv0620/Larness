@@ -487,6 +487,24 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | LC-5 | [终态、UI 与可观测性](085-long-task-continuity/tasks.md#lc-5-终态ui-与可观测性) | LC-2、LC-3 | `done` |
 | LC-6 | [全量验证、契约与状态回填](085-long-task-continuity/tasks.md#lc-6-全量验证契约与状态回填) | LC-1～LC-5 | `done` |
 
+### 8.12 发布后：项目指令、项目记忆与用户偏好（086，active）
+
+目标：自动加载项目根目录的 `AGENTS.md` 与 `.larness/instructions.md`；建立“证据驱动、默认自动生效”的项目记忆与跨项目用户偏好；用硬字节预算、评分淘汰和保留期保证长期不膨胀。记忆只作为不可信事实注入，不参与授权。规格见 [086](086-project-memory/spec.md)，方案见 [plan](086-project-memory/plan.md)。
+
+门禁：G-086 = Q-060～Q-070 已确认、ADR-072 accepted、spec `ready`（2026-11-20）；实现后 A1–A16 通过，记忆不能提升权限，跨项目项目事实不可见，秘密不落库，30 天模拟后字节与注入 token 稳定。**PM-1 起待开工。**
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| PM-0 | [规格确认与 ADR](086-project-memory/tasks.md#pm-0-规格确认与-adr) | — | `done`（2026-11-20） |
+| PM-1 | [指令文件解析与装配](086-project-memory/tasks.md#pm-1-指令文件解析与装配) | PM-0 | `done`（2026-11-20） |
+| PM-2 | [记忆存储、预算与保留期](086-project-memory/tasks.md#pm-2-记忆存储预算与保留期) | PM-0 | `done`（2026-11-20） |
+| PM-3 | [remember/read 工具与自动学习](086-project-memory/tasks.md#pm-3-rememberread-工具与自动学习) | PM-2 | `done`（2026-11-20） |
+| PM-4 | [全局用户偏好与隐私隔离](086-project-memory/tasks.md#pm-4-全局用户偏好与隐私隔离) | PM-2、PM-3 | `done`（2026-11-20） |
+| PM-5 | [上下文注入与提示](086-project-memory/tasks.md#pm-5-上下文注入与提示) | PM-1、PM-2、PM-3、PM-4 | `done`（2026-11-20） |
+| PM-6 | [REST、WS 与契约](086-project-memory/tasks.md#pm-6-restws-与契约) | PM-2 | `done`（2026-11-20） |
+| PM-7 | [设置页记忆与偏好管理](086-project-memory/tasks.md#pm-7-设置页记忆与偏好管理) | PM-6 | `done`（2026-11-20） |
+| PM-8 | [安全、E2E 与验收](086-project-memory/tasks.md#pm-8-安全e2e-与验收) | PM-1～PM-7 | `done`（自动验证；人类验收待） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

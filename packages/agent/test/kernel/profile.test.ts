@@ -10,17 +10,18 @@ const catalog: ToolPackCatalog = {
     process: { id: "process", label: "process", tools: ["start_process"] },
     observation: { id: "observation", label: "observation", tools: ["refresh_observations"] },
     serviceOps: { id: "serviceOps", label: "serviceOps", tools: ["list_service_ops"] },
+    memory: { id: "memory", label: "memory", tools: [] },
   },
   profiles: {
     coding: {
       id: "coding",
       label: "Coding",
-      packs: ["core.read", "core.write", "core.command", "process", "serviceOps"],
+      packs: ["core.read", "core.write", "core.command", "process", "serviceOps", "memory"],
     },
     plan: {
       id: "plan",
       label: "Plan",
-      packs: ["core.read", "core.write", "core.command", "process", "serviceOps", "plan"],
+      packs: ["core.read", "core.write", "core.command", "process", "serviceOps", "plan", "memory"],
     },
   },
 };

@@ -42,6 +42,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "read_service_ops_logs",
       "control_service_ops",
     ]),
+    memory: pack("memory", "项目记忆", ["remember", "read_memory"]),
   },
   profiles: {
     coding: profile("coding", "Coding", [
@@ -50,6 +51,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "core.command",
       "process",
       "serviceOps",
+      "memory",
     ]),
     plan: profile("plan", "Plan", [
       "core.read",
@@ -57,6 +59,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "core.command",
       "process",
       "serviceOps",
+      "memory",
       "plan",
     ]),
   },

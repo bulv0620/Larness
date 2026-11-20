@@ -45,6 +45,8 @@
 
 ## 已解决
 
+- Q-060～Q-070（2026-11-20）：086 按推荐默认确认——仅加载 `AGENTS.md` + `.larness/instructions.md`；项目 fact/command/gotcha 证据有效且置信度 ≥0.6 自动 active，decision 默认 review，全局 preference 仅用户明确表达且置信度 ≥0.9 自动 active；项目 active 64 KiB/300 条、总占用 192 KiB，全局 8 KiB/50 条、总占用 24 KiB；revision 3 个/30 天，review 20 条/14 天，抑制 90 天；全局偏好完整注入 ≤512 token + 项目索引 ≤1,024 字符 + 正文按需，总注入 ≤2,000 token；v1 不加额外 LLM 整理，先按指标评估。见 [086 spec](../specs/086-project-memory/spec.md#13-已确认决策) 与 [ADR-072](adr/ADR-072-project-memory.md)。
+
 - Q-052～Q-059（2026-11-19）：085 按默认值实施——任务级 token 上限关闭、紧急兜底 24h/1000 步、换页阈值 85%、无事实用最近消息+摘要、初版不暴露配置、定时 Job 保持自身超时、输出截断单独处理、ADR-071 accepted、新增 `terminalReason=continued`、无进展 10 分钟暂停。见 [085 spec](../specs/085-long-task-continuity/spec.md#13-开放问题) 与 [ADR-071](adr/ADR-071-long-task-continuity.md)。
 
 - M5-F1-W10（2026-11-18）：用户确认 Windows 10 x64 实机复测通过；具体版本与日志未回填。见 [验收记录](../specs/066-cross-platform/acceptance.md)。

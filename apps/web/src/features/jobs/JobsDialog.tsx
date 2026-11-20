@@ -12,18 +12,15 @@ import {
   Checkbox,
   cn,
   Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
   ErrorMessage,
   FormSelect,
   Input,
   Textarea,
 } from "@larness/ui";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Play, Plus, RefreshCw, Square, Trash2, X } from "lucide-react";
+import { ArrowLeft, Clock, Play, Plus, RefreshCw, Square, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useId, useState } from "react";
+import { AdminDialogShell, AdminEmptyState } from "@/components/common/AdminDialogShell";
 import { operationError } from "@/lib/api";
 import { relativeTime } from "@/lib/format";
 import { type ApiModelCatalog, listModelCatalog, listProjects } from "@/lib/workspaceApi";
@@ -212,20 +209,14 @@ export function JobsDialog({
         if (!value) close();
       }}
     >
-      <DialogContent
-        className="flex h-[min(700px,calc(100dvh-32px))] w-[min(980px,calc(100vw-32px))] flex-col overflow-hidden p-0"
-        data-testid="jobs-dialog"
-      >
-        <header className="flex shrink-0 items-center gap-2 border-b border-line px-3 py-2">
-          <Clock size={14} className="text-ink-3" />
-          <DialogTitle className="text-[12px] font-semibold">自动化任务</DialogTitle>
-          <DialogDescription className="sr-only">
-            管理 Cron / 固定间隔的脚本与 Agent 任务，查看运行历史
-          </DialogDescription>
-          <span className="rounded bg-surface-2 px-1.5 text-[10px] text-ink-3">
-            {jobs.data?.items.length ?? 0}
-          </span>
-          <div className="flex-1" />
+      <AdminDialogShell
+        icon={Clock}
+        title="自动化任务"
+        description="管理 Cron / 固定间隔的脚本与 Agent 任务，查看运行历史"
+        closeLabel="关闭自动化任务"
+        count={jobs.data?.items.length ?? 0}
+        testId="jobs-dialog"
+        actions={
           <Button
             size="sm"
             variant="ghost"
@@ -235,13 +226,8 @@ export function JobsDialog({
             <RefreshCw size={12} className={jobs.isFetching ? "animate-spin" : undefined} />
             刷新
           </Button>
-          <DialogClose asChild>
-            <Button size="sm" variant="ghost" aria-label="关闭自动化任务">
-              <X size={14} />
-            </Button>
-          </DialogClose>
-        </header>
-
+        }
+      >
         <ErrorMessage
           message={error ?? (jobs.isError ? "任务列表读取失败，请刷新重试。" : null)}
           onDismiss={error ? () => setError(null) : undefined}
@@ -457,10 +443,7 @@ export function JobsDialog({
           </section>
         ) : (
           <>
-            <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-2">
-              <p className="text-[11px] text-ink-3">
-                支持按 Cron 表达式或固定间隔运行脚本和 Agent。
-              </p>
+            <div className="flex shrink-0 items-center justify-end border-b border-line px-3 py-2">
               <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
                 <Plus size={12} />
                 新建任务
@@ -509,24 +492,16 @@ export function JobsDialog({
                   ))}
                 </div>
               ) : jobs.isError ? null : (
-                <div className="grid min-h-full place-items-center p-4">
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <Clock size={20} className="text-ink-3" />
-                    <p className="text-[12px] font-medium">还没有定时任务</p>
-                    <p className="max-w-xs text-[10.5px] text-ink-3">
-                      创建脚本或 Agent 任务，Larness 会按 Cron / 间隔在本机执行并保留运行记录。
-                    </p>
-                    <Button size="sm" variant="secondary" onClick={() => setEditing("new")}>
-                      <Plus size={12} />
-                      新建任务
-                    </Button>
-                  </div>
-                </div>
+                <AdminEmptyState
+                  icon={Clock}
+                  title="还没有定时任务"
+                  hint="创建脚本或 Agent 任务，按 Cron / 间隔在本机执行。"
+                />
               )}
             </div>
           </>
         )}
-      </DialogContent>
+      </AdminDialogShell>
     </Dialog>
   );
 }

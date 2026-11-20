@@ -17,6 +17,7 @@ export interface ApiProject {
     defaultModelProfileId: string | null;
     instructions: string;
     ignore: string[];
+    memory: { enabled: boolean; globalEnabled: boolean };
   };
   gitDetected: boolean;
   runningTerminals?: number;
@@ -245,7 +246,13 @@ export async function getProject(id: string): Promise<ApiProject> {
 
 export async function updateProject(
   id: string,
-  input: { name?: string; settings?: { defaultModelProfileId?: string | null } },
+  input: {
+    name?: string;
+    settings?: {
+      defaultModelProfileId?: string | null;
+      memory?: { enabled?: boolean; globalEnabled?: boolean };
+    };
+  },
 ): Promise<void> {
   await apiFetch(`/api/projects/${encodeURIComponent(id)}`, {
     method: "PATCH",

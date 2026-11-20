@@ -6,6 +6,7 @@ import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
+import { createMemoryTools } from "../../src/modules/agent/memoryTool.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
@@ -34,8 +35,10 @@ const codingTools = [
   "list_processes",
   "list_service_ops",
   "read_file",
+  "read_memory",
   "read_process_output",
   "read_service_ops_logs",
+  "remember",
   "run_command",
   "run_shell",
   "search_code",
@@ -44,7 +47,14 @@ const codingTools = [
   "write_file",
 ];
 
-const fullPacks = ["core.read", "core.write", "core.command", "process", "serviceOps"] as const;
+const fullPacks = [
+  "core.read",
+  "core.write",
+  "core.command",
+  "process",
+  "serviceOps",
+  "memory",
+] as const;
 
 describe("agent profile assembly", () => {
   it("gives coding and plan the full tool surface and only plan the plan tool", async () => {
@@ -74,6 +84,7 @@ describe("agent profile assembly", () => {
           createShellTool({}),
           ...createProcessTools({}),
           ...createServiceOpsTools(),
+          ...createMemoryTools(),
           createObservationTool(),
         ])
           registry.register(tool);
@@ -114,8 +125,8 @@ describe("agent profile assembly", () => {
         expect(planSystem).toContain("For complex multi-step tasks");
         expect(planSystem).toContain("Match verification to the change");
 
-        expect([...toolNamesForProfile("coding")]).toHaveLength(14);
-        expect([...toolNamesForProfile("plan")]).toHaveLength(15);
+        expect([...toolNamesForProfile("coding")]).toHaveLength(16);
+        expect([...toolNamesForProfile("plan")]).toHaveLength(17);
         expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([...fullPacks]);
         expect(TOOL_PACK_CATALOG.profiles.plan.packs).toEqual([...fullPacks, "plan"]);
         expect(Object.keys(TOOL_PACK_CATALOG.profiles).sort()).toEqual(["coding", "plan"]);
