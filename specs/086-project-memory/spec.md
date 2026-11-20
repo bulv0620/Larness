@@ -2,7 +2,7 @@
 id: 086-project-memory
 title: 项目指令、项目记忆与用户偏好
 milestone: 发布后
-status: active
+status: done
 depends_on: [020-workspace-agent, 082-agent-kernel]
 owners: []
 created: 2026-11-20
@@ -11,7 +11,7 @@ updated: 2026-11-20
 
 # 086 项目指令、项目记忆与用户偏好
 
-> 状态：`active`（2026-11-20 实现与自动验证完成，待人类视觉/真实使用验收）。决策见 [ADR-072](../../docs/adr/ADR-072-project-memory.md)（accepted）；验证记录见 [acceptance](acceptance.md)。
+> 状态：`done`（2026-11-20 人类审核通过）。决策见 [ADR-072](../../docs/adr/ADR-072-project-memory.md)（accepted）；验证记录见 [acceptance](acceptance.md)。
 >
 > 设计立场：**默认自动学习，不要求用户逐条确认。** 记忆只在有证据时写入，写入后下一个 Turn 生效；用户通过“查看 / 纠正 / 忘记 / 固定”控制，而不是通过审批队列。所有层都有硬字节预算、淘汰与保留期，保证长期使用不会无限扩张。
 

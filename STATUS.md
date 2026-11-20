@@ -14,13 +14,12 @@
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
-- **086 项目记忆**：实现与自动验证完成（`pnpm check`、`build`、Mock E2E 24/24），待人类视觉/真实 Provider/30 天使用验收；未验证项见 [acceptance](specs/086-project-memory/acceptance.md)。
 
 ## 最近收口（滚动保留最近 10 项）
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
-| 2026-11-20 | 086 PM-0 规格确认与 ADR | 人类确认 Q-060～Q-070；spec 转 `ready`；ADR-072 accepted；PM-1 起待开工 | [086 spec](specs/086-project-memory/spec.md) |
+| 2026-11-20 | 086 项目记忆与统一管理弹窗 | 人类审核通过；PM-0～PM-8 完成；指令文件、自动学习、全局偏好、硬预算淘汰、REST/WS、记忆面板；check/build + Mock E2E 24/24；未验证边界见 acceptance | [086 acceptance](specs/086-project-memory/acceptance.md) |
 | 2026-11-19 | 085 长任务连续执行 | 人类验收通过；任务级 token/时长/接续深度默认关闭；85% 换页、`continued` 终态、无事实 fallback、600s 请求上限、10 分钟无进展暂停；build + Mock E2E 24/24 | [085 acceptance](specs/085-long-task-continuity/acceptance.md) |
 | 2026-11-19 | 084 Agent Profile 收敛与用量 | 人类验收通过；AP-1～AP-13 完成；Profile 收敛 coding/plan、usage API 与缓存命中率、Token 行常驻、过程标题行视觉；check/build + Mock 24/24 + 认证 20/20 + 生产 20/20 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |
 | 2026-11-19 | AP-13 过程标题行只显示步数 | 外层移除失败/重试计数，只保留步数、耗时与自动继续；失败详情仍在展开过程内；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-13-过程标题行只显示步数用户反馈) |
@@ -29,7 +28,6 @@
 | 2026-11-19 | AP-10 过程动画降速 | 星星与文字扫描统一放慢到 1.6 秒一轮，保持同相位与单次扫过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-10-过程动画降速用户反馈) |
 | 2026-11-19 | AP-9 动画同步 1 秒一轮 | 两颗星与文字扫描统一 1 秒、同相位；扫描位移修正为每秒恰好一次；视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-9-动画同步为-1-秒一轮用户反馈) |
 | 2026-11-19 | AP-8 星光图标与慢速文字扫描 | 一大一小四角星依次闪烁；状态文字灰底、主题前景色约 4.2s 缓慢扫过；完成态无图标与扫描；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-8-星光图标与灰底黑扫文字用户反馈) |
-| 2026-11-19 | AP-7 过程标题行视觉细化 | 脉冲节点图标；流光只扫状态文字；Running 只显示工具类别；完成态无图标、主标签只留 Completed；聊天定向 67 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-7-过程标题行视觉细化用户反馈) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 
