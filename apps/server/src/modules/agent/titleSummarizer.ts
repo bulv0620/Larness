@@ -8,8 +8,14 @@ import { getSessionById, updateSessionRow } from "../sessions/repository.js";
 
 /** Matches the legacy truncation cap in sessions/turns.ts. */
 const MAX_TITLE_LENGTH = 48;
-/** The summarizer prompt asks for ~16 CJK chars; 64 tokens leaves headroom. */
-const TITLE_OUTPUT_TOKENS = 64;
+/**
+ * The prompt asks for ~16 CJK chars, but reasoning models spend output budget
+ * on hidden reasoning before the first visible token: at 64 tokens
+ * deepseek-v4.1-flash finished with `finishReason: "length"`, emitted only
+ * `reasoning-delta` chunks and no title, so every summary silently no-opped.
+ * 1024 covers the reasoning pass plus the title itself.
+ */
+const TITLE_OUTPUT_TOKENS = 1_024;
 const TITLE_TIMEOUT_MS = 20_000;
 /** First user message + final answer is plenty to name a conversation. */
 const MAX_SOURCE_CHARS = 2_000;
@@ -177,6 +183,7 @@ export async function summarizeSessionTitle(options: {
   provider: TitleProvider;
   timeoutMs?: number;
   now?: () => number;
+  logger?: { warn: (context: Record<string, unknown>, message: string) => void };
 }): Promise<boolean> {
   const session = getSessionById(options.db, options.sessionId);
 
@@ -212,6 +219,9 @@ export async function summarizeSessionTitle(options: {
   }
 
   if (title === null) {
+    // Silent by design for the user, but a title that never lands is a bug:
+    // reasoning-only answers (`finishReason: "length"`) look exactly like this.
+    options.logger?.warn({ sessionId: options.sessionId }, "title summary produced no usable text");
     return false;
   }
 

@@ -541,6 +541,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
               titleSummarizer: ({ session, turn, resolved }) =>
                 summarizeSessionTitle({
                   db: opened.db,
+                  logger: activeLogger,
                   sessionId: session.id,
                   turnId: turn.id,
                   provider: {

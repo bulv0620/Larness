@@ -94,7 +94,9 @@ describe("summarizeTitle", () => {
 
     expect(title).toBe("修复登录超时");
     expect(provider.calls[0]?.tools).toEqual([]);
-    expect(provider.calls[0]?.maxOutputTokens).toBe(64);
+    // Reasoning models burn output budget before the title: a 64-token cap
+    // finished `length` with reasoning only and produced no title at all.
+    expect(provider.calls[0]?.maxOutputTokens).toBeGreaterThanOrEqual(512);
   });
 
   it("fails closed on provider errors and empty output", async () => {
@@ -114,6 +116,33 @@ describe("summarizeTitle", () => {
         provider: { adapter: empty, model: "fake" },
         userText: "x",
         assistantText: "y",
+        signal: new AbortController().signal,
+      }),
+    ).toBeNull();
+  });
+
+  it("returns no title when the model spends its whole budget on reasoning", async () => {
+    // Reproduces deepseek-v4.1-flash at a 64-token cap: reasoning-delta chunks
+    // only, finishReason "length", no text-delta - so no title may be written.
+    const provider = createFakeProvider([
+      {
+        chunks: [
+          { type: "reasoning-delta", text: "The user wants a short title for" },
+          { type: "reasoning-delta", text: " their conversation about titles." },
+          {
+            type: "finish",
+            finishReason: "length",
+            usage: { inputTokens: 40, outputTokens: 64, totalTokens: 104 },
+          },
+        ],
+      },
+    ]);
+
+    expect(
+      await summarizeTitle({
+        provider: { adapter: provider, model: "fake" },
+        userText: "会话标题怎么生成的",
+        assistantText: null,
         signal: new AbortController().signal,
       }),
     ).toBeNull();
