@@ -720,6 +720,115 @@ export class MemoryService {
     return this.#toDto(row, now);
   }
 
+  createUser(
+    input: {
+      scope: MemoryScope;
+      projectId: string | null;
+      kind: MemoryKind;
+      key: string;
+      title: string;
+      body: string;
+      expiresAt?: number | null;
+    },
+    actor: "agent" | "user" = "user",
+  ): MemoryDto {
+    const now = this.#now();
+    const scope = input.scope;
+    const project = scope === "project" ? this.project(input.projectId ?? "") : null;
+    this.#assertEnabled(project);
+
+    if (scope === "global" && input.kind !== "preference") {
+      throw new MemoryError("MEMORY_SCOPE_FORBIDDEN", "global memory only supports preferences");
+    }
+
+    const content = memoryContentVerdict(scope, input.body);
+    if (!content.ok) throw new MemoryError("MEMORY_SECRET_REJECTED", content.reason);
+
+    const projectKey = this.#projectKey(scope, input.projectId);
+    const hash = bodyHash(input.body);
+
+    if (
+      suppressionByKey(this.#db, scope, projectKey, input.key) !== null ||
+      suppressionByBodyHash(this.#db, scope, projectKey, hash) !== null
+    ) {
+      throw new MemoryError("MEMORY_SUPPRESSED", "this memory was forgotten recently");
+    }
+
+    if (activeMemoryByKey(this.#db, scope, projectKey, input.key) !== null) {
+      throw new MemoryError("MEMORY_KEY_TAKEN", "an active memory with this key already exists");
+    }
+
+    const title = input.title.trim();
+    const body = input.body.trim();
+    const expiresAt =
+      input.expiresAt === undefined
+        ? input.kind === "command" || input.kind === "fact"
+          ? now + 30 * 24 * 60 * 60 * 1_000
+          : null
+        : input.expiresAt;
+
+    const row = immediateTransaction(this.#db, (tx) => {
+      const created: MemoryRow = {
+        id: newId("mem"),
+        scope,
+        projectId: scope === "global" ? null : input.projectId,
+        projectKey,
+        kind: input.kind,
+        key: input.key,
+        title,
+        body,
+        status: "active",
+        confidence: 1,
+        evidenceKind: "user_statement",
+        sourceTurnId: null,
+        sourceEventSeq: null,
+        createdBy: actor,
+        useCount: 0,
+        lastUsedAt: null,
+        lastConfirmedAt: now,
+        correctionCount: 0,
+        pinned: false,
+        bytes: memoryBytes(input.key, title, body),
+        verifiedAt: now,
+        expiresAt,
+        createdAt: now,
+        updatedAt: now,
+      };
+      insertMemoryRow(tx, created);
+      insertRevisionRow(tx, {
+        id: newId("mrev"),
+        memoryId: created.id,
+        revision: 1,
+        title,
+        body,
+        status: "active",
+        changedBy: actor,
+        changedAt: now,
+        reason: "user-created",
+      });
+      appendAudit(tx, {
+        action: "memory.learned",
+        decision: "info",
+        resourceType: "memory",
+        resourceId: created.id,
+        details: { scope, kind: created.kind, bytes: created.bytes, actor },
+        now,
+      });
+      enforceBudget(tx, scope, projectKey, now, this.#publish);
+      return memoryById(tx, created.id) ?? created;
+    });
+
+    this.#publish({
+      scope,
+      ...(row.projectId === null ? {} : { projectId: row.projectId }),
+      memoryId: row.id,
+      action: "learned",
+      status: row.status,
+    });
+
+    return this.#toDto(row, now);
+  }
+
   read(
     projectId: string,
     input: { keys?: string[]; query?: string; limit?: number },
