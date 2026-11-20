@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- 无。
+- **087 联网搜索（WS-0 → WS-1）**：2026-11-20 开始；分支 `task/087-web-search`；已确认默认关闭、DeepSeek + GLM、搜索 Key 独立、常规风险控制、加号改地球按钮；计划改动见 [tasks](specs/087-web-search/tasks.md)。
 
 ## 阻塞与待确认
 
