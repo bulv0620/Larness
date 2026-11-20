@@ -365,47 +365,49 @@ export function MemoryDialog({
               </div>
             </div>
 
-            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain p-5">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               {creating ? (
-                <div className="space-y-3">
-                  <div className="text-[12px] font-medium text-ink">手动添加记忆</div>
-                  {scope === "project" ? (
-                    <Field label="类型">
-                      <FormSelect
-                        label="类型"
-                        value={newKind}
-                        options={[
-                          { value: "fact", label: "fact" },
-                          { value: "command", label: "command" },
-                          { value: "gotcha", label: "gotcha" },
-                          { value: "decision", label: "decision" },
-                        ]}
-                        onValueChange={setNewKind}
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-5">
+                    <div className="text-[12px] font-medium text-ink">手动添加记忆</div>
+                    {scope === "project" ? (
+                      <Field label="类型">
+                        <FormSelect
+                          label="类型"
+                          value={newKind}
+                          options={[
+                            { value: "fact", label: "fact" },
+                            { value: "command", label: "command" },
+                            { value: "gotcha", label: "gotcha" },
+                            { value: "decision", label: "decision" },
+                          ]}
+                          onValueChange={setNewKind}
+                        />
+                      </Field>
+                    ) : null}
+                    <Field label="key">
+                      <Input
+                        value={newKey}
+                        onChange={(event) => setNewKey(event.target.value)}
+                        placeholder="build.test.command"
                       />
                     </Field>
-                  ) : null}
-                  <Field label="key">
-                    <Input
-                      value={newKey}
-                      onChange={(event) => setNewKey(event.target.value)}
-                      placeholder="build.test.command"
-                    />
-                  </Field>
-                  <Field label="标题">
-                    <Input
-                      value={newTitle}
-                      onChange={(event) => setNewTitle(event.target.value)}
-                      placeholder="测试命令"
-                    />
-                  </Field>
-                  <Field label="内容">
-                    <Textarea
-                      value={newBody}
-                      onChange={(event) => setNewBody(event.target.value)}
-                      className="h-32 resize-y font-mono"
-                    />
-                  </Field>
-                  <div className="flex justify-end gap-2">
+                    <Field label="标题">
+                      <Input
+                        value={newTitle}
+                        onChange={(event) => setNewTitle(event.target.value)}
+                        placeholder="测试命令"
+                      />
+                    </Field>
+                    <Field label="内容">
+                      <Textarea
+                        value={newBody}
+                        onChange={(event) => setNewBody(event.target.value)}
+                        className="h-32 resize-y font-mono"
+                      />
+                    </Field>
+                  </div>
+                  <div className="flex shrink-0 justify-end gap-2 border-t border-line px-5 py-3">
                     <Button size="sm" variant="secondary" onClick={() => setCreating(false)}>
                       取消
                     </Button>
@@ -425,94 +427,109 @@ export function MemoryDialog({
                   </div>
                 </div>
               ) : selected === null ? (
-                <div className="flex h-full items-center justify-center text-center text-[11px] text-ink-3">
-                  选择一条记忆查看来源、使用情况与修订。
-                </div>
+                <AdminEmptyState
+                  icon={Brain}
+                  title="选择一条记忆"
+                  hint="查看来源、使用情况与修订。"
+                  compact
+                />
               ) : (
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <StatusPill status={selected.status} />
-                        <span className="text-[10px] text-ink-3">{selected.kind}</span>
-                        <span className="truncate font-mono text-[10px] text-ink-3">
-                          {selected.key}
-                        </span>
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <div className="shrink-0 space-y-2 border-b border-line px-5 py-3">
+                    <div className="flex items-start gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <StatusPill status={selected.status} />
+                          <span className="shrink-0 text-[10px] text-ink-3">{selected.kind}</span>
+                          <span className="truncate font-mono text-[10px] text-ink-3">
+                            {selected.key}
+                          </span>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-ink-3">
+                          <span
+                            className="max-w-[220px] truncate"
+                            title={selected.sourceTurnId ?? "用户创建"}
+                          >
+                            来源 {selected.sourceTurnId ?? "用户创建"}
+                          </span>
+                          <span>使用 {selected.useCount} 次</span>
+                          <span>修订 {selected.revisionCount}</span>
+                          <span>置信度 {selected.confidence.toFixed(2)}</span>
+                        </div>
                       </div>
-                      <div className="mt-1 text-[10px] text-ink-3">
-                        来源 {selected.sourceTurnId ?? "用户创建"} · 使用 {selected.useCount} 次 ·
-                        修订 {selected.revisionCount} · 置信度 {selected.confidence.toFixed(2)}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        leading={selected.pinned ? <PinOff size={12} /> : <Pin size={12} />}
-                        onClick={() => togglePin(selected)}
-                      >
-                        {selected.pinned ? "取消固定" : "固定"}
-                      </Button>
-                      {selected.status === "evicted" ? (
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          leading={<RotateCcw size={12} />}
-                          onClick={() =>
-                            run(() =>
-                              selected.scope === "global"
-                                ? restoreGlobalMemory(selected.id)
-                                : restoreProjectMemory(projectId ?? "", selected.id),
-                            )
-                          }
-                        >
-                          恢复
-                        </Button>
-                      ) : (
+                      <div className="flex shrink-0 flex-wrap justify-end gap-1">
                         <Button
                           size="sm"
                           variant="ghost"
-                          leading={<Trash2 size={12} />}
-                          onClick={() => setConfirmForget(selected)}
+                          leading={selected.pinned ? <PinOff size={12} /> : <Pin size={12} />}
+                          onClick={() => togglePin(selected)}
                         >
-                          忘记
+                          {selected.pinned ? "取消固定" : "固定"}
                         </Button>
-                      )}
+                        {selected.status === "evicted" ? (
+                          <Button
+                            size="sm"
+                            variant="soft"
+                            leading={<RotateCcw size={12} />}
+                            onClick={() =>
+                              run(() =>
+                                selected.scope === "global"
+                                  ? restoreGlobalMemory(selected.id)
+                                  : restoreProjectMemory(projectId ?? "", selected.id),
+                              )
+                            }
+                          >
+                            恢复
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            leading={<Trash2 size={12} />}
+                            onClick={() => setConfirmForget(selected)}
+                          >
+                            忘记
+                          </Button>
+                        )}
+                      </div>
                     </div>
+
+                    {selected.status === "review" ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-warning/25 bg-warning/5 px-3 py-2">
+                        <span className="text-[10.5px] text-ink-2">这条记忆需要确认。</span>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => setReview(selected, "active")}
+                        >
+                          接受
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setReview(selected, "rejected")}
+                        >
+                          拒绝
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
 
-                  {selected.status === "review" ? (
-                    <div className="flex items-center gap-2 rounded-lg border border-warning/25 bg-warning/5 px-3 py-2">
-                      <span className="text-[10.5px] text-ink-2">这条记忆需要确认。</span>
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        onClick={() => setReview(selected, "active")}
-                      >
-                        接受
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setReview(selected, "rejected")}
-                      >
-                        拒绝
-                      </Button>
-                    </div>
-                  ) : null}
+                  <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-3">
+                    <Field label="标题" className="shrink-0">
+                      <Input value={title} onChange={(event) => setTitle(event.target.value)} />
+                    </Field>
+                    <Field label="内容" className="flex min-h-0 flex-1 flex-col">
+                      <Textarea
+                        value={body}
+                        onChange={(event) => setBody(event.target.value)}
+                        className="min-h-[120px] flex-1 resize-none font-mono"
+                      />
+                    </Field>
+                  </div>
 
-                  <Field label="标题">
-                    <Input value={title} onChange={(event) => setTitle(event.target.value)} />
-                  </Field>
-                  <Field label="内容">
-                    <Textarea
-                      value={body}
-                      onChange={(event) => setBody(event.target.value)}
-                      className="h-40 resize-y font-mono"
-                    />
-                  </Field>
-                  <div className="flex items-center justify-between text-[10px] text-ink-3">
-                    <span>
+                  <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-5 py-3 text-[10px] text-ink-3">
+                    <span className="min-w-0 truncate">
                       更新 {new Date(selected.updatedAt).toLocaleString()}
                       {selected.expiresAt
                         ? ` · 过期 ${new Date(selected.expiresAt).toLocaleDateString()}`
@@ -560,9 +577,17 @@ export function MemoryDialog({
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <fieldset className="m-0 block space-y-1 border-0 p-0">
+    <fieldset className={cn("m-0 block min-w-0 space-y-1 border-0 p-0", className)}>
       <legend className="p-0 text-[10px] text-ink-3">{label}</legend>
       {children}
     </fieldset>
