@@ -553,6 +553,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         processes,
         serviceOps,
         webSearch: webSearchRuntime,
+        secretStore,
         pm2Context: (projectId) =>
           pm2CommandContext(opened.db, dataDir, pm2Global, serviceOps, projectId),
         resolveProvider:
