@@ -4,8 +4,10 @@ import { USE_MOCKS } from "@/lib/env";
 import {
   type ApiModelCatalog,
   type ApiSessionUsage,
+  type ApiWebSearchSettings,
   getSession,
   getSessionUsage,
+  getWebSearchSettings,
   listModelCatalog,
   listModels,
   listProjects,
@@ -157,6 +159,38 @@ export function useSessionUsage(sessionId: string | null): ApiSessionUsage | nul
   });
 
   return query.data ?? null;
+}
+
+export const webSearchSettingsKey = ["web-search-settings"] as const;
+
+const EMPTY_WEB_SEARCH_SETTINGS: ApiWebSearchSettings = {
+  activeConnectionId: null,
+  maxResults: 5,
+  maxSearchesPerTurn: 6,
+  maxFetchesPerTurn: 4,
+  connections: [],
+};
+
+export function useWebSearchSettings(): {
+  data: ApiWebSearchSettings;
+  isPending: boolean;
+  error: unknown;
+  refetch: () => Promise<unknown>;
+} {
+  const query = useQuery({
+    queryKey: webSearchSettingsKey,
+    queryFn: getWebSearchSettings,
+    enabled: !USE_MOCKS,
+    staleTime: 0,
+    retry: false,
+  });
+
+  return {
+    data: USE_MOCKS ? EMPTY_WEB_SEARCH_SETTINGS : (query.data ?? EMPTY_WEB_SEARCH_SETTINGS),
+    isPending: USE_MOCKS ? false : query.isPending,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 
 export function useSessionDetail(sessionId: string | null) {

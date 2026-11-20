@@ -3,7 +3,6 @@ import {
   cn,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -17,8 +16,8 @@ import { useIsMutating, useMutation } from "@tanstack/react-query";
 import {
   ArrowUp,
   Code2,
+  Globe,
   ListChecks,
-  Plus,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -35,6 +34,7 @@ import {
   useModelCatalog,
   useSessionDetail,
   useSessionUsage,
+  useWebSearchSettings,
 } from "@/lib/queries";
 import {
   type ApiCatalogGroup,
@@ -45,6 +45,7 @@ import {
 } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 import { DraftScreenshot } from "./DraftScreenshot";
 import { ModelControl } from "./ModelControl";
@@ -181,7 +182,9 @@ export function Composer({
         patch,
       }: {
         id: string;
-        patch: ModelSelection | Partial<Pick<ApiSession, "approvalPolicyId" | "agentProfile">>;
+        patch:
+          | ModelSelection
+          | Partial<Pick<ApiSession, "approvalPolicyId" | "agentProfile" | "webSearchEnabled">>;
       }) => {
         const key = sessionDetailKey(id);
         await queryClient.cancelQueries({ queryKey: key });
@@ -236,6 +239,14 @@ export function Composer({
       : model
         ? defaultThinkingFor(model)
         : "off";
+  const webSearchSettings = useWebSearchSettings();
+  const webSearchConfigured =
+    webSearchSettings.data.activeConnectionId !== null &&
+    webSearchSettings.data.connections.some(
+      (connection) => connection.id === webSearchSettings.data.activeConnectionId,
+    );
+  const webSearchEnabled = USE_MOCKS ? false : (sessionDetail?.webSearchEnabled ?? false);
+  const openWebSearchSettings = useSettingsStore((state) => state.openWebSearch);
   const canSend =
     hasSession &&
     model !== undefined &&
@@ -302,12 +313,6 @@ export function Composer({
     element.style.height = `${Math.min(180, Math.max(48, element.scrollHeight))}px`;
   }, [draft]);
 
-  const appendContext = (token: string) => {
-    const separator = draft && !draft.endsWith(" ") ? " " : "";
-    setDraft(`${draft}${separator}${token} `);
-    requestAnimationFrame(() => textareaRef.current?.focus());
-  };
-
   const select = async (selection: ModelSelection, label?: string) => {
     if (settingsDisabled) return;
     setSaveError(null);
@@ -371,6 +376,28 @@ export function Composer({
       await saveSettings.mutateAsync({ id: sessionId, patch: { approvalPolicyId: value } });
     } catch (error) {
       setSaveError({ sessionId, message: operationError(error, "审批策略保存失败，请重试。") });
+    }
+  };
+
+  const toggleWebSearch = async (): Promise<void> => {
+    if (!hasSession || isDraftSession || !webSearchConfigured) {
+      openWebSearchSettings();
+      return;
+    }
+    if (settingsDisabled) return;
+    setSaveError(null);
+    setSwitchNotice(null);
+    try {
+      await saveSettings.mutateAsync({
+        id: sessionId,
+        patch: { webSearchEnabled: !webSearchEnabled },
+      });
+      setSwitchNotice({
+        sessionId,
+        message: webSearchEnabled ? "已关闭联网搜索" : "已开启联网搜索，下一轮生效",
+      });
+    } catch (error) {
+      setSaveError({ sessionId, message: operationError(error, "联网搜索开关保存失败，请重试。") });
     }
   };
 
@@ -490,25 +517,21 @@ export function Composer({
           className="block max-h-[180px] min-h-[48px] w-full resize-none bg-transparent px-3.5 pt-3 text-[13px] leading-[1.65] text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
         />
         <div className="flex items-center gap-0.5 px-2 pb-2 pt-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <IconButton label="添加上下文" className="h-7 w-7">
-                <Plus size={15} />
-              </IconButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[220px]">
-              <DropdownMenuLabel>添加上下文</DropdownMenuLabel>
-              {["@README.md", "@package.json", "@apps/web/src/app/AppShell.tsx"].map((token) => (
-                <DropdownMenuItem
-                  key={token}
-                  onSelect={() => appendContext(token)}
-                  className="font-mono text-[10.5px]"
-                >
-                  {token}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <IconButton
+            label={
+              !webSearchConfigured
+                ? "联网搜索：未配置，点击配置"
+                : webSearchEnabled
+                  ? "联网搜索：已开启"
+                  : "联网搜索：已关闭"
+            }
+            active={webSearchEnabled}
+            disabled={!hasSession || settingsDisabled}
+            onClick={() => void toggleWebSearch()}
+            className="h-7 w-7"
+          >
+            <Globe size={15} aria-hidden="true" />
+          </IconButton>
 
           <ModelControl
             key={sessionId}
