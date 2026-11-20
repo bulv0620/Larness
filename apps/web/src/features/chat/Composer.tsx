@@ -246,6 +246,7 @@ export function Composer({
       (connection) => connection.id === webSearchSettings.data.activeConnectionId,
     );
   const webSearchEnabled = USE_MOCKS ? false : (sessionDetail?.webSearchEnabled ?? false);
+  const webSearchActive = webSearchEnabled && webSearchConfigured;
   const openWebSearchSettings = useSettingsStore((state) => state.openWebSearch);
   const canSend =
     hasSession &&
@@ -521,12 +522,12 @@ export function Composer({
             label={
               !webSearchConfigured
                 ? "联网搜索：未配置，点击配置"
-                : webSearchEnabled
+                : webSearchActive
                   ? "联网搜索：已开启"
                   : "联网搜索：已关闭"
             }
-            active={webSearchEnabled}
-            aria-pressed={webSearchEnabled}
+            active={webSearchActive}
+            aria-pressed={webSearchActive}
             disabled={!hasSession || settingsDisabled}
             onClick={() => void toggleWebSearch()}
             className="h-7 w-7"
