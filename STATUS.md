@@ -14,6 +14,7 @@
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
+- **086 项目记忆**：实现与自动验证完成（`pnpm check`、`build`、Mock E2E 24/24），待人类视觉/真实 Provider/30 天使用验收；未验证项见 [acceptance](specs/086-project-memory/acceptance.md)。
 
 ## 最近收口（滚动保留最近 10 项）
 
