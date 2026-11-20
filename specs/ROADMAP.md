@@ -505,7 +505,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | PM-7 | [设置页记忆与偏好管理](086-project-memory/tasks.md#pm-7-设置页记忆与偏好管理) | PM-6 | `done`（2026-11-20） |
 | PM-8 | [安全、E2E 与验收](086-project-memory/tasks.md#pm-8-安全e2e-与验收) | PM-1～PM-7 | `done`（2026-11-20） |
 
-### 8.13 发布后：联网搜索工具与独立搜索连接（087，ready）
+### 8.13 发布后：联网搜索工具与独立搜索连接（087，active）
 
 目标：新增 `web_search` / `fetch_url` 普通 Agent 工具，默认关闭、会话级地球按钮显式开启；搜索 Key 与模型 Key 完全隔离；首版支持 DeepSeek 与 GLM 国内/国际，Provider 层保持通用。不使用厂商内置 server-side 搜索。规格见 [087](087-web-search/spec.md)，方案见 [plan](087-web-search/plan.md)，决策见 [ADR-073](../docs/adr/ADR-073-web-search.md)（accepted）。
 
@@ -518,7 +518,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | WS-2 | [搜索连接存储、REST 与审计](087-web-search/tasks.md#ws-2-搜索连接存储rest-与审计) | WS-0 | `done`（2026-11-20） |
 | WS-3 | [Agent 工具、会话开关与上下文](087-web-search/tasks.md#ws-3-agent-工具会话开关与上下文) | WS-1、WS-2 | `done`（2026-11-20） |
 | WS-4 | [设置弹窗、侧栏入口与地球按钮](087-web-search/tasks.md#ws-4-设置弹窗侧栏入口与地球按钮) | WS-2、WS-3 | `done`（2026-11-20） |
-| WS-5 | [契约、E2E、真实 Key 验证与收口](087-web-search/tasks.md#ws-5-契约e2e真实-key-验证与收口) | WS-1～WS-4 | `in_progress` |
+| WS-5 | [契约、E2E、真实 Key 验证与收口](087-web-search/tasks.md#ws-5-契约e2e真实-key-验证与收口) | WS-1～WS-4 | `review`（真实 Key 待验） |
 
 ## 9. 门禁
 

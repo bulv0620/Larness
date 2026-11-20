@@ -2,7 +2,7 @@
 id: 087-web-search
 title: 联网搜索工具与独立搜索连接
 milestone: 发布后
-status: ready
+status: active
 depends_on: [020-workspace-agent, 051-agent-tool-contract, 084-agent-profiles-and-usage]
 owners: [human]
 created: 2026-11-20

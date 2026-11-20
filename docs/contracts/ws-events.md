@@ -97,6 +97,7 @@ interface ServerEvent<T = unknown> {
 | `tool.started` | `toolCallId, name` | 是 |
 | `tool.completed` | `toolCallId, resultSummary, truncated, resourceTarget?, closedTerminalTarget?, originClientSessionId?, supersedes?, fileRead?`（M2-2 成功文件修改附授权 scope / path / version，074 起 `write_file` 同样生成；`supersedes` 为同一 `(tool, 规范化参数)` 之前失败、本次成功的 callId 列表；M6-13 起 `read_file` 附 `fileRead: {path, version}`，只含相对路径与版本哈希，供检查点与接续记录「已查看」事实） | 是 |
 | `tool.failed` | `toolCallId, errorCode, message, issues?, repeatCount?`（M6-10：同一 `(tool, 规范化参数)` 连续失败次数；`issues` 为最多 5 条 `{path,message}` 的参数校验原因） | 是 |
+| `tool.completed` / `tool.failed`（087） | `web_search` / `fetch_url` 沿用同一事件结构；`argsSummary` 为查询或主机名，`resultSummary` 为结果数/页面标题。不新增事件类型，不写入 query 正文、页面正文或搜索 Key | 是 |
 | `file.changed` | `path, changeType, version`（`changeType`: `modified`（`apply_patch`）/ `created`（`write_file`）） | 是 |
 | `artifact.created` | `artifactId, kind, title, url?` | 是 |
 | `turn.completed` | `turnId, usage, durationMs, terminalReason, budgetExhausted?, budgetCause?, fileResults?, fileResultsOmitted?`（`usage` 与 `model.usage` 同口径，含 `cacheReadTokens?` / `noCacheTokens?`；`fileResults` 见 074） | 是 |

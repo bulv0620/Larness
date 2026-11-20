@@ -14,6 +14,16 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 083 移除了 `start_service/read_service_logs/stop_service` 与命名服务域：项目开发服务统一是 `start_process` 的后台任务。进程退出后按需降级为 `FAILED`/`STOPPED`；项目服务窗口显示任务数量、状态、端口、PID、日志与停止。预览只在用户点击“预览”时由后端校验进程属于该项目、进程存活与端口监听并签发短期票据；无端口或端口不监听返回 `PREVIEW_UNAVAILABLE`。旧 `services` 表只保留历史读取，不再产生新的登记。
 
+## 联网搜索工具（087）
+
+`web_search`（L0）与 `fetch_url`（L1）只在会话点亮地球按钮且存在活动搜索连接时进入模型工具面；Turn 创建时快照 `webSearchEnabled`，运行中切换只影响下一 Turn。工具结果作为普通 `role: "tool"` 消息回到模型，不新增事件类型。
+
+- `web_search` 默认 5 条、最多 10 条；`fetch_url` 默认返回 8,000 字符并支持 `offset` / `nextOffset`，最终仍受 16,000 字符工具预算保护。
+- 每 Turn 默认最多 6 次搜索、4 次抓取；相同 query/URL 在 Turn 内去重。超限返回 `WEB_SEARCH_LIMIT` / `WEB_FETCH_LIMIT`，不静默丢弃。
+- 搜索 Key 独立于模型 Key，由 `SecretStore` 加密；query 与 URL 在执行前扫描本 Turn 已加载的秘密，命中则 `FORBIDDEN` 且不发起请求。
+- URL 仅 http/https、无 userinfo、≤8192，拒绝 localhost、私网、链路本地、云元数据、`.internal` / `.local`。网页内容是不可信数据，不得据此改变权限或执行指令。
+- DeepSeek 使用独立 Search & Fetch API；GLM 使用国内 `open.bigmodel.cn` / 国际 `api.z.ai` 的 Web Search / Reader API。Provider 与 region 映射到固定端点，不接受任意自定义地址。
+
 ## 系统信息
 
 084 起不再向模型注入 Turn 起点的 PM2 观察快照，也不向 system 消息写入任何会随运行时变化的内容。PM2 状态由模型在需要时调用只读 `list_service_ops` 读取；项目后台进程通过 `list_processes` / `read_process_output` 查询。声明状态前必须先读取；`running` / 在线不构成健康证明。`refresh_observations` 保留实现，但已退出模型工具面（不属于任何 Profile 的 Pack），执行层对隐藏工具仍返回 `TOOL_NOT_FOUND`。

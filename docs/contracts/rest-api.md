@@ -356,7 +356,7 @@
 | GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档；列表项包含 `hasActiveTurn` |
 | POST | `/api/sessions` | `{ projectId?, title? }`；省略项目或选择内建默认项目时使用共享默认工作区；201 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
-| PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, credentialProfileId?, modelProfileId?, agentProfile?, approvalPolicyId? }`；模型 / 档位 / 凭据 / 策略只影响下一 Turn；输入框改选策略后保存到当前会话，刷新后恢复；`agentProfile` 仅 `coding` / `plan` |
+| PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, credentialProfileId?, modelProfileId?, agentProfile?, approvalPolicyId?, webSearchEnabled? }`；模型 / 档位 / 凭据 / 策略 / 联网开关只影响下一 Turn；输入框改选策略后保存到当前会话，刷新后恢复；`agentProfile` 仅 `coding` / `plan`；`webSearchEnabled=true` 需要已配置活动搜索连接，否则 400 |
 | DELETE | `/api/sessions/:id` | 归档会话（`status=archived`，不删 workspace / 源码）；活跃 Turn 返回 409 |
 | POST | `/api/sessions/:id/turns` | `{ input, model?, thinking?, credentialProfileId?, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
 | POST | `/api/turns/:id/cancel` | 活跃 Turn 置 `CANCELLING`；无活跃 Turn 返回 409 |
@@ -373,6 +373,13 @@
 | POST | `/api/models/catalog/refresh` | M5-1：服务端刷新官方目录；失败保留旧缓存 |
 | PATCH | `/api/models/catalog/visibility` | M5-1：`{ credentialProfileId, modelId, visible }`，控制模型是否出现在会话选择器 |
 | PUT | `/api/models/default` | M5-1：`{ model, credentialProfileId, thinking? }`，设置全局默认模型；新会话自动继承 |
+| GET | `/api/web-search/connections` | 087：独立搜索连接列表；只返回 `maskedKey`，不含明文 |
+| POST | `/api/web-search/connections` | 087：`{ provider: "deepseek" \| "glm", label, apiKey, region? }`；GLM `region` 为 `cn` / `global`；201 |
+| PATCH | `/api/web-search/connections/:id` | 087：`{ label?, apiKey?, region? }`；Key 留空表示不修改 |
+| DELETE | `/api/web-search/connections/:id` | 087：删除连接与未被引用的 secret；不影响模型凭据 |
+| POST | `/api/web-search/connections/:id/test` | 087：发起一次最小真实搜索，返回 `{ ok, latencyMs, resultCount }` |
+| GET | `/api/web-search/settings` | 087：活动连接、结果上限、每 Turn 配额与连接列表；不含 Key |
+| PUT | `/api/web-search/settings` | 087：`{ activeConnectionId, maxResults, maxSearchesPerTurn, maxFetchesPerTurn }`；活动连接必须存在 |
 | GET | `/api/credentials` | 凭据元数据（掩码，不含明文） |
 | POST | `/api/credentials` | 按 `presetId` 或旧 `provider` 新建凭据，密钥只写；兼容 Provider 配置 `endpoint` 与可选 `contextWindow` |
 | PATCH | `/api/credentials/:id` | 支持改名与换 Key，兼容旧端点和窗口字段；线路或 Key 变化后需刷新目录 |
@@ -416,6 +423,7 @@
   "status": "active",
   "modelProfileId": null,
   "approvalPolicyId": "standard",
+  "webSearchEnabled": false,
   "createdAt": 1790000000000,
   "updatedAt": 1790000000000,
   "lastActivityAt": 1790000000000,

@@ -526,6 +526,7 @@ export function Composer({
                   : "联网搜索：已关闭"
             }
             active={webSearchEnabled}
+            aria-pressed={webSearchEnabled}
             disabled={!hasSession || settingsDisabled}
             onClick={() => void toggleWebSearch()}
             className="h-7 w-7"

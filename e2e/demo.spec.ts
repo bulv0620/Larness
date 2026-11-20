@@ -58,10 +58,8 @@ test.describe("Larness S0 视觉 Demo", () => {
     await expect(page.getByLabel("项目窗口")).toBeVisible();
   });
 
-  test("上下文菜单与文件树折叠可用", async ({ page }) => {
-    await page.getByRole("button", { name: "添加上下文" }).click();
-    await page.getByRole("menuitem", { name: "@README.md" }).click();
-    await expect(page.getByLabel("对话输入")).toHaveValue(/@README\.md/);
+  test("文件树折叠可用且旧的上下文快捷入口已移除", async ({ page }) => {
+    await expect(page.getByRole("button", { name: "添加上下文" })).toHaveCount(0);
 
     const tree = page.getByLabel("项目资源", { exact: true });
     await tree.getByText("apps", { exact: true }).click();
