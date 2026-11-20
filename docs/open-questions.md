@@ -12,7 +12,6 @@
 | 远程预览 | 验证独立域、通配 DNS、HTTPS 反代与浏览器行为；预览连接身份存在竞态边界。多客户端布局、外部打开和模型自主选择预览仍缺专门端到端覆盖。 | [M3 收尾](../specs/040-services-preview/closure.md) |
 | 正式服务 | 核实主机重启后恢复与 PM2 运行时升级行为；正式服务秘密注入及落盘边界见 Q-029。 | [M4 收尾](../specs/050-deploy/closure.md) |
 | 模型 | 实测真实第三方兼容端点与接近窗口阈值的长会话压缩质量及 UI。真实 GLM Coding 文本、推理和工具调用已有证据。 | [多模型验收](../specs/063-multi-provider/closure-d4.md) |
-| 联网搜索 | 087 的 DeepSeek / GLM 真实 Search & Fetch 调用、中文结果质量、延迟与费用尚未实测；需合法 Key 与人工界面验收。 | [087 验收](../specs/087-web-search/acceptance.md) |
 | 模型连接与截图 | 使用合法持有的 Key 逐预设验收真实模型发现、流式工具调用、续步和用量。使用支持图片与工具的真实线路验证截图输入。 | [077 验收记录](../specs/077-model-connections/acceptance.md) |
 | 调度 | 补真实 Provider 定时任务、取消到终态的时延、实际重启和休眠唤醒、失败角标、任务数满额和视觉记录。 | [调度验收](../specs/064-scheduler/acceptance.md) |
 | npm | 真实 registry 出现新版本时验证 TUI 提示；全局安装的交互 TUI 缺独立验收。npm 11 脚本策略可能影响原生模块安装。 | [分发验收](../specs/065-launcher-updater/acceptance.md)、[安装指南](guides/install.md) |
