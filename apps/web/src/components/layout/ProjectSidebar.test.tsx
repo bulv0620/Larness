@@ -8,6 +8,12 @@ import { ProjectSidebar } from "./ProjectSidebar";
 const mocks = vi.hoisted(() => ({
   snapshot: {} as GatewaySnapshot,
   reorderProjects: vi.fn(async () => undefined),
+  getJobsSummary: vi.fn(async () => ({
+    total: 0,
+    enabled: 0,
+    running: 0,
+    failedLast24h: 0,
+  })),
 }));
 
 vi.mock("@/lib/queries", () => ({
@@ -25,15 +31,7 @@ vi.mock("@/features/auth/useAuth", () => ({
 
 vi.mock("@/features/jobs/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/features/jobs/api")>();
-  return {
-    ...actual,
-    getJobsSummary: vi.fn(async () => ({
-      total: 0,
-      enabled: 0,
-      running: 0,
-      failedLast24h: 0,
-    })),
-  };
+  return { ...actual, getJobsSummary: mocks.getJobsSummary };
 });
 
 vi.mock("@/features/jobs/JobsDialog", () => ({ JobsDialog: () => null }));
@@ -253,5 +251,44 @@ describe("ProjectSidebar project ordering", () => {
     const alpha = screen.getByRole("button", { name: "Alpha" });
     fireEvent.keyDown(alpha, { key: "ArrowDown" });
     expect(mocks.reorderProjects).not.toHaveBeenCalled();
+  });
+
+  it("keeps the five admin entries in one compact icon row with short labels", () => {
+    renderSidebar();
+
+    const group = screen.getByRole("group", { name: "服务与设置" });
+    const entries = within(group).getAllByRole("button");
+
+    expect(entries).toHaveLength(5);
+    expect(entries.map((entry) => entry.getAttribute("aria-label"))).toEqual([
+      "服务运维",
+      "自动化任务",
+      "记忆与偏好",
+      "联网搜索",
+      "模型与凭据",
+    ]);
+    expect(entries.map((entry) => entry.textContent)).toEqual([
+      "服务",
+      "任务",
+      "记忆",
+      "搜索",
+      "模型",
+    ]);
+    expect(within(group).queryByRole("button", { name: "服务与设置" })).toBeNull();
+  });
+
+  it("shows the jobs failure badge on the compact admin entry", async () => {
+    mocks.getJobsSummary.mockResolvedValue({
+      total: 2,
+      enabled: 2,
+      running: 0,
+      failedLast24h: 2,
+    });
+    renderSidebar();
+
+    const jobsEntry = await screen.findByRole("button", {
+      name: "自动化任务，2 个失败任务",
+    });
+    expect(within(jobsEntry).getByText("2")).toBeInTheDocument();
   });
 });

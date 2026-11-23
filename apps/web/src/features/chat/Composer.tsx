@@ -79,8 +79,8 @@ const policies = [
 
 type AgentProfileId = "coding" | "plan";
 const agentProfiles = [
-  { id: "coding", label: "Coding", detail: "完整能力，默认快速执行", icon: Code2 },
-  { id: "plan", label: "Plan", detail: "完整能力 + 计划", icon: ListChecks },
+  { id: "coding", label: "Coding", detail: "快速完成编程任务", icon: Code2 },
+  { id: "plan", label: "Plan", detail: "按需创建任务计划完成", icon: ListChecks },
 ] as const;
 
 function defaultThinkingFor(model: {
