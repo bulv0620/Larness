@@ -1,4 +1,4 @@
-import type { ServerEvent, ToolItem } from "@larness/shared";
+import type { PlanItem, ServerEvent, ToolItem } from "@larness/shared";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { applyServerEvent, eventsToTimeline } from "@/lib/eventReducer";
@@ -582,7 +582,7 @@ it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (te
           createdAt: 1,
           steps: [
             { id: "read", title: "读取样式", status: "done" },
-            { id: "edit", title: "修改样式", status: "running" },
+            { id: "edit", title: "修改样式", detail: "改动 12 行", status: "running" },
             { id: "verify", title: "验证页面", status: "pending" },
           ],
         },
@@ -602,9 +602,16 @@ it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (te
     activeTurnId: turnId,
   });
   const view = render(<Timeline />);
-  // Steps are always visible: no click, no progress bar, no duplicated title.
+  // Steps are always visible: no click, no progress bar.
   const plan = screen.getByRole("list", { name: "计划 · 1/3 · 样式调整" });
   expect(plan).toHaveAccessibleName("计划 · 1/3 · 样式调整");
+  // The detail reaches the store, so the next assertion is not vacuous.
+  const stored = useTimelineStore
+    .getState()
+    .items.find((entry): entry is PlanItem => entry.kind === "plan");
+  expect(stored?.steps[1]?.detail).toBe("改动 12 行");
+  // A row shows the step title alone: the optional step detail stays out of the card.
+  expect(within(plan).queryByText("改动 12 行")).toBeNull();
   // The running step is the current one, not a failure and not a second glow.
   expect(plan.querySelector('li[aria-current="step"]')).toHaveTextContent("修改样式");
   expect(plan.querySelector(".animate-spin")).toBeInTheDocument();

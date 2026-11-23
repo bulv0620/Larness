@@ -296,11 +296,6 @@ function PlanCard({
                   {planStepLabels[status]}
                 </span>
               </span>
-              {step.detail ? (
-                <span className="max-w-[45%] shrink-0 text-right text-[11px] leading-[17.4px] break-words">
-                  {step.detail}
-                </span>
-              ) : null}
             </li>
           );
         })}
