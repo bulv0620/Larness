@@ -292,6 +292,24 @@ export const GLM_BUILTIN_CATALOG: readonly CatalogModel[] = [
     },
     default: false,
   },
+  // https://docs.bigmodel.cn/cn/coding-plan/latest-model
+  {
+    id: "glm-5.4",
+    label: "GLM-5.4",
+    contextWindow: 1_000_000,
+    capabilities: {
+      inputModalities: ["text", "image"],
+      outputModalities: ["text"],
+      tools: true,
+      streaming: true,
+    },
+    thinking: {
+      supported: true,
+      mode: "mandatory-levels",
+      levels: THINKING_LEVELS.map((level) => ({ ...level })),
+    },
+    default: false,
+  },
   // https://docs.z.ai/guides/vlm/glm-4.6v
   {
     id: "glm-4.6v",

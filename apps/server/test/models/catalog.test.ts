@@ -613,6 +613,7 @@ describe("deepseek model catalog", () => {
       ["glm-5.3-flash", 1_000_000, "mandatory-levels"],
       ["glm-5.3-flashx", 1_000_000, "mandatory-levels"],
       ["glm-5.3-flashx-legal", 1_000_000, "mandatory-levels"],
+      ["glm-5.4", 1_000_000, "mandatory-levels"],
     ];
     const byId = new Map(GLM_BUILTIN_CATALOG.map((model) => [model.id, model]));
 
@@ -628,6 +629,10 @@ describe("deepseek model catalog", () => {
         mode === undefined || mode === "toggle" ? 0 : 3,
       );
     }
+
+    expect(byId.get("glm-5.4")?.capabilities?.inputModalities).toEqual(["text", "image"]);
+    expect(byId.get("glm-5.4")?.capabilities?.tools).toBe(true);
+    expect(byId.get("glm-5.4")?.capabilities?.streaming).toBe(true);
   });
   it("stores a global default model for new sessions", async () => {
     await withTempDir(async (dir) => {

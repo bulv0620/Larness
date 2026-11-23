@@ -47,7 +47,7 @@ updated: 2026-11-07
 - 每个 Provider 固定默认端点：DeepSeek `https://api.deepseek.com`、GLM 官方标准 / Coding 端点；兼容 Provider 允许用户填任意公网 HTTPS 端点，并显式提供上下文窗口（默认 128K），创建 / 修改 / Turn 开始前均经 `assertSafeEndpoint` 校验。
 - 有官方目录的 Provider 用目录；目录不返回能力字段时用内置注册表补窗口 / 档位。官方目录只返回 id 时（如 GLM 的 `/models`），窗口来自官方文档维护的内置表。未收录的模型保持「未知」并禁用，不猜数值。
 
-**GLM 能力表（2026-11-07 按官方文档核对）**
+**GLM 能力表（2026-11-07 按官方文档核对；2026-11-23 增补 GLM-5.4）**
 
 | 模型 | 窗口 | `thinking.mode` | 选项 |
 |---|---|---|---|
@@ -58,6 +58,7 @@ updated: 2026-11-07
 | glm-5.2 | 1M | `levels` | 关 / 低 / 中 / 高 |
 | glm-5.3 | 1M | `mandatory-levels` | 低 / 中 / 高（不能关） |
 | glm-5.3-flash / flashx / flashx-legal | 1M | `mandatory-levels` | 低 / 中 / 高（不能关） |
+| glm-5.4 | 1M | `mandatory-levels` | 低 / 中 / 高（不能关） |
 
 - 三种模式：`levels`（关/低/中/高）、`toggle`（关/开）、`mandatory-levels`（低/中/高，无关闭）。
 - 设置页是全局管理：Key、模型显示、默认模型；默认模型存入 `model_defaults`，新会话继承，会话内仍由输入框选择器覆盖。只有可见模型可以设为默认，隐藏会清除匹配的默认设置，见 [UI-F18](../068-ui-fixes/spec.md#ui-f18-会话模型与全局默认)。
