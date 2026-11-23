@@ -27,7 +27,7 @@ describe("migrations", () => {
         expect(opened.sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
         expect(opened.sqlite.pragma("busy_timeout", { simple: true })).toBe(5000);
         expect(quickCheck(opened.sqlite)).toBe(true);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(37);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(38);
 
         const sessionColumns = opened.sqlite.prepare("PRAGMA table_info(sessions)").all() as {
           name: string;
@@ -98,7 +98,7 @@ describe("migrations", () => {
       const journal = JSON.parse(journalText) as { entries: unknown[] };
       await writeFile(
         journalPath,
-        JSON.stringify({ ...journal, entries: journal.entries.slice(0, -7) }),
+        JSON.stringify({ ...journal, entries: journal.entries.slice(0, -8) }),
       );
       const { db, sqlite, close } = openDatabase(path.join(dir, "larness.db"));
       try {
@@ -158,7 +158,7 @@ describe("migrations", () => {
 
       try {
         runMigrations(opened.db);
-        expect(appliedMigrationCount(opened.sqlite)).toBe(37);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(38);
       } finally {
         opened.close();
       }
@@ -267,7 +267,7 @@ describe("migrations", () => {
         const copy = openDatabase(target);
 
         try {
-          expect(appliedMigrationCount(copy.sqlite)).toBe(37);
+          expect(appliedMigrationCount(copy.sqlite)).toBe(38);
         } finally {
           copy.close();
         }
@@ -288,7 +288,7 @@ describe("migrations", () => {
       const latest = journal.entries.at(-1);
       if (latest === undefined) throw new Error("missing migration journal entry");
       // Stop before the coding/plan normalization so the upgrade replays 0034.
-      journal.entries = journal.entries.slice(0, -4);
+      journal.entries = journal.entries.slice(0, -5);
       await writeFile(journalPath, JSON.stringify(journal));
       await rm(path.join(oldMigrations, `${latest.tag}.sql`));
 
@@ -304,10 +304,90 @@ describe("migrations", () => {
 
         runMigrations(opened.db);
 
-        expect(appliedMigrationCount(opened.sqlite)).toBe(37);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(38);
         expect(
           opened.sqlite.prepare("SELECT agent_profile FROM sessions WHERE id = ?").get("ses_old"),
         ).toMatchObject({ agent_profile: "coding" });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("backfills legacy session_attachments rows for document attachments", async () => {
+    await withTempDir(async (dir) => {
+      const migrations = path.join(dir, "migrations");
+      await cp(migrationsDirectory(), migrations, { recursive: true });
+      const journalPath = path.join(migrations, "meta", "_journal.json");
+      const journal = JSON.parse(await readFile(journalPath, "utf8")) as {
+        entries: { tag: string }[];
+      };
+      const latest = journal.entries.at(-1);
+      if (latest === undefined) throw new Error("missing migration journal entry");
+      journal.entries = journal.entries.slice(0, -1);
+      await writeFile(journalPath, JSON.stringify(journal));
+      await rm(path.join(migrations, `${latest.tag}.sql`));
+
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      try {
+        runMigrations(opened.db, migrations);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(37);
+        const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
+        opened.sqlite.exec(`
+          INSERT INTO sessions
+            (id, workspace_path, title, created_at, updated_at, last_activity_at)
+            VALUES ('ses_legacy', '/fixture', 'Legacy', 1, 1, 1);
+        `);
+        opened.sqlite
+          .prepare(
+            "INSERT INTO session_attachments (id, session_id, mime, digest, bytes, width, height, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          )
+          .run("att_legacy", "ses_legacy", "image/png", "digest", png, 320, 200, 5);
+
+        runMigrations(opened.db);
+        expect(appliedMigrationCount(opened.sqlite)).toBe(38);
+
+        const columns = (
+          opened.sqlite.prepare("PRAGMA table_info(session_attachments)").all() as {
+            name: string;
+          }[]
+        ).map((column) => column.name);
+        expect(columns).toEqual(
+          expect.arrayContaining([
+            "filename",
+            "kind",
+            "size_bytes",
+            "storage_path",
+            "status",
+            "method",
+            "page_count",
+            "token_count",
+            "sections_json",
+            "warnings_json",
+            "extractor_id",
+            "extractor_version",
+            "extracted_at",
+          ]),
+        );
+        expect(
+          opened.sqlite.prepare("SELECT * FROM session_attachments WHERE id = ?").get("att_legacy"),
+        ).toMatchObject({
+          filename: "screenshot",
+          kind: "image",
+          size_bytes: png.length,
+          storage_path: null,
+          status: "ready",
+          method: "none",
+          page_count: null,
+          token_count: 0,
+          width: 320,
+          height: 200,
+        });
+        expect(
+          opened.sqlite
+            .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+            .get("idx_session_attachments_session_created"),
+        ).toBeDefined();
       } finally {
         opened.close();
       }

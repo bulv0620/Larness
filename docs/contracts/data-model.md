@@ -408,3 +408,22 @@ CREATE INDEX idx_sessions_origin ON sessions(origin, updated_at);
 - `memory_suppressions`：忘记/拒绝后的 key、正文哈希与 90 天过期时间，防止重新学习。
 
 索引：active key 唯一（scope + project_key + key，partial）、`(scope, project_id, status)`、`expires_at`、revision 唯一、suppression key 唯一。项目删除级联删除三张表的数据。迁移只新增表与索引，不改现有列；回滚时删除三张新表。
+
+
+### 0038 · 文档与图片附件（088）
+
+`schemaVersion 37 → 38`。扩展 `session_attachments`，只加列与索引，不重建表：
+
+- `filename` text not null default `'screenshot'`；
+- `kind` text not null default `'image'`；
+- `size_bytes` integer not null default `0`；
+- `storage_path` text（新上传必填；旧行为 null，继续从 `bytes` 读取）；
+- `status` text not null default `'ready'`；
+- `method` text not null default `'none'`；
+- `page_count` integer；
+- `token_count` integer not null default `0`；
+- `sections_json` text；`warnings_json` text；
+- `extractor_id` text；`extractor_version` text；`extracted_at` integer；`error_code` text（只存稳定附件错误码）；
+- 索引 `idx_session_attachments_session_created` on `(session_id, created_at)`。
+
+旧行回填 `kind='image'`、`status='ready'`、`method='none'`、`size_bytes=length(bytes)`。非图片新行写 `width=0`、`height=0`、`bytes=x''`，以 `kind` 区分。原始文件在 `dataDir/attachments/<sessionId>/<attachmentId>.<ext>`，artifact 在 `dataDir/artifacts/attachments/<attachmentId>.md`；路径只由 ID 推导。启动时把遗留 `pending` 行标记为 `failed` + `ATTACHMENT_PARSE_FAILED`，避免永久阻塞会话。删除会话级联删除行；文件清理失败由孤儿扫描重试。回滚时旧程序忽略新列，已落盘文件保留但不可见。

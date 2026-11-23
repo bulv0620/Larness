@@ -12,6 +12,7 @@ const catalog: ToolPackCatalog = {
     serviceOps: { id: "serviceOps", label: "serviceOps", tools: ["list_service_ops"] },
     memory: { id: "memory", label: "memory", tools: [] },
     web: { id: "web", label: "web", tools: [] },
+    attachments: { id: "attachments", label: "attachments", tools: [] },
   },
   profiles: {
     coding: {

@@ -11,6 +11,7 @@ import {
   Hint,
   IconButton,
   Textarea,
+  Toast,
 } from "@larness/ui";
 import { useIsMutating, useMutation } from "@tanstack/react-query";
 import {
@@ -18,13 +19,14 @@ import {
   Code2,
   Globe,
   ListChecks,
+  Paperclip,
   Shield,
   ShieldAlert,
   ShieldCheck,
   Square,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { operationError } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiError, operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import {
@@ -41,12 +43,15 @@ import {
   type ApiSession,
   type ApiSessionDetail,
   type ModelSelection,
+  transcribeAttachment,
   updateSession,
+  uploadAttachment,
 } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
-import { DraftScreenshot } from "./DraftScreenshot";
+import { AttachmentPreview, type PreviewTarget } from "./AttachmentPreview";
+import { AttachmentTray, type DraftAttachmentItem } from "./AttachmentTray";
 import { ModelControl } from "./ModelControl";
 import { SessionUsageLine } from "./SessionUsageLine";
 
@@ -130,8 +135,15 @@ export function Composer({
   centered?: boolean;
   onSubmit?: () => void;
 }) {
-  const [attachments, setAttachments] = useState<{ sessionId: string; files: File[] }>();
+  const [tray, setTray] = useState<{ sessionId: string; items: DraftAttachmentItem[] }>();
   const [attachmentError, setAttachmentError] = useState("");
+  const [toast, setToast] = useState<{
+    message: string;
+    tone: "success" | "info" | "error";
+  } | null>(null);
+  const [preview, setPreview] = useState<PreviewTarget | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const transcribing = useRef<Set<string>>(new Set());
   const [autonomousSession, setAutonomousSession] = useState<string | null>(null);
   const [draftPolicy, setDraftPolicy] = useState<{
     sessionId: string;
@@ -256,26 +268,174 @@ export function Composer({
     (model.agentSelectable ?? model.contextWindow !== null) &&
     !savingSettings &&
     !isStreaming;
-  const screenshots = attachments?.sessionId === sessionId ? attachments.files : [];
+  const trayItems = tray?.sessionId === sessionId ? tray.items : [];
+  const files = trayItems.map((item) => item.file);
   const imageAllowed = model?.capabilities?.inputModalities?.includes("image") === true;
-  const screenshotBlocked = screenshots.length > 0 && !imageAllowed;
+  const attachmentBlocked =
+    !isDraftSession &&
+    !imageAllowed &&
+    trayItems.some(
+      (item) =>
+        item.file.type.startsWith("image/") &&
+        item.status === "ready" &&
+        item.attachment?.method !== "ocr" &&
+        item.attachment?.method !== "vision",
+    );
+  const trayBusy = trayItems.some(
+    (item) => item.status === "uploading" || item.status === "pending",
+  );
+  const trayFailed = trayItems.some((item) => item.status === "failed");
 
-  const addScreenshots = (files: File[]) => {
-    if (USE_MOCKS || !hasSession || !sessionId || isStreaming || files.length === 0) return;
-    if (
-      files.some(
-        (file) => !["image/png", "image/jpeg"].includes(file.type) || file.size > 4 * 1024 * 1024,
-      )
-    ) {
-      setAttachmentError("截图需为 PNG 或 JPEG，每张最多 4 MiB。");
+  const transcribeItem = useCallback(
+    async (key: string, attachmentId: string) => {
+      if (!sessionId) return;
+      if (transcribing.current.has(key)) return;
+      transcribing.current.add(key);
+      try {
+        const updated = await transcribeAttachment(sessionId, attachmentId);
+        setTray((current) =>
+          current?.sessionId !== sessionId
+            ? current
+            : {
+                ...current,
+                items: current.items.map((item) =>
+                  item.key === key
+                    ? {
+                        ...item,
+                        status: updated.status,
+                        attachment: updated,
+                        errorCode: updated.errorCode,
+                      }
+                    : item,
+                ),
+              },
+        );
+      } catch (error) {
+        const code = error instanceof ApiError ? error.code : "ATTACHMENT_VISION_UNAVAILABLE";
+        setTray((current) =>
+          current?.sessionId !== sessionId
+            ? current
+            : {
+                ...current,
+                items: current.items.map((item) =>
+                  item.key === key ? { ...item, status: "failed" as const, errorCode: code } : item,
+                ),
+              },
+        );
+        setToast({
+          message: "图片需要视觉模型或本地 OCR 才能发送。",
+          tone: "error",
+        });
+      } finally {
+        transcribing.current.delete(key);
+      }
+    },
+    [sessionId],
+  );
+  const uploadItem = async (key: string, file: File) => {
+    if (!sessionId || isDraftSession) return;
+    try {
+      const result = await uploadAttachment(sessionId, file);
+      setTray((current) =>
+        current?.sessionId !== sessionId
+          ? current
+          : {
+              ...current,
+              items: current.items.map((item) =>
+                item.key === key
+                  ? {
+                      ...item,
+                      status: result.attachment.status,
+                      attachment: result.attachment,
+                      errorCode: result.attachment.errorCode,
+                    }
+                  : item,
+              ),
+            },
+      );
+      if (result.attachment.status === "failed") {
+        setToast({ message: "附件解析失败，可重试或移除。", tone: "error" });
+      }
+      if (
+        result.attachment.kind === "image" &&
+        result.attachment.status === "ready" &&
+        result.attachment.method === "none" &&
+        !imageAllowed
+      ) {
+        void transcribeItem(key, result.attachment.id);
+      }
+    } catch (error) {
+      setTray((current) =>
+        current?.sessionId !== sessionId
+          ? current
+          : {
+              ...current,
+              items: current.items.map((item) =>
+                item.key === key ? { ...item, status: "failed" as const } : item,
+              ),
+            },
+      );
+      setToast({
+        message: error instanceof Error ? error.message : "附件上传失败",
+        tone: "error",
+      });
+    }
+  };
+  const addFiles = (incoming: File[]) => {
+    if (USE_MOCKS || !hasSession || !sessionId || isStreaming || incoming.length === 0) return;
+    const current = tray?.sessionId === sessionId ? tray.items : [];
+    const room = 8 - current.length;
+    if (room <= 0) {
+      setToast({ message: "每轮最多添加 8 个附件。", tone: "error" });
       return;
     }
-    if (files.length + screenshots.length > 4) {
-      setAttachmentError("每轮最多添加 4 张截图。");
+    const accepted = incoming.slice(0, room);
+    const invalid = accepted.find(
+      (file) =>
+        file.size > 20 * 1024 * 1024 ||
+        !/\.(pdf|docx|pptx|xlsx|html?|csv|txt|md|png|jpe?g|webp)$/i.test(file.name),
+    );
+    if (invalid) {
+      setToast({
+        message: `不支持 ${invalid.name}（仅支持 PDF/Office/文本/图片，最大 20 MiB）。`,
+        tone: "error",
+      });
       return;
     }
+    const items: DraftAttachmentItem[] = accepted.map((file) => ({
+      key: `${file.name}:${file.lastModified}:${Math.random().toString(36).slice(2, 7)}`,
+      file,
+      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
+      status: isDraftSession ? "ready" : "uploading",
+    }));
+    setTray({ sessionId, items: [...current, ...items] });
     setAttachmentError("");
-    setAttachments({ sessionId, files: [...screenshots, ...files] });
+    if (!isDraftSession) {
+      for (const item of items) void uploadItem(item.key, item.file);
+    }
+  };
+  const removeItem = (key: string) => {
+    setTray((current) => {
+      if (current?.sessionId !== sessionId) return current;
+      const item = current.items.find((candidate) => candidate.key === key);
+      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      return { ...current, items: current.items.filter((candidate) => candidate.key !== key) };
+    });
+  };
+  const retryItem = (key: string) => {
+    const item = trayItems.find((candidate) => candidate.key === key);
+    if (!item) return;
+    setTray((current) =>
+      current?.sessionId !== sessionId
+        ? current
+        : {
+            ...current,
+            items: current.items.map((candidate) =>
+              candidate.key === key ? { ...candidate, status: "uploading" as const } : candidate,
+            ),
+          },
+    );
+    void uploadItem(key, item.file);
   };
   const currentPolicy = policies.find((item) => item.id === policy) ?? standardPolicy;
   const PolicyIcon = currentPolicy.icon;
@@ -301,6 +461,21 @@ export function Composer({
   useEffect(() => {
     if (focusNonce > 0) textareaRef.current?.focus();
   }, [focusNonce]);
+
+  // Switching from a vision model to a text-only model leaves raw images
+  // unsendable: transcribe them before the operator hits send.
+  useEffect(() => {
+    if (USE_MOCKS || isDraftSession || imageAllowed || !sessionId) return;
+    for (const item of trayItems) {
+      if (
+        item.file.type.startsWith("image/") &&
+        item.status === "ready" &&
+        item.attachment?.method === "none"
+      ) {
+        void transcribeItem(item.key, item.attachment.id);
+      }
+    }
+  }, [imageAllowed, isDraftSession, sessionId, trayItems, transcribeItem]);
 
   useEffect(() => {
     if (switchNotice === null) return;
@@ -407,9 +582,18 @@ export function Composer({
   };
 
   const submit = () => {
-    if (!canSend || !model || !credentialProfileId || pendingApproval || screenshotBlocked) return;
+    if (
+      !canSend ||
+      !model ||
+      !credentialProfileId ||
+      pendingApproval ||
+      attachmentBlocked ||
+      trayBusy ||
+      trayFailed
+    )
+      return;
     const value = draft.trim();
-    if (!value && !screenshots.length) return;
+    if (!value && files.length === 0) return;
     onSubmit?.();
     const selection = { model: model.id, credentialProfileId, thinking };
     const initialPolicy = isDraftSession ? policy : undefined;
@@ -417,7 +601,7 @@ export function Composer({
     const initialWebSearch =
       isDraftSession && webSearchEnabled && webSearchConfigured ? true : undefined;
     if (USE_MOCKS) void send(value);
-    else if (screenshots.length === 0)
+    else if (files.length === 0)
       void send(value, selection, initialPolicy, initialProfile, initialWebSearch);
     else {
       void send(
@@ -426,20 +610,22 @@ export function Composer({
         initialPolicy,
         initialProfile,
         initialWebSearch,
-        screenshots,
+        files,
         () => {
-          setAttachments((current) =>
-            current?.sessionId === sessionId && current.files === screenshots ? undefined : current,
-          );
+          for (const item of trayItems) {
+            if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+          }
+          setTray((current) => (current?.sessionId === sessionId ? undefined : current));
           if (
             useNavigationStore.getState().sessionId === sessionId &&
             useComposerStore.getState().draft === draft
           )
             setDraft("");
         },
+        imageAllowed,
       );
     }
-    if (screenshots.length === 0) setDraft("");
+    if (files.length === 0) setDraft("");
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
@@ -464,32 +650,51 @@ export function Composer({
           message={saveError?.sessionId === sessionId ? saveError.message : null}
           onDismiss={() => setSaveError(null)}
         />
-        {screenshots.length > 0 ? (
-          <div className="flex flex-wrap gap-2 px-3 pt-3">
-            {screenshots.map((file, index) => (
-              <DraftScreenshot
-                key={`${file.name}:${file.lastModified}:${index}`}
-                file={file}
-                disabled={isStreaming}
-                onRemove={() => {
-                  setAttachmentError("");
-                  setAttachments(
-                    sessionId
-                      ? {
-                          sessionId,
-                          files: screenshots.filter((_, position) => index !== position),
-                        }
-                      : undefined,
-                  );
-                }}
-              />
-            ))}
-          </div>
+        {trayItems.length > 0 ? (
+          <AttachmentTray
+            items={trayItems}
+            disabled={isStreaming}
+            onRemove={removeItem}
+            onRetry={retryItem}
+            onPreview={(item) =>
+              item.attachment
+                ? setPreview({
+                    id: item.attachment.id,
+                    filename: item.attachment.filename,
+                    kind: item.attachment.kind,
+                    mime: item.attachment.mime,
+                  })
+                : undefined
+            }
+          />
         ) : null}
-        {attachmentError || screenshotBlocked ? (
+        {attachmentError || attachmentBlocked ? (
           <p role="status" className="px-3 pt-2 text-xs text-warning">
-            {attachmentError || "当前模型连接未声明图片输入。请切换模型或移除截图。"}
+            {attachmentError || "当前模型连接未声明图片输入。请切换模型、启用 OCR 或移除图片。"}
           </p>
+        ) : null}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.docx,.pptx,.xlsx,.html,.htm,.csv,.txt,.md,.png,.jpg,.jpeg,.webp"
+          multiple
+          className="hidden"
+          onChange={(event) => {
+            addFiles([...(event.target.files ?? [])]);
+            event.target.value = "";
+          }}
+        />
+        <Toast
+          message={toast?.message ?? null}
+          tone={toast?.tone}
+          onDismiss={() => setToast(null)}
+        />
+        {preview ? (
+          <AttachmentPreview
+            sessionId={sessionId}
+            target={preview}
+            onClose={() => setPreview(null)}
+          />
         ) : null}
         <Textarea
           variant="bare"
@@ -504,12 +709,10 @@ export function Composer({
               : "新建或选择一个会话…"
           }
           onPaste={(event) => {
-            const files = [...event.clipboardData.files].filter((file) =>
-              file.type.startsWith("image/"),
-            );
+            const files = [...event.clipboardData.files];
             if (!USE_MOCKS && files.length > 0) {
               event.preventDefault();
-              addScreenshots(files);
+              addFiles(files);
             }
           }}
           onDragOver={(event) => {
@@ -518,7 +721,7 @@ export function Composer({
           onDrop={(event) => {
             if (!USE_MOCKS && event.dataTransfer.files.length) {
               event.preventDefault();
-              addScreenshots([...event.dataTransfer.files]);
+              addFiles([...event.dataTransfer.files]);
             }
           }}
           aria-label="对话输入"
@@ -533,6 +736,16 @@ export function Composer({
           className="block max-h-[180px] min-h-[48px] w-full resize-none bg-transparent px-3.5 pt-3 text-[13px] leading-[1.65] text-ink outline-none placeholder:text-ink-3 focus:outline-none focus-visible:outline-none"
         />
         <div className="flex items-center gap-0.5 px-2 pb-2 pt-1">
+          <IconButton
+            label="添加附件"
+            title="添加 PDF、Office、文本或图片（最大 20 MiB）"
+            disabled={!hasSession || isStreaming}
+            onClick={() => fileInputRef.current?.click()}
+            className="h-7 w-7"
+          >
+            <Paperclip size={15} aria-hidden="true" />
+          </IconButton>
+
           <IconButton
             label={
               !webSearchConfigured
@@ -655,18 +868,22 @@ export function Composer({
               type="button"
               onClick={submit}
               disabled={
-                (!draft.trim() && screenshots.length === 0) ||
+                (!draft.trim() && files.length === 0) ||
                 !canSend ||
                 pendingApproval ||
-                screenshotBlocked
+                attachmentBlocked ||
+                trayBusy ||
+                trayFailed
               }
               aria-label="发送消息"
               className={cn(
                 "ml-1 flex h-7 w-7 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50",
-                (draft.trim() || screenshots.length > 0) &&
+                (draft.trim() || files.length > 0) &&
                   canSend &&
                   !pendingApproval &&
-                  !screenshotBlocked
+                  !attachmentBlocked &&
+                  !trayBusy &&
+                  !trayFailed
                   ? "bg-accent text-white shadow-[var(--shadow-card)] hover:brightness-110 active:brightness-95"
                   : "bg-black/[.06] text-ink-3 dark:bg-white/[.08]",
               )}

@@ -40,7 +40,7 @@ export interface ToolCallRequest {
 
 export interface ModelImage {
   bytes: Uint8Array;
-  mediaType: "image/png" | "image/jpeg";
+  mediaType: "image/png" | "image/jpeg" | "image/webp";
   width: number;
   height: number;
 }

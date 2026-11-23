@@ -26,6 +26,9 @@ export type AuditDecision = "allow" | "deny" | "info";
 export type SessionStatus = "active" | "archived";
 export type SessionOrigin = "user" | "scheduled";
 export type SessionTitleSource = "auto" | "user";
+export type AttachmentKind = "document" | "image";
+export type AttachmentStatus = "pending" | "ready" | "failed";
+export type AttachmentMethod = "none" | "native" | "text-layer" | "ocr" | "vision";
 export type TurnStatus =
   | "QUEUED"
   | "PREPARING"
@@ -141,14 +144,35 @@ export const sessionAttachments = sqliteTable(
     sessionId: text("session_id")
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
-    mime: text("mime").$type<"image/png" | "image/jpeg">().notNull(),
+    /** Basename only; never used to derive a storage path. */
+    filename: text("filename").notNull().default("screenshot"),
+    mime: text("mime").notNull(),
+    kind: text("kind").$type<AttachmentKind>().notNull().default("image"),
+    sizeBytes: integer("size_bytes").notNull().default(0),
     digest: text("digest").notNull(),
+    /** Legacy screenshots stay inline; new uploads write an empty blob. */
     bytes: blob("bytes", { mode: "buffer" }).notNull(),
+    /** Relative to the data directory; null means the bytes are still in `bytes`. */
+    storagePath: text("storage_path"),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
+    status: text("status").$type<AttachmentStatus>().notNull().default("ready"),
+    method: text("method").$type<AttachmentMethod>().notNull().default("none"),
+    pageCount: integer("page_count"),
+    tokenCount: integer("token_count").notNull().default(0),
+    sectionsJson: text("sections_json"),
+    warningsJson: text("warnings_json"),
+    extractorId: text("extractor_id"),
+    extractorVersion: text("extractor_version"),
+    extractedAt: integer("extracted_at"),
+    /** Stable failure code; never a parser exception message. */
+    errorCode: text("error_code"),
     createdAt: integer("created_at").notNull(),
   },
-  (table) => [uniqueIndex("idx_session_attachments_digest").on(table.sessionId, table.digest)],
+  (table) => [
+    uniqueIndex("idx_session_attachments_digest").on(table.sessionId, table.digest),
+    index("idx_session_attachments_session_created").on(table.sessionId, table.createdAt),
+  ],
 );
 
 export const turns = sqliteTable(

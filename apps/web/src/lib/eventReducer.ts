@@ -2,6 +2,7 @@ import type {
   ApprovalItem,
   ArtifactItem,
   ErrorItem,
+  MessageAttachmentRef,
   MessageItem,
   ServerEvent,
   TimelineItem,
@@ -115,6 +116,41 @@ export function applyAssistantDelta(
   });
 }
 
+function attachmentRefs(data: Record<string, unknown>): MessageAttachmentRef[] {
+  if (!Array.isArray(data.attachments)) return [];
+  return data.attachments
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .flatMap((item) => {
+      const id =
+        typeof item.id === "string" && /^att_[a-f0-9-]{36}$/.test(item.id) ? item.id : null;
+      if (id === null) return [];
+      const kind = item.kind === "image" ? "image" : "document";
+      const status = item.status === "pending" || item.status === "failed" ? item.status : "ready";
+      const method =
+        item.method === "native" ||
+        item.method === "text-layer" ||
+        item.method === "ocr" ||
+        item.method === "vision"
+          ? item.method
+          : "none";
+      return [
+        {
+          id,
+          filename: typeof item.filename === "string" ? item.filename : "attachment",
+          mime: typeof item.mime === "string" ? item.mime : "application/octet-stream",
+          kind,
+          sizeBytes: typeof item.sizeBytes === "number" ? item.sizeBytes : 0,
+          status,
+          method,
+          pageCount: typeof item.pageCount === "number" ? item.pageCount : null,
+          tokenCount: typeof item.tokenCount === "number" ? item.tokenCount : 0,
+          errorCode: typeof item.errorCode === "string" ? item.errorCode : null,
+        },
+      ];
+    })
+    .slice(0, 8) as MessageAttachmentRef[];
+}
+
 function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineItem[] {
   const data = payload(event);
   const turnId = stringField(data, "turnId") ?? event.eventId;
@@ -125,8 +161,9 @@ function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineI
       const ids = Array.isArray(data.attachmentIds)
         ? data.attachmentIds
             .filter((id): id is string => typeof id === "string" && /^att_[a-f0-9-]{36}$/.test(id))
-            .slice(0, 4)
+            .slice(0, 8)
         : [];
+      const refs = attachmentRefs(data);
       const withoutOptimistic = items.filter((item) => !item.id.startsWith("optimistic_user_"));
       return upsert(withoutOptimistic, {
         id: `msg_${turnId}_user`,
@@ -135,6 +172,7 @@ function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineI
         text,
         createdAt: event.timestamp,
         ...(ids.length ? { screenshots: { sessionId: event.streamId, ids } } : {}),
+        ...(refs.length ? { attachments: refs } : {}),
         turnId,
       });
     }

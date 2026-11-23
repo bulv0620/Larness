@@ -44,6 +44,11 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
     ]),
     memory: pack("memory", "项目记忆", ["remember", "read_memory"]),
     web: pack("web", "联网搜索", ["web_search", "fetch_url"]),
+    attachments: pack("attachments", "附件读取", [
+      "read_attachment",
+      "search_attachment",
+      "list_attachments",
+    ]),
   },
   profiles: {
     coding: profile("coding", "Coding", [
@@ -54,6 +59,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "serviceOps",
       "memory",
       "web",
+      "attachments",
     ]),
     plan: profile("plan", "Plan", [
       "core.read",
@@ -63,6 +69,7 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "serviceOps",
       "memory",
       "web",
+      "attachments",
       "plan",
     ]),
   },

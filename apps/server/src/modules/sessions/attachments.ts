@@ -9,7 +9,7 @@ import { SessionError } from "./errors.js";
 import { getSessionById } from "./repository.js";
 
 export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
-export const MAX_TURN_IMAGES = 4;
+export const MAX_TURN_IMAGES = 8;
 const MAX_SESSION_IMAGES = 64;
 export const MAX_IMAGE_REQUEST = Math.ceil(MAX_IMAGE_BYTES / 3) * 4 + 128;
 const mimeSchema = z.enum(["image/png", "image/jpeg"]);

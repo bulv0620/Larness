@@ -261,6 +261,11 @@ registered/status/unregistered拟含kind/status/terminalId/terminalExecutionId/e
 
 `user.message` 的 payload 可含 `attachmentIds: string[]`。客户端使用事件的会话标识与附件 ID，从认证 REST 地址读取图片。回放和广播均只传引用。
 
+### 附件状态（088）
+
+- 新增 `attachment.status`：`{ attachmentId, sessionId, status, kind, method?, pageCount?, tokenCount?, warningCount?, errorCode? }`；`status` 为 `pending | ready | failed | deleted`。事件先写入 `agent_events`（同事务递增 `seq`）再广播。
+- `user.message` payload 增加 `attachments: [{ id, kind, filename, mime, sizeBytes, status, method }]`；保留 `attachmentIds` 供旧客户端读取。
+- 事件与回放只传引用和元数据，不传正文、原始字节或绝对路径。附件正文通过 `read_attachment` 工具或认证 REST 读取。
 
 ## 086 记忆变更通知（2026-11-20）
 

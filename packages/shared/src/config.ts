@@ -96,6 +96,37 @@ export const AgentConfigSchema = z.strictObject({
   memory: AgentMemoryConfigSchema.default({ enabled: true }),
 });
 
+export const AttachmentOcrConfigSchema = z.strictObject({
+  /** `auto-local` never sends documents to a provider; `vision` needs a connection. */
+  mode: z.enum(["off", "auto-local", "vision"]).default("auto-local"),
+  maxPagesPerTurn: z.number().int().min(1).max(200).default(20),
+  visionConnectionId: z.string().min(1).max(128).nullable().default(null),
+});
+
+export const AttachmentsConfigSchema = z.strictObject({
+  enabled: z.boolean().default(true),
+  maxFileBytes: z
+    .number()
+    .int()
+    .min(1)
+    .max(100 * 1024 * 1024)
+    .default(20 * 1024 * 1024),
+  maxFilesPerTurn: z.number().int().min(1).max(32).default(8),
+  maxFilesPerSession: z.number().int().min(1).max(2_000).default(200),
+  maxExtractedChars: z.number().int().min(1_000).max(2_000_000).default(200_000),
+  maxPdfPages: z.number().int().min(1).max(5_000).default(400),
+  inlineTokensPerFile: z.number().int().min(256).max(128_000).default(8_000),
+  inlineContextRatio: z.number().min(0.01).max(0.8).default(0.15),
+  extractionTimeoutMs: z.number().int().min(1_000).max(600_000).default(60_000),
+  ocr: AttachmentOcrConfigSchema.default({
+    mode: "auto-local",
+    maxPagesPerTurn: 20,
+    visionConnectionId: null,
+  }),
+});
+
+export const DEFAULT_ATTACHMENTS_CONFIG = AttachmentsConfigSchema.parse({});
+
 const DEFAULT_AGENT_CONFIG = AgentConfigSchema.parse({});
 
 export const AppConfigSchema = z.strictObject({
@@ -108,6 +139,7 @@ export const AppConfigSchema = z.strictObject({
   preview: PreviewConfigSchema.default(DEFAULT_PREVIEW_CONFIG),
   cleanup: CleanupConfigSchema.default(DEFAULT_CLEANUP_CONFIG),
   agent: AgentConfigSchema.default(DEFAULT_AGENT_CONFIG),
+  attachments: AttachmentsConfigSchema.default(DEFAULT_ATTACHMENTS_CONFIG),
 });
 
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
@@ -120,6 +152,7 @@ export type UpdatesConfig = z.infer<typeof UpdatesConfigSchema>;
 export type PreviewConfig = z.infer<typeof PreviewConfigSchema>;
 export type CleanupConfig = z.infer<typeof CleanupConfigSchema>;
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;
+export type AttachmentsConfig = z.infer<typeof AttachmentsConfigSchema>;
 export type AppConfig = z.infer<typeof AppConfigSchema>;
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
@@ -152,6 +185,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   preview: DEFAULT_PREVIEW_CONFIG,
   cleanup: DEFAULT_CLEANUP_CONFIG,
   agent: DEFAULT_AGENT_CONFIG,
+  attachments: DEFAULT_ATTACHMENTS_CONFIG,
 };
 
 export type WebAuthnDisabledReason = "rp_id_is_ip" | "remote_http";

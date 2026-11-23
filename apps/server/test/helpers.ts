@@ -69,6 +69,7 @@ export function testConfig(overrides: TestConfigOverrides = {}): AppConfig {
     preview: { ...base.preview, ...overrides.preview },
     cleanup: { ...base.cleanup, ...overrides.cleanup },
     agent: { ...base.agent, ...overrides.agent },
+    attachments: { ...base.attachments },
   };
 }
 

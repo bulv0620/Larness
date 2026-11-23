@@ -31,6 +31,7 @@ import type { Database } from "./db/client.js";
 import { appendAudit } from "./db/repositories/audit.js";
 import { type DevWebOptions, registerDevWeb } from "./dev-web/routes.js";
 import { registerErrorHandler } from "./errors.js";
+import type { AttachmentService } from "./modules/attachments/service.js";
 import { CommandManager } from "./modules/commands/manager.js";
 import { knownCredentialGuard } from "./modules/files/credentials.js";
 import { FileWatchManager } from "./modules/files/watcher.js";
@@ -58,6 +59,7 @@ import { registerWsRoutes } from "./ws/server.js";
 
 export interface AppServices {
   db: Database;
+  attachments?: AttachmentService;
   dataDir: string;
   config: AppConfig;
   webAuthn: WebAuthnRuntime;
@@ -231,6 +233,9 @@ export function createApp(options: CreateAppOptions = {}): FastifyInstance {
       ...(options.services.turnControls === undefined
         ? {}
         : { turnControls: options.services.turnControls }),
+      ...(options.services.attachments === undefined
+        ? {}
+        : { attachments: options.services.attachments }),
     });
     registerPairingRoutes(app, options.services);
     registerWebAuthnRoutes(app, options.services);

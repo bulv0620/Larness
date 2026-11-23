@@ -33,9 +33,11 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { SessionRow, TurnRow, TurnStatus, TurnTerminalReason } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { publishAgentEvent } from "../../ws/publisher.js";
+import { createAttachmentToolBridge } from "../attachments/tools.js";
 import type { CommandManager } from "../commands/manager.js";
 import type { GitManager } from "../git/manager.js";
 import { MemoryError, type MemoryService } from "../memory/service.js";
+import { resolveCatalogSelection } from "../models/catalog.js";
 import { listEncryptedSecrets } from "../models/repository.js";
 import type { ProcessManager } from "../processes/manager.js";
 import { getProjectById, updateProjectRow } from "../projects/repository.js";
@@ -130,6 +132,21 @@ const DEFAULT_STALL_TIMEOUT_MS = 10 * 60_000;
  */
 const READ_PREFETCH_LIMIT = 8;
 
+function acceptsImagesForTurn(db: Database, turn: TurnRow): boolean {
+  if (turn.model === null) return false;
+  try {
+    return (
+      resolveCatalogSelection(db, {
+        model: turn.model,
+        thinking: turn.thinking,
+        credentialProfileId: turn.credentialProfileId,
+      }).acceptsImages === true
+    );
+  } catch {
+    return false;
+  }
+}
+
 export interface ResolvedProvider {
   adapter: ProviderAdapter;
   model: string;
@@ -169,6 +186,9 @@ export interface TurnRunnerOptions {
   processes?: ProcessManager;
   serviceOps?: ServiceOpsRuntime;
   memory?: MemoryService;
+  attachments?: import("../attachments/service.js").AttachmentService;
+  attachmentInlineTokens?: number;
+  attachmentContextRatio?: number;
   secretStore?: import("../../security/secretStore.js").SecretStore;
   webSearch?: WebSearchRuntime;
   pm2Context?: (projectId: string | null) => Promise<import("@larness/shared").Pm2CommandContext>;
@@ -516,6 +536,9 @@ export class TurnRunner {
           args: request.args,
           policy,
           projectRoot,
+          ...(this.#options.attachments === undefined
+            ? {}
+            : { attachments: createAttachmentToolBridge(this.#options.attachments, session.id) }),
           ...(projectIgnore === undefined || projectIgnore.length === 0
             ? {}
             : { ignore: projectIgnore }),
@@ -1183,6 +1206,16 @@ export class TurnRunner {
         contextRatio: this.#budget.contextRatio,
         agentProfile: session.agentProfile,
         ...(this.#options.memory === undefined ? {} : { memory: this.#options.memory }),
+        ...(this.#options.attachments === undefined
+          ? {}
+          : { attachments: this.#options.attachments }),
+        modelAcceptsImages: acceptsImagesForTurn(this.#options.db, turn),
+        ...(this.#options.attachmentInlineTokens === undefined
+          ? {}
+          : { attachmentInlineTokens: this.#options.attachmentInlineTokens }),
+        ...(this.#options.attachmentContextRatio === undefined
+          ? {}
+          : { attachmentContextRatio: this.#options.attachmentContextRatio }),
         webSearchAvailable,
         now: () => this.#now(),
       };

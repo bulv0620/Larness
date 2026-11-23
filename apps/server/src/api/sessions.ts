@@ -6,12 +6,12 @@ import { HttpError } from "../errors.js";
 import { listSessionEvents } from "../modules/agent/events.js";
 import { ResumeError, resumeInterruptedTurn } from "../modules/agent/recovery/resume.js";
 import {
-  attachmentIdsSchema,
-  imageUploadSchema,
-  MAX_IMAGE_REQUEST,
-  readScreenshots,
-  storeScreenshot,
-} from "../modules/sessions/attachments.js";
+  type AttachmentService,
+  attachmentUploadSchema,
+  MAX_ATTACHMENT_REQUEST_BYTES,
+} from "../modules/attachments/service.js";
+import { AttachmentError, type AttachmentErrorCode } from "../modules/attachments/types.js";
+import { attachmentIdsSchema, readScreenshots } from "../modules/sessions/attachments.js";
 import { SessionError } from "../modules/sessions/errors.js";
 import {
   archiveSession,
@@ -79,6 +79,7 @@ export interface SessionApiDeps {
   dataDir: string;
   now?: () => number;
   turnControls?: TurnControls;
+  attachments?: AttachmentService;
 }
 
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -101,6 +102,16 @@ function throwSession(error: unknown): never {
     throw new HttpError(error.code, error.message, {
       status: ERROR_HTTP_STATUS[error.code],
       details: error.details,
+    });
+  }
+
+  throw error;
+}
+
+function throwAttachment(error: unknown): never {
+  if (error instanceof AttachmentError) {
+    throw new HttpError(error.code as AttachmentErrorCode, error.message, {
+      status: ERROR_HTTP_STATUS[error.code as AttachmentErrorCode],
     });
   }
 
@@ -203,14 +214,18 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
 
   app.post<{ Params: { id: string } }>(
     "/api/sessions/:id/attachments",
-    { bodyLimit: MAX_IMAGE_REQUEST },
+    { bodyLimit: MAX_ATTACHMENT_REQUEST_BYTES },
     async (request, reply) => {
       const id = parse(SessionIdSchema, request.params.id);
-      const body = parse(imageUploadSchema, request.body);
+      if (deps.attachments === undefined) {
+        throw new HttpError("ATTACHMENT_UNSUPPORTED", "attachments are not enabled");
+      }
+      const body = parse(attachmentUploadSchema, request.body);
       try {
-        return reply.code(201).send(storeScreenshot(options.db, id, body));
+        const result = await deps.attachments.upload(id, body);
+        return reply.code(201).send({ id: result.attachment.id, ...result });
       } catch (error) {
-        throwSession(error);
+        throwAttachment(error);
       }
     },
   );
@@ -218,6 +233,25 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
     "/api/sessions/:id/attachments/:attachmentId",
     async (request, reply) => {
       const id = parse(SessionIdSchema, request.params.id);
+      if (deps.attachments !== undefined) {
+        try {
+          const { row, bytes } = await deps.attachments.readOriginal(
+            id,
+            request.params.attachmentId,
+          );
+          return reply
+            .type(row.mime)
+            .header("Cache-Control", "private, no-store")
+            .header("X-Content-Type-Options", "nosniff")
+            .header(
+              "Content-Disposition",
+              `inline; filename*=UTF-8''${encodeURIComponent(row.filename)}`,
+            )
+            .send(bytes);
+        } catch (error) {
+          throwAttachment(error);
+        }
+      }
       const ids = parse(attachmentIdsSchema, [request.params.attachmentId]);
       try {
         const row = readScreenshots(options.db, id, ids)[0];
@@ -229,6 +263,53 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
           .send(row.bytes);
       } catch (error) {
         throwSession(error);
+      }
+    },
+  );
+
+  app.post<{ Params: { id: string; attachmentId: string } }>(
+    "/api/sessions/:id/attachments/:attachmentId/transcribe",
+    async (request) => {
+      const id = parse(SessionIdSchema, request.params.id);
+      if (deps.attachments === undefined) {
+        throw new HttpError("ATTACHMENT_UNSUPPORTED", "attachments are not enabled");
+      }
+      try {
+        return {
+          attachment: await deps.attachments.transcribeImage(id, request.params.attachmentId),
+        };
+      } catch (error) {
+        throwAttachment(error);
+      }
+    },
+  );
+
+  app.get<{ Params: { id: string; attachmentId: string } }>(
+    "/api/sessions/:id/attachments/:attachmentId/artifact",
+    async (request) => {
+      const id = parse(SessionIdSchema, request.params.id);
+      if (deps.attachments === undefined) {
+        throw new HttpError("ATTACHMENT_UNSUPPORTED", "attachments are not enabled");
+      }
+      try {
+        return await deps.attachments.readArtifact(id, request.params.attachmentId);
+      } catch (error) {
+        throwAttachment(error);
+      }
+    },
+  );
+  app.delete<{ Params: { id: string; attachmentId: string } }>(
+    "/api/sessions/:id/attachments/:attachmentId",
+    async (request, reply) => {
+      const id = parse(SessionIdSchema, request.params.id);
+      if (deps.attachments === undefined) {
+        throw new HttpError("ATTACHMENT_UNSUPPORTED", "attachments are not enabled");
+      }
+      try {
+        await deps.attachments.remove(id, request.params.attachmentId);
+        return reply.code(204).send();
+      } catch (error) {
+        throwAttachment(error);
       }
     },
   );

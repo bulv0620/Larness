@@ -12,6 +12,7 @@ import { createProcessTools } from "../../src/modules/agent/processTool.js";
 import { createServiceOpsTools } from "../../src/modules/agent/serviceOpsTool.js";
 import { type ExecuteToolInput, executeTool } from "../../src/modules/agent/toolExecutor.js";
 import { createWebTools } from "../../src/modules/agent/webTool.js";
+import { createAttachmentTools } from "../../src/modules/attachments/tools.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
 import { withTempDir } from "../helpers.js";
@@ -30,6 +31,7 @@ function buildRegistry(opened: OpenedDatabase): ToolRegistry {
   for (const tool of createProcessTools({})) registry.register(tool);
   for (const tool of createServiceOpsTools()) registry.register(tool);
   for (const tool of createMemoryTools()) registry.register(tool);
+  for (const tool of createAttachmentTools()) registry.register(tool);
   for (const tool of createWebTools()) registry.register(tool);
   registry.register(createObservationTool());
   return registry;
@@ -51,6 +53,7 @@ type HandlerKey = keyof Pick<
   | "readMemory"
   | "webSearch"
   | "fetchUrl"
+  | "attachments"
 >;
 
 interface BoundToolCase {
@@ -162,6 +165,24 @@ const BOUND_TOOLS: BoundToolCase[] = [
     args: { url: "https://example.com/article" },
     invalid: { url: "" },
   },
+  {
+    name: "read_attachment",
+    handler: "attachments",
+    args: { attachmentId: "att_00000000-0000-4000-8000-000000000000", maxChars: 2000 },
+    invalid: { attachmentId: "nope" },
+  },
+  {
+    name: "search_attachment",
+    handler: "attachments",
+    args: { attachmentId: "att_00000000-0000-4000-8000-000000000000", query: "needle" },
+    invalid: { query: "" },
+  },
+  {
+    name: "list_attachments",
+    handler: "attachments",
+    args: {},
+    invalid: { limit: 0 },
+  },
 ];
 
 const FILE_TOOLS: Array<{ name: string; args: unknown; invalid: unknown }> = [
@@ -244,6 +265,11 @@ describe("tool contract matrix", () => {
             readMemory: handlerStub("readMemory"),
             webSearch: handlerStub("webSearch"),
             fetchUrl: handlerStub("fetchUrl"),
+            attachments: {
+              readAttachment: handlerStub("attachments"),
+              searchAttachment: handlerStub("attachments"),
+              listAttachments: handlerStub("attachments"),
+            },
           });
 
           expect(ok.status, tool.name).toBe("completed");

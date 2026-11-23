@@ -1,12 +1,12 @@
 # STATUS
 
-> 最后更新：2026-11-23 09:58 (+08:00)
+> 最后更新：2026-11-23
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
 ## 当前进行中
 
-- 无。（GX-6 未跟踪差异与 Git 失败原因已修复并收口，见下）
+- 无。
 
 ## 阻塞与待确认
 
@@ -19,18 +19,16 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-23 | 088 文档与图片附件 | DA-0～DA-8 完成；迁移 0038、通用上传/去重/删除、PDF/DOCX/PPTX/XLSX/HTML/CSV 抽取、图片透传与本地 OCR、上下文预算与三个附件工具、气泡外附件条与草稿托盘；`pnpm check` 通过（Server 882 项、31 跳过；Web 291 项），根 `pnpm build` 通过；解析未进 worker（Q-077）、视觉连接未接线（Q-078）、真实文件与 Mock E2E 未跑 | [088 acceptance](specs/088-document-attachments/acceptance.md) |
 | 2026-11-20 | GX-5 子目录项目 Git 路径基准 | 项目根为仓库子目录时暂存 / 取消暂存失败、diff 白屏；按 `--show-prefix` 折回项目相对路径并过滤项目外条目，DiffView 增加空差异说明；Git 套件 17 项通过（2 项跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
 | 2026-11-23 | GX-6 未跟踪差异与 Git 失败原因 | 未跟踪文件用 `git diff --no-index` 与空基准比对，不再白屏；execute 失败保留 `GIT_CONFLICT` 等稳定码并审计，Git 面板区分写锁占用 / 快照变化 / 超时；`pnpm check` 通过（Server 836 项、31 跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
+| 2026-11-23 | 088 DA-0 规格确认与 ADR-074 | 人类批准方案、气泡外附件布局与 Q-071～Q-076 全部推荐默认；格式矩阵、`auto-local` 只本地 OCR、限额、Base64 上传与纯 JS 依赖冻结；spec 转 `ready`、ADR-074 转 accepted；仅文档变更，未运行 `pnpm check` | [088 tasks](specs/088-document-attachments/tasks.md#da-0-规格确认2026-11-23) |
 | 2026-11-20 | 087 联网搜索与独立搜索 Key | 人类验收通过；WS-0～WS-8 完成；DeepSeek/GLM 国内/国际 Provider、独立加密搜索 Key、会话级地球开关、窄版卡片式设置弹窗；成功/失败提示统一为 `@larness/ui` 顶部 Toast 并写入 UI 规范，会话内模型/联网开关保留输入框上方小字；web 284 项 + web build；原 087 check/E2E 25/25 | [087 acceptance](specs/087-web-search/acceptance.md) |
 | 2026-11-20 | 086 项目记忆与统一管理弹窗 | 人类审核通过；PM-0～PM-8 完成；指令文件、自动学习、全局偏好、硬预算淘汰、REST/WS、记忆面板；check/build + Mock E2E 24/24；未验证边界见 acceptance | [086 acceptance](specs/086-project-memory/acceptance.md) |
 | 2026-11-19 | 085 长任务连续执行 | 人类验收通过；任务级 token/时长/接续深度默认关闭；85% 换页、`continued` 终态、无事实 fallback、600s 请求上限、10 分钟无进展暂停；build + Mock E2E 24/24 | [085 acceptance](specs/085-long-task-continuity/acceptance.md) |
 | 2026-11-19 | 084 Agent Profile 收敛与用量 | 人类验收通过；AP-1～AP-13 完成；Profile 收敛 coding/plan、usage API 与缓存命中率、Token 行常驻、过程标题行视觉；check/build + Mock 24/24 + 认证 20/20 + 生产 20/20 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |
 | 2026-11-19 | AP-13 过程标题行只显示步数 | 外层移除失败/重试计数，只保留步数、耗时与自动继续；失败详情仍在展开过程内；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-13-过程标题行只显示步数用户反馈) |
 | 2026-11-19 | AP-12 Token 行会话页常驻 | 真实会话加载中也保留 Token 行并显示占位；新建会话页与 Mock 隐藏；定向 24 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-12-token-行在会话页常驻用户反馈) |
-| 2026-11-19 | AP-11 会话缓存命中率 | usage API 增加按 `model.usage` 聚合的 `cache`（命中率、命中/未命中、已知/未知请求）；未知请求不进分母；Token 行显示命中率；定向测试通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-11-会话缓存命中率用户反馈) |
-| 2026-11-19 | AP-10 过程动画降速 | 星星与文字扫描统一放慢到 1.6 秒一轮，保持同相位与单次扫过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-10-过程动画降速用户反馈) |
-| 2026-11-19 | AP-9 动画同步 1 秒一轮 | 两颗星与文字扫描统一 1 秒、同相位；扫描位移修正为每秒恰好一次；视觉待确认 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-9-动画同步为-1-秒一轮用户反馈) |
-| 2026-11-19 | AP-8 星光图标与慢速文字扫描 | 一大一小四角星依次闪烁；状态文字灰底、主题前景色约 4.2s 缓慢扫过；完成态无图标与扫描；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-8-星光图标与灰底黑扫文字用户反馈) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 
@@ -43,7 +41,7 @@
 ## 交付基线
 
 - 最新发布 `0.3.0`（2026-11-16，npm `latest`）；tag `v0.3.0` 已在 `origin/main` 上（2026-11-16 推送）。
-- 迁移至 `0037`（schemaVersion 37）。
+- 迁移至 `0038`（schemaVersion 38）。
 
 ## 维护记录（已收口）
 

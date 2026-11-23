@@ -1,0 +1,81 @@
+# 088 验收记录
+
+> 日期：2026-11-23
+> 范围：macOS / Windows 开发机本地运行；未做真实第三方视觉连接与外发验收。
+> 结论：自动化验收通过；有一项实现偏差（解析未放入 worker）与两项未验证项，见 §4。
+
+## 1. 交付范围
+
+| 任务 | 状态 | 交付 |
+|---|---|---|
+| DA-1 数据模型、存储与迁移 0038 | done | `session_attachments` 新列、`idx_session_attachments_session_created`、旧截图行兼容、`AttachmentStorage`、`AttachmentRepository`、`pending` 启动恢复 |
+| DA-2 上传、状态事件与删除 | done | `POST/GET/DELETE .../attachments`、`GET .../artifact`、魔数嗅探、去重、限额、`attachment.status`、删除引用保护 |
+| DA-3 抽取内核与文本类格式 | done（偏差） | `DocumentExtractor`、registry、文本/Markdown/CSV/HTML 抽取、HTML 清洗、截断与警告；见 Q-077 |
+| DA-4 PDF、DOCX、PPTX、XLSX | done | `pdfjs-dist` 文本层与页码锚点、`mammoth` DOCX、PPTX/XLSX 的 zip/XML 抽取、加密/损坏/页数上限 |
+| DA-5 图片能力路由与 OCR/视觉降级 | done（部分） | `resolveAttachmentRoute`、原图透传、本地 OCR、`POST .../transcribe`；视觉连接未接线，见 Q-078 |
+| DA-6 上下文预算与附件工具 | done | `<attachment>` 块、目录注入、8k/15% 预算、`read_attachment` / `search_attachment` / `list_attachments`、执行层绑定 |
+| DA-7 气泡外附件、草稿托盘与预览 | done | 回形针与拖拽、草稿托盘、附件条与气泡同级、文档卡片、图片 lightbox、Markdown 预览、草稿会话先建会话后建 Turn |
+| DA-8 安全、E2E 与验收 | done（自动化） | 路径/文件名/zip/HTML/跨会话/删除冲突测试；真实文件与视觉连接手工项未跑 |
+
+## 2. 自动化证据
+
+| 检查 | 结果 |
+|---|---|
+| `pnpm --filter @larness/server test test/attachments` | 8 文件 / 45 项通过（新增 WebP、失败重试、pending 启动恢复、孤儿清理用例） |
+| `pnpm --filter @larness/server test test/agent/toolContract.test.ts` | 3 项通过；矩阵含 `read_attachment` / `search_attachment` / `list_attachments` 正反例 |
+| `pnpm --filter @larness/server typecheck` | 通过 |
+| `pnpm --filter @larness/web typecheck` | 通过 |
+| `pnpm --filter @larness/web test` | 53 文件 / 291 项通过 |
+| `VITEST_MAX_WORKERS=3 pnpm check` | 通过；Server 170 文件 / 882 项通过、31 项跳过；Web 291 项通过 |
+| `pnpm --filter @larness/server build` | 通过 |
+| `pnpm build` | 通过（2026-11-23 复跑；仅既有 chunk 体积警告） |
+
+关键覆盖：
+
+- 迁移后旧截图行仍按 `storagePath=null` 从 `bytes` 读取，新文档行不写 blob。
+- 同会话同 SHA-256 去重；失败行重复上传会重新解析并替换，不再永久返回缓存失败。
+- 纯文本模型 + DOCX 不要求 `acceptsImages`；上下文正文位于 user 角色 `<attachment>` 内。
+- 长文档只注入目录；`read_attachment` 按 `page:N` / `offset:N` 分页并返回 `nextOffset`。
+- 视觉模型 + PNG/WebP 原图透传；纯文本模型 + 图片在 UI 发送前调用本地 OCR，失败关闭并阻止 Turn。
+- 附件条与文本气泡是同级节点；文本为空不渲染气泡。
+- 上传/删除/读取要求认证与会话归属；跨会话返回 404；已引用附件删除返回 409。
+- `attachment.status` 先持久化再广播；事件只含 ID 与元数据。
+
+## 3. 验收场景
+
+| 场景 | 结果 | 证据 / 说明 |
+|---|---|---|
+| A1 纯文本模型读取 DOCX | 通过（自动化） | `context.test.ts` 文本类路径；DOCX extractor 单测；未用真实 12 页 DOCX 手工复核 |
+| A2 视觉模型原图透传 | 通过（自动化） | `api/attachments.test.ts`、`context.test.ts` PNG/WebP |
+| A3 纯文本模型的图片降级 | 通过（本地 OCR） | `service.test.ts` 注入 OCR transcriber；UI 在发送前调用 `/transcribe`；真实 tesseract 语言包与识别质量未验证 |
+| A4 无图片能力且无降级 | 通过 | `route.test.ts`、`api/attachments.test.ts` 返回 `ATTACHMENT_VISION_UNAVAILABLE`；UI 失败卡片阻止发送 |
+| A5 扫描 PDF 与损坏文件 | 部分 | 扫描 PDF 返回 `ATTACHMENT_PDF_NO_TEXT`；加密/损坏/伪造扩展名有单测；真实扫描件与加密样本未手工复核 |
+| A6 长文档按需读取 | 通过（自动化） | `context.test.ts` 目录注入；`read_attachment` 分页/搜索/上限测试；300 页真实 PDF 未跑 |
+| A7 附件位于气泡之外 | 通过 | `AttachmentStrip.test.tsx` 断言同级节点与空文本不渲染气泡；视觉截图未留档 |
+| A8 提示注入边界 | 通过（结构） | 附件只在 user 角色；system 声明不可信；工具权限不随正文变化；未做专门红队样本 |
+| A9 归属、去重与删除 | 通过 | `repository.test.ts`、`api/attachments.test.ts`、`api.test.ts` |
+| A10 解析失败可恢复 | 通过 | 失败状态、稳定错误码、UI 重试；重试会重新解析 |
+| A11 草稿会话的附件 | 通过（结构） | 先 `createSession` → 上传/转写 → `createTurn`；附件失败时归档临时会话、保留草稿与托盘，不创建 Turn；未有浏览器 E2E |
+
+## 4. 偏差与未验证项
+
+1. **解析未隔离到 worker（Q-077）**：`extractAttachment` 在主进程执行，只有 `extractionTimeoutMs` 硬超时与解压前限额，没有内存上限或可终止 worker。大 PDF 可能阻塞事件循环。spec 的 R-14 / DA-3 验收中“worker 隔离”未满足，因此不宣称沙箱或恶意文件安全。
+2. **视觉连接未接线（Q-078）**：`ocr.mode=vision` 与 `visionConnectionId` 已进入配置与路由，但 bootstrap 没有构造云端 transcriber；该模式当前失败关闭。默认 `auto-local` 只使用本机 OCR，不产生静默外发。
+3. **页面渲染/扫描件 OCR 未做**：按 Q-076 冻结，扫描 PDF 返回 `ATTACHMENT_PDF_NO_TEXT`。
+4. **真实文件与真实视觉连接未手工验证**：未跑真实 12 页 DOCX、300 页 PDF、PPTX/XLSX 样本、加密 PDF、中文扫描件，也未用合法 Key 验证云端视觉外发提示与脱敏。
+5. **Mock E2E 未新增**：Mock 模式不支持文件上传，本轮以 server 集成 + web 组件测试覆盖；`pnpm test:e2e` 未包含附件场景。
+6. **UI 不订阅 `attachment.status` 推进托盘**：当前上传在请求内完成，返回即 ready/failed，托盘无需流式更新；若未来改为异步 `pending`，需要补 WS 订阅/轮询，否则托盘会停在 pending。
+7. **平台**：仅在当前 Windows 开发机执行自动化；macOS / Linux 未复跑，不据此声称跨平台已验证。
+
+## 5. 复跑命令
+
+```bash
+pnpm --filter @larness/server test test/attachments
+pnpm --filter @larness/server test test/agent/toolContract.test.ts
+pnpm --filter @larness/server typecheck
+pnpm --filter @larness/web typecheck
+pnpm --filter @larness/web test
+VITEST_MAX_WORKERS=3 pnpm check   # Windows PowerShell: $env:VITEST_MAX_WORKERS="3"; pnpm check
+pnpm --filter @larness/server build
+pnpm build
+```

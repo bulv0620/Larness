@@ -98,7 +98,7 @@ it("stores screenshot bytes behind their session and refuses image input to text
           attachmentIds: [id],
         },
       });
-      expect(turn.json()).toMatchObject({ error: { code: "MODEL_UNSUPPORTED" } });
+      expect(turn.json()).toMatchObject({ error: { code: "ATTACHMENT_VISION_UNAVAILABLE" } });
       expect(fake.calls).toHaveLength(0);
       imageSupport = true;
       await app.inject({

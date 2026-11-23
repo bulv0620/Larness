@@ -17,7 +17,8 @@ export type ToolPackId =
   | "observation"
   | "serviceOps"
   | "memory"
-  | "web";
+  | "web"
+  | "attachments";
 
 export type ToolAvailability = "enabled" | "project-required" | "disabled";
 

@@ -42,8 +42,12 @@
 | Q-039 | 计划陈旧提醒的阈值（6 个工具调用）与「每计划版本只提醒一次」是否合适？ | 已按 6 实现（`PLAN_STALE_TOOL_CALLS`）；真实长任务中若模型仍只在结尾更新，再按 `plan.updated` 次数调低或允许每 N 次重复 | 长任务体验、token 成本 | [079 spec](../specs/079-plan-progress/spec.md#13-开放问题) |
 | Q-040 | 回合已完成但计划仍留 `pending` 时，是否要在回合摘要额外提示「计划未同步」？ | 默认只在计划行显示「另有 N 步未完成」，不加回合级提示；若用户仍误读计划与成果不符，再评估 | 计划可读性、界面噪声 | [080 spec](../specs/080-plan-terminal-state/spec.md#13-开放问题) |
 | Q-041 | 是否继续压缩 `@larness/shared` 的 schema 字段描述（`update_plan`、`start_project_terminal`、`run_command`）？081 把重复的生命周期文案合到一处后，字段描述成为剩余固定开销的最大单项（工具 schema 仍约 4.4k token）。 | 暂不动：改 `.describe()` 属执行契约变更，需要重跑工具契约矩阵并更新 `051` 契约，单开一轮评估 | 固定开销、模型调用正确率 | [081 spec](../specs/081-agent-lean/spec.md#13-开放问题) |
+| Q-077 | 088 的解析器仍在主进程执行，只有硬超时，没有 worker/内存隔离；大 PDF 或恶意 Office 文件可能阻塞事件循环。 | 当前按「进程内 + 硬超时 + 解压前置限额」交付，未宣称沙箱；下一步评估独立 worker 入口与打包（tsdown 第五入口），或改用子进程并保留超时/终止。 | 解析安全、事件循环阻塞、DA-3 验收缺口 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
+| Q-078 | `attachments.ocr.mode=vision` 已进入配置 schema，但 bootstrap 未把 `visionConnectionId` 解析成可调用的转写器，视觉模式仍失败关闭。 | 默认 `auto-local` 只走本地 OCR；视觉连接接线前不得声称云端视觉可用。需要时按模型连接服务解析密钥并复用 provider，失败不回退。 | A3 视觉分支、外发隐私 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
 
 ## 已解决
+
+- Q-071～Q-076（2026-11-23）：088 按推荐默认确认——首版矩阵冻结 PDF/DOCX/PPTX/XLSX/HTML/CSV/TXT/MD/PNG/JPEG/WebP，旧 Office/压缩包/音视频/SVG 拒绝；`auto-local` 只用本机 OCR，云端视觉默认关闭且必须显式选连接；20 MiB/文件、8 个/轮、200 个/会话、400 页、单文件 8k token、附件总预算 15%；v1 用 JSON Base64 上传；批准 `pdfjs-dist`、`mammoth`、`exceljs`、`jszip`、`fast-xml-parser`、`turndown`、`sanitize-html` 与可选 `tesseract.js`，不引入原生 canvas；扫描 PDF 首版不渲染。见 [088 spec](../specs/088-document-attachments/spec.md#13-已确认决策) 与 [ADR-074](adr/ADR-074-document-attachments.md)。
 
 - Q-060～Q-070（2026-11-20）：086 按推荐默认确认——仅加载 `AGENTS.md` + `.larness/instructions.md`；项目 fact/command/gotcha 证据有效且置信度 ≥0.6 自动 active，decision 默认 review，全局 preference 仅用户明确表达且置信度 ≥0.9 自动 active；项目 active 64 KiB/300 条、总占用 192 KiB，全局 8 KiB/50 条、总占用 24 KiB；revision 3 个/30 天，review 20 条/14 天，抑制 90 天；全局偏好完整注入 ≤512 token + 项目索引 ≤1,024 字符 + 正文按需，总注入 ≤2,000 token；v1 不加额外 LLM 整理，先按指标评估。见 [086 spec](../specs/086-project-memory/spec.md#13-已确认决策) 与 [ADR-072](adr/ADR-072-project-memory.md)。
 

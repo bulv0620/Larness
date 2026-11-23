@@ -68,6 +68,8 @@ created: 2026-11-06
 3. 每条影响操作范围或安全的承诺都要有执行层验收，覆盖合法输入和至少一个会扩大范围、越权或误报成功的反例。工具或 prompt 变更还要通过实际上下文组装验证模型收到的描述、schema 和作用域。禁止只核对源码常量或只用文本快照替代执行测试。
 4. 新增或修改此类能力的 spec 必须列出上述验证和受影响表面。测试纳入常规检查。无法自动化的表面需在验收中记录可复核的检查与结果。
 
+   088（2026-11-23）：新增 `read_attachment`、`search_attachment`、`list_attachments`（均 L0、无项目锁，仅当前会话）。只有本会话存在 ready 附件时才注入 schema；执行层通过 `ToolContext.sessionId` + `ToolContext.attachments` 绑定，跨会话 ID 返回 `ATTACHMENT_NOT_FOUND`，未 ready 返回 `ATTACHMENT_NOT_READY`。`read_attachment` 以 `page:N` / `sheet:NAME` / `slide:N` / `heading:TEXT` / `offset:N` 定位并返回 `nextOffset`；`search_attachment` 返回锚点、片段与命中数；`list_attachments` 不返回正文。附件正文位于 user 消息的 `<attachment>` 边界内且声明为不可信数据；工具权限与审批不因附件内容改变。`toolContract` 矩阵已加入三个工具及其正反例，bootstrap 注册集与矩阵一致。
+
 M4 当前按 [ADR-050](../../docs/adr/ADR-050-pm2-cli-deployment.md) 使用通用命令工具完成部署，系统上下文提供真实 PM2 环境与服务/项目关联。原 ADR-048 的资源、REST、事件和预览边界继续适用。专用正式服务模型工具与运维 Turn 入口已撤回，普通项目会话可以部署。实际上下文、命令策略与关系验证见 [命令上下文契约](../../docs/contracts/agent-command-context.md) 和 [M4 验收](../050-deploy/spec.md#验收场景)。
 
 ## 验收场景

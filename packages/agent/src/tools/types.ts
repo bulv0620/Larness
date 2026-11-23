@@ -16,6 +16,13 @@ export interface EncryptedSecretRef {
 export interface ToolContext {
   projectRoot: string;
   ignore?: string[];
+  /** Current session, set by the runner for session-scoped tools. */
+  sessionId?: string;
+  attachments?: {
+    readAttachment: (args: unknown) => Promise<ToolResult>;
+    searchAttachment: (args: unknown) => Promise<ToolResult>;
+    listAttachments: (args: unknown) => Promise<ToolResult>;
+  };
   signal?: AbortSignal;
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown) => Promise<ToolResult>;

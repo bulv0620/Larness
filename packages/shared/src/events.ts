@@ -112,6 +112,19 @@ export type TurnFileResult = z.infer<typeof TurnFileResultSchema>;
 
 export const TurnFileResultsSchema = z.array(TurnFileResultSchema);
 
+export interface MessageAttachmentRef {
+  id: string;
+  filename: string;
+  mime: string;
+  kind: "document" | "image";
+  sizeBytes: number;
+  status: "pending" | "ready" | "failed";
+  method: "none" | "native" | "text-layer" | "ocr" | "vision";
+  pageCount?: number | null;
+  tokenCount?: number;
+  errorCode?: string | null;
+}
+
 export interface MessageItem {
   id: string;
   kind: "message";
@@ -120,6 +133,7 @@ export interface MessageItem {
   createdAt: number;
   turnId?: string;
   screenshots?: { sessionId: string; ids: string[] };
+  attachments?: MessageAttachmentRef[];
   streaming?: boolean;
   turnOutcome?: "completed" | "failed" | "cancelled" | "interrupted";
   terminalReason?: TurnTerminalReason;

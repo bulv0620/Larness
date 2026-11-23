@@ -39,6 +39,7 @@ export interface ExecuteToolInput {
   approvalTtlMs?: number;
   signal?: AbortSignal;
   policySnapshotId?: string;
+  attachments?: NonNullable<ToolContext["attachments"]>;
   updatePlan?: (args: unknown) => Promise<ToolResult>;
   runCommand?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
   startProcess?: (args: unknown, assertAuthorized: () => void) => Promise<ToolResult>;
@@ -409,6 +410,34 @@ export async function executeTool(
         }
       : {}),
     ...(input.loadSecrets ? { loadSecrets: input.loadSecrets } : {}),
+    ...(input.attachments === undefined
+      ? {}
+      : {
+          sessionId: input.sessionId,
+          attachments: {
+            readAttachment: async (args: unknown) => {
+              assertAuthorized();
+              return (
+                input.attachments?.readAttachment(args) ??
+                denied("FORBIDDEN", "Attachment context unavailable")
+              );
+            },
+            searchAttachment: async (args: unknown) => {
+              assertAuthorized();
+              return (
+                input.attachments?.searchAttachment(args) ??
+                denied("FORBIDDEN", "Attachment context unavailable")
+              );
+            },
+            listAttachments: async (args: unknown) => {
+              assertAuthorized();
+              return (
+                input.attachments?.listAttachments(args) ??
+                denied("FORBIDDEN", "Attachment context unavailable")
+              );
+            },
+          },
+        }),
     ...(input.rememberMemory
       ? {
           rememberMemory: async (args: unknown) => {

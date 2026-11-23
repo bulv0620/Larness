@@ -10,6 +10,9 @@ const api = vi.hoisted(() => ({
     status: "QUEUED",
     sessionId: "s1",
   })),
+  uploadAttachments: vi.fn(async () => []),
+  transcribeAttachment: vi.fn(async () => ({ id: "att_1", kind: "image", method: "ocr" })),
+  archiveSession: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/env", () => ({ USE_MOCKS: false }));
@@ -18,12 +21,18 @@ vi.mock("@/lib/workspaceApi", async (importOriginal) => ({
   createSession: api.createSession,
   updateSession: api.updateSession,
   createTurn: api.createTurn,
+  uploadAttachments: api.uploadAttachments,
+  transcribeAttachment: api.transcribeAttachment,
+  archiveSession: api.archiveSession,
 }));
 
 beforeEach(() => {
   api.createSession.mockClear();
   api.updateSession.mockClear();
   api.createTurn.mockClear();
+  api.uploadAttachments.mockClear();
+  api.transcribeAttachment.mockClear();
+  api.archiveSession.mockClear();
   useNavigationStore.setState({ sessionId: "s1", draftSession: null });
   useTimelineStore.setState({
     sessionId: "s1",

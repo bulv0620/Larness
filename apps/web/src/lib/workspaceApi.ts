@@ -7,6 +7,30 @@ import {
 } from "@larness/shared";
 import { apiFetch } from "./api";
 
+export interface ApiAttachment {
+  id: string;
+  sessionId: string;
+  filename: string;
+  mime: string;
+  kind: "document" | "image";
+  sizeBytes: number;
+  status: "pending" | "ready" | "failed";
+  method: "none" | "native" | "text-layer" | "ocr" | "vision";
+  pageCount: number | null;
+  tokenCount: number;
+  warnings: string[];
+  extractor: { id: string; version: string } | null;
+  width: number | null;
+  height: number | null;
+  errorCode: string | null;
+  createdAt: number;
+}
+
+export interface UploadedAttachment {
+  attachment: ApiAttachment;
+  deduplicated: boolean;
+}
+
 export interface ApiProject {
   kind?: "project" | "default";
   id: string;
@@ -550,29 +574,81 @@ export function screenshotUrl(sessionId: string, id: string): string {
   return `/api/sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(id)}`;
 }
 
-export async function uploadScreenshots(sessionId: string, files: File[]): Promise<string[]> {
-  return Promise.all(
-    files.map(async (file) => {
-      const data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error("读取截图失败"));
-        reader.onload = () =>
-          typeof reader.result === "string"
-            ? resolve(reader.result.slice(reader.result.indexOf(",") + 1))
-            : reject(new Error("读取截图失败"));
-        reader.readAsDataURL(file);
-      });
-      const result = await apiFetch<{ id: string }>(
-        `/api/sessions/${encodeURIComponent(sessionId)}/attachments`,
-        {
-          method: "POST",
-          csrf: true,
-          body: { mime: file.type, data },
-        },
-      );
-      return result.id;
-    }),
+export function attachmentUrl(sessionId: string, id: string): string {
+  return `/api/sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(id)}`;
+}
+
+export function attachmentArtifactUrl(sessionId: string, id: string): string {
+  return `${attachmentUrl(sessionId, id)}/artifact`;
+}
+
+export async function uploadAttachment(sessionId: string, file: File): Promise<UploadedAttachment> {
+  const data = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读取附件失败"));
+    reader.onload = () =>
+      typeof reader.result === "string"
+        ? resolve(reader.result.slice(reader.result.indexOf(",") + 1))
+        : reject(new Error("读取附件失败"));
+    reader.readAsDataURL(file);
+  });
+  return apiFetch<UploadedAttachment>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/attachments`,
+    {
+      method: "POST",
+      csrf: true,
+      body: { filename: file.name, ...(file.type ? { mime: file.type } : {}), data },
+    },
   );
+}
+
+export async function transcribeAttachment(
+  sessionId: string,
+  attachmentId: string,
+): Promise<ApiAttachment> {
+  const result = await apiFetch<{ attachment: ApiAttachment }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(attachmentId)}/transcribe`,
+    { method: "POST", csrf: true, body: {} },
+  );
+  return result.attachment;
+}
+
+export async function uploadAttachments(
+  sessionId: string,
+  files: File[],
+): Promise<{ attachment: ApiAttachment; file: File }[]> {
+  const uploaded: { attachment: ApiAttachment; file: File }[] = [];
+  for (const file of files) {
+    const result = await uploadAttachment(sessionId, file);
+    uploaded.push({ attachment: result.attachment, file });
+  }
+  return uploaded;
+}
+
+export async function deleteAttachment(sessionId: string, attachmentId: string): Promise<void> {
+  await apiFetch(
+    `/api/sessions/${encodeURIComponent(sessionId)}/attachments/${encodeURIComponent(attachmentId)}`,
+    {
+      method: "DELETE",
+      csrf: true,
+    },
+  );
+}
+
+export async function fetchAttachmentArtifact(
+  sessionId: string,
+  attachmentId: string,
+): Promise<{
+  attachment: ApiAttachment;
+  markdown: string;
+  truncated: boolean;
+  warnings: string[];
+}> {
+  return apiFetch(attachmentArtifactUrl(sessionId, attachmentId));
+}
+
+export async function uploadScreenshots(sessionId: string, files: File[]): Promise<string[]> {
+  return (await uploadAttachments(sessionId, files)).map(({ attachment }) => attachment.id);
 }
 
 export async function createTurn(

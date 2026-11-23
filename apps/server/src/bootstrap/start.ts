@@ -45,6 +45,10 @@ import { createServiceOpsTools } from "../modules/agent/serviceOpsTool.js";
 import { summarizeSessionTitle } from "../modules/agent/titleSummarizer.js";
 import { type ProviderResolver, TurnRunner } from "../modules/agent/turnRunner.js";
 import { createWebTools } from "../modules/agent/webTool.js";
+import { failPendingAttachments } from "../modules/attachments/repository.js";
+import { AttachmentService } from "../modules/attachments/service.js";
+import { AttachmentStorage } from "../modules/attachments/storage.js";
+import { createAttachmentTools } from "../modules/attachments/tools.js";
 import { CommandManager } from "../modules/commands/manager.js";
 import { reconcileFileActions } from "../modules/files/actions.js";
 import { reconcileFileOperations } from "../modules/files/service.js";
@@ -525,6 +529,51 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       publish: publishMemoryChanged,
     });
 
+    const attachmentStorage = new AttachmentStorage(dataDir);
+    failPendingAttachments(opened.db);
+    const attachments = new AttachmentService({
+      db: opened.db,
+      storage: attachmentStorage,
+      enabled: loaded.config.attachments.enabled,
+      limits: {
+        maxBytes: loaded.config.attachments.maxFileBytes,
+        maxFilesPerSession: loaded.config.attachments.maxFilesPerSession,
+        maxExtractedChars: loaded.config.attachments.maxExtractedChars,
+        maxPdfPages: loaded.config.attachments.maxPdfPages,
+        timeoutMs: loaded.config.attachments.extractionTimeoutMs,
+        inlineTokensPerFile: loaded.config.attachments.inlineTokensPerFile,
+        inlineContextRatio: loaded.config.attachments.inlineContextRatio,
+      },
+      ocrMode: loaded.config.attachments.ocr.mode,
+      ...(loaded.config.attachments.ocr.visionConnectionId === null
+        ? { vision: { connectionId: null, transcriber: null } }
+        : {}),
+      publishStatus: (session, dto, status) => {
+        try {
+          const row = appendAgentEvent(opened.db, {
+            sessionId: session.id,
+            type: "attachment.status",
+            payload: {
+              attachmentId: dto.id,
+              sessionId: session.id,
+              status,
+              kind: dto.kind,
+              method: dto.method,
+              pageCount: dto.pageCount,
+              tokenCount: dto.tokenCount,
+              warningCount: dto.warnings.length,
+              errorCode: dto.errorCode,
+            },
+            now: Date.now(),
+          });
+          publishAgentEvent(toServerEvent(row, session));
+        } catch {
+          // Status publication must not fail a stored attachment.
+        }
+      },
+    });
+
+    void attachments.cleanupOrphans();
     const webSearchRuntime =
       options.webSearchRuntime ??
       createWebSearchRuntime({
@@ -541,6 +590,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
       for (const tool of createProcessTools({ secretStore })) registry.register(tool);
       for (const tool of createServiceOpsTools()) registry.register(tool);
       for (const tool of createMemoryTools()) registry.register(tool);
+      for (const tool of createAttachmentTools()) registry.register(tool);
       for (const tool of createWebTools({ secretStore })) registry.register(tool);
       registry.register(createObservationTool());
       const runner = new TurnRunner({
@@ -548,6 +598,9 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         db: opened.db,
         registry,
         memory,
+        attachments,
+        attachmentInlineTokens: loaded.config.attachments.inlineTokensPerFile,
+        attachmentContextRatio: loaded.config.attachments.inlineContextRatio,
         commands,
         git,
         processes,
@@ -669,6 +722,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         serviceOps,
         jobs,
         memory,
+        attachments,
         previews,
         ...(turnQueue === null
           ? {}

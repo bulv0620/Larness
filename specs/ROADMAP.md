@@ -521,6 +521,24 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | WS-5 | [契约、E2E、真实 Key 验证与收口](087-web-search/tasks.md#ws-5-契约e2e真实-key-验证与收口) | WS-1～WS-4 | `done`（2026-11-20，人类验收通过） |
 | WS-6 | [交互收敛：地球禁用、列表弹窗与统一命名](087-web-search/tasks.md#ws-6-交互收敛地球禁用列表弹窗与统一命名用户反馈) | WS-4 | `done`（2026-11-20） |
 
+### 8.14 发布后：文档与图片附件解析、能力路由与会话外呈现（088，review）
+
+目标：统一附件 `AttachmentArtifact` 契约；文档走本地可插拔抽取器，图片在模型支持视觉时原图透传、否则 OCR/视觉降级；长文档只注入目录并用 `read_attachment` / `search_attachment` 按需读取；附件与图片在会话气泡之外呈现。规格见 [088](088-document-attachments/spec.md)，方案见 [plan](088-document-attachments/plan.md)，决策见 [ADR-074](../docs/adr/ADR-074-document-attachments.md)（accepted）。
+
+门禁：G-088 自动化通过（2026-11-23）——Q-071～Q-076 已确认、A1–A11 按自动化覆盖通过、格式 fixture 与路由矩阵通过、气泡外布局通过、安全与脱敏测试通过、`pnpm check` 与 server build 通过。未跑真实文件/视觉连接与 Mock E2E；解析未放入 worker（Q-077）、视觉连接未接线（Q-078），详见 [acceptance](088-document-attachments/acceptance.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| DA-0 | [规格确认与 ADR](088-document-attachments/tasks.md#da-0-规格确认与-adr-074) | — | `done`（2026-11-23） |
+| DA-1 | [数据模型、存储与迁移 0038](088-document-attachments/tasks.md#da-1-数据模型存储与迁移-0038) | DA-0 | `done`（2026-11-23） |
+| DA-2 | [上传、状态事件与删除](088-document-attachments/tasks.md#da-2-上传状态事件与删除) | DA-1 | `done`（2026-11-23） |
+| DA-3 | [抽取内核与文本类格式](088-document-attachments/tasks.md#da-3-抽取内核与文本类格式) | DA-1 | `done`（2026-11-23，worker 隔离见 Q-077） |
+| DA-4 | [PDF、DOCX、PPTX、XLSX 抽取](088-document-attachments/tasks.md#da-4-pdfdocxpptx-xlsx-抽取) | DA-3 | `done`（2026-11-23） |
+| DA-5 | [图片能力路由与 OCR/视觉降级](088-document-attachments/tasks.md#da-5-图片能力路由与-ocr视觉降级) | DA-2、DA-3 | `done`（2026-11-23，视觉接线见 Q-078） |
+| DA-6 | [上下文预算与附件工具](088-document-attachments/tasks.md#da-6-上下文预算与附件工具) | DA-2、DA-3 | `done`（2026-11-23） |
+| DA-7 | [气泡外附件、草稿托盘与预览](088-document-attachments/tasks.md#da-7-气泡外附件草稿托盘与预览) | DA-2、DA-6 | `done`（2026-11-23） |
+| DA-8 | [安全、E2E 与验收](088-document-attachments/tasks.md#da-8-安全e2e-与验收) | DA-4、DA-5、DA-7 | `done`（2026-11-23，自动化范围） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

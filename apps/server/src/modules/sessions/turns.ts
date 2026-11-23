@@ -4,9 +4,10 @@ import { appendAudit } from "../../db/repositories/audit.js";
 import type { TurnRow, TurnStatus, TurnTerminalReason } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { appendAgentEvent } from "../agent/events.js";
+import { attachmentDto, getAttachment } from "../attachments/repository.js";
 import { resolveCatalogSelection } from "../models/catalog.js";
 import { ModelError } from "../models/service.js";
-import { attachmentIdsSchema, readScreenshots, screenshotIds } from "./attachments.js";
+import { attachmentIdsSchema, screenshotIds } from "./attachments.js";
 import { SessionError } from "./errors.js";
 import {
   createTurnRow,
@@ -269,11 +270,45 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
     }
 
     if (validated.attachmentIds.length > 0) {
-      if (!selection?.acceptsImages || session.origin !== "user") {
-        throw new SessionError("MODEL_UNSUPPORTED", "selected model does not accept screenshots");
+      if (session.origin !== "user") {
+        throw new SessionError("FORBIDDEN", "this session does not accept attachments");
       }
-      readScreenshots(tx, session.id, validated.attachmentIds);
+      for (const attachmentId of validated.attachmentIds) {
+        const row = getAttachment(tx, session.id, attachmentId);
+        if (row === null) {
+          throw new SessionError("NOT_FOUND", "attachment not found in this session");
+        }
+        if (row.status === "pending") {
+          throw new SessionError("ATTACHMENT_NOT_READY", "attachment is still being parsed");
+        }
+        if (row.status === "failed") {
+          throw new SessionError(
+            row.kind === "image" ? "ATTACHMENT_VISION_UNAVAILABLE" : "ATTACHMENT_PARSE_FAILED",
+            row.kind === "image"
+              ? "image attachment could not be transcribed"
+              : "document attachment could not be parsed",
+          );
+        }
+        if (row.kind === "image" && selection?.acceptsImages !== true) {
+          if (row.method !== "ocr" && row.method !== "vision") {
+            throw new SessionError(
+              "ATTACHMENT_VISION_UNAVAILABLE",
+              "the selected model does not accept images and no OCR/vision fallback is ready",
+            );
+          }
+        }
+      }
     }
+    const attachmentRows =
+      validated.attachmentIds.length === 0
+        ? []
+        : validated.attachmentIds.map((attachmentId) => {
+            const row = getAttachment(tx, session.id, attachmentId);
+            if (row === null) {
+              throw new SessionError("NOT_FOUND", "attachment not found in this session");
+            }
+            return attachmentDto(row);
+          });
     const attachmentFields =
       validated.attachmentIds.length === 0 ? {} : { attachmentIds: validated.attachmentIds };
 
@@ -286,7 +321,7 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
 
     if (session.title === DEFAULT_SESSION_TITLE && session.titleSource === "auto") {
       updateSessionRow(tx, session.id, {
-        title: deriveSessionTitle(validated.text || "截图"),
+        title: deriveSessionTitle(validated.text || "附件"),
         // Still derivable: the summary pass may replace it once the answer lands.
         titleSource: "auto",
         updatedAt: now,
@@ -340,7 +375,27 @@ export function createTurn(options: TurnServiceOptions, input: CreateTurnInput):
       sessionId: row.sessionId,
       turnId: row.id,
       type: "user.message",
-      payload: { turnId: row.id, text: validated.text, ...attachmentFields },
+      payload: {
+        turnId: row.id,
+        text: validated.text,
+        ...attachmentFields,
+        ...(attachmentRows.length === 0
+          ? {}
+          : {
+              attachments: attachmentRows.map((attachment) => ({
+                id: attachment.id,
+                filename: attachment.filename,
+                mime: attachment.mime,
+                kind: attachment.kind,
+                sizeBytes: attachment.sizeBytes,
+                status: attachment.status,
+                method: attachment.method,
+                pageCount: attachment.pageCount,
+                tokenCount: attachment.tokenCount,
+                errorCode: attachment.errorCode,
+              })),
+            }),
+      },
       now,
     });
     appendAgentEvent(tx, {

@@ -27,6 +27,7 @@ import {
 import { appendAssistantMessage, applyReasoningDelta, applyTurnEvent } from "@/lib/timeline";
 import {
   type ApiSession,
+  archiveSession,
   cancelTurn,
   createSession,
   createTurn,
@@ -35,8 +36,9 @@ import {
   getSession,
   type ModelSelection,
   resumeTurn as requestResumeTurn,
+  transcribeAttachment,
   updateSession,
-  uploadScreenshots,
+  uploadAttachments,
 } from "@/lib/workspaceApi";
 import { gateway } from "@/mocks/gateway";
 import { useNavigationStore } from "@/stores/navigationStore";
@@ -59,6 +61,35 @@ function errorItem(message: string): ErrorItem {
     message,
     createdAt: Date.now(),
   };
+}
+
+/**
+ * Uploads the draft files and guarantees the Turn only sees ready artifacts.
+ * Raw images are transcribed when the selected model cannot consume them, so
+ * the server capability check and the UI agree before a Turn is created.
+ */
+async function prepareAttachments(
+  sessionId: string,
+  files: File[],
+  acceptsImages: boolean,
+): Promise<string[] | undefined> {
+  if (files.length === 0) return undefined;
+  const uploaded = await uploadAttachments(sessionId, files);
+  const failed = uploaded.find(({ attachment }) => attachment.status === "failed");
+  if (failed) {
+    throw new Error(`${failed.attachment.filename} 解析失败，请移除或重试。`);
+  }
+  if (!acceptsImages) {
+    for (const { attachment } of uploaded) {
+      if (attachment.kind !== "image" || attachment.method !== "none") continue;
+      try {
+        await transcribeAttachment(sessionId, attachment.id);
+      } catch {
+        throw new Error(`${attachment.filename} 需要视觉模型或本地 OCR 才能发送。`);
+      }
+    }
+  }
+  return uploaded.map(({ attachment }) => attachment.id);
 }
 
 function closeSocket(): void {
@@ -95,6 +126,7 @@ interface TimelineState {
     draftWebSearch?: boolean,
     screenshots?: File[],
     onAccepted?: () => void,
+    acceptsImages?: boolean,
   ) => Promise<void>;
   stop: () => void;
   resumeTurn: (turnId: string) => Promise<void>;
@@ -475,6 +507,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     draftWebSearch,
     screenshots = [],
     onAccepted,
+    acceptsImages = false,
   ) => {
     const trimmed = text.trim();
     if ((!trimmed && screenshots.length === 0) || get().isStreaming) return;
@@ -539,8 +572,10 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     if (draft !== null && draft.id === sessionId) {
       set({ isStreaming: true, turnStartedAt: Date.now() });
 
+      let real: Awaited<ReturnType<typeof createSession>> | null = null;
+      let turnCreated = false;
       try {
-        const real = await createSession({
+        real = await createSession({
           ...(draft.projectId === null ? {} : { projectId: draft.projectId }),
           ...(draftProfile === undefined ? {} : { agentProfile: draftProfile }),
         });
@@ -549,18 +584,22 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
           approvalPolicyId: draftPolicy,
           ...(draftWebSearch === undefined ? {} : { webSearchEnabled: draftWebSearch }),
         });
-        const attachmentIds = screenshots.length
-          ? await uploadScreenshots(real.id, screenshots)
-          : undefined;
+        const attachmentIds = await prepareAttachments(real.id, screenshots, acceptsImages);
         await createTurn(
           real.id,
           { input: trimmed, ...selection, ...(attachmentIds ? { attachmentIds } : {}) },
           crypto.randomUUID(),
         );
+        turnCreated = true;
         onAccepted?.();
         await queryClient.invalidateQueries({ queryKey: ["workspace"] });
         useNavigationStore.getState().commitDraft(draft.id, real.id, real.projectId);
       } catch (error) {
+        // A scaffold session created only for uploads must not linger hidden
+        // behind the still-open draft; archive it so the operator can retry.
+        if (real !== null && !turnCreated) {
+          await archiveSession(real.id).catch(() => undefined);
+        }
         if (get().sessionId !== sessionId) return;
         const message = error instanceof Error ? error.message : "发送失败";
         set((state) => ({
@@ -587,9 +626,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }));
 
     try {
-      const attachmentIds = screenshots.length
-        ? await uploadScreenshots(sessionId, screenshots)
-        : undefined;
+      const attachmentIds = await prepareAttachments(sessionId, screenshots, acceptsImages);
       const created = await createTurn(
         sessionId,
         { input: trimmed, ...selection, ...(attachmentIds ? { attachmentIds } : {}) },

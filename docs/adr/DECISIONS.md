@@ -206,3 +206,7 @@ accepted，2026-11-19 人类确认 085 全部推荐默认：默认关闭任务�
 ## ADR-073 · 联网搜索：普通 Agent 工具、独立搜索连接与默认关闭（2026-11-20）
 
 accepted，2026-11-20 人类确认 087 决策：默认关闭、会话级地球开关显式开启；先支持 DeepSeek 与 GLM，Provider 层保持通用；搜索 Key 与模型 Key 完全隔离；`web_search` L0、`fetch_url` L1，配合每 Turn 配额、结果上限、秘密扫描与 URL 白名单；不使用厂商内置 server-side 搜索。输入框加号按钮改为地球按钮。见 [ADR-073](ADR-073-web-search.md) 与 [087 规格](../../specs/087-web-search/spec.md)。
+
+## ADR-074 · 文档与图片附件：适配器抽取、能力路由与按需读取（2026-11-23）
+
+accepted，2026-11-23 人类确认 088 方案、气泡外附件布局与 Q-071～Q-076 全部推荐默认：格式矩阵 PDF/DOCX/PPTX/XLSX/HTML/CSV/TXT/MD/PNG/JPEG/WebP；`auto-local` 只使用本机 OCR，云端视觉默认关闭；20 MiB/文件、8 个/轮、200 个/会话、400 页、单文件 8k token、附件总预算 15%；v1 用 JSON Base64 上传；纯 JS 解析依赖，不引入原生 canvas；扫描 PDF 首版不渲染。统一 `AttachmentArtifact` 契约；文档走本地可插拔抽取器，图片按模型能力原图透传或 OCR/视觉降级；大文档只注入目录并用 `read_attachment` / `search_attachment` / `list_attachments` 按需读取；附件正文为不可信数据；新文件落盘，旧截图行兼容；附件区位于消息气泡之外。`doc-extract` 黑盒只作为适配器，不作为唯一实现。见 [ADR-074](ADR-074-document-attachments.md) 与 [088 规格](../../specs/088-document-attachments/spec.md)。

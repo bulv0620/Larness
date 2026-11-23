@@ -8,6 +8,7 @@ import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { screenshotUrl } from "@/lib/workspaceApi";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useWindowStore } from "@/stores/windowStore";
+import { AttachmentStrip } from "./AttachmentStrip";
 import { CommandCard } from "./CommandCard";
 import { MarkdownText } from "./MarkdownText";
 
@@ -75,6 +76,7 @@ export function MessageBubble({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const currentSessionId = useNavigationStore((state) => state.sessionId);
   if (item.role === "user" && item.text.startsWith("Work state checkpoint")) {
     // Automatic continuation carries machine facts; show a compact marker
     // instead of dumping the checkpoint into the conversation.
@@ -102,39 +104,44 @@ export function MessageBubble({
   const screenshots = item.screenshots;
   if (item.role === "user")
     return (
-      <div className="mb-5 flex justify-end">
-        <div className="max-w-[91%] rounded-[18px] bg-accent-soft px-3.5 py-2.5 text-[13px] leading-[1.65] text-ink sm:max-w-[82%]">
-          {screenshots ? (
-            <div className="mb-2 flex flex-wrap gap-2">
-              {screenshots.ids.map((id) => (
-                <img
-                  key={id}
-                  src={screenshotUrl(screenshots.sessionId, id)}
-                  alt="用户截图"
-                  className="max-h-48 max-w-full rounded-lg object-contain"
-                  loading="lazy"
-                />
-              ))}
-            </div>
-          ) : null}
-          <div
-            className={cn(
-              "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-              !expanded && item.text.length > 1200 && "line-clamp-8",
-            )}
-          >
-            {item.text}
+      <div className="mb-5 flex flex-col items-end gap-1.5">
+        {item.attachments && item.attachments.length > 0 && currentSessionId ? (
+          <AttachmentStrip sessionId={currentSessionId} attachments={item.attachments} />
+        ) : null}
+        {screenshots ? (
+          <div className="flex flex-wrap justify-end gap-2">
+            {screenshots.ids.map((id) => (
+              <img
+                key={id}
+                src={screenshotUrl(screenshots.sessionId, id)}
+                alt="用户截图"
+                className="max-h-48 max-w-full rounded-lg object-contain"
+                loading="lazy"
+              />
+            ))}
           </div>
-          {item.text.length > 1200 ? (
-            <button
-              type="button"
-              className="mt-1 text-[11px] text-ink-3"
-              onClick={() => setExpanded((value) => !value)}
+        ) : null}
+        {item.text ? (
+          <div className="max-w-[91%] rounded-[18px] bg-accent-soft px-3.5 py-2.5 text-[13px] leading-[1.65] text-ink sm:max-w-[82%]">
+            <div
+              className={cn(
+                "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+                !expanded && item.text.length > 1200 && "line-clamp-8",
+              )}
             >
-              {expanded ? "收起" : "展开消息"}
-            </button>
-          ) : null}
-        </div>
+              {item.text}
+            </div>
+            {item.text.length > 1200 ? (
+              <button
+                type="button"
+                className="mt-1 text-[11px] text-ink-3"
+                onClick={() => setExpanded((value) => !value)}
+              >
+                {expanded ? "收起" : "展开消息"}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     );
   return (
