@@ -1,4 +1,4 @@
-import { FileManagerError } from "@larness/resources";
+import { FileManagerError, GitError } from "@larness/resources";
 import { GitActionDecisionSchema } from "@larness/shared";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance, FastifyRequest } from "fastify";
@@ -8,8 +8,10 @@ import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { resourceActions } from "../db/schema.js";
 import { HttpError } from "../errors.js";
+import { ProjectLockError } from "../modules/agent/projectWriteLock.js";
 import type { GitManager } from "../modules/git/manager.js";
 import type { ServiceManager } from "../modules/services/manager.js";
+import { mapResourceFailure } from "./failures.js";
 
 const Params = z.object({ id: z.string().min(1).max(128) }).strict();
 
@@ -48,7 +50,13 @@ export function registerResourceActionRoutes(
       return result;
     } catch (error) {
       if (error instanceof HttpError) throw error;
-      if (error instanceof FileManagerError) {
+      // Git, file and write-lease failures are denials for the caller: keep
+      // their stable code so the UI can name the cause, and audit them once.
+      if (
+        error instanceof GitError ||
+        error instanceof FileManagerError ||
+        error instanceof ProjectLockError
+      ) {
         try {
           appendAudit(deps.db, {
             action: "resource.action.denied",
@@ -59,9 +67,8 @@ export function registerResourceActionRoutes(
         } catch {
           throw new HttpError("INTERNAL", "Resource action audit unavailable");
         }
-        throw new HttpError(error.code, error.message);
       }
-      throw new HttpError("INTERNAL", "Resource action failed");
+      throw mapResourceFailure(error);
     }
   }
   app.get("/api/resource-actions/:id", (request) =>

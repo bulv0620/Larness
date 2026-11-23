@@ -789,3 +789,175 @@ it.skipIf(process.platform === "win32")(
     });
   },
 );
+
+it("rebases Git paths onto a project that is a subdirectory of its repository", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    try {
+      const manager = f.started.running.git;
+      const web = path.join(f.repo, "web");
+      await mkdir(web);
+      await writeFile(path.join(web, "app.ts"), "one\n");
+      await writeFile(path.join(web, "old.ts"), "old\n");
+      git(f.repo, "add", "web");
+      git(f.repo, "commit", "-qm", "add web app");
+      const project = await createProject({ db: f.started.running.db }, { rootPath: web });
+
+      await writeFile(path.join(web, "app.ts"), "two\n");
+      await writeFile(path.join(web, "new file.ts"), "new\n");
+      await writeFile(path.join(f.repo, "a.txt"), "sibling edit\n");
+      await mkdir(path.join(f.repo, "sibling"));
+      await writeFile(path.join(f.repo, "sibling", "keep.txt"), "sibling\n");
+
+      const status = await manager.status(project.id);
+      expect(status.unstaged).toEqual([{ path: "app.ts", origPath: null, status: "modified" }]);
+      expect(status.untracked).toEqual(["new file.ts"]);
+      expect(status.staged).toEqual([]);
+      expect(status.snapshotVersion).toMatch(/^[a-f0-9]{64}$/);
+
+      const diff = await manager.diff(project.id, "app.ts", false);
+      expect(diff).toMatchObject({ path: "app.ts", staged: false, truncated: false });
+      expect(diff.diff).toContain("-one");
+      expect(diff.diff).toContain("+two");
+
+      // The untracked sibling keeps a project relative path in its diff too.
+      expect((await manager.diff(project.id, "new file.ts", false)).diff).toContain("+new");
+
+      const prepared = await manager.createAction(
+        project.id,
+        {
+          action: "stageFiles",
+          paths: ["app.ts", "new file.ts"],
+          expectedSnapshot: status.snapshotVersion,
+        },
+        f.clientId,
+      );
+      expect((await manager.executeAction(prepared.id, f.clientId)).status).toBe("COMPLETED");
+      expect(git(f.repo, "diff", "--cached", "--name-only")).toBe("web/app.ts\nweb/new file.ts");
+      expect(git(f.repo, "diff", "--name-only")).toBe("a.txt");
+
+      const staged = await manager.status(project.id);
+      expect(staged.staged.map((item) => item.path).sort()).toEqual(["app.ts", "new file.ts"]);
+      expect(staged.untracked).toEqual([]);
+      const undo = await manager.createAction(
+        project.id,
+        {
+          action: "unstageFiles",
+          paths: ["app.ts", "new file.ts"],
+          expectedSnapshot: staged.snapshotVersion,
+        },
+        f.clientId,
+      );
+      expect((await manager.executeAction(undo.id, f.clientId)).status).toBe("COMPLETED");
+      expect((await manager.status(project.id)).staged).toEqual([]);
+      expect(await readFile(path.join(web, "app.ts"), "utf8")).toBe("two\n");
+
+      const discard = await manager.createAction(
+        project.id,
+        { action: "discard", path: "app.ts", confirmed: true },
+        f.clientId,
+      );
+      expect((await manager.executeAction(discard.id, f.clientId)).status).toBe("COMPLETED");
+      expect(await readFile(path.join(web, "app.ts"), "utf8")).toBe("one\n");
+
+      await writeFile(path.join(web, "app.ts"), "three\n");
+      const add = await manager.createAction(
+        project.id,
+        { action: "add", paths: ["app.ts"] },
+        f.clientId,
+      );
+      expect((await manager.executeAction(add.id, f.clientId)).status).toBe("COMPLETED");
+      const commit = await manager.createAction(
+        project.id,
+        { action: "commit", message: "web only" },
+        f.clientId,
+      );
+      expect((await manager.executeAction(commit.id, f.clientId)).status).toBe("COMPLETED");
+      expect(git(f.repo, "show", "--name-only", "--format=", "HEAD")).toBe("web/app.ts");
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});
+
+it("diffs untracked files against an empty baseline and keeps ignored files empty", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    try {
+      const manager = f.started.running.git;
+      await writeFile(path.join(f.repo, ".gitignore"), "ignored.log\n");
+      git(f.repo, "add", ".gitignore");
+      git(f.repo, "commit", "-qm", "ignore rules");
+      await writeFile(path.join(f.repo, "untracked.txt"), "first line\nsecond line\n");
+      await writeFile(path.join(f.repo, "ignored.log"), "hidden\n");
+      await writeFile(path.join(f.repo, "logo.bin"), Buffer.from([0, 1, 2, 0, 255, 254]));
+      const status = await manager.status(f.projectId);
+      expect(status.untracked.sort()).toEqual(["logo.bin", "untracked.txt"]);
+
+      const text = await manager.diff(f.projectId, "untracked.txt", false);
+      expect(text).toMatchObject({ path: "untracked.txt", staged: false, truncated: false });
+      expect(text.diff).toContain("--- /dev/null");
+      expect(text.diff).toContain("+first line");
+      expect(text.diff).toContain("+second line");
+
+      const binary = await manager.diff(f.projectId, "logo.bin", false);
+      expect(binary.binary).toBe(true);
+      expect(binary.diff).toContain("Binary files");
+
+      // An ignored file is not part of the change set and keeps an empty diff.
+      expect((await manager.diff(f.projectId, "ignored.log", false)).diff).toBe("");
+      // Only the worktree side has a baseline for a file outside the index.
+      expect((await manager.diff(f.projectId, "untracked.txt", true)).diff).toBe("");
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});
+
+it("keeps the Git failure code on execute so the client can name the cause", async () => {
+  await withTempDir(async (dir) => {
+    const f = await repoFixture(dir);
+    try {
+      const headers = {
+        cookie: f.started.cookie,
+        origin: f.started.origin,
+        "x-csrf-token": f.started.csrf,
+      };
+      await writeFile(path.join(f.repo, "a.txt"), "locked\n");
+      const created = await f.started.running.app.inject({
+        method: "POST",
+        url: `/api/projects/${f.projectId}/git/actions`,
+        headers,
+        payload: { action: "add", paths: ["a.txt"] },
+      });
+      expect(created.statusCode).toBe(201);
+      const project = getProjectById(f.started.running.db, f.projectId);
+      if (!project) throw new Error("Missing project");
+      const lock = new ProjectWriteLock({
+        db: f.started.running.db,
+        projectId: f.projectId,
+        rootRealPath: project.realPath,
+        owner: "other-writer",
+        executionId: "other-writer",
+        ttlMs: 60_000,
+      });
+      expect(lock.acquire()).not.toBeNull();
+      try {
+        const blocked = await f.started.running.app.inject({
+          method: "POST",
+          url: `/api/resource-actions/${created.json().id as string}/execute`,
+          headers,
+          payload: {},
+        });
+        expect(blocked.statusCode).toBe(409);
+        expect(blocked.json()).toMatchObject({
+          error: { code: "GIT_CONFLICT", message: "Project is locked by another writer" },
+        });
+      } finally {
+        lock.release();
+      }
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});

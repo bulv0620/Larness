@@ -295,3 +295,29 @@ it("unstages exact paths and only discards an untracked file after confirmation"
     { action: "discard", path: "new.txt", confirmed: true },
   ]);
 });
+
+it("names the writer that holds the project lock instead of generic retry advice", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      if (url.includes("/git/status"))
+        return new Response(JSON.stringify(statusView(false)), { status: 200 });
+      if (url.includes("/git/branches")) return new Response(JSON.stringify({ items: [] }));
+      if (url.includes("/git/actions"))
+        return new Response(JSON.stringify(action("PREPARED", "add")), { status: 201 });
+      if (url.includes("/execute"))
+        return new Response(
+          JSON.stringify({
+            error: { code: "GIT_CONFLICT", message: "Project is locked by another writer" },
+          }),
+          { status: 409 },
+        );
+      return new Response(JSON.stringify({}), { status: 404 });
+    }),
+  );
+  renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: "暂存 a.txt" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "项目正被其他写入者占用（Agent 运行或终端命令），请等它结束后重试。",
+  );
+});

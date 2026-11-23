@@ -17,6 +17,14 @@ export function operationError(error: unknown, fallback: string): string {
   switch (error.code) {
     case "RESOURCE_LOCKED":
       return "项目正在写入，请稍后重试。";
+    case "GIT_CONFLICT":
+      return "仓库或工作区状态已变化，请刷新后重试。";
+    case "GIT_UNAVAILABLE":
+      return "Git 暂不可用，请检查主机上的 Git 和当前仓库。";
+    case "GIT_AUTH_REQUIRED":
+      return "远端认证失败，请检查运行 Larness 的主机上的 Git 凭据。";
+    case "APPROVAL_INVALID":
+      return "操作已过期或未获批准，请重新发起。";
     case "FORBIDDEN":
     case "UNAUTHORIZED":
       return "当前操作没有权限。";

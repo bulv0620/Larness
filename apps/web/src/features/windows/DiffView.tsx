@@ -80,6 +80,14 @@ function DiffBody({ data, children }: { data: GitDiffView; children?: ReactNode 
         </p>
       ) : data.truncated ? (
         <p className="p-4 text-xs text-warning">Diff 超过 1 MiB，已截断；不自动写入或覆盖文件。</p>
+      ) : data.diff.trim() === "" ? (
+        <div className="space-y-1 p-4 text-xs text-ink-3">
+          <p>{data.staged ? "暂存区与 HEAD 没有文本差异。" : "工作区没有未暂存的文本差异。"}</p>
+          <p>
+            未跟踪文件、仅权限或行尾变化、以及只存在于另一侧的改动不会显示在这里；可切换“已暂存 /
+            工作区”，或直接打开工作区文件。
+          </p>
+        </div>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto font-mono text-[10.5px] leading-[19px]">
           {lines.map((line, index) => (

@@ -4,10 +4,12 @@ import { lstat, open, realpath } from "node:fs/promises";
 import path from "node:path";
 import {
   GitError,
+  gitPrefix,
   parseBranches,
   parseLog,
   parseStatus,
   runGit,
+  scopeStatusToPrefix,
   snapshotOf,
   validateGitPath,
 } from "@larness/resources";
@@ -69,14 +71,26 @@ export class GitManager {
       return false;
     }
   }
+  /**
+   * `git status` reports repository-root relative paths even when it runs in a
+   * project subdirectory, so rebase them before they are listed or reused as
+   * pathspecs.
+   */
+  async #readStatus(root: string, timeoutMs = READ_TIMEOUT_MS) {
+    const [reported, prefix] = await Promise.all([
+      runGit(root, ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"], {
+        readOnly: true,
+        timeoutMs,
+      }),
+      gitPrefix(root, { timeoutMs }),
+    ]);
+    const raw = scopeStatusToPrefix(reported.stdout, prefix);
+    const data = parseStatus(raw);
+    return { data, raw, snapshotVersion: snapshotOf(data, raw) };
+  }
   async status(projectId: string): Promise<GitStatusView> {
     const project = this.#project(projectId);
-    const { stdout } = await runGit(
-      project.realPath,
-      ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"],
-      { readOnly: true, timeoutMs: READ_TIMEOUT_MS },
-    );
-    const data = parseStatus(stdout);
+    const { data, snapshotVersion } = await this.#readStatus(project.realPath);
     return {
       branch: data.branch,
       head: data.head,
@@ -87,33 +101,51 @@ export class GitManager {
       unstaged: data.unstaged.map(({ path, origPath, status }) => ({ path, origPath, status })),
       untracked: data.untracked,
       conflicts: data.conflicts.map(({ path, origPath, status }) => ({ path, origPath, status })),
-      snapshotVersion: snapshotOf(data, stdout),
+      snapshotVersion,
     };
+  }
+  /**
+   * `git diff` only compares the index with the worktree, so a file that is not
+   * tracked yet has no baseline and yields no output at all. Detect those paths
+   * and compare them with an empty file instead of returning an empty diff.
+   */
+  async #untracked(root: string, path: string) {
+    const { stdout } = await runGit(
+      root,
+      ["--literal-pathspecs", "ls-files", "--others", "--exclude-standard", "-z", "--", path],
+      { readOnly: true, timeoutMs: READ_TIMEOUT_MS },
+    );
+    return stdout.split("\0").includes(path);
   }
   async diff(projectId: string, value: string, staged: boolean): Promise<GitDiffView> {
     const project = this.#project(projectId);
     const path = validateGitPath(project.realPath, value);
-    const numstat = await runGit(
-      project.realPath,
-      ["--literal-pathspecs", "diff", "--numstat", ...(staged ? ["--cached"] : []), "--", path],
-      { readOnly: true, timeoutMs: READ_TIMEOUT_MS },
-    );
+    const untracked = !staged && (await this.#untracked(project.realPath, path));
+    const base = [
+      "--literal-pathspecs",
+      "diff",
+      ...(untracked ? ["--no-index"] : []),
+      "--no-ext-diff",
+      "--no-textconv",
+      "--no-color",
+      ...(staged ? ["--cached"] : []),
+    ];
+    // `--no-index` exits with 1 whenever the two sides differ.
+    const allowedExitCodes = untracked ? [1] : undefined;
+    const targets = untracked ? ["/dev/null", path] : [path];
+    const numstat = await runGit(project.realPath, [...base, "--numstat", "--", ...targets], {
+      readOnly: true,
+      timeoutMs: READ_TIMEOUT_MS,
+      allowedExitCodes,
+    });
     const binary = numstat.stdout.split("\n").some((line) => line.startsWith("-\t-\t"));
     try {
-      const result = await runGit(
-        project.realPath,
-        [
-          "--literal-pathspecs",
-          "diff",
-          "--no-ext-diff",
-          "--no-textconv",
-          "--no-color",
-          ...(staged ? ["--cached"] : []),
-          "--",
-          path,
-        ],
-        { readOnly: true, timeoutMs: READ_TIMEOUT_MS, maxBuffer: 1024 * 1024 },
-      );
+      const result = await runGit(project.realPath, [...base, "--", ...targets], {
+        readOnly: true,
+        timeoutMs: READ_TIMEOUT_MS,
+        maxBuffer: 1024 * 1024,
+        allowedExitCodes,
+      });
       return { path, staged, diff: result.stdout, binary, truncated: false };
     } catch (error) {
       if (error instanceof GitError && error.code === "PAYLOAD_TOO_LARGE")
@@ -554,17 +586,7 @@ export class GitManager {
     lockedStatus?: GitStatusView,
     authorizeRemote?: () => void,
   ) {
-    const status =
-      lockedStatus ??
-      parseStatus(
-        (
-          await runGit(
-            root,
-            ["status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all"],
-            { readOnly: true },
-          )
-        ).stdout,
-      );
+    const status = lockedStatus ?? (await this.#readStatus(root)).data;
     switch (action.action) {
       case "stageFiles":
       case "unstageFiles": {

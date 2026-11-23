@@ -113,7 +113,14 @@ function classify(stderr: string, readOnly: boolean): GitError {
 export async function runGit(
   root: string,
   args: string[],
-  options: { readOnly?: boolean; timeoutMs?: number; maxBuffer?: number; stdin?: string } = {},
+  options: {
+    readOnly?: boolean;
+    timeoutMs?: number;
+    maxBuffer?: number;
+    stdin?: string;
+    /** Exit codes that carry output, e.g. `diff --no-index` returns 1 on differences. */
+    allowedExitCodes?: number[];
+  } = {},
 ): Promise<{ stdout: string; stderr: string }> {
   try {
     const execution = exec("git", args, {
@@ -134,7 +141,17 @@ export async function runGit(
     return { stdout: stdout.toString("utf8"), stderr: stderr.toString("utf8") };
   } catch (error) {
     if (!(error instanceof Error)) throw new GitError("GIT_UNAVAILABLE", "Git command failed");
-    const value = error as Error & { code?: string | number; stderr?: Buffer; killed?: boolean };
+    const value = error as Error & {
+      code?: string | number;
+      stdout?: Buffer;
+      stderr?: Buffer;
+      killed?: boolean;
+    };
+    if (typeof value.code === "number" && options.allowedExitCodes?.includes(value.code))
+      return {
+        stdout: (value.stdout ?? Buffer.alloc(0)).toString("utf8"),
+        stderr: (value.stderr ?? Buffer.alloc(0)).toString("utf8"),
+      };
     if (value.code === "ENOENT") throw new GitError("GIT_UNAVAILABLE", "Git is not installed");
     if (value.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER")
       throw new GitError("PAYLOAD_TOO_LARGE", "Git output exceeds the limit");
@@ -168,6 +185,74 @@ export function validateGitPath(root: string, value: string, gitReported = false
   const absolute = path.resolve(root, normalized);
   if (!isInsideRoot(root, absolute)) throw new GitError("GIT_CONFLICT", "Git path escapes root");
   return normalized;
+}
+
+/**
+ * Git runs inside the project directory but still reports every path relative
+ * to the repository root and applies pathspecs relative to the current
+ * directory. A project may be a subdirectory of a larger repository, so paths
+ * have to be rebased onto the project before they are listed or reused.
+ */
+export async function gitPrefix(
+  root: string,
+  options: { timeoutMs?: number } = {},
+): Promise<string> {
+  const { stdout } = await runGit(root, ["rev-parse", "--show-prefix"], {
+    readOnly: true,
+    timeoutMs: options.timeoutMs ?? 15_000,
+  });
+  const value = stdout.trim().replaceAll("\\", "/");
+  if (!value) return "";
+  return value.endsWith("/") ? value : `${value}/`;
+}
+/**
+ * Rebase the NUL separated `git status --porcelain=v2` stream onto the project
+ * directory: changes outside it are dropped and the rest keep their record
+ * shape, so `parseStatus` and the snapshot hash stay stable.
+ */
+export function scopeStatusToPrefix(raw: string, prefix: string): string {
+  if (!prefix) return raw;
+  const base = prefix.endsWith("/") ? prefix : `${prefix}/`;
+  const tokens = raw.split("\0");
+  const scoped: string[] = [];
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index] ?? "";
+    if (!token) continue;
+    const fields = token.split(" ");
+    const kind = fields[0];
+    if (kind === "2") {
+      // A rename record is followed by its own NUL terminated source path.
+      const origPath = tokens[index + 1] ?? "";
+      index += 1;
+      const renamed = toProjectPath(fields.slice(9).join(" "), base);
+      if (renamed === null) continue;
+      scoped.push([...fields.slice(0, 9), renamed].join(" "));
+      // A rename that leaves the project keeps its source token so the record
+      // shape stays valid; the source is not addressable as a project path.
+      scoped.push(toProjectPath(origPath, base) ?? renamed);
+      continue;
+    }
+    const head = kind === "1" ? 8 : kind === "u" ? 10 : 0;
+    if (head > 0) {
+      const pathValue = toProjectPath(fields.slice(head).join(" "), base);
+      if (pathValue !== null) scoped.push([...fields.slice(0, head), pathValue].join(" "));
+      continue;
+    }
+    if (kind === "?") {
+      const pathValue = toProjectPath(token.slice(2), base);
+      if (pathValue !== null) scoped.push(`? ${pathValue}`);
+      continue;
+    }
+    scoped.push(token);
+  }
+  return scoped.map((token) => `${token}\0`).join("");
+}
+
+function toProjectPath(value: string, base: string): string | null {
+  const normalized = value.replaceAll("\\", "/");
+  if (!normalized.startsWith(base)) return null;
+  const relative = normalized.slice(base.length);
+  return relative ? relative : null;
 }
 
 export function parseStatus(raw: string): GitStatusData {

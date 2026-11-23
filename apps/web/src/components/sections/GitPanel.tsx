@@ -70,6 +70,26 @@ function remoteError(failure: unknown) {
   return operationError(failure, "Git 操作失败，请核对状态后重试。");
 }
 
+function localError(failure: unknown) {
+  if (!(failure instanceof ApiError)) return "Git 操作失败，请核对状态后重试。";
+  if (failure.code === "VERSION_CONFLICT") return "Git 状态已变化，请在列表刷新后重新选择。";
+  if (failure.code === "GIT_CONFLICT") {
+    // A local action carries its reason only in the message; name the two that
+    // a user can act on instead of the generic retry advice.
+    switch (failure.message) {
+      case "Project is locked by another writer":
+        return "项目正被其他写入者占用（Agent 运行或终端命令），请等它结束后重试。";
+      case "Repository changed before the Git action executed":
+        return "Git 状态在操作执行前发生了变化，请在列表刷新后重新选择。";
+      case "Git command timed out":
+        return "Git 操作超时，请核对工作区状态后重试。";
+      default:
+        return "Git 拒绝了这次操作，请核对工作区状态后重试。";
+    }
+  }
+  return operationError(failure, "Git 操作失败，请核对状态后重试。");
+}
+
 function RealGitPanel({ projectId }: { projectId: string | null }) {
   const [discardTarget, setDiscardTarget] = useState<GitTreeChange | null>(null);
   const open = useWindowStore((state) => state.open);
@@ -131,13 +151,7 @@ function RealGitPanel({ projectId }: { projectId: string | null }) {
       await action();
       await refresh();
     } catch (failure) {
-      setError(
-        kind === "local"
-          ? failure instanceof ApiError && failure.code === "VERSION_CONFLICT"
-            ? "Git 状态已变化，请在列表刷新后重新选择。"
-            : operationError(failure, "Git 操作失败，请核对状态后重试。")
-          : remoteError(failure),
-      );
+      setError(kind === "local" ? localError(failure) : remoteError(failure));
       await refresh();
     } finally {
       running.current = false;

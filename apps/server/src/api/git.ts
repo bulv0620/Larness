@@ -1,4 +1,3 @@
-import { FileManagerError, GitError } from "@larness/resources";
 import {
   GitActionSchema,
   GitBranchesQuerySchema,
@@ -12,19 +11,10 @@ import type { AppServices } from "../app.js";
 import { resolveActiveSession, SESSION_COOKIE } from "../auth/sessions.js";
 import { appendAudit } from "../db/repositories/audit.js";
 import { HttpError } from "../errors.js";
-import { ProjectLockError } from "../modules/agent/projectWriteLock.js";
 import type { GitManager } from "../modules/git/manager.js";
+import { mapResourceFailure } from "./failures.js";
 
 const ProjectParams = z.object({ id: z.string().min(1).max(128) }).strict();
-
-function mapFailure(error: unknown): HttpError {
-  if (error instanceof GitError) return new HttpError(error.code, error.message);
-  if (error instanceof HttpError) return error;
-  if (error instanceof FileManagerError) return new HttpError(error.code, error.message);
-  if (error instanceof ProjectLockError)
-    return new HttpError(error.code, "Project Git write lock was lost");
-  return new HttpError("INTERNAL", "Git operation failed");
-}
 
 export function registerGitRoutes(app: FastifyInstance, deps: AppServices, git: GitManager): void {
   const client = (request: FastifyRequest) => {
@@ -46,7 +36,7 @@ export function registerGitRoutes(app: FastifyInstance, deps: AppServices, git: 
       client(request);
       return result;
     } catch (error) {
-      const failure = mapFailure(error);
+      const failure = mapResourceFailure(error, "Git operation failed");
       // Validation failures are model/client shape errors, not authorization
       // denials; the security-relevant denials still hit the audit table.
       if (failure.code !== "VALIDATION_ERROR") {

@@ -97,6 +97,12 @@ Windows 按 [ADR-061](../adr/ADR-061-windows-terminal-shell.md) 依次探测 Pow
 
 动作联合：`{ action: "add", paths: string[] }`、`{ action: "commit", message }`、`{ action: "createBranch", name }`、`{ action: "switchBranch", name }`、`{ action: "pull" }`、`{ action: "push" }`。paths 非空且最多 200 项；message 1–4000 字符；分支名用 git check-ref-format 验证，不接受任意 flags。
 
+所有 Git 路径（status 输出的 path / origPath、diff 的 `path`、actions 的 `paths` / `path`）都以**项目根**为基准。项目可以是仓库的子目录：服务端用 `git rev-parse --show-prefix` 把 `git status` 的仓库根相对路径折回项目相对路径，并丢弃项目目录之外的条目；快照 `snapshotVersion` 基于折回后的状态流，兄弟目录的改动不会使其漂移。
+
+`git diff` 只比较 index 与 worktree，未跟踪文件在两侧都没有基准：服务端对这类路径用 `git diff --no-index -- /dev/null <path>` 返回与空文件的差异，响应结构与其它 diff 相同（`diff` / `binary` / `truncated`）；被 `.gitignore` 忽略的文件不属于变更集，仍返回空 `diff`。`staged=true` 只表示 index 与 HEAD 的差异，未跟踪文件在该侧为空。
+
+`POST /api/resource-actions/:id/execute` 失败时保留资源层稳定错误码，不折叠为 `INTERNAL`：`GIT_CONFLICT`（执行前快照变化、Git 拒绝操作、写锁被其他写入者占用）、`VERSION_CONFLICT`（批量动作所选快照已过期）、`RESOURCE_LOCKED`（执行租约丢失）、`APPROVAL_INVALID`（未批准或已过期）、`GIT_UNAVAILABLE`。错误码只用于提示原因，不构成授权判断。
+
 L1 人工动作创建为 PREPARED，execute 表示显式操作；L2 为 WAITING_APPROVAL，decision 批准后 APPROVED 再 execute。状态另有 RUNNING / COMPLETED / FAILED / REJECTED / EXPIRED / INTERRUPTED。5 分钟有效期，不支持长期 / 跨动作复用。执行原子消费批准状态；重试只返回同一执行结果，不能再次 push。
 
 快照覆盖 HEAD、index、相关工作区状态、分支 / 上游 ref、远端配置摘要；远端 URL 含凭据时不得明文返回或记录。M2 不执行远端管理动作。Git hooks / filters 仍可能运行主机代码；写操作走同一执行身份、环境过滤、超时、输出上限和锁，不宣称 shell:false 消除了脚本风险。
