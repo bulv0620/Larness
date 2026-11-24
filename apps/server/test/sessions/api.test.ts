@@ -83,6 +83,7 @@ describe("sessions API", () => {
             missTokens: 0,
             knownRequests: 0,
             unknownRequests: 0,
+            breaks: [],
           },
           turns: 0,
           missingTurns: 0,

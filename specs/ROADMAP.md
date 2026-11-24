@@ -558,7 +558,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | PA-3 | [用量契约与按原因汇总](089-session-prefix-cache/tasks.md#pa-3-用量契约与按原因汇总) | PA-2 | `done`（2026-11-24） |
 | PA-4 | [压缩可达与裁剪滞回](089-session-prefix-cache/tasks.md#pa-4-压缩可达与裁剪滞回) | PA-1 | `done`（2026-11-24） |
 | PA-5 | [工具数组会话内稳定](089-session-prefix-cache/tasks.md#pa-5-工具数组会话内稳定) | PA-1 | `done`（2026-11-24） |
-| PA-6 | [回归、真实 Provider 基线与验收](089-session-prefix-cache/tasks.md#pa-6-回归真实-provider-基线与验收) | PA-2, PA-3, PA-4, PA-5 | `todo` |
+| PA-6 | [回归、真实 Provider 基线与验收](089-session-prefix-cache/tasks.md#pa-6-回归真实-provider-基线与验收) | PA-2, PA-3, PA-4, PA-5 | `done`（2026-11-24） |
 | PA-7 | [文档与状态收口](089-session-prefix-cache/tasks.md#pa-7-文档与状态收口) | PA-6 | `todo` |
 
 ## 9. 门禁
