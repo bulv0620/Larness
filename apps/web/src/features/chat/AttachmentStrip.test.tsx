@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { FileText } from "lucide-react";
 import { beforeEach, expect, it } from "vitest";
 import { useNavigationStore } from "@/stores/navigationStore";
+import { AttachmentCard } from "./AttachmentCard";
 import { ResultCard } from "./ResultCard";
 import { MessageBubble } from "./TimelineItemView";
 
@@ -175,4 +176,40 @@ it("keeps inline screenshots for pre-088 events without refs", () => {
 
   expect(screen.getByAltText("用户截图")).toBeInTheDocument();
   expect(screen.queryByTestId("attachment-strip")).toBeNull();
+});
+
+it("keeps the trailing control as far from the edge as the artifact icon", () => {
+  render(
+    <AttachmentCard
+      item={{ filename: "a.pdf", kind: "document", status: "ready" }}
+      onOpen={() => {}}
+      onRemove={() => {}}
+    />,
+  );
+  const chip = screen.getByTestId("attachment-chip");
+  // Left glyph sits at pl-2 (8px). The right side only matches when the remove
+  // control adds its own p-0.5 to pr-1.5 and no negative margin eats it.
+  expect(chip.className).toContain("pl-2");
+  expect(chip.className).toContain("pr-1.5");
+  expect(chip.className).not.toContain("-mr-");
+  const remove = screen.getByRole("button", { name: "移除 a.pdf" });
+  expect(remove.className).toContain("p-0.5");
+  expect(remove.className).not.toMatch(/-m[trblxy]-/);
+});
+
+it("pads a lone warning icon instead of letting it touch the edge", () => {
+  render(
+    <AttachmentCard
+      item={{
+        filename: "b.pdf",
+        kind: "document",
+        status: "failed",
+        errorCode: "ATTACHMENT_PARSE_FAILED",
+      }}
+    />,
+  );
+  const chip = screen.getByTestId("attachment-chip");
+  expect(chip.className).toContain("pr-1.5");
+  const warn = chip.querySelector("svg.lucide-triangle-alert");
+  expect(warn?.getAttribute("class")).toContain("mr-0.5");
 });

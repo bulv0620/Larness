@@ -74,7 +74,7 @@ export function AttachmentCard({
     <div
       className={cn(
         chipClass,
-        "shrink-0 gap-1 pr-1 pl-2 text-left",
+        "shrink-0 gap-1 pr-1.5 pl-2 text-left",
         failed
           ? "border-danger/35 bg-danger/5"
           : item.status === "ready" && onOpen
@@ -102,7 +102,11 @@ export function AttachmentCard({
         {item.filename}
       </button>
       {failed ? (
-        <AlertTriangle size={10} aria-hidden="true" className="shrink-0 text-danger" />
+        <AlertTriangle
+          size={10}
+          aria-hidden="true"
+          className={cn("shrink-0 text-danger", onRemove ? null : "mr-0.5")}
+        />
       ) : null}
       {detail.length > 0 ? <span className="sr-only">{detail}</span> : null}
       {onRemove ? (
@@ -111,7 +115,7 @@ export function AttachmentCard({
           onClick={onRemove}
           disabled={disabled}
           aria-label={`移除 ${item.filename}`}
-          className="-mr-0.5 shrink-0 rounded-full p-0.5 text-ink-3 hover:bg-surface-3 hover:text-ink disabled:opacity-40"
+          className="shrink-0 rounded-full p-0.5 text-ink-3 hover:bg-surface-3 hover:text-ink disabled:opacity-40"
         >
           <X size={10} />
         </button>

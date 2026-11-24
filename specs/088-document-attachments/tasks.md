@@ -318,3 +318,10 @@
 - 新增 `apps/web/src/features/chat/chip.ts`（`chipClass` / `chipInteractiveClass`），`ResultCard`（文件/预览/终端产物标签）与 `AttachmentCard` 同时引用；附件标签只额外固定 172px 宽、带移除按钮与失败态。
 - 附件标签高度由 32px 收到 28px，与产物标签同高；字号统一 `text-[11px]`，hover 走 accent，失败态用 `border-danger/35` + `bg-danger/5`。
 - 测试：`AttachmentStrip.test.tsx` 新增“shares the artifact tag shape”，断言附件标签与 `ResultCard` 共享 `h-7` / `rounded-full` / `border-line/80` / `bg-surface-2/55`、两者都无固定宽度；`pnpm --filter @larness/web test` 53 文件 / 297 项通过，`typecheck` 与 `biome check` 通过。
+
+
+### DA-9 跟进：标签右侧内边距（2026-11-23）
+
+- 根因：`AttachmentCard` 用 `pr-1` 覆盖 chip 的 `px-2`，移除按钮又带 `-mr-0.5`，X 距离圆角仅约 2px，而产物标签尾部图标是 8px。
+- 修复：容器改 `pl-2 pr-1.5`，移除按钮保留 `p-0.5` 并去掉负外边距，尾部图标合成 8px，与左侧 `pl-2` 及产物标签对称；警示图标独占尾部时补 `mr-0.5`。
+- 测试：`AttachmentStrip.test.tsx` 新增“keeps the trailing control as far from the edge as the artifact icon”（断言 `pr-1.5`、无负外边距）与“pads a lone warning icon”（断言 `mr-0.5`）；`pnpm --filter @larness/web test` 53 文件 / 300 项通过，`typecheck` 与 `biome check` 通过。
