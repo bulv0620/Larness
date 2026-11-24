@@ -9,7 +9,7 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | PA-0 | [确认 D1–D5 并补 ADR 修订草案](#pa-0-确认-d1d5-并补-adr-修订草案) | — | `done`（2026-11-24） |
-| PA-1 | [稳定/易变分层装配](#pa-1-稳定易变分层装配) | PA-0 | `todo` |
+| PA-1 | [稳定/易变分层装配](#pa-1-稳定易变分层装配) | PA-0 | `done`（2026-11-24） |
 | PA-2 | [前缀指纹与断裂归因](#pa-2-前缀指纹与断裂归因) | PA-1 | `todo` |
 | PA-3 | [用量契约与按原因汇总](#pa-3-用量契约与按原因汇总) | PA-2 | `todo` |
 | PA-4 | [压缩可达与裁剪滞回](#pa-4-压缩可达与裁剪滞回) | PA-1 | `todo` |
@@ -40,7 +40,7 @@
 
 ### PA-1 稳定/易变分层装配
 
-- 状态：`todo`
+- 状态：`done`（2026-11-24）
 - 依赖：PA-0
 - 目标：让 system 只承载稳定内容，易变块并入当前 user 消息（A1/A2）。
 - 交付物：
@@ -54,6 +54,7 @@
 - 涉及路径：
   - `apps/server/src/modules/agent/contextAssembler.ts`、`apps/server/test/agent/contextAssembler.test.ts`
 - 备注：保留「独立尾部 user 消息」作为兼容降级实现，若真实端点拒绝合并形态再切换。
+- 结果：拆出 `systemCore` / `instructions` / `tail`；日期、联网策略、全局偏好、记忆索引、会话摘要、附件声明移入当前 user 消息的 `TAIL_CONTEXT_HEADER` 块。「更早历史已省略」提示也改为随当前请求，不再重写 system。`historyMessages` 返回按 seq 升序的条目并检测 `HISTORY_SCAN_LIMIT` 截断；`PROMPT_VERSION` 升到 `089-1`。定向 `contextAssembler.test.ts` 9 项（含 A1/A2 字节级用例）、`contextCompressor.test.ts` 5 项通过；server typecheck 通过。
 
 ### PA-2 前缀指纹与断裂归因
 

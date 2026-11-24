@@ -1,12 +1,17 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createFileToolRegistry } from "@larness/agent";
+import { and, eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
+import { agentEvents } from "../../src/db/schema.js";
 import { immediateTransaction } from "../../src/db/transaction.js";
 import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
-import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
+import {
+  type AssembledContext,
+  assembleContext,
+} from "../../src/modules/agent/contextAssembler.js";
 import { appendAgentEvent } from "../../src/modules/agent/events.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
 import { createWebTools } from "../../src/modules/agent/webTool.js";
@@ -21,6 +26,11 @@ async function openWorkspace(dir: string): Promise<OpenedDatabase> {
   const opened = openDatabase(path.join(dir, "larness.db"));
   runMigrations(opened.db);
   return opened;
+}
+
+function lastUserContent(context: AssembledContext): string {
+  const last = context.messages.at(-1);
+  return last?.role === "user" ? String(last.content) : "";
 }
 
 describe("context assembler", () => {
@@ -354,14 +364,16 @@ describe("context assembler", () => {
           secondTurn,
         );
         const system = String(next.messages[0]?.content);
+        const tail = lastUserContent(next);
         expect(next.memoryInjected).toBe(2);
-        expect(system).toContain("User preferences");
-        expect(system).toContain("workflow.package-manager");
-        expect(system).toContain("Project memory index");
-        expect(system).toContain("build.test.command");
-        expect(system.indexOf("User preferences")).toBeLessThan(
-          system.indexOf("Project memory index"),
-        );
+        expect(tail).toContain("User preferences");
+        expect(tail).toContain("workflow.package-manager");
+        expect(tail).toContain("Project memory index");
+        expect(tail).toContain("build.test.command");
+        expect(tail.indexOf("User preferences")).toBeLessThan(tail.indexOf("Project memory index"));
+        // The cached prefix must not carry per-Turn facts.
+        expect(system).not.toContain("workflow.package-manager");
+        expect(system).not.toContain("build.test.command");
       } finally {
         opened.close();
       }
@@ -459,9 +471,12 @@ describe("context assembler", () => {
           expect.arrayContaining(["web_search", "fetch_url"]),
         );
         const system = String(enabled.messages[0]?.content);
-        expect(system).toContain("Web search and page fetching are available");
-        expect(system).toContain("untrusted data");
-        expect(system).toContain("Current date: 2026-11-20");
+        const tail = lastUserContent(enabled);
+        expect(tail).toContain("Web search and page fetching are available");
+        expect(tail).toContain("untrusted data");
+        expect(tail).toContain("Current date: 2026-11-20");
+        expect(system).not.toContain("Current date");
+        expect(system).not.toContain("Web search and page fetching are available");
 
         const disabled = assembleContext(
           {
@@ -476,9 +491,155 @@ describe("context assembler", () => {
         );
         expect(disabled.tools.map((tool) => tool.name)).not.toContain("web_search");
         expect(disabled.tools.map((tool) => tool.name)).not.toContain("fetch_url");
-        expect(String(disabled.messages[0]?.content)).not.toContain(
+        expect(lastUserContent(disabled)).not.toContain(
           "Web search and page fetching are available",
         );
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("keeps the system prefix byte-identical when a memory is written between turns", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      try {
+        const root = path.join(dir, "project");
+        await mkdir(root);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false },
+          { rootPath: root },
+        );
+        const clock = { value: 1_000 };
+        const turnOptions = { db: opened.db, now: () => clock.value };
+        const session = await createSession(
+          { db: opened.db, dataDir: dir, now: () => clock.value },
+          { projectId: project.id },
+        );
+        const first = createTurn(turnOptions, { sessionId: session.id, text: "first task" });
+        const userEvent = opened.db
+          .select()
+          .from(agentEvents)
+          .where(and(eq(agentEvents.turnId, first.turnId), eq(agentEvents.type, "user.message")))
+          .get();
+        if (userEvent === undefined) throw new Error("user event missing");
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: first.turnId,
+          type: "assistant.message",
+          payload: { turnId: first.turnId, messageId: "msg_1", text: "first answer" },
+          now: clock.value,
+        });
+        const memory = new MemoryService({ db: opened.db, now: () => clock.value });
+        memory.remember({
+          scope: "project",
+          kind: "fact",
+          key: "build.check.command",
+          title: "Check command",
+          body: "pnpm check",
+          evidence: {
+            kind: "user_statement",
+            turnId: first.turnId,
+            eventSeq: userEvent.seq,
+            quote: "first task",
+          },
+        });
+
+        const sessionRow = getSessionById(opened.db, session.id);
+        const firstTurn = getTurnById(opened.db, first.turnId);
+        if (!sessionRow || !firstTurn) throw new Error("fixture missing");
+        const assemble = (turn: NonNullable<typeof firstTurn>) =>
+          assembleContext(
+            {
+              db: opened.db,
+              registry: createFileToolRegistry(),
+              maxContextTokens: 128_000,
+              policy: "standard",
+              memory,
+              now: () => clock.value,
+            },
+            sessionRow,
+            turn,
+          );
+
+        const before = assemble(firstTurn);
+
+        opened.sqlite
+          .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+          .run(first.turnId);
+        clock.value = 2_000;
+        const second = createTurn(turnOptions, { sessionId: session.id, text: "second task" });
+        const secondTurn = getTurnById(opened.db, second.turnId);
+        if (!secondTurn) throw new Error("fixture missing");
+        const after = assemble(secondTurn);
+
+        // A1: the stable segment does not move when a memory is added.
+        expect(after.messages[0]?.content).toBe(before.messages[0]?.content);
+        expect(after.systemCore).toBe(before.systemCore);
+        expect(after.instructions).toBe(before.instructions);
+        expect(String(after.messages[0]?.content)).not.toContain("build.check.command");
+
+        const tail = lastUserContent(after);
+        expect(tail).toContain("build.check.command");
+        expect(tail.startsWith("Context supplied by the system")).toBe(true);
+        expect(after.messages.slice(1).map((message) => message.role)).toEqual([
+          "user",
+          "assistant",
+          "user",
+        ]);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("keeps the system stable when the date changes or web search is toggled", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      try {
+        const root = path.join(dir, "project");
+        await mkdir(root);
+        const project = await createProject(
+          { db: opened.db, detectGit: async () => false },
+          { rootPath: root },
+        );
+        const session = await createSession(
+          { db: opened.db, dataDir: dir },
+          { projectId: project.id },
+        );
+        const created = createTurn({ db: opened.db }, { sessionId: session.id, text: "news" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, created.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const registry = createFileToolRegistry();
+        for (const tool of createWebTools()) registry.register(tool);
+
+        const assemble = (webSearchAvailable: boolean, day: string) =>
+          assembleContext(
+            {
+              db: opened.db,
+              registry,
+              maxContextTokens: 128_000,
+              policy: "standard",
+              agentProfile: "coding",
+              webSearchAvailable,
+              now: () => Date.parse(`${day}T00:00:00Z`),
+            },
+            sessionRow,
+            turn,
+          );
+
+        const day1 = assemble(true, "2026-11-20");
+        const day2 = assemble(true, "2026-11-21");
+        expect(day2.messages[0]?.content).toBe(day1.messages[0]?.content);
+        expect(lastUserContent(day1)).toContain("Current date: 2026-11-20");
+        expect(lastUserContent(day2)).toContain("Current date: 2026-11-21");
+
+        const off = assemble(false, "2026-11-21");
+        expect(off.messages[0]?.content).toBe(day1.messages[0]?.content);
+        expect(lastUserContent(off)).not.toContain("Web search and page fetching are available");
+        expect(off.tools.map((tool) => tool.name)).not.toContain("web_search");
       } finally {
         opened.close();
       }

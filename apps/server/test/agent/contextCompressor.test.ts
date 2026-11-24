@@ -90,8 +90,13 @@ describe("context compression", () => {
           turn,
         );
         expect(context.summaryUsed).toBe(true);
-        expect(context.messages[0]?.content).toContain("SUMMARY");
-        expect(context.messages.at(-1)).toMatchObject({ role: "user", content: "current task" });
+        // The summary is per-Turn context, so it travels with the request
+        // instead of rewriting the cached system prefix (specs/089 R-2).
+        expect(String(context.messages[0]?.content)).not.toContain("SUMMARY");
+        const last = context.messages.at(-1);
+        expect(last).toMatchObject({ role: "user" });
+        expect(String(last?.content)).toContain("SUMMARY");
+        expect(String(last?.content)).toContain("current task");
       } finally {
         opened.sqlite.close();
       }

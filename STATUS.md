@@ -6,8 +6,8 @@
 
 ## 当前进行中
 
-- **089 PA-1 稳定/易变分层装配**（`main`，2026-11-24 开始）：system 只留稳定段；日期、联网策略、记忆索引、会话摘要、附件声明并入当前 user 消息。先写 `contextAssembler.test.ts` 失败用例，再改实现。
-- 后续同切片任务 PA-2～PA-7 按 `specs/089-session-prefix-cache/tasks.md` 顺序推进。
+- **089 PA-2 前缀指纹与断裂归因**（`main`，2026-11-24 开始）：新增 `turn/prefixCache.ts` 与 `model.usage` 归因字段；PA-1 已把易变块移出 system（`PROMPT_VERSION=089-1`）。
+- 后续同切片任务 PA-3～PA-7 按 `specs/089-session-prefix-cache/tasks.md` 顺序推进。
 
 ## 阻塞与待确认
 
