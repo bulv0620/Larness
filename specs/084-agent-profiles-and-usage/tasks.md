@@ -81,9 +81,9 @@
   - `SessionUsageLine` 组件与格式化函数；
   - 会话用量查询与终态失效接线；
   - 速度从 `model.usage.outputTokens / durationMs` 计算，只在 streaming 时显示；
-  - 缺失 usage 显示 `≥` 与“部分统计”提示。
+  - 缺失 usage 只用 `≥` 前缀，缺失轮数在 Hint 中显示「缺失 N 轮」（2026-11-24 按用户要求不再显示「部分统计」字样）。
 - 验收：A4、A5、A6。
-- 测试：格式化、部分统计、无 usage 隐藏、速度正反例、会话切换。
+- 测试：格式化、`≥` 与缺失 Hint、无 usage 隐藏、速度正反例、会话切换。
 - 涉及路径：`apps/web/src/features/chat/{Composer,SessionUsageLine}.tsx`、`apps/web/src/lib/{queries,workspaceApi,eventReducer}.ts`、`apps/web/src/stores/timelineStore.ts`。
 - 备注：不做字符估算与逐字速度。
 

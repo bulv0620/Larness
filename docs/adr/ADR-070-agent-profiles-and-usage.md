@@ -1,6 +1,6 @@
 # ADR-070 Agent Profile 收敛与会话用量统计
 
-- 状态：**accepted（2026-11-18）**
+- 状态：**accepted（2026-11-18）**；第 6 条的前端呈现措辞已由文末「2026-11-24 修订」收窄，聚合与接口语义不变。
 - 批准记录：2026-11-18 人类审核通过 084 spec 并指示开始实施；spec §12 的显示细节按下列决议执行。
 - 关联：[084 spec](../../specs/084-agent-profiles-and-usage/spec.md)、[ADR-069](ADR-069-project-services-and-service-ops.md)、[ADR-068](ADR-068-agent-kernel.md)、[ADR-059](ADR-059-long-task-budget-and-continuation.md)。
 
@@ -22,3 +22,9 @@
 - 默认 Coding 的固定提示成本下降（无计划提示、无 PM2 观察），但部署任务需要一次显式 `list_service_ops`。
 - 用量统计是只读派生数据，可在不影响 Turn 执行的情况下回退 UI 或路由。
 - 迁移不可逆地改写 Profile 值；应用回滚不会恢复 `service-ops` 会话，需向前迁移新增值而不是删除数据。
+
+## 修订（2026-11-24，用户直接要求）
+
+- 第 6 条的前端呈现措辞由本节替代：会话用量行只用 `≥` 前缀表达已知值的下界，**不再显示“部分统计”字样**；缺失轮数只在悬停 Hint 中显示「缺失 N 轮」。
+- 聚合与接口语义完全不变：`missingTurns`、`partial`、`GET /api/sessions/:id/usage` 的字段与本 ADR 的失败关闭要求照旧；仍不做字符估算、不补零、不把缺失当 0。
+- 回滚只涉及 Web 用量行的文案与 Hint，服务端数据与契约无需改动。
