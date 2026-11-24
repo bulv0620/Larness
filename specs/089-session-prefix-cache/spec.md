@@ -2,7 +2,7 @@
 id: 089-session-prefix-cache
 title: 会话级前缀缓存：静态前缀分层、断裂归因与压缩可达
 milestone: M6
-status: ready
+status: done
 depends_on: [070-runtime-efficiency, 081-agent-lean, 084-agent-profiles-and-usage, 085-long-task-continuity, 086-project-memory, 087-web-search, 088-document-attachments]
 owners: [human]
 created: 2026-11-24
@@ -11,7 +11,7 @@ updated: 2026-11-24
 
 # 会话级前缀缓存：静态前缀分层、断裂归因与压缩可达
 
-> 状态：`ready`（2026-11-24）。第 13 节 D1–D5 已按推荐方案一次确认，实施顺序见 [tasks](tasks.md)。
+> 状态：`done`（2026-11-24 实施并验收；A9 未运行，见 [acceptance](acceptance.md)）。第 13 节 D1–D5 已按推荐方案一次确认。
 > 行号按 2026-11-24 工作树标注，实施前需复核。
 > 前序：[070 运行时效率](070-runtime-efficiency/spec.md) 的 HX-1～HX-12 已全部收口，本切片只处理**跨 Turn** 的剩余漏损，不重做 Turn 内前缀稳定性。
 
@@ -262,13 +262,13 @@ And 报告记录在 acceptance.md，命中率不作为代码门禁（Q-032）
 
 ## 14. 完成定义
 
-- [ ] A1–A9 全部通过；A1、A4、A7 进入常规检查；
-- [ ] R-1～R-15 落地或明确记录偏差；
-- [ ] `docs/contracts/ws-events.md`、`docs/contracts/rest-api.md` 同步；
-- [ ] ADR-057 按需补日期修订段（不改原文）；
-- [ ] `pnpm check`、`pnpm build`、相关 E2E 通过；真实 Provider 基线有记录；
-- [ ] `STATUS.md`、`ROADMAP.md`、`tasks.md` 更新；
-- [ ] 人类评审通过（D1–D5 已确认）。
+- [x] A1–A8 通过（A9 未运行，见 [acceptance](acceptance.md)）；A1、A4、A7 已进入常规检查；
+- [x] R-1～R-15 落地或记录偏差（R-15 通过 ADR-057 2026-11-24 修订段落满足）；
+- [x] `docs/contracts/ws-events.md`、`docs/contracts/rest-api.md` 同步；
+- [x] ADR-057 已补日期修订段（原文未改）；
+- [x] `pnpm check`、`pnpm build` 通过；相关 E2E 未运行、真实 Provider 基线未取得，均记录在 acceptance；
+- [x] `STATUS.md`、`ROADMAP.md`、`tasks.md` 更新；
+- [x] D1–D5 已由用户确认（2026-11-24），人类验收按当前范围进行。
 
 ## 15. 参考
 

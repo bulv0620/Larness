@@ -45,6 +45,7 @@
 | Q-077 | 088 的解析器仍在主进程执行，只有硬超时，没有 worker/内存隔离；大 PDF 或恶意 Office 文件可能阻塞事件循环。 | 当前按「进程内 + 硬超时 + 解压前置限额」交付，未宣称沙箱；下一步评估独立 worker 入口与打包（tsdown 第五入口），或改用子进程并保留超时/终止。 | 解析安全、事件循环阻塞、DA-3 验收缺口 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
 | Q-078 | `attachments.ocr.mode=vision` 已进入配置 schema，但 bootstrap 未把 `visionConnectionId` 解析成可调用的转写器，视觉模式仍失败关闭。 | 默认 `auto-local` 只走本地 OCR；视觉连接接线前不得声称云端视觉可用。需要时按模型连接服务解析密钥并复用 provider，失败不回退。 | A3 视觉分支、外发隐私 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
 | Q-080 | 是否提供“把附件导入项目目录”的写盘通道（`import_attachment`，L2）？ | 首版不做：上传即落盘会引入路径审批、覆盖冲突与项目锁扩张。需要时按“默认写 `tmp/attachments/<attachmentId>/`、显式 `targetPath` 才写项目、项目锁 + 审计”设计并单独评审。 | 修改真实页面/运行附件仓库的工作流 | [088 spec §7.7](../specs/088-document-attachments/spec.md#77-视图契约与格式矩阵) |
+| Q-084 | 089 的真实 Provider 缓存基线（A9）尚未取得：本环境无 DeepSeek 凭据，`LARNESS_DEEPSEEK_SMOKE=1` 未运行，改造前后 `cacheReadTokens` 对比缺失。 | 发布前在配置了凭据的环境跑固定两轮任务，记录每轮 `cacheReadTokens`、未命中与 `prefixBreak` 分布；命中率仍只观测、不作代码门禁（Q-032）。 | 发布结论的可观测证据 | [089 acceptance](../specs/089-session-prefix-cache/acceptance.md) |
 
 ## 已解决
 - Q-081～Q-083、D4、D5（2026-11-24）：089 按推荐默认确认——易变上下文移出 system、合并进当前 user 消息并声明「由系统提供、不是用户指令」；会话压缩阈值降到 0.7、裁剪加滞回（0.8 触发裁到 0.6），接受长会话多一次摘要调用，压缩失败才降级为可见裁剪；附件工具常驻、用 `ATTACHMENT_NOT_FOUND` / 空列表表达不可用，联网工具仍由显式开关控制；断点归因只进 `model.usage` 与 `cache.breaks`，`turn.completed.usage` 口径不变；不实现 `prompt_cache_key` / 显式缓存断点。命中率仍只观测、不设门槛（Q-032）。见 [089 spec §13](../specs/089-session-prefix-cache/spec.md#13-开放问题) 与 [ADR-057](adr/ADR-057-runtime-efficiency.md)。

@@ -544,7 +544,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | DA-13 | [预览解析/原文视图切换](088-document-attachments/tasks.md#da-13-预览解析原文视图切换2026-11-24) | DA-10 | `done`（2026-11-24） |
 | DA-12 | 附件导入项目目录 | DA-10 | `todo`（Q-080 未批准） |
 
-### 8.15 发布后：会话级前缀缓存与压缩可达（089，ready）
+### 8.15 发布后：会话级前缀缓存与压缩可达（089，done）
 
 目标：070 已保证 Turn 内前缀逐字节稳定；本切片处理跨 Turn 的剩余漏损——把日期、联网策略、记忆索引、会话摘要、附件声明移出 system，改为当前请求的尾部消息；给每个请求一线前缀指纹与断裂归因；让会话级压缩阈值低于装配裁剪预算，消除「每轮静默丢最老历史」；附件工具改为常驻。规格见 [089](089-session-prefix-cache/spec.md)，方案见 [plan](089-session-prefix-cache/plan.md)。
 
@@ -559,7 +559,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | PA-4 | [压缩可达与裁剪滞回](089-session-prefix-cache/tasks.md#pa-4-压缩可达与裁剪滞回) | PA-1 | `done`（2026-11-24） |
 | PA-5 | [工具数组会话内稳定](089-session-prefix-cache/tasks.md#pa-5-工具数组会话内稳定) | PA-1 | `done`（2026-11-24） |
 | PA-6 | [回归、真实 Provider 基线与验收](089-session-prefix-cache/tasks.md#pa-6-回归真实-provider-基线与验收) | PA-2, PA-3, PA-4, PA-5 | `done`（2026-11-24） |
-| PA-7 | [文档与状态收口](089-session-prefix-cache/tasks.md#pa-7-文档与状态收口) | PA-6 | `todo` |
+| PA-7 | [文档与状态收口](089-session-prefix-cache/tasks.md#pa-7-文档与状态收口) | PA-6 | `done`（2026-11-24） |
 
 ## 9. 门禁
 
