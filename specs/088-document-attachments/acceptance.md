@@ -71,7 +71,7 @@
 1. **解析未隔离到 worker（Q-077）**：`extractAttachment` 在主进程执行，只有 `extractionTimeoutMs` 硬超时与解压前限额，没有内存上限或可终止 worker。大 PDF 可能阻塞事件循环。spec 的 R-14 / DA-3 验收中“worker 隔离”未满足，因此不宣称沙箱或恶意文件安全。
 2. **视觉连接未接线（Q-078）**：`ocr.mode=vision` 与 `visionConnectionId` 已进入配置与路由，但 bootstrap 没有构造云端 transcriber；该模式当前失败关闭。默认 `auto-local` 只使用本机 OCR，不产生静默外发。
 3. **页面渲染/扫描件 OCR 未做**：按 Q-076 冻结，扫描 PDF 返回 `ATTACHMENT_PDF_NO_TEXT`。
-4. **真实文件与真实视觉连接未手工验证**：未跑真实 12 页 DOCX、300 页 PDF、PPTX/XLSX 样本、加密 PDF、中文扫描件，也未用合法 Key 验证云端视觉外发提示与脱敏。
+4. **真实文件与真实视觉连接未逐项验证**：2026-11-24 用户已实机走通常见上传与解析路径（结论无问题），但未逐项跑 12 页 DOCX、300 页 PDF、PPTX/XLSX 样本、加密 PDF、中文扫描件，也未用合法 Key 验证云端视觉外发提示与脱敏。
 5. **Mock E2E 未新增**：Mock 模式不支持文件上传，本轮以 server 集成 + web 组件测试覆盖；`pnpm test:e2e` 未包含附件场景。
 6. **UI 不订阅 `attachment.status` 推进托盘**：当前上传在请求内完成，返回即 ready/failed，托盘无需流式更新；若未来改为异步 `pending`，需要补 WS 订阅/轮询，否则托盘会停在 pending。
 7. **平台**：仅在当前 Windows 开发机执行自动化；macOS / Linux 未复跑，不据此声称跨平台已验证。
@@ -86,9 +86,14 @@
 
 12. **HTML 解析视图仍是派生视图**：DA-11 只保证不丢弃 `<style>`、id/class 与表格结构，不做 DOM 层级还原、不执行 JavaScript、不解析外部样式表；需要精确结构时必须用 `source` 视图。真实页面（含嵌套布局、媒体查询、CSS 变量）的“理解质量”未用真实模型验证。
 
-13. **Monaco 原文预览未实机验证**：`AttachmentPreview` 的原文视图懒加载 `FileEditor`（Monaco 只读），组件测试用 mock 替身断言了切换与数据流，但真实浏览器中的加载、滚动与主题观感未截图验证；`vite build` 在本机仍受内存限制未复跑。
+13. **Monaco 原文预览已人类验收**：`AttachmentPreview` 的原文视图懒加载 `FileEditor`（Monaco 只读）。组件测试用 mock 替身断言切换与数据流；2026-11-24 用户在真实浏览器验证加载、切换、滚动与主题观感，确认无问题。`vite build` 在本机仍受内存限制未复跑（不影响该视图的实机结论）。
 
-## 5. 复跑命令
+## 5. 人类验收（2026-11-24）
+
+- 用户实机验证原文预览与端到端附件链路（上传、解析、读取、标签展示、提示），结论为“目前感觉没问题”；spec 与 tasks 由 `review` 转 `done`。
+- 验收范围即用户实际走到的路径；本节 §4 列出的其他项（300 页 PDF、加密 PDF、中文扫描件、云端视觉外发、worker 隔离、Mock E2E、跨平台）仍为未验证，不因本次验收视为通过。
+
+## 6. 复跑命令
 
 ```bash
 pnpm --filter @larness/server test test/attachments

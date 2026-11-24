@@ -521,11 +521,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | WS-5 | [契约、E2E、真实 Key 验证与收口](087-web-search/tasks.md#ws-5-契约e2e真实-key-验证与收口) | WS-1～WS-4 | `done`（2026-11-20，人类验收通过） |
 | WS-6 | [交互收敛：地球禁用、列表弹窗与统一命名](087-web-search/tasks.md#ws-6-交互收敛地球禁用列表弹窗与统一命名用户反馈) | WS-4 | `done`（2026-11-20） |
 
-### 8.14 发布后：文档与图片附件解析、能力路由与会话外呈现（088，review）
+### 8.14 发布后：文档与图片附件解析、能力路由与会话外呈现（088，done）
 
 目标：统一附件 `AttachmentArtifact` 契约；文档走本地可插拔抽取器，图片在模型支持视觉时原图透传、否则 OCR/视觉降级；长文档只注入目录并用 `read_attachment` / `search_attachment` 按需读取；附件与图片在会话气泡之外呈现。规格见 [088](088-document-attachments/spec.md)，方案见 [plan](088-document-attachments/plan.md)，决策见 [ADR-074](../docs/adr/ADR-074-document-attachments.md)（accepted）。
 
-门禁：G-088 自动化通过（2026-11-23；2026-11-24 增补 DA-10/DA-11/DA-13）——Q-071～Q-076 已确认、A1–A11 按自动化覆盖通过，A12–A13（多视图/HTML 保真/文本矩阵/凭据拒绝）于 2026-11-24 按自动化覆盖；格式 fixture 与路由矩阵、气泡外布局、安全与脱敏测试通过；2026-11-23 跑过 `pnpm check` 与 server build，2026-11-24 复跑 server/web 全量测试与两端 typecheck。未跑真实文件/视觉连接与 Mock E2E；解析未放入 worker（Q-077）、视觉连接未接线（Q-078），详见 [acceptance](088-document-attachments/acceptance.md)。
+门禁：G-088 通过（2026-11-24 人类实机验收）。自动化部分：Q-071～Q-076 已确认，A1–A11 按自动化覆盖通过，A12–A13（多视图/HTML 保真/文本矩阵/凭据拒绝）于 2026-11-24 按自动化覆盖；格式 fixture 与路由矩阵、气泡外布局、安全与脱敏测试通过；2026-11-23 跑过 `pnpm check` 与 server build，2026-11-24 复跑 server/web 全量测试与两端 typecheck。2026-11-24 用户实机验证原文预览与端到端附件链路，spec 转 `done`。仍未逐项验证：真实大样本（300 页 PDF、加密 PDF、中文扫描件）、云端视觉外发、Mock E2E；解析未放入 worker（Q-077）、视觉连接未接线（Q-078），详见 [acceptance](088-document-attachments/acceptance.md)。
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|

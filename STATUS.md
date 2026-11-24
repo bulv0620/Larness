@@ -19,7 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
-| 2026-11-24 | 088 DA-10/DA-11/DA-13 附件多视图 | `text`/`source` 双视图落地：`@larness/shared/attachments.ts` 统一白名单与凭据拒绝（Composer `accept` 与服务端嗅探共用）；`source` 视图按行分页、`line:N`/`offset:N`、超长单行退化字符窗口；`read_attachment` 增加 `view`/`line`/`nextAnchor`，`search_attachment` 支持跨附件与 `scope`，`list_attachments` 返回 `views`；文本类附件默认按原文注入/检索，超预算只注入大纲；HTML 保留 `<style>`、id/class 大纲与表格；预览增加“解析视图 / 原文”切换。`pnpm check` 通过（server 172 文件 / 899 项、31 跳过；web 54 文件 / 306 项）；未跑 `pnpm build`，Monaco 原文预览未实机截图 | [088 acceptance](specs/088-document-attachments/acceptance.md) |
+| 2026-11-24 | 088 附件多视图与验收（DA-10/DA-11/DA-13） | `text`/`source` 双视图落地：`@larness/shared/attachments.ts` 统一白名单与凭据拒绝（Composer `accept` 与服务端嗅探共用）；`source` 视图按行分页、`line:N`/`offset:N`、超长单行退化字符窗口；`read_attachment` 增加 `view`/`line`/`nextAnchor`，`search_attachment` 支持跨附件与 `scope`，`list_attachments` 返回 `views`；文本类附件默认按原文注入/检索，超预算只注入大纲；HTML 保留 `<style>`、id/class 大纲与表格；预览增加“解析视图 / 原文”切换。`pnpm check` 通过（server 172 文件 / 899 项、31 跳过；web 54 文件 / 306 项）；**2026-11-24 人类实机验收通过**（原文预览与端到端附件链路），spec 转 `done`；未跑 `pnpm build`，逐项未验证内容见 acceptance §4 | [088 acceptance](specs/088-document-attachments/acceptance.md) |
 | 2026-11-24 | 088 文档与图片附件 | DA-0～DA-9 完成；迁移 0038、通用上传/去重/删除、PDF/DOCX/PPTX/XLSX/HTML/CSV 抽取、图片透传与本地 OCR、上下文预算与三个附件工具、草稿托盘；DA-9 把输入区与时间线附件统一为“图标 + 文件名”标签并移到气泡下方，宽度随文件名自适应、图标复用文件目录的 Material 图标，标签两端图标内边距对称（左 `pl-2`、右 `pr-1.5` + 尾部 `p-0.5`），修复 `attachmentIds` 被当作旧截图重复渲染成破图；附件标签与产物标签共用 `chip.ts` 的 `h-7`/`rounded-full`/`text-[11px]`；`Toast` 改为 portal 到 body 级提示层（`top-14` + `z-[360]`，弹窗内由 `DialogContent` 的 `ToastHost` 承载），并让复用旧层节点时重写类名（否则 `top-4` 时期的残留层会继续被顶栏遮挡），修复附件超限报错被顶栏遮挡；`pnpm check` 与根 `pnpm build` 通过，`pnpm --filter @larness/web test` 53 文件 / 303 项通过；解析未进 worker（Q-077）、视觉连接未接线（Q-078）、真实文件与 Mock E2E 未跑 | [088 acceptance](specs/088-document-attachments/acceptance.md) |
 | 2026-11-20 | GX-5 子目录项目 Git 路径基准 | 项目根为仓库子目录时暂存 / 取消暂存失败、diff 白屏；按 `--show-prefix` 折回项目相对路径并过滤项目外条目，DiffView 增加空差异说明；Git 套件 17 项通过（2 项跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
 | 2026-11-23 | GX-6 未跟踪差异与 Git 失败原因 | 未跟踪文件用 `git diff --no-index` 与空基准比对，不再白屏；execute 失败保留 `GIT_CONFLICT` 等稳定码并审计，Git 面板区分写锁占用 / 快照变化 / 超时；`pnpm check` 通过（Server 836 项、31 跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
@@ -60,4 +60,4 @@
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | `done` | M5-1a–e / M5-2 / M5-3 / M5-4 / M5-5 `done`；G5 条件通过（2026-11-08） |
 | M6 | 运行时效率与 Turn 恢复 | `done` | 070（HX）与 071（TR）于 2026-11-12 收口；HX-12b 于 2026-11-18 按用户决定废弃 |
-| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 / 084 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核重构、项目服务与 service-ops、Agent Profile 收敛与用量 |
+| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 / 084 / 088 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核重构、项目服务与 service-ops、Agent Profile 收敛与用量、文档与图片附件 |

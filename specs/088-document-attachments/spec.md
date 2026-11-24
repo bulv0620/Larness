@@ -2,7 +2,7 @@
 id: 088-document-attachments
 title: 文档与图片附件解析、能力路由与会话外呈现
 milestone: 发布后
-status: review
+status: done
 depends_on: [020-workspace-agent, 051-agent-tool-contract, 073-context-budget, 077-model-connections, 084-agent-profiles-and-usage]
 owners: [human]
 created: 2026-11-23
@@ -11,7 +11,7 @@ updated: 2026-11-24
 
 # 088 文档与图片附件解析、能力路由与会话外呈现
 
-> 状态：`review`（2026-11-23）。人类已批准方案、界面调整与 Q-071～Q-076 默认值（见 §13）；[ADR-074](../../docs/adr/ADR-074-document-attachments.md) 已 accepted；DA-0～DA-8 已按自动化范围完成，验收、偏差与未验证项见 [acceptance.md](acceptance.md)。
+> 状态：`done`（2026-11-24 人类验收通过）。人类已批准方案、界面调整与 Q-071～Q-076 默认值（见 §13）；[ADR-074](../../docs/adr/ADR-074-document-attachments.md) 已 accepted；DA-0～DA-13 已完成（DA-12 附件导入项目目录未排期，见 Q-080），人类已实机验证原文预览与附件上传/解析链路；验收、偏差与未验证项见 [acceptance.md](acceptance.md)。
 >
 > 已确认方向：
 >
@@ -542,6 +542,6 @@ Composer 容器
 - [x] `docs/contracts/{rest-api,data-model,ws-events}.md` 与 [051 工具契约](../051-agent-tool-contract/spec.md) 已同步；
 - [x] `STATUS.md`、`specs/README.md`、`ROADMAP.md`、`open-questions.md` 已更新；
 - [x] DA-10/DA-11/DA-13（多视图、HTML 结构化、预览视图切换）已实现并有单元/集成/组件测试（2026-11-24）；
-- [ ] 真实 HTML/CSS/代码附件在真实模型上的保真效果、Monaco 原文预览的浏览器实机截图（未跑）。
-- [ ] 真实文件与视觉连接手工验证记录（未跑，见 acceptance §4）；
-- [ ] 人类评审通过（当前为 `review`）。
+- [x] Monaco 原文预览已由人类在真实浏览器验证（2026-11-24）；真实模型下 HTML/CSS/代码保真效果未单独复核；
+- [ ] 真实大样本（300 页 PDF、加密 PDF、中文扫描件）与云端视觉外发验证（未跑，见 acceptance §4）；
+- [x] 人类验收通过（2026-11-24，实机验证原文预览与端到端附件链路）。
