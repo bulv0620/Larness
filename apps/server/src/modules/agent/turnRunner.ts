@@ -49,7 +49,7 @@ import type { WebSearchRuntime } from "../web-search/runtime.js";
 import { DEFAULT_WEB_SEARCH_SETTINGS } from "../web-search/settings.js";
 import { isDefaultWorkspace } from "../workspaces/default.js";
 import { type ApprovalDto, getApproval, invalidateTurnApprovals } from "./approvalService.js";
-import { assembleContext } from "./contextAssembler.js";
+import { assembleContext, PROMPT_VERSION } from "./contextAssembler.js";
 import { compressContext, shouldCompress } from "./contextCompressor.js";
 import { appendAgentEvent, toServerEvent } from "./events.js";
 import { buildObservationSnapshot } from "./observationSnapshot.js";
@@ -74,6 +74,13 @@ import {
 } from "./turn/budget.js";
 import { carriedSpendTokens } from "./turn/chain.js";
 import { foldOldToolResults, lastCompleteToolBatch } from "./turn/compaction.js";
+import {
+  classifyPrefixBreak,
+  type PrefixBreak,
+  type PrefixSnapshot,
+  prefixSnapshot,
+  readPreviousPrefix,
+} from "./turn/prefixCache.js";
 import { createSecretLoader } from "./turn/secrets.js";
 import { isStalled } from "./turn/stall.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
@@ -1219,8 +1226,23 @@ export class TurnRunner {
         webSearchAvailable,
         now: () => this.#now(),
       };
+      let previousPrefix: PrefixSnapshot | null = readPreviousPrefix(this.#options.db, session.id);
+      let pendingPrefixBreak: PrefixBreak | null = null;
+      const toPrefix = (assembled: ReturnType<typeof assembleContext>): PrefixSnapshot =>
+        prefixSnapshot({
+          promptVersion: PROMPT_VERSION,
+          systemCore: assembled.systemCore,
+          instructions: assembled.instructions,
+          tools: assembled.tools,
+          model: resolved.model,
+          firstHistorySeq: assembled.firstHistorySeq,
+          prefixTokens: assembled.prefixTokens,
+          compacted: assembled.summaryUsed,
+          historyTrimmed: assembled.historyTrimmed,
+        });
       const assembleStarted = this.#now();
       let context = assembleContext(contextOptions, session, turn);
+      let prefixState = toPrefix(context);
       timing.assembleMs += this.#now() - assembleStarted;
       let messages: ModelMessage[] = context.messages;
       const tools: ToolSchema[] = context.tools;
@@ -1265,6 +1287,7 @@ export class TurnRunner {
             });
             context = assembleContext(contextOptions, session, turn);
             messages = context.messages;
+            prefixState = toPrefix(context);
           }
         } catch {
           // Compression is best-effort; keep the truncated context on failure.
@@ -1483,6 +1506,7 @@ export class TurnRunner {
             });
 
             messages = candidate;
+            pendingPrefixBreak = { reason: "history_drop", at: "history" };
             estimatedInputTokens = after;
             projectedTokens = after + reservedOutput;
             anchoredHeuristicTokens = undefined;
@@ -1690,6 +1714,20 @@ export class TurnRunner {
         }
 
         if (stepUsage !== undefined) {
+          const currentPrefix: PrefixSnapshot = {
+            ...prefixState,
+            ...(stepUsage.cacheReadTokens === undefined
+              ? {}
+              : { cacheReadTokens: stepUsage.cacheReadTokens }),
+          };
+          const breakInfo = classifyPrefixBreak({
+            previous: previousPrefix,
+            current: currentPrefix,
+            pending: pendingPrefixBreak,
+          });
+          previousPrefix = currentPrefix;
+          pendingPrefixBreak = null;
+
           this.#emit(turn, session, "model.usage", {
             turnId: turn.id,
             model: resolved.model,
@@ -1707,7 +1745,35 @@ export class TurnRunner {
             durationMs: this.#now() - stepStartedAt,
             usageSource: stepUsage.cacheReadTokens === undefined ? "unknown" : "provider",
             contextWindow: resolved.contextWindow ?? resolved.adapter.capabilities.maxContextTokens,
+            promptVersion: currentPrefix.promptVersion,
+            systemHash: currentPrefix.systemHash,
+            instructionsHash: currentPrefix.instructionsHash,
+            toolsetHash: currentPrefix.toolsetHash,
+            prefixBreak: breakInfo.reason,
+            ...(breakInfo.at === null ? {} : { prefixBreakAt: breakInfo.at }),
+            prefixKeptTokens: currentPrefix.prefixKeptTokens,
+            ...(currentPrefix.firstHistorySeq === null
+              ? {}
+              : { firstHistorySeq: currentPrefix.firstHistorySeq }),
           });
+
+          this.#options.logger?.info(
+            {
+              turnId,
+              sessionId: session.id,
+              step: steps,
+              promptVersion: currentPrefix.promptVersion,
+              toolsetHash: currentPrefix.toolsetHash,
+              prefixBreak: breakInfo.reason,
+              prefixBreakAt: breakInfo.at,
+              prefixKeptTokens: currentPrefix.prefixKeptTokens,
+              firstHistorySeq: currentPrefix.firstHistorySeq,
+              estimatedInputTokens,
+              providerInputTokens: stepUsage.inputTokens,
+              cacheReadTokens: stepUsage.cacheReadTokens,
+            },
+            "model prefix usage",
+          );
         }
 
         const afterStep = checkBudget();

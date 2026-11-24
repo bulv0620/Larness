@@ -6,8 +6,8 @@
 
 ## 当前进行中
 
-- **089 PA-2 前缀指纹与断裂归因**（`main`，2026-11-24 开始）：新增 `turn/prefixCache.ts` 与 `model.usage` 归因字段；PA-1 已把易变块移出 system（`PROMPT_VERSION=089-1`）。
-- 后续同切片任务 PA-3～PA-7 按 `specs/089-session-prefix-cache/tasks.md` 顺序推进。
+- **089 PA-3 用量契约与按原因汇总**（`main`，2026-11-24 开始）：`GET /api/sessions/:id/usage` 增 `cache.breaks`，同步 `ws-events.md` / `rest-api.md`。
+- 后续同切片任务 PA-4～PA-7 按 `specs/089-session-prefix-cache/tasks.md` 顺序推进。
 
 ## 阻塞与待确认
 

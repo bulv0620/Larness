@@ -10,7 +10,7 @@
 |---|---|---|---|
 | PA-0 | [确认 D1–D5 并补 ADR 修订草案](#pa-0-确认-d1d5-并补-adr-修订草案) | — | `done`（2026-11-24） |
 | PA-1 | [稳定/易变分层装配](#pa-1-稳定易变分层装配) | PA-0 | `done`（2026-11-24） |
-| PA-2 | [前缀指纹与断裂归因](#pa-2-前缀指纹与断裂归因) | PA-1 | `todo` |
+| PA-2 | [前缀指纹与断裂归因](#pa-2-前缀指纹与断裂归因) | PA-1 | `done`（2026-11-24） |
 | PA-3 | [用量契约与按原因汇总](#pa-3-用量契约与按原因汇总) | PA-2 | `todo` |
 | PA-4 | [压缩可达与裁剪滞回](#pa-4-压缩可达与裁剪滞回) | PA-1 | `todo` |
 | PA-5 | [工具数组会话内稳定](#pa-5-工具数组会话内稳定) | PA-1 | `todo` |
@@ -58,7 +58,7 @@
 
 ### PA-2 前缀指纹与断裂归因
 
-- 状态：`todo`
+- 状态：`done`（2026-11-24）
 - 依赖：PA-1
 - 目标：每个请求给出确定性的断点原因，并与 Provider 观测分离（A6/A7/A8）。
 - 交付物：
@@ -73,6 +73,7 @@
 - 涉及路径：
   - `apps/server/src/modules/agent/turn/prefixCache.ts`、`turnRunner.ts`、`apps/server/test/agent/prefixCache.test.ts`
 - 备注：分类只依赖客户端事实；Provider 命中率只用于 `provider_eviction`，不改行为。
+- 结果：新增 `prefixCache.ts`（短哈希、工具集哈希、上一请求快照读取、确定性分类器、Provider 驱逐阈值 2,000 token / 5%）；`model.usage` 增 `promptVersion`、`systemHash`、`instructionsHash`、`toolsetHash`、`prefixBreak`、`prefixBreakAt`（`none` 时省略）、`prefixKeptTokens`、`firstHistorySeq`，并写一条只含枚举/计数的 pino 日志。Turn 内 checkpoint 置 `history_drop`。`prefixCache.test.ts` 16 项（含两轮 TurnRunner 集成与脱敏反例）与既有 `contextAssembler` 9 项通过；server typecheck 通过。
 
 ### PA-3 用量契约与按原因汇总
 

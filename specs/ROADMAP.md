@@ -554,7 +554,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 |---|---|---|---|
 | PA-0 | [确认 D1–D5 并补 ADR 修订草案](089-session-prefix-cache/tasks.md#pa-0-确认-d1d5-并补-adr-修订草案) | — | `done`（2026-11-24） |
 | PA-1 | [稳定/易变分层装配](089-session-prefix-cache/tasks.md#pa-1-稳定易变分层装配) | PA-0 | `done`（2026-11-24） |
-| PA-2 | [前缀指纹与断裂归因](089-session-prefix-cache/tasks.md#pa-2-前缀指纹与断裂归因) | PA-1 | `todo` |
+| PA-2 | [前缀指纹与断裂归因](089-session-prefix-cache/tasks.md#pa-2-前缀指纹与断裂归因) | PA-1 | `done`（2026-11-24） |
 | PA-3 | [用量契约与按原因汇总](089-session-prefix-cache/tasks.md#pa-3-用量契约与按原因汇总) | PA-2 | `todo` |
 | PA-4 | [压缩可达与裁剪滞回](089-session-prefix-cache/tasks.md#pa-4-压缩可达与裁剪滞回) | PA-1 | `todo` |
 | PA-5 | [工具数组会话内稳定](089-session-prefix-cache/tasks.md#pa-5-工具数组会话内稳定) | PA-1 | `todo` |

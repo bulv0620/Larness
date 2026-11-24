@@ -135,6 +135,10 @@ export interface AssembledContext {
   lastHistorySeq: number | null;
   /** True when `HISTORY_SCAN_LIMIT` hid older events, even without budget trimming. */
   historyScanTruncated: boolean;
+  /** True when the token budget dropped history in this assembly. */
+  historyTrimmed: boolean;
+  /** Estimated tokens of the cacheable prefix (system + retained history). */
+  prefixTokens: number;
 }
 
 function parseText(json: string): string {
@@ -671,6 +675,13 @@ export function assembleContext(
   }
 
   const retainedHistory = history.entries.slice(droppedHistory);
+  const prefixTokens = estimateRequestTokens(
+    [
+      { role: "system", content: messages[0]?.content ?? "" },
+      ...retainedHistory.map((entry) => entry.message),
+    ],
+    [],
+  );
 
   return {
     messages,
@@ -687,5 +698,7 @@ export function assembleContext(
     firstHistorySeq: retainedHistory[0]?.seq ?? null,
     lastHistorySeq: retainedHistory.at(-1)?.seq ?? null,
     historyScanTruncated: history.scanTruncated,
+    historyTrimmed: droppedHistory > 0,
+    prefixTokens,
   };
 }
