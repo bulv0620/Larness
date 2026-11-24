@@ -525,7 +525,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 目标：统一附件 `AttachmentArtifact` 契约；文档走本地可插拔抽取器，图片在模型支持视觉时原图透传、否则 OCR/视觉降级；长文档只注入目录并用 `read_attachment` / `search_attachment` 按需读取；附件与图片在会话气泡之外呈现。规格见 [088](088-document-attachments/spec.md)，方案见 [plan](088-document-attachments/plan.md)，决策见 [ADR-074](../docs/adr/ADR-074-document-attachments.md)（accepted）。
 
-门禁：G-088 自动化通过（2026-11-23）——Q-071～Q-076 已确认、A1–A11 按自动化覆盖通过、格式 fixture 与路由矩阵通过、气泡外布局通过、安全与脱敏测试通过、`pnpm check` 与 server build 通过。未跑真实文件/视觉连接与 Mock E2E；解析未放入 worker（Q-077）、视觉连接未接线（Q-078），详见 [acceptance](088-document-attachments/acceptance.md)。
+门禁：G-088 自动化通过（2026-11-23；2026-11-24 增补 DA-10/DA-11/DA-13）——Q-071～Q-076 已确认、A1–A11 按自动化覆盖通过，A12–A13（多视图/HTML 保真/文本矩阵/凭据拒绝）于 2026-11-24 按自动化覆盖；格式 fixture 与路由矩阵、气泡外布局、安全与脱敏测试通过；2026-11-23 跑过 `pnpm check` 与 server build，2026-11-24 复跑 server/web 全量测试与两端 typecheck。未跑真实文件/视觉连接与 Mock E2E；解析未放入 worker（Q-077）、视觉连接未接线（Q-078），详见 [acceptance](088-document-attachments/acceptance.md)。
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
@@ -538,6 +538,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | DA-6 | [上下文预算与附件工具](088-document-attachments/tasks.md#da-6-上下文预算与附件工具) | DA-2、DA-3 | `done`（2026-11-23） |
 | DA-7 | [气泡外附件、草稿托盘与预览](088-document-attachments/tasks.md#da-7-气泡外附件草稿托盘与预览) | DA-2、DA-6 | `done`（2026-11-23） |
 | DA-8 | [安全、E2E 与验收](088-document-attachments/tasks.md#da-8-安全e2e-与验收) | DA-4、DA-5、DA-7 | `done`（2026-11-23，自动化范围） |
+| DA-9 | [附件标签化与重复渲染修复](088-document-attachments/tasks.md#da-9-附件标签化与重复渲染修复) | DA-7 | `done`（2026-11-23） |
+| DA-10 | [多视图：source 视图、文本矩阵与跨附件检索](088-document-attachments/tasks.md#da-10-多视图source-视图文本矩阵与跨附件检索2026-11-24) | DA-9 | `done`（2026-11-24） |
+| DA-11 | [HTML 结构化](088-document-attachments/tasks.md#da-11-html-结构化2026-11-24) | DA-10 | `done`（2026-11-24） |
+| DA-13 | [预览解析/原文视图切换](088-document-attachments/tasks.md#da-13-预览解析原文视图切换2026-11-24) | DA-10 | `done`（2026-11-24） |
+| DA-12 | 附件导入项目目录 | DA-10 | `todo`（Q-080 未批准） |
 
 ## 9. 门禁
 

@@ -45,6 +45,33 @@ describe("attachment MIME sniffing", () => {
     expect(() => inspectZip(poisoned)).toThrow(/unsafe path/);
   });
 
+  it("accepts code and config text through the shared allow-list", () => {
+    expect(sniffAttachment(Buffer.from("const a = 1;\n"), null, "a.ts").mime).toBe("text/plain");
+    expect(sniffAttachment(Buffer.from('{"a":1}'), "application/json", "a.json").mime).toBe(
+      "text/plain",
+    );
+    expect(sniffAttachment(Buffer.from(".a { color: red; }"), null, "a.css").mime).toBe(
+      "text/plain",
+    );
+    expect(sniffAttachment(Buffer.from("FROM node:20"), null, "Dockerfile").mime).toBe(
+      "text/plain",
+    );
+    // SVG is transported as text and never rendered as an image.
+    expect(
+      sniffAttachment(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"/>'), null, "a.svg").mime,
+    ).toBe("text/plain");
+    expect(() => sniffAttachment(Buffer.from("plain text"), null, "a.weirdtext")).toThrow(
+      /not supported/,
+    );
+  });
+
+  it("refuses credential files by name but allows the env template", () => {
+    expect(() => sniffAttachment(Buffer.from("A=1"), null, ".env")).toThrow(/credential/);
+    expect(() => sniffAttachment(Buffer.from("A=1"), null, ".env.local")).toThrow(/credential/);
+    expect(() => sniffAttachment(Buffer.from("KEY"), null, "server.pem")).toThrow(/credential/);
+    expect(sniffAttachment(Buffer.from("A=1"), null, ".env.example").mime).toBe("text/plain");
+  });
+
   it("rejects archives that expand past the limit", async () => {
     const archive = await zip({
       "[Content_Types].xml": "<Types/>",

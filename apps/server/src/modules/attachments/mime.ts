@@ -1,3 +1,8 @@
+import {
+  isAcceptedAttachmentName,
+  isBlockedAttachmentName,
+  isSecretAttachmentName,
+} from "@larness/shared";
 import type { AttachmentKind } from "../../db/schema.js";
 import { AttachmentError } from "./types.js";
 
@@ -173,17 +178,24 @@ function htmlMime(text: string, declared: string | null, filename: string): bool
 /**
  * Magic-number first, client hint second. The returned MIME is authoritative;
  * callers must not trust the client declaration when they disagree.
+ *
+ * Name checks come first so a blocked or secret file never reaches an
+ * extractor, then the shared allow-list decides which plain-text formats are
+ * readable through the source view.
  */
-const BANNED_EXTENSION =
-  /\.(exe|dll|so|dylib|bat|cmd|ps1|sh|js|mjs|cjs|jar|msi|apk|svg|zip|rar|7z|gz|tar|doc|ppt|xls|mp3|mp4|mov|avi|wav|ogg)$/i;
-
 export function sniffAttachment(
   bytes: Buffer,
   declaredMime: string | null,
   filename: string,
 ): SniffedAttachment {
   const declared = declaredMime?.split(";")[0]?.trim().toLowerCase() ?? null;
-  if (BANNED_EXTENSION.test(filename)) {
+  if (isSecretAttachmentName(filename)) {
+    throw new AttachmentError(
+      "ATTACHMENT_SECRET_FILE",
+      "credential files are not accepted as attachments",
+    );
+  }
+  if (isBlockedAttachmentName(filename)) {
     throw unsupported("file type is not supported");
   }
 
@@ -224,11 +236,11 @@ export function sniffAttachment(
       zip,
     };
   }
-  // SVG is banned in v1; detect it before the generic text branch.
-  if (/<svg[\s>]/i.test(bytes.subarray(0, 2_048).toString("utf8"))) {
-    throw unsupported("SVG attachments are not supported");
-  }
   if (isText(bytes)) {
+    // SVG is plain text here: it is never rendered as an image.
+    if (!isAcceptedAttachmentName(filename)) {
+      throw unsupported("this text file type is not supported");
+    }
     const text = bytes.subarray(0, Math.min(bytes.length, 65_536)).toString("utf8");
     if (htmlMime(text, declared, filename)) {
       return { mime: "text/html", kind: "document", extension: "html", zip: null };

@@ -70,6 +70,8 @@ created: 2026-11-06
 
    088（2026-11-23）：新增 `read_attachment`、`search_attachment`、`list_attachments`（均 L0、无项目锁，仅当前会话）。只有本会话存在 ready 附件时才注入 schema；执行层通过 `ToolContext.sessionId` + `ToolContext.attachments` 绑定，跨会话 ID 返回 `ATTACHMENT_NOT_FOUND`，未 ready 返回 `ATTACHMENT_NOT_READY`。`read_attachment` 以 `page:N` / `sheet:NAME` / `slide:N` / `heading:TEXT` / `offset:N` 定位并返回 `nextOffset`；`search_attachment` 返回锚点、片段与命中数；`list_attachments` 不返回正文。附件正文位于 user 消息的 `<attachment>` 边界内且声明为不可信数据；工具权限与审批不因附件内容改变。`toolContract` 矩阵已加入三个工具及其正反例，bootstrap 注册集与矩阵一致。
 
+   088 DA-10（2026-11-24）：三个附件工具扩展为多视图契约。`read_attachment` 增加 `view`（`text`|`source`，默认 `text`）与 `line`，统一返回 `view`/`mime`/`nextAnchor`；`source` 只对文本类附件开放、按行分页，二进制文档返回 `ATTACHMENT_VIEW_UNSUPPORTED`。`search_attachment` 的 `attachmentId` 改为可选，新增 `attachmentIds`（≤20，互斥）与 `scope`（`text`|`source`|`auto`），省略 ID 时检索本会话全部 ready 附件并返回带 `attachmentId` 的命中；`list_attachments` 增加 `mime`/`sizeBytes`/`views`。模型侧描述、schema 与执行层绑定同步更新，`toolContract` 矩阵继续覆盖正反例。
+
 M4 当前按 [ADR-050](../../docs/adr/ADR-050-pm2-cli-deployment.md) 使用通用命令工具完成部署，系统上下文提供真实 PM2 环境与服务/项目关联。原 ADR-048 的资源、REST、事件和预览边界继续适用。专用正式服务模型工具与运维 Turn 入口已撤回，普通项目会话可以部署。实际上下文、命令策略与关系验证见 [命令上下文契约](../../docs/contracts/agent-command-context.md) 和 [M4 验收](../050-deploy/spec.md#验收场景)。
 
 ## 验收场景

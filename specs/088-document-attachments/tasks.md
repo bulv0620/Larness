@@ -2,7 +2,7 @@
 
 > 状态：`todo | in_progress | blocked | review | done | dropped`。一个任务一个提交。
 > 开始任务前在 `STATUS.md` 的「当前进行中」登记；完成后勾选本表、更新 `ROADMAP.md`，并把该任务移入「最近收口」。
-> 当前整体状态：DA-0～DA-9 已完成（2026-11-23）；自动化验收见 [acceptance.md](acceptance.md)，实现偏差与未验证项见该文件 §4。
+> 当前整体状态：DA-0～DA-13 已完成（DA-0～DA-9 于 2026-11-23，DA-10/DA-11/DA-13 于 2026-11-24）；自动化验收见 [acceptance.md](acceptance.md)，实现偏差与未验证项见该文件 §4。
 
 ## 状态总表
 
@@ -18,6 +18,10 @@
 | DA-7 | 气泡外附件、草稿托盘与预览 | DA-2、DA-6 | `done`（2026-11-23） |
 | DA-8 | 安全、E2E 与验收 | DA-4、DA-5、DA-7 | `done`（2026-11-23，自动化范围） |
 | DA-9 | 附件标签化与重复渲染修复 | DA-7 | `done`（2026-11-23） |
+| DA-10 | 多视图：source 视图、文本矩阵与跨附件检索 | DA-9 | `done`（2026-11-24） |
+| DA-11 | HTML 结构化（CSS/大纲/表格） | DA-10 | `done`（2026-11-24） |
+| DA-13 | 预览解析/原文视图切换 | DA-10 | `done`（2026-11-24） |
+| DA-12 | 附件导入项目目录（写盘 + 审批） | DA-10 | `todo`（Q-080 未批准，不排期） |
 
 ## 任务卡
 
@@ -342,3 +346,35 @@
 - 修复：拆出 `findLayer()` 只负责找或建节点，`toastLayer()` 每次挂载都重写 `className = TOAST_LAYER_CLASS`，复用时自愈。
 - 验证：探针页面把层类名改回 `top-4` 后卸载再挂载提示，`top` 回到 `56px`、`z-index` 回到 `360`、层仍只有一个、提示在顶栏之下且命中测试在最上层；新增 `Toast.test.tsx`「repairs the classes of a reused layer from an older build」回归（手工把层改成 `top-4` 后再次渲染，断言类名被写回 `top-14` 且不重复建层）。`pnpm --filter @larness/web test` 53 文件 / 303 项通过，`typecheck` 与 `biome check` 通过。
 - 探针文件（`apps/web/probe.html`、`apps/web/src/probe.tsx`、`tmp/toast-probe.mjs`）用后即删，未入库。
+
+### DA-10 多视图：source 视图、文本矩阵与跨附件检索（2026-11-24）
+
+- 状态：`done`（2026-11-24）
+- 依赖：DA-9
+- 目标：把“文件进、markdown 出”升级为“原文件为唯一真源，`text` 与 `source` 双视图”，并让编码类附件默认读原文。
+- 交付物：
+  - `packages/shared/src/attachments.ts`：唯一白名单（文档/图片/文本/无扩展名 basename）、凭据拒绝、`ATTACHMENT_ACCEPT`、共享 `attachmentRejection`；
+  - `apps/server/src/modules/attachments/source.ts`：BOM/CRLF 归一、按行切片、超长单行退化为字符窗口、结构大纲；
+  - `AttachmentService.readSource(Sync)` 与 `GET /api/sessions/:id/attachments/:attachmentId/source`；
+  - `read_attachment` 增加 `view` / `line` / `nextAnchor`；二进制文档返回 `ATTACHMENT_VIEW_UNSUPPORTED`；
+  - `search_attachment` 支持省略 ID 的跨附件检索与 `scope`；`list_attachments` 返回 `views`；
+  - `contextAssembler` 对文本类附件注入原文（`view="source"`），超预算只注入大纲；
+  - 新错误码 `ATTACHMENT_SECRET_FILE`（415）、`ATTACHMENT_VIEW_UNSUPPORTED`（422）。
+- 测试：`source.test.ts`（9 项）、`tools.test.ts`（5 项）、`mime.test.ts` 新增白名单/凭据、`context.test.ts` 新增原文注入、`api.test.ts` 新增 source 路由；server 全量 172 文件 / 899 项通过。
+
+### DA-11 HTML 结构化（2026-11-24）
+
+- 状态：`done`（2026-11-24）
+- 依赖：DA-10
+- 目标：让 HTML 的解析视图不再只剩标题与段落。
+- 交付物：`<style>` 保留为 fenced CSS（4,000 字符上限 + warning）、id/class 结构大纲（≤60 条）、表格转 pipe table、脚本仍移除并提示改用 source 视图；extractor 版本 `1 → 2`。
+- 测试：`source.test.ts` 的 “HTML structure extraction” 3 项（CSS 保留、结构大纲、表格 + 脚本移除）。
+
+### DA-13 预览解析/原文视图切换（2026-11-24）
+
+- 状态：`done`（2026-11-24）
+- 依赖：DA-10
+- 目标：UI 能看到原文，而不是只有解析结果。
+- 交付物：`AttachmentPreview` 增加“解析视图 / 原文”切换（仅文本类文档）；原文懒加载复用 `FileEditor`（Monaco 只读，60,000 字符上限），底部显示行范围与截断提示；切换附件回到解析视图。
+- 测试：新增 `AttachmentPreview.test.tsx` 3 项（原文切换与 CSS 可见、二进制文档无切换、图片无切换）；web 全量 54 文件 / 306 项通过。
+- 未验证：Monaco 原文预览在真实浏览器中的观感与长文件滚动（本机未跑浏览器实机截图）。

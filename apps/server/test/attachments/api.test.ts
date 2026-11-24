@@ -79,6 +79,23 @@ describe("attachment REST API", () => {
         expect(artifact.statusCode).toBe(200);
         expect((artifact.json() as { markdown: string }).markdown).toContain("Attachment body");
 
+        const source = await f.running.app.inject({
+          method: "GET",
+          url: `/api/sessions/${session.id}/attachments/${body.attachment.id}/source`,
+          headers,
+        });
+        expect(source.statusCode).toBe(200);
+        const sourceBody = source.json() as {
+          view: string;
+          content: string;
+          totalLines: number;
+          lineStart: number;
+        };
+        expect(sourceBody.view).toBe("source");
+        expect(sourceBody.content).toContain("# Hello");
+        expect(sourceBody.lineStart).toBe(1);
+        expect(sourceBody.totalLines).toBeGreaterThan(0);
+
         const removed = await f.running.app.inject({
           method: "DELETE",
           url: `/api/sessions/${session.id}/attachments/${body.attachment.id}`,

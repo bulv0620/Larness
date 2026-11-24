@@ -7,6 +7,8 @@ export const ATTACHMENT_ERROR_CODES = [
   "ATTACHMENT_TOO_LARGE",
   "ATTACHMENT_UNSUPPORTED",
   "ATTACHMENT_LIMIT",
+  "ATTACHMENT_SECRET_FILE",
+  "ATTACHMENT_VIEW_UNSUPPORTED",
   "ATTACHMENT_PARSE_FAILED",
   "ATTACHMENT_PARSE_TIMEOUT",
   "ATTACHMENT_ENCRYPTED",
@@ -87,6 +89,14 @@ export interface DocumentExtractor {
   supports(mime: string): boolean;
   extract(input: ExtractInput): Promise<ExtractedAttachment>;
 }
+
+/** Which projection of an attachment a caller asks for. */
+export const ATTACHMENT_VIEWS = ["text", "source"] as const;
+export type AttachmentView = (typeof ATTACHMENT_VIEWS)[number];
+
+/** Largest single `source` slice returned by a tool or the preview API. */
+export const MAX_SOURCE_SLICE_CHARS = 12_000;
+export const MAX_SOURCE_PREVIEW_CHARS = 60_000;
 
 /** Bounds persisted parse output so a huge document cannot bloat SQLite. */
 export const MAX_ATTACHMENT_SECTIONS = 500;

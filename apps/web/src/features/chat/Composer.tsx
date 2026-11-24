@@ -1,3 +1,4 @@
+import { ATTACHMENT_ACCEPT, ATTACHMENT_MAX_BYTES, attachmentRejection } from "@larness/shared";
 import {
   ConfirmDialog,
   cn,
@@ -390,14 +391,17 @@ export function Composer({
       return;
     }
     const accepted = incoming.slice(0, room);
-    const invalid = accepted.find(
-      (file) =>
-        file.size > 20 * 1024 * 1024 ||
-        !/\.(pdf|docx|pptx|xlsx|html?|csv|txt|md|png|jpe?g|webp)$/i.test(file.name),
-    );
-    if (invalid) {
+    const rejected = accepted
+      .map((file) => ({ file, reason: attachmentRejection(file.name, file.size) }))
+      .find((entry) => entry.reason !== null);
+    if (rejected !== undefined && rejected.reason !== null) {
       setToast({
-        message: `不支持 ${invalid.name}（仅支持 PDF/Office/文本/图片，最大 20 MiB）。`,
+        message:
+          rejected.reason === "secret"
+            ? `${rejected.file.name} 可能是凭据文件，附件不接收密钥或证书。`
+            : rejected.reason === "size"
+              ? `${rejected.file.name} 超过 ${ATTACHMENT_MAX_BYTES / 1024 / 1024} MiB 上限。`
+              : `不支持 ${rejected.file.name}（代码/配置/文档/图片，最大 20 MiB）。`,
         tone: "error",
       });
       return;
@@ -670,7 +674,7 @@ export function Composer({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".pdf,.docx,.pptx,.xlsx,.html,.htm,.csv,.txt,.md,.png,.jpg,.jpeg,.webp"
+          accept={ATTACHMENT_ACCEPT}
           multiple
           className="hidden"
           onChange={(event) => {

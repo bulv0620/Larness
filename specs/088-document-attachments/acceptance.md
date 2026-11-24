@@ -1,8 +1,8 @@
 # 088 验收记录
 
-> 日期：2026-11-23
+> 日期：2026-11-23（初验）、2026-11-24（DA-10/DA-11/DA-13 增补）
 > 范围：macOS / Windows 开发机本地运行；未做真实第三方视觉连接与外发验收。
-> 结论：自动化验收通过；有一项实现偏差（解析未放入 worker）与两项未验证项，见 §4。
+> 结论：自动化验收通过；仍有一项实现偏差（解析未放入 worker）与多项未验证项，见 §4。
 
 ## 1. 交付范围
 
@@ -17,17 +17,21 @@
 | DA-7 气泡外附件、草稿托盘与预览 | done | 回形针与拖拽、草稿托盘、附件条与气泡同级、文档卡片、图片 lightbox、Markdown 预览、草稿会话先建会话后建 Turn |
 | DA-8 安全、E2E 与验收 | done（自动化） | 路径/文件名/zip/HTML/跨会话/删除冲突测试；真实文件与视觉连接手工项未跑 |
 | DA-9 附件标签化与重复渲染修复 | done | 统一标签（图标 + 文件名，宽度自适应、图标复用文件目录 Material 图标）；时间线标签移到气泡下方；修复附件被当作旧截图重复渲染成破图；删除 `DraftScreenshot` 死代码 |
+| DA-10 多视图与文本矩阵 | done | `@larness/shared/attachments.ts` 唯一白名单 + 凭据拒绝；`source` 视图（按行分页、`line:N`/`offset:N`、超长单行字符窗口）；跨附件检索；文本类附件默认注入原文/大纲；`GET .../source` |
+| DA-11 HTML 结构化 | done | `<style>` → fenced CSS、id/class 结构大纲、表格 → pipe table、脚本移除并提示 source 视图；extractor v2 |
+| DA-13 预览视图切换 | done | 文本类文档在预览内切换“解析视图 / 原文”，原文懒加载 Monaco 只读并显示行范围 |
 
 ## 2. 自动化证据
 
 | 检查 | 结果 |
 |---|---|
-| `pnpm --filter @larness/server test test/attachments` | 8 文件 / 45 项通过（新增 WebP、失败重试、pending 启动恢复、孤儿清理用例） |
+| `pnpm --filter @larness/server test test/attachments` | 10 文件 / 62 项通过（新增 source 视图、HTML 保真、跨附件检索、凭据拒绝） |
 | `pnpm --filter @larness/server test test/agent/toolContract.test.ts` | 3 项通过；矩阵含 `read_attachment` / `search_attachment` / `list_attachments` 正反例 |
 | `pnpm --filter @larness/server typecheck` | 通过 |
 | `pnpm --filter @larness/web typecheck` | 通过 |
-| `pnpm --filter @larness/web test` | 53 文件 / 291 项通过 |
-| `VITEST_MAX_WORKERS=3 pnpm check` | 通过；Server 170 文件 / 882 项通过、31 项跳过；Web 291 项通过 |
+| `pnpm --filter @larness/web test` | 54 文件 / 306 项通过（新增 `AttachmentPreview.test.tsx` 3 项） |
+| `pnpm --filter @larness/server test`（全量） | 172 文件通过 / 8 跳过；899 项通过、31 项跳过（2026-11-24） |
+| `VITEST_MAX_WORKERS=3 pnpm check` | 通过（2026-11-23：Server 170 文件 / 882 项、Web 291 项；2026-11-24 复跑：Server 172 文件 / 899 项通过、31 跳过，Web 306 项通过，biome 与全包 typecheck 通过） |
 | `pnpm --filter @larness/server build` | 通过 |
 | `pnpm build` | 通过（2026-11-23 复跑；仅既有 chunk 体积警告） |
 
@@ -59,6 +63,8 @@
 | A9 归属、去重与删除 | 通过 | `repository.test.ts`、`api/attachments.test.ts`、`api.test.ts` |
 | A10 解析失败可恢复 | 通过 | 失败状态、稳定错误码、UI 重试；重试会重新解析 |
 | A11 草稿会话的附件 | 通过（结构） | 先 `createSession` → 上传/转写 → `createTurn`；附件失败时归档临时会话、保留草稿与托盘，不创建 Turn；未有浏览器 E2E |
+| A12 HTML/CSS 保真与跨附件检索 | 通过（自动化） | `context.test.ts` 断言注入 `view="source"` 且含 `<style>` 与 `class` 原文；`tools.test.ts` 覆盖 `view=source` 按行读取、二进制返回 `ATTACHMENT_VIEW_UNSUPPORTED`、跨附件检索返回 `attachmentId` + `line:N`；`source.test.ts` 覆盖 CSS 保留、结构大纲、表格转 pipe table |
+| A13 文本矩阵与凭据拒绝 | 通过（自动化） | `mime.test.ts` 覆盖 `.ts/.json/.css/Dockerfile/.svg` 接受、未知文本扩展名拒绝、`.env`/`.env.local`/`*.pem` 拒绝、`.env.example` 接受；`Composer` 与 `ATTACHMENT_ACCEPT` 共用白名单；`tools.test.ts` 覆盖上传侧 `ATTACHMENT_SECRET_FILE` |
 
 ## 4. 偏差与未验证项
 
@@ -76,10 +82,18 @@
 
 10. **DA-9 提示层复用自愈**：上一条修复后提示仍被顶栏压住，用 Playwright 在 Chromium 里量真实布局确认新代码本身正确（body 子节点、`fixed`、`top: 56px`、`z-index: 360`、命中测试在最上层），根因是 `toastLayer()` 复用了页面上残留的旧层节点、而类名只在创建时写一次。现在每次挂载都重写 `TOAST_LAYER_CLASS`；`Toast.test.tsx` 新增「repairs the classes of a reused layer from an older build」锁定。浏览器证据来自临时探针页（已删除），未入库。
 
+11. **文本白名单改为服务端强制（行为变化）**：此前服务端对任何能按 UTF-8 解码的内容都接受为 `text/plain`，只有前端按扩展名拦截。DA-10 起两端共用 `@larness/shared` 白名单，服务端会拒绝未列出的文本扩展名（`ATTACHMENT_UNSUPPORTED`）。副作用：`notes.weirdtext` 这类文件需要改名为 `.txt`；`Dockerfile`、`.gitignore`、`.env.example` 等无扩展名/点文件按 basename 放行。
+
+12. **HTML 解析视图仍是派生视图**：DA-11 只保证不丢弃 `<style>`、id/class 与表格结构，不做 DOM 层级还原、不执行 JavaScript、不解析外部样式表；需要精确结构时必须用 `source` 视图。真实页面（含嵌套布局、媒体查询、CSS 变量）的“理解质量”未用真实模型验证。
+
+13. **Monaco 原文预览未实机验证**：`AttachmentPreview` 的原文视图懒加载 `FileEditor`（Monaco 只读），组件测试用 mock 替身断言了切换与数据流，但真实浏览器中的加载、滚动与主题观感未截图验证；`vite build` 在本机仍受内存限制未复跑。
+
 ## 5. 复跑命令
 
 ```bash
 pnpm --filter @larness/server test test/attachments
+pnpm --filter @larness/server test test/attachments/source.test.ts
+pnpm --filter @larness/web test:file src/features/chat/AttachmentPreview.test.tsx
 pnpm --filter @larness/server test test/agent/toolContract.test.ts
 pnpm --filter @larness/server typecheck
 pnpm --filter @larness/web typecheck

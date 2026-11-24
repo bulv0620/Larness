@@ -1,6 +1,6 @@
 # 实施计划：文档与图片附件解析、能力路由与会话外呈现
 
-> 对应 spec：`spec.md`。本文件只讲“怎么做”，不改变需求。状态：`ready`（2026-11-23 人类批准；Q-071～Q-076 已冻结），按 DA-1 → DA-8 实施。
+> 对应 spec：`spec.md`。本文件只讲“怎么做”，不改变需求。状态：`review`（Q-071～Q-076 于 2026-11-23 冻结；DA-1～DA-9 已完成；DA-10/DA-11/DA-13 于 2026-11-24 完成，Q-079 关闭）。
 
 ## 1. 技术方案
 
@@ -24,6 +24,7 @@ Composer / REST
 4. **上下文只注入视图**。当前轮附件生成 `<attachment>` 块；小文档内联，大文档只注入元数据、目录与读取提示；历史轮只保留 ID 与一行元数据。
 5. **UI 附件区与气泡分离**。`TimelineItemView` 把用户消息拆成 attachment strip 与 text bubble 两个同级节点；`Composer` 使用独立草稿托盘。
 6. **解析结果文件化**。markdown 与 sections 存 `dataDir/artifacts/attachments`，DB 只存元数据、锚点摘要与相对路径，避免大文本撑大 SQLite 与备份。
+7. **原文件是唯一真源，视图是可重算的投影**（DA-10 起）。`text` 与 `source` 从同一份原文件派生：`text` 供二进制文档与结构化阅读，`source` 供代码/HTML/CSS/配置按行读取；`views` 只由 MIME 推导，不落库。
 
 ## 2. 备选方案与取舍
 
@@ -35,17 +36,20 @@ Composer / REST
 | 所有附件都本地 OCR | 不依赖模型能力 | 文档表格/标题丢失；OCR 慢且中文质量不稳；图片原图质量更好 | 不采用 |
 | 附件字节继续存 SQLite | 事务简单、备份一致 | 20 MiB 文件撑大 DB、备份与 WAL 压力大；无法流式读取 | 新上传落盘，旧行保留兼容 |
 | 整篇 markdown 注入 | 模型一次看全 | 长文档直接爆预算；缓存前缀频繁变化；历史无法复用 | 内联预算 + 目录 + 工具读取 |
+| 所有文本类文件都只转 markdown | 实现统一 | CSS/反射/缩进/属性全丢，coding 场景无法据此改代码 | 增加 `source` 视图，文本类默认原文注入与检索 |
 | JSON Base64 上传 | 复用现有路由与测试；无新解析依赖 | 体积膨胀约 33%，大文件内存峰值高 | v1 采用，20 MiB 上限；后续评估 multipart |
 
 ## 3. 目录与文件变更
 
 ```text
 新增：
+packages/shared/src/attachments.ts   附件类型白名单、凭据拒绝、ATTACHMENT_ACCEPT（前后端共用）
 apps/server/src/modules/attachments/
   types.ts                  AttachmentKind/Status/Method/Artifact/Section
   mime.ts                   魔数嗅探与类型判定
   service.ts                上传、去重、限额、落盘、删除、读取
   storage.ts                路径推导、原子写、权限、孤儿扫描
+  source.ts                 source 视图解码、按行切片、结构大纲
   repository.ts             session_attachments 读写与状态更新
   queue.ts                  IngestQueue、worker 生命周期、pending 恢复
   worker.ts                 worker_threads 入口
@@ -187,6 +191,28 @@ specs/051-agent-tool-contract/spec.md
 4. 手动验证：真实 PDF/DOCX/PPTX/XLSX/HTML、中文扫描 PDF、20 MiB 边界、8 附件一轮、真实视觉连接。
 5. 更新契约、051、STATUS、ROADMAP 与 README；记录未验证项。
 
+### DA-10 多视图：source 视图、文本矩阵与跨附件检索（2026-11-24）
+
+1. `@larness/shared/src/attachments.ts` 成为唯一白名单（扩展名 + 无扩展名 basename）；Composer 的 `accept` 与客户端校验、服务端嗅探共用；凭据文件在两端拒绝。
+2. `source.ts`：BOM/CRLF 归一、按行切片、超长单行退化为字符窗口、结构大纲（imports / 顶层符号 / CSS selector / Markdown 标题）。
+3. `AttachmentService.readSource(Sync)` 与 `GET /api/sessions/:id/attachments/:attachmentId/source`。
+4. `read_attachment` 增加 `view`、`line`、`nextAnchor`；二进制文档返回 `ATTACHMENT_VIEW_UNSUPPORTED`，不静默降级。
+5. `search_attachment` 支持 `attachmentIds` 省略时跨本会话检索，新增 `scope`；`list_attachments` 返回 `views`。
+6. `contextAssembler` 对文本类附件注入原文（含 `view="source"` 与行数）；超预算只注入大纲。
+
+### DA-11 HTML 结构化（2026-11-24）
+
+1. `<style>` 保留为 fenced CSS，上限 4,000 字符并记 warning。
+2. 输出 id/class 结构大纲（最多 60 条，跳过 script/style 正文）。
+3. 表格转 pipe table（turndown 自定义规则）；脚本仍移除，warning 指向 `source` 视图。
+4. HTML extractor 版本 1 → 2。
+
+### DA-13 预览视图切换（2026-11-24）
+
+1. 文本类文档在预览面板提供“解析视图 / 原文”切换；二进制文档与图片不显示切换。
+2. 原文复用现有 Monaco 只读编辑器（懒加载，`SOURCE_PREVIEW_CHARS=60000`），底部显示行范围与截断提示。
+3. 切换以附件 ID 标记状态，切换附件自动回到解析视图。
+
 ## 5. 数据与迁移
 
 - 迁移文件 `0038_document_attachments.sql`，只加列与索引，不重建表、不删数据。
@@ -235,11 +261,9 @@ pnpm test:e2e
 
 ## 9. 未决事项
 
-- Q-071 格式矩阵；
-- Q-072 OCR/视觉默认；
-- Q-073 限额；
-- Q-074 Base64 vs multipart；
-- Q-075 依赖集；
-- Q-076 扫描 PDF 页渲染。
+- Q-071～Q-076 已于 2026-11-23 关闭，结论见 spec §13。
+- Q-077（解析 worker 隔离）与 Q-078（云端视觉转写接线）仍未闭合，见 `docs/open-questions.md`。
+- Q-079（多视图）已于 2026-11-24 关闭；结论见 spec §7.7 与 §13。
+- Q-080（附件导入项目目录、写盘与审批）未排期。
 
 确认后更新 [ADR-074](../../docs/adr/ADR-074-document-attachments.md) 为 accepted，并把 spec 改为 `ready`。

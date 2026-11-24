@@ -10,7 +10,11 @@ import {
   attachmentUploadSchema,
   MAX_ATTACHMENT_REQUEST_BYTES,
 } from "../modules/attachments/service.js";
-import { AttachmentError, type AttachmentErrorCode } from "../modules/attachments/types.js";
+import {
+  AttachmentError,
+  type AttachmentErrorCode,
+  MAX_SOURCE_PREVIEW_CHARS,
+} from "../modules/attachments/types.js";
 import { attachmentIdsSchema, readScreenshots } from "../modules/sessions/attachments.js";
 import { SessionError } from "../modules/sessions/errors.js";
 import {
@@ -67,6 +71,11 @@ const ListSessionsQuerySchema = z.object({
 const ListEventsQuerySchema = z.object({
   after: z.coerce.number().int().min(0).optional(),
   limit: z.coerce.number().int().min(1).max(500).optional(),
+});
+
+const AttachmentSourceQuerySchema = z.object({
+  line: z.coerce.number().int().min(1).optional(),
+  maxChars: z.coerce.number().int().min(1).max(MAX_SOURCE_PREVIEW_CHARS).optional(),
 });
 
 export interface TurnControls {
@@ -298,6 +307,26 @@ export function registerSessionRoutes(app: FastifyInstance, deps: SessionApiDeps
       }
     },
   );
+
+  app.get<{ Params: { id: string; attachmentId: string } }>(
+    "/api/sessions/:id/attachments/:attachmentId/source",
+    async (request) => {
+      const id = parse(SessionIdSchema, request.params.id);
+      if (deps.attachments === undefined) {
+        throw new HttpError("ATTACHMENT_UNSUPPORTED", "attachments are not enabled");
+      }
+      const query = parse(AttachmentSourceQuerySchema, request.query);
+      try {
+        return await deps.attachments.readSource(id, request.params.attachmentId, {
+          ...(query.line === undefined ? {} : { line: query.line }),
+          ...(query.maxChars === undefined ? {} : { maxChars: query.maxChars }),
+        });
+      } catch (error) {
+        throwAttachment(error);
+      }
+    },
+  );
+
   app.delete<{ Params: { id: string; attachmentId: string } }>(
     "/api/sessions/:id/attachments/:attachmentId",
     async (request, reply) => {

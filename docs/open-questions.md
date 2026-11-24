@@ -44,8 +44,10 @@
 | Q-041 | 是否继续压缩 `@larness/shared` 的 schema 字段描述（`update_plan`、`start_project_terminal`、`run_command`）？081 把重复的生命周期文案合到一处后，字段描述成为剩余固定开销的最大单项（工具 schema 仍约 4.4k token）。 | 暂不动：改 `.describe()` 属执行契约变更，需要重跑工具契约矩阵并更新 `051` 契约，单开一轮评估 | 固定开销、模型调用正确率 | [081 spec](../specs/081-agent-lean/spec.md#13-开放问题) |
 | Q-077 | 088 的解析器仍在主进程执行，只有硬超时，没有 worker/内存隔离；大 PDF 或恶意 Office 文件可能阻塞事件循环。 | 当前按「进程内 + 硬超时 + 解压前置限额」交付，未宣称沙箱；下一步评估独立 worker 入口与打包（tsdown 第五入口），或改用子进程并保留超时/终止。 | 解析安全、事件循环阻塞、DA-3 验收缺口 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
 | Q-078 | `attachments.ocr.mode=vision` 已进入配置 schema，但 bootstrap 未把 `visionConnectionId` 解析成可调用的转写器，视觉模式仍失败关闭。 | 默认 `auto-local` 只走本地 OCR；视觉连接接线前不得声称云端视觉可用。需要时按模型连接服务解析密钥并复用 provider，失败不回退。 | A3 视觉分支、外发隐私 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
+| Q-080 | 是否提供“把附件导入项目目录”的写盘通道（`import_attachment`，L2）？ | 首版不做：上传即落盘会引入路径审批、覆盖冲突与项目锁扩张。需要时按“默认写 `tmp/attachments/<attachmentId>/`、显式 `targetPath` 才写项目、项目锁 + 审计”设计并单独评审。 | 修改真实页面/运行附件仓库的工作流 | [088 spec §7.7](../specs/088-document-attachments/spec.md#77-视图契约与格式矩阵) |
 
 ## 已解决
+- Q-079（2026-11-24）：采用“多视图”而非单一 markdown——`read_attachment` 增加 `view="source"`（原文按行分页，仍包在 `<attachment>` 内、只当数据处理），文本类附件默认按原文注入与跨附件检索；HTML 解析补回 `<style>`、id/class 大纲与表格；不提供写盘导入，另立 Q-080。见 [088 spec §7.7](../specs/088-document-attachments/spec.md#77-视图契约与格式矩阵)。
 
 - Q-071～Q-076（2026-11-23）：088 按推荐默认确认——首版矩阵冻结 PDF/DOCX/PPTX/XLSX/HTML/CSV/TXT/MD/PNG/JPEG/WebP，旧 Office/压缩包/音视频/SVG 拒绝；`auto-local` 只用本机 OCR，云端视觉默认关闭且必须显式选连接；20 MiB/文件、8 个/轮、200 个/会话、400 页、单文件 8k token、附件总预算 15%；v1 用 JSON Base64 上传；批准 `pdfjs-dist`、`mammoth`、`exceljs`、`jszip`、`fast-xml-parser`、`turndown`、`sanitize-html` 与可选 `tesseract.js`，不引入原生 canvas；扫描 PDF 首版不渲染。见 [088 spec](../specs/088-document-attachments/spec.md#13-已确认决策) 与 [ADR-074](adr/ADR-074-document-attachments.md)。
 

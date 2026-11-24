@@ -1,6 +1,6 @@
 # STATUS
 
-> 最后更新：2026-11-23
+> 最后更新：2026-11-24
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
@@ -19,6 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-24 | 088 DA-10/DA-11/DA-13 附件多视图 | `text`/`source` 双视图落地：`@larness/shared/attachments.ts` 统一白名单与凭据拒绝（Composer `accept` 与服务端嗅探共用）；`source` 视图按行分页、`line:N`/`offset:N`、超长单行退化字符窗口；`read_attachment` 增加 `view`/`line`/`nextAnchor`，`search_attachment` 支持跨附件与 `scope`，`list_attachments` 返回 `views`；文本类附件默认按原文注入/检索，超预算只注入大纲；HTML 保留 `<style>`、id/class 大纲与表格；预览增加“解析视图 / 原文”切换。`pnpm check` 通过（server 172 文件 / 899 项、31 跳过；web 54 文件 / 306 项）；未跑 `pnpm build`，Monaco 原文预览未实机截图 | [088 acceptance](specs/088-document-attachments/acceptance.md) |
 | 2026-11-24 | 088 文档与图片附件 | DA-0～DA-9 完成；迁移 0038、通用上传/去重/删除、PDF/DOCX/PPTX/XLSX/HTML/CSV 抽取、图片透传与本地 OCR、上下文预算与三个附件工具、草稿托盘；DA-9 把输入区与时间线附件统一为“图标 + 文件名”标签并移到气泡下方，宽度随文件名自适应、图标复用文件目录的 Material 图标，标签两端图标内边距对称（左 `pl-2`、右 `pr-1.5` + 尾部 `p-0.5`），修复 `attachmentIds` 被当作旧截图重复渲染成破图；附件标签与产物标签共用 `chip.ts` 的 `h-7`/`rounded-full`/`text-[11px]`；`Toast` 改为 portal 到 body 级提示层（`top-14` + `z-[360]`，弹窗内由 `DialogContent` 的 `ToastHost` 承载），并让复用旧层节点时重写类名（否则 `top-4` 时期的残留层会继续被顶栏遮挡），修复附件超限报错被顶栏遮挡；`pnpm check` 与根 `pnpm build` 通过，`pnpm --filter @larness/web test` 53 文件 / 303 项通过；解析未进 worker（Q-077）、视觉连接未接线（Q-078）、真实文件与 Mock E2E 未跑 | [088 acceptance](specs/088-document-attachments/acceptance.md) |
 | 2026-11-20 | GX-5 子目录项目 Git 路径基准 | 项目根为仓库子目录时暂存 / 取消暂存失败、diff 白屏；按 `--show-prefix` 折回项目相对路径并过滤项目外条目，DiffView 增加空差异说明；Git 套件 17 项通过（2 项跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
 | 2026-11-23 | GX-6 未跟踪差异与 Git 失败原因 | 未跟踪文件用 `git diff --no-index` 与空基准比对，不再白屏；execute 失败保留 `GIT_CONFLICT` 等稳定码并审计，Git 面板区分写锁占用 / 快照变化 / 超时；`pnpm check` 通过（Server 836 项、31 跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
@@ -28,7 +29,6 @@
 | 2026-11-19 | 085 长任务连续执行 | 人类验收通过；任务级 token/时长/接续深度默认关闭；85% 换页、`continued` 终态、无事实 fallback、600s 请求上限、10 分钟无进展暂停；build + Mock E2E 24/24 | [085 acceptance](specs/085-long-task-continuity/acceptance.md) |
 | 2026-11-19 | 084 Agent Profile 收敛与用量 | 人类验收通过；AP-1～AP-13 完成；Profile 收敛 coding/plan、usage API 与缓存命中率、Token 行常驻、过程标题行视觉；check/build + Mock 24/24 + 认证 20/20 + 生产 20/20 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#验收记录2026-11-18macos) |
 | 2026-11-19 | AP-13 过程标题行只显示步数 | 外层移除失败/重试计数，只保留步数、耗时与自动继续；失败详情仍在展开过程内；定向 33 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-13-过程标题行只显示步数用户反馈) |
-| 2026-11-19 | AP-12 Token 行会话页常驻 | 真实会话加载中也保留 Token 行并显示占位；新建会话页与 Mock 隐藏；定向 24 项通过 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md#ap-12-token-行在会话页常驻用户反馈) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

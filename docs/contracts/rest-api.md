@@ -540,11 +540,13 @@ OpenCode Go 使用 `opencode-go` 预设，目录走固定 Go 路径，由 Go 模
 - `POST /api/sessions/:id/attachments` 扩展为 `{ filename, mime?, data }`，`data` 为规范 Base64；按魔数嗅探类型，返回 `201 { attachment }`。同会话同 SHA-256 去重。
 - `GET /api/sessions/:id/attachments/:attachmentId` 返回原始字节，带 `Content-Disposition`、真实 MIME；禁用缓存与 MIME 嗅探。
 - `GET /api/sessions/:id/attachments/:attachmentId/artifact` 返回有界 artifact 元数据与 markdown 预览；仅 `status=ready`。
+- `GET /api/sessions/:id/attachments/:attachmentId/source` 返回原始 UTF-8 文本切片（`?line=` 1 起、`?maxChars=` ≤60000），响应 `{ attachment, view:"source", content, lineStart, lineEnd, totalLines, nextLine, truncated, warnings }`；仅文本类附件，二进制文档返回 `422 ATTACHMENT_VIEW_UNSUPPORTED`。
 - `POST /api/sessions/:id/attachments/:attachmentId/transcribe` 对图片按 `ocr.mode` 执行本地 OCR 或显式视觉转写；成功返回 `{ attachment }`，能力不可用返回 `409 ATTACHMENT_VISION_UNAVAILABLE`。UI 在纯文本模型下发送图片前调用。
 - `DELETE /api/sessions/:id/attachments/:attachmentId` 删除未被 Turn 引用的附件；已引用返回 `409 ATTACHMENT_IN_USE`。
 - Turn 创建 `attachmentIds` 上限 8；文档不要求模型 `acceptsImages`；图片要求视觉透传或 ready 的 OCR/视觉 artifact。
 - 新增 `attachment.status` WS 事件；`user.message` payload 增加 `attachments` 元数据并保留 `attachmentIds`。
-- 错误码：`ATTACHMENT_TOO_LARGE`、`ATTACHMENT_UNSUPPORTED`、`ATTACHMENT_LIMIT`、`ATTACHMENT_PARSE_FAILED`、`ATTACHMENT_PARSE_TIMEOUT`、`ATTACHMENT_ENCRYPTED`、`ATTACHMENT_PDF_NO_TEXT`、`ATTACHMENT_VISION_UNAVAILABLE`、`ATTACHMENT_NOT_READY`、`ATTACHMENT_NOT_FOUND`、`ATTACHMENT_IN_USE`、`ATTACHMENT_STORAGE_FAILED`。
+- 错误码：`ATTACHMENT_TOO_LARGE`、`ATTACHMENT_UNSUPPORTED`、`ATTACHMENT_LIMIT`、`ATTACHMENT_SECRET_FILE`、`ATTACHMENT_VIEW_UNSUPPORTED`、`ATTACHMENT_PARSE_FAILED`、`ATTACHMENT_PARSE_TIMEOUT`、`ATTACHMENT_ENCRYPTED`、`ATTACHMENT_PDF_NO_TEXT`、`ATTACHMENT_VISION_UNAVAILABLE`、`ATTACHMENT_NOT_READY`、`ATTACHMENT_NOT_FOUND`、`ATTACHMENT_IN_USE`、`ATTACHMENT_STORAGE_FAILED`。
+- 类型白名单（文档/图片/代码/配置/无扩展名 basename）与凭据拒绝由 `packages/shared/src/attachments.ts` 单一提供；SVG 只作 `text/plain`，凭据文件返回 `415 ATTACHMENT_SECRET_FILE`。
 
 附件 DTO 与限额见 [088 spec §7](../../specs/088-document-attachments/spec.md#7-接口与契约变更)。
 

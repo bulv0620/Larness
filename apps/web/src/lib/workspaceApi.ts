@@ -647,6 +647,32 @@ export async function fetchAttachmentArtifact(
   return apiFetch(attachmentArtifactUrl(sessionId, attachmentId));
 }
 
+export interface AttachmentSourceSlice {
+  attachment: ApiAttachment;
+  view: "source";
+  content: string;
+  lineStart: number;
+  lineEnd: number;
+  totalLines: number;
+  nextLine: number | null;
+  truncated: boolean;
+  warnings: string[];
+}
+
+export async function fetchAttachmentSource(
+  sessionId: string,
+  attachmentId: string,
+  options: { line?: number; maxChars?: number } = {},
+): Promise<AttachmentSourceSlice> {
+  const params = new URLSearchParams();
+  if (options.line !== undefined) params.set("line", String(options.line));
+  if (options.maxChars !== undefined) params.set("maxChars", String(options.maxChars));
+  const query = params.toString();
+  return apiFetch(
+    `${attachmentUrl(sessionId, attachmentId)}/source${query.length > 0 ? `?${query}` : ""}`,
+  );
+}
+
 export async function uploadScreenshots(sessionId: string, files: File[]): Promise<string[]> {
   return (await uploadAttachments(sessionId, files)).map(({ attachment }) => attachment.id);
 }

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { isSourceViewMime } from "@larness/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import type { Database } from "../../db/client.js";
@@ -31,6 +32,7 @@ import {
   parseAttachmentWarnings,
   updateAttachmentStatus,
 } from "./repository.js";
+import { decodeSource, type SourceSlice, sourceSlice } from "./source.js";
 import type { AttachmentStorage } from "./storage.js";
 import {
   AttachmentError,
@@ -39,6 +41,7 @@ import {
   DEFAULT_EXTRACT_LIMITS,
   type ExtractLimits,
   MAX_ATTACHMENT_SECTIONS,
+  MAX_SOURCE_PREVIEW_CHARS,
 } from "./types.js";
 
 export const MAX_ATTACHMENT_REQUEST_BYTES = Math.ceil((20 * 1024 * 1024) / 3) * 4 + 4096;
@@ -428,6 +431,52 @@ export class AttachmentService {
   ): { row: AttachmentRow; markdown: string } {
     const row = this.#row(sessionId, attachmentId);
     return { row, markdown: this.#storage.readArtifactSync(attachmentId) ?? "" };
+  }
+
+  /**
+   * Original UTF-8 text for the `source` view. Only text-like attachments have
+   * one; binary documents must use the parsed text view instead.
+   */
+  readSourceSync(sessionId: string, attachmentId: string): { row: AttachmentRow; text: string } {
+    const row = this.#row(sessionId, attachmentId);
+    if (!isSourceViewMime(row.mime)) {
+      throw new AttachmentError(
+        "ATTACHMENT_VIEW_UNSUPPORTED",
+        "this attachment has no source view",
+      );
+    }
+    const bytes =
+      row.storagePath === null ? row.bytes : this.#storage.readOriginalSync(row.storagePath);
+    return { row, text: decodeSource(bytes) };
+  }
+
+  async readSource(
+    sessionId: string,
+    attachmentId: string,
+    input: { line?: number; offset?: number; maxChars?: number } = {},
+  ): Promise<{ attachment: AttachmentDto; view: "source"; warnings: string[] } & SourceSlice> {
+    const row = this.#row(sessionId, attachmentId);
+    if (!isSourceViewMime(row.mime)) {
+      throw new AttachmentError(
+        "ATTACHMENT_VIEW_UNSUPPORTED",
+        "this attachment has no source view",
+      );
+    }
+    if (row.status === "pending") {
+      throw new AttachmentError("ATTACHMENT_NOT_READY", "attachment is still being parsed");
+    }
+    const { bytes } = await this.readOriginal(sessionId, attachmentId);
+    const slice = sourceSlice(decodeSource(bytes), {
+      ...(input.line === undefined ? {} : { line: input.line }),
+      ...(input.offset === undefined ? {} : { offset: input.offset }),
+      maxChars: Math.min(input.maxChars ?? MAX_SOURCE_PREVIEW_CHARS, MAX_SOURCE_PREVIEW_CHARS),
+    });
+    return {
+      attachment: attachmentDto(row),
+      view: "source",
+      warnings: parseAttachmentWarnings(row),
+      ...slice,
+    };
   }
 
   listForSession(sessionId: string, limit = 200): AttachmentRow[] {

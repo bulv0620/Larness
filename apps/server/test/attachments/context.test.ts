@@ -113,6 +113,50 @@ describe("attachment context assembly", () => {
     });
   });
 
+  it("injects text-like attachments as their original source", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, service, session } = await setup(dir);
+      try {
+        const html = [
+          "<!doctype html>",
+          "<html><head><style>.card { display: flex; }</style></head>",
+          '<body><div id="app" class="shell"><section class="card">Total</section></div></body>',
+          "</html>",
+        ].join("\n");
+        const upload = await service.upload(session.id, {
+          filename: "page.html",
+          mime: "text/html",
+          data: Buffer.from(html).toString("base64"),
+        });
+        const turn = createTurn(
+          { db: opened.db },
+          { sessionId: session.id, text: "改一下样式", attachmentIds: [upload.attachment.id] },
+        );
+        const row = getTurnById(opened.db, turn.turnId);
+        if (row === null) throw new Error("turn row missing");
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: new ToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+            attachments: service,
+            modelAcceptsImages: false,
+          },
+          session,
+          row,
+        );
+        const user = context.messages.find((message) => message.role === "user");
+        expect(user?.content).toContain('view="source"');
+        expect(user?.content).toContain(".card { display: flex; }");
+        expect(user?.content).toContain('<div id="app" class="shell">');
+        expect(user?.content).toContain("read_attachment view=source line:N");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("passes WebP images through to a vision model", async () => {
     await withTempDir(async (dir) => {
       const { opened, service, session } = await setup(dir);
