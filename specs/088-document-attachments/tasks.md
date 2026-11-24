@@ -228,7 +228,8 @@
 - 依赖：DA-7
 - 目标：输入区与时间线的附件统一为等宽“图标 + 文件名”标签；时间线标签位于气泡下方；修掉附件被重复渲染成破图的问题。
 - 交付物：
-  - `AttachmentCard` 改为固定 172px×32px 标签：状态图标 + 单行截断文件名，页数/方法/警告进 tooltip 与 `sr-only`；失败为警示图标与红色边框。
+  - `AttachmentCard` 改为固定 172px×28px 标签：状态图标 + 单行截断文件名，页数/方法/警告进 tooltip 与 `sr-only`；失败为警示图标与红色边框。
+  - 标签视觉与「本次成果」的产物标签统一到 `features/chat/chip.ts`（`chipClass` / `chipInteractiveClass`），`ResultCard` 一并改为引用这套 token；附件标签只额外固定宽度并带移除按钮，测试断言两者共享同一组 class。
   - `AttachmentTray` / `AttachmentStrip` 统一使用该标签，图片不再内联缩略图；`DraftAttachmentItem.previewUrl` 与对象 URL 回收逻辑删除。
   - `TimelineItemView` 先渲染文本气泡、再渲染附件标签；`eventReducer` 仅在事件没有附件引用时（pre-088）才构造 `screenshots`。
 - 验收：
@@ -304,3 +305,9 @@
 - 根因：`user.message` 的 `attachmentIds` 一直被当作旧 `screenshots` 渲染；088 之后这些 ID 也可能是 PDF/DOCX，于是同一附件既出现在附件区，又被塞进 `<img>`，浏览器无法把文档当图片显示，出现 `alt="用户截图"` 的破图。
 - 标签统一为固定宽度，图片与文档走同一渲染路径；`screenshots` 只在不含附件引用的历史事件上使用，并带加载失败兜底。
 - 测试：`AttachmentStrip.test.tsx`（标签宽度、气泡在前、图片不内联、旧字段不重复）、`eventReducer.test.ts`（有引用不生成 screenshots、pre-088 保留）。
+
+### DA-9 跟进：与产物标签共用 chip token（2026-11-23）
+
+- 新增 `apps/web/src/features/chat/chip.ts`（`chipClass` / `chipInteractiveClass`），`ResultCard`（文件/预览/终端产物标签）与 `AttachmentCard` 同时引用；附件标签只额外固定 172px 宽、带移除按钮与失败态。
+- 附件标签高度由 32px 收到 28px，与产物标签同高；字号统一 `text-[11px]`，hover 走 accent，失败态用 `border-danger/35` + `bg-danger/5`。
+- 测试：`AttachmentStrip.test.tsx` 新增“shares the artifact tag shape”，断言附件标签与 `ResultCard` 共享 `h-7` / `rounded-full` / `border-line/80` / `bg-surface-2/55`，且只有附件标签带 `w-[172px]`；`pnpm --filter @larness/web test` 53 文件 / 297 项通过，`typecheck` 与 `biome check` 通过。

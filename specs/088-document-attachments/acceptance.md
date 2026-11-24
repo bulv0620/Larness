@@ -38,7 +38,7 @@
 - 纯文本模型 + DOCX 不要求 `acceptsImages`；上下文正文位于 user 角色 `<attachment>` 内。
 - 长文档只注入目录；`read_attachment` 按 `page:N` / `offset:N` 分页并返回 `nextOffset`。
 - 视觉模型 + PNG/WebP 原图透传；纯文本模型 + 图片在 UI 发送前调用本地 OCR，失败关闭并阻止 Turn。
-- 附件标签固定 172px×32px，位于文本气泡下方；文本为空不渲染气泡。
+- 附件标签位于文本气泡下方，文本为空不渲染气泡；标签形状与「本次成果」的产物标签共用 `chip.ts` 的 chip token（`h-7` / `rounded-full` / `border-line/80` / `bg-surface-2/55` / `text-[11px]`），附件侧只额外固定 172px 宽并带移除按钮。
 - 一条消息只渲染一次附件：有引用时不再生成旧 `screenshots`，文档不会被塞进 `<img alt="用户截图">`；pre-088 事件仍按截图渲染，加载失败降级为“截图不可用”。
 - 上传/删除/读取要求认证与会话归属；跨会话返回 404；已引用附件删除返回 409。
 - `attachment.status` 先持久化再广播；事件只含 ID 与元数据。

@@ -1,7 +1,9 @@
 import type { MessageItem } from "@larness/shared";
 import { render, screen } from "@testing-library/react";
+import { FileText } from "lucide-react";
 import { beforeEach, expect, it } from "vitest";
 import { useNavigationStore } from "@/stores/navigationStore";
+import { ResultCard } from "./ResultCard";
 import { MessageBubble } from "./TimelineItemView";
 
 const sessionId = "ses_11111111-1111-4111-8111-111111111111";
@@ -52,6 +54,8 @@ it("renders one fixed-width tag per attachment below the bubble", () => {
   expect(screen.getByText("spec.docx")).toBeInTheDocument();
   expect(screen.getByText(/12 页/)).toBeInTheDocument();
   expect(screen.getByTestId("attachment-chip").className).toContain("w-[172px]");
+  expect(screen.getByTestId("attachment-chip").className).toContain("h-7");
+  expect(screen.getByTestId("attachment-chip").className).toContain("rounded-full");
 
   // The bubble comes first, the tags sit underneath it.
   const surface = container.firstElementChild;
@@ -92,6 +96,28 @@ it("shows images as tags instead of inline thumbnails", () => {
   expect(strip.querySelectorAll("img")).toHaveLength(0);
   expect(screen.getAllByTestId("attachment-chip")).toHaveLength(2);
   expect(screen.getByText("用户截图.png")).toBeInTheDocument();
+});
+
+it("shares the artifact tag shape", () => {
+  render(
+    <ResultCard icon={FileText} label="文件 · a.ts" ariaLabel="打开文件" onClick={() => {}} />,
+  );
+  const artifact = screen.getByRole("button", { name: "打开文件" });
+
+  render(<MessageBubble item={item({ attachments: [docRef()] })} />);
+  const tag = screen.getAllByTestId("attachment-chip").at(-1);
+  expect(tag).toBeDefined();
+
+  // One chip shape for attachments and turn artifacts: same height, radius,
+  // border/background tokens and text size, so the two never drift apart.
+  for (const token of ["h-7", "rounded-full", "border-line/80", "bg-surface-2/55"]) {
+    expect(artifact.className).toContain(token);
+    expect(tag?.className).toContain(token);
+  }
+  expect(tag?.className).toContain("text-[11px]");
+  // The attachment tag alone stays a fixed width so a row lines up.
+  expect(tag?.className).toContain("w-[172px]");
+  expect(artifact.className).not.toContain("w-[172px]");
 });
 
 it("does not paint legacy screenshots when attachment refs exist", () => {

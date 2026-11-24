@@ -76,6 +76,7 @@ apps/web/src/features/chat/
   AttachmentTray.tsx        输入区草稿附件
   AttachmentStrip.tsx       时间线气泡下方附件区
   AttachmentCard.tsx        固定宽附件标签（图标 + 文件名，详情进 tooltip）
+  chip.ts                   附件与产物共用的 chip token（chipClass / chipInteractiveClass）
   AttachmentPreview.tsx     只读 markdown 预览/原图 lightbox
 apps/web/src/features/chat/*.test.tsx
 apps/web/e2e/attachments.spec.ts

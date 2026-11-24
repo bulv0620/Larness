@@ -333,7 +333,7 @@ HTTP 映射：`413` TOO_LARGE；`415` UNSUPPORTED；`409` LIMIT / NOT_READY / IN
 用户消息容器（右对齐）
 ├─ 文本气泡                  只含用户文本；文本为空时不渲染
 └─ AttachmentStrip          气泡下方；flex-wrap；gap 6px
-   └─ 附件标签               固定宽 172px / 高 32px；状态图标 + 单行截断文件名
+   └─ 附件标签               固定宽 172px / 高 28px；状态图标 + 单行截断文件名
 
 Composer 容器
 ├─ AttachmentTray           输入框之外；同款等宽标签 + 移除 / 重试
@@ -341,6 +341,7 @@ Composer 容器
 ```
 
 - 附件标签区位于文本气泡下方，与气泡同为消息容器的子节点；禁止把附件渲染进气泡内部；文本为空时只显示标签区。
+- 附件标签与「本次成果」的产物标签共用同一套 chip token（`features/chat/chip.ts`：`h-7`、`rounded-full`、`border-line/80`、`bg-surface-2/55`、`text-[11px]`、hover 走 accent），避免两种文件标签各自漂移；附件标签只额外固定 172px 宽并带移除按钮。
 - 图片与文档使用同一种标签，不内联缩略图；文件名单行截断，页数、解析方式、警告与失败原因放 `title` tooltip 与预览里；点击标签打开预览（图片 lightbox / 文档只读 markdown）。
 - 状态用图标表达：解析中为旋转指示，失败为警示图标并标红边框；标签宽度固定，不随文件名或状态变化。
 - 旧字段 `screenshots` 只在不含附件引用的历史事件上渲染，并带加载失败兜底，避免把文档当图片渲染成破图。

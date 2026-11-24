@@ -1,5 +1,6 @@
 import { cn } from "@larness/ui";
 import { AlertTriangle, FileText, Image as ImageIcon, Loader2, X } from "lucide-react";
+import { chipClass } from "./chip";
 
 export interface AttachmentCardData {
   id?: string;
@@ -50,7 +51,8 @@ export function attachmentDetail(item: AttachmentCardData): string {
     .join(" · ");
 }
 
-/** One fixed-width tag: a status icon plus the truncated file name. */
+/** One fixed-width tag: a status icon plus the truncated file name. Its shape is
+ *  the same chip the turn's file artifacts use, so both read as one family. */
 export function AttachmentCard({
   item,
   disabled = false,
@@ -70,21 +72,26 @@ export function AttachmentCard({
   return (
     <div
       className={cn(
-        "flex h-8 w-[172px] shrink-0 items-center gap-1.5 rounded-md border pr-1 pl-2 text-left",
-        failed ? "border-danger/35 bg-danger/5" : "border-line bg-surface-2",
+        chipClass,
+        "w-[172px] shrink-0 gap-1 pr-1 pl-2 text-left",
+        failed
+          ? "border-danger/35 bg-danger/5"
+          : item.status === "ready" && onOpen
+            ? "hover:border-accent/35 hover:bg-accent-soft/30"
+            : null,
       )}
       title={detail.length > 0 ? `${item.filename} · ${detail}` : item.filename}
       data-testid="attachment-chip"
     >
       {busy ? (
         <Loader2
-          size={13}
+          size={11}
           aria-hidden="true"
           className="shrink-0 animate-spin text-ink-3 motion-reduce:animate-none"
         />
       ) : (
         <Icon
-          size={13}
+          size={11}
           aria-hidden="true"
           className={cn("shrink-0", failed ? "text-danger" : "text-accent")}
         />
@@ -93,7 +100,7 @@ export function AttachmentCard({
         type="button"
         onClick={onOpen}
         disabled={item.status !== "ready" || onOpen === undefined}
-        className="min-w-0 flex-1 truncate text-left text-[12px] text-ink disabled:cursor-default"
+        className="min-w-0 flex-1 truncate text-left text-[11px] text-ink-2 enabled:hover:text-ink disabled:cursor-default"
       >
         {item.filename}
       </button>
@@ -104,9 +111,9 @@ export function AttachmentCard({
           onClick={onRemove}
           disabled={disabled}
           aria-label={`移除 ${item.filename}`}
-          className="shrink-0 rounded p-0.5 text-ink-3 hover:bg-surface-3 hover:text-ink disabled:opacity-40"
+          className="-mr-0.5 shrink-0 rounded-full p-0.5 text-ink-3 hover:bg-surface-3 hover:text-ink disabled:opacity-40"
         >
-          <X size={11} />
+          <X size={10} />
         </button>
       ) : null}
     </div>

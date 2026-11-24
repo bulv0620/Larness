@@ -1,5 +1,6 @@
 import { cn } from "@larness/ui";
 import { ArrowUpRight, type LucideIcon } from "lucide-react";
+import { chipClass, chipInteractiveClass } from "./chip";
 
 interface ResultCardProps {
   icon: LucideIcon;
@@ -25,12 +26,7 @@ export function ResultCard({
       title={titleAttr ?? ariaLabel}
       disabled={disabled}
       onClick={onClick}
-      className={cn(
-        "group inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-line/80 bg-surface-2/55 px-2 text-[11px] text-ink-2",
-        "transition-colors hover:border-accent/35 hover:bg-accent-soft/30 hover:text-ink",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40",
-        "disabled:pointer-events-none disabled:opacity-55",
-      )}
+      className={cn("group", chipClass, chipInteractiveClass)}
     >
       <Icon size={11} className="shrink-0 text-accent" />
       <span className="truncate">{label}</span>
