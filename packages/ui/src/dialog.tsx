@@ -2,6 +2,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from "react";
 import { forwardRef } from "react";
 import { cn } from "./cn";
+import { ToastHost } from "./toast";
 
 export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
@@ -28,7 +29,8 @@ export const DialogContent = forwardRef<
       )}
       {...props}
     >
-      {children}
+      {/* 弹窗内的 Toast 挂到弹窗自身，避免被 Radix 的 aria-hidden 与焦点陷阱隔离。 */}
+      <ToastHost>{children}</ToastHost>
     </DialogPrimitive.Content>
   </DialogPrimitive.Portal>
 ));

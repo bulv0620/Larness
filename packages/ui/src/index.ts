@@ -25,5 +25,5 @@ export { Checkbox, FormSelect, Input, Textarea } from "./form-controls";
 export { IconButton, type IconButtonProps } from "./icon-button";
 export { Kbd } from "./kbd";
 export { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
-export { Toast, type ToastProps, type ToastTone } from "./toast";
+export { Toast, ToastHost, type ToastProps, type ToastTone } from "./toast";
 export { Hint, Tooltip, TooltipProvider } from "./tooltip";

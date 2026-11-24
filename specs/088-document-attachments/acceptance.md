@@ -72,6 +72,8 @@
 
 8. **DA-9 根因记录**：`user.message` 的 `attachmentIds` 在 088 之后也可能是 PDF/DOCX，但 reducer 仍用它构造旧 `screenshots`。于是同一附件既渲染为附件区卡片，又被当成截图塞进 `<img>`；浏览器无法把文档当图片显示，出现 `alt="用户截图"` 的破图。已在 reducer 与渲染两层修正，并保留 pre-088 兼容。
 
+9. **DA-9 提示遮挡修复**：附件超限报错（`每轮最多添加 8 个附件。`）被顶栏遮住，根因是 `Toast` 就地渲染在输入区的 `z-10` 堆叠上下文内。已改为 portal 到 body 级提示层（`top-14` + `z-[360]`），弹窗内提示由 `DialogContent` 的 `ToastHost` 承载；`Toast.test.tsx` 的 `stacking` 用例锁定该契约。仅验证 DOM 结构与 class 契约，未做浏览器实机截图。
+
 ## 5. 复跑命令
 
 ```bash

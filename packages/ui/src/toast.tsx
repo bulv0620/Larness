@@ -1,5 +1,6 @@
 import { CircleAlert, CircleCheck, Info } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "./button";
 import { cn } from "./cn";
 
@@ -31,6 +32,48 @@ const ICON_TONES = {
 } as const;
 
 /**
+ * 提示层：视口顶部居中、位于 48px 全局顶栏之下（`top-14`），层级高于窗口层
+ * （`z-40` 堆叠上下文）、弹窗（`z-[300]` / `z-[311]`）与附件预览（`z-[340]`）。
+ */
+const TOAST_LAYER_CLASS =
+  "pointer-events-none fixed inset-x-0 top-14 z-[360] flex flex-col items-center gap-2 px-4";
+
+const TOAST_LAYER_ATTRIBUTE = "data-larness-toast-layer";
+
+let globalLayer: HTMLElement | null = null;
+
+function toastLayer(): HTMLElement {
+  if (globalLayer?.isConnected) return globalLayer;
+  const existing = document.querySelector<HTMLElement>(`[${TOAST_LAYER_ATTRIBUTE}]`);
+  if (existing) {
+    globalLayer = existing;
+    return existing;
+  }
+  const layer = document.createElement("div");
+  layer.setAttribute(TOAST_LAYER_ATTRIBUTE, "");
+  layer.className = TOAST_LAYER_CLASS;
+  document.body.append(layer);
+  globalLayer = layer;
+  return layer;
+}
+
+const ToastHostContext = createContext<HTMLElement | null>(null);
+
+/**
+ * 浮层内的提示宿主：把 `Toast` 挂进当前浮层（例如模态弹窗）内部，避免被 Radix 的
+ * `aria-hidden` 与焦点陷阱挡在外面。没有宿主时提示挂到 `document.body` 的全局层。
+ */
+export function ToastHost({ children }: { children: ReactNode }) {
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  return (
+    <ToastHostContext.Provider value={host}>
+      {children}
+      <div ref={setHost} data-larness-toast-host="" className={TOAST_LAYER_CLASS} />
+    </ToastHostContext.Provider>
+  );
+}
+
+/**
  * Single transient-feedback surface for the whole app: a top-center floating
  * message that never takes layout space. Use the `error` tone (or the
  * `ErrorMessage` alias) for failures, `success` for completed actions and
@@ -38,8 +81,13 @@ const ICON_TONES = {
  * inline; see `docs/architecture/ui-feedback.md`.
  */
 export function Toast(props: ToastProps) {
+  const host = useContext(ToastHostContext);
   if (!props.message) return null;
-  return <ToastBody key={props.message} {...props} message={props.message} />;
+  const body = <ToastBody key={props.message} {...props} message={props.message} />;
+  // 必须挂到全局层：调用点常位于窗口、输入区等 `z-index` 堆叠上下文内部，
+  // 就地渲染会被顶栏、窗口与弹窗盖住。
+  if (typeof document === "undefined") return body;
+  return createPortal(body, host ?? toastLayer());
 }
 
 function ToastBody({
@@ -73,7 +121,7 @@ function ToastBody({
       role={tone === "error" ? "alert" : "status"}
       aria-live={tone === "error" ? "assertive" : "polite"}
       className={cn(
-        "toast-slide-in pointer-events-none fixed inset-x-0 top-4 z-[360] mx-auto flex w-max max-w-[min(28rem,calc(100%_-_2rem))]",
+        "toast-slide-in pointer-events-none flex w-max max-w-[min(28rem,100%)]",
         "items-center gap-2 rounded-xl border bg-surface px-3 py-2 text-[12px] leading-5 text-ink shadow-[var(--shadow-pop)]",
         tone === "error" ? "border-danger/30" : "border-line",
       )}

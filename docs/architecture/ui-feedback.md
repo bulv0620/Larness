@@ -6,7 +6,8 @@
 ## 1. 强制规则
 
 - 所有由用户动作触发的成功 / 失败 / 中性提示，必须使用 `@larness/ui` 导出的 `Toast`；唯一例外是输入框内的会话级轻量开关（见第 3 节）。
-- `Toast` 固定在视口顶部居中，浮于弹窗之上，不参与布局；禁止在按钮、表单、列表、卡片或弹窗内部新增“提示条 / 提示栏 / 结果行”。
+- `Toast` 固定在视口顶部居中、位于 48px 全局顶栏之下（`top-14`），浮于窗口、弹窗与预览之上（`z-[360]`），不参与布局；禁止在按钮、表单、列表、卡片或弹窗内部新增“提示条 / 提示栏 / 结果行”。
+- `Toast` 必须渲染进 body 级提示层（`data-larness-toast-layer`），不能就地渲染在调用点：输入区、结果卡片、窗口内容都处在各自的 `z-index` 堆叠上下文里（输入区 `z-10`、窗口层 `z-40`），就地渲染的提示会被顶栏（`z-50`）、窗口与弹窗（`z-[300]` / `z-[311]`）盖住。弹窗内的调用由 `DialogContent` 自带的 `ToastHost` 挂回弹窗内部，避免被 Radix 的 `aria-hidden` 与焦点陷阱隔离。
 - 失败使用 `tone="error"`（或既有别名 `ErrorMessage`），成功使用 `tone="success"`，中性状态使用 `tone="info"`。
 - 同一区域同一时刻只显示一条消息；新消息替换旧消息，不堆叠。
 - 可恢复错误应当提供 `retry`；不可恢复错误保留“关闭”。
@@ -53,6 +54,8 @@ import { Toast } from "@larness/ui";
 
 - 组件：`packages/ui/src/toast.tsx`，由 `packages/ui/src/index.ts` 导出。
 - 错误别名：`packages/ui/src/error-message.tsx`。
+- 顶层提示层与层级常量：`packages/ui/src/toast.tsx` 的 `TOAST_LAYER_CLASS` / `toastLayer()`（body 单例，`top-14` + `z-[360]`）。
+- 弹窗内提示宿主：`packages/ui/src/toast.tsx` 的 `ToastHost`，由 `packages/ui/src/dialog.tsx` 的 `DialogContent` 自动包裹。
 - 顶部滑入动画：`apps/web/src/styles/global.css` 的 `.toast-slide-in`；全局 `prefers-reduced-motion` 会关闭动画。
 - 组件测试：`apps/web/src/components/common/Toast.test.tsx`。
 - 会话内轻量开关的小字浮标：`apps/web/src/features/chat/Composer.tsx` 的 `switchNotice`（`absolute bottom-full`，4 秒后自动消失）。
@@ -71,3 +74,4 @@ import { Toast } from "@larness/ui";
 
 - 2026-11-20：把联网搜索弹窗的局部 `Toast` 与 `ErrorMessage` 合并为 `@larness/ui` 的单一 `Toast`；`ErrorMessage` 变为 `error` 别名。
 - 同日把终端打开结果、文件结果变化、配对错误、移动目录错误与快速打开搜索错误从行内提示迁到顶部 Toast；按人工验收反馈，模型切换与联网搜索开关保留输入框上方小字。
+- 2026-11-23：修复提示被顶栏遮挡（附件数量超限报错）。提示改为经 portal 渲染进 body 级提示层，层级提到 `z-[360]` 并下移到顶栏之下；弹窗内提示由 `DialogContent` 的 `ToastHost` 承载。回归用例：`apps/web/src/components/common/Toast.test.tsx` 的 `stacking` 用例。

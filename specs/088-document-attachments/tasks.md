@@ -325,3 +325,12 @@
 - 根因：`AttachmentCard` 用 `pr-1` 覆盖 chip 的 `px-2`，移除按钮又带 `-mr-0.5`，X 距离圆角仅约 2px，而产物标签尾部图标是 8px。
 - 修复：容器改 `pl-2 pr-1.5`，移除按钮保留 `p-0.5` 并去掉负外边距，尾部图标合成 8px，与左侧 `pl-2` 及产物标签对称；警示图标独占尾部时补 `mr-0.5`。
 - 测试：`AttachmentStrip.test.tsx` 新增“keeps the trailing control as far from the edge as the artifact icon”（断言 `pr-1.5`、无负外边距）与“pads a lone warning icon”（断言 `mr-0.5`）；`pnpm --filter @larness/web test` 53 文件 / 300 项通过，`typecheck` 与 `biome check` 通过。
+
+### DA-9 跟进：附件超限错误提示被顶栏遮挡（2026-11-23）
+
+- 现象：加入第 9 个附件时 `每轮最多添加 8 个附件。` 的 `Toast` 只在顶栏下方露出一条边，被顶栏压住。
+- 根因：`Toast` 就地渲染在 `Composer` 内，而输入区外层是 `relative z-10` 堆叠上下文；`fixed z-[360]` 无法跳出该上下文，于是被顶栏（`z-50`）、窗口层（`z-40`）、弹窗（`z-[300]` / `z-[311]`）与附件预览（`z-[340]`）盖住。同一缺陷也影响窗口内结果卡片与弹窗内的提示。
+- 修复：`packages/ui/src/toast.tsx` 改为 `createPortal` 渲染进 body 级单例提示层（`data-larness-toast-layer`，`TOAST_LAYER_CLASS` = `fixed inset-x-0 top-14 z-[360] flex flex-col items-center gap-2 px-4`）；提示本体去掉 `fixed`/`top-4`/`z`，只在层内纵向排列。新增 `ToastHost`，由 `DialogContent` 自动包裹，使弹窗内提示仍挂在弹窗 DOM 内（不被 Radix 的 `aria-hidden` 与焦点陷阱隔离）。
+- 位置变化：提示从 `top-4`（压在 48px 顶栏上）下移到 `top-14`（顶栏下方 8px），错误提示常驻时不再遮挡顶栏控件。
+- 测试：`apps/web/src/components/common/Toast.test.tsx` 把旧 `top-4` 断言改为层契约（body 子节点、`top-14`、`z-[360]`），并新增 `stacking` 两条回归——“escapes a low z-index stacking context of its caller”与“stays inside an open dialog so Radix does not hide or trap it”；`pnpm --filter @larness/web test` 53 文件 / 302 项通过，`@larness/ui`、`@larness/web` 的 `typecheck` 与 `biome check` 通过。
+- 未验证：本机无浏览器实机截图（`vite build` 受内存限制未跑），行内验证仅到 DOM 结构与 class 契约；`toast-slide-in` 动画在实际视口下的观感待人工验收。
