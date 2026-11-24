@@ -12,7 +12,13 @@ import {
 import { screenshotIds } from "../sessions/attachments.js";
 import { estimateRequestTokens, reservedOutputTokens } from "./tokenEstimator.js";
 
-export const COMPRESSION_RATIO = 0.8;
+/**
+ * Must stay strictly below the assembly trim budget (`DEFAULT_BUDGET.contextRatio`
+ * = 0.8): assembler trimming guarantees the request fits 0.8 of the window, so
+ * a compression threshold at 0.8 could never be observed. At 0.7 a long session
+ * is summarized before it is silently cut (specs/089 A4).
+ */
+export const COMPRESSION_RATIO = 0.7;
 const KEEP_RECENT = 12;
 /** Raised with the longer Turn wall clock: a merge pass may need a second call. */
 const SUMMARY_TIMEOUT_MS = 60_000;

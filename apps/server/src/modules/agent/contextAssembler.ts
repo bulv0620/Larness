@@ -86,6 +86,14 @@ export const TAIL_CONTEXT_HEADER =
  */
 export const HISTORY_TRIM_LOW_WATER_RATIO = 0.6;
 
+/**
+ * Rounding the drop point up to a block of messages is what actually keeps the
+ * prefix stable: history is re-read from the database every Turn, so without a
+ * persisted anchor a per-Turn trim would move the oldest retained message by
+ * whatever was appended. Dropping in blocks absorbs a few Turns of growth.
+ */
+export const HISTORY_TRIM_DROP_BLOCK = 4;
+
 const HISTORY_DROPPED_NOTICE =
   "Earlier conversation history was dropped to fit the context window. If a specific earlier detail matters, ask the user or re-read the project instead of assuming it.";
 /**
@@ -654,6 +662,18 @@ export function assembleContext(
       droppedHistory += 1;
       messages.splice(1, 1);
       truncatedHistory = true;
+      estimatedTokens = estimateRequestTokens(messages, tools);
+    }
+
+    // Round the drop point up so the next few Turns reuse the same anchor
+    // instead of shifting it by one message each time.
+    const roundedDrop = Math.min(
+      history.entries.length,
+      Math.ceil(droppedHistory / HISTORY_TRIM_DROP_BLOCK) * HISTORY_TRIM_DROP_BLOCK,
+    );
+    while (droppedHistory < roundedDrop) {
+      droppedHistory += 1;
+      messages.splice(1, 1);
       estimatedTokens = estimateRequestTokens(messages, tools);
     }
   }

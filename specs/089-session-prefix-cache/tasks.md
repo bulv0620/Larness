@@ -12,7 +12,7 @@
 | PA-1 | [稳定/易变分层装配](#pa-1-稳定易变分层装配) | PA-0 | `done`（2026-11-24） |
 | PA-2 | [前缀指纹与断裂归因](#pa-2-前缀指纹与断裂归因) | PA-1 | `done`（2026-11-24） |
 | PA-3 | [用量契约与按原因汇总](#pa-3-用量契约与按原因汇总) | PA-2 | `done`（2026-11-24） |
-| PA-4 | [压缩可达与裁剪滞回](#pa-4-压缩可达与裁剪滞回) | PA-1 | `todo` |
+| PA-4 | [压缩可达与裁剪滞回](#pa-4-压缩可达与裁剪滞回) | PA-1 | `done`（2026-11-24） |
 | PA-5 | [工具数组会话内稳定](#pa-5-工具数组会话内稳定) | PA-1 | `todo` |
 | PA-6 | [回归、真实 Provider 基线与验收](#pa-6-回归真实-provider-基线与验收) | PA-2, PA-3, PA-4, PA-5 | `todo` |
 | PA-7 | [文档与状态收口](#pa-7-文档与状态收口) | PA-6 | `todo` |
@@ -96,7 +96,7 @@
 
 ### PA-4 压缩可达与裁剪滞回
 
-- 状态：`todo`
+- 状态：`done`（2026-11-24）
 - 依赖：PA-1
 - 目标：长会话真正走摘要锚点，而不是每轮静默丢历史（A3/A4、R-5/R-6/R-7）。
 - 交付物：
@@ -112,6 +112,7 @@
 - 涉及路径：
   - `contextCompressor.ts`、`turn/budget.ts`、`contextAssembler.ts`、`turnRunner.ts`
 - 备注：滞回可单独回滚为固定 0.8。
+- 结果：`COMPRESSION_RATIO` 0.7（严格低于装配预算 0.8，回归「压缩死代码」）；裁剪触发 0.8、一次降到 0.6，并把丢弃条数向上取整到 4 条一块，使新增少量消息时丢点不移动；`HISTORY_SCAN_LIMIT` 满页时探测更早事件并置 `truncatedHistory`/`historyScanTruncated`（R-7）。新增用例：0.75 窗口的 Turn 真正发出 `context.compressed`（旧 0.8 阈值下同一输入不触发）、压缩后连续装配锚点不变、滞回丢点稳定、扫描截断置位。`contextCompressor.test.ts` 7 项 + `contextAssembler.test.ts` 11 项通过。
 
 ### PA-5 工具数组会话内稳定
 

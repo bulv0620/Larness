@@ -645,4 +645,117 @@ describe("context assembler", () => {
       }
     });
   });
+
+  it("trims to the low watermark so the history anchor stays put", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const seed = createTurn(sessionOptions, { sessionId: session.id, text: "seed" });
+        for (let index = 0; index < 80; index += 1) {
+          appendAgentEvent(opened.db, {
+            sessionId: session.id,
+            turnId: seed.turnId,
+            type: index % 2 === 0 ? "user.message" : "assistant.message",
+            payload: { text: `history-${index} ${"x".repeat(400)}` },
+            now: 10 + index,
+          });
+        }
+        opened.sqlite
+          .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+          .run(seed.turnId);
+        const created = createTurn(sessionOptions, { sessionId: session.id, text: "current" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, created.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const assemble = (maxContextTokens: number) =>
+          assembleContext(
+            {
+              db: opened.db,
+              registry: createFileToolRegistry(),
+              maxContextTokens,
+              policy: "standard",
+            },
+            sessionRow,
+            turn,
+          );
+
+        const full = assemble(128_000);
+        expect(full.truncatedHistory).toBe(false);
+
+        // A window that makes this exact request exceed the 0.8 assembly budget.
+        const window = Math.floor(full.estimatedTokens / 0.8) - 1;
+        const trimmed = assemble(window);
+        expect(trimmed.historyTrimmed).toBe(true);
+        expect(trimmed.firstHistorySeq).toBeGreaterThan(full.firstHistorySeq ?? 0);
+        expect(trimmed.estimatedTokens).toBeLessThanOrEqual(Math.floor(window * 0.65));
+
+        // The next Turn neither crosses the budget nor moves the anchor: the
+        // hysteresis is what keeps the cached prefix stable.
+        for (const [index, type] of ["user.message", "assistant.message"].entries()) {
+          appendAgentEvent(opened.db, {
+            sessionId: session.id,
+            turnId: seed.turnId,
+            type,
+            payload: { text: `later-${index} ${"y".repeat(200)}` },
+            now: 200 + index,
+          });
+        }
+        const next = assemble(window);
+        expect(next.firstHistorySeq).toBe(trimmed.firstHistorySeq);
+        // The drop point is rounded to a block, so a couple of appended
+        // messages do not shift the cached prefix.
+        expect(next.messages.length).toBe(trimmed.messages.length + 2);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("flags the history scan cap instead of hiding the oldest events", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const seed = createTurn(sessionOptions, { sessionId: session.id, text: "seed" });
+        for (let index = 0; index < 401; index += 1) {
+          appendAgentEvent(opened.db, {
+            sessionId: session.id,
+            turnId: seed.turnId,
+            type: "user.message",
+            payload: { text: `scan-${index}` },
+            now: 10 + index,
+          });
+        }
+        opened.sqlite
+          .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+          .run(seed.turnId);
+        const created = createTurn(sessionOptions, { sessionId: session.id, text: "current" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, created.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+          },
+          sessionRow,
+          turn,
+        );
+        expect(context.historyScanTruncated).toBe(true);
+        expect(context.truncatedHistory).toBe(true);
+        expect(context.messages.at(-1)?.content).toContain(
+          "Earlier conversation history was dropped",
+        );
+      } finally {
+        opened.close();
+      }
+    });
+  });
 });
