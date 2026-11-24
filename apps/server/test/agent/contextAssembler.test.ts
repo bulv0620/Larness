@@ -640,6 +640,28 @@ describe("context assembler", () => {
         expect(off.messages[0]?.content).toBe(day1.messages[0]?.content);
         expect(lastUserContent(off)).not.toContain("Web search and page fetching are available");
         expect(off.tools.map((tool) => tool.name)).not.toContain("web_search");
+
+        // R-12: the switch owns the tool array; a dead connection only shows up
+        // in the per-Turn policy block and in the executor's error.
+        const degraded = assembleContext(
+          {
+            db: opened.db,
+            registry,
+            maxContextTokens: 128_000,
+            policy: "standard",
+            agentProfile: "coding",
+            webToolsEnabled: true,
+            webSearchAvailable: false,
+          },
+          sessionRow,
+          turn,
+        );
+        expect(degraded.tools.map((tool) => tool.name)).toEqual(
+          expect.arrayContaining(["web_search", "fetch_url"]),
+        );
+        expect(lastUserContent(degraded)).not.toContain(
+          "Web search and page fetching are available",
+        );
       } finally {
         opened.close();
       }

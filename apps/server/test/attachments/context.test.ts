@@ -7,6 +7,10 @@ import { runMigrations } from "../../src/db/migrate.js";
 import { assembleContext } from "../../src/modules/agent/contextAssembler.js";
 import { AttachmentService } from "../../src/modules/attachments/service.js";
 import { AttachmentStorage } from "../../src/modules/attachments/storage.js";
+import {
+  createAttachmentToolBridge,
+  createAttachmentTools,
+} from "../../src/modules/attachments/tools.js";
 import { getTurnById } from "../../src/modules/sessions/repository.js";
 import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
@@ -198,6 +202,58 @@ describe("attachment context assembly", () => {
         expect(user && "images" in user ? user.images?.[0]?.mediaType : undefined).toBe(
           "image/webp",
         );
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("keeps attachment tools resident before any attachment exists", async () => {
+    await withTempDir(async (dir) => {
+      const { opened, service, session } = await setup(dir);
+      try {
+        const created = createTurn(
+          { db: opened.db },
+          { sessionId: session.id, text: "read it later" },
+        );
+        const row = getTurnById(opened.db, created.turnId);
+        if (row === null) throw new Error("turn row missing");
+
+        const registry = new ToolRegistry();
+        for (const tool of createAttachmentTools()) registry.register(tool);
+        const options = {
+          db: opened.db,
+          registry,
+          maxContextTokens: 128_000,
+          policy: "standard" as const,
+          attachments: service,
+          agentProfile: "coding" as const,
+        };
+
+        const before = assembleContext(options, session, row);
+        // Sorted by name; identity is what must not change later.
+        expect(before.tools.map((tool) => tool.name)).toEqual([
+          "list_attachments",
+          "read_attachment",
+          "search_attachment",
+        ]);
+
+        const bridge = createAttachmentToolBridge(service, session.id);
+        expect(await bridge.listAttachments({ limit: 20 })).toMatchObject({ ok: true });
+        expect(
+          await bridge.readAttachment({
+            attachmentId: "att_00000000-0000-0000-0000-000000000000",
+          }),
+        ).toMatchObject({ ok: false, errorCode: "ATTACHMENT_NOT_FOUND" });
+
+        await service.upload(session.id, {
+          filename: "notes.md",
+          mime: "text/markdown",
+          data: Buffer.from("# Notes\n\nbody").toString("base64"),
+        });
+
+        const after = assembleContext(options, session, row);
+        expect(after.tools).toEqual(before.tools);
       } finally {
         opened.close();
       }

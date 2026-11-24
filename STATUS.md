@@ -6,8 +6,8 @@
 
 ## 当前进行中
 
-- **089 PA-5 工具数组会话内稳定**（`main`，2026-11-24 开始）：附件工具常驻，无附件时由执行层返回 `ATTACHMENT_NOT_FOUND` / 空列表。
-- 后续同切片任务 PA-6～PA-7 按 `specs/089-session-prefix-cache/tasks.md` 顺序推进。
+- **089 PA-6 回归与验收**（`main`，2026-11-24 开始）：跑定向套件、`pnpm check` 与 `pnpm build`，写 `acceptance.md`；真实 Provider 基线按条件如实记录。
+- PA-7 收口随后进行。
 
 ## 阻塞与待确认
 

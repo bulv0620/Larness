@@ -115,6 +115,11 @@ export interface ContextAssemblerOptions {
   memory?: MemoryService;
   /** True only when this Turn enabled search and an active connection exists. */
   webSearchAvailable?: boolean;
+  /**
+   * True when this Turn enabled search. Gates the tool array so a flaky
+   * connection cannot rewrite tools; the executor reports unavailability.
+   */
+  webToolsEnabled?: boolean;
   attachments?: AttachmentService;
   modelAcceptsImages?: boolean;
   attachmentInlineTokens?: number;
@@ -500,14 +505,20 @@ export function assembleContext(
   const agentProfile = options.agentProfile ?? DEFAULT_AGENT_PROFILE;
   const webSearchAvailable =
     options.webSearchAvailable === true && profileHasPack(agentProfile, "web");
-  const attachmentToolsAvailable =
-    options.attachments !== undefined &&
-    options.attachments.readyAttachments(session.id).length > 0;
+  // Tools follow the explicit switch only: a connection that drops between
+  // Turns must not remove the tools and invalidate the prefix.
+  const webToolsEnabled =
+    (options.webToolsEnabled ?? options.webSearchAvailable === true) &&
+    profileHasPack(agentProfile, "web");
+  // Attachment tools stay resident for the whole session: removing them when
+  // the last attachment is gone rewrites the tool array (and thus the whole
+  // cached prefix). Availability is expressed by the executor instead.
+  const attachmentToolsAvailable = options.attachments !== undefined;
   const tools = providerTools(
     options.registry,
     hasProject,
     agentProfile,
-    webSearchAvailable,
+    webToolsEnabled,
     attachmentToolsAvailable,
   );
   const decisions = (["L0", "L1", "L2", "L3"] as const)

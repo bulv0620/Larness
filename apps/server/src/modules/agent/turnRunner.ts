@@ -415,9 +415,13 @@ export class TurnRunner {
     // its handler. Extension/test tools outside the catalog stay available.
     const webRuntime = this.#options.webSearch;
     const webSettings = webRuntime?.settings() ?? DEFAULT_WEB_SEARCH_SETTINGS;
-    const webSearchAvailable = turn.webSearchEnabled && (webRuntime?.available() ?? false);
+    const webToolsEnabled = turn.webSearchEnabled;
+    const webSearchAvailable = webToolsEnabled && (webRuntime?.available() ?? false);
     const disabledTools = new Set(disabledToolsForProfile(session.agentProfile));
-    if (!webSearchAvailable) {
+    // Only the explicit switch removes the tools. When it is on but the
+    // connection is down, the handler fails with a stable code instead of the
+    // tool array changing under the cached prefix.
+    if (!webToolsEnabled) {
       for (const name of WEB_TOOL_NAMES) disabledTools.add(name);
     }
     let webSearchCalls = 0;
@@ -1224,6 +1228,7 @@ export class TurnRunner {
           ? {}
           : { attachmentContextRatio: this.#options.attachmentContextRatio }),
         webSearchAvailable,
+        webToolsEnabled,
         now: () => this.#now(),
       };
       let previousPrefix: PrefixSnapshot | null = readPreviousPrefix(this.#options.db, session.id);

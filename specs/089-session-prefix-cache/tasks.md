@@ -13,7 +13,7 @@
 | PA-2 | [前缀指纹与断裂归因](#pa-2-前缀指纹与断裂归因) | PA-1 | `done`（2026-11-24） |
 | PA-3 | [用量契约与按原因汇总](#pa-3-用量契约与按原因汇总) | PA-2 | `done`（2026-11-24） |
 | PA-4 | [压缩可达与裁剪滞回](#pa-4-压缩可达与裁剪滞回) | PA-1 | `done`（2026-11-24） |
-| PA-5 | [工具数组会话内稳定](#pa-5-工具数组会话内稳定) | PA-1 | `todo` |
+| PA-5 | [工具数组会话内稳定](#pa-5-工具数组会话内稳定) | PA-1 | `done`（2026-11-24） |
 | PA-6 | [回归、真实 Provider 基线与验收](#pa-6-回归真实-provider-基线与验收) | PA-2, PA-3, PA-4, PA-5 | `todo` |
 | PA-7 | [文档与状态收口](#pa-7-文档与状态收口) | PA-6 | `todo` |
 
@@ -116,7 +116,7 @@
 
 ### PA-5 工具数组会话内稳定
 
-- 状态：`todo`
+- 状态：`done`（2026-11-24）
 - 依赖：PA-1
 - 目标：附件工具常驻，能力不可用由执行层表达（A5、R-11/R-12、D3）。
 - 交付物：
@@ -131,6 +131,7 @@
 - 涉及路径：
   - `contextAssembler.ts`、`apps/server/src/modules/attachments/tools.ts`、相关测试
 - 备注：会改变模型可见能力，须在 PA-0 得到确认后才做。
+- 结果：`providerTools` 不再按 `readyAttachments()` 增删附件三件套，改由「注入了附件服务」决定；联网工具改由 `webToolsEnabled`（本 Turn 显式开关）决定，连接健康只影响 tail 里的策略文案，执行层用 `WEB_SEARCH_NOT_CONFIGURED` 拒绝，`disabledTools` 也随之只在开关关闭时生效。新增用例：无附件时三件套常驻、上传附件前后 `tools` 深度相等、无附件 `read_attachment` 返回 `ATTACHMENT_NOT_FOUND`、`list_attachments` 返回 `ok`；联网开关打开但连接不可用时工具仍在且不注入策略文案。`contextAssembler.test.ts` 11 项 + `attachments/context.test.ts` 5 项通过。
 
 ### PA-6 回归、真实 Provider 基线与验收
 
