@@ -561,6 +561,19 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | PA-6 | [回归、真实 Provider 基线与验收](089-session-prefix-cache/tasks.md#pa-6-回归真实-provider-基线与验收) | PA-2, PA-3, PA-4, PA-5 | `done`（2026-11-24） |
 | PA-7 | [文档与状态收口](089-session-prefix-cache/tasks.md#pa-7-文档与状态收口) | PA-6 | `done`（2026-11-24） |
 
+### 8.16 发布后：Provider 失败重试、诊断与标题超时（090，done）
+
+用户报告 `PROVIDER_UNAVAILABLE` / `PROVIDER_UNKNOWN` 经常让整轮 Turn 失败，且会话标题频繁不生成。诊断：内核只在 SDK 内层对 5xx/429/网络错误重试 1 次，流中断、超时与 `PROVIDER_UNKNOWN` 不重试；`statusCode` 未进日志；标题被 20 秒硬超时打断。规格见 [090](090-provider-retry/spec.md)，方案见 [plan](090-provider-retry/plan.md)。
+
+门禁：用户 2026-11-24 直接要求“开个任务完成修改”，批准 D1–D4 推荐方案（共 3 次尝试、1s/2s 退避；`PROVIDER_UNKNOWN` 仅无状态码或 ≥500/408/409 重试；单次 >60s 不重试；标题 60s + `maxRetries: 0`）。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| PR-1 | [失败测试：重试判定与 TurnRunner 行为](090-provider-retry/tasks.md#pr-1-失败测试重试判定与-turnrunner-行为) | — | `done`（2026-11-24） |
+| PR-2 | [步骤级重试与结构化失败日志](090-provider-retry/tasks.md#pr-2-步骤级重试与结构化失败日志) | PR-1 | `done`（2026-11-24） |
+| PR-3 | [标题超时/诊断与压缩显式重试预算](090-provider-retry/tasks.md#pr-3-标题超时诊断与压缩显式重试预算) | PR-1 | `done`（2026-11-24） |
+| PR-4 | [验证、文档与状态回填](090-provider-retry/tasks.md#pr-4-验证文档与状态回填) | PR-2, PR-3 | `done`（2026-11-24） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

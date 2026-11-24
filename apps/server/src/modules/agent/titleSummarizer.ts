@@ -1,4 +1,10 @@
-import type { ModelMessage, ProviderAdapter, ProviderChunk } from "@larness/agent";
+import {
+  type ModelMessage,
+  type ProviderAdapter,
+  type ProviderChunk,
+  ProviderError,
+  type ProviderFinishReason,
+} from "@larness/agent";
 import { and, asc, desc, eq, ne } from "drizzle-orm";
 import type { Database } from "../../db/client.js";
 import { agentEvents, type SessionRow, turns } from "../../db/schema.js";
@@ -16,7 +22,12 @@ const MAX_TITLE_LENGTH = 48;
  * 1024 covers the reasoning pass plus the title itself.
  */
 const TITLE_OUTPUT_TOKENS = 1_024;
-const TITLE_TIMEOUT_MS = 20_000;
+/**
+ * Titles race the Turn: a slow first step used to abort the title at 20s and
+ * the session kept its derived title forever. The call is fire-and-forget, so
+ * a longer budget costs nothing in the conversation.
+ */
+const TITLE_TIMEOUT_MS = 60_000;
 /** First user message + final answer is plenty to name a conversation. */
 const MAX_SOURCE_CHARS = 2_000;
 
@@ -72,11 +83,21 @@ function titlePrompt(userText: string | null, assistantText: string | null): Mod
   ];
 }
 
+export interface TitleSummaryFailure {
+  reason: "provider_error" | "empty_text";
+  code?: string;
+  statusCode?: number;
+  finishReason?: ProviderFinishReason;
+  sawReasoning?: boolean;
+}
+
 export async function summarizeTitle(options: {
   provider: TitleProvider;
   userText: string | null;
   assistantText: string | null;
   signal: AbortSignal;
+  /** Optional diagnostic hook: the caller logs why the title did not land. */
+  onFailure?: (failure: TitleSummaryFailure) => void;
 }): Promise<string | null> {
   if (options.userText === null && options.assistantText === null) {
     return null;
@@ -91,28 +112,63 @@ export async function summarizeTitle(options: {
       maxOutputTokens: TITLE_OUTPUT_TOKENS,
       tools: [],
       signal: options.signal,
+      // The title has its own abort budget; SDK retries would stack on top of it.
+      maxRetries: 0,
       ...(options.provider.apiKey === undefined ? {} : { apiKey: options.provider.apiKey }),
       ...(options.provider.endpoint === undefined ? {} : { endpoint: options.provider.endpoint }),
     })) {
       chunks.push(chunk);
     }
-  } catch {
+  } catch (error) {
+    options.onFailure?.({
+      reason: "provider_error",
+      ...(error instanceof ProviderError ? { code: error.code } : {}),
+      ...(error instanceof ProviderError && error.statusCode !== undefined
+        ? { statusCode: error.statusCode }
+        : {}),
+    });
     return null;
   }
 
   let text = "";
+  let sawReasoning = false;
+  let finishReason: ProviderFinishReason | undefined;
 
   for (const chunk of chunks) {
     if (chunk.type === "text-delta") {
       text += chunk.text;
     }
 
+    if (chunk.type === "reasoning-delta") {
+      sawReasoning = true;
+    }
+
+    if (chunk.type === "finish") {
+      finishReason = chunk.finishReason;
+    }
+
     if (chunk.type === "error") {
+      options.onFailure?.({
+        reason: "provider_error",
+        code: chunk.error.code,
+        ...(chunk.error.statusCode === undefined ? {} : { statusCode: chunk.error.statusCode }),
+        sawReasoning,
+      });
       return null;
     }
   }
 
-  return sanitizeGeneratedTitle(text);
+  const title = sanitizeGeneratedTitle(text);
+
+  if (title === null) {
+    options.onFailure?.({
+      reason: "empty_text",
+      sawReasoning,
+      ...(finishReason === undefined ? {} : { finishReason }),
+    });
+  }
+
+  return title;
 }
 
 function parseText(json: string): string {
@@ -202,10 +258,15 @@ export async function summarizeSessionTitle(options: {
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? TITLE_TIMEOUT_MS);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, options.timeoutMs ?? TITLE_TIMEOUT_MS);
   timer.unref?.();
 
   let title: string | null = null;
+  let failure: TitleSummaryFailure | null = null;
 
   try {
     title = await summarizeTitle({
@@ -213,6 +274,9 @@ export async function summarizeSessionTitle(options: {
       userText,
       assistantText,
       signal: controller.signal,
+      onFailure: (info) => {
+        failure = info;
+      },
     });
   } finally {
     clearTimeout(timer);
@@ -221,7 +285,14 @@ export async function summarizeSessionTitle(options: {
   if (title === null) {
     // Silent by design for the user, but a title that never lands is a bug:
     // reasoning-only answers (`finishReason: "length"`) look exactly like this.
-    options.logger?.warn({ sessionId: options.sessionId }, "title summary produced no usable text");
+    options.logger?.warn(
+      {
+        sessionId: options.sessionId,
+        timedOut,
+        ...(failure ?? { reason: "empty_text" }),
+      },
+      "title summary produced no usable text",
+    );
     return false;
   }
 

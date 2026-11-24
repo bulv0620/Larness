@@ -703,7 +703,8 @@ describe("TurnRunner", () => {
         // No cap by default: a fixed limit truncates thinking models before
         // they emit an answer (reasoning tokens share the output budget).
         expect(call?.maxOutputTokens).toBeUndefined();
-        expect(call?.maxRetries).toBe(1);
+        // Step-level retry (090) allows two extra attempts for transient 5xx.
+        expect(call?.maxRetries).toBe(2);
         expect(call?.timeoutMs).toBeGreaterThan(0);
         expect(call?.timeoutMs).toBeLessThanOrEqual(5_000);
       } finally {
@@ -2030,21 +2031,22 @@ describe("TurnRunner", () => {
         const sessionOptions = { db: opened.db, dataDir: dir };
         const session = await createSession(sessionOptions, {});
         const turn = createTurn(sessionOptions, { sessionId: session.id, text: "fail" });
-        const provider = createFakeProvider([
-          {
-            chunks: [
-              {
-                type: "error",
-                error: new ProviderError("PROVIDER_RATE_LIMITED", "rate limited"),
-              },
-            ],
-          },
-        ]);
+        const rateLimited = {
+          chunks: [
+            {
+              type: "error" as const,
+              error: new ProviderError("PROVIDER_RATE_LIMITED", "rate limited"),
+            },
+          ],
+        };
+        // Step-level retry keeps the last stable code after three attempts.
+        const provider = createFakeProvider([rateLimited, rateLimited, rateLimited]);
         const runner = new TurnRunner({
           db: opened.db,
           registry: createFileToolRegistry(),
           resolveProvider: () => ({ adapter: provider, model: "fake" }),
           publish: () => undefined,
+          providerRetryDelayMs: 0,
         });
 
         const result = await runner.run(turn.turnId);

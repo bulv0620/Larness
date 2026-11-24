@@ -12,6 +12,7 @@ import {
   sanitizeGeneratedTitle,
   summarizeSessionTitle,
   summarizeTitle,
+  type TitleSummaryFailure,
 } from "../../src/modules/agent/titleSummarizer.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
 import { getSessionById } from "../../src/modules/sessions/repository.js";
@@ -53,6 +54,7 @@ function titleRunner(db: Database, provider: ReturnType<typeof createFakeProvide
     db,
     registry: createFileToolRegistry(),
     resolveProvider: () => ({ adapter: provider, model: "fake" }),
+    providerRetryDelayMs: 0,
     titleSummarizer: ({ session, turn }) =>
       summarizeSessionTitle({
         db,
@@ -285,6 +287,104 @@ describe("session title summary (first message sent)", () => {
         await runner.pendingTitleWork();
 
         expect(sessionTitle(opened.db, session.id).title).toBe("修复超时");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+});
+
+describe("summarizeTitle diagnostics", () => {
+  it("asks for no SDK retries and explains why the title call failed", async () => {
+    const failures: TitleSummaryFailure[] = [];
+    const provider = createFakeProvider([errorStep()]);
+
+    expect(
+      await summarizeTitle({
+        provider: { adapter: provider, model: "fake" },
+        userText: "帮我修复登录超时",
+        assistantText: null,
+        signal: new AbortController().signal,
+        onFailure: (failure) => failures.push(failure),
+      }),
+    ).toBeNull();
+
+    // The title has its own budget; SDK defaults must not extend it.
+    expect(provider.calls[0]?.maxRetries).toBe(0);
+    expect(failures).toEqual([
+      expect.objectContaining({ reason: "provider_error", code: "PROVIDER_UNAVAILABLE" }),
+    ]);
+  });
+
+  it("reports empty output when the model only produced reasoning", async () => {
+    const failures: TitleSummaryFailure[] = [];
+    const provider = createFakeProvider([
+      {
+        chunks: [
+          { type: "reasoning-delta", text: "thinking about a title" },
+          { type: "finish", finishReason: "length" },
+        ],
+      },
+    ]);
+
+    expect(
+      await summarizeTitle({
+        provider: { adapter: provider, model: "fake" },
+        userText: "会话标题怎么生成的",
+        assistantText: null,
+        signal: new AbortController().signal,
+        onFailure: (failure) => failures.push(failure),
+      }),
+    ).toBeNull();
+    expect(failures[0]).toMatchObject({
+      reason: "empty_text",
+      finishReason: "length",
+      sawReasoning: true,
+    });
+  });
+});
+
+describe("session title summary diagnostics", () => {
+  it("keeps the derived title and records a timed-out summary", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "修复超时" });
+        const provider = createFakeProvider([{ chunks: [], delayMs: 50 }, textStep("已完成")]);
+        const logs: { fields: Record<string, unknown>; message: string }[] = [];
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+          providerRetryDelayMs: 0,
+          titleSummarizer: ({ session: current, turn: currentTurn }) =>
+            summarizeSessionTitle({
+              db: opened.db,
+              sessionId: current.id,
+              turnId: currentTurn.id,
+              provider: { adapter: provider, model: "fake" },
+              timeoutMs: 5,
+              logger: { warn: (fields, message) => logs.push({ fields, message }) },
+            }).then(() => undefined),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+        await runner.pendingTitleWork();
+
+        expect(sessionTitle(opened.db, session.id).title).toBe("修复超时");
+        expect(logs).toContainEqual(
+          expect.objectContaining({
+            message: "title summary produced no usable text",
+            fields: expect.objectContaining({
+              timedOut: true,
+              reason: "provider_error",
+              code: "PROVIDER_ABORTED",
+            }),
+          }),
+        );
       } finally {
         opened.close();
       }

@@ -81,6 +81,11 @@ import {
   prefixSnapshot,
   readPreviousPrefix,
 } from "./turn/prefixCache.js";
+import {
+  type ProviderStepFailure,
+  providerRetryDelayMs,
+  shouldRetryProviderStep,
+} from "./turn/providerRetry.js";
 import { createSecretLoader } from "./turn/secrets.js";
 import { isStalled } from "./turn/stall.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
@@ -186,6 +191,8 @@ export interface TurnRunnerOptions {
   lockPollMs?: number;
   /** Per-model-request timeout; defaults to 10 minutes. */
   requestTimeoutMs?: number;
+  /** Base backoff between provider step retries; defaults to 1s (tests use 0). */
+  providerRetryDelayMs?: number;
   /** No-progress pause threshold; 0 disables the check. Defaults to 10 minutes. */
   stallTimeoutMs?: number;
   commands?: CommandManager;
@@ -1412,9 +1419,9 @@ export class TurnRunner {
         const toolRequests: ToolCallRequest[] = [];
         let finishReason: ProviderFinishReason = "other";
         let stepUsage: ProviderUsage | undefined;
-        let providerError: { code: string; message: string } | null = null;
+        let providerError: ProviderStepFailure | null = null;
+        let stepAttempts = 0;
 
-        const remainingMs = Math.max(1_000, Math.min(deadline - this.#now(), requestTimeoutMs));
         const stepStartedAt = this.#now();
         let heuristicTokens = estimateRequestTokens(messages, tools);
         let estimatedInputTokens = calibrateEstimate({
@@ -1635,79 +1642,144 @@ export class TurnRunner {
           );
         }
 
-        for await (const chunk of resolved.adapter.streamStep({
-          model: resolved.model,
-          messages,
-          tools,
-          signal: controller.signal,
-          timeoutMs: remainingMs,
-          ...(maxOutputTokens > 0
-            ? {
-                maxOutputTokens: Math.min(
-                  maxOutputTokens,
-                  Math.max(1, contextWindow - estimatedInputTokens),
-                ),
-              }
-            : {}),
-          maxRetries: 1,
-          ...(resolved.apiKey === undefined ? {} : { apiKey: resolved.apiKey }),
-          ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
-          ...(resolved.thinking === undefined ? {} : { thinking: resolved.thinking }),
-        })) {
-          markProgress();
+        while (true) {
+          stepAttempts += 1;
+          let attemptFailure: ProviderStepFailure | null = null;
+          const attemptStartedAt = this.#now();
+          const attemptTimeoutMs = Math.max(
+            1_000,
+            Math.min(deadline - this.#now(), requestTimeoutMs),
+          );
 
-          if (chunk.type === "text-delta") {
-            if (steps === 1 && timing.firstTokenMs === undefined) {
-              timing.firstTokenMs = this.#now() - stepStartedAt;
+          for await (const chunk of resolved.adapter.streamStep({
+            model: resolved.model,
+            messages,
+            tools,
+            signal: controller.signal,
+            timeoutMs: attemptTimeoutMs,
+            ...(maxOutputTokens > 0
+              ? {
+                  maxOutputTokens: Math.min(
+                    maxOutputTokens,
+                    Math.max(1, contextWindow - estimatedInputTokens),
+                  ),
+                }
+              : {}),
+            maxRetries: 2,
+            ...(resolved.apiKey === undefined ? {} : { apiKey: resolved.apiKey }),
+            ...(resolved.endpoint === undefined ? {} : { endpoint: resolved.endpoint }),
+            ...(resolved.thinking === undefined ? {} : { thinking: resolved.thinking }),
+          })) {
+            markProgress();
+
+            if (chunk.type === "text-delta") {
+              if (steps === 1 && timing.firstTokenMs === undefined) {
+                timing.firstTokenMs = this.#now() - stepStartedAt;
+              }
+
+              text += chunk.text;
+              this.#publishDelta(turn, session, {
+                kind: "assistant.delta",
+                protocolVersion: 1,
+                topic: "agent",
+                streamId: turn.sessionId,
+                sessionId: turn.sessionId,
+                turnId: turn.id,
+                messageId: assistantMessageId,
+                text: chunk.text,
+                timestamp: this.#now(),
+              });
+              continue;
             }
 
-            text += chunk.text;
-            this.#publishDelta(turn, session, {
-              kind: "assistant.delta",
-              protocolVersion: 1,
-              topic: "agent",
-              streamId: turn.sessionId,
-              sessionId: turn.sessionId,
-              turnId: turn.id,
-              messageId: assistantMessageId,
-              text: chunk.text,
-              timestamp: this.#now(),
-            });
-            continue;
+            if (chunk.type === "reasoning-delta") {
+              reasoning += chunk.text;
+              this.#publishDelta(turn, session, {
+                kind: "assistant.reasoning.delta",
+                protocolVersion: 1,
+                topic: "agent",
+                streamId: turn.sessionId,
+                sessionId: turn.sessionId,
+                turnId: turn.id,
+                messageId: assistantMessageId,
+                text: chunk.text,
+                timestamp: this.#now(),
+              });
+              continue;
+            }
+
+            if (chunk.type === "tool-call") {
+              toolRequests.push(chunk.toolCall);
+              continue;
+            }
+
+            if (chunk.type === "finish") {
+              finishReason = chunk.finishReason;
+              stepUsage = chunk.usage;
+              continue;
+            }
+
+            attemptFailure = {
+              code: chunk.error.code,
+              message: chunk.error.message,
+              ...(chunk.error.statusCode === undefined
+                ? {}
+                : { statusCode: chunk.error.statusCode }),
+            };
+            break;
           }
 
-          if (chunk.type === "reasoning-delta") {
-            reasoning += chunk.text;
-            this.#publishDelta(turn, session, {
-              kind: "assistant.reasoning.delta",
-              protocolVersion: 1,
-              topic: "agent",
-              streamId: turn.sessionId,
-              sessionId: turn.sessionId,
-              turnId: turn.id,
-              messageId: assistantMessageId,
-              text: chunk.text,
-              timestamp: this.#now(),
-            });
-            continue;
+          providerError = attemptFailure;
+
+          if (attemptFailure === null) {
+            break;
           }
 
-          if (chunk.type === "tool-call") {
-            toolRequests.push(chunk.toolCall);
-            continue;
+          const attemptElapsedMs = this.#now() - attemptStartedAt;
+
+          if (
+            !shouldRetryProviderStep({
+              failure: attemptFailure,
+              attempts: stepAttempts,
+              emittedOutput:
+                text.length > 0 ||
+                reasoning.length > 0 ||
+                toolRequests.length > 0 ||
+                stepUsage !== undefined,
+              elapsedMs: attemptElapsedMs,
+              remainingMs: deadline - this.#now(),
+            })
+          ) {
+            break;
           }
 
-          if (chunk.type === "finish") {
-            finishReason = chunk.finishReason;
-            stepUsage = chunk.usage;
-            continue;
-          }
+          const retryDelayMs = providerRetryDelayMs(
+            stepAttempts,
+            this.#options.providerRetryDelayMs,
+          );
 
-          providerError = {
-            code: chunk.error.code,
-            message: chunk.error.message,
-          };
-          break;
+          this.#options.logger?.info(
+            {
+              turnId,
+              sessionId: session.id,
+              step: steps,
+              attempt: stepAttempts + 1,
+              delayMs: retryDelayMs,
+              elapsedMs: attemptElapsedMs,
+              errorCode: attemptFailure.code,
+              ...(attemptFailure.statusCode === undefined
+                ? {}
+                : { statusCode: attemptFailure.statusCode }),
+            },
+            "provider step retry",
+          );
+
+          await delay(retryDelayMs, controller.signal);
+
+          if (controller.signal.aborted) {
+            providerError = { code: "PROVIDER_ABORTED", message: "provider request aborted" };
+            break;
+          }
         }
 
         usage = addUsage(usage, stepUsage);
@@ -1788,6 +1860,20 @@ export class TurnRunner {
         }
 
         if (providerError !== null) {
+          this.#options.logger?.warn(
+            {
+              turnId,
+              sessionId: session.id,
+              step: steps,
+              attempts: stepAttempts,
+              errorCode: providerError.code,
+              ...(providerError.statusCode === undefined
+                ? {}
+                : { statusCode: providerError.statusCode }),
+            },
+            "provider step failed",
+          );
+
           if (providerError.code === "PROVIDER_ABORTED") {
             if (deadlineReached) {
               return await finalize("COMPLETED", {

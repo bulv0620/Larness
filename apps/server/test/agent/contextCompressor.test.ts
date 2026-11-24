@@ -81,6 +81,7 @@ describe("context compression", () => {
         });
 
         expect(result).toMatchObject({ degraded: false });
+        expect(adapter.calls[0]?.maxRetries).toBe(1);
         expect(result?.coveredUpToSeq).toBeGreaterThan(0);
         const summary = latestContextSummary(opened.db, session.id);
         expect(summary?.summary).toContain("SUMMARY");

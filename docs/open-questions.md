@@ -13,6 +13,7 @@
 | 正式服务 | 核实主机重启后恢复与 PM2 运行时升级行为；正式服务秘密注入及落盘边界见 Q-029。 | [M4 收尾](../specs/050-deploy/closure.md) |
 | 模型 | 实测真实第三方兼容端点与接近窗口阈值的长会话压缩质量及 UI。真实 GLM Coding 文本、推理和工具调用已有证据。 | [多模型验收](../specs/063-multi-provider/closure-d4.md) |
 | 模型连接与截图 | 使用合法持有的 Key 逐预设验收真实模型发现、流式工具调用、续步和用量。使用支持图片与工具的真实线路验证截图输入。 | [077 验收记录](../specs/077-model-connections/acceptance.md) |
+| Provider 重试 | 090 的步骤级重试、`PROVIDER_UNKNOWN` 分类与标题超时只在 FakeProvider 上验证；真实 5xx / 流中断 / 429 `retry-after` / 60s 窗口需按 `provider step retry`、`provider step failed`、`title summary produced no usable text` 日志核对。 | [090 tasks](../specs/090-provider-retry/tasks.md#验收记录2026-11-24macos) |
 | 调度 | 补真实 Provider 定时任务、取消到终态的时延、实际重启和休眠唤醒、失败角标、任务数满额和视觉记录。 | [调度验收](../specs/064-scheduler/acceptance.md) |
 | npm | 真实 registry 出现新版本时验证 TUI 提示；全局安装的交互 TUI 缺独立验收。npm 11 脚本策略可能影响原生模块安装。 | [分发验收](../specs/065-launcher-updater/acceptance.md)、[安装指南](guides/install.md) |
 | 全量回归 | auth E2E 有批量时序抖动，终端用例可单独通过；对话用例仍有旧计划选择器失败记录。预览验收也记录过 PTY 测试时序抖动。2026-11-16 先后两次复现：`pnpm test` 全量 9 文件 / 16 项失败（前一次）、153 文件 / 744 用例中 37 失败 / 675 通过 / 31 跳过 + 3 个 worker 崩溃（081 改动后），失败项全部落在真实子进程、PTY、预览、Vite 与终端组。081 那次对同一 15 个文件定点串行复跑：13 个通过，只有 2 项是契约变更导致的真实断言失败并已修复，其余为并行负载与 `Worker forks emitted error` / `Unable to deserialize cloned data` 类崩溃。 | [调度验收](../specs/064-scheduler/acceptance.md)、[M3 收尾](../specs/040-services-preview/closure.md)、[079 验收记录](../specs/079-plan-progress/tasks.md#验收记录)、[081 验收记录](../specs/081-agent-lean/tasks.md#验收记录) |

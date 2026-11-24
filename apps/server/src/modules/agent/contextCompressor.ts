@@ -300,6 +300,7 @@ async function summarizeOnce(options: {
         : {}),
       tools: [],
       signal: options.signal,
+      maxRetries: 1,
       ...(options.apiKey === undefined ? {} : { apiKey: options.apiKey }),
       ...(options.endpoint === undefined ? {} : { endpoint: options.endpoint }),
     })) {
