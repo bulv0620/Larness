@@ -74,10 +74,9 @@ apps/server/test/attachments/
   context.test.ts
 apps/web/src/features/chat/
   AttachmentTray.tsx        输入区草稿附件
-  AttachmentStrip.tsx       时间线气泡外附件区
-  AttachmentCard.tsx        文档卡片
+  AttachmentStrip.tsx       时间线气泡下方附件区
+  AttachmentCard.tsx        固定宽附件标签（图标 + 文件名，详情进 tooltip）
   AttachmentPreview.tsx     只读 markdown 预览/原图 lightbox
-  AttachmentStatus.tsx      状态、页数、方法、warning 标记
 apps/web/src/features/chat/*.test.tsx
 apps/web/e2e/attachments.spec.ts
 
@@ -170,13 +169,14 @@ specs/051-agent-tool-contract/spec.md
 
 ### DA-7 UI：气泡外附件、草稿托盘与预览
 
-1. 先写组件测试：附件区与气泡同级、文本为空不渲染气泡、状态与失败提示。
-2. `Composer`：加号/回形针选择文件；拖拽；已存在会话上传即解析；草稿会话在首条消息创建会话后上传；草稿托盘显示缩略图/文档卡片/状态/移除/重试。
+1. 先写组件测试：附件区在气泡下方、文本为空不渲染气泡、状态与失败提示。
+2. `Composer`：加号/回形针选择文件；拖拽；已存在会话上传即解析；草稿会话在首条消息创建会话后上传；草稿托盘显示标签/状态/移除/重试。
 3. 解析中或 failed 阻止发送；草稿会话解析 ready 前不创建 Turn；图片在无视觉/OCR 时显示“不可用”原因。
-4. `TimelineItemView`：用户消息拆为 attachment strip + text bubble；保留 `attachmentIds` 兼容旧数据。
+4. `TimelineItemView`：用户消息渲染为 text bubble + attachment strip（标签在气泡下方）；`attachmentIds` 只在没有附件引用的旧事件上按截图渲染。
 5. `AttachmentPreview`：文档只读 markdown、原图 lightbox、下载原文件；使用认证 URL。
 6. 成功/失败操作提示走 `@larness/ui` Toast；逐文件状态留在托盘内。
 7. 窄屏与 1440×900 截图基线。
+8. DA-9 收口：图片与文档统一为固定宽“图标 + 文件名”标签，页数/方法/警告进 tooltip；修复 `attachmentIds` 被同时当作旧截图渲染造成的重复与破图。
 
 ### DA-8 安全、E2E 与验收
 

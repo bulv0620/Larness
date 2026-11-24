@@ -469,4 +469,47 @@ describe("turn file results", () => {
     expect(items[0]).toMatchObject({ turnOutcome: "completed" });
     expect(items[0]).not.toHaveProperty("fileResults");
   });
+
+  it("renders attachment refs without duplicating them as screenshots", () => {
+    const attachmentId = "att_11111111-1111-4111-8111-111111111111";
+    const items = eventsToTimeline([
+      event("user.message", {
+        turnId: "trn_1",
+        text: "总结这份文档",
+        attachmentIds: [attachmentId],
+        attachments: [
+          {
+            id: attachmentId,
+            filename: "看板需求.pdf",
+            mime: "application/pdf",
+            kind: "document",
+            sizeBytes: 2048,
+            status: "ready",
+            method: "text-layer",
+            pageCount: 4,
+          },
+        ],
+      }),
+    ]);
+
+    expect(items[0]).toMatchObject({ kind: "message", role: "user" });
+    expect(items[0]).not.toHaveProperty("screenshots");
+    expect(items[0]).toHaveProperty("attachments");
+  });
+
+  it("keeps inline screenshots for pre-088 events without refs", () => {
+    const screenshotId = "att_22222222-2222-4222-8222-222222222222";
+    const items = eventsToTimeline([
+      event("user.message", {
+        turnId: "trn_1",
+        text: "看这个",
+        attachmentIds: [screenshotId],
+      }),
+    ]);
+
+    expect(items[0]).toMatchObject({
+      screenshots: { sessionId: "ses_1", ids: [screenshotId] },
+    });
+    expect(items[0]).not.toHaveProperty("attachments");
+  });
 });

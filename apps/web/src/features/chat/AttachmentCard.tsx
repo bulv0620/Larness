@@ -1,5 +1,5 @@
 import { cn } from "@larness/ui";
-import { FileText, Image as ImageIcon, Loader2, X } from "lucide-react";
+import { AlertTriangle, FileText, Image as ImageIcon, Loader2, X } from "lucide-react";
 
 export interface AttachmentCardData {
   id?: string;
@@ -33,6 +33,24 @@ const errorLabel: Record<string, string> = {
   ATTACHMENT_STORAGE_FAILED: "存储不可用",
 };
 
+/** Secondary facts live in the tooltip so every tag keeps the same width. */
+export function attachmentDetail(item: AttachmentCardData): string {
+  return [
+    item.status === "uploading" || item.status === "pending" ? "解析中" : null,
+    item.status === "failed"
+      ? item.errorCode
+        ? (errorLabel[item.errorCode] ?? "解析失败")
+        : "解析失败"
+      : null,
+    item.pageCount ? `${item.pageCount} 页` : null,
+    item.method && item.method !== "none" ? methodLabel[item.method] : null,
+    item.warningCount ? `${item.warningCount} 条警告` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/** One fixed-width tag: a status icon plus the truncated file name. */
 export function AttachmentCard({
   item,
   disabled = false,
@@ -44,62 +62,53 @@ export function AttachmentCard({
   onRemove?: () => void;
   onOpen?: () => void;
 }) {
-  const Icon = item.kind === "image" ? ImageIcon : FileText;
-  const meta = [
-    item.pageCount ? `${item.pageCount} 页` : null,
-    item.method && item.method !== "none" ? methodLabel[item.method] : null,
-    item.warningCount ? `${item.warningCount} 条警告` : null,
-  ].filter(Boolean);
-  const status =
-    item.status === "uploading" || item.status === "pending"
-      ? "解析中"
-      : item.status === "failed"
-        ? item.errorCode
-          ? (errorLabel[item.errorCode] ?? "解析失败")
-          : "解析失败"
-        : null;
+  const busy = item.status === "uploading" || item.status === "pending";
+  const failed = item.status === "failed";
+  const Icon = failed ? AlertTriangle : item.kind === "image" ? ImageIcon : FileText;
+  const detail = attachmentDetail(item);
 
   return (
     <div
       className={cn(
-        "group flex min-w-[220px] max-w-[360px] items-center gap-2 rounded-lg border px-2.5 py-2 text-left",
-        item.status === "failed" ? "border-danger/35 bg-danger/5" : "border-line bg-surface-2",
+        "flex h-8 w-[172px] shrink-0 items-center gap-1.5 rounded-md border pr-1 pl-2 text-left",
+        failed ? "border-danger/35 bg-danger/5" : "border-line bg-surface-2",
       )}
+      title={detail.length > 0 ? `${item.filename} · ${detail}` : item.filename}
+      data-testid="attachment-chip"
     >
+      {busy ? (
+        <Loader2
+          size={13}
+          aria-hidden="true"
+          className="shrink-0 animate-spin text-ink-3 motion-reduce:animate-none"
+        />
+      ) : (
+        <Icon
+          size={13}
+          aria-hidden="true"
+          className={cn("shrink-0", failed ? "text-danger" : "text-accent")}
+        />
+      )}
       <button
         type="button"
         onClick={onOpen}
         disabled={item.status !== "ready" || onOpen === undefined}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
-        title={item.filename}
+        className="min-w-0 flex-1 truncate text-left text-[12px] text-ink disabled:cursor-default"
       >
-        <Icon size={16} className="shrink-0 text-accent" aria-hidden="true" />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12px] text-ink">{item.filename}</span>
-          <span className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-ink-3">
-            {item.status === "uploading" || item.status === "pending" ? (
-              <Loader2 size={10} className="animate-spin motion-reduce:animate-none" />
-            ) : null}
-            <span className="truncate">{[status, ...meta].filter(Boolean).join(" · ")}</span>
-          </span>
-        </span>
+        {item.filename}
       </button>
+      {detail.length > 0 ? <span className="sr-only">{detail}</span> : null}
       {onRemove ? (
         <button
           type="button"
           onClick={onRemove}
           disabled={disabled}
           aria-label={`移除 ${item.filename}`}
-          className="rounded p-1 text-ink-3 hover:bg-surface-3 hover:text-ink disabled:opacity-40"
+          className="shrink-0 rounded p-0.5 text-ink-3 hover:bg-surface-3 hover:text-ink disabled:opacity-40"
         >
-          <X size={12} />
+          <X size={11} />
         </button>
       ) : null}
     </div>
   );
-}
-
-export function attachmentSummary(item: AttachmentCardData): string {
-  if (item.status === "failed") return `${item.filename} 解析失败`;
-  return `${item.filename}${item.pageCount ? ` · ${item.pageCount} 页` : ""}`;
 }

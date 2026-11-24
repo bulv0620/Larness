@@ -19,7 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
-| 2026-11-23 | 088 文档与图片附件 | DA-0～DA-8 完成；迁移 0038、通用上传/去重/删除、PDF/DOCX/PPTX/XLSX/HTML/CSV 抽取、图片透传与本地 OCR、上下文预算与三个附件工具、气泡外附件条与草稿托盘；`pnpm check` 通过（Server 882 项、31 跳过；Web 291 项），根 `pnpm build` 通过；解析未进 worker（Q-077）、视觉连接未接线（Q-078）、真实文件与 Mock E2E 未跑 | [088 acceptance](specs/088-document-attachments/acceptance.md) |
+| 2026-11-23 | 088 文档与图片附件 | DA-0～DA-9 完成；迁移 0038、通用上传/去重/删除、PDF/DOCX/PPTX/XLSX/HTML/CSV 抽取、图片透传与本地 OCR、上下文预算与三个附件工具、草稿托盘；DA-9 把输入区与时间线附件统一为固定宽“图标 + 文件名”标签并移到气泡下方，修复 `attachmentIds` 被当作旧截图重复渲染成破图；`pnpm check` 与根 `pnpm build` 通过；解析未进 worker（Q-077）、视觉连接未接线（Q-078）、真实文件与 Mock E2E 未跑 | [088 acceptance](specs/088-document-attachments/acceptance.md) |
 | 2026-11-20 | GX-5 子目录项目 Git 路径基准 | 项目根为仓库子目录时暂存 / 取消暂存失败、diff 白屏；按 `--show-prefix` 折回项目相对路径并过滤项目外条目，DiffView 增加空差异说明；Git 套件 17 项通过（2 项跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
 | 2026-11-23 | GX-6 未跟踪差异与 Git 失败原因 | 未跟踪文件用 `git diff --no-index` 与空基准比对，不再白屏；execute 失败保留 `GIT_CONFLICT` 等稳定码并审计，Git 面板区分写锁占用 / 快照变化 / 超时；`pnpm check` 通过（Server 836 项、31 跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
 | 2026-11-23 | 088 DA-0 规格确认与 ADR-074 | 人类批准方案、气泡外附件布局与 Q-071～Q-076 全部推荐默认；格式矩阵、`auto-local` 只本地 OCR、限额、Base64 上传与纯 JS 依赖冻结；spec 转 `ready`、ADR-074 转 accepted；仅文档变更，未运行 `pnpm check` | [088 tasks](specs/088-document-attachments/tasks.md#da-0-规格确认2026-11-23) |

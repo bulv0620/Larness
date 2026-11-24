@@ -405,7 +405,6 @@ export function Composer({
     const items: DraftAttachmentItem[] = accepted.map((file) => ({
       key: `${file.name}:${file.lastModified}:${Math.random().toString(36).slice(2, 7)}`,
       file,
-      previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : "",
       status: isDraftSession ? "ready" : "uploading",
     }));
     setTray({ sessionId, items: [...current, ...items] });
@@ -417,8 +416,6 @@ export function Composer({
   const removeItem = (key: string) => {
     setTray((current) => {
       if (current?.sessionId !== sessionId) return current;
-      const item = current.items.find((candidate) => candidate.key === key);
-      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
       return { ...current, items: current.items.filter((candidate) => candidate.key !== key) };
     });
   };
@@ -612,9 +609,6 @@ export function Composer({
         initialWebSearch,
         files,
         () => {
-          for (const item of trayItems) {
-            if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-          }
           setTray((current) => (current?.sessionId === sessionId ? undefined : current));
           if (
             useNavigationStore.getState().sessionId === sessionId &&

@@ -101,26 +101,15 @@ export function MessageBubble({
       </div>
     );
   }
-  const screenshots = item.screenshots;
+  // New events carry a ref for every attachment; `screenshots` only survives on
+  // pre-088 events, where the ids are the inline images themselves. Rendering
+  // ids as images on new events duplicated the tags and painted documents
+  // (e.g. a PDF) as a broken "用户截图" thumbnail.
+  const screenshots =
+    item.attachments && item.attachments.length > 0 ? undefined : item.screenshots;
   if (item.role === "user")
     return (
       <div className="mb-5 flex flex-col items-end gap-1.5">
-        {item.attachments && item.attachments.length > 0 && currentSessionId ? (
-          <AttachmentStrip sessionId={currentSessionId} attachments={item.attachments} />
-        ) : null}
-        {screenshots ? (
-          <div className="flex flex-wrap justify-end gap-2">
-            {screenshots.ids.map((id) => (
-              <img
-                key={id}
-                src={screenshotUrl(screenshots.sessionId, id)}
-                alt="用户截图"
-                className="max-h-48 max-w-full rounded-lg object-contain"
-                loading="lazy"
-              />
-            ))}
-          </div>
-        ) : null}
         {item.text ? (
           <div className="max-w-[91%] rounded-[18px] bg-accent-soft px-3.5 py-2.5 text-[13px] leading-[1.65] text-ink sm:max-w-[82%]">
             <div
@@ -140,6 +129,16 @@ export function MessageBubble({
                 {expanded ? "收起" : "展开消息"}
               </button>
             ) : null}
+          </div>
+        ) : null}
+        {item.attachments && item.attachments.length > 0 && currentSessionId ? (
+          <AttachmentStrip sessionId={currentSessionId} attachments={item.attachments} />
+        ) : null}
+        {screenshots ? (
+          <div className="flex flex-wrap justify-end gap-2">
+            {screenshots.ids.map((id) => (
+              <LegacyScreenshot key={id} src={screenshotUrl(screenshots.sessionId, id)} />
+            ))}
           </div>
         ) : null}
       </div>
@@ -192,6 +191,27 @@ export function MessageBubble({
         </div>
       ) : null}
     </article>
+  );
+}
+
+/** Pre-088 screenshots have no metadata; a missing file must not paint a broken image. */
+function LegacyScreenshot({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <span className="rounded-md border border-line bg-surface-2 px-2 py-1 text-[11px] text-ink-3">
+        截图不可用
+      </span>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt="用户截图"
+      className="max-h-48 max-w-full rounded-lg object-contain"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
   );
 }
 

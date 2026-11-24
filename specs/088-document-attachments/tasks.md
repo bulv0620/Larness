@@ -2,7 +2,7 @@
 
 > 状态：`todo | in_progress | blocked | review | done | dropped`。一个任务一个提交。
 > 开始任务前在 `STATUS.md` 的「当前进行中」登记；完成后勾选本表、更新 `ROADMAP.md`，并把该任务移入「最近收口」。
-> 当前整体状态：DA-0～DA-8 已完成（2026-11-23）；自动化验收见 [acceptance.md](acceptance.md)，实现偏差与未验证项见该文件 §4。
+> 当前整体状态：DA-0～DA-9 已完成（2026-11-23）；自动化验收见 [acceptance.md](acceptance.md)，实现偏差与未验证项见该文件 §4。
 
 ## 状态总表
 
@@ -17,6 +17,7 @@
 | DA-6 | 上下文预算与附件工具 | DA-2、DA-3 | `done`（2026-11-23） |
 | DA-7 | 气泡外附件、草稿托盘与预览 | DA-2、DA-6 | `done`（2026-11-23） |
 | DA-8 | 安全、E2E 与验收 | DA-4、DA-5、DA-7 | `done`（2026-11-23，自动化范围） |
+| DA-9 | 附件标签化与重复渲染修复 | DA-7 | `done`（2026-11-23） |
 
 ## 任务卡
 
@@ -221,6 +222,22 @@
 - 测试：见 spec §12；E2E 覆盖 DOCX、图片视觉、图片 OCR、大文档、失败重试、气泡外布局。
 - 涉及路径：`apps/server/test/attachments/*`、`apps/web/e2e/attachments.spec.ts`、`specs/088-document-attachments/acceptance.md`、`docs/contracts/*`。
 
+### DA-9 附件标签化与重复渲染修复
+
+- 状态：`done`（2026-11-23）
+- 依赖：DA-7
+- 目标：输入区与时间线的附件统一为等宽“图标 + 文件名”标签；时间线标签位于气泡下方；修掉附件被重复渲染成破图的问题。
+- 交付物：
+  - `AttachmentCard` 改为固定 172px×32px 标签：状态图标 + 单行截断文件名，页数/方法/警告进 tooltip 与 `sr-only`；失败为警示图标与红色边框。
+  - `AttachmentTray` / `AttachmentStrip` 统一使用该标签，图片不再内联缩略图；`DraftAttachmentItem.previewUrl` 与对象 URL 回收逻辑删除。
+  - `TimelineItemView` 先渲染文本气泡、再渲染附件标签；`eventReducer` 仅在事件没有附件引用时（pre-088）才构造 `screenshots`。
+- 验收：
+  - 一条用户消息只渲染一次附件标签，文档不再被当作截图渲染；
+  - 旧 `screenshots` 事件仍显示，加载失败降级为“截图不可用”；
+  - 标签宽度固定，长文件名截断，图片点击仍可打开 lightbox。
+- 测试：`apps/web/src/features/chat/AttachmentStrip.test.tsx`、`apps/web/src/lib/eventReducer.test.ts`。
+- 涉及路径：`apps/web/src/features/chat/{AttachmentCard,AttachmentTray,AttachmentStrip,TimelineItemView,Composer}.tsx`、`apps/web/src/lib/eventReducer.ts`。
+
 ## 验收记录
 
 ### DA-0 规格确认（2026-11-23）
@@ -281,3 +298,9 @@
 - 自动化覆盖：路径穿越/文件名清洗、zip 条目与解压限额、HTML 脚本/远程资源清洗、跨会话 404、已引用删除 409、事件无正文、日志/事件不含 Base64。
 - `pnpm check` 通过（Server 882 通过 / 31 跳过，Web 291 通过）；`@larness/server build` 与根 `pnpm build` 通过。
 - 未跑：真实 DOCX/PDF/PPTX/XLSX、真实 OCR 质量、真实视觉连接；详见 [acceptance.md](acceptance.md) §4。
+
+### DA-9 附件标签化与重复渲染修复（2026-11-23）
+
+- 根因：`user.message` 的 `attachmentIds` 一直被当作旧 `screenshots` 渲染；088 之后这些 ID 也可能是 PDF/DOCX，于是同一附件既出现在附件区，又被塞进 `<img>`，浏览器无法把文档当图片显示，出现 `alt="用户截图"` 的破图。
+- 标签统一为固定宽度，图片与文档走同一渲染路径；`screenshots` 只在不含附件引用的历史事件上使用，并带加载失败兜底。
+- 测试：`AttachmentStrip.test.tsx`（标签宽度、气泡在前、图片不内联、旧字段不重复）、`eventReducer.test.ts`（有引用不生成 screenshots、pre-088 保留）。

@@ -16,6 +16,7 @@
 | DA-6 上下文预算与附件工具 | done | `<attachment>` 块、目录注入、8k/15% 预算、`read_attachment` / `search_attachment` / `list_attachments`、执行层绑定 |
 | DA-7 气泡外附件、草稿托盘与预览 | done | 回形针与拖拽、草稿托盘、附件条与气泡同级、文档卡片、图片 lightbox、Markdown 预览、草稿会话先建会话后建 Turn |
 | DA-8 安全、E2E 与验收 | done（自动化） | 路径/文件名/zip/HTML/跨会话/删除冲突测试；真实文件与视觉连接手工项未跑 |
+| DA-9 附件标签化与重复渲染修复 | done | 统一固定宽标签（图标 + 文件名）；时间线标签移到气泡下方；修复附件被当作旧截图重复渲染成破图；删除 `DraftScreenshot` 死代码 |
 
 ## 2. 自动化证据
 
@@ -37,7 +38,8 @@
 - 纯文本模型 + DOCX 不要求 `acceptsImages`；上下文正文位于 user 角色 `<attachment>` 内。
 - 长文档只注入目录；`read_attachment` 按 `page:N` / `offset:N` 分页并返回 `nextOffset`。
 - 视觉模型 + PNG/WebP 原图透传；纯文本模型 + 图片在 UI 发送前调用本地 OCR，失败关闭并阻止 Turn。
-- 附件条与文本气泡是同级节点；文本为空不渲染气泡。
+- 附件标签固定 172px×32px，位于文本气泡下方；文本为空不渲染气泡。
+- 一条消息只渲染一次附件：有引用时不再生成旧 `screenshots`，文档不会被塞进 `<img alt="用户截图">`；pre-088 事件仍按截图渲染，加载失败降级为“截图不可用”。
 - 上传/删除/读取要求认证与会话归属；跨会话返回 404；已引用附件删除返回 409。
 - `attachment.status` 先持久化再广播；事件只含 ID 与元数据。
 
@@ -51,7 +53,7 @@
 | A4 无图片能力且无降级 | 通过 | `route.test.ts`、`api/attachments.test.ts` 返回 `ATTACHMENT_VISION_UNAVAILABLE`；UI 失败卡片阻止发送 |
 | A5 扫描 PDF 与损坏文件 | 部分 | 扫描 PDF 返回 `ATTACHMENT_PDF_NO_TEXT`；加密/损坏/伪造扩展名有单测；真实扫描件与加密样本未手工复核 |
 | A6 长文档按需读取 | 通过（自动化） | `context.test.ts` 目录注入；`read_attachment` 分页/搜索/上限测试；300 页真实 PDF 未跑 |
-| A7 附件位于气泡之外 | 通过 | `AttachmentStrip.test.tsx` 断言同级节点与空文本不渲染气泡；视觉截图未留档 |
+| A7 附件位于气泡之外 | 通过 | `AttachmentStrip.test.tsx` 断言气泡在前、标签在后、标签宽度固定、图片不内联、旧 `screenshots` 不重复渲染；`eventReducer.test.ts` 覆盖有引用/pre-088 两种事件；视觉截图未留档 |
 | A8 提示注入边界 | 通过（结构） | 附件只在 user 角色；system 声明不可信；工具权限不随正文变化；未做专门红队样本 |
 | A9 归属、去重与删除 | 通过 | `repository.test.ts`、`api/attachments.test.ts`、`api.test.ts` |
 | A10 解析失败可恢复 | 通过 | 失败状态、稳定错误码、UI 重试；重试会重新解析 |
@@ -66,6 +68,8 @@
 5. **Mock E2E 未新增**：Mock 模式不支持文件上传，本轮以 server 集成 + web 组件测试覆盖；`pnpm test:e2e` 未包含附件场景。
 6. **UI 不订阅 `attachment.status` 推进托盘**：当前上传在请求内完成，返回即 ready/failed，托盘无需流式更新；若未来改为异步 `pending`，需要补 WS 订阅/轮询，否则托盘会停在 pending。
 7. **平台**：仅在当前 Windows 开发机执行自动化；macOS / Linux 未复跑，不据此声称跨平台已验证。
+
+8. **DA-9 根因记录**：`user.message` 的 `attachmentIds` 在 088 之后也可能是 PDF/DOCX，但 reducer 仍用它构造旧 `screenshots`。于是同一附件既渲染为附件区卡片，又被当成截图塞进 `<img>`；浏览器无法把文档当图片显示，出现 `alt="用户截图"` 的破图。已在 reducer 与渲染两层修正，并保留 pre-088 兼容。
 
 ## 5. 复跑命令
 

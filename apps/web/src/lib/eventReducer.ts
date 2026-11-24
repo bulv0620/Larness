@@ -171,7 +171,13 @@ function reduceServerEvent(items: TimelineItem[], event: ServerEvent): TimelineI
         role: "user",
         text,
         createdAt: event.timestamp,
-        ...(ids.length ? { screenshots: { sessionId: event.streamId, ids } } : {}),
+        // Pre-088 events carry only ids: those ARE the inline screenshots.
+        // New events carry a ref for every attachment, so rendering the ids as
+        // screenshots duplicated every tag and painted documents (PDF, DOCX)
+        // as broken images.
+        ...(refs.length === 0 && ids.length
+          ? { screenshots: { sessionId: event.streamId, ids } }
+          : {}),
         ...(refs.length ? { attachments: refs } : {}),
         turnId,
       });
