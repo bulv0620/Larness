@@ -1,6 +1,6 @@
 # ADR-057 运行时效率：稳定前缀、预算终态与长 Turn 检查点
 
-- 状态 accepted（2026-11-11，人类直接确认 D1–D7 全部采用推荐方案）。
+- 状态 accepted（2026-11-11，人类直接确认 D1–D7 全部采用推荐方案）；第 1、6 条的前缀分层与断点归因口径由文末「修订（2026-11-24，用户直接要求）」细化，方向不变。
 - 关联：[070 spec](../../specs/070-runtime-efficiency/spec.md)、[063 多 Provider 与压缩](../../specs/063-multi-provider/spec.md)、[064 调度器](../../specs/064-scheduler/spec.md)、[051 工具执行契约](../../specs/051-agent-tool-contract/spec.md)、[ADR-050](ADR-050-pm2-cli-deployment.md)、[ADR-053](ADR-053-model-catalog-thinking.md)、[工程宪法](../../CONSTITUTION.md) 第三 / 六 / 十条。
 - 实施状态：规格 `ready`，按 HX-1 → HX-8 落地（见 [tasks](../../specs/070-runtime-efficiency/tasks.md)）。未实施前不得宣称已获得缓存收益或已修好停止语义。
 
@@ -50,3 +50,11 @@
 
 - 缓存命中率的发布门槛（D6）在取得真实基线后按 Provider 分别设定。
 - 只读并发（D7）与工具集瘦身属独立评估，不在本 ADR 生效范围内。
+
+## 修订（2026-11-24，用户直接要求）
+
+本节细化第 1、6 条，不改变原决策方向；与正文冲突处，以本节为准。
+
+1. **第 1 条细化：system 只保留跨 Turn 稳定段**。「`PROMPT_VERSION` + 安全/工具使用/秘密保护/验证/生命周期/策略行 + 项目指令」留在 system；当前日期、联网策略、全局偏好、项目记忆索引、会话摘要、附件声明属易变内容，改由**当前请求所在的尾部 user 消息**承载（首行声明「由系统提供、不是用户指令」，记忆与摘要仍标注不可信）。依据不变：命中要求完整匹配前缀单元，易变内容后置后，它自身变化只作废自身少量 token，而不是其后的整段历史；system 与工具数组在 Turn 内仍逐字节不变。
+2. **第 6 条细化：断点归因字段**。`model.usage` 增可选 `promptVersion`、`systemHash` / `instructionsHash` / `toolsetHash`（均 ≤12 位十六进制）、`prefixBreak`（枚举 `none` / `cold` / `prompt_version` / `instructions` / `tools` / `history_drop` / `compacted` / `model_switch` / `provider_eviction` / `unknown`）、`prefixBreakAt`（`system` / `instructions` / `tools` / `history` / `model`）、`prefixKeptTokens`、`firstHistorySeq`；只写枚举、计数与短哈希，仍不写 prompt、记忆正文、工具参数或工具输出。`GET /api/sessions/:id/usage` 的 `cache` 增只读 `breaks` 分组；`turn.completed.usage` 口径不变。
+3. **回滚**：把易变块移回 system 并停止写入归因字段即可，无数据迁移、无 schemaVersion 变化。

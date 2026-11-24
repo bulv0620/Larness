@@ -2,7 +2,7 @@
 id: 089-session-prefix-cache
 title: 会话级前缀缓存：静态前缀分层、断裂归因与压缩可达
 milestone: M6
-status: draft
+status: ready
 depends_on: [070-runtime-efficiency, 081-agent-lean, 084-agent-profiles-and-usage, 085-long-task-continuity, 086-project-memory, 087-web-search, 088-document-attachments]
 owners: [human]
 created: 2026-11-24
@@ -11,7 +11,7 @@ updated: 2026-11-24
 
 # 会话级前缀缓存：静态前缀分层、断裂归因与压缩可达
 
-> 状态：`draft`。第 13 节 D1–D5 待人类确认后才能改为 `ready`；本切片不改代码。
+> 状态：`ready`（2026-11-24）。第 13 节 D1–D5 已按推荐方案一次确认，实施顺序见 [tasks](tasks.md)。
 > 行号按 2026-11-24 工作树标注，实施前需复核。
 > 前序：[070 运行时效率](070-runtime-efficiency/spec.md) 的 HX-1～HX-12 已全部收口，本切片只处理**跨 Turn** 的剩余漏损，不重做 Turn 内前缀稳定性。
 
@@ -178,7 +178,7 @@ And 报告记录在 acceptance.md，命中率不作为代码门禁（Q-032）
 | R-5 | MUST | 会话压缩阈值必须严格低于装配裁剪预算（建议 0.7 vs 0.8），并在集成测试中证明 `context.compressed` 可达 |
 | R-6 | SHOULD | 裁剪滞回：超过装配预算时一次裁到低水位（建议 0.6），使丢点稳定；滞回不得丢弃当前请求或最近一轮完整工具批次 |
 | R-7 | MUST | `HISTORY_SCAN_LIMIT` 截断必须置 `truncatedHistory=true`，并进入断点归因（`history_drop`） |
-| R-8 | MUST | `model.usage` 增 `promptVersion`、`toolsetHash`、`prefixBreak`、`prefixBreakAt`、`prefixKeptTokens`、`firstHistorySeq`；全部为可选字段以保持兼容 |
+| R-8 | MUST | `model.usage` 增 `promptVersion`、`systemHash`、`instructionsHash`、`toolsetHash`、`prefixBreak`、`prefixBreakAt`、`prefixKeptTokens`、`firstHistorySeq`；全部为可选字段以保持兼容 |
 | R-9 | MUST | 断点枚举固定为 `none` / `cold` / `prompt_version` / `instructions` / `tools` / `history_drop` / `compacted` / `model_switch` / `provider_eviction` / `unknown`；新增值需同步契约 |
 | R-10 | MUST | 归因只存元数据：枚举、段名、计数、≤12 位十六进制哈希；禁止存 prompt、记忆正文、工具参数与工具输出 |
 | R-11 | MUST | 附件能力启用且 Profile 支持时，附件工具始终出现在 tools 中；无附件时执行层返回稳定错误码，不通过删工具表达不可用 |
@@ -191,7 +191,7 @@ And 报告记录在 acceptance.md，命中率不作为代码门禁（Q-032）
 
 - **REST**：`GET /api/sessions/:id/usage` 的 `cache` 增 `breaks: Array<{ reason, requests, readTokens, missTokens }>`（只读派生自 `model.usage`，缺字段时为空数组）。不新增路由。
 - **WebSocket**：
-  - `model.usage` 增可选 `promptVersion`（字符串）、`toolsetHash`（12 位十六进制）、`prefixBreak`（枚举）、`prefixBreakAt`（`system` / `instructions` / `tools` / `history` / `model`）、`prefixKeptTokens`（估算数字）、`firstHistorySeq`（数字）。字段缺失时前端与聚合层按旧口径处理。
+  - `model.usage` 增可选 `promptVersion`（字符串）、`systemHash` / `instructionsHash` / `toolsetHash`（均 ≤12 位十六进制，分别覆盖稳定 system 核心、项目指令、工具 schema）、`prefixBreak`（枚举）、`prefixBreakAt`（`system` / `instructions` / `tools` / `history` / `model`）、`prefixKeptTokens`（估算数字）、`firstHistorySeq`（数字）。字段缺失时前端与聚合层按旧口径处理。
   - `context.compressed` 与 `context.checkpoint` 载荷不变。
 - **IPC**：无。
 - **配置**：不新增用户可见设置。`COMPRESSION_RATIO`、裁剪滞回水位、诊断阈值作为后端常量，默认值来自本 spec 第 13 节。
@@ -250,13 +250,15 @@ And 报告记录在 acceptance.md，命中率不作为代码门禁（Q-032）
 
 ## 13. 开放问题
 
-| ID | 问题 | 推荐默认 | 需要谁决策 |
+2026-11-24 用户确认（「按照推荐来决定」）：D1–D5 全部采用推荐方案，不再逐项停等。
+
+| ID | 问题 | 结论 | 落点 |
 |---|---|---|---|
-| D1 | 易变内容放在哪一层：尾部独立 user 消息（建议合并进当前 user 消息，和附件同形态）还是保留 system 但排到项目指令之后 | 合并进当前 user 消息：前缀最大、兼容性最好，且已有 checkpoint / pinned request / 附件三处先例 | 人类确认产品语义（模型是否会把「记忆索引」误当用户发言） |
-| D2 | 压缩阈值 0.7 + 裁剪滞回 0.6 是否接受「长会话每轮多一次摘要调用」 | 接受：换掉的是信息静默丢失；压缩失败仍降级为可见裁剪 | 人类确认成本与延迟 |
-| D3 | 附件工具是否常驻（执行层拒绝空附件） | 常驻：tools 稳定，能力可见性由错误码表达 | 人类确认模型可见能力变化（ADR-068 边界） |
-| D4 | 断点归因是否进入 `turn.completed` 累计口径 | 只进 `model.usage` 与 `cache.breaks`，累计口径保持现状 | 人类确认统计面 |
-| D5 | 是否顺带实现 `prompt_cache_key` / 显式缓存断点 | 不做，另开切片：需要 Provider 适配层新增协议能力 | 人类确认范围 |
+| D1 | 易变内容放在哪一层 | 合并进当前 user 消息（尾部块，首行声明来源，记忆/摘要仍标不可信）；system 只留稳定段 | PA-1 |
+| D2 | 压缩阈值 0.7 + 裁剪滞回 0.6 | 采用：长会话每轮多一次摘要调用可接受，换来不再静默丢历史；压缩失败仍降级为可见裁剪 | PA-4 |
+| D3 | 附件工具是否常驻 | 常驻：tools 稳定，能力可见性由 `ATTACHMENT_NOT_FOUND` / 空列表表达 | PA-5 |
+| D4 | 归因是否进入 `turn.completed` 累计口径 | 只进 `model.usage` 与 `cache.breaks`；`turn.completed.usage` 口径不变 | PA-2 / PA-3 |
+| D5 | 是否实现 `prompt_cache_key` / 显式缓存断点 | 不做；Provider 适配层新增协议能力另开切片 | 无 |
 
 ## 14. 完成定义
 
