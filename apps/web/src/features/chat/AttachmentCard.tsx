@@ -1,5 +1,6 @@
 import { cn } from "@larness/ui";
-import { AlertTriangle, FileText, Image as ImageIcon, Loader2, X } from "lucide-react";
+import { AlertTriangle, Loader2, X } from "lucide-react";
+import { FileTypeIcon } from "@/features/files/FileTypeIcon";
 import { chipClass } from "./chip";
 
 export interface AttachmentCardData {
@@ -34,7 +35,7 @@ const errorLabel: Record<string, string> = {
   ATTACHMENT_STORAGE_FAILED: "存储不可用",
 };
 
-/** Secondary facts live in the tooltip so every tag keeps the same width. */
+/** Secondary facts live in the tooltip so a tag stays one line. */
 export function attachmentDetail(item: AttachmentCardData): string {
   return [
     item.status === "uploading" || item.status === "pending" ? "解析中" : null,
@@ -51,8 +52,9 @@ export function attachmentDetail(item: AttachmentCardData): string {
     .join(" · ");
 }
 
-/** One fixed-width tag: a status icon plus the truncated file name. Its shape is
- *  the same chip the turn's file artifacts use, so both read as one family. */
+/** One tag: a status icon plus the truncated file name. Width follows the name
+ *  (capped), and the icon comes from the same Material set the file tree uses,
+ *  so a file looks identical wherever it is listed. */
 export function AttachmentCard({
   item,
   disabled = false,
@@ -66,14 +68,13 @@ export function AttachmentCard({
 }) {
   const busy = item.status === "uploading" || item.status === "pending";
   const failed = item.status === "failed";
-  const Icon = failed ? AlertTriangle : item.kind === "image" ? ImageIcon : FileText;
   const detail = attachmentDetail(item);
 
   return (
     <div
       className={cn(
         chipClass,
-        "w-[172px] shrink-0 gap-1 pr-1 pl-2 text-left",
+        "shrink-0 gap-1 pr-1 pl-2 text-left",
         failed
           ? "border-danger/35 bg-danger/5"
           : item.status === "ready" && onOpen
@@ -90,20 +91,19 @@ export function AttachmentCard({
           className="shrink-0 animate-spin text-ink-3 motion-reduce:animate-none"
         />
       ) : (
-        <Icon
-          size={11}
-          aria-hidden="true"
-          className={cn("shrink-0", failed ? "text-danger" : "text-accent")}
-        />
+        <FileTypeIcon path={item.filename} size={13} />
       )}
       <button
         type="button"
         onClick={onOpen}
         disabled={item.status !== "ready" || onOpen === undefined}
-        className="min-w-0 flex-1 truncate text-left text-[11px] text-ink-2 enabled:hover:text-ink disabled:cursor-default"
+        className="min-w-0 max-w-[180px] truncate text-left text-[11px] text-ink-2 enabled:hover:text-ink disabled:cursor-default"
       >
         {item.filename}
       </button>
+      {failed ? (
+        <AlertTriangle size={10} aria-hidden="true" className="shrink-0 text-danger" />
+      ) : null}
       {detail.length > 0 ? <span className="sr-only">{detail}</span> : null}
       {onRemove ? (
         <button

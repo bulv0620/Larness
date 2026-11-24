@@ -226,16 +226,17 @@
 
 - 状态：`done`（2026-11-23）
 - 依赖：DA-7
-- 目标：输入区与时间线的附件统一为等宽“图标 + 文件名”标签；时间线标签位于气泡下方；修掉附件被重复渲染成破图的问题。
+- 目标：输入区与时间线的附件统一为“图标 + 文件名”标签；时间线标签位于气泡下方；修掉附件被重复渲染成破图的问题。
 - 交付物：
-  - `AttachmentCard` 改为固定 172px×28px 标签：状态图标 + 单行截断文件名，页数/方法/警告进 tooltip 与 `sr-only`；失败为警示图标与红色边框。
-  - 标签视觉与「本次成果」的产物标签统一到 `features/chat/chip.ts`（`chipClass` / `chipInteractiveClass`），`ResultCard` 一并改为引用这套 token；附件标签只额外固定宽度并带移除按钮，测试断言两者共享同一组 class。
+  - `AttachmentCard` 改为高 28px 的标签：状态图标 + 单行截断文件名，页数/方法/警告进 tooltip 与 `sr-only`；失败为警示图标与红色边框。
+  - 标签视觉与「本次成果」的产物标签统一到 `features/chat/chip.ts`（`chipClass` / `chipInteractiveClass`），`ResultCard` 一并改为引用这套 token；附件标签只额外带移除按钮，测试断言两者共享同一组 class。
   - `AttachmentTray` / `AttachmentStrip` 统一使用该标签，图片不再内联缩略图；`DraftAttachmentItem.previewUrl` 与对象 URL 回收逻辑删除。
   - `TimelineItemView` 先渲染文本气泡、再渲染附件标签；`eventReducer` 仅在事件没有附件引用时（pre-088）才构造 `screenshots`。
 - 验收：
   - 一条用户消息只渲染一次附件标签，文档不再被当作截图渲染；
   - 旧 `screenshots` 事件仍显示，加载失败降级为“截图不可用”；
-  - 标签宽度固定，长文件名截断，图片点击仍可打开 lightbox。
+  - 长文件名截断，图片点击仍可打开 lightbox。
+  - 宽度与图标参见 DA-10 跟进（自适应宽度 + 文件目录同款 Material 图标）。
 - 测试：`apps/web/src/features/chat/AttachmentStrip.test.tsx`、`apps/web/src/lib/eventReducer.test.ts`。
 - 涉及路径：`apps/web/src/features/chat/{AttachmentCard,AttachmentTray,AttachmentStrip,TimelineItemView,Composer}.tsx`、`apps/web/src/lib/eventReducer.ts`。
 
@@ -303,11 +304,17 @@
 ### DA-9 附件标签化与重复渲染修复（2026-11-23）
 
 - 根因：`user.message` 的 `attachmentIds` 一直被当作旧 `screenshots` 渲染；088 之后这些 ID 也可能是 PDF/DOCX，于是同一附件既出现在附件区，又被塞进 `<img>`，浏览器无法把文档当图片显示，出现 `alt="用户截图"` 的破图。
-- 标签统一为固定宽度，图片与文档走同一渲染路径；`screenshots` 只在不含附件引用的历史事件上使用，并带加载失败兜底。
+- 标签统一为同一渲染路径，图片与文档共用；`screenshots` 只在不含附件引用的历史事件上使用，并带加载失败兜底。
 - 测试：`AttachmentStrip.test.tsx`（标签宽度、气泡在前、图片不内联、旧字段不重复）、`eventReducer.test.ts`（有引用不生成 screenshots、pre-088 保留）。
+
+### DA-9 跟进：标签自适应宽度与 Material 图标（2026-11-23）
+
+- 宽度改为随文件名自适应（`chipClass` 的 `max-w-full` + 文件名按钮 `max-w-[180px]` + `truncate`），去掉 `w-[172px]`；文档与图片在同一行时按各自长度排布，不再留下空白固定槽位。
+- 状态图标从 lucide 通用 `FileText` / `Image` 换成 `features/files/FileTypeIcon`（Material Icon Theme，13px），与右侧文件目录、窗口标签同一套图标，按扩展名区分 PDF/DOCX/XLSX/图片等；解析中仍为旋转指示，失败额外在尾部加 10px 警示图标。
+- 测试：「renders one adaptive-width tag」断言无固定 `w-[` 且文件名有 180px 上限；新增“uses the file tree's Material icon”断言文档与图片标签都用 `--file-icon` 背景图且无 lucide 文件/图片图标；`pnpm --filter @larness/web test` 53 文件 / 298 项通过。
 
 ### DA-9 跟进：与产物标签共用 chip token（2026-11-23）
 
 - 新增 `apps/web/src/features/chat/chip.ts`（`chipClass` / `chipInteractiveClass`），`ResultCard`（文件/预览/终端产物标签）与 `AttachmentCard` 同时引用；附件标签只额外固定 172px 宽、带移除按钮与失败态。
 - 附件标签高度由 32px 收到 28px，与产物标签同高；字号统一 `text-[11px]`，hover 走 accent，失败态用 `border-danger/35` + `bg-danger/5`。
-- 测试：`AttachmentStrip.test.tsx` 新增“shares the artifact tag shape”，断言附件标签与 `ResultCard` 共享 `h-7` / `rounded-full` / `border-line/80` / `bg-surface-2/55`，且只有附件标签带 `w-[172px]`；`pnpm --filter @larness/web test` 53 文件 / 297 项通过，`typecheck` 与 `biome check` 通过。
+- 测试：`AttachmentStrip.test.tsx` 新增“shares the artifact tag shape”，断言附件标签与 `ResultCard` 共享 `h-7` / `rounded-full` / `border-line/80` / `bg-surface-2/55`、两者都无固定宽度；`pnpm --filter @larness/web test` 53 文件 / 297 项通过，`typecheck` 与 `biome check` 通过。

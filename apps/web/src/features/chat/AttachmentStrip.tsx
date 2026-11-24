@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AttachmentCard } from "./AttachmentCard";
 import { AttachmentPreview, type PreviewTarget } from "./AttachmentPreview";
 
-/** Attachments render below the user bubble as equal-width tags, never inside it. */
+/** Attachments render below the user bubble as one-line tags, never inside it. */
 export function AttachmentStrip({
   sessionId,
   attachments,

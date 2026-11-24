@@ -40,7 +40,7 @@ function docRef(overrides: Record<string, unknown> = {}) {
   };
 }
 
-it("renders one fixed-width tag per attachment below the bubble", () => {
+it("renders one adaptive-width tag per attachment below the bubble", () => {
   const { container } = render(
     <MessageBubble
       item={item({
@@ -53,9 +53,12 @@ it("renders one fixed-width tag per attachment below the bubble", () => {
   expect(screen.getByTestId("attachment-strip")).toBeInTheDocument();
   expect(screen.getByText("spec.docx")).toBeInTheDocument();
   expect(screen.getByText(/12 页/)).toBeInTheDocument();
-  expect(screen.getByTestId("attachment-chip").className).toContain("w-[172px]");
-  expect(screen.getByTestId("attachment-chip").className).toContain("h-7");
-  expect(screen.getByTestId("attachment-chip").className).toContain("rounded-full");
+  const chip = screen.getByTestId("attachment-chip");
+  expect(chip.className).toContain("h-7");
+  expect(chip.className).toContain("rounded-full");
+  // Width follows the file name: no fixed width, only a cap on the label.
+  expect(chip.className).not.toMatch(/(?:^|\s)w-\[/);
+  expect(chip.querySelector("button")?.className).toContain("max-w-[180px]");
 
   // The bubble comes first, the tags sit underneath it.
   const surface = container.firstElementChild;
@@ -115,9 +118,39 @@ it("shares the artifact tag shape", () => {
     expect(tag?.className).toContain(token);
   }
   expect(tag?.className).toContain("text-[11px]");
-  // The attachment tag alone stays a fixed width so a row lines up.
-  expect(tag?.className).toContain("w-[172px]");
-  expect(artifact.className).not.toContain("w-[172px]");
+  // Both sizes are driven by their label, never by a fixed width.
+  expect(tag?.className).not.toMatch(/(?:^|\s)w-\[/);
+  expect(artifact.className).not.toMatch(/(?:^|\s)w-\[/);
+});
+
+it("uses the file tree's Material icon for documents and images", () => {
+  render(
+    <MessageBubble
+      item={item({
+        attachments: [
+          docRef(),
+          {
+            id: imageId,
+            filename: "用户截图.png",
+            mime: "image/png",
+            kind: "image" as const,
+            sizeBytes: 100,
+            status: "ready" as const,
+            method: "none" as const,
+            pageCount: null,
+          },
+        ],
+      })}
+    />,
+  );
+
+  const chips = screen.getAllByTestId("attachment-chip");
+  expect(chips).toHaveLength(2);
+  for (const chip of chips) {
+    expect(chip.querySelector("span[style*='--file-icon']")).not.toBeNull();
+    expect(chip.querySelector("svg.lucide-file-text")).toBeNull();
+    expect(chip.querySelector("svg.lucide-image")).toBeNull();
+  }
 });
 
 it("does not paint legacy screenshots when attachment refs exist", () => {

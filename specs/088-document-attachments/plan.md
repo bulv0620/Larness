@@ -75,7 +75,7 @@ apps/server/test/attachments/
 apps/web/src/features/chat/
   AttachmentTray.tsx        输入区草稿附件
   AttachmentStrip.tsx       时间线气泡下方附件区
-  AttachmentCard.tsx        固定宽附件标签（图标 + 文件名，详情进 tooltip）
+  AttachmentCard.tsx        自适应宽度附件标签（文件类型图标 + 文件名，详情进 tooltip）
   chip.ts                   附件与产物共用的 chip token（chipClass / chipInteractiveClass）
   AttachmentPreview.tsx     只读 markdown 预览/原图 lightbox
 apps/web/src/features/chat/*.test.tsx
@@ -177,7 +177,7 @@ specs/051-agent-tool-contract/spec.md
 5. `AttachmentPreview`：文档只读 markdown、原图 lightbox、下载原文件；使用认证 URL。
 6. 成功/失败操作提示走 `@larness/ui` Toast；逐文件状态留在托盘内。
 7. 窄屏与 1440×900 截图基线。
-8. DA-9 收口：图片与文档统一为固定宽“图标 + 文件名”标签，页数/方法/警告进 tooltip；修复 `attachmentIds` 被同时当作旧截图渲染造成的重复与破图。
+8. DA-9 收口：图片与文档统一为“图标 + 文件名”标签（宽度随文件名自适应，图标复用文件目录的 Material 图标），页数/方法/警告进 tooltip；修复 `attachmentIds` 被同时当作旧截图渲染造成的重复与破图。
 
 ### DA-8 安全、E2E 与验收
 

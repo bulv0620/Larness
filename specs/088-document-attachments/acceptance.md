@@ -16,7 +16,7 @@
 | DA-6 上下文预算与附件工具 | done | `<attachment>` 块、目录注入、8k/15% 预算、`read_attachment` / `search_attachment` / `list_attachments`、执行层绑定 |
 | DA-7 气泡外附件、草稿托盘与预览 | done | 回形针与拖拽、草稿托盘、附件条与气泡同级、文档卡片、图片 lightbox、Markdown 预览、草稿会话先建会话后建 Turn |
 | DA-8 安全、E2E 与验收 | done（自动化） | 路径/文件名/zip/HTML/跨会话/删除冲突测试；真实文件与视觉连接手工项未跑 |
-| DA-9 附件标签化与重复渲染修复 | done | 统一固定宽标签（图标 + 文件名）；时间线标签移到气泡下方；修复附件被当作旧截图重复渲染成破图；删除 `DraftScreenshot` 死代码 |
+| DA-9 附件标签化与重复渲染修复 | done | 统一标签（图标 + 文件名，宽度自适应、图标复用文件目录 Material 图标）；时间线标签移到气泡下方；修复附件被当作旧截图重复渲染成破图；删除 `DraftScreenshot` 死代码 |
 
 ## 2. 自动化证据
 
