@@ -22,6 +22,8 @@ export function AttachmentPreview({
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [truncated, setTruncated] = useState(false);
+  const [failedImageId, setFailedImageId] = useState<string | null>(null);
+  const imageFailed = failedImageId === target.id;
 
   useEffect(() => {
     if (target.kind !== "document") return;
@@ -80,11 +82,18 @@ export function AttachmentPreview({
         </div>
         <div className="min-h-0 flex-1 overflow-auto p-4">
           {target.kind === "image" ? (
-            <img
-              src={attachmentUrl(sessionId, target.id)}
-              alt={target.filename}
-              className="mx-auto max-h-[70vh] max-w-full object-contain"
-            />
+            imageFailed ? (
+              <p role="status" className="text-[12px] text-danger">
+                无法加载原图，文件可能已被删除。
+              </p>
+            ) : (
+              <img
+                src={attachmentUrl(sessionId, target.id)}
+                alt={target.filename}
+                className="mx-auto max-h-[70vh] max-w-full object-contain"
+                onError={() => setFailedImageId(target.id)}
+              />
+            )
           ) : error !== null ? (
             <p role="status" className="text-[12px] text-danger">
               {error}
