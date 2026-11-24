@@ -74,8 +74,11 @@ export function ToastHost({ children }: { children: ReactNode }) {
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   return (
     <ToastHostContext.Provider value={host}>
-      {children}
+      {/* 宿主层必须排在 children 之前：它是 `fixed` 脱离文档流，但仍是 DOM 子元素。
+          Tailwind v4 的 `space-y-*` 用 `:not(:last-child)` 加 `margin-block-end`，
+          宿主排在最后会让调用方的最后一块（如弹窗底部按钮行）多出一段尾距。 */}
       <div ref={setHost} data-larness-toast-host="" className={TOAST_LAYER_CLASS} />
+      {children}
     </ToastHostContext.Provider>
   );
 }

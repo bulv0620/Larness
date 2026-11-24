@@ -86,6 +86,23 @@ describe("stacking", () => {
     expect(toast.closest("[data-larness-toast-layer]")).toBeNull();
   });
 
+  // 回归：Tailwind v4 的 `space-y-*` 给「非最后一个子元素」加 `margin-block-end`。
+  // 宿主节点若排在最后，调用方的最后一块（通常是底部按钮行）就会多出尾距，
+  // 视觉上就是「确认按钮离弹窗底边很远」。
+  it("keeps the caller's last child last so `space-y-*` adds no trailing gap", () => {
+    render(
+      <Dialog open>
+        <DialogContent aria-describedby={undefined} className="space-y-3">
+          <DialogTitle>启用完全自主？</DialogTitle>
+          <div data-testid="dialog-footer">底部按钮</div>
+        </DialogContent>
+      </Dialog>,
+    );
+    const content = screen.getByRole("dialog");
+    expect(content.querySelector("[data-larness-toast-host]")).not.toBeNull();
+    expect(content.lastElementChild).toBe(screen.getByTestId("dialog-footer"));
+  });
+
   // 回归：热更新会留下带旧类名的层节点（例如 `top-4` 时期），复用节点但不刷新
   // 类名会让提示继续被 48px 顶栏盖住。复用即自愈。
   it("repairs the classes of a reused layer from an older build", () => {
