@@ -362,7 +362,7 @@
 | POST | `/api/turns/:id/cancel` | 活跃 Turn 置 `CANCELLING`；无活跃 Turn 返回 409 |
 | POST | `/api/turns/:id/resume` | 仅 `INTERRUPTED` 且已有可接手事实时，新建继承事实的 Turn（`resumedFromTurnId`）；202。非中断 409 `CONFLICT`，无事实 409，模型不可用 409 `RESOURCE_UNAVAILABLE`，Turn 不存在 404 |
 | GET | `/api/sessions/:id/events?after=<seq>&limit=` | 增量事件，按 `seq` 升序；`limit` 1–500（默认 100） |
-| GET | `/api/sessions/:id/usage` | 会话级只读用量聚合：终态 Turn 的 input/output/total 已知和、cache 已知值（不完整时为 `null`）、`turns`、`missingTurns`、`partial` 与 `updatedAt`；`cache` 另含按 `model.usage` 请求计算的 `hitRate`（未知请求不进分母）、`readTokens`、`missTokens`、`knownRequests`、`unknownRequests`；不返回 prompt 或密钥 |
+| GET | `/api/sessions/:id/usage` | 会话级只读用量聚合：终态 Turn 的 input/output/total 已知和、cache 已知值（不完整时为 `null`）、`turns`、`missingTurns`、`partial` 与 `updatedAt`；`cache` 另含按 `model.usage` 请求计算的 `hitRate`（未知请求不进分母）、`readTokens`、`missTokens`、`knownRequests`、`unknownRequests`，以及按 `prefixBreak` 分组的 `breaks: [{ reason, requests, readTokens, missTokens }]`（固定枚举顺序、只统计 Provider 回报缓存的请求）；不返回 prompt 或密钥 |
 | GET | `/api/approvals/:id` | 审批详情（参数摘要、范围、过期时间） |
 | POST | `/api/approvals/:id` | `{ decision: "approve" \| "reject" }`；校验参数哈希与范围 |
 | GET | `/api/models` | **deprecated（061）**：旧模型 Profile 列表，UI 不再使用；数据保留 |

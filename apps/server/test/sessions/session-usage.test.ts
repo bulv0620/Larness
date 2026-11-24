@@ -54,6 +54,7 @@ describe("session usage", () => {
             missTokens: 0,
             knownRequests: 0,
             unknownRequests: 0,
+            breaks: [],
           },
           turns: 2,
           missingTurns: 0,
@@ -128,6 +129,7 @@ describe("session usage", () => {
             cacheReadTokens: 800,
             noCacheTokens: 200,
             usageSource: "provider",
+            prefixBreak: "none",
           },
           now: 1,
         });
@@ -139,6 +141,7 @@ describe("session usage", () => {
             inputTokens: 600,
             cacheReadTokens: 300,
             usageSource: "provider",
+            prefixBreak: "history_drop",
           },
           now: 2,
         });
@@ -156,8 +159,86 @@ describe("session usage", () => {
           missTokens: 500,
           knownRequests: 2,
           unknownRequests: 1,
+          breaks: [
+            { reason: "none", requests: 1, readTokens: 800, missTokens: 200 },
+            { reason: "history_drop", requests: 1, readTokens: 300, missTokens: 300 },
+          ],
         });
         expect(usage.cache.hitRate).toBeCloseTo(0.6875);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("groups cache breaks in enum order and keeps unknown sources out", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+      try {
+        const options = { db: opened.db, dataDir: dir };
+        const session = await createSession(options, {});
+        const request = (now: number, payload: Record<string, unknown>) =>
+          appendAgentEvent(opened.db, {
+            sessionId: session.id,
+            type: "model.usage",
+            payload,
+            now,
+          });
+
+        request(1, {
+          model: "deepseek-chat",
+          inputTokens: 1_000,
+          cacheReadTokens: 100,
+          noCacheTokens: 900,
+          usageSource: "provider",
+          prefixBreak: "cold",
+        });
+        request(2, {
+          model: "deepseek-chat",
+          inputTokens: 1_000,
+          cacheReadTokens: 500,
+          noCacheTokens: 500,
+          usageSource: "provider",
+          prefixBreak: "none",
+        });
+        request(3, {
+          model: "deepseek-chat",
+          inputTokens: 100,
+          cacheReadTokens: 50,
+          noCacheTokens: 50,
+          usageSource: "provider",
+          prefixBreak: "cold",
+        });
+        // No provider cache fields: not in `breaks` and not in the denominator.
+        request(4, {
+          model: "deepseek-chat",
+          inputTokens: 400,
+          usageSource: "unknown",
+          prefixBreak: "instructions",
+        });
+        // Unknown values fall back to the `unknown` bucket.
+        request(5, {
+          model: "deepseek-chat",
+          inputTokens: 100,
+          cacheReadTokens: 10,
+          noCacheTokens: 90,
+          usageSource: "provider",
+          prefixBreak: "made-up",
+        });
+
+        expect(getSessionUsage(opened.db, session.id).cache).toEqual({
+          hitRate: 660 / 2_200,
+          readTokens: 660,
+          missTokens: 1_540,
+          knownRequests: 4,
+          unknownRequests: 1,
+          breaks: [
+            { reason: "none", requests: 1, readTokens: 500, missTokens: 500 },
+            { reason: "cold", requests: 2, readTokens: 150, missTokens: 950 },
+            { reason: "unknown", requests: 1, readTokens: 10, missTokens: 90 },
+          ],
+        });
       } finally {
         opened.close();
       }
@@ -185,6 +266,7 @@ describe("session usage", () => {
             missTokens: 0,
             knownRequests: 0,
             unknownRequests: 0,
+            breaks: [],
           },
           turns: 0,
           missingTurns: 0,

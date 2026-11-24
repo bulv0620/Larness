@@ -6,8 +6,8 @@
 
 ## 当前进行中
 
-- **089 PA-3 用量契约与按原因汇总**（`main`，2026-11-24 开始）：`GET /api/sessions/:id/usage` 增 `cache.breaks`，同步 `ws-events.md` / `rest-api.md`。
-- 后续同切片任务 PA-4～PA-7 按 `specs/089-session-prefix-cache/tasks.md` 顺序推进。
+- **089 PA-4 压缩可达与裁剪滞回**（`main`，2026-11-24 开始）：`COMPRESSION_RATIO` 0.7、裁剪低水位 0.6、`HISTORY_SCAN_LIMIT` 截断置位。
+- 后续同切片任务 PA-5～PA-7 按 `specs/089-session-prefix-cache/tasks.md` 顺序推进。
 
 ## 阻塞与待确认
 

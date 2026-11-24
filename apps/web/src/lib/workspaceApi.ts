@@ -450,6 +450,12 @@ export interface ApiSessionUsage {
     missTokens: number;
     knownRequests: number;
     unknownRequests: number;
+    breaks?: Array<{
+      reason: string;
+      requests: number;
+      readTokens: number;
+      missTokens: number;
+    }>;
   };
   turns: number;
   missingTurns: number;

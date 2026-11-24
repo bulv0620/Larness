@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import type { Database } from "../../db/client.js";
 import { agentEvents, type TurnStatus, turns } from "../../db/schema.js";
+import { PREFIX_BREAK_REASONS, type PrefixBreakReason } from "../agent/turn/prefixCache.js";
 import { SessionError } from "./errors.js";
 import { getSessionById } from "./repository.js";
 
@@ -18,6 +19,15 @@ export interface SessionCacheUsageDto {
   missTokens: number;
   knownRequests: number;
   unknownRequests: number;
+  /** Per-reason request counts over provider-reported requests, enum order. */
+  breaks: SessionCacheBreakDto[];
+}
+
+export interface SessionCacheBreakDto {
+  reason: PrefixBreakReason;
+  requests: number;
+  readTokens: number;
+  missTokens: number;
 }
 
 export interface SessionUsageDto {
@@ -108,6 +118,7 @@ function cacheUsageFromEvents(db: Database, sessionId: string): SessionCacheUsag
   let missTokens = 0;
   let knownRequests = 0;
   let unknownRequests = 0;
+  const breakStats = new Map<PrefixBreakReason, SessionCacheBreakDto>();
 
   for (const row of rows) {
     let payload: Record<string, unknown>;
@@ -140,6 +151,22 @@ function cacheUsageFromEvents(db: Database, sessionId: string): SessionCacheUsag
     readTokens += read;
     missTokens += miss;
     knownRequests += 1;
+
+    const reported =
+      typeof payload.prefixBreak === "string" &&
+      (PREFIX_BREAK_REASONS as readonly string[]).includes(payload.prefixBreak)
+        ? (payload.prefixBreak as PrefixBreakReason)
+        : "unknown";
+    const group = breakStats.get(reported) ?? {
+      reason: reported,
+      requests: 0,
+      readTokens: 0,
+      missTokens: 0,
+    };
+    group.requests += 1;
+    group.readTokens += read;
+    group.missTokens += miss;
+    breakStats.set(reported, group);
   }
 
   const denominator = readTokens + missTokens;
@@ -149,6 +176,10 @@ function cacheUsageFromEvents(db: Database, sessionId: string): SessionCacheUsag
     missTokens,
     knownRequests,
     unknownRequests,
+    breaks: PREFIX_BREAK_REASONS.flatMap((reason) => {
+      const group = breakStats.get(reason);
+      return group === undefined ? [] : [group];
+    }),
   };
 }
 

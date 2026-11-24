@@ -11,7 +11,7 @@
 | PA-0 | [确认 D1–D5 并补 ADR 修订草案](#pa-0-确认-d1d5-并补-adr-修订草案) | — | `done`（2026-11-24） |
 | PA-1 | [稳定/易变分层装配](#pa-1-稳定易变分层装配) | PA-0 | `done`（2026-11-24） |
 | PA-2 | [前缀指纹与断裂归因](#pa-2-前缀指纹与断裂归因) | PA-1 | `done`（2026-11-24） |
-| PA-3 | [用量契约与按原因汇总](#pa-3-用量契约与按原因汇总) | PA-2 | `todo` |
+| PA-3 | [用量契约与按原因汇总](#pa-3-用量契约与按原因汇总) | PA-2 | `done`（2026-11-24） |
 | PA-4 | [压缩可达与裁剪滞回](#pa-4-压缩可达与裁剪滞回) | PA-1 | `todo` |
 | PA-5 | [工具数组会话内稳定](#pa-5-工具数组会话内稳定) | PA-1 | `todo` |
 | PA-6 | [回归、真实 Provider 基线与验收](#pa-6-回归真实-provider-基线与验收) | PA-2, PA-3, PA-4, PA-5 | `todo` |
@@ -77,7 +77,7 @@
 
 ### PA-3 用量契约与按原因汇总
 
-- 状态：`todo`
+- 状态：`done`（2026-11-24）
 - 依赖：PA-2
 - 目标：让归因可回看、可分组，同时不改变现有统计口径（R-8/R-9/R-14、D4）。
 - 交付物：
@@ -92,6 +92,7 @@
 - 涉及路径：
   - `apps/server/src/modules/sessions/usage.ts`、`docs/contracts/{ws-events,rest-api}.md`、相关测试
 - 备注：`turn.completed.usage` 不变（D4 默认）。
+- 结果：`getSessionUsage().cache` 增 `breaks`，按 `PREFIX_BREAK_REASONS` 固定顺序输出已回报缓存字段的请求分组，缺失/非法 `prefixBreak` 归入 `unknown`；`unknownRequests` 与命中率分母口径不变。`ws-events.md`、`rest-api.md` 已同步；Web 侧 `ApiSessionUsage.cache.breaks` 为可选字段，旧响应仍可解析。`session-usage.test.ts` 6 项通过；server/web typecheck 通过。
 
 ### PA-4 压缩可达与裁剪滞回
 
