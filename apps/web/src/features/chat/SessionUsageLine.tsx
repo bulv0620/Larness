@@ -71,7 +71,7 @@ export function SessionUsageLine({
     `输入 ${formatTokenCount(usage.inputTokens)}`,
     `输出 ${formatTokenCount(usage.outputTokens)}`,
     ...(cacheDetail === null ? [] : [cacheDetail]),
-    ...(partial ? [`部分统计 · ${usage.missingTurns} 轮缺失`] : []),
+    ...(partial ? [`缺失 ${usage.missingTurns} 轮`] : []),
   ].join(" · ");
   const speed =
     lastStep === null ? null : stepOutputSpeed(lastStep.outputTokens, lastStep.durationMs);
@@ -93,7 +93,6 @@ export function SessionUsageLine({
           </Hint>
         </>
       )}
-      {partial ? <span>· 部分统计</span> : null}
       {streaming && speed !== null && lastStep !== null ? (
         <>
           <span aria-hidden="true">·</span>

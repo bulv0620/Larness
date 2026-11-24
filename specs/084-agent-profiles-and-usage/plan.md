@@ -12,7 +12,7 @@
 - `refresh_observations` 保留实现，但不再属于任何 Profile 的工具包；执行层继续以 `disabledToolsForProfile` 失败关闭。
 - 会话用量：新增纯函数聚合 `turns.usage_json`，忽略非终态 Turn，统计已知 input/output/total/cache 与缺失 usage 的 Turn 数；REST 返回聚合 DTO，不新增表。
 - `model.usage` 事件增加 `durationMs`（模型步骤墙钟）。前端用它和 `outputTokens` 计算最后一步实测速度，只在 Turn 进行中显示。
-- 输入框下方由独立 `SessionUsageLine` 组件渲染：总量常驻（有已知 usage 时），速度仅进行中；缺失数据用 `≥` 与“部分统计”标注。
+- 输入框下方由独立 `SessionUsageLine` 组件渲染：总量常驻（有已知 usage 时），速度仅进行中；缺失数据只用 `≥` 前缀标注，缺失轮数放在 Hint 中。
 - 过程呈现：删除时间线底部独立状态栏；`TurnView` 的折叠标题行承载状态、波形、步骤/耗时与展开箭头；reasoning 不再渲染文本，也不触发自动滚动。
 
 ## 2. 备选方案与取舍
@@ -97,7 +97,7 @@ pnpm test:e2e
 |---|---|---|
 | `service-ops` 迁移遗漏 | 启动时旧会话无法装配 | 迁移 + 启动前归一测试；`normalizeAgentProfile` 接受历史值的测试 |
 | 移除 PM2 观察后模型不知道服务 | 部署任务多一次工具调用 | `list_service_ops` 描述与提示明确“按需读取” |
-| usage 部分缺失被当成完整 | 误报 Token 总量 | `≥` + “部分统计” + 缺失 Turn 数 |
+| usage 部分缺失被当成完整 | 误报 Token 总量 | `≥` 前缀 + Hint 中的缺失 Turn 数（不显示“部分统计”字样） |
 | 过程行状态抖动 | 视觉噪声 | 状态派生为单值；reasoning 不渲染、不触发滚动 |
 | 全量检查受既有并行抖动影响 | 误判回归 | 失败项定点复跑并记录；不冒充全绿 |
 

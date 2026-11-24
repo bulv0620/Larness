@@ -70,7 +70,8 @@ it("marks partial aggregates instead of pretending completeness", () => {
   });
 
   expect(screen.getByRole("status", { name: "会话用量" })).toHaveTextContent("≥ 12.3k tokens");
-  expect(screen.getByText("· 部分统计")).toBeVisible();
+  expect(screen.queryByText(/部分统计/)).toBeNull();
+  expect(screen.queryByText(/缺失/)).toBeNull();
 });
 
 it("hides the hit rate when no request reported cache fields", () => {

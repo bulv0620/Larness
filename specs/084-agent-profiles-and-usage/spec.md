@@ -43,7 +43,7 @@ Provider 只在每个模型步骤结束时上报 usage，无法逐 token 实时�
 - G-5：旧 `service-ops` 会话迁移为 `coding`；左侧“服务运维”人类弹窗保持不变。
 - G-6：默认 Coding 模式不注入每轮 PM2 观察；需要时通过 `list_service_ops` 按需读取。
 - G-7：输入框下方增加会话累计 Token 统计；任务进行中显示最后一步实测输出速度。
-- G-8：不引入字符估算或伪实时 token/s；无法精确统计时明确显示“部分统计”或隐藏，不伪造完整总数。
+- G-8：不引入字符估算或伪实时 token/s；无法精确统计时只用 `≥` 前缀与 Hint 明细表达缺失（不显示“部分统计”字样）或隐藏，不伪造完整总数。
 - G-9：Coding 的验证规则按改动范围收敛，默认先跑最小验证，不因小任务自动跑全仓测试。
 
 ## 3. 非目标
@@ -121,7 +121,7 @@ And 不把它描述为逐字实时速度
 ```gherkin
 Given 某些 Turn 或模型步骤没有 provider usage
 When 显示会话 Token 或最后一步速度
-Then 显示“部分统计”/“已知”或隐藏对应数值
+Then 已知总量带 `≥` 前缀，缺失明细只出现在 Hint，或隐藏对应数值
 And 不将缺失数据补零后冒充完整总量
 ```
 
@@ -171,7 +171,7 @@ And 用户点击标题行可展开查看执行过程
 | R-7 | MUST | 新增会话用量查询，返回累计 input/output/total/cache 已知值及缺失 usage 的 Turn 数。 |
 | R-8 | MUST | `model.usage` 事件增加步骤耗时，供前端计算最后一步实测输出速度；不新增流式 token 计数。 |
 | R-9 | MUST | 输入框下方在任务进行中显示最后一步实测速度；会话累计 Token 显示规则按 §12 确认。 |
-| R-10 | MUST | 缺失 usage 时不得补零伪装精确总量；显示部分统计或隐藏。 |
+| R-10 | MUST | 缺失 usage 时不得补零伪装精确总量；只用 `≥` 前缀并隐藏“部分统计”字样，或隐藏数值。 |
 | R-11 | SHOULD | Coding 提示增加验证比例原则：默认最小验证，全量检查仅在跨包/契约/迁移/安全或用户要求时执行。 |
 | R-12 | MUST | Service Ops 人类弹窗仍独立，不从 Profile 合并中删除。 |
 | R-13 | MUST | 删除底部独立状态栏；Turn 状态收敛到过程折叠的标题行。 |
@@ -205,13 +205,13 @@ And 用户点击标题行可展开查看执行过程
 - 审批级别：Service Ops 控制仍为 L2，沿用 targetId + pm2Name + 项目/服务锁与审计；合并 Profile 不降低控制风险。
 - 秘密处理：统计只保存 token 数，不记录消息内容或 API Key。
 - 审计：不新增高频用量审计；控制操作沿用现有审计。
-- 失败关闭：usage 缺失显示部分统计；PM2 身份不明仍拒绝控制。
+- 失败关闭：usage 缺失以 `≥` 前缀标注；PM2 身份不明仍拒绝控制。
 
 ## 10. 失败、边界与恢复
 
 | 条件 | 行为 |
 |---|---|
-| Provider 未上报 usage | 会话总量标记“部分统计”；该步骤速度不显示 |
+| Provider 未上报 usage | 会话总量加 `≥` 前缀，缺失轮数只在 Hint 中出现；该步骤速度不显示 |
 | Turn 被取消 / 失败 | 只统计已上报 usage；不推断缺失值 |
 | 会话无已完成 Turn | 显示 0 或隐藏总量，按 §12 确认 |
 | 旧 service-ops 会话 | 迁移为 coding；权限与历史保持 |
@@ -223,7 +223,7 @@ And 用户点击标题行可展开查看执行过程
 
 - 单元：Profile catalog（coding 不含 plan、plan 含 plan 且其余相同）、禁用工具矩阵、迁移。
 - 集成：会话 usage 聚合（多 Turn、缺失 usage）、`model.usage` durationMs、TurnRunner 不再注入 PM2 快照。
-- Web：Composer 下方总量与最后一步速度显示；缺失 usage 隐藏/部分统计；Plan 模式计划卡片；思考状态只显示 `Thinking...`，不渲染 reasoning 文本。
+- Web：Composer 下方总量与最后一步速度显示；缺失 usage 隐藏或以 `≥` 标注；Plan 模式计划卡片；思考状态只显示 `Thinking...`，不渲染 reasoning 文本。
 - E2E：Coding 小任务不出现计划卡；Plan 任务出现计划卡并完成实际修改；会话 Token 显示。
 - 门禁：`pnpm check`、`pnpm build`、`pnpm test:e2e`、`pnpm test:e2e:prod`。
 
@@ -232,7 +232,7 @@ And 用户点击标题行可展开查看执行过程
 1. **Coding / Plan 文案**：保留 `Coding` 与 `Plan`；Coding 详情为「快速完成编程任务」，Plan 详情为「按需创建任务计划完成」（2026-11-20 用户调整文案，能力未变）。
 2. **Token 行显示时机**：总数常驻（有已知 usage 时）；最后一步速度仅在 Turn 进行中显示。
 3. **Token 单位**：总量显示 `1.24M tokens` / `12.3k tokens`；输入/输出明细放在 Hint 中。
-4. **缺失 usage**：总量前缀 `≥`，Hint 标注「部分统计 · N 轮缺失」；不隐藏已知值、不补零。
+4. **缺失 usage**：总量前缀 `≥`，不显示「部分统计」字样，Hint 中标注「缺失 N 轮」；不隐藏已知值、不补零（2026-11-24 按用户要求弱化呈现，语义未变）。
 5. **最后一步速度**：显示 `38 tok/s`；Hint 显示该步骤输出量与耗时。
 6. **PM2 观察**：两个 Profile 都不注入；模型需要时调用 `list_service_ops`。
 7. **验证比例原则**：写入 system prompt，并同步到 051 工具契约说明。

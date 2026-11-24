@@ -122,6 +122,7 @@
 - AP-2：Profile 只剩 `coding` / `plan`；两者工具面相同，Plan 多 `update_plan`；迁移 `0034` 将 `service-ops` 归一 `coding`；PM2 观察快照不再注入，`refresh_observations` 退出模型面。定向 96 项通过。
 - AP-3：`GET /api/sessions/:id/usage`、诚实聚合与 `model.usage.durationMs` 完成；定向 60 项通过。
 - AP-4：输入框下方会话 Token、部分统计与最后一步速度完成；Web 定向 29 项通过。
+  - 2026-11-24 调整：按用户要求去掉可见「部分统计」字样，仅保留 `≥` 前缀，缺失轮数移到 Hint（「缺失 N 轮」）；语义不变，`SessionUsageLine` 定向 7 项通过。
 - AP-5：底部状态栏删除，过程标题行、波形、状态与耗时完成；reasoning 不渲染、不触发滚动；聊天定向 67 项通过。
 - 全量：`pnpm check` 通过（biome、6 包 typecheck、Web 262、Agent 63 + 1 跳过、Server 734 + 14 跳过）；`pnpm build` 通过。
 - E2E：Mock 24/24；认证 20/20；生产构建 20/20。认证与生产使用 3310/3320 端口（3210/3211 被现有开发服务占用），认证 Web 使用 5174。
