@@ -45,6 +45,9 @@
 | Q-077 | 088 的解析器仍在主进程执行，只有硬超时，没有 worker/内存隔离；大 PDF 或恶意 Office 文件可能阻塞事件循环。 | 当前按「进程内 + 硬超时 + 解压前置限额」交付，未宣称沙箱；下一步评估独立 worker 入口与打包（tsdown 第五入口），或改用子进程并保留超时/终止。 | 解析安全、事件循环阻塞、DA-3 验收缺口 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
 | Q-078 | `attachments.ocr.mode=vision` 已进入配置 schema，但 bootstrap 未把 `visionConnectionId` 解析成可调用的转写器，视觉模式仍失败关闭。 | 默认 `auto-local` 只走本地 OCR；视觉连接接线前不得声称云端视觉可用。需要时按模型连接服务解析密钥并复用 provider，失败不回退。 | A3 视觉分支、外发隐私 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
 | Q-080 | 是否提供“把附件导入项目目录”的写盘通道（`import_attachment`，L2）？ | 首版不做：上传即落盘会引入路径审批、覆盖冲突与项目锁扩张。需要时按“默认写 `tmp/attachments/<attachmentId>/`、显式 `targetPath` 才写项目、项目锁 + 审计”设计并单独评审。 | 修改真实页面/运行附件仓库的工作流 | [088 spec §7.7](../specs/088-document-attachments/spec.md#77-视图契约与格式矩阵) |
+| Q-081 | 易变上下文（日期、联网策略、记忆索引、会话摘要、附件声明）放在哪一层？ | 默认移出 system、合并进当前 user 消息并声明「由系统提供、不是用户指令」，system 只留稳定段；依据是 070 之后剩余的跨 Turn 前缀漏损 | 模型语义、前缀收益 | [089 spec §13](../specs/089-session-prefix-cache/spec.md#13-开放问题) |
+| Q-082 | 会话压缩阈值降到 0.7、裁剪加滞回（0.8 触发裁到 0.6）是否接受更多摘要调用？ | 默认接受：优先「摘要 + 持久化锚点」，压缩失败才降级为可见裁剪；命中率仍只观测、不设门槛（Q-032） | 成本、延迟、历史完整性 | [089 spec §13](../specs/089-session-prefix-cache/spec.md#13-开放问题) |
+| Q-083 | 附件工具是否常驻，用 `ATTACHMENT_NOT_FOUND` 表达不可用？ | 默认常驻，换取会话内 tools 数组稳定；联网工具仍由显式开关控制，连接健康只在执行层拒绝 | 模型可见能力、ADR-068 边界 | [089 spec §13](../specs/089-session-prefix-cache/spec.md#13-开放问题) |
 
 ## 已解决
 - Q-079（2026-11-24）：采用“多视图”而非单一 markdown——`read_attachment` 增加 `view="source"`（原文按行分页，仍包在 `<attachment>` 内、只当数据处理），文本类附件默认按原文注入与跨附件检索；HTML 解析补回 `<style>`、id/class 大纲与表格；不提供写盘导入，另立 Q-080。见 [088 spec §7.7](../specs/088-document-attachments/spec.md#77-视图契约与格式矩阵)。

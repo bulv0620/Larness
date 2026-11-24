@@ -86,6 +86,7 @@
 - [086 项目指令、项目记忆与用户偏好](086-project-memory/spec.md)（ready）
 - [087 联网搜索工具与独立搜索连接](087-web-search/spec.md)（ready）
 - [088 文档与图片附件解析、能力路由与会话外呈现](088-document-attachments/spec.md)（done）
+- [089 会话级前缀缓存：静态前缀分层、断裂归因与压缩可达](089-session-prefix-cache/spec.md)（draft）
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 
