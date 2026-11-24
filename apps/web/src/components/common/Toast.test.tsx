@@ -85,4 +85,22 @@ describe("stacking", () => {
     expect(toast.closest('[role="dialog"]')).not.toBeNull();
     expect(toast.closest("[data-larness-toast-layer]")).toBeNull();
   });
+
+  // 回归：热更新会留下带旧类名的层节点（例如 `top-4` 时期），复用节点但不刷新
+  // 类名会让提示继续被 48px 顶栏盖住。复用即自愈。
+  it("repairs the classes of a reused layer from an older build", () => {
+    render(<Toast message="第一次提示" />);
+    const layer = document.querySelector<HTMLElement>("[data-larness-toast-layer]");
+    expect(layer).not.toBeNull();
+    if (!layer) return;
+    layer.className =
+      "pointer-events-none fixed inset-x-0 top-4 z-[360] flex flex-col items-center gap-2 px-4";
+    expect(layer.className).toContain("top-4");
+
+    // 另一次渲染会复用同一个层节点，此时必须把类名写回当前版本。
+    render(<Toast message="第二次提示" />);
+    expect(layer.className).toContain("top-14");
+    expect(layer.className).not.toContain("top-4");
+    expect(document.querySelectorAll("[data-larness-toast-layer]")).toHaveLength(1);
+  });
 });

@@ -334,3 +334,11 @@
 - 位置变化：提示从 `top-4`（压在 48px 顶栏上）下移到 `top-14`（顶栏下方 8px），错误提示常驻时不再遮挡顶栏控件。
 - 测试：`apps/web/src/components/common/Toast.test.tsx` 把旧 `top-4` 断言改为层契约（body 子节点、`top-14`、`z-[360]`），并新增 `stacking` 两条回归——“escapes a low z-index stacking context of its caller”与“stays inside an open dialog so Radix does not hide or trap it”；`pnpm --filter @larness/web test` 53 文件 / 302 项通过，`@larness/ui`、`@larness/web` 的 `typecheck` 与 `biome check` 通过。
 - 未验证：本机无浏览器实机截图（`vite build` 受内存限制未跑），行内验证仅到 DOM 结构与 class 契约；`toast-slide-in` 动画在实际视口下的观感待人工验收。
+
+### DA-9 跟进：复用旧提示层导致提示仍被顶栏遮挡（2026-11-24）
+
+- 现象：上一条修复落地后，用户实测提示仍被顶栏压住。
+- 定位：先用 `apps/web/probe.html` 临时探针 + Playwright 在 Chromium 里量真实布局，确认当前代码的提示层是 body 子节点、`position: fixed`、`top: 56px`、`z-index: 360`，提示顶端在 48px 顶栏之下且命中测试在最上层；即新代码本身正确。因此剩下的唯一可能是复用了旧节点：`toastLayer()` 优先返回页面上已存在的 `data-larness-toast-layer`，而 `TOAST_LAYER_CLASS` 只在创建节点时写一次，热更新/旧版本残留的 `top-4` 层会一直被沿用。
+- 修复：拆出 `findLayer()` 只负责找或建节点，`toastLayer()` 每次挂载都重写 `className = TOAST_LAYER_CLASS`，复用时自愈。
+- 验证：探针页面把层类名改回 `top-4` 后卸载再挂载提示，`top` 回到 `56px`、`z-index` 回到 `360`、层仍只有一个、提示在顶栏之下且命中测试在最上层；新增 `Toast.test.tsx`「repairs the classes of a reused layer from an older build」回归（手工把层改成 `top-4` 后再次渲染，断言类名被写回 `top-14` 且不重复建层）。`pnpm --filter @larness/web test` 53 文件 / 303 项通过，`typecheck` 与 `biome check` 通过。
+- 探针文件（`apps/web/probe.html`、`apps/web/src/probe.tsx`、`tmp/toast-probe.mjs`）用后即删，未入库。

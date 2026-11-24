@@ -72,7 +72,9 @@
 
 8. **DA-9 根因记录**：`user.message` 的 `attachmentIds` 在 088 之后也可能是 PDF/DOCX，但 reducer 仍用它构造旧 `screenshots`。于是同一附件既渲染为附件区卡片，又被当成截图塞进 `<img>`；浏览器无法把文档当图片显示，出现 `alt="用户截图"` 的破图。已在 reducer 与渲染两层修正，并保留 pre-088 兼容。
 
-9. **DA-9 提示遮挡修复**：附件超限报错（`每轮最多添加 8 个附件。`）被顶栏遮住，根因是 `Toast` 就地渲染在输入区的 `z-10` 堆叠上下文内。已改为 portal 到 body 级提示层（`top-14` + `z-[360]`），弹窗内提示由 `DialogContent` 的 `ToastHost` 承载；`Toast.test.tsx` 的 `stacking` 用例锁定该契约。仅验证 DOM 结构与 class 契约，未做浏览器实机截图。
+9. **DA-9 提示遮挡修复**：附件超限报错（`每轮最多添加 8 个附件。`）被顶栏遮住，根因是 `Toast` 就地渲染在输入区的 `z-10` 堆叠上下文内。已改为 portal 到 body 级提示层（`top-14` + `z-[360]`），弹窗内提示由 `DialogContent` 的 `ToastHost` 承载；`Toast.test.tsx` 的 `stacking` 用例锁定该契约。
+
+10. **DA-9 提示层复用自愈**：上一条修复后提示仍被顶栏压住，用 Playwright 在 Chromium 里量真实布局确认新代码本身正确（body 子节点、`fixed`、`top: 56px`、`z-index: 360`、命中测试在最上层），根因是 `toastLayer()` 复用了页面上残留的旧层节点、而类名只在创建时写一次。现在每次挂载都重写 `TOAST_LAYER_CLASS`；`Toast.test.tsx` 新增「repairs the classes of a reused layer from an older build」锁定。浏览器证据来自临时探针页（已删除），未入库。
 
 ## 5. 复跑命令
 

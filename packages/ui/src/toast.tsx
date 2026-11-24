@@ -43,6 +43,14 @@ const TOAST_LAYER_ATTRIBUTE = "data-larness-toast-layer";
 let globalLayer: HTMLElement | null = null;
 
 function toastLayer(): HTMLElement {
+  const layer = findLayer();
+  // 每次挂载都重写类名：热更新或旧版本残留的同名节点可能带着过期的偏移与层级，
+  // 只复用节点而不刷新样式，会让 `top-4` 时期的层继续被顶栏盖住。
+  layer.className = TOAST_LAYER_CLASS;
+  return layer;
+}
+
+function findLayer(): HTMLElement {
   if (globalLayer?.isConnected) return globalLayer;
   const existing = document.querySelector<HTMLElement>(`[${TOAST_LAYER_ATTRIBUTE}]`);
   if (existing) {
@@ -51,7 +59,6 @@ function toastLayer(): HTMLElement {
   }
   const layer = document.createElement("div");
   layer.setAttribute(TOAST_LAYER_ATTRIBUTE, "");
-  layer.className = TOAST_LAYER_CLASS;
   document.body.append(layer);
   globalLayer = layer;
   return layer;
