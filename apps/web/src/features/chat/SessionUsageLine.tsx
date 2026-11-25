@@ -34,26 +34,42 @@ function formatDuration(durationMs: number): string {
 
 export function contextUsageInfo(
   used: number | null,
-  limit: number,
+  limit: number | null,
   sessionTokens?: number | null,
 ): { known: boolean; percent: number; text: string; detail: string } {
-  const known = used !== null && Number.isFinite(used) && used > 0 && limit > 0;
-  const percent = known ? Math.min(100, Math.max(0, Math.round((used / limit) * 100))) : 0;
   const cumulative =
     sessionTokens !== undefined && sessionTokens !== null && sessionTokens > 0
       ? ` · 会话 ${formatTokenCount(sessionTokens)}`
       : "";
+  // A window without a request yet (brand-new session) is a real zero, not an
+  // unknown value: the row must still show the window and 0% instead of
+  // "暂无统计". Only a missing request value or window stays unknown.
+  if (
+    used !== null &&
+    limit !== null &&
+    Number.isFinite(used) &&
+    used >= 0 &&
+    Number.isFinite(limit) &&
+    limit > 0
+  ) {
+    const percent = Math.min(100, Math.max(0, Math.round((used / limit) * 100)));
+    return {
+      known: true,
+      percent,
+      text: `本轮 ${formatTokenCount(used)} / ${formatTokenCount(limit)} · ${percent}%${cumulative}`,
+      detail: `本轮请求输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）${
+        cumulative === "" ? "" : ` · 会话累计输入 ${sessionTokens?.toLocaleString()} tokens`
+      }`,
+    };
+  }
+  const windowKnown = limit !== null && Number.isFinite(limit) && limit > 0;
   return {
-    known,
-    percent,
-    text: known
-      ? `本轮 ${formatTokenCount(used)} / ${formatTokenCount(limit)} · ${percent}%${cumulative}`
-      : "暂无统计",
-    detail: known
-      ? `本轮请求输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）${
-          cumulative === "" ? "" : ` · 会话累计输入 ${sessionTokens?.toLocaleString()} tokens`
-        }`
-      : `暂无统计 · 模型窗口 ${limit.toLocaleString()} tokens`,
+    known: false,
+    percent: 0,
+    text: "暂无统计",
+    detail: windowKnown
+      ? `暂无统计 · 模型窗口 ${limit.toLocaleString()} tokens`
+      : "暂无统计 · 模型窗口未知",
   };
 }
 
@@ -63,7 +79,7 @@ export function ContextUsage({
   sessionTokens,
 }: {
   used: number | null;
-  limit: number;
+  limit: number | null;
   sessionTokens?: number | null;
 }) {
   const info = contextUsageInfo(used, limit, sessionTokens);
@@ -143,7 +159,7 @@ export function SessionUsageLine({
   usage: ApiSessionUsage | null | undefined;
   streaming: boolean;
   lastStep: { outputTokens: number; durationMs: number } | null;
-  contextUsage: { used: number | null; limit: number; sessionTokens?: number | null };
+  contextUsage: { used: number | null; limit: number | null; sessionTokens?: number | null };
 }) {
   if (usage === null) {
     return (

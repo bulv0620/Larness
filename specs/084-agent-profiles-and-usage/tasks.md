@@ -262,3 +262,11 @@
 - 背景：圆环读单次请求输入（`model.usage.inputTokens`，每个 step 覆盖），跨轮会从上一轮峰值回落到本轮起点，看起来像“用量变小”；总量其实在增长，只是分母是模型窗口。
 - 修正：`contextUsageInfo` 增可选 `sessionTokens`，文案改为 `本轮 32k / 128k · 25% · 会话 1.24M`；Hint 与 `aria-valuetext` 同时给出「本轮请求输入」与「会话累计输入」；`Composer` 传 `sessionUsage.inputTokens`。圆环百分比仍按单次请求 / 窗口，因为那才是压缩与溢出判断的口径。
 - 验证：`SessionUsageLine.test.tsx` 11 项、`Composer.test.tsx` 7 项、`pnpm --filter @larness/web typecheck` 通过。
+
+### 验收后修正：新会话显示上下文统计（2026-11-25，用户直接要求）
+
+- 状态：`done`
+- 现象：新会话（草稿或刚建立、尚无任何 turn）中用量行只显示空环 +「暂无统计」，看不到窗口与占比。原因是 `contextUsageInfo` 把 `used > 0` 当作已知，且 `Composer` 在没有 `model.usage` 事件时传 `null`；Mock 浏览器实测用量行存在且可见（`ROWS: 1`，高 16px），只是没有数字。
+- 修正：`contextUsageInfo` 接受 `limit: number | null`，`used === 0` 视为已知的真实零；`Composer` 在草稿会话或 `sessionUsage.turns === 0` 且无 `model.usage` 时按 `本轮 0 / <窗口> · 0%` 显示，真实会话加载中或已有历史但缺当前模型输入时仍保持「暂无统计」；模型窗口未知时不再编造 `128000`，显示「模型窗口未知」。
+- 验证：`SessionUsageLine.test.tsx` 12 项、`Composer.test.tsx` 8 项、web 54 文件 / 314 项、`typecheck`、改动文件 `biome check` 通过；Mock 浏览器实测新会话用量行文本为 `本轮 0 / 128k · 0%`。
+- 涉及路径：`apps/web/src/features/chat/{Composer,SessionUsageLine}.tsx` 与同名测试。

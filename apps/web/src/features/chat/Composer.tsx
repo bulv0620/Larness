@@ -444,6 +444,15 @@ export function Composer({
   const modelUsage = useTimelineStore((state) => state.modelUsage);
   const usage = model ? modelUsage[model.id] : undefined;
   const sessionUsage = useSessionUsage(hasSession && !isDraftSession ? sessionId : null);
+  const timelineLoading = useTimelineStore((state) => state.loading);
+  // A draft (or a real session whose usage query reports no completed turn)
+  // has not sent a request yet: report 0 against the model window instead of
+  // "暂无统计". While a real session is still loading, keep it unknown so the
+  // row does not flash 0% for a session that already has history.
+  const noRequestYet =
+    !timelineLoading &&
+    (isDraftSession || (usage === undefined && (sessionUsage?.turns ?? 0) === 0));
+  const contextWindow = usage?.contextWindow ?? model?.contextWindow ?? null;
   const lastStep =
     usage?.outputTokens !== undefined && usage.durationMs !== undefined
       ? { outputTokens: usage.outputTokens, durationMs: usage.durationMs }
@@ -903,8 +912,8 @@ export function Composer({
           streaming={isStreaming}
           lastStep={lastStep}
           contextUsage={{
-            used: usage?.inputTokens ?? null,
-            limit: usage?.contextWindow ?? model?.contextWindow ?? 128000,
+            used: noRequestYet ? 0 : (usage?.inputTokens ?? null),
+            limit: contextWindow,
             sessionTokens: sessionUsage?.inputTokens,
           }}
         />

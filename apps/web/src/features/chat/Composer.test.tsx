@@ -170,8 +170,9 @@ it("puts context usage in the row under the composer and the attachment button b
   expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("256,000"));
   expect(attachment.nextElementSibling).toBe(screen.getByRole("button", { name: "停止执行" }));
   act(() => useTimelineStore.setState({ modelUsage: {} }));
-  expect(ring).not.toHaveAttribute("aria-valuenow");
-  expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("暂无统计"));
+  // No request recorded in this session: a real zero against the model window.
+  expect(ring).toHaveAttribute("aria-valuenow", "0");
+  expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("0 / 128,000"));
 });
 
 it("requires risk confirmation before switching to autonomous, with cancellation preserving policy", async () => {
@@ -240,7 +241,7 @@ it("opens separate model and thinking submenus with small Key headings", async (
   expect(trigger).not.toHaveTextContent(/Key|不支持/);
   expect(screen.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
     "aria-valuetext",
-    expect.stringContaining("暂无统计"),
+    expect.stringContaining("0 / 128,000"),
   );
 });
 it("replaces the context shortcut with a globe that toggles web search", async () => {
@@ -329,4 +330,22 @@ it("presets web search on a draft session without calling the session API", asyn
   expect(useNavigationStore.getState().draftSession?.webSearchEnabled).toBe(true);
   expect(screen.getByText("已开启联网搜索")).toBeVisible();
   expect(updateSession).not.toHaveBeenCalled();
+});
+
+it("shows the model window at zero in a brand-new session", () => {
+  useNavigationStore.setState({ projectId: null, draftSession: null, sessionId: "" });
+  useNavigationStore.getState().startDraft(null);
+  useTimelineStore.setState({
+    sessionId: useNavigationStore.getState().sessionId,
+    loading: false,
+    // A stale per-model entry from the previous session must not leak in.
+    modelUsage: {
+      "deepseek-flash": { inputTokens: 32_000, contextWindow: 128_000, updatedAt: 1 },
+    },
+  });
+  renderComposer();
+
+  const ring = screen.getByRole("progressbar", { name: "上下文用量" });
+  expect(ring).toHaveAttribute("aria-valuenow", "0");
+  expect(screen.getByText("本轮 0 / 128k · 0%")).toBeVisible();
 });

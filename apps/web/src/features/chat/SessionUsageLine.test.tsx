@@ -43,12 +43,40 @@ it("clamps context usage and reports unknown usage honestly", () => {
     percent: 0,
     text: "暂无统计",
   });
-  expect(contextUsageInfo(0, 128_000).known).toBe(false);
+  expect(contextUsageInfo(0, 128_000)).toMatchObject({
+    known: true,
+    percent: 0,
+    text: "本轮 0 / 128k · 0%",
+  });
+  expect(contextUsageInfo(0, null)).toMatchObject({
+    known: false,
+    text: "暂无统计",
+    detail: "暂无统计 · 模型窗口未知",
+  });
   expect(contextUsageInfo(256_000, 128_000)).toMatchObject({
     known: true,
     percent: 100,
     text: "本轮 256k / 128k · 100%",
   });
+});
+
+it("shows a real zero for a session before its first request", () => {
+  const view = render(
+    <TooltipProvider>
+      <SessionUsageLine
+        usage={undefined}
+        streaming={false}
+        lastStep={null}
+        contextUsage={{ used: 0, limit: 128_000 }}
+      />
+    </TooltipProvider>,
+  );
+  const row = view.getByRole("status", { name: "会话用量" });
+  const ring = within(row).getByRole("progressbar", { name: "上下文用量" });
+
+  expect(within(row).getByText("本轮 0 / 128k · 0%")).toBeVisible();
+  expect(ring).toHaveAttribute("aria-valuenow", "0");
+  expect(ring).toHaveAttribute("aria-valuetext", "本轮请求输入：0 / 128,000 tokens（0%）");
 });
 
 it("shows the session cumulative input next to the per-request window usage", () => {
