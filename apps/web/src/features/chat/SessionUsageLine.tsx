@@ -35,23 +35,38 @@ function formatDuration(durationMs: number): string {
 export function contextUsageInfo(
   used: number | null,
   limit: number,
+  sessionTokens?: number | null,
 ): { known: boolean; percent: number; text: string; detail: string } {
   const known = used !== null && Number.isFinite(used) && used > 0 && limit > 0;
   const percent = known ? Math.min(100, Math.max(0, Math.round((used / limit) * 100))) : 0;
+  const cumulative =
+    sessionTokens !== undefined && sessionTokens !== null && sessionTokens > 0
+      ? ` · 会话 ${formatTokenCount(sessionTokens)}`
+      : "";
   return {
     known,
     percent,
     text: known
-      ? `${formatTokenCount(used)} / ${formatTokenCount(limit)} · ${percent}%`
+      ? `本轮 ${formatTokenCount(used)} / ${formatTokenCount(limit)} · ${percent}%${cumulative}`
       : "暂无统计",
     detail: known
-      ? `单次输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）`
+      ? `本轮请求输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）${
+          cumulative === "" ? "" : ` · 会话累计输入 ${sessionTokens?.toLocaleString()} tokens`
+        }`
       : `暂无统计 · 模型窗口 ${limit.toLocaleString()} tokens`,
   };
 }
 
-export function ContextUsage({ used, limit }: { used: number | null; limit: number }) {
-  const info = contextUsageInfo(used, limit);
+export function ContextUsage({
+  used,
+  limit,
+  sessionTokens,
+}: {
+  used: number | null;
+  limit: number;
+  sessionTokens?: number | null;
+}) {
+  const info = contextUsageInfo(used, limit, sessionTokens);
   return (
     <Hint label={info.detail} side="top">
       <div
@@ -128,7 +143,7 @@ export function SessionUsageLine({
   usage: ApiSessionUsage | null | undefined;
   streaming: boolean;
   lastStep: { outputTokens: number; durationMs: number } | null;
-  contextUsage: { used: number | null; limit: number };
+  contextUsage: { used: number | null; limit: number; sessionTokens?: number | null };
 }) {
   if (usage === null) {
     return (

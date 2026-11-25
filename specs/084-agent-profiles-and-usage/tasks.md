@@ -255,3 +255,10 @@
   - 附件按钮移到原圆球位置（发送 / 停止左侧），工具栏左侧不再重复。
 - 验证：`SessionUsageLine.test.tsx` 10 项、`Composer.test.tsx` 7 项、`pnpm --filter @larness/web test` 54 文件 / 311 项、`typecheck`、改动文件 `biome check` 通过；E2E 与浏览器视觉验收未跑。
 - 涉及路径：`apps/web/src/features/chat/{Composer,SessionUsageLine}.tsx` 与同名测试。
+
+### 验收后修正：用量口径（本轮 + 会话累计）（2026-11-25，用户直接要求）
+
+- 状态：`done`
+- 背景：圆环读单次请求输入（`model.usage.inputTokens`，每个 step 覆盖），跨轮会从上一轮峰值回落到本轮起点，看起来像“用量变小”；总量其实在增长，只是分母是模型窗口。
+- 修正：`contextUsageInfo` 增可选 `sessionTokens`，文案改为 `本轮 32k / 128k · 25% · 会话 1.24M`；Hint 与 `aria-valuetext` 同时给出「本轮请求输入」与「会话累计输入」；`Composer` 传 `sessionUsage.inputTokens`。圆环百分比仍按单次请求 / 窗口，因为那才是压缩与溢出判断的口径。
+- 验证：`SessionUsageLine.test.tsx` 11 项、`Composer.test.tsx` 7 项、`pnpm --filter @larness/web typecheck` 通过。

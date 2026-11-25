@@ -151,7 +151,7 @@ it("puts context usage in the row under the composer and the attachment button b
   expect(ring).toHaveAttribute("aria-valuenow", "25");
   expect(ring).toHaveAttribute(
     "aria-valuetext",
-    expect.stringContaining("单次输入：32,000 / 128,000"),
+    expect.stringContaining("本轮请求输入：32,000 / 128,000"),
   );
   expect(within(screen.getByRole("status", { name: "会话用量" })).getByRole("progressbar")).toBe(
     ring,

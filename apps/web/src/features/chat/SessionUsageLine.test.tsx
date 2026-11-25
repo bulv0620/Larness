@@ -47,8 +47,16 @@ it("clamps context usage and reports unknown usage honestly", () => {
   expect(contextUsageInfo(256_000, 128_000)).toMatchObject({
     known: true,
     percent: 100,
-    text: "256k / 128k · 100%",
+    text: "本轮 256k / 128k · 100%",
   });
+});
+
+it("shows the session cumulative input next to the per-request window usage", () => {
+  const info = contextUsageInfo(32_000, 128_000, 1_240_000);
+
+  expect(info.text).toBe("本轮 32k / 128k · 25% · 会话 1.24M");
+  expect(info.detail).toContain("本轮请求输入：32,000 / 128,000 tokens（25%）");
+  expect(info.detail).toContain("会话累计输入 1,240,000 tokens");
 });
 
 it("shows bounded context usage in the session usage row", () => {
@@ -57,8 +65,8 @@ it("shows bounded context usage in the session usage row", () => {
   const ring = within(row).getByRole("progressbar", { name: "上下文用量" });
 
   expect(ring).toHaveAttribute("aria-valuenow", "25");
-  expect(ring).toHaveAttribute("aria-valuetext", "单次输入：32,000 / 128,000 tokens（25%）");
-  expect(within(row).getByText("32k / 128k · 25%")).toBeVisible();
+  expect(ring).toHaveAttribute("aria-valuetext", "本轮请求输入：32,000 / 128,000 tokens（25%）");
+  expect(within(row).getByText("本轮 32k / 128k · 25%")).toBeVisible();
 });
 
 it("keeps the context ring when the session usage query is disabled", () => {
