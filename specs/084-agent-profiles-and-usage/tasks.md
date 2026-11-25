@@ -270,3 +270,11 @@
 - 修正：`contextUsageInfo` 接受 `limit: number | null`，`used === 0` 视为已知的真实零；`Composer` 在草稿会话或 `sessionUsage.turns === 0` 且无 `model.usage` 时按 `本轮 0 / <窗口> · 0%` 显示，真实会话加载中或已有历史但缺当前模型输入时仍保持「暂无统计」；模型窗口未知时不再编造 `128000`，显示「模型窗口未知」。
 - 验证：`SessionUsageLine.test.tsx` 12 项、`Composer.test.tsx` 8 项、web 54 文件 / 314 项、`typecheck`、改动文件 `biome check` 通过；Mock 浏览器实测新会话用量行文本为 `本轮 0 / 128k · 0%`。
 - 涉及路径：`apps/web/src/features/chat/{Composer,SessionUsageLine}.tsx` 与同名测试。
+
+### 验收后修正：新会话不显示用量行（2026-11-25，用户直接要求）
+
+- 状态：`done`
+- 要求：新会话下方不要显示用量行（上一版改成显示 `本轮 0 / 128k · 0%`，属理解偏差）。
+- 修正：`Composer` 用 `showUsageLine = hasSession && !isDraftSession && (usage !== undefined || sessionUsage.turns > 0)` 决定是否挂载 `SessionUsageLine`；草稿会话、尚未完成任何 turn 的会话、以及没有当前模型 `model.usage` 且无已完成 turn 的会话均不渲染该行，也不再显示空环或 `本轮 0 / 窗口 · 0%`。草稿会话即使残留上一会话的 `modelUsage` 也不显示（避免串数）。`contextUsageInfo` 的“0 是真实零”保留，只用于请求确实回报 0 输入的情况。
+- 验证：`SessionUsageLine.test.tsx` 12 项、`Composer.test.tsx` 9 项、`SessionModel.test.tsx` 14 项、`pnpm --filter @larness/web test` 54 文件 / 315 项、`typecheck`、改动文件 `biome check` 通过；E2E 与浏览器视觉验收未跑。
+- 涉及路径：`apps/web/src/features/chat/{Composer,Composer.test,SessionUsageLine.test,SessionModel.test}.tsx`、`specs/041-composer-controls/spec.md`。

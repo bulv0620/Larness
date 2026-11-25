@@ -170,9 +170,29 @@ it("puts context usage in the row under the composer and the attachment button b
   expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("256,000"));
   expect(attachment.nextElementSibling).toBe(screen.getByRole("button", { name: "停止执行" }));
   act(() => useTimelineStore.setState({ modelUsage: {} }));
-  // No request recorded in this session: a real zero against the model window.
-  expect(ring).toHaveAttribute("aria-valuenow", "0");
-  expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("0 / 128,000"));
+  // No request recorded in this session: the row is gone instead of showing a
+  // fake zero.
+  expect(screen.queryByRole("status", { name: "会话用量" })).toBeNull();
+  expect(screen.queryByRole("progressbar", { name: "上下文用量" })).toBeNull();
+});
+
+it("keeps the usage row out of a session before its first request", () => {
+  useTimelineStore.setState({ modelUsage: {} });
+  renderComposer();
+  expect(screen.queryByRole("status", { name: "会话用量" })).toBeNull();
+
+  act(() =>
+    useTimelineStore.setState({
+      modelUsage: {
+        "deepseek-flash": { inputTokens: 12_000, contextWindow: 128_000, updatedAt: 2 },
+      },
+    }),
+  );
+  const row = screen.getByRole("status", { name: "会话用量" });
+  expect(within(row).getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
+    "aria-valuetext",
+    expect.stringContaining("本轮请求输入：12,000 / 128,000"),
+  );
 });
 
 it("requires risk confirmation before switching to autonomous, with cancellation preserving policy", async () => {
@@ -239,10 +259,8 @@ it("opens separate model and thinking submenus with small Key headings", async (
   expect(screen.getByText("已切换到 DeepSeek Chat")).toBeVisible();
   expect(trigger).toHaveAccessibleName("模型与思考：DeepSeek Chat");
   expect(trigger).not.toHaveTextContent(/Key|不支持/);
-  expect(screen.getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
-    "aria-valuetext",
-    expect.stringContaining("0 / 128,000"),
-  );
+  // DeepSeek Chat has no recorded request here: no row instead of a 0% ring.
+  expect(screen.queryByRole("progressbar", { name: "上下文用量" })).toBeNull();
 });
 it("replaces the context shortcut with a globe that toggles web search", async () => {
   vi.mocked(useSessionDetail).mockReturnValue({
@@ -332,7 +350,7 @@ it("presets web search on a draft session without calling the session API", asyn
   expect(updateSession).not.toHaveBeenCalled();
 });
 
-it("shows the model window at zero in a brand-new session", () => {
+it("keeps the usage row out of a brand-new session even with stale per-model usage", () => {
   useNavigationStore.setState({ projectId: null, draftSession: null, sessionId: "" });
   useNavigationStore.getState().startDraft(null);
   useTimelineStore.setState({
@@ -345,7 +363,7 @@ it("shows the model window at zero in a brand-new session", () => {
   });
   renderComposer();
 
-  const ring = screen.getByRole("progressbar", { name: "上下文用量" });
-  expect(ring).toHaveAttribute("aria-valuenow", "0");
-  expect(screen.getByText("本轮 0 / 128k · 0%")).toBeVisible();
+  expect(screen.queryByRole("status", { name: "会话用量" })).toBeNull();
+  expect(screen.queryByRole("progressbar", { name: "上下文用量" })).toBeNull();
+  expect(screen.queryByText(/本轮 0 \//)).toBeNull();
 });

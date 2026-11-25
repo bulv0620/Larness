@@ -248,8 +248,21 @@ it("saves approval policy without sending and restores it after a reload", async
 });
 
 it("keeps the session token row visible in a real session", async () => {
+  api.getSessionUsage.mockResolvedValue({
+    sessionId: "ses_a",
+    inputTokens: 1_000,
+    outputTokens: 200,
+    totalTokens: 1_200,
+    cacheReadTokens: null,
+    noCacheTokens: null,
+    cache: { hitRate: null, readTokens: 0, missTokens: 0, knownRequests: 0, unknownRequests: 0 },
+    turns: 1,
+    missingTurns: 0,
+    partial: false,
+    updatedAt: 1,
+  });
   renderComposer();
-  expect(await screen.findByText("0 tokens")).toBeVisible();
+  expect(await screen.findByText("1.2k tokens")).toBeVisible();
 });
 
 it("saves the agent profile without sending and restores it after a reload", async () => {

@@ -60,7 +60,10 @@ it("clamps context usage and reports unknown usage honestly", () => {
   });
 });
 
-it("shows a real zero for a session before its first request", () => {
+// The row itself is only mounted by Composer once a session has usage to
+// report; when a request really reports zero input the component must say so
+// instead of drawing an unknown ring.
+it("renders a reported zero as a real value", () => {
   const view = render(
     <TooltipProvider>
       <SessionUsageLine
