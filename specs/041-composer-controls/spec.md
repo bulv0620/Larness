@@ -33,3 +33,7 @@ milestone: M2
 ## 修订（2026-11-25 第二次，用户直接要求）
 
 新会话（草稿，或已建立但还没有任何完成 turn 的会话）不渲染输入框下方用量行：没有可报告的用量时不占位、不显示空环、也不显示 `本轮 0 / 窗口 · 0%`。该行在出现第一条用量后出现——进行中的 `model.usage` 步骤，或 `GET /api/sessions/:id/usage` 报告 `turns > 0`；草稿会话即使残留上一会话的 `modelUsage` 也不显示。`contextUsageInfo` 的“`used === 0` 是真实零”仍保留，只用于请求确实回报 0 输入的情况。
+
+## 修订（2026-11-25 第三次，用户直接要求）
+
+圆环右侧只显示「本轮请求输入 / 模型窗口 · 百分比」，不再重复左侧已有的会话累计总量：`contextUsageInfo` / `ContextUsage` / `SessionUsageLine` 去掉 `sessionTokens`，Hint 与 `aria-valuetext` 同样只给本轮输入。会话累计输入仍可在左侧总量（`tokens`）及其「输入 / 输出 / 缓存命中」Hint 中读取。

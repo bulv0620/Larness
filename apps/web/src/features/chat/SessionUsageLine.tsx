@@ -35,15 +35,9 @@ function formatDuration(durationMs: number): string {
 export function contextUsageInfo(
   used: number | null,
   limit: number | null,
-  sessionTokens?: number | null,
 ): { known: boolean; percent: number; text: string; detail: string } {
-  const cumulative =
-    sessionTokens !== undefined && sessionTokens !== null && sessionTokens > 0
-      ? ` · 会话 ${formatTokenCount(sessionTokens)}`
-      : "";
-  // A window without a request yet (brand-new session) is a real zero, not an
-  // unknown value: the row must still show the window and 0% instead of
-  // "暂无统计". Only a missing request value or window stays unknown.
+  // The row is hidden until a session has a request, so a recorded zero is a
+  // real value. Only a missing request value or window stays unknown.
   if (
     used !== null &&
     limit !== null &&
@@ -56,10 +50,8 @@ export function contextUsageInfo(
     return {
       known: true,
       percent,
-      text: `本轮 ${formatTokenCount(used)} / ${formatTokenCount(limit)} · ${percent}%${cumulative}`,
-      detail: `本轮请求输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）${
-        cumulative === "" ? "" : ` · 会话累计输入 ${sessionTokens?.toLocaleString()} tokens`
-      }`,
+      text: `本轮 ${formatTokenCount(used)} / ${formatTokenCount(limit)} · ${percent}%`,
+      detail: `本轮请求输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）`,
     };
   }
   const windowKnown = limit !== null && Number.isFinite(limit) && limit > 0;
@@ -73,16 +65,8 @@ export function contextUsageInfo(
   };
 }
 
-export function ContextUsage({
-  used,
-  limit,
-  sessionTokens,
-}: {
-  used: number | null;
-  limit: number | null;
-  sessionTokens?: number | null;
-}) {
-  const info = contextUsageInfo(used, limit, sessionTokens);
+export function ContextUsage({ used, limit }: { used: number | null; limit: number | null }) {
+  const info = contextUsageInfo(used, limit);
   return (
     <Hint label={info.detail} side="top">
       <div
@@ -159,7 +143,7 @@ export function SessionUsageLine({
   usage: ApiSessionUsage | null | undefined;
   streaming: boolean;
   lastStep: { outputTokens: number; durationMs: number } | null;
-  contextUsage: { used: number | null; limit: number | null; sessionTokens?: number | null };
+  contextUsage: { used: number | null; limit: number | null };
 }) {
   if (usage === null) {
     return (

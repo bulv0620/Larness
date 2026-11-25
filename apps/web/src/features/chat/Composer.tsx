@@ -912,7 +912,6 @@ export function Composer({
           contextUsage={{
             used: usage?.inputTokens ?? null,
             limit: contextWindow,
-            sessionTokens: sessionUsage?.inputTokens,
           }}
         />
       ) : null}

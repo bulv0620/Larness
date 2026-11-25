@@ -82,12 +82,14 @@ it("renders a reported zero as a real value", () => {
   expect(ring).toHaveAttribute("aria-valuetext", "本轮请求输入：0 / 128,000 tokens（0%）");
 });
 
-it("shows the session cumulative input next to the per-request window usage", () => {
-  const info = contextUsageInfo(32_000, 128_000, 1_240_000);
+it("keeps the session cumulative total on the left only", () => {
+  const info = contextUsageInfo(32_000, 128_000);
 
-  expect(info.text).toBe("本轮 32k / 128k · 25% · 会话 1.24M");
-  expect(info.detail).toContain("本轮请求输入：32,000 / 128,000 tokens（25%）");
-  expect(info.detail).toContain("会话累计输入 1,240,000 tokens");
+  // The row already prints the session total on the left; repeating it beside
+  // the ring would show the same number twice.
+  expect(info.text).toBe("本轮 32k / 128k · 25%");
+  expect(info.detail).toBe("本轮请求输入：32,000 / 128,000 tokens（25%）");
+  expect(`${info.text}${info.detail}`).not.toContain("会话");
 });
 
 it("shows bounded context usage in the session usage row", () => {

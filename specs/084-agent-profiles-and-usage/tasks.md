@@ -278,3 +278,11 @@
 - 修正：`Composer` 用 `showUsageLine = hasSession && !isDraftSession && (usage !== undefined || sessionUsage.turns > 0)` 决定是否挂载 `SessionUsageLine`；草稿会话、尚未完成任何 turn 的会话、以及没有当前模型 `model.usage` 且无已完成 turn 的会话均不渲染该行，也不再显示空环或 `本轮 0 / 窗口 · 0%`。草稿会话即使残留上一会话的 `modelUsage` 也不显示（避免串数）。`contextUsageInfo` 的“0 是真实零”保留，只用于请求确实回报 0 输入的情况。
 - 验证：`SessionUsageLine.test.tsx` 12 项、`Composer.test.tsx` 9 项、`SessionModel.test.tsx` 14 项、`pnpm --filter @larness/web test` 54 文件 / 315 项、`typecheck`、改动文件 `biome check` 通过；E2E 与浏览器视觉验收未跑。
 - 涉及路径：`apps/web/src/features/chat/{Composer,Composer.test,SessionUsageLine.test,SessionModel.test}.tsx`、`specs/041-composer-controls/spec.md`。
+
+### 验收后修正：右下角不再重复会话累计输入（2026-11-25，用户直接要求）
+
+- 状态：`done`
+- 要求：圆环右侧不显示会话累计输入，因为同一行左侧已有会话总量。
+- 修正：`contextUsageInfo` 去掉可选第三个参数 `sessionTokens`，右侧文案回到 `本轮 32k / 128k · 25%`，Hint 与 `aria-valuetext` 也只给「本轮请求输入」；`ContextUsage` 与 `SessionUsageLine` 的 props 去掉 `sessionTokens`，`Composer` 不再传 `sessionUsage.inputTokens`。左侧总量与「输入 / 输出 / 缓存命中」Hint 不变，会话累计输入仍可在那里读到。
+- 验证：`SessionUsageLine.test.tsx` 12 项、`Composer.test.tsx` 9 项、`SessionModel.test.tsx` 14 项、`pnpm --filter @larness/web test` 54 文件 / 315 项、`typecheck`、改动文件 `biome check` 通过；E2E 与浏览器视觉验收未跑。
+- 涉及路径：`apps/web/src/features/chat/{Composer.tsx,SessionUsageLine.tsx,SessionUsageLine.test.tsx}`。
