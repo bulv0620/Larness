@@ -26,6 +26,8 @@ export interface AgentJobExecutorOptions {
   dataDir: string;
   now?: () => number;
   enqueue?: (turnId: string, sessionId: string) => void;
+  /** Abort the running TurnRunner controller immediately, not only DB status. */
+  cancelTurnRunner?: (turnId: string) => boolean;
   cancelGraceMs?: number;
 }
 
@@ -78,6 +80,7 @@ export class AgentJobExecutor {
   readonly #dataDir: string;
   readonly #now: () => number;
   readonly #enqueue: ((turnId: string, sessionId: string) => void) | undefined;
+  readonly #cancelTurnRunner: ((turnId: string) => boolean) | undefined;
   readonly #cancelGraceMs: number;
 
   constructor(options: AgentJobExecutorOptions) {
@@ -85,6 +88,7 @@ export class AgentJobExecutor {
     this.#dataDir = options.dataDir;
     this.#now = options.now ?? Date.now;
     this.#enqueue = options.enqueue;
+    this.#cancelTurnRunner = options.cancelTurnRunner;
     this.#cancelGraceMs = options.cancelGraceMs ?? DEFAULT_CANCEL_GRACE_MS;
   }
 
@@ -165,6 +169,11 @@ export class AgentJobExecutor {
         cancelTurn({ db: this.#db, now: this.#now }, { turnId: created.turnId });
       } catch {
         // The Turn may already be terminal.
+      }
+      try {
+        this.#cancelTurnRunner?.(created.turnId);
+      } catch {
+        // A missing controller still leaves the persisted CANCELLING state.
       }
     };
 

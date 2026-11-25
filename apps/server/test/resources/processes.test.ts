@@ -291,4 +291,52 @@ describe("background process manager", () => {
       }
     });
   });
+
+  it("stops background processes during graceful server shutdown", async () => {
+    await withTempDir(async (dir) => {
+      const started = await startAuthorizedServer(path.join(dir, "data"));
+      try {
+        const session = await createSession(
+          { db: started.running.db, dataDir: started.running.dataDir },
+          {},
+        );
+        const auth = (
+          await started.running.app.inject({
+            url: "/api/auth/session",
+            headers: { cookie: started.cookie },
+          })
+        ).json() as { clientSessionId: string };
+        const turn = createTurn(
+          { db: started.running.db },
+          { sessionId: session.id, text: "shutdown", clientSessionId: auth.clientSessionId },
+        );
+        updateTurnRow(started.running.db, turn.turnId, { status: "RUNNING" });
+
+        const dto = await started.running.processes.start(
+          {
+            sessionId: session.id,
+            turnId: turn.turnId,
+            toolCallId: "call_shutdown",
+            clientSessionId: auth.clientSessionId,
+            policySnapshotId: "policy_shutdown",
+            assertAuthorized: () => {},
+          },
+          {
+            executable: process.execPath,
+            args: ["-e", "setInterval(()=>{},1000)"],
+            cwd: ".",
+            name: "shutdown-fixture",
+          },
+        );
+        expect(dto.pid).not.toBeNull();
+
+        started.client.close();
+        await started.running.shutdown("shutdown-test");
+        await until(() => !processAlive(dto.pid as number), "shutdown process exit");
+      } finally {
+        started.client.close();
+        await started.running.shutdown("shutdown-test").catch(() => undefined);
+      }
+    });
+  });
 });

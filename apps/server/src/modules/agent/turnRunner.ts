@@ -70,6 +70,7 @@ import {
   addUsage,
   DEFAULT_BUDGET,
   deriveTerminalReason,
+  preserveCancellation,
   resolveSpendCap,
   type TurnBudget,
 } from "./turn/budget.js";
@@ -237,6 +238,8 @@ export type TurnRunResult = {
   budgetCause?: TurnBudgetCause;
 };
 
+type BudgetState = "ok" | "cancel" | "budget" | "shutdown";
+
 function isTerminal(status: TurnStatus): boolean {
   return (
     status === "COMPLETED" ||
@@ -274,6 +277,7 @@ export class TurnRunner {
   readonly #budget: TurnBudget;
   readonly #controllers = new Map<string, AbortController>();
   readonly #titleWork = new Set<Promise<unknown>>();
+  #stopReason: "user" | "shutdown" | null = null;
 
   #trackTitleWork(task: Promise<void>): void {
     const guarded = task.catch(() => {}) as Promise<unknown>;
@@ -302,7 +306,8 @@ export class TurnRunner {
     return true;
   }
 
-  stop(): void {
+  stop(reason: "user" | "shutdown" = "user"): void {
+    this.#stopReason = reason;
     for (const controller of this.#controllers.values()) {
       controller.abort();
     }
@@ -465,21 +470,35 @@ export class TurnRunner {
       const omitted = fileChanges.size - fileResults.length;
       const persistedUsage: ProviderUsage & { missingSteps?: number } =
         missingUsageSteps === 0 ? usage : { ...usage, missingSteps: missingUsageSteps };
-      finalized = true;
-      const result = this.#finalize(turn, session, status, {
-        ...options,
+      // `cancelTurn` can commit CANCELLING while file results are being
+      // collected. The late terminal write must not overwrite that intent, or
+      // a user-visible Stop would be replaced by COMPLETED and could even
+      // trigger an automatic continuation.
+      const cancelled =
+        status !== "CANCELLED" &&
+        preserveCancellation(status, getTurnById(this.#options.db, turn.id)?.status ?? null) ===
+          "CANCELLED";
+      const result = this.#finalize(turn, session, cancelled ? "CANCELLED" : status, {
+        ...(cancelled
+          ? {
+              eventType: "turn.cancelled",
+              reason: "user",
+              terminalReason: "cancelled" as const,
+            }
+          : options),
         usage: persistedUsage,
         durationMs: this.#now() - startedAt,
         ...(fileResults.length === 0 ? {} : { fileResults }),
         ...(omitted <= 0 ? {} : { fileResultsOmitted: omitted }),
       });
+      finalized = true;
 
       return result;
     };
 
-    const checkBudget = (): "ok" | "cancel" | "budget" => {
+    const checkBudget = (): BudgetState => {
       if (controller.signal.aborted) {
-        return deadlineReached ? "budget" : "cancel";
+        return deadlineReached ? "budget" : this.#stopReason === "shutdown" ? "shutdown" : "cancel";
       }
 
       const current = getTurnById(this.#options.db, turnId);
@@ -495,6 +514,15 @@ export class TurnRunner {
 
       return "ok";
     };
+
+    const finalizeStop = (state: "cancel" | "shutdown"): Promise<TurnRunResult> =>
+      state === "shutdown"
+        ? finalize("INTERRUPTED", {
+            eventType: "turn.interrupted",
+            reason: "shutdown",
+            message: "执行因 Larness 关闭而中断，可在重启后继续",
+          })
+        : finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
 
     const acquireProjectLock = (): boolean => {
       if (projectLock === null) {
@@ -1263,8 +1291,10 @@ export class TurnRunner {
 
       this.#transition(turn, session, "PREPARING", startedAt);
 
-      if (checkBudget() === "cancel") {
-        return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+      const initialBudgetState = checkBudget();
+
+      if (initialBudgetState === "cancel" || initialBudgetState === "shutdown") {
+        return await finalizeStop(initialBudgetState);
       }
 
       this.#transition(turn, session, "RUNNING");
@@ -1395,8 +1425,8 @@ export class TurnRunner {
 
         const budgetState = checkBudget();
 
-        if (budgetState === "cancel") {
-          return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+        if (budgetState === "cancel" || budgetState === "shutdown") {
+          return await finalizeStop(budgetState);
         }
 
         if (budgetState === "budget") {
@@ -1857,8 +1887,8 @@ export class TurnRunner {
 
         const afterStep = checkBudget();
 
-        if (afterStep === "cancel") {
-          return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+        if (afterStep === "cancel" || afterStep === "shutdown") {
+          return await finalizeStop(afterStep);
         }
 
         if (providerError !== null) {
@@ -1967,6 +1997,8 @@ export class TurnRunner {
           timing.toolMs += this.#now() - prefetchStarted;
         }
 
+        const repeatedFailureNudges: string[] = [];
+
         for (const request of toolRequests) {
           const cancelState = checkBudget();
 
@@ -1976,8 +2008,8 @@ export class TurnRunner {
               budgetExhausted: true,
               budgetCause: "duration",
             });
-          if (cancelState === "cancel") {
-            return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+          if (cancelState === "cancel" || cancelState === "shutdown") {
+            return await finalizeStop(cancelState);
           }
 
           toolCalls += 1;
@@ -2084,7 +2116,7 @@ export class TurnRunner {
                 });
               }
 
-              return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+              return await finalizeStop(this.#stopReason === "shutdown" ? "shutdown" : "cancel");
             }
 
             this.#emit(turn, session, "tool.approval.resolved", {
@@ -2273,15 +2305,21 @@ export class TurnRunner {
             repeatCount !== undefined &&
             repeatCount === this.#budget.repeatFailureThreshold
           ) {
-            messages.push({
-              role: "user",
-              content: `The exact same ${request.name} call with identical arguments has failed ${repeatCount} times in a row and returned the same error. Repeating it will not change the result: change the approach or state what blocks progress.`,
-            });
+            repeatedFailureNudges.push(
+              `The exact same ${request.name} call with identical arguments has failed ${repeatCount} times in a row and returned the same error. Repeating it will not change the result: change the approach or state what blocks progress.`,
+            );
             this.#options.logger?.info(
               { turnId, toolName: request.name, repeatCount },
               "identical tool call keeps failing",
             );
           }
+        }
+
+        // The nudge is a user message. Appending it inside the tool loop would
+        // split the assistant tool calls from their tool results and produce an
+        // invalid transcript for the next provider request.
+        for (const nudge of repeatedFailureNudges) {
+          messages.push({ role: "user", content: nudge });
         }
 
         // One step, one budget: a batch of fat results must not spend the whole
@@ -2319,11 +2357,14 @@ export class TurnRunner {
         });
       }
 
-      if (
-        controller.signal.aborted ||
-        getTurnById(this.#options.db, turnId)?.status === "CANCELLING"
-      ) {
+      const currentStatus = getTurnById(this.#options.db, turnId)?.status;
+
+      if (currentStatus === "CANCELLING") {
         return await finalize("CANCELLED", { eventType: "turn.cancelled", reason: "user" });
+      }
+
+      if (controller.signal.aborted) {
+        return await finalizeStop(this.#stopReason === "shutdown" ? "shutdown" : "cancel");
       }
 
       if (error instanceof ProviderError) {

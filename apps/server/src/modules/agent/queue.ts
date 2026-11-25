@@ -3,7 +3,7 @@ import type { TurnRunResult } from "./turnRunner.js";
 export interface QueuedTurnRunner {
   run(turnId: string): Promise<TurnRunResult>;
   cancel(turnId: string): boolean;
-  stop(): void;
+  stop(reason?: "shutdown"): void;
 }
 
 export interface TurnQueueOptions {
@@ -60,7 +60,7 @@ export class TurnQueue {
   async stop(): Promise<void> {
     this.#stopped = true;
     this.#pending.length = 0;
-    this.#runner.stop();
+    this.#runner.stop("shutdown");
     await Promise.allSettled([...this.#tasks]);
   }
 

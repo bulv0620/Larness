@@ -1,6 +1,6 @@
 import path from "node:path";
 import { createFakeProvider, createFileToolRegistry } from "@larness/agent";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
@@ -156,10 +156,12 @@ describe("agent job cancellation", () => {
     await withTempDir(async (dir) => {
       const { opened, job } = await pendingFixture(dir);
       try {
+        const cancelTurnRunner = vi.fn(() => true);
         const executor = new AgentJobExecutor({
           db: opened.db,
           dataDir: dir,
           enqueue: () => undefined,
+          cancelTurnRunner,
           cancelGraceMs: 300,
         });
         const result = await executor.run(
@@ -171,6 +173,7 @@ describe("agent job cancellation", () => {
 
         expect(result.status).toBe("timed_out");
         expect(result.errorCode).toBe("JOB_TIMEOUT");
+        expect(cancelTurnRunner).toHaveBeenCalled();
       } finally {
         opened.close();
       }

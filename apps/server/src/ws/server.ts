@@ -86,14 +86,14 @@ export function send(
   }
 
   if (socket.bufferedAmount > MAX_BUFFERED_BYTES) {
-    socket.close(1008, "backpressure");
+    socket.close(1013, "backpressure");
     return;
   }
 
   try {
     socket.send(JSON.stringify(payload));
   } catch {
-    socket.close(1008, "transport failed");
+    socket.close(1011, "transport failed");
   }
 }
 
@@ -766,7 +766,7 @@ export function registerWsRoutes(app: FastifyInstance, deps: WsRouteDeps): void 
         let controls = Promise.resolve();
         socket.on("message", (raw: Buffer) => {
           if (++pendingControls > 64) {
-            socket.close(1008, "control queue limit");
+            socket.close(1013, "control queue limit");
             return;
           }
           controls = controls

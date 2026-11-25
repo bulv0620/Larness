@@ -69,6 +69,17 @@ export function resolveSpendCap(
   return Math.floor(contextWindow * budget.spendCapContexts);
 }
 
+/**
+ * A Stop can commit CANCELLING while the runner is still finishing cleanup.
+ * The late terminal decision must not overwrite the user's cancellation.
+ */
+export function preserveCancellation(
+  requested: TurnStatus,
+  current: TurnStatus | null,
+): TurnStatus {
+  return requested !== "CANCELLED" && current === "CANCELLING" ? "CANCELLED" : requested;
+}
+
 export function deriveTerminalReason(
   status: TurnStatus,
   options: { budgetExhausted?: boolean; finishReason?: ProviderFinishReason; errorCode?: string },

@@ -221,6 +221,51 @@ describe("tool executor", () => {
     });
   });
 
+  it("repairs model aliases before strict schema validation", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      const projectRoot = path.join(dir, "project");
+      await mkdir(projectRoot);
+      const realRoot = await realpath(projectRoot);
+      const options = { db: opened.db, dataDir: dir };
+      const session = await createSession(options, {});
+      const turn = createTurn(options, { sessionId: session.id, text: "plan" });
+      const registry = createFileToolRegistry();
+      registry.register(createPlanTool({ db: opened.db }));
+      const updatePlan = vi.fn(async () => ({ ok: true as const, summary: "plan" }));
+
+      try {
+        const outcome = await executeTool(
+          { db: opened.db, registry },
+          {
+            sessionId: session.id,
+            turnId: turn.turnId,
+            toolCallId: "call_plan_alias",
+            toolName: "update_plan",
+            args: {
+              title: "alias",
+              steps: [{ id: "a", title: "x", status: "in_progress" }],
+            },
+            policy: "autonomous",
+            projectRoot: realRoot,
+            updatePlan,
+          },
+        );
+
+        expect(outcome.status).toBe("completed");
+        if (outcome.status === "completed") {
+          expect(outcome.result).toMatchObject({ ok: true });
+        }
+        expect(updatePlan).toHaveBeenCalledWith({
+          title: "alias",
+          steps: [{ id: "a", title: "x", status: "running" }],
+        });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("rejects a registered tool that the session profile does not advertise", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

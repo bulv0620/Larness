@@ -106,3 +106,10 @@
 ## 验收记录
 
 （待任务完成后追加。）
+
+### 2026-11-25 关闭与服务取消竞态修复（用户直接要求）
+
+- 关闭 TUI 时 `TurnRunner.stop("shutdown")` 以 `INTERRUPTED / reason=shutdown` 结束运行中的 Turn，不再写成用户取消；重启后可走 TR-2 恢复。
+- `finalize` 在文件结果收集后重新核对 `CANCELLING`，用户 Stop 不会被迟到的 `COMPLETED` 覆盖；`budgetCause=context` 且未发生模型调用时不再自动续轮，避免无进展循环。
+- 自动续轮从父 Turn 的 `executionContext` 继承 `clientSessionId`，续轮后的命令/进程工具不再因缺少执行上下文全部 `FORBIDDEN`。
+- 测试：`turnRunner` 关闭中断、`continuation` 会话继承/无进展保护、`turnBudget` 取消保留；server 全量 181 文件 / 969 项通过（14 跳过）。

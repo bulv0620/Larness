@@ -24,3 +24,9 @@
 - 服务端：成功调用把同一 `(tool, 规范化参数)` 的更早失败 callId 收进 `tool.completed.supersedes`；不同参数不取代；`tool.failed` 事件不改，审计仍保留每次失败。
 - 客户端：被取代的失败条目标 `retried`，摘要显示「失败 N 项（只算未解决）· 重试成功 M 次」，条目仍可展开查看原始输出。
 - 验证：`turnRunner` 38（新增 2 个 supersede 正反例）、`apps/web` 168（含 reducer 与 Timeline 新用例）、`test/agent` 118 通过 / 2 个既有环境失败；web/server/shared typecheck 与改动文件 biome 通过。
+
+### 2026-11-25 repairArgs 生产路径修复（用户直接要求）
+
+- 通过 `executeTool` 的工具现在在严格 schema 校验前执行 `repairArgs`，别名不会再被提前判成 `VALIDATION_ERROR`；风险分类也基于修复后的参数。
+- 重复失败 nudge 移到整批 tool 结果之后，避免 `assistant(tool_calls) → tool → user → tool` 的非法消息顺序。
+- 测试：`toolExecutor` 别名正例、`turnRunner` 双工具批次 nudge 位置；server 全量通过。

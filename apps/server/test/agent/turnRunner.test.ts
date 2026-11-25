@@ -1183,6 +1183,56 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("keeps the repeat-failure nudge after the whole tool batch", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "repeat batch" });
+        const missing = { name: "read_file", args: { path: "missing.txt" } };
+        const provider = createFakeProvider([
+          toolStep({ ...missing, id: "call_missing_1" }),
+          toolStep({ ...missing, id: "call_missing_2" }),
+          {
+            chunks: [
+              { type: "tool-call", toolCall: { ...missing, id: "call_missing_3" } },
+              {
+                type: "tool-call",
+                toolCall: { id: "call_list", name: "list_files", args: {} },
+              },
+              { type: "finish", finishReason: "tool-calls" },
+            ],
+          },
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const messages = provider.calls[3]?.messages ?? [];
+        const nudgeIndex = messages.findIndex(
+          (message) =>
+            message.role === "user" &&
+            typeof message.content === "string" &&
+            message.content.includes("failed 3 times in a row"),
+        );
+        const lastToolIndex = messages.reduce(
+          (last, message, index) => (message.role === "tool" ? index : last),
+          -1,
+        );
+        expect(nudgeIndex).toBeGreaterThan(lastToolIndex);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("intervenes after the same call fails three times without blocking it", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
@@ -2533,6 +2583,46 @@ it("reports produced files on a failed turn", async () => {
           category: "deliverable",
         }),
       ]);
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("marks a shutdown-aborted turn as interrupted so it can be resumed", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "slow task" });
+      const provider = createFakeProvider([
+        {
+          delayMs: 500,
+          chunks: [
+            { type: "text-delta", text: "late" },
+            { type: "finish", finishReason: "stop" },
+          ],
+        },
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry: createFileToolRegistry(),
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      const running = runner.run(turn.turnId);
+      await waitFor(() => provider.calls.length === 1);
+      runner.stop("shutdown");
+      const result = await running;
+
+      expect(result.status).toBe("INTERRUPTED");
+      expect(result.terminalReason).toBe("interrupted");
+      const terminal = listSessionEvents(opened.db, session.id).items.find(
+        (event) => event.type === "turn.interrupted",
+      );
+      expect(terminal?.payload).toMatchObject({ reason: "shutdown" });
     } finally {
       opened.close();
     }

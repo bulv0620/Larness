@@ -1,6 +1,6 @@
 import type { ServerEvent } from "@larness/shared";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fetchAllEvents, getSession } from "@/lib/workspaceApi";
+import { fetchAllEvents, getSession, resumeTurn } from "@/lib/workspaceApi";
 import { useTimelineStore } from "./timelineStore";
 
 vi.mock("@/lib/env", () => ({ USE_MOCKS: false }));
@@ -8,6 +8,7 @@ vi.mock("@/lib/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/workspaceApi")>()),
   fetchAllEvents: vi.fn(),
   getSession: vi.fn(),
+  resumeTurn: vi.fn(),
 }));
 
 let socket: FakeSocket;
@@ -90,6 +91,40 @@ beforeEach(() => {
 afterEach(() => {
   useTimelineStore.getState().disconnect();
   vi.unstubAllGlobals();
+});
+
+it("activates a session as idle when its history already contains the terminal event", async () => {
+  vi.mocked(fetchAllEvents).mockResolvedValue([completed]);
+
+  await useTimelineStore.getState().load("s");
+
+  expect(useTimelineStore.getState().lastSeq).toBe(3);
+  expect(useTimelineStore.getState().isStreaming).toBe(false);
+  expect(useTimelineStore.getState().activeTurnId).toBeNull();
+});
+
+it("does not apply a late resume result to another session", async () => {
+  let resolveResume: ((value: Awaited<ReturnType<typeof resumeTurn>>) => void) | undefined;
+  vi.mocked(resumeTurn).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        resolveResume = resolve;
+      }),
+  );
+
+  const pending = useTimelineStore.getState().resumeTurn("turn_old");
+  useTimelineStore.setState({ sessionId: "s2", isStreaming: false, activeTurnId: null });
+  resolveResume?.({
+    turnId: "turn_new",
+    status: "QUEUED",
+    sessionId: "s",
+    resumedFromTurnId: "turn_old",
+  });
+  await pending;
+
+  expect(useTimelineStore.getState().sessionId).toBe("s2");
+  expect(useTimelineStore.getState().isStreaming).toBe(false);
+  expect(useTimelineStore.getState().activeTurnId).toBeNull();
 });
 
 it("applies a synced terminal event when a hidden replay row left a sequence gap", async () => {

@@ -199,7 +199,8 @@ export function useSessionDetail(sessionId: string | null) {
     queryFn: () => getSession(sessionId ?? ""),
     enabled: !USE_MOCKS && sessionId !== null,
     staleTime: 0,
-    retry: false,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1_000 * 2 ** attempt, 5_000),
   });
 
   return query.data ?? null;

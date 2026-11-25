@@ -359,10 +359,30 @@ export class ProcessManager {
     }
 
     const spawned = new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("Process spawn timed out")), 5_000);
+      let spawnTimedOut = false;
+      const timer = setTimeout(() => {
+        spawnTimedOut = true;
+        row.status = ensureStatus("FAILED");
+        row.reasonCode = "SPAWN_TIMEOUT";
+        row.endedAt = this.#now();
+        try {
+          child.kill("SIGTERM");
+        } catch {
+          /* The process may not have started yet. */
+        }
+        reject(new Error("Process spawn timed out"));
+      }, 5_000);
       timer.unref?.();
       child.once("spawn", () => {
         clearTimeout(timer);
+        if (spawnTimedOut) {
+          try {
+            child.kill("SIGTERM");
+          } catch {
+            /* The timeout path already reported the failure. */
+          }
+          return;
+        }
         row.status = ensureStatus("RUNNING");
         row.pid = child.pid ?? null;
         row.startedAt = this.#now();

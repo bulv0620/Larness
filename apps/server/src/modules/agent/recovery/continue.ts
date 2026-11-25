@@ -35,6 +35,34 @@ function turnGoal(inputJson: string): string {
   }
 }
 
+/**
+ * Automatic continuation is still the same user-authorized task. Keep the
+ * originating client session so command/process/service tools can pass their
+ * execution-context checks; without it the next slice can only edit files.
+ */
+function turnClientSessionId(inputJson: string): string | undefined {
+  try {
+    const parsed = JSON.parse(inputJson) as {
+      executionContext?: { clientSessionId?: unknown };
+    };
+    const value = parsed.executionContext?.clientSessionId;
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function hasModelCall(db: Database, turnId: string): boolean {
+  return (
+    db
+      .select({ id: agentEvents.id })
+      .from(agentEvents)
+      .where(and(eq(agentEvents.turnId, turnId), eq(agentEvents.type, "model.usage")))
+      .limit(1)
+      .get() !== undefined
+  );
+}
+
 function clip(value: string, maxChars: number): string {
   const trimmed = value.trim();
 
@@ -182,6 +210,18 @@ export function continueBudgetedTurn(
     return null;
   }
 
+  // Context pressure before any model call means the same unshrinkable input
+  // would stop the next slice the same way. Continuing there is a no-progress
+  // loop, not a useful handover.
+  if (
+    isBudget &&
+    input.budgetCause === "context" &&
+    spentTokensFromJson(turn.usageJson) === 0 &&
+    !hasModelCall(options.db, turn.id)
+  ) {
+    return null;
+  }
+
   const session = getSessionById(options.db, turn.sessionId);
 
   // Scheduled jobs own their own timeout and must not chain turns.
@@ -207,6 +247,7 @@ export function continueBudgetedTurn(
   }
 
   let created: { turnId: string; status: string; sessionId: string };
+  const clientSessionId = turnClientSessionId(turn.inputJson);
 
   try {
     created = createTurn(
@@ -218,6 +259,7 @@ export function continueBudgetedTurn(
         model: turn.model,
         thinking: turn.thinking,
         credentialProfileId: turn.credentialProfileId,
+        ...(clientSessionId === undefined ? {} : { clientSessionId }),
         idempotencyKey: `continue:${turn.id}`,
       },
     );

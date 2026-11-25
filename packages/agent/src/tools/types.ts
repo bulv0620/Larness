@@ -63,6 +63,8 @@ export interface ToolDefinition {
   readonly schema: z.ZodType;
   readonly classifyRisk?: (args: unknown) => ToolRiskLevel;
   readonly summarize?: (args: unknown) => string;
+  /** Normalize known model aliases before schema validation. */
+  readonly repairArgs?: (rawArgs: unknown) => unknown;
   /** Offer this tool to the model only in a registered project. */
   readonly requiresProject?: boolean;
   /** Source writes need the shared project lock; read/process tools can opt out. */
@@ -95,6 +97,7 @@ export function defineTool<Schema extends z.ZodType>(
     description: input.description,
     riskLevel: input.riskLevel,
     schema: input.schema,
+    ...(input.repairArgs === undefined ? {} : { repairArgs: input.repairArgs }),
     requiresProject: input.requiresProject ?? false,
     requiresProjectLock: input.requiresProjectLock ?? true,
     ...(input.summarize === undefined

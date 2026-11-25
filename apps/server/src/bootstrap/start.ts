@@ -686,6 +686,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         ? {}
         : {
             enqueue: (turnId: string, sessionId: string) => turnQueue?.enqueue(turnId, sessionId),
+            cancelTurnRunner: (turnId: string) => turnQueue?.cancel(turnId) ?? false,
           }),
     });
     jobRuntime = new JobRuntime({
@@ -802,6 +803,7 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
         await jobRuntime?.stop();
         await turnQueue?.stop();
         services.stop();
+        await processManager?.close();
         await previews?.stop();
         await deployments.close();
         cleanupScheduler.stop();

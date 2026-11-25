@@ -99,7 +99,8 @@ export async function executeTool(
     };
   }
 
-  const risk = tool.classifyRisk?.(input.args) ?? tool.riskLevel;
+  const repairedArgs = tool.repairArgs === undefined ? input.args : tool.repairArgs(input.args);
+  const risk = tool.classifyRisk?.(repairedArgs) ?? tool.riskLevel;
   const access = decideToolAccess(input.policy, risk);
 
   if (access === "deny") {
@@ -124,7 +125,7 @@ export async function executeTool(
     };
   }
 
-  const parsed = tool.schema.safeParse(input.args);
+  const parsed = tool.schema.safeParse(repairedArgs);
 
   if (!parsed.success) {
     audit.required({
@@ -168,7 +169,7 @@ export async function executeTool(
     input.toolName === "run_shell" ||
     input.toolName === "start_process" ||
     input.toolName === "stop_process";
-  const params = contextBound ? parsed.data : input.args;
+  const params = contextBound ? parsed.data : repairedArgs;
   const approvalParams = contextBound
     ? {
         params,

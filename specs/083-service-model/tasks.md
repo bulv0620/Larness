@@ -63,3 +63,9 @@
 - 收尾修正：移除 `POST /api/services` 写入口（旧记录只读/停止/删除）；进程预览必须同时提交 `processId` + `projectId` 并校验归属；system prompt 拆分为 coding 的项目后台任务契约与 service-ops 的 PM2 契约，`PROMPT_VERSION` → `m6-7`；ServiceWindow 新增真实进程列表/预览/停止测试并修复日志重复追加；`list_processes` 与项目服务列表只返回 STARTING/RUNNING/STOPPING，结束/失败任务不再保留列表项。修复 TurnRunner 未注入 ServiceOpsRuntime 导致 service-ops 工具全部 FORBIDDEN 的装配缺陷，并补回归测试；明确 service-ops 只运维已有服务，部署从 Coding 项目会话发起。
 - 验收：2026-11-18 人类验收通过，083 收工。
 - 未在本次环境复跑：用户现有 `todo-list` PM2 应用（namespace=default）与旧 `STOP_UNCONFIRMED` 数据；不得因自动门禁或人类验收而声称这些实机数据已验证。
+
+### 2026-11-25 关闭清理补齐（用户直接要求）
+
+- `startServer` 的 shutdown 现在调用 `ProcessManager.close()`；关闭 TUI 时 `start_process` 启动的后台进程会被停止，不再遗留孤儿进程或端口占用。
+- `AgentJobExecutor` 超时/取消会直接 abort 对应 runner controller，不再只改 DB 状态；spawn 5 秒超时会标记 `SPAWN_TIMEOUT` 并终止 child。
+- 测试：`process-close` / `processes` 关闭路径、`agentRunner` 取消回调；server 全量通过。

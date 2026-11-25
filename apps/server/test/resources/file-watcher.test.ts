@@ -260,5 +260,24 @@ it("closes a slow resource consumer at the shared transport budget so it can rep
     { kind: "event", sequence: 1 },
   );
   expect(sent).toBe(false);
-  expect(closed).toBe(1008);
+  expect(closed).toBe(1013);
+});
+
+it("uses a transport close code when send throws", () => {
+  let closed: number | undefined;
+  send(
+    {
+      OPEN: 1,
+      readyState: 1,
+      bufferedAmount: 0,
+      close: (code) => {
+        closed = code;
+      },
+      send: () => {
+        throw new Error("closed");
+      },
+    },
+    { kind: "event", sequence: 1 },
+  );
+  expect(closed).toBe(1011);
 });

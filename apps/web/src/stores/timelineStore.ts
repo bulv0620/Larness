@@ -103,6 +103,16 @@ function closeSocket(): void {
   socket = null;
 }
 
+/**
+ * 1008 is used for authentication/session failures, but older servers also
+ * used it for transport-level closes. Only stop reconnecting when the reason
+ * really points at auth; backpressure and transport failures must replay.
+ */
+function isAuthCloseReason(reason: string): boolean {
+  if (reason.length === 0) return true;
+  return /unauthenticated|authorization|session|revoked|expired|device/i.test(reason);
+}
+
 interface TimelineState {
   sessionId: string;
   items: TimelineItem[];
@@ -170,6 +180,10 @@ function contextTokensFromEvents(events: ServerEvent[]): number {
   }
 
   return 0;
+}
+
+function turnAlreadyTerminal(events: ServerEvent[], turnId: string): boolean {
+  return events.some((event) => isTerminalTurnEvent(event) && eventTurnId(event) === turnId);
 }
 
 function applyDeltaToState(event: AssistantDeltaEvent): void {
@@ -373,7 +387,7 @@ function connectSocket(sessionId: string): void {
     if (socket !== current || socketSessionId !== sessionId) return;
     socket = null;
 
-    if (event.code === 1008) {
+    if (event.code === 1008 && isAuthCloseReason(event.reason)) {
       window.dispatchEvent(new Event("larness:unauthenticated"));
       return;
     }
@@ -447,13 +461,22 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
       if (token !== loadToken || get().sessionId !== sessionId) return;
 
+      // `getSession` and the event page are fetched independently. A turn can
+      // finish between them: the detail still names it as active while the
+      // history already contains its terminal event. Reconcile the two so a
+      // finished turn cannot lock the UI on "generating" until a reload.
+      const activeTurn =
+        detail.activeTurn !== null && !turnAlreadyTerminal(events, detail.activeTurn.id)
+          ? detail.activeTurn
+          : null;
+
       set({
         items: eventsToTimeline(events),
         lastSeq: events.at(-1)?.sequence ?? 0,
         loading: false,
-        isStreaming: detail.activeTurn !== null,
-        activeTurnId: detail.activeTurn?.id ?? null,
-        turnStartedAt: detail.activeTurn?.createdAt ?? null,
+        isStreaming: activeTurn !== null,
+        activeTurnId: activeTurn?.id ?? null,
+        turnStartedAt: activeTurn?.createdAt ?? null,
         contextTokens: contextTokensFromEvents(events),
         contextNotice: contextNoticeFromEvents(events),
         modelUsage: modelUsageFromEvents(events),
@@ -504,6 +527,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         }
       } while (syncQueued && get().sessionId === sessionId);
     } catch (error) {
+      if (get().sessionId !== sessionId) return;
       const message = error instanceof Error ? error.message : "事件补拉失败";
       set((state) => ({
         items: [...state.items, errorItem(`事件补拉失败：${message}`)],
@@ -674,6 +698,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   stop: () => {
+    const sessionId = get().sessionId;
+
     if (USE_MOCKS) {
       mockController?.abort();
       mockController = null;
@@ -689,6 +715,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }
 
     void cancelTurn(activeTurnId).catch((error: unknown) => {
+      if (get().sessionId !== sessionId) return;
       const message = error instanceof Error ? error.message : "停止失败";
       useTimelineStore.setState((state) => ({
         items: [...state.items, errorItem(`停止失败：${message}`)],
@@ -697,6 +724,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   },
 
   resumeTurn: async (turnId) => {
+    const sessionId = get().sessionId;
+
     if (USE_MOCKS) {
       set({ isStreaming: true, activeTurnId: turnId, turnStartedAt: Date.now() });
       return;
@@ -704,6 +733,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     try {
       const resumed = await requestResumeTurn(turnId);
+      if (get().sessionId !== sessionId) return;
       set({
         isStreaming: true,
         activeTurnId: resumed.turnId,
@@ -711,6 +741,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       });
       await get().syncEvents();
     } catch (error) {
+      if (get().sessionId !== sessionId) return;
       const message = error instanceof Error ? error.message : "无法继续该任务";
       useTimelineStore.setState((state) => ({
         items: [...state.items, errorItem(`继续失败：${message}`)],

@@ -89,6 +89,36 @@ describe("automatic continuation", () => {
     });
   });
 
+  it("carries the originating client session into the continuation turn", async () => {
+    await withTempDir(async (dir) => {
+      const opened = openDatabase(path.join(dir, "larness.db"));
+      runMigrations(opened.db);
+
+      try {
+        const options = { db: opened.db, dataDir: dir, now: () => NOW };
+        const session = await createSession(options, {});
+        const first = createTurn(options, {
+          sessionId: session.id,
+          text: "continue with commands",
+          clientSessionId: "bs_original",
+        });
+        finishAsContinued(opened, session.id, first.turnId);
+
+        const next = continueBudgetedTurn(
+          { db: opened.db, now: () => NOW },
+          { turnId: first.turnId },
+        );
+        const created = getTurnById(opened.db, next?.turnId ?? "");
+        const input = JSON.parse(created?.inputJson ?? "{}") as {
+          executionContext?: { clientSessionId?: string };
+        };
+        expect(input.executionContext?.clientSessionId).toBe("bs_original");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("does not impose the old three-slice cap by default", async () => {
     await withTempDir(async (dir) => {
       const opened = openDatabase(path.join(dir, "larness.db"));
@@ -213,14 +243,14 @@ describe("automatic continuation", () => {
           ),
         ).toBeNull();
 
-        // Context pressure is a different cause, so the zero spend is not why
-        // that slice stopped.
+        // Context pressure before the first model call is an unshrinkable-input
+        // stop: chaining the same input would only create another empty slice.
         expect(
           continueBudgetedTurn(
             { db: opened.db, now: () => NOW },
             { turnId: turn.turnId, budgetCause: "context" },
           ),
-        ).not.toBeNull();
+        ).toBeNull();
       } finally {
         opened.close();
       }
