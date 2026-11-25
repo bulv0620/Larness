@@ -125,3 +125,12 @@ And seq 仍连续、分页不因隐藏事件空转
 - 上述测试通过，`pnpm --filter @larness/server test <相关文件>`、`pnpm --filter @larness/web test:file` 通过。
 - `docs/contracts/ws-events.md` 增加「内部事件不广播」说明；089 修订段与 084 修订记录就位。
 - `STATUS.md` 增加一行最近收口；不宣称 E2E 或真实 Provider 已验证。
+
+## 10. 日期修订
+
+### 2026-11-25 公开事件序号可跳号（回归修复）
+
+- 原文 A5 的「seq 仍连续」表述不准确：`tool.replay` 占用会话内 `sequence`，过滤后公开事件的序号必然可能跳号。正确约束是**严格递增**，分页与补拉不因隐藏行空转。
+- 客户端此前要求 `sequence === lastSeq + 1`，遇到 `tool.replay` 造成的缺口会把补拉回来的后续事件继续丢弃；若被丢的是 `turn.completed`，界面会永久停在 `generating`，切换会话触发全量加载才恢复。
+- 修正：补拉路径允许跨过缺口并按事件序号推进 `lastSeq`；实时推送仍以跳号触发补拉，且补拉进行中再次触发时排队重跑，避免终态事件落在两次查询之间。
+- 回归测试：`apps/web/src/stores/timelineSequenceGap.test.ts`（补拉终态事件、实时缺口恢复两项）。

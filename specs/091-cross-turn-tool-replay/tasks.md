@@ -11,6 +11,7 @@
 | TR-5 | `done` | 服务端单测（replay / assembler / events / turnRunner） |
 | TR-6 | `done` | ③ 用量口径修订（084）：`本轮` + `会话累计` |
 | TR-7 | `done` | 文档：089 修订段、ws-events 说明、STATUS |
+| TR-8 | `done` | 回归修复：公开事件序号跳号时客户端补拉不得丢弃后续事件 |
 
 ## 验收记录（2026-11-25）
 
@@ -19,3 +20,4 @@
 - 整仓：server 175 文件 / 936 项通过（31 跳过），web 54 文件 / 312 项通过；`pnpm build`（含全 workspace typecheck）通过。
 - **`pnpm check` 退出码为 1，但原因是已知的 `test/resources/terminals.test.ts` 原生 worker 崩溃（exit code 3），该文件其余用例通过，与本次改动无关**；不改写为全绿。
 - 未运行：E2E、真实 Provider 长会话 A/B。回放对真实 token 成本与缓存前缀的影响未测。
+- 2026-11-25 回归修复（TR-8）：新增 `timelineSequenceGap.test.ts` 3 项；覆盖补拉终态事件、实时缺口恢复、补拉进行中再次触发时排队重跑。前 2 项修复前失败（`lastSeq` 停在缺口前、`isStreaming` 保持 true），修复后全部通过。web 55 文件 / 318 项、`pnpm --filter @larness/web typecheck`、改动文件 `biome check` 通过。E2E 未运行。

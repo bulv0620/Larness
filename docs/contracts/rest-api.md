@@ -466,7 +466,7 @@ Turn 创建成功返回 `202`：
 { "items": [ /* ServerEvent */ ], "nextSeq": 142, "hasMore": false }
 ```
 
-`after` 缺省为 0；`nextSeq` 为本批最后一条事件的 `seq`，无事件时等于 `after`。
+`after` 缺省为 0；`nextSeq` 为本批最后一条事件的 `seq`，无事件时等于 `after`。内部事件 `tool.replay`（091）不出现在 `items`，但仍占用会话内 `seq`，因此相邻 `items` 的 `seq` 可能跳号；客户端按严格递增处理，不要求与上一条相差 1。
 
 `GET /api/approvals/:id` 返回审批详情（不包含完整工具参数，只包含摘要与参数哈希）：
 

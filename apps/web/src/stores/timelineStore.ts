@@ -49,6 +49,7 @@ let reconnectTimer: number | null = null;
 let socketSessionId: string | null = null;
 let loadToken = 0;
 let syncing = false;
+let syncQueued = false;
 
 function uid(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -210,7 +211,7 @@ function applyReasoningDeltaToState(event: AssistantReasoningDeltaEvent): void {
   });
 }
 
-function applyEventToState(event: ServerEvent, live = false): void {
+function applyEventToState(event: ServerEvent, live = false, acceptSequenceGap = false): void {
   const state = useTimelineStore.getState();
 
   if (event.sessionId !== undefined && event.sessionId !== state.sessionId) {
@@ -221,7 +222,11 @@ function applyEventToState(event: ServerEvent, live = false): void {
     return;
   }
 
-  if (event.sequence !== state.lastSeq + 1) {
+  // Hidden rows such as tool.replay consume durable sequence numbers without
+  // being served to clients, so a gap alone does not mean events were missed.
+  // A sync that fetches every visible event after lastSeq can safely advance
+  // across those gaps; live pushes keep the strict check to trigger a sync.
+  if (!acceptSequenceGap && event.sequence !== state.lastSeq + 1) {
     void state.syncEvents();
     return;
   }
@@ -479,16 +484,25 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
   syncEvents: async () => {
     const sessionId = get().sessionId;
-    if (!sessionId || USE_MOCKS || syncing) return;
+    if (!sessionId || USE_MOCKS) return;
+    if (syncing) {
+      // A gap can arrive while a fetch is already in flight; run another pass
+      // once it finishes so a terminal event is never dropped for good.
+      syncQueued = true;
+      return;
+    }
     syncing = true;
 
     try {
-      const events = await fetchAllEvents(sessionId, get().lastSeq);
-      if (get().sessionId !== sessionId) return;
+      do {
+        syncQueued = false;
+        const events = await fetchAllEvents(sessionId, get().lastSeq);
+        if (get().sessionId !== sessionId) return;
 
-      for (const event of events) {
-        applyEventToState(event);
-      }
+        for (const event of events) {
+          applyEventToState(event, false, true);
+        }
+      } while (syncQueued && get().sessionId === sessionId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "事件补拉失败";
       set((state) => ({
@@ -496,6 +510,12 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       }));
     } finally {
       syncing = false;
+      if (syncQueued) {
+        // The queued call may target a session that replaced the one this pass
+        // was reading; start a fresh pass for the current session.
+        syncQueued = false;
+        void get().syncEvents();
+      }
     }
   },
 

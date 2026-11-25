@@ -110,7 +110,7 @@ interface ServerEvent<T = unknown> {
 | `turn.continued` | `turnId, fromTurnId, depth, reason?`（ADR-071：上下文换页或显式预算分片结束后自动接续的新 Turn；`reason` 为 `context_rollover` 或预算原因） | 是 |
 
 087 的 `web_search` / `fetch_url` 沿用 `tool.completed` / `tool.failed`，`argsSummary` 为查询或主机名、`resultSummary` 为结果数/页面标题；不新增事件类型，不写入 query 正文、页面正文或搜索 Key。
-091 起服务端会写内部事件 `tool.replay`（只读工具结果的有界回放材料）。它只落库供下一 Turn 的上下文装配读取，**不广播**、不出现在 `GET /api/sessions/:id/events`；不是客户端可见契约，客户端无需处理。
+091 起服务端会写内部事件 `tool.replay`（只读工具结果的有界回放材料）。它只落库供下一 Turn 的上下文装配读取，**不广播**、不出现在 `GET /api/sessions/:id/events`；不是客户端可见契约，客户端无需处理。内部事件仍占用会话内 `sequence`，因此客户端可见事件的 `sequence` 可能**跳号**：补拉返回的事件按 `sequence` 严格递增即可，不得要求与上一事件相差 1；`tool.replay` 两侧的缺口通过补拉直接跨过，不作为丢事件处理。
 
 `assistant.reasoning.delta` 使用与 `assistant.delta` 相同的临时信封，不含 `sequence`，不写 `agent_events`，刷新 / 重连后不重放；只发给订阅该会话的已认证客户端。推理正文不得进入日志、审计、其他会话或跨模型上下文。
 
