@@ -145,7 +145,7 @@ it("offers the approval policies and reflects each selection on the shield", asy
   await user.click(screen.getByRole("menuitemradio", { name: /只读/ }));
   await waitFor(() => expect(screen.getByRole("button", { name: "审批策略：只读" })).toBeVisible());
 });
-it("shows bounded context usage immediately before send/stop and distinguishes unknown usage", () => {
+it("puts context usage in the row under the composer and the attachment button before send/stop", () => {
   renderComposer();
   const ring = screen.getByRole("progressbar", { name: "上下文用量" });
   expect(ring).toHaveAttribute("aria-valuenow", "25");
@@ -153,7 +153,11 @@ it("shows bounded context usage immediately before send/stop and distinguishes u
     "aria-valuetext",
     expect.stringContaining("单次输入：32,000 / 128,000"),
   );
-  expect(ring.nextElementSibling).toBe(screen.getByRole("button", { name: "发送消息" }));
+  expect(within(screen.getByRole("status", { name: "会话用量" })).getByRole("progressbar")).toBe(
+    ring,
+  );
+  const attachment = screen.getByRole("button", { name: "添加附件" });
+  expect(attachment.nextElementSibling).toBe(screen.getByRole("button", { name: "发送消息" }));
   act(() =>
     useTimelineStore.setState({
       modelUsage: {
@@ -164,7 +168,7 @@ it("shows bounded context usage immediately before send/stop and distinguishes u
   );
   expect(ring).toHaveAttribute("aria-valuenow", "100");
   expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("256,000"));
-  expect(ring.nextElementSibling).toBe(screen.getByRole("button", { name: "停止执行" }));
+  expect(attachment.nextElementSibling).toBe(screen.getByRole("button", { name: "停止执行" }));
   act(() => useTimelineStore.setState({ modelUsage: {} }));
   expect(ring).not.toHaveAttribute("aria-valuenow");
   expect(ring).toHaveAttribute("aria-valuetext", expect.stringContaining("暂无统计"));

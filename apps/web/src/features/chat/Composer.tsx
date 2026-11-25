@@ -9,7 +9,6 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
   ErrorMessage,
-  Hint,
   IconButton,
   Textarea,
   Toast,
@@ -735,16 +734,6 @@ export function Composer({
         />
         <div className="flex items-center gap-0.5 px-2 pb-2 pt-1">
           <IconButton
-            label="添加附件"
-            title="添加 PDF、Office、文本或图片（最大 20 MiB）"
-            disabled={!hasSession || isStreaming}
-            onClick={() => fileInputRef.current?.click()}
-            className="h-7 w-7"
-          >
-            <Paperclip size={15} aria-hidden="true" />
-          </IconButton>
-
-          <IconButton
             label={
               !webSearchConfigured
                 ? "联网搜索：未配置"
@@ -848,10 +837,15 @@ export function Composer({
           </DropdownMenu>
 
           <span className="flex-1" />
-          <ContextUsage
-            used={usage?.inputTokens ?? null}
-            limit={usage?.contextWindow ?? model?.contextWindow ?? 128000}
-          />
+          <IconButton
+            label="添加附件"
+            title="添加 PDF、Office、文本或图片（最大 20 MiB）"
+            disabled={!hasSession || isStreaming}
+            onClick={() => fileInputRef.current?.click()}
+            className="h-7 w-7"
+          >
+            <Paperclip size={15} aria-hidden="true" />
+          </IconButton>
           {isStreaming ? (
             <button
               type="button"
@@ -903,71 +897,17 @@ export function Composer({
           }}
         />
       </div>
-      {hasSession && !isDraftSession && !USE_MOCKS ? (
-        <SessionUsageLine usage={sessionUsage} streaming={isStreaming} lastStep={lastStep} />
+      {hasSession ? (
+        <SessionUsageLine
+          usage={isDraftSession || USE_MOCKS ? undefined : sessionUsage}
+          streaming={isStreaming}
+          lastStep={lastStep}
+          contextUsage={{
+            used: usage?.inputTokens ?? null,
+            limit: usage?.contextWindow ?? model?.contextWindow ?? 128000,
+          }}
+        />
       ) : null}
     </>
-  );
-}
-
-function ContextUsage({ used, limit }: { used: number | null; limit: number }) {
-  const known = used !== null && Number.isFinite(used) && used > 0 && limit > 0;
-  const percent = known ? Math.min(100, Math.max(0, Math.round((used / limit) * 100))) : 0;
-  const detail = known
-    ? `单次输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）`
-    : `暂无统计 · 模型窗口 ${limit.toLocaleString()} tokens`;
-  return (
-    <Hint label={detail} side="top">
-      <div
-        role="progressbar"
-        aria-label="上下文用量"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={known ? percent : undefined}
-        aria-valuetext={detail}
-        className={cn(
-          "flex h-7 w-7 shrink-0 items-center justify-center",
-          !known
-            ? "text-ink-3"
-            : percent >= 90
-              ? "text-danger"
-              : percent >= 75
-                ? "text-warning"
-                : "text-accent",
-        )}
-      >
-        <svg
-          aria-hidden="true"
-          width="18"
-          height="18"
-          viewBox="0 0 20 20"
-          className="-rotate-90"
-          fill="none"
-        >
-          <circle
-            cx="10"
-            cy="10"
-            r="7"
-            stroke="currentColor"
-            strokeWidth="2"
-            className="text-line-strong"
-          />
-          {known ? (
-            <circle
-              cx="10"
-              cy="10"
-              r="7"
-              pathLength="100"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeDasharray="100"
-              strokeDashoffset={100 - percent}
-              className="transition-[stroke-dashoffset] duration-150 motion-reduce:transition-none"
-            />
-          ) : null}
-        </svg>
-      </div>
-    </Hint>
   );
 }

@@ -1,4 +1,5 @@
-import { Hint } from "@larness/ui";
+import { cn, Hint } from "@larness/ui";
+import type { ReactNode } from "react";
 import type { ApiSessionUsage } from "@/lib/workspaceApi";
 
 export function formatTokenCount(count: number): string {
@@ -31,24 +32,120 @@ function formatDuration(durationMs: number): string {
   return durationMs >= 1_000 ? `${(durationMs / 1_000).toFixed(1)}s` : `${durationMs}ms`;
 }
 
+export function contextUsageInfo(
+  used: number | null,
+  limit: number,
+): { known: boolean; percent: number; text: string; detail: string } {
+  const known = used !== null && Number.isFinite(used) && used > 0 && limit > 0;
+  const percent = known ? Math.min(100, Math.max(0, Math.round((used / limit) * 100))) : 0;
+  return {
+    known,
+    percent,
+    text: known
+      ? `${formatTokenCount(used)} / ${formatTokenCount(limit)} · ${percent}%`
+      : "暂无统计",
+    detail: known
+      ? `单次输入：${used.toLocaleString()} / ${limit.toLocaleString()} tokens（${percent}%）`
+      : `暂无统计 · 模型窗口 ${limit.toLocaleString()} tokens`,
+  };
+}
+
+export function ContextUsage({ used, limit }: { used: number | null; limit: number }) {
+  const info = contextUsageInfo(used, limit);
+  return (
+    <Hint label={info.detail} side="top">
+      <div
+        role="progressbar"
+        aria-label="上下文用量"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={info.known ? info.percent : undefined}
+        aria-valuetext={info.detail}
+        className="flex shrink-0 items-center gap-1"
+      >
+        <svg
+          aria-hidden="true"
+          width="14"
+          height="14"
+          viewBox="0 0 20 20"
+          className="-rotate-90"
+          fill="none"
+        >
+          <circle
+            cx="10"
+            cy="10"
+            r="7"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="text-line-strong"
+          />
+          {info.known ? (
+            <circle
+              cx="10"
+              cy="10"
+              r="7"
+              pathLength="100"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeDasharray="100"
+              strokeDashoffset={100 - info.percent}
+              className={cn(
+                "transition-[stroke-dashoffset] duration-150 motion-reduce:transition-none",
+                info.percent >= 90
+                  ? "text-danger"
+                  : info.percent >= 75
+                    ? "text-warning"
+                    : "text-accent",
+              )}
+            />
+          ) : null}
+        </svg>
+        <span className="tabular-nums">{info.text}</span>
+      </div>
+    </Hint>
+  );
+}
+
+function Row({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="status"
+      aria-label="会话用量"
+      className="mt-1 flex min-h-[16px] flex-wrap items-center gap-1 px-1 text-[10.5px] text-ink-3"
+    >
+      {children}
+    </div>
+  );
+}
+
 export function SessionUsageLine({
   usage,
   streaming,
   lastStep,
+  contextUsage,
 }: {
-  usage: ApiSessionUsage | null;
+  usage: ApiSessionUsage | null | undefined;
   streaming: boolean;
   lastStep: { outputTokens: number; durationMs: number } | null;
+  contextUsage: { used: number | null; limit: number };
 }) {
   if (usage === null) {
     return (
-      <div
-        role="status"
-        aria-label="会话用量"
-        className="mt-1 flex min-h-[16px] flex-wrap items-center gap-1 px-1 text-[10.5px] text-ink-3"
-      >
+      <Row>
         <span>Token 统计加载中…</span>
-      </div>
+        <span className="flex-1" />
+        <ContextUsage {...contextUsage} />
+      </Row>
+    );
+  }
+
+  if (usage === undefined) {
+    return (
+      <Row>
+        <span className="flex-1" />
+        <ContextUsage {...contextUsage} />
+      </Row>
     );
   }
 
@@ -77,11 +174,7 @@ export function SessionUsageLine({
     lastStep === null ? null : stepOutputSpeed(lastStep.outputTokens, lastStep.durationMs);
 
   return (
-    <div
-      role="status"
-      aria-label="会话用量"
-      className="mt-1 flex min-h-[16px] flex-wrap items-center gap-1 px-1 text-[10.5px] text-ink-3"
-    >
+    <Row>
       <Hint label={detail} side="top">
         <span className="tabular-nums">{total}</span>
       </Hint>
@@ -104,6 +197,8 @@ export function SessionUsageLine({
           </Hint>
         </>
       ) : null}
-    </div>
+      <span className="flex-1" />
+      <ContextUsage {...contextUsage} />
+    </Row>
   );
 }

@@ -244,3 +244,14 @@
 - 原因：`useSessionUsage` 用 `fetchQuery` + QueryCache 订阅手工桥接 React 状态；请求错误被吞掉，且仅在特定 invalidate 事件重试。缓存被移除、查询被清理或切换会话发生竞态时，本地状态会停留在 `null`，界面一直显示加载中。
 - 修正：改用标准 `useQuery` 活跃订阅；启用 `retry: 2`、指数退避、窗口聚焦/重连刷新，并在无数据时每 5 秒重试。终态 `invalidateQueries` 由活跃 observer 自动触发重取，不再依赖手写缓存订阅。
 - 验证：聊天定向 69 项、typecheck、biome、完整 check、build 与 Mock E2E 通过；服务端旧日志确认请求本身为 200，问题在客户端状态桥接。
+
+### 验收后修正：上下文环并入用量行、附件按钮右移（2026-11-25，用户直接要求）
+
+- 状态：`done`
+- 要求：上下文占用圆球的信息移到输入框下方那一行；附件按钮放到原圆球位置。
+- 修正：
+  - `ContextUsage` 从 `Composer` 工具栏迁入 `SessionUsageLine`，在用量行右对齐显示 14px 小圆环 + `32k / 128k · 25%` 常驻文字；Hint 与 `aria-valuetext` 仍给完整 tokens 与百分比，未知时保持空环 + 「暂无统计」，比例钳制 0–100%。
+  - 用量行在草稿会话、Mock 与用量查询未启用时仍渲染，只显示上下文信息，不再显示「Token 统计加载中…」。
+  - 附件按钮移到原圆球位置（发送 / 停止左侧），工具栏左侧不再重复。
+- 验证：`SessionUsageLine.test.tsx` 10 项、`Composer.test.tsx` 7 项、`pnpm --filter @larness/web test` 54 文件 / 311 项、`typecheck`、改动文件 `biome check` 通过；E2E 与浏览器视觉验收未跑。
+- 涉及路径：`apps/web/src/features/chat/{Composer,SessionUsageLine}.tsx` 与同名测试。

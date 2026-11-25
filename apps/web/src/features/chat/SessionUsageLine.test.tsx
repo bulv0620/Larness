@@ -1,8 +1,13 @@
 import { TooltipProvider } from "@larness/ui";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { expect, it } from "vitest";
 import type { ApiSessionUsage } from "@/lib/workspaceApi";
-import { formatTokenCount, SessionUsageLine, stepOutputSpeed } from "./SessionUsageLine";
+import {
+  contextUsageInfo,
+  formatTokenCount,
+  SessionUsageLine,
+  stepOutputSpeed,
+} from "./SessionUsageLine";
 
 const usage: ApiSessionUsage = {
   sessionId: "ses_a",
@@ -24,13 +29,48 @@ const usage: ApiSessionUsage = {
   updatedAt: 10,
 };
 
-function renderLine(props: Parameters<typeof SessionUsageLine>[0]) {
+function renderLine(props: Omit<Parameters<typeof SessionUsageLine>[0], "contextUsage">) {
   return render(
     <TooltipProvider>
-      <SessionUsageLine {...props} />
+      <SessionUsageLine contextUsage={{ used: 32_000, limit: 128_000 }} {...props} />
     </TooltipProvider>,
   );
 }
+
+it("clamps context usage and reports unknown usage honestly", () => {
+  expect(contextUsageInfo(null, 128_000)).toMatchObject({
+    known: false,
+    percent: 0,
+    text: "暂无统计",
+  });
+  expect(contextUsageInfo(0, 128_000).known).toBe(false);
+  expect(contextUsageInfo(256_000, 128_000)).toMatchObject({
+    known: true,
+    percent: 100,
+    text: "256k / 128k · 100%",
+  });
+});
+
+it("shows bounded context usage in the session usage row", () => {
+  const view = renderLine({ usage, streaming: false, lastStep: null });
+  const row = view.getByRole("status", { name: "会话用量" });
+  const ring = within(row).getByRole("progressbar", { name: "上下文用量" });
+
+  expect(ring).toHaveAttribute("aria-valuenow", "25");
+  expect(ring).toHaveAttribute("aria-valuetext", "单次输入：32,000 / 128,000 tokens（25%）");
+  expect(within(row).getByText("32k / 128k · 25%")).toBeVisible();
+});
+
+it("keeps the context ring when the session usage query is disabled", () => {
+  const view = renderLine({ usage: undefined, streaming: false, lastStep: null });
+  const row = view.getByRole("status", { name: "会话用量" });
+
+  expect(row).not.toHaveTextContent("Token 统计加载中…");
+  expect(within(row).getByRole("progressbar", { name: "上下文用量" })).toHaveAttribute(
+    "aria-valuenow",
+    "25",
+  );
+});
 
 it("formats token totals compactly", () => {
   expect(formatTokenCount(0)).toBe("0");
