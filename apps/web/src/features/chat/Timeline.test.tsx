@@ -933,7 +933,7 @@ it("keeps the retry entry when a turn failed", () => {
   expect(screen.queryByRole("button", { name: "继续这个任务" })).toBeNull();
 });
 
-it("shows deliverables and folds process files into one collapsed row", () => {
+it("shows deliverables and keeps process files out of the results", () => {
   useTimelineStore.setState({
     items: [
       {
@@ -1021,16 +1021,13 @@ it("shows deliverables and folds process files into one collapsed row", () => {
   ).not.toBeInTheDocument();
   expect(screen.queryByText("已创建 docs/report.md")).not.toBeInTheDocument();
 
-  const process = screen.getByRole("button", { name: "过程文件 1 个" });
-  expect(process).toHaveAttribute("aria-expanded", "false");
-
-  fireEvent.click(process);
-
-  expect(process).toHaveAttribute("aria-expanded", "true");
-  expect(screen.getByRole("button", { name: "查看文件 · tmp/probe.mjs" })).toBeVisible();
+  // The process record still holds the scratch file; the results area does not
+  // report it, not even as a count.
+  expect(screen.queryByText(/过程文件/)).not.toBeInTheDocument();
+  expect(screen.queryByText("tmp/probe.mjs")).not.toBeInTheDocument();
 });
 
-it("keeps deleted scratch files in the process row without an open action", () => {
+it("shows no results area when the turn only left process files", () => {
   useTimelineStore.setState({
     items: [
       {
@@ -1064,14 +1061,8 @@ it("keeps deleted scratch files in the process row without an open action", () =
   render(<Timeline />);
 
   expect(screen.queryByRole("region", { name: "本次成果" })).not.toBeInTheDocument();
-  const process = screen.getByRole("button", { name: "过程文件 1 个 · 已清理 1 个" });
-  fireEvent.click(process);
-
-  expect(screen.getByText("tmp/probe.mjs")).toBeVisible();
-  expect(screen.getByText("已创建 · 已删除")).toBeVisible();
-  expect(
-    screen.queryByRole("button", { name: "查看文件 · tmp/probe.mjs" }),
-  ).not.toBeInTheDocument();
+  expect(screen.queryByText(/过程文件/)).not.toBeInTheDocument();
+  expect(screen.queryByText("tmp/probe.mjs")).not.toBeInTheDocument();
 });
 
 it("notes files beyond the per-turn result cap", () => {
@@ -1109,4 +1100,64 @@ it("notes files beyond the per-turn result cap", () => {
   render(<Timeline />);
 
   expect(screen.getByText("另有 3 个文件未列出")).toBeVisible();
+});
+
+it("keeps only the leading deliverables in view and folds the rest", () => {
+  const paths = ["docs/a.md", "docs/b.md", "docs/c.md", "docs/d.md", "docs/e.md"];
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "改一批文档",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "completed",
+        fileResults: paths.map((path) => ({
+          path,
+          changeType: "modified" as const,
+          version: "v1",
+          existed: true,
+          category: "deliverable" as const,
+        })),
+      },
+      ...paths.map(
+        (path, index): ToolItem => ({
+          id: `tool-${index}`,
+          kind: "tool",
+          name: "apply_patch",
+          summary: `update ${path}`,
+          args: "",
+          status: "done",
+          createdAt: 2 + index,
+          turnId: "turn-1",
+          resourceTarget: { kind: "file", scope: { projectId: "project" }, path, version: "v1" },
+        }),
+      ),
+      {
+        id: "answer",
+        kind: "message",
+        role: "assistant",
+        text: "完成",
+        createdAt: 9,
+        turnId: "turn-1",
+      },
+    ],
+  });
+  render(<Timeline />);
+
+  const results = screen.getByRole("region", { name: "本次成果" });
+  expect(within(results).getAllByRole("button", { name: /^查看文件 · / })).toHaveLength(3);
+  expect(within(results).getByRole("button", { name: "查看文件 · docs/a.md" })).toBeVisible();
+  expect(within(results).queryByRole("button", { name: "查看文件 · docs/e.md" })).toBeNull();
+
+  fireEvent.click(within(results).getByRole("button", { name: "展开全部文件" }));
+
+  expect(within(results).getAllByRole("button", { name: /^查看文件 · / })).toHaveLength(5);
+  expect(within(results).getByRole("button", { name: "查看文件 · docs/e.md" })).toBeVisible();
+
+  fireEvent.click(within(results).getByRole("button", { name: "收起文件" }));
+
+  expect(within(results).getAllByRole("button", { name: /^查看文件 · / })).toHaveLength(3);
 });

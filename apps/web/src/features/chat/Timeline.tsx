@@ -1,5 +1,4 @@
 import type {
-  FileResultTarget,
   MessageItem,
   PlanItem,
   TimelineItem,
@@ -16,8 +15,14 @@ import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useNavigationStore } from "@/stores/navigationStore";
 import { useTimelineStore } from "@/stores/timelineStore";
-import { ProcessFilesRow } from "./ProcessFilesRow";
 import { MessageBubble, TimelineItemView } from "./TimelineItemView";
+
+/**
+ * A settled turn hands off its key files, not its whole diff: a wide refactor
+ * would otherwise bury the answer under a wall of identical cards. The rest
+ * stay one click away instead of being dropped.
+ */
+const RESULT_FILE_LIMIT = 3;
 
 interface TurnGroup {
   id: string;
@@ -184,6 +189,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const turnActive = active && stateUser?.turnOutcome === undefined;
   const [expanded, setExpanded] = useState(false);
   const [confirmResume, setConfirmResume] = useState(false);
+  const [allResults, setAllResults] = useState(false);
   const tools = items.filter(
     (item): item is ToolItem => item.kind === "tool" && item.name !== "update_plan",
   );
@@ -318,10 +324,6 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const filePaths = new Set(
     [...targets.values()].filter((target) => target.kind === "file").map((target) => target.path),
   );
-  const fileTargets = new Map<string, FileResultTarget>();
-  for (const target of targets.values()) {
-    if (target.kind === "file") fileTargets.set(target.path, target);
-  }
   // A turn settled with per-file dispositions renders from them, so temporary
   // and deleted files stay out of the results while remaining inspectable.
   // A chain accumulates them: every settled slice contributes its delivered
@@ -336,13 +338,18 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const deliverablePaths = new Set(
     (fileResults ?? []).filter((file) => file.category === "deliverable").map((file) => file.path),
   );
-  const processFiles = (fileResults ?? []).filter((file) => file.category === "process");
-  const visibleTargets =
+  const resultTargets =
     fileResults === undefined
       ? [...targets.entries()]
       : [...targets.entries()].filter(
           ([, target]) => target.kind !== "file" || deliverablePaths.has(target.path),
         );
+  const resultFiles = resultTargets.filter(([, target]) => target.kind === "file");
+  const shownFiles = allResults ? resultFiles : resultFiles.slice(0, RESULT_FILE_LIMIT);
+  const shownFileKeys = new Set(shownFiles.map(([key]) => key));
+  const visibleTargets = resultTargets.filter(
+    ([key, target]) => target.kind !== "file" || shownFileKeys.has(key),
+  );
   const artifacts = items.filter((item) => {
     if (item.kind !== "artifact") return false;
     const titlePath = item.title.replace(/^已(?:修改|创建) /, "");
@@ -350,8 +357,7 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
     if (fileResults !== undefined) return titlePath === item.title;
     return !filePaths.has(titlePath);
   });
-  const hasResults =
-    visibleTargets.length > 0 || artifacts.length > 0 || processFiles.length > 0 || omitted > 0;
+  const hasResults = visibleTargets.length > 0 || artifacts.length > 0 || omitted > 0;
   const results =
     !turnActive && hasResults ? (
       <div className="mt-2 space-y-2">
@@ -366,12 +372,22 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
                 <TerminalResultCard key={key} target={target} />
               ),
             )}
+            {resultFiles.length > RESULT_FILE_LIMIT ? (
+              <button
+                type="button"
+                aria-label={allResults ? "收起文件" : "展开全部文件"}
+                aria-expanded={allResults}
+                onClick={() => setAllResults((value) => !value)}
+                className="px-1 py-1 text-[11px] text-ink-3 transition-colors hover:text-accent"
+              >
+                {allResults ? "收起" : "展开全部"}
+              </button>
+            ) : null}
           </section>
         ) : null}
         {artifacts.map((item) => (
           <TimelineItemView key={item.id} item={item} />
         ))}
-        <ProcessFilesRow files={processFiles} targets={fileTargets} />
         {omitted > 0 ? (
           <p className="text-[11px] text-ink-3">{`另有 ${omitted} 个文件未列出`}</p>
         ) : null}
