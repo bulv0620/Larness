@@ -27,6 +27,15 @@ import { readScreenshots, screenshotIds } from "../sessions/attachments.js";
 import { latestContextSummary } from "./contextCompressor.js";
 import { DEFAULT_AGENT_PROFILE, profileHasPack, toolNamesForProfile } from "./profiles.js";
 import { estimateRequestTokens, estimateTextTokens } from "./tokenEstimator.js";
+import {
+  MAX_FOLDED_REPLAY,
+  MAX_REPLAY_EVENTS,
+  parseToolReplay,
+  REPLAY_FOLD_SHARE,
+  replayBudgetTokens,
+  type ToolReplayRecord,
+} from "./turn/toolReplay.js";
+import { foldToolResultContent } from "./turn/toolResults.js";
 
 const SYSTEM_POLICY_BASE = [
   "You are Larness, a local coding agent working in the current authorized workspace.",
@@ -194,13 +203,220 @@ function providerTools(
 
 interface HistoryEntry {
   seq: number;
+  turnId?: string | null;
   message: ModelMessage;
+  /** True when the entry comes from a persisted `tool.replay` event. */
+  replay?: boolean;
+}
+
+interface ReplayCandidate {
+  seq: number;
+  turnId: string | null;
+  record: ToolReplayRecord;
+  messages: ModelMessage[];
+  tokens: number;
+}
+
+const REPLAY_STALE_NOTICE =
+  "Recent tool results from earlier turns are replayed below. File contents and command output may be stale: re-read a file before patching it.";
+
+function replayPrunedNotice(omitted: number): string {
+  return `${omitted} older tool result(s) were pruned from this request. Re-run the tool if the full output matters.`;
+}
+
+function replayMessages(record: ToolReplayRecord, content: string): ModelMessage[] {
+  return [
+    {
+      role: "assistant",
+      content: "",
+      toolCalls: [{ id: record.toolCallId, name: record.toolName, args: record.args }],
+    },
+    {
+      role: "tool",
+      toolCallId: record.toolCallId,
+      toolName: record.toolName,
+      content,
+      ...(record.isError ? { isError: true } : {}),
+    },
+  ];
+}
+
+function foldedReplayMessages(record: ToolReplayRecord): ModelMessage[] {
+  return replayMessages(record, foldToolResultContent(record.content));
+}
+
+interface ReplaySlice {
+  entries: HistoryEntry[];
+  kept: number;
+  folded: number;
+  omitted: number;
+}
+
+/**
+ * Cross-Turn replay spends a small, fixed share of the window on the newest
+ * read-only results. Older candidates are folded to their identifiers first
+ * and only then omitted, so the loss is a visible count instead of silence.
+ */
+function replayHistory(
+  db: Database,
+  sessionId: string,
+  currentTurnId: string,
+  coveredUpToSeq: number,
+  contextWindow: number,
+): ReplaySlice {
+  const rows = db
+    .select()
+    .from(agentEvents)
+    .where(
+      and(
+        eq(agentEvents.sessionId, sessionId),
+        eq(agentEvents.type, "tool.replay"),
+        gt(agentEvents.seq, coveredUpToSeq),
+      ),
+    )
+    .orderBy(desc(agentEvents.seq))
+    .limit(MAX_REPLAY_EVENTS)
+    .all();
+
+  const candidates: ReplayCandidate[] = [];
+
+  for (const row of rows) {
+    if (row.turnId === currentTurnId) {
+      continue;
+    }
+
+    const record = parseToolReplay(row.payloadJson);
+
+    if (record === null) {
+      continue;
+    }
+
+    const messages = replayMessages(record, record.content);
+    candidates.push({
+      seq: row.seq,
+      turnId: row.turnId,
+      record,
+      messages,
+      tokens: estimateRequestTokens(messages),
+    });
+  }
+
+  // The scan is newest-first; the request needs ascending order.
+  candidates.reverse();
+
+  const budget = replayBudgetTokens(contextWindow);
+  const foldBudget = Math.max(256, Math.floor(budget * REPLAY_FOLD_SHARE));
+  const verbatim = new Set<number>();
+  const folded = new Map<number, ModelMessage[]>();
+  let spent = 0;
+  let index = candidates.length - 1;
+
+  for (; index >= 0; index -= 1) {
+    const candidate = candidates[index];
+
+    if (candidate === undefined || spent + candidate.tokens > budget) {
+      break;
+    }
+
+    verbatim.add(candidate.seq);
+    spent += candidate.tokens;
+  }
+
+  let foldedSpent = 0;
+  let foldedCount = 0;
+
+  for (; index >= 0; index -= 1) {
+    const candidate = candidates[index];
+
+    if (candidate === undefined || foldedCount >= MAX_FOLDED_REPLAY) {
+      break;
+    }
+
+    const messages = foldedReplayMessages(candidate.record);
+    const tokens = estimateRequestTokens(messages);
+
+    if (foldedSpent + tokens > foldBudget) {
+      break;
+    }
+
+    folded.set(candidate.seq, messages);
+    foldedSpent += tokens;
+    foldedCount += 1;
+  }
+
+  const entries: HistoryEntry[] = [];
+
+  for (const candidate of candidates) {
+    const messages = verbatim.has(candidate.seq) ? candidate.messages : folded.get(candidate.seq);
+
+    if (messages === undefined) {
+      continue;
+    }
+
+    for (const message of messages) {
+      entries.push({
+        seq: candidate.seq,
+        turnId: candidate.turnId,
+        message,
+        replay: true,
+      });
+    }
+  }
+
+  return {
+    entries,
+    kept: verbatim.size,
+    folded: folded.size,
+    omitted: candidates.length - verbatim.size - folded.size,
+  };
+}
+
+/**
+ * A batch arrives as one assistant message with several calls followed by its
+ * results, but replay persists one result per event. Merging a replayed call
+ * into the assistant message already in front of it keeps the transcript valid
+ * (no two assistant messages in a row) without breaking the call/result pairing.
+ */
+function mergeReplayedCalls(entries: HistoryEntry[]): HistoryEntry[] {
+  const merged: HistoryEntry[] = [];
+
+  for (const entry of entries) {
+    const previous = merged.at(-1);
+    const message = entry.message;
+
+    if (
+      previous?.message.role === "assistant" &&
+      message.role === "assistant" &&
+      message.content === "" &&
+      (message.toolCalls?.length ?? 0) > 0
+    ) {
+      const prior = previous.message;
+      merged[merged.length - 1] = {
+        ...previous,
+        replay: previous.replay === true || entry.replay === true,
+        message: {
+          role: "assistant",
+          content: prior.content,
+          toolCalls: [...(prior.toolCalls ?? []), ...(message.toolCalls ?? [])],
+          ...(prior.reasoning === undefined ? {} : { reasoning: prior.reasoning }),
+        },
+      };
+      continue;
+    }
+
+    merged.push(entry);
+  }
+
+  return merged;
 }
 
 interface HistorySlice {
   /** Ascending by seq, so the array can be replayed in order. */
   entries: HistoryEntry[];
   scanTruncated: boolean;
+  replayKept: number;
+  replayFolded: number;
+  replayOmitted: number;
 }
 
 function historyMessages(
@@ -208,6 +424,7 @@ function historyMessages(
   sessionId: string,
   currentTurnId: string,
   coveredUpToSeq: number,
+  contextWindow: number,
 ): HistorySlice {
   const rows = db
     .select()
@@ -244,6 +461,7 @@ function historyMessages(
 
     entries.push({
       seq: row.seq,
+      turnId: row.turnId,
       message: {
         role: row.type === "user.message" ? "user" : "assistant",
         content: text,
@@ -251,7 +469,10 @@ function historyMessages(
     });
   }
 
-  entries.reverse();
+  const replay = replayHistory(db, sessionId, currentTurnId, coveredUpToSeq, contextWindow);
+  const merged = mergeReplayedCalls(
+    [...entries, ...replay.entries].sort((left, right) => left.seq - right.seq),
+  );
 
   // A full scan page means older events may exist; dropping them silently is
   // what this flag exists to prevent (R-7 in specs/089).
@@ -275,7 +496,13 @@ function historyMessages(
     scanTruncated = hidden !== undefined;
   }
 
-  return { entries, scanTruncated };
+  return {
+    entries: merged,
+    scanTruncated,
+    replayKept: replay.kept,
+    replayFolded: replay.folded,
+    replayOmitted: replay.omitted,
+  };
 }
 
 const MEMORY_INDEX_HEADER =
@@ -631,6 +858,7 @@ export function assembleContext(
     session.id,
     turn.id,
     latestSummary?.coveredUpToSeq ?? 0,
+    options.maxContextTokens || 128_000,
   );
   const tail =
     tailBlocks.length === 0 ? null : `${TAIL_CONTEXT_HEADER}\n\n${tailBlocks.join("\n\n")}`;
@@ -689,6 +917,16 @@ export function assembleContext(
     }
   }
 
+  // Replay stores one result per event, so a front trim can leave a tool
+  // message whose assistant call was dropped. Some providers reject that
+  // pairing, so drop the orphan too and keep the entry index in sync.
+  while (messages[1]?.role === "tool" && droppedHistory < history.entries.length) {
+    droppedHistory += 1;
+    messages.splice(1, 1);
+    truncatedHistory = true;
+    estimatedTokens = estimateRequestTokens(messages, tools);
+  }
+
   if (truncatedHistory) {
     // Dropping history silently is worse than the loss itself: the model cannot
     // tell that earlier turns are gone and may assume it already has them. The
@@ -706,6 +944,28 @@ export function assembleContext(
   }
 
   const retainedHistory = history.entries.slice(droppedHistory);
+  const replayNotes: string[] = [];
+
+  if (retainedHistory.some((entry) => entry.replay === true)) {
+    replayNotes.push(REPLAY_STALE_NOTICE);
+  }
+
+  if (history.replayOmitted > 0) {
+    replayNotes.push(replayPrunedNotice(history.replayOmitted));
+  }
+
+  if (replayNotes.length > 0) {
+    const last = messages[messages.length - 1];
+
+    if (last?.role === "user") {
+      messages[messages.length - 1] = {
+        ...last,
+        content: `${replayNotes.join("\n")}\n\n${last.content}`,
+      };
+      estimatedTokens = estimateRequestTokens(messages, tools);
+    }
+  }
+
   const prefixTokens = estimateRequestTokens(
     [
       { role: "system", content: messages[0]?.content ?? "" },

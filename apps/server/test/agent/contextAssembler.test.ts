@@ -780,4 +780,132 @@ describe("context assembler", () => {
       }
     });
   });
+
+  it("replays recent read-only tool results across Turns with pairing intact", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const first = createTurn(sessionOptions, { sessionId: session.id, text: "read a" });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: first.turnId,
+          type: "assistant.message",
+          payload: { text: "reading" },
+          now: 2,
+        });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: first.turnId,
+          type: "tool.replay",
+          payload: {
+            turnId: first.turnId,
+            toolCallId: "call_1",
+            toolName: "read_file",
+            args: { path: "a.ts" },
+            content: JSON.stringify({ path: "a.ts", version: "v1", content: "alpha" }),
+          },
+          now: 3,
+        });
+        opened.sqlite
+          .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+          .run(first.turnId);
+        const second = createTurn(sessionOptions, { sessionId: session.id, text: "continue" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, second.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+          },
+          sessionRow,
+          turn,
+        );
+        const assistantIndex = context.messages.findIndex(
+          (message) => message.role === "assistant" && message.toolCalls?.[0]?.id === "call_1",
+        );
+        const toolIndex = context.messages.findIndex(
+          (message) => message.role === "tool" && message.toolCallId === "call_1",
+        );
+
+        expect(assistantIndex).toBeGreaterThan(0);
+        expect(toolIndex).toBeGreaterThan(assistantIndex);
+        expect(context.messages[toolIndex]).toMatchObject({
+          role: "tool",
+          toolName: "read_file",
+        });
+        expect(context.messages[toolIndex]?.content).toContain("alpha");
+        expect(lastUserContent(context)).toContain("may be stale");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("folds older replay results before omitting them", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const first = createTurn(sessionOptions, { sessionId: session.id, text: "read many" });
+
+        for (let index = 0; index < 25; index += 1) {
+          appendAgentEvent(opened.db, {
+            sessionId: session.id,
+            turnId: first.turnId,
+            type: "tool.replay",
+            payload: {
+              turnId: first.turnId,
+              toolCallId: `call_${index}`,
+              toolName: "read_file",
+              args: { path: `f${index}.ts` },
+              content: JSON.stringify({
+                path: `f${index}.ts`,
+                version: "v1",
+                content: "x".repeat(6_000),
+              }),
+            },
+            now: 10 + index,
+          });
+        }
+
+        opened.sqlite
+          .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+          .run(first.turnId);
+        const second = createTurn(sessionOptions, { sessionId: session.id, text: "continue" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, second.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+          },
+          sessionRow,
+          turn,
+        );
+        const toolContents = context.messages.flatMap((message) =>
+          message.role === "tool" ? [message.content] : [],
+        );
+
+        expect(toolContents.length).toBeGreaterThan(0);
+        expect(toolContents.some((content) => content.includes('"folded":true'))).toBe(true);
+        expect(toolContents.at(-1)).toContain("x".repeat(100));
+        expect(lastUserContent(context)).toContain("were pruned");
+      } finally {
+        opened.close();
+      }
+    });
+  });
 });

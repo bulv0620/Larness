@@ -1,5 +1,5 @@
 import type { ServerEvent } from "@larness/shared";
-import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ne } from "drizzle-orm";
 import type { DbExecutor } from "../../db/client.js";
 import { newId } from "../../db/ids.js";
 import { type AgentEventRow, agentEvents, type SessionRow } from "../../db/schema.js";
@@ -21,6 +21,8 @@ export type AgentEventType =
   | "tool.started"
   | "tool.completed"
   | "tool.failed"
+  /** Internal replay material for the next Turn; never broadcast. */
+  | "tool.replay"
   | "file.changed"
   | "plan.updated";
 
@@ -106,7 +108,15 @@ export function listSessionEvents(
   const rows = db
     .select()
     .from(agentEvents)
-    .where(and(eq(agentEvents.sessionId, sessionId), gt(agentEvents.seq, after)))
+    .where(
+      and(
+        eq(agentEvents.sessionId, sessionId),
+        gt(agentEvents.seq, after),
+        // Replay bodies are context material, not timeline events: filtering in
+        // SQL keeps paging and hasMore honest instead of returning empty pages.
+        ne(agentEvents.type, "tool.replay"),
+      ),
+    )
     .orderBy(asc(agentEvents.seq))
     .limit(limit + 1)
     .all();

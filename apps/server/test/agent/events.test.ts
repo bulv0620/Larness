@@ -164,4 +164,33 @@ describe("agent events", () => {
       }
     });
   });
+
+  it("hides internal replay events from the public event list", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const session = await createSession({ db: opened.db, dataDir: dir }, {});
+
+        for (const type of ["user.message", "tool.replay", "assistant.message"]) {
+          immediateTransaction(opened.db, (tx) =>
+            appendAgentEvent(tx, {
+              sessionId: session.id,
+              type,
+              payload: { text: type },
+              now: 1_000,
+            }),
+          );
+        }
+
+        const page = listSessionEvents(opened.db, session.id, { after: 0, limit: 2 });
+        expect(page.items.map((item) => item.type)).toEqual(["user.message", "assistant.message"]);
+        expect(page.items.map((item) => item.sequence)).toEqual([1, 3]);
+        expect(page.hasMore).toBe(false);
+        expect(page.nextSeq).toBe(3);
+      } finally {
+        opened.close();
+      }
+    });
+  });
 });

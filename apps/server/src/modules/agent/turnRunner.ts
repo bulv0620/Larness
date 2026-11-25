@@ -55,6 +55,7 @@ import { appendAgentEvent, toServerEvent } from "./events.js";
 import { buildObservationSnapshot } from "./observationSnapshot.js";
 import { disabledToolsForProfile } from "./profiles.js";
 import { ProjectWriteLock } from "./projectWriteLock.js";
+import { secretVerdict } from "./secretGuard.js";
 import {
   calibrateEstimate,
   contextRolloverThreshold,
@@ -89,6 +90,7 @@ import {
 import { createSecretLoader } from "./turn/secrets.js";
 import { isStalled } from "./turn/stall.js";
 import { stableArgsKey, turnInputText } from "./turn/text.js";
+import { buildToolReplay } from "./turn/toolReplay.js";
 import {
   boundedCommandOutput,
   foldBatchToolResults,
@@ -2182,6 +2184,18 @@ export class TurnRunner {
 
             facts.recordResource(target);
 
+            const toolContent = toolMessageContent(result.result);
+            const replay =
+              risk === "L0" &&
+              secretVerdict([toolContent], loadSecrets(), this.#options.secretStore) === "ok"
+                ? buildToolReplay({
+                    toolCallId: request.id,
+                    toolName: request.name,
+                    args: request.args,
+                    content: toolContent,
+                  })
+                : null;
+
             this.#emit(turn, session, "tool.completed", {
               turnId: turn.id,
               toolCallId: request.id,
@@ -2193,6 +2207,17 @@ export class TurnRunner {
                 : { truncated: result.result.truncated }),
               ...(supersededCalls === undefined ? {} : { supersedes: supersededCalls }),
             });
+
+            if (replay !== null) {
+              this.#record(turn, "tool.replay", {
+                turnId: turn.id,
+                toolCallId: replay.toolCallId,
+                toolName: replay.toolName,
+                args: replay.args,
+                content: replay.content,
+                isError: false,
+              });
+            }
 
             if (request.name === "apply_patch" || request.name === "write_file") {
               const changed = result.result.data as
@@ -2404,6 +2429,23 @@ export class TurnRunner {
     );
 
     this.#publish(eventRow, session);
+  }
+
+  /**
+   * Persist context material that the next Turn's assembler reads. It is not
+   * published: replay bodies are not timeline events, and streaming them would
+   * push file contents to every subscriber.
+   */
+  #record(turn: TurnRow, type: string, payload: Record<string, unknown>): void {
+    immediateTransaction(this.#options.db, (tx) =>
+      appendAgentEvent(tx, {
+        sessionId: turn.sessionId,
+        turnId: turn.id,
+        type,
+        payload,
+        now: this.#now(),
+      }),
+    );
   }
 
   async #collectFileResults(

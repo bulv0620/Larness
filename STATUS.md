@@ -1,6 +1,6 @@
 # STATUS
 
-> 最后更新：2026-11-24
+> 最后更新：2026-11-25
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
@@ -19,6 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-25 | 091 跨 Turn 工具结果回放 + 084 用量口径（用户直接要求） | L0 只读工具成功结果落内部 `tool.replay`（redact + ≤16k 字符，不广播，公开事件列表过滤）；`contextAssembler` 按 `clamp(window×0.05, 2k, 32k)` tokens 回放最近结果，超预算折叠为标识符、更老省略并在当前请求说明；裁剪时连同孤立 tool 消息丢弃，保持 call/result 配对；回放内容标注可能过期。用量行改为 `本轮 32k / 1M · 3% · 会话 1.24M`，Hint 同时给「本轮请求输入」与「会话累计输入」。server 175 文件 / 936 项（31 跳过）、web 54 文件 / 312 项、`pnpm build` 通过；`pnpm check` 退出码 1 仅因已知 `terminals.test.ts` 原生 worker 崩溃；E2E、真实 Provider 长会话 A/B 未跑 | [091](specs/091-cross-turn-tool-replay/tasks.md) |
 | 2026-11-25 | 084 输入框底部重排（用户直接要求） | 上下文占用圆环及其 tokens / 百分比并入输入框下方用量行右侧（`ContextUsage` 迁入 `SessionUsageLine`；未知仍为空环 +「暂无统计」，比例钳制 0–100%）；草稿会话、Mock 与用量查询未启用时只显示上下文信息；附件按钮移到原圆球位置（发送 / 停止左侧），工具栏左侧不再重复。`SessionUsageLine` 10 项、`Composer` 7 项、web 54 文件 / 311 项、`typecheck`、改动文件 `biome check` 通过；E2E 与浏览器视觉验收未跑 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md) |
 | 2026-11-25 | 074 成果区修订（用户直接要求） | 成果区文件卡片最多直接显示 3 张（`RESULT_FILE_LIMIT`），其余收进无边框「展开全部 / 收起」文本按钮；预览 / 终端入口不计入上限；删除 `ProcessFilesRow`，不再显示「过程文件 N 个 · 已清理 N 个」计数行，过程文件仍可在展开的「执行过程」查看。服务端 `fileResults` 分类、200 条上限与「另有 N 个文件未列出」提示不变。`Timeline.test.tsx` 29 项、`pnpm --filter @larness/web typecheck`、`biome check` 改动文件通过；E2E 与浏览器视觉验收未跑 | [074 tasks](specs/074-result-presentation/tasks.md#修订成果区只留关键几个取消过程文件行2026-11-25用户直接要求) |
 | 2026-11-24 | 090 Provider 失败重试、诊断与标题超时（PR-1～PR-4） | 步骤级重试：模型步骤在**零产出**时对 `PROVIDER_UNAVAILABLE` / `PROVIDER_RATE_LIMITED` / 5xx 或无状态码的 `PROVIDER_UNKNOWN` 重试最多 2 次（1s/2s 退避，单次 >60s 或剩余预算不足不重试），有 text/reasoning/tool-call 一律不重试；主回合 `maxRetries` 1→2；`ProviderError.statusCode` 进 `provider step retry` / `provider step failed` warn；标题超时 20s→60s、`maxRetries: 0` 并记录 timeout / provider_error / empty_text（含 `finishReason`、`sawReasoning`）；压缩显式 `maxRetries: 1`。`pnpm check`（2 workers）server 175 文件 / 935 项通过、31 跳过；`pnpm build`、E2E 与真实 Provider 抖动未运行 | [090 tasks](specs/090-provider-retry/tasks.md#验收记录2026-11-24macos) |
@@ -28,8 +29,6 @@
 | 2026-11-20 | GX-5 子目录项目 Git 路径基准 | 项目根为仓库子目录时暂存 / 取消暂存失败、diff 白屏；按 `--show-prefix` 折回项目相对路径并过滤项目外条目，DiffView 增加空差异说明；Git 套件 17 项通过（2 项跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
 | 2026-11-23 | GX-6 未跟踪差异与 Git 失败原因 | 未跟踪文件用 `git diff --no-index` 与空基准比对，不再白屏；execute 失败保留 `GIT_CONFLICT` 等稳定码并审计，Git 面板区分写锁占用 / 快照变化 / 超时；`pnpm check` 通过（Server 836 项、31 跳过） | [078 tasks](specs/078-git-workflow/tasks.md) |
 | 2026-11-23 | 088 DA-0 规格确认与 ADR-074 | 人类批准方案、气泡外附件布局与 Q-071～Q-076 全部推荐默认；格式矩阵、`auto-local` 只本地 OCR、限额、Base64 上传与纯 JS 依赖冻结；spec 转 `ready`、ADR-074 转 accepted；仅文档变更，未运行 `pnpm check` | [088 tasks](specs/088-document-attachments/tasks.md#da-0-规格确认2026-11-23) |
-| 2026-11-20 | 087 联网搜索与独立搜索 Key | 人类验收通过；WS-0～WS-8 完成；DeepSeek/GLM 国内/国际 Provider、独立加密搜索 Key、会话级地球开关、窄版卡片式设置弹窗；成功/失败提示统一为 `@larness/ui` 顶部 Toast 并写入 UI 规范，会话内模型/联网开关保留输入框上方小字；web 284 项 + web build；原 087 check/E2E 25/25 | [087 acceptance](specs/087-web-search/acceptance.md) |
-| 2026-11-20 | 086 项目记忆与统一管理弹窗 | 人类审核通过；PM-0～PM-8 完成；指令文件、自动学习、全局偏好、硬预算淘汰、REST/WS、记忆面板；check/build + Mock E2E 24/24；未验证边界见 acceptance | [086 acceptance](specs/086-project-memory/acceptance.md) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

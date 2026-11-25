@@ -279,3 +279,9 @@ And 报告记录在 acceptance.md，命中率不作为代码门禁（Q-032）
 - Claude Code 提示词分析（v2.1.126）：<https://raw.githubusercontent.com/agenticloops-ai/agentic-apps-internals/refs/heads/main/claude-code-cli/PROMPT-ENGINEERING.md>
 - Codex CLI harness 逆向说明（`<environment_context>` 差量）：<https://github.com/AlexKenbo/codex-harness-internals>
 - Cline 系 cache aligner（易变行后置）：<https://github.com/f0o/cline-vertex-gw/blob/main/docs/optimization/cache_aligner.md>
+
+## 修订（2026-11-25，用户直接要求）
+
+- **NG-3 与 R-4 被 [091 跨 Turn 工具结果回放](../091-cross-turn-tool-replay/spec.md) 局部取代**：跨 Turn 历史现在按预算回放最近 N token 的只读（L0）工具结果，超出预算的旧结果折叠为标识符，并保持 tool-call / tool-result 配对；`user.message` / `assistant.message` 的选择、截图与附件说明保持不变。
+- 回放数据走内部 `tool.replay` 事件，只落库供装配读取，不广播、不出现在 `GET /api/sessions/:id/events`；不新增公开契约字段。
+- 压缩阈值 0.7、保留 12 条、裁剪 0.8/0.6 与滞回策略不变。

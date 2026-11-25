@@ -954,6 +954,18 @@ describe("TurnRunner", () => {
         ).toEqual(["call_a", "call_b"]);
         expect(results[0]?.role === "tool" ? results[0].content : "").toContain("alpha");
         expect(results[1]?.role === "tool" ? results[1].content : "").toContain("beta");
+
+        const replays = opened.sqlite
+          .prepare("SELECT payload_json FROM agent_events WHERE type = 'tool.replay' ORDER BY seq")
+          .all() as { payload_json: string }[];
+        expect(replays).toHaveLength(2);
+        expect(replays[0]?.payload_json).toContain("alpha");
+        expect(replays[1]?.payload_json).toContain("beta");
+        expect(
+          listSessionEvents(opened.db, session.id).items.some(
+            (event) => event.type === "tool.replay",
+          ),
+        ).toBe(false);
       } finally {
         opened.close();
       }
