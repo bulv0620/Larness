@@ -1,7 +1,7 @@
 # 本地发布与升级清单
 
 > 仓库不配置 CI；发布由维护者在本机执行。目标是可重复、可回滚，不把未验证平台写成支持。
-> 当前已发布：`larness@0.4.0`（公共 npm，MIT）。`0.4.1` 为修复版：0.4.0 全局安装缺失文档解析运行时依赖，无法启动；仓库已补齐根依赖，待维护者发布。相关：[安装指南](../guides/install.md)、[已知限制](../known-limitations.md)、[安全复核](../security/review.md)。
+> 当前已发布：`larness@0.4.1`（公共 npm，MIT，2026-11-26，`latest`）。`0.4.2` 为准备中的补丁版：0.4.1 的 `apps/web/dist` 早于 `c17e254`，不含终态后迟到 delta / 补拉重试修复；仓库版本号已 bump，待维护者 staged publish。相关：[安装指南](../guides/install.md)、[已知限制](../known-limitations.md)、[安全复核](../security/review.md)。
 > 发布记录与 0.2.1 复盘见第 11、12 节；发布前先读第 4 节的 2FA / staged publish 流程。
 
 ## 1. 发布前
@@ -218,13 +218,16 @@ npm install -g larness@<old-version>
 | 0.2.1 | 2026-11-12 | 已发布（staged publish → approve） |
 | 0.3.0 | 2026-11-16 | 已发布（staged publish → approve） |
 | 0.4.0 | 2026-11-25 | 已发布；全局安装缺少文档解析运行时依赖，无法启动 |
-| 0.4.1 | 2026-11-26 | 准备中（修复根 `package.json` 缺失的运行时依赖） |
+| 0.4.1 | 2026-11-26 | 已发布（staged publish → approve；`latest`；tag `v0.4.1`） |
+| 0.4.2 | 2026-11-26 | 准备中（0.4.1 之后合入的生成态粘滞修复） |
 
 0.3.0：包含 0.2.1 之后的 67 个提交（文件树双击打开、右键新建、定位居中、Git 与模型连接等）。发布前 `pnpm check`（Web 249、Agent 59、Server 703、14 跳过）、`pnpm build`、`platform-smoke`、`verify-npm-pack --install` 通过；stage id `0a65fb43-3931-4359-9c47-489d11d7870e`，registry `latest=0.3.0`，临时全局安装后 `larness --version` 返回 `0.3.0`。
 
 0.4.0（2026-11-25 已发布）：自 0.3.0 起 148 个提交，覆盖 Agent 内核与计划、项目记忆、联网搜索、附件导入与多视图、上下文前缀缓存与用量、Provider 重试、跨 Turn 工具结果回放、长任务续跑与关闭恢复，以及一批 UI/稳定性修复。发布前检查：registry `latest=0.3.0`（0.4.0 未被占用）；Node `24.22.2` / npm `11.19.1`；`pnpm check`（Web 320、Agent 63 + 1 跳过、Server 969 + 14 跳过）、`pnpm build`、`platform-smoke`、`verify-npm-pack --install`（867 文件，安装后 `larness 0.4.0`）通过；`npm pack --dry-run` 为 4.7 MB。**发布后确认全局安装无法启动**：根 `package.json` 未声明 `apps/server/package.json` 新增的文档解析依赖（`mammoth`、`exceljs`、`pdfjs-dist`、`jszip`、`fast-xml-parser`、`sanitize-html`、`tesseract.js`、`turndown`）；workspace 本地因 `apps/server/node_modules` 可解析，打包安装后在 `import "mammoth"` 即失败，TUI 又把真实错误显示为通用提示。
 
-0.4.1（准备中，2026-11-26）：根 `package.json` 补齐上述 8 个运行时依赖。另包含生成态粘滞残余修复：补拉失败最多重试两次并设置 15 秒请求超时；已收到终态的 Turn 会忽略迟到 `assistant.delta` / 旧 socket 帧，避免页面重新显示 generating。发布前检查：`pnpm install` 更新锁文件；`pnpm check`（biome 793 文件、Web 322、Agent 63 + 1 跳过、Server 969 + 14 跳过）、`pnpm build`、`verify-npm-pack --install`（867 文件，`larness 0.4.1`）通过；重新 pack 后临时全局安装，用空数据目录实际启动 server，`schemaVersion 38`、`/api/health` 返回 200。发布后由维护者补 stage id、registry 验证与 `v0.4.1` tag。
+0.4.1（2026-11-26 已发布，registry 时间 01:45Z，`latest`，tag `v0.4.1` 指向 `7962fbd`）：根 `package.json` 补齐上述 8 个运行时依赖，修掉 0.4.0 全局安装无法启动的问题。发布前检查：`pnpm install` 更新锁文件；`pnpm check`（biome 793 文件、Web 322、Agent 63 + 1 跳过、Server 969 + 14 跳过）、`pnpm build`、`verify-npm-pack --install`（867 文件，`larness 0.4.1`）通过；重新 pack 后临时全局安装，用空数据目录实际启动 server，`schemaVersion 38`、`/api/health` 返回 200。**该版本不含生成态粘滞修复**：相关 web 改动是发布后 02:41Z 才落库的 `c17e254`，发布说明写早了。
+
+0.4.2（准备中，2026-11-26）：只补 `c17e254`（`fix(web): ignore late deltas after terminal and retry backfill`）——已收到终态的 Turn 忽略迟到 `assistant.delta` / 旧 socket 帧，补拉失败最多重试两次并设 15 秒请求超时，避免界面重新显示 generating。发布前检查（Windows 11 x64，Node `24.19.0`、pnpm `10.34.9`）：`pnpm install --frozen-lockfile`；`pnpm check`（`VITEST_MAX_WORKERS=2`；Web 322 项、Agent 63 + 1 跳过、Server 186 文件 / 952 项 + 31 跳过，biome 与 typecheck 通过）；`pnpm build`；`scripts/platform-smoke.mjs`（better-sqlite3 / node-pty / 文件系统 ok）；`verify-npm-pack --install`（867 文件，`larness 0.4.2`）通过；重新 pack 后临时全局安装，用空数据目录实际启动 server，`schemaVersion 38`、`/api/health` 返回 200。待维护者 staged publish 后补 stage id、registry 验证与 `v0.4.2` tag。
 
 ## 12. 已知坑（0.2.1 复盘）
 
