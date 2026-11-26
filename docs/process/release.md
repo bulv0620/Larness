@@ -224,7 +224,7 @@ npm install -g larness@<old-version>
 
 0.4.0（2026-11-25 已发布）：自 0.3.0 起 148 个提交，覆盖 Agent 内核与计划、项目记忆、联网搜索、附件导入与多视图、上下文前缀缓存与用量、Provider 重试、跨 Turn 工具结果回放、长任务续跑与关闭恢复，以及一批 UI/稳定性修复。发布前检查：registry `latest=0.3.0`（0.4.0 未被占用）；Node `24.22.2` / npm `11.19.1`；`pnpm check`（Web 320、Agent 63 + 1 跳过、Server 969 + 14 跳过）、`pnpm build`、`platform-smoke`、`verify-npm-pack --install`（867 文件，安装后 `larness 0.4.0`）通过；`npm pack --dry-run` 为 4.7 MB。**发布后确认全局安装无法启动**：根 `package.json` 未声明 `apps/server/package.json` 新增的文档解析依赖（`mammoth`、`exceljs`、`pdfjs-dist`、`jszip`、`fast-xml-parser`、`sanitize-html`、`tesseract.js`、`turndown`）；workspace 本地因 `apps/server/node_modules` 可解析，打包安装后在 `import "mammoth"` 即失败，TUI 又把真实错误显示为通用提示。
 
-0.4.1（准备中，2026-11-26）：根 `package.json` 补齐上述 8 个运行时依赖。发布前检查：`pnpm install` 更新锁文件；`pnpm check`（biome 793 文件、Web 320、Agent 63 + 1 跳过、Server 952 + 31 跳过）、`pnpm build`、`verify-npm-pack --install`（867 文件，`larness 0.4.1`）通过；重新 pack 后临时全局安装，用空数据目录实际启动 server，`schemaVersion 38`、`/api/health` 返回 200。发布后由维护者补 stage id、registry 验证与 `v0.4.1` tag。
+0.4.1（准备中，2026-11-26）：根 `package.json` 补齐上述 8 个运行时依赖。另包含生成态粘滞残余修复：补拉失败最多重试两次并设置 15 秒请求超时；已收到终态的 Turn 会忽略迟到 `assistant.delta` / 旧 socket 帧，避免页面重新显示 generating。发布前检查：`pnpm install` 更新锁文件；`pnpm check`（biome 793 文件、Web 322、Agent 63 + 1 跳过、Server 969 + 14 跳过）、`pnpm build`、`verify-npm-pack --install`（867 文件，`larness 0.4.1`）通过；重新 pack 后临时全局安装，用空数据目录实际启动 server，`schemaVersion 38`、`/api/health` 返回 200。发布后由维护者补 stage id、registry 验证与 `v0.4.1` tag。
 
 ## 12. 已知坑（0.2.1 复盘）
 

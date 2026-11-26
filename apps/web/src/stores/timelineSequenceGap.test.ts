@@ -127,6 +127,64 @@ it("does not apply a late resume result to another session", async () => {
   expect(useTimelineStore.getState().activeTurnId).toBeNull();
 });
 
+it("retries a transient backfill failure before giving up", async () => {
+  vi.mocked(fetchAllEvents)
+    .mockReset()
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce([completed]);
+
+  await useTimelineStore.getState().syncEvents();
+  expect(useTimelineStore.getState().isStreaming).toBe(true);
+
+  await vi.waitFor(
+    () => {
+      expect(useTimelineStore.getState().lastSeq).toBe(3);
+      expect(useTimelineStore.getState().isStreaming).toBe(false);
+      expect(
+        useTimelineStore
+          .getState()
+          .items.some((item) => item.kind === "error" && item.message.includes("事件补拉失败")),
+      ).toBe(false);
+    },
+    { timeout: 3_000 },
+  );
+});
+
+it("does not let a late assistant delta resurrect a finished turn", async () => {
+  vi.mocked(fetchAllEvents).mockResolvedValue([running]);
+  await useTimelineStore.getState().load("s");
+  vi.mocked(fetchAllEvents).mockResolvedValue([completed]);
+  socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(completed) }));
+
+  await vi.waitFor(() => {
+    expect(useTimelineStore.getState().isStreaming).toBe(false);
+  });
+
+  socket.dispatchEvent(
+    new MessageEvent("message", {
+      data: JSON.stringify({
+        kind: "assistant.delta",
+        protocolVersion: 1,
+        topic: "agent",
+        streamId: "s",
+        sessionId: "s",
+        turnId: "t1",
+        messageId: "msg_late",
+        text: "late",
+        timestamp: 10,
+      }),
+    }),
+  );
+
+  expect(useTimelineStore.getState().isStreaming).toBe(false);
+  expect(useTimelineStore.getState().activeTurnId).toBeNull();
+  expect(
+    useTimelineStore
+      .getState()
+      .items.some((item) => item.kind === "message" && item.role === "assistant"),
+  ).toBe(false);
+});
+
 it("applies a synced terminal event when a hidden replay row left a sequence gap", async () => {
   vi.mocked(fetchAllEvents).mockResolvedValue([completed]);
 

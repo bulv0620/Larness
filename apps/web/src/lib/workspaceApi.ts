@@ -726,9 +726,15 @@ export async function resumeTurn(turnId: string): Promise<ResumeTurnResponse> {
   });
 }
 
-export async function fetchEvents(sessionId: string, after = 0, limit = 200): Promise<EventPage> {
+export async function fetchEvents(
+  sessionId: string,
+  after = 0,
+  limit = 200,
+  signal?: AbortSignal,
+): Promise<EventPage> {
   return apiFetch<EventPage>(
     `/api/sessions/${encodeURIComponent(sessionId)}/events?after=${after}&limit=${limit}`,
+    signal === undefined ? {} : { signal },
   );
 }
 
@@ -741,7 +747,11 @@ export async function fetchAllEvents(
   let cursor = after;
 
   for (;;) {
-    const page = await fetchEvents(sessionId, cursor, limit);
+    // A stalled backfill must not pin the global `syncing` flag and freeze
+    // every later session's event recovery.
+    const signal =
+      typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(15_000) : undefined;
+    const page = await fetchEvents(sessionId, cursor, limit, signal);
     collected.push(...page.items);
     cursor = page.nextSeq;
 

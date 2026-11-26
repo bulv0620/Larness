@@ -50,6 +50,15 @@ let socketSessionId: string | null = null;
 let loadToken = 0;
 let syncing = false;
 let syncQueued = false;
+let syncRetryAttempts = 0;
+let syncRetryTimer: number | null = null;
+let terminalTurnIds = new Set<string>();
+
+function clearSyncRetry(): void {
+  if (syncRetryTimer === null) return;
+  window.clearTimeout(syncRetryTimer);
+  syncRetryTimer = null;
+}
 
 function uid(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -98,6 +107,8 @@ function closeSocket(): void {
     window.clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
+  clearSyncRetry();
+  syncRetryAttempts = 0;
   socketSessionId = null;
   socket?.close();
   socket = null;
@@ -186,10 +197,32 @@ function turnAlreadyTerminal(events: ServerEvent[], turnId: string): boolean {
   return events.some((event) => isTerminalTurnEvent(event) && eventTurnId(event) === turnId);
 }
 
+function turnHasSettled(items: TimelineItem[], turnId: string): boolean {
+  return items.some(
+    (item) =>
+      item.turnId === turnId &&
+      ((item.kind === "message" && item.turnOutcome !== undefined) ||
+        (item.kind === "error" &&
+          (item.id.startsWith("cancelled_") ||
+            item.id.startsWith("failed_") ||
+            item.id.startsWith("interrupted_")))),
+  );
+}
+
 function applyDeltaToState(event: AssistantDeltaEvent): void {
   const state = useTimelineStore.getState();
 
   if (event.sessionId !== state.sessionId) {
+    return;
+  }
+
+  // Deltas are ephemeral and carry no sequence. A late frame can arrive after
+  // a REST backfill already applied the terminal event; it must not resurrect
+  // the finished turn or overwrite a different active turn.
+  if (turnHasSettled(state.items, event.turnId) || terminalTurnIds.has(event.turnId)) {
+    return;
+  }
+  if (state.activeTurnId !== null && event.turnId !== state.activeTurnId) {
     return;
   }
 
@@ -210,6 +243,13 @@ function applyReasoningDeltaToState(event: AssistantReasoningDeltaEvent): void {
   const state = useTimelineStore.getState();
 
   if (event.sessionId !== state.sessionId) {
+    return;
+  }
+
+  if (turnHasSettled(state.items, event.turnId) || terminalTurnIds.has(event.turnId)) {
+    return;
+  }
+  if (state.activeTurnId !== null && event.turnId !== state.activeTurnId) {
     return;
   }
 
@@ -264,6 +304,9 @@ function applyEventToState(event: ServerEvent, live = false, acceptSequenceGap =
       : state.isStreaming;
 
   const terminal = isTerminalTurnEvent(event);
+  if (terminal && turnId !== null) {
+    terminalTurnIds.add(turnId);
+  }
   const nextItems = applyServerEvent(state.items, event).map((item) =>
     terminal && item.kind === "reasoning" ? { ...item, streaming: false } : item,
   );
@@ -347,7 +390,7 @@ function connectSocket(sessionId: string): void {
   });
 
   current.addEventListener("message", (raw) => {
-    if (socketSessionId !== sessionId) return;
+    if (socket !== current || socketSessionId !== sessionId) return;
 
     let message: unknown;
 
@@ -416,6 +459,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   load: async (sessionId) => {
     const token = ++loadToken;
     closeSocket();
+    terminalTurnIds = new Set();
     mockController?.abort();
     mockController = null;
     set({
@@ -469,6 +513,12 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         detail.activeTurn !== null && !turnAlreadyTerminal(events, detail.activeTurn.id)
           ? detail.activeTurn
           : null;
+      terminalTurnIds = new Set(
+        events
+          .filter((event) => isTerminalTurnEvent(event))
+          .map((event) => eventTurnId(event))
+          .filter((turnId): turnId is string => turnId !== null),
+      );
 
       set({
         items: eventsToTimeline(events),
@@ -515,6 +565,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       return;
     }
     syncing = true;
+    clearSyncRetry();
 
     try {
       do {
@@ -526,8 +577,24 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
           applyEventToState(event, false, true);
         }
       } while (syncQueued && get().sessionId === sessionId);
+      syncRetryAttempts = 0;
     } catch (error) {
       if (get().sessionId !== sessionId) return;
+
+      // A live gap event is dropped when this fetch fails. Give transient
+      // network/proxy failures two bounded retries before surfacing an error;
+      // otherwise a lost terminal event can leave the session generating.
+      if (syncRetryAttempts < 2) {
+        syncRetryAttempts += 1;
+        const delayMs = 500 * syncRetryAttempts;
+        syncRetryTimer = window.setTimeout(() => {
+          syncRetryTimer = null;
+          if (get().sessionId === sessionId) void get().syncEvents();
+        }, delayMs);
+        return;
+      }
+
+      syncRetryAttempts = 0;
       const message = error instanceof Error ? error.message : "事件补拉失败";
       set((state) => ({
         items: [...state.items, errorItem(`事件补拉失败：${message}`)],

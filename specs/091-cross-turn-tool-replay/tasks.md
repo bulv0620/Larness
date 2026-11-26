@@ -21,3 +21,10 @@
 - **`pnpm check` 退出码为 1，但原因是已知的 `test/resources/terminals.test.ts` 原生 worker 崩溃（exit code 3），该文件其余用例通过，与本次改动无关**；不改写为全绿。
 - 未运行：E2E、真实 Provider 长会话 A/B。回放对真实 token 成本与缓存前缀的影响未测。
 - 2026-11-25 回归修复（TR-8）：新增 `timelineSequenceGap.test.ts` 3 项；覆盖补拉终态事件、实时缺口恢复、补拉进行中再次触发时排队重跑。前 2 项修复前失败（`lastSeq` 停在缺口前、`isStreaming` 保持 true），修复后全部通过。web 55 文件 / 318 项、`pnpm --filter @larness/web typecheck`、改动文件 `biome check` 通过。E2E 未运行。
+
+### 2026-11-26 生成态粘滞残余修复（用户反馈仍偶然出现）
+
+- 迟到 `assistant.delta` / 旧 WebSocket 帧在终态之后到达时，不再把 `isStreaming` 重新设为 true；已记录终态的 turnId 直接忽略后续增量。
+- 事件补拉失败最多自动重试 2 次（500ms / 1s）；`fetchAllEvents` 每页 15 秒超时，避免一次挂起的补拉长期占用全局 `syncing`。
+- WebSocket `message` 处理器增加当前 socket 身份校验，旧连接排队帧不能写入当前时间线。
+- 回归测试：`timelineSequenceGap.test.ts` 7 项（新增迟到增量、补拉重试、加载终态竞态、跨会话 resume 守卫）；web 322 项全通过。
