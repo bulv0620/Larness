@@ -1,7 +1,12 @@
 import type { ServerEvent } from "@larness/shared";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fetchAllEvents, getSession, resumeTurn } from "@/lib/workspaceApi";
-import { useTimelineStore } from "./timelineStore";
+import {
+  selectActiveTurnId,
+  selectIsStreaming,
+  turnState,
+  useTimelineStore,
+} from "./timelineStore";
 
 vi.mock("@/lib/env", () => ({ USE_MOCKS: false }));
 vi.mock("@/lib/workspaceApi", async (importOriginal) => ({
@@ -77,9 +82,7 @@ beforeEach(() => {
     sessionId: "s",
     items: [],
     loading: false,
-    isStreaming: true,
-    activeTurnId: "t1",
-    turnStartedAt: 1,
+    turn: turnState("running", "t1", 1),
     contextTokens: 0,
     contextNotice: null,
     modelUsage: {},
@@ -99,8 +102,8 @@ it("activates a session as idle when its history already contains the terminal e
   await useTimelineStore.getState().load("s");
 
   expect(useTimelineStore.getState().lastSeq).toBe(3);
-  expect(useTimelineStore.getState().isStreaming).toBe(false);
-  expect(useTimelineStore.getState().activeTurnId).toBeNull();
+  expect(selectIsStreaming(useTimelineStore.getState())).toBe(false);
+  expect(selectActiveTurnId(useTimelineStore.getState())).toBeNull();
 });
 
 it("does not apply a late resume result to another session", async () => {
@@ -113,7 +116,7 @@ it("does not apply a late resume result to another session", async () => {
   );
 
   const pending = useTimelineStore.getState().resumeTurn("turn_old");
-  useTimelineStore.setState({ sessionId: "s2", isStreaming: false, activeTurnId: null });
+  useTimelineStore.setState({ sessionId: "s2", turn: turnState() });
   resolveResume?.({
     turnId: "turn_new",
     status: "QUEUED",
@@ -123,8 +126,8 @@ it("does not apply a late resume result to another session", async () => {
   await pending;
 
   expect(useTimelineStore.getState().sessionId).toBe("s2");
-  expect(useTimelineStore.getState().isStreaming).toBe(false);
-  expect(useTimelineStore.getState().activeTurnId).toBeNull();
+  expect(selectIsStreaming(useTimelineStore.getState())).toBe(false);
+  expect(selectActiveTurnId(useTimelineStore.getState())).toBeNull();
 });
 
 it("retries a transient backfill failure before giving up", async () => {
@@ -134,12 +137,12 @@ it("retries a transient backfill failure before giving up", async () => {
     .mockResolvedValueOnce([completed]);
 
   await useTimelineStore.getState().syncEvents();
-  expect(useTimelineStore.getState().isStreaming).toBe(true);
+  expect(selectIsStreaming(useTimelineStore.getState())).toBe(true);
 
   await vi.waitFor(
     () => {
       expect(useTimelineStore.getState().lastSeq).toBe(3);
-      expect(useTimelineStore.getState().isStreaming).toBe(false);
+      expect(selectIsStreaming(useTimelineStore.getState())).toBe(false);
       expect(
         useTimelineStore
           .getState()
@@ -150,6 +153,31 @@ it("retries a transient backfill failure before giving up", async () => {
   );
 });
 
+it("does not let an orphan delta start a turn", async () => {
+  vi.mocked(fetchAllEvents).mockResolvedValue([running]);
+  await useTimelineStore.getState().load("s");
+  useTimelineStore.setState({ turn: turnState() });
+
+  socket.dispatchEvent(
+    new MessageEvent("message", {
+      data: JSON.stringify({
+        kind: "assistant.delta",
+        protocolVersion: 1,
+        topic: "agent",
+        streamId: "s",
+        sessionId: "s",
+        turnId: "turn_orphan",
+        messageId: "msg_orphan",
+        text: "orphan",
+        timestamp: 10,
+      }),
+    }),
+  );
+
+  expect(selectIsStreaming(useTimelineStore.getState())).toBe(false);
+  expect(useTimelineStore.getState().items).toEqual([]);
+});
+
 it("does not let a late assistant delta resurrect a finished turn", async () => {
   vi.mocked(fetchAllEvents).mockResolvedValue([running]);
   await useTimelineStore.getState().load("s");
@@ -157,7 +185,7 @@ it("does not let a late assistant delta resurrect a finished turn", async () => 
   socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(completed) }));
 
   await vi.waitFor(() => {
-    expect(useTimelineStore.getState().isStreaming).toBe(false);
+    expect(selectIsStreaming(useTimelineStore.getState())).toBe(false);
   });
 
   socket.dispatchEvent(
@@ -176,8 +204,8 @@ it("does not let a late assistant delta resurrect a finished turn", async () => 
     }),
   );
 
-  expect(useTimelineStore.getState().isStreaming).toBe(false);
-  expect(useTimelineStore.getState().activeTurnId).toBeNull();
+  expect(selectIsStreaming(useTimelineStore.getState())).toBe(false);
+  expect(selectActiveTurnId(useTimelineStore.getState())).toBeNull();
   expect(
     useTimelineStore
       .getState()
@@ -191,22 +219,22 @@ it("applies a synced terminal event when a hidden replay row left a sequence gap
   await useTimelineStore.getState().syncEvents();
 
   expect(useTimelineStore.getState().lastSeq).toBe(3);
-  expect(useTimelineStore.getState().isStreaming).toBe(false);
-  expect(useTimelineStore.getState().activeTurnId).toBeNull();
+  expect(selectIsStreaming(useTimelineStore.getState())).toBe(false);
+  expect(selectActiveTurnId(useTimelineStore.getState())).toBeNull();
 });
 
 it("recovers a live turn when a gap-triggered sync fetches the terminal event", async () => {
   vi.mocked(fetchAllEvents).mockResolvedValue([running]);
   await useTimelineStore.getState().load("s");
   expect(useTimelineStore.getState().lastSeq).toBe(1);
-  expect(useTimelineStore.getState().isStreaming).toBe(true);
+  expect(selectIsStreaming(useTimelineStore.getState())).toBe(true);
 
   vi.mocked(fetchAllEvents).mockResolvedValue([completed]);
   socket.dispatchEvent(new MessageEvent("message", { data: JSON.stringify(completed) }));
 
   await vi.waitFor(() => {
     expect(useTimelineStore.getState().lastSeq).toBe(3);
-    expect(useTimelineStore.getState().isStreaming).toBe(false);
+    expect(selectIsStreaming(useTimelineStore.getState())).toBe(false);
   });
 });
 
@@ -233,6 +261,6 @@ it("reruns a queued sync when another gap arrives during an in-flight fetch", as
 
   await vi.waitFor(() => {
     expect(useTimelineStore.getState().lastSeq).toBe(3);
-    expect(useTimelineStore.getState().isStreaming).toBe(false);
+    expect(selectIsStreaming(useTimelineStore.getState())).toBe(false);
   });
 });

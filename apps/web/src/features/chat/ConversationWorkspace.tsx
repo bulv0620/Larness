@@ -33,7 +33,10 @@ export function ConversationWorkspace() {
   const [renameOpen, setRenameOpen] = useState(false);
   const centered = useTimelineStore(
     (state) =>
-      state.sessionId === sessionId && !state.loading && !state.isStreaming && !state.items.length,
+      state.sessionId === sessionId &&
+      !state.loading &&
+      state.turn.phase === "idle" &&
+      !state.items.length,
   );
   const composerRef = useRef<HTMLDivElement>(null);
   const departure = useRef<{ sessionId: string; top: number } | null>(null);

@@ -14,7 +14,12 @@ import { PreviewResultCard } from "@/features/services/PreviewResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import {
+  selectActiveTurnId,
+  selectIsStreaming,
+  selectTurnStartedAt,
+  useTimelineStore,
+} from "@/stores/timelineStore";
 import { MessageBubble, TimelineItemView } from "./TimelineItemView";
 
 /**
@@ -118,7 +123,7 @@ function budgetStopLabel(cause: TurnBudgetCause | undefined): string {
 }
 
 function useElapsedSeconds(active: boolean): number | null {
-  const startedAt = useTimelineStore((state) => state.turnStartedAt);
+  const startedAt = useTimelineStore(selectTurnStartedAt);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -522,9 +527,9 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
 export function Timeline() {
   const items = useTimelineStore((state) => state.items);
   const loading = useTimelineStore((state) => state.loading);
-  const isStreaming = useTimelineStore((state) => state.isStreaming);
+  const isStreaming = useTimelineStore(selectIsStreaming);
   const contextNotice = useTimelineStore((state) => state.contextNotice);
-  const activeTurnId = useTimelineStore((state) => state.activeTurnId);
+  const activeTurnId = useTimelineStore(selectActiveTurnId);
   const scrollToLatestNonce = useTimelineStore((state) => state.scrollToLatestNonce);
   const sessionId = useNavigationStore((state) => state.sessionId);
   const scrollRef = useRef<HTMLDivElement>(null);

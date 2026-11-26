@@ -18,7 +18,7 @@ import { useHostMetrics } from "@/lib/useHostMetrics";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { unassignedWorkspaceLabel } from "@/lib/workspaceScope";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { selectIsStreaming, useTimelineStore } from "@/stores/timelineStore";
 
 export function TopBar({ version }: { version?: string }) {
   const { data } = useSnapshot();
@@ -29,7 +29,7 @@ export function TopBar({ version }: { version?: string }) {
   const pendingApprovals = timelineItems.filter(
     (item): item is ApprovalItem => item.kind === "approval" && item.status === "pending",
   );
-  const isStreaming = useTimelineStore((state) => state.isStreaming);
+  const isStreaming = useTimelineStore(selectIsStreaming);
   const metrics = useHostMetrics(data.host);
   const project = data.projects.find((item) => item.id === projectId) ?? null;
   const ThemeIcon = theme === "system" ? Monitor : resolved === "dark" ? Moon : Sun;

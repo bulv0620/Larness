@@ -124,13 +124,99 @@ function isAuthCloseReason(reason: string): boolean {
   return /unauthenticated|authorization|session|revoked|expired|device/i.test(reason);
 }
 
+export type TurnPhase = "idle" | "pending" | "running" | "waiting_approval" | "cancelling";
+
+export interface TurnState {
+  id: string | null;
+  phase: TurnPhase;
+  startedAt: number | null;
+}
+
+export const IDLE_TURN: TurnState = Object.freeze({
+  id: null,
+  phase: "idle",
+  startedAt: null,
+});
+
+/** Test/helper constructor; production transitions go through turnFromEvent/snapshot. */
+export function turnState(
+  phase: TurnPhase = "idle",
+  id: string | null = null,
+  startedAt: number | null = null,
+): TurnState {
+  return { id, phase, startedAt };
+}
+
+export const selectIsStreaming = (state: { turn: TurnState }): boolean =>
+  state.turn.phase !== "idle";
+export const selectActiveTurnId = (state: { turn: TurnState }): string | null => state.turn.id;
+export const selectTurnStartedAt = (state: { turn: TurnState }): number | null =>
+  state.turn.startedAt;
+
+function phaseFromStatus(status: string | null): TurnPhase {
+  switch (status) {
+    case "QUEUED":
+      return "pending";
+    case "PREPARING":
+    case "RUNNING":
+      return "running";
+    case "WAITING_APPROVAL":
+      return "waiting_approval";
+    case "CANCELLING":
+      return "cancelling";
+    default:
+      return "running";
+  }
+}
+
+/**
+ * The only place that decides whether a session is streaming. Durable turn
+ * lifecycle events move the phase; deltas only append text.
+ */
+function turnFromEvent(current: TurnState, event: ServerEvent): TurnState {
+  const turnId = eventTurnId(event);
+  const terminal = isTerminalTurnEvent(event);
+
+  if (terminal) {
+    if (current.id === null || turnId === null || current.id === turnId) {
+      return IDLE_TURN;
+    }
+    return current;
+  }
+
+  if (event.type !== "turn.created" && event.type !== "turn.status") {
+    return current;
+  }
+  if (turnId === null) return current;
+
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+  const status = typeof payload.status === "string" ? payload.status : null;
+  const sameTurn = current.id === turnId;
+
+  return {
+    id: turnId,
+    phase: event.type === "turn.created" ? "pending" : phaseFromStatus(status),
+    startedAt: sameTurn ? (current.startedAt ?? event.timestamp) : event.timestamp,
+  };
+}
+
+function turnFromSnapshot(
+  activeTurn: { id: string; status: string; createdAt: number } | null,
+): TurnState {
+  return activeTurn === null
+    ? IDLE_TURN
+    : {
+        id: activeTurn.id,
+        phase: phaseFromStatus(activeTurn.status),
+        startedAt: activeTurn.createdAt,
+      };
+}
+
 interface TimelineState {
   sessionId: string;
   items: TimelineItem[];
   loading: boolean;
-  isStreaming: boolean;
-  activeTurnId: string | null;
-  turnStartedAt: number | null;
+  turn: TurnState;
   contextTokens: number;
   contextNotice: { degraded: boolean; createdAt: number } | null;
   modelUsage: Record<string, ModelUsageEntry>;
@@ -197,18 +283,6 @@ function turnAlreadyTerminal(events: ServerEvent[], turnId: string): boolean {
   return events.some((event) => isTerminalTurnEvent(event) && eventTurnId(event) === turnId);
 }
 
-function turnHasSettled(items: TimelineItem[], turnId: string): boolean {
-  return items.some(
-    (item) =>
-      item.turnId === turnId &&
-      ((item.kind === "message" && item.turnOutcome !== undefined) ||
-        (item.kind === "error" &&
-          (item.id.startsWith("cancelled_") ||
-            item.id.startsWith("failed_") ||
-            item.id.startsWith("interrupted_")))),
-  );
-}
-
 function applyDeltaToState(event: AssistantDeltaEvent): void {
   const state = useTimelineStore.getState();
 
@@ -216,15 +290,11 @@ function applyDeltaToState(event: AssistantDeltaEvent): void {
     return;
   }
 
-  // Deltas are ephemeral and carry no sequence. A late frame can arrive after
-  // a REST backfill already applied the terminal event; it must not resurrect
-  // the finished turn or overwrite a different active turn.
-  if (turnHasSettled(state.items, event.turnId) || terminalTurnIds.has(event.turnId)) {
-    return;
-  }
-  if (state.activeTurnId !== null && event.turnId !== state.activeTurnId) {
-    return;
-  }
+  // Deltas are ephemeral text hints, never lifecycle. They may append to the
+  // active turn's text, but they cannot start or finish a turn.
+  if (state.turn.phase === "idle") return;
+  if (state.turn.id !== null && event.turnId !== state.turn.id) return;
+  if (terminalTurnIds.has(event.turnId)) return;
 
   useTimelineStore.setState({
     items: applyAssistantDelta(state.items, {
@@ -233,9 +303,6 @@ function applyDeltaToState(event: AssistantDeltaEvent): void {
       createdAt: event.timestamp,
       turnId: event.turnId,
     }),
-    isStreaming: true,
-    activeTurnId: state.activeTurnId ?? event.turnId,
-    turnStartedAt: state.turnStartedAt ?? event.timestamp,
   });
 }
 
@@ -246,12 +313,9 @@ function applyReasoningDeltaToState(event: AssistantReasoningDeltaEvent): void {
     return;
   }
 
-  if (turnHasSettled(state.items, event.turnId) || terminalTurnIds.has(event.turnId)) {
-    return;
-  }
-  if (state.activeTurnId !== null && event.turnId !== state.activeTurnId) {
-    return;
-  }
+  if (state.turn.phase === "idle") return;
+  if (state.turn.id !== null && event.turnId !== state.turn.id) return;
+  if (terminalTurnIds.has(event.turnId)) return;
 
   useTimelineStore.setState({
     items: applyReasoningDelta(state.items, {
@@ -260,8 +324,6 @@ function applyReasoningDeltaToState(event: AssistantReasoningDeltaEvent): void {
       text: event.text,
       createdAt: event.timestamp,
     }),
-    activeTurnId: state.activeTurnId ?? event.turnId,
-    turnStartedAt: state.turnStartedAt ?? event.timestamp,
   });
 }
 
@@ -287,26 +349,11 @@ function applyEventToState(event: ServerEvent, live = false, acceptSequenceGap =
 
   const payload = (event.payload ?? {}) as Record<string, unknown>;
   const turnId = eventTurnId(event);
-  const status = typeof payload.status === "string" ? payload.status : null;
-  const activeTurnId =
-    event.type === "turn.created" || event.type === "turn.status"
-      ? (turnId ?? state.activeTurnId)
-      : state.activeTurnId;
-  const nextStreaming = isTerminalTurnEvent(event)
-    ? false
-    : event.type === "turn.created" ||
-        status === "QUEUED" ||
-        status === "PREPARING" ||
-        status === "RUNNING" ||
-        status === "WAITING_APPROVAL" ||
-        status === "CANCELLING"
-      ? true
-      : state.isStreaming;
-
   const terminal = isTerminalTurnEvent(event);
   if (terminal && turnId !== null) {
     terminalTurnIds.add(turnId);
   }
+  const turn = turnFromEvent(state.turn, event);
   const nextItems = applyServerEvent(state.items, event).map((item) =>
     terminal && item.kind === "reasoning" ? { ...item, streaming: false } : item,
   );
@@ -330,20 +377,13 @@ function applyEventToState(event: ServerEvent, live = false, acceptSequenceGap =
       ? nextItems.map((item) => (item.kind === "message" ? { ...item, streaming: false } : item))
       : nextItems,
     lastSeq: event.sequence,
-    activeTurnId: terminal ? null : activeTurnId,
-    isStreaming: nextStreaming,
+    turn,
     contextTokens,
     contextNotice:
       event.type === "context.compressed"
         ? { degraded: payload.degraded === true, createdAt: event.timestamp }
         : state.contextNotice,
     modelUsage,
-    turnStartedAt:
-      terminal || nextStreaming
-        ? terminal
-          ? null
-          : (state.turnStartedAt ?? event.timestamp)
-        : state.turnStartedAt,
   });
 
   if (event.type === "tool.completed") {
@@ -447,9 +487,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
   sessionId: "",
   items: [],
   loading: false,
-  isStreaming: false,
-  activeTurnId: null,
-  turnStartedAt: null,
+  turn: IDLE_TURN,
   contextTokens: 0,
   contextNotice: null,
   modelUsage: {},
@@ -466,9 +504,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       sessionId,
       items: [],
       loading: Boolean(sessionId),
-      isStreaming: false,
-      activeTurnId: null,
-      turnStartedAt: null,
+      turn: IDLE_TURN,
       contextTokens: 0,
       contextNotice: null,
       modelUsage: {},
@@ -524,9 +560,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         items: eventsToTimeline(events),
         lastSeq: events.at(-1)?.sequence ?? 0,
         loading: false,
-        isStreaming: activeTurn !== null,
-        activeTurnId: activeTurn?.id ?? null,
-        turnStartedAt: activeTurn?.createdAt ?? null,
+        turn: turnFromSnapshot(activeTurn),
         contextTokens: contextTokensFromEvents(events),
         contextNotice: contextNoticeFromEvents(events),
         modelUsage: modelUsageFromEvents(events),
@@ -621,7 +655,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     acceptsImages = false,
   ) => {
     const trimmed = text.trim();
-    if ((!trimmed && screenshots.length === 0) || get().isStreaming) return;
+    if ((!trimmed && screenshots.length === 0) || get().turn.phase !== "idle") return;
     const sessionId = get().sessionId;
 
     if (!sessionId) return;
@@ -638,8 +672,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       };
       set((state) => ({
         items: [...state.items, userItem],
-        isStreaming: true,
-        turnStartedAt: Date.now(),
+        turn: turnState("pending", null, Date.now()),
       }));
       mockController = new AbortController();
       const active = mockController;
@@ -663,8 +696,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         }));
       } finally {
         set((state) => ({
-          isStreaming: false,
-          turnStartedAt: null,
+          turn: IDLE_TURN,
           items: state.items.map((item) =>
             item.kind === "message" ? { ...item, streaming: false } : item,
           ),
@@ -681,7 +713,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     const draft = navigation.draftSession;
 
     if (draft !== null && draft.id === sessionId) {
-      set({ isStreaming: true, turnStartedAt: Date.now() });
+      set({ turn: turnState("pending", null, Date.now()) });
 
       let real: Awaited<ReturnType<typeof createSession>> | null = null;
       let turnCreated = false;
@@ -714,8 +746,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         if (get().sessionId !== sessionId) return;
         const message = error instanceof Error ? error.message : "发送失败";
         set((state) => ({
-          isStreaming: false,
-          turnStartedAt: null,
+          turn: IDLE_TURN,
           items: [...state.items, errorItem(`发送失败：${message}`)],
         }));
       }
@@ -732,8 +763,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     };
     set((state) => ({
       items: [...state.items, optimistic],
-      isStreaming: true,
-      turnStartedAt: Date.now(),
+      turn: turnState("pending", null, Date.now()),
     }));
 
     try {
@@ -746,15 +776,17 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       onAccepted?.();
       void queryClient.invalidateQueries({ queryKey: sessionDetailKey(sessionId) });
       if (get().sessionId !== sessionId) return;
-      set({ activeTurnId: created.turnId });
+      const currentTurn = get().turn;
+      if (currentTurn.id === null) {
+        set({ turn: { ...currentTurn, id: created.turnId } });
+      }
       await queryClient.invalidateQueries({ queryKey: ["workspace"] });
       if (get().sessionId === sessionId) await get().syncEvents();
     } catch (error) {
       if (get().sessionId !== sessionId) return;
       const message = error instanceof Error ? error.message : "发送失败";
       set((state) => ({
-        isStreaming: false,
-        turnStartedAt: null,
+        turn: IDLE_TURN,
         items: [
           ...state.items.filter((item) => item.id !== optimistic.id),
           errorItem(`发送失败：${message}`),
@@ -771,11 +803,11 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
       mockController?.abort();
       mockController = null;
       void gateway.cancelTurn(get().sessionId);
-      set({ isStreaming: false });
+      set({ turn: IDLE_TURN });
       return;
     }
 
-    const activeTurnId = get().activeTurnId;
+    const activeTurnId = get().turn.id;
 
     if (activeTurnId === null) {
       return;
@@ -794,18 +826,14 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     const sessionId = get().sessionId;
 
     if (USE_MOCKS) {
-      set({ isStreaming: true, activeTurnId: turnId, turnStartedAt: Date.now() });
+      set({ turn: turnState("pending", turnId, Date.now()) });
       return;
     }
 
     try {
       const resumed = await requestResumeTurn(turnId);
       if (get().sessionId !== sessionId) return;
-      set({
-        isStreaming: true,
-        activeTurnId: resumed.turnId,
-        turnStartedAt: Date.now(),
-      });
+      set({ turn: turnState("pending", resumed.turnId, Date.now()) });
       await get().syncEvents();
     } catch (error) {
       if (get().sessionId !== sessionId) return;

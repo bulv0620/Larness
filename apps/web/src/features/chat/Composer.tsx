@@ -49,7 +49,7 @@ import {
 } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { selectActiveTurnId, selectIsStreaming, useTimelineStore } from "@/stores/timelineStore";
 import { AttachmentPreview, type PreviewTarget } from "./AttachmentPreview";
 import { AttachmentTray, type DraftAttachmentItem } from "./AttachmentTray";
 import { ModelControl } from "./ModelControl";
@@ -161,8 +161,8 @@ export function Composer({
   const { catalog, error: catalogError } = useModelCatalog();
   const draft = useComposerStore((state) => state.draft);
   const setDraft = useComposerStore((state) => state.setDraft);
-  const isStreaming = useTimelineStore((state) => state.isStreaming);
-  const activeTurnId = useTimelineStore((state) => state.activeTurnId);
+  const isStreaming = useTimelineStore(selectIsStreaming);
+  const activeTurnId = useTimelineStore(selectActiveTurnId);
   const send = useTimelineStore((state) => state.send);
   const stop = useTimelineStore((state) => state.stop);
   const focusNonce = useNavigationStore((state) => state.focusComposerNonce);

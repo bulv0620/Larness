@@ -5,7 +5,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { beforeEach, expect, it, vi } from "vitest";
 import { queryClient } from "@/lib/queries";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { turnState, useTimelineStore } from "@/stores/timelineStore";
 import { Composer } from "./Composer";
 import { PendingApproval } from "./PendingApproval";
 import { Timeline } from "./Timeline";
@@ -92,9 +92,8 @@ beforeEach(() => {
   useTimelineStore.setState({
     items: [],
     sessionId: "test-session",
-    isStreaming: false,
+    turn: turnState(),
     loading: false,
-    activeTurnId: null,
   });
 });
 it("keeps commentary inside a collapsed turn process and final answer outside", () => {
@@ -149,7 +148,7 @@ it("puts interactive approval only above composer; retains it until confirmed an
   );
   useTimelineStore.setState({
     items: [...base, approval],
-    isStreaming: true,
+    turn: turnState("waiting_approval", "turn_approval", 1),
     resolveApproval: resolve,
   });
   render(
@@ -197,7 +196,7 @@ it("shows approval failure inline, disables expired requests and navigates multi
 it("Enter never stops a running turn and IME Enter never sends; stop stays explicit", async () => {
   const stop = vi.fn();
   const send = vi.fn();
-  useTimelineStore.setState({ isStreaming: true, stop, send });
+  useTimelineStore.setState({ turn: turnState("running", "turn_stop", 1), stop, send });
   render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -212,7 +211,7 @@ it("Enter never stops a running turn and IME Enter never sends; stop stays expli
   expect(send).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "停止执行" }));
   expect(stop).toHaveBeenCalledTimes(1);
-  act(() => useTimelineStore.setState({ isStreaming: false }));
+  act(() => useTimelineStore.setState({ turn: turnState() }));
   fireEvent.keyDown(input, { key: "Enter", isComposing: true });
   expect(send).not.toHaveBeenCalled();
   fireEvent.keyDown(input, { key: "Enter" });

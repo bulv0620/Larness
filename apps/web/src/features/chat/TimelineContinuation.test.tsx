@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { turnState, useTimelineStore } from "@/stores/timelineStore";
 import { Timeline } from "./Timeline";
 
 vi.mock("@/lib/workspaceApi", async (importOriginal) => ({
@@ -12,8 +12,7 @@ beforeEach(() => {
   useTimelineStore.setState({
     items: [],
     loading: false,
-    isStreaming: false,
-    activeTurnId: null,
+    turn: turnState(),
   });
 });
 
@@ -22,8 +21,7 @@ const checkpoint = (goal: string, at: number) =>
 
 it("labels a context-rollover slice as continuing and does not show its answer as final", () => {
   useTimelineStore.setState({
-    isStreaming: false,
-    activeTurnId: null,
+    turn: turnState(),
     items: [
       {
         id: "u1",
@@ -56,8 +54,7 @@ it("labels a context-rollover slice as continuing and does not show its answer a
 
 it("reads a continued chain from its latest slice, not the budget-stopped first one", () => {
   useTimelineStore.setState({
-    isStreaming: true,
-    activeTurnId: "t2",
+    turn: turnState("running", "t2", 1),
     items: [
       {
         id: "u1",

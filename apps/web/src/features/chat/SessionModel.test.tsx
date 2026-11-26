@@ -7,7 +7,7 @@ import { queryClient } from "@/lib/queries";
 import type { ApiSessionDetail } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { turnState, useTimelineStore } from "@/stores/timelineStore";
 import { Composer } from "./Composer";
 
 const api = vi.hoisted(() => ({
@@ -80,8 +80,7 @@ beforeEach(() => {
   useTimelineStore.setState({
     sessionId: "ses_a",
     items: [],
-    isStreaming: false,
-    activeTurnId: null,
+    turn: turnState(),
   });
   api.listModelCatalog.mockResolvedValue({
     ...deepseekGroup,
@@ -204,7 +203,7 @@ it("uses the draft model and approval overrides for the first turn", async () =>
 it("persists thinking during an active turn and waits for saving before another send", async () => {
   const user = userEvent.setup();
   sessions.set("ses_a", { ...session("ses_a"), ...glm });
-  useTimelineStore.setState({ isStreaming: true, activeTurnId: "turn_running" });
+  useTimelineStore.setState({ turn: turnState("running", "turn_running", 1) });
   let finishSave: (value: ApiSessionDetail) => void = () => {};
   api.updateSession.mockImplementationOnce(
     () =>
@@ -219,9 +218,9 @@ it("persists thinking during an active turn and waits for saving before another 
   await user.click(screen.getByRole("button", { name: "关闭" }));
   expect(api.updateSession).toHaveBeenCalledWith("ses_a", { ...glm, thinking: "off" });
   expect(api.createTurn).not.toHaveBeenCalled();
-  expect(useTimelineStore.getState().activeTurnId).toBe("turn_running");
+  expect(useTimelineStore.getState().turn.id).toBe("turn_running");
 
-  act(() => useTimelineStore.setState({ isStreaming: false, activeTurnId: null }));
+  act(() => useTimelineStore.setState({ turn: turnState() }));
   await user.type(screen.getByRole("textbox", { name: "对话输入" }), "下一轮");
   expect(screen.getByRole("button", { name: "发送消息" })).toBeDisabled();
   await act(async () => finishSave({ ...session("ses_a"), ...glm, thinking: "off" }));

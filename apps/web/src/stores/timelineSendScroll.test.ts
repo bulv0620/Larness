@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { useNavigationStore } from "./navigationStore";
-import { useTimelineStore } from "./timelineStore";
+import { turnState, useTimelineStore } from "./timelineStore";
 
 const api = vi.hoisted(() => ({
   createSession: vi.fn(async () => ({ id: "ses_new", projectId: null })),
@@ -37,8 +37,7 @@ beforeEach(() => {
   useTimelineStore.setState({
     sessionId: "s1",
     items: [],
-    isStreaming: false,
-    activeTurnId: null,
+    turn: turnState(),
     scrollToLatestNonce: 0,
     syncEvents: vi.fn().mockResolvedValue(undefined),
   });
@@ -55,7 +54,7 @@ it("carries the draft web search choice into the newly created session", async (
   useNavigationStore.setState({ projectId: null, draftSession: null });
   useNavigationStore.getState().startDraft(null);
   const draftId = useNavigationStore.getState().sessionId;
-  useTimelineStore.setState({ sessionId: draftId, items: [], isStreaming: false });
+  useTimelineStore.setState({ sessionId: draftId, items: [], turn: turnState() });
   const selection = { model: "glm-5.3", credentialProfileId: "cred_glm", thinking: "off" };
 
   await useTimelineStore.getState().send("今天有什么新版本", selection, "standard", "coding", true);
@@ -71,7 +70,7 @@ it("leaves web search off when the draft never enabled it", async () => {
   useNavigationStore.setState({ projectId: null, draftSession: null });
   useNavigationStore.getState().startDraft(null);
   const draftId = useNavigationStore.getState().sessionId;
-  useTimelineStore.setState({ sessionId: draftId, items: [], isStreaming: false });
+  useTimelineStore.setState({ sessionId: draftId, items: [], turn: turnState() });
 
   await useTimelineStore.getState().send("继续");
 
