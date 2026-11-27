@@ -2,7 +2,7 @@
 id: 103-exact-identifier-search
 title: 真实仓库探索：精确标识符优先
 milestone: 发布后
-status: active
+status: dropped
 depends_on: [100-exploration-efficiency, 102-real-repo-ab]
 owners: []
 created: 2026-11-27
@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 真实仓库探索：精确标识符优先
 
-> 状态：`active`（2026-11-27；prompt/宽扫提示与测试、`pnpm check`/`build` 通过；真实复测待用户 Key）。102 的真实 Larness 099 任务暴露差距：Larness 23 次调用/299,718 tokens，opencode 10 次/157,152 prompt tokens；两边都修对，但 Larness 先宽搜错误码、扫 875/1232 文件，再读整文件。
+> 状态：`dropped`（2026-11-27；实机复测从 102 的 13 步/23 调用/296,177 input 回退到 22 步/29 调用/546,390 input；已回退 prompt 与宽扫提示，恢复 `PROMPT_VERSION=100-1`）。102 的真实 Larness 099 任务暴露差距：Larness 23 次调用/299,718 tokens，opencode 10 次/157,152 prompt tokens；两边都修对，但 Larness 先宽搜错误码、扫 875/1232 文件，再读整文件。
 
 ## 1. 背景与问题
 
@@ -148,7 +148,7 @@ And 与旧值 13/23/296,177 input/59.5s 对比
 
 ## 14. 完成定义
 
-- [x] A1–A4 通过；
-- [ ] A5 记录（真实复测待用户 Key；旧值已写入 tasks）；
-- [x] `pnpm check`、`pnpm build` 通过；
-- [x] 契约/文档/STATUS/ROADMAP/README 更新。
+- [ ] A1–A4 通过（实现后已回退）；
+- [ ] A5 记录（实机回退：22 步 / 29 调用 / 546,390 input；见 tasks）；
+- [x] `pnpm check`、`pnpm build` 通过（实现阶段）；
+- [ ] 代码保留（已回退，任务 dropped）。

@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- **103 真实仓库探索：精确标识符优先（EIS-1）**：分支 `main`，开始 2026-11-27。system prompt 要求先搜请求里的字段/函数/文件、不先搜邻近错误码/宽泛概念；`search_code` 在扫描 >200 文件时追加宽扫收窄提示；真实 099 任务复测。规格见 [103](specs/103-exact-identifier-search/spec.md)。
+- 无。
 
 ## 阻塞与待确认
 
@@ -19,6 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-27 | 103 真实仓库探索：精确标识符优先（EIS-1） | 实现后实机复测明显回退：Larness 22 步/29 调用/546,390 input/94.4s（102 基线 13/23/296,177/59.5s）；模型先搜 `expectedVersion` 命中大量测试，错误探索 `apps/server`，宽扫提示未纠正。已回退 prompt/宽扫提示，恢复 `PROMPT_VERSION=100-1`；任务 `dropped`，后续改做仓库/包索引或搜索排序 | [103](specs/103-exact-identifier-search/tasks.md) |
 | 2026-11-27 | 102 外部真实仓库 A/B（RRA-1/RRA-2） | benchmark runner 新增 `--repo`/`--prompt`/`--verify`/`--setup`：复制本地仓库（排除 `.git/.larness/tmp`）、可选 setup、baseline、复用指标；fake smoke verify=0、源仓库不变、参数/setup 失败关闭；真实 Larness 099 任务：Larness 13 步/23 调用/2 失败/299,718 tokens/59.5s，opencode 8 步/10 调用/157,152 prompt tokens/43.1s，双方 verify 0、同 diff；差距定位为宽搜索、整文件读取和错误 pnpm 命令；`pnpm check` 退出码 0（server 1006+14 跳过）、`pnpm build` 通过 | [102](specs/102-real-repo-ab/tasks.md) |
 | 2026-11-27 | 101 更大仓库基准任务（DRB-1） | 新增 `checkout-discount` fixture：31 文件，测试只能定位到 `quote`，根因在 `discount.js`（返回折扣额）与 `quote.js`（运费进入折扣基数），两文件同修才通过；补基线/可解性/单点失败测试；`tasks.test.ts` 10 项、`pnpm check` 退出码 0（web 322、agent 75+1 跳过、server 1002+14 跳过）、`pnpm build` 通过；live A/B（n=1）Larness 6 步/12 调用/38,698 tokens/18.8s，opencode 8 步/12 调用/75,253 prompt tokens/18.7s，双方 verify 0、同 diff | [101](specs/101-deep-repo-benchmark/tasks.md) |
 | 2026-11-27 | 100 探索效率（EX-1） | `search_code` 默认每条命中带前后各 1 行上下文（`contextLines` 0–5，0 关闭），模型文本按真实行号显示相邻行、不重复命中行并追加窄读提示；system prompt 增加“点名文件直接读 / 路径未知才 list_files / package.json 只在相关时读”，`PROMPT_VERSION=100-1`；`fileTools`/`fileService` 32 项、contextAssembler 15 项、`pnpm check` 退出码 0（web 322、agent 75+1 跳过、server 997+14 跳过）、`pnpm build` 通过；live long-file 两次复测均 5 步/5 调用，tokens 22,620–23,048（旧 7/8/35,269），耗时 10.0–10.1s（旧 13.3s），verify=0；全任务 n=1 的 cross/multi 回退经定向复测为方差（cross 5/11、multi 10/14/2），不是稳定回归 | [100](specs/100-exploration-efficiency/tasks.md) |
@@ -28,7 +29,6 @@
 | 2026-11-27 | 096 命令 allowlist 与本轮审批复用（CA-1～CA-3） | 标准策略下把 `git status/diff/log/show/rev-parse/ls-files`、受限 `git branch`、`pnpm/npm/yarn` 的 `test/check/typecheck/lint/build/verify` 脚本、`rg/ls/pwd`、`node --version` 等降为 L1；`run_shell` 仅限无元字符/引号/绝对或 `..` 路径的简单命令；`--prefix`/`exec`/`dlx`/写 flags 仍 L2，L3 仍 deny。`executeTool` 支持同 Turn 内相同 `toolName + paramsHash` 批准复用，不跨 Turn、不持久化。定向 20 项、`pnpm check` 退出码 0（web 322、agent 72+1 跳过、server 991+14 跳过）、`pnpm build` 通过；E2E 与真实 Provider 未跑 | [096](specs/096-command-approvals/tasks.md) |
 | 2026-11-27 | 095 单一 Agent 模式（SM-1～SM-5） | 移除 Composer 的 coding/plan 切换，保留一个通用模式；`update_plan` 常驻、始终注入计划策略（3+ 步提示），`PROMPT_VERSION=095-1`；旧 `plan` 作为行为一致的兼容别名，不删 `agent_profile` 列；最近计划注入 tail，当前 Turn 计划仍有 pending/running 却纯文本停止时 nudge 一次，旧计划不触发；项目指令改为“可遵循的约定，但不能授权/批准/覆盖安全”，允许项目指令提高验证门禁。ADR-075 accepted；定向 91 项 + web 22 项、`pnpm check` 退出码 0（web 322、agent 72+1 跳过、server 987+14 跳过）、`pnpm build` 通过；E2E 与真实 Provider 未跑 | [095](specs/095-single-agent-mode/tasks.md) |
 | 2026-11-27 | 094 跨 Turn 操作日志（OL-1～OL-4） | 新增内部 `tool.operation`：L1+ 命令保留 exitCode+800 字符尾部，edit/patch/write 保留 path/version/changeType/增删或替换统计，失败保留 errorCode/summary；落盘前 redaction。`contextAssembler` 读取 `coveredUpToSeq` 之后、当前 Turn 之前的最多 40 条，按 2,500 token 预算注入当前 user 消息 tail；`tool.operation` 不广播、公开事件过滤。定向 operationLog/contextAssembler/events/turnRunner 等 117 项、`pnpm check` 退出码 0（web 323、agent 72+1 跳过、server 982+14 跳过）、`pnpm build` 通过；E2E 与真实 Provider 未跑 | [094](specs/094-operation-log/tasks.md) |
-| 2026-11-27 | 093 工具面与结果预算（TI-1～TI-4） | `read_file` 带 1-based 行号、完整 sha256 version、50KB/2000 行页；新增 `edit`（old/new/replaceAll、CRLF、唯一匹配、L1+项目锁）；`write_file` 支持覆盖与可选 `expectedVersion`；`read_file`/`search_code`/`run_command` 使用 `modelText` 纯文本结果，JSON `data` 保留；命令输出 32KB 且不重复 stdout/stderr；结果上限 80k 字符、批预算 24k token；`edit` 加入 `core.write`。定向资源/工具/契约/命令测试通过，`pnpm check` 退出码 0（web 323、agent 72+1 跳过、server 975+14 跳过）；E2E、真实 Provider 未跑；`pnpm build` 通过 | [093](specs/093-tool-interface/tasks.md) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

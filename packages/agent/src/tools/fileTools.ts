@@ -14,8 +14,6 @@ import { defineTool, type ToolResult } from "./types.js";
 const PathSchema = z.string().min(1).max(4_096);
 /** One page fits the raised tool-result budget without being re-truncated. */
 const READ_PAGE_CHARS = 50_000;
-/** Above this, the model gets an explicit hint to narrow the search. */
-const BROAD_SEARCH_FILES = 200;
 
 type ReadPage = Awaited<ReturnType<typeof readTextFile>>;
 type SearchResult = Awaited<ReturnType<typeof searchCode>>;
@@ -79,20 +77,14 @@ function searchModelText(result: SearchResult): string {
       }),
     ];
   });
-  const hints =
-    result.scannedFiles > BROAD_SEARCH_FILES
-      ? [
-          `Broad scan: ${result.scannedFiles} files scanned. Narrow with path/glob, or search the exact identifier from the request.`,
-        ]
-      : [];
+  const hint =
+    result.matches.length === 0
+      ? []
+      : [
+          "Hint: read a narrow window around a match instead of a large page; do not repeat the same search for a case variant.",
+        ];
 
-  if (result.matches.length > 0) {
-    hints.push(
-      "Hint: read a narrow window around a match instead of a large page; do not repeat the same search for a case variant.",
-    );
-  }
-
-  return [`${header}${notes.length === 0 ? "" : ` ${notes.join(" ")}`}`, ...lines, ...hints].join(
+  return [`${header}${notes.length === 0 ? "" : ` ${notes.join(" ")}`}`, ...lines, ...hint].join(
     "\n",
   );
 }
@@ -302,7 +294,7 @@ export function createFileTools() {
     defineTool({
       name: "search_code",
       description:
-        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Each match includes one line of context by default; set contextLines (0-5) for more, or 0 to disable. When a match identifies the target, read a narrow window around its line instead of a large page, and do not repeat the same search. Very large scans are a signal to pass path/glob or search the exact identifier from the request.",
+        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Each match includes one line of context by default; set contextLines (0-5) for more, or 0 to disable. When a match identifies the target, read a narrow window around its line instead of a large page, and do not repeat the same search.",
       riskLevel: "L0",
       requiresProjectLock: false,
       prefetchable: true,

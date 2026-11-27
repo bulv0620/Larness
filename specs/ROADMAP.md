@@ -684,13 +684,13 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 | RRA-1 | [外部仓库模式与测试](102-real-repo-ab/tasks.md#rra-1-外部仓库模式与测试) | 098、101 | `done`（2026-11-27） |
 | RRA-2 | [Larness 099 样例任务与文档](102-real-repo-ab/tasks.md#rra-2-larness-099-样例任务与文档) | RRA-1 | `done`（2026-11-27；Larness 13/23/59.5s vs opencode 8/10/43.1s） |
 
-### 8.29 发布后：真实仓库探索：精确标识符优先（103，active）
+### 8.29 发布后：真实仓库探索：精确标识符优先（103，dropped）
 
 102 的真实 Larness 099 任务显示：Larness 23 次调用/299,718 tokens，opencode 10 次/157,152 prompt tokens；差距在 Larness 先搜错误码、宽扫 875/1232 文件，再读整文件。本切片要求先搜请求里的精确字段/函数/文件，并在 `search_code` 扫描 >200 文件时提示用 path/glob 收窄。规格见 [103](103-exact-identifier-search/spec.md)，方案见 [plan](103-exact-identifier-search/plan.md)。
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
-| EIS-1 | [精确标识符 prompt 与宽扫提示](103-exact-identifier-search/tasks.md#eis-1-精确标识符-prompt-与宽扫提示) | 100、102 | `in_progress` |
+| EIS-1 | [精确标识符 prompt 与宽扫提示](103-exact-identifier-search/tasks.md#eis-1-精确标识符-prompt-与宽扫提示) | 100、102 | `dropped`（实机回退，代码已撤销） |
 
 ## 9. 门禁
 
