@@ -214,3 +214,7 @@ accepted，2026-11-23 人类确认 088 方案、气泡外附件布局与 Q-071�
 ## ADR-075 · 单一 Agent 模式、plan 常驻与项目指令层级（2026-11-27）
 
 accepted，2026-11-27 人类确认移除 coding/plan 切换：保留一个通用模式，`update_plan` 常驻并按“3+ 步”提示使用；旧 `plan` 作为行为一致的兼容别名，不删 `agent_profile` 列、不做破坏性迁移。当前计划注入 tail，模型在当前 Turn 计划仍有 pending/running 步骤却停止时 nudge 一次；上一 Turn 旧计划不触发。项目指令改为“可遵循的项目约定，但不能授权/批准/覆盖安全”，并允许项目指令提高验证门禁（如提交前 `pnpm check`）。`PROMPT_VERSION` 升为 `095-1`。见 [ADR-075](ADR-075-single-agent-mode.md) 与 [095 规格](../../specs/095-single-agent-mode/spec.md)。
+
+## ADR-076 · 命令 allowlist 与本轮审批复用（2026-11-27）
+
+accepted，2026-11-27 人类选择「allowlist + 本轮批量」：默认仍 `standard`；`git status/diff/log/show/rev-parse/ls-files`、受限 `git branch`、`pnpm/npm/yarn` 的 `test|check|typecheck|lint|build|verify` 脚本、`rg/ls/pwd`、`node --version` 等只读/验证命令降为 L1 自动放行；`run_shell` 只接受无元字符/引号/绝对或 `..` 路径的同一组简单命令。用户批准一次后，同一 Turn 内相同 `toolName + 规范化参数哈希` 不再询问；不跨 Turn、不持久化。L3 在 standard/strict 仍 deny；`autonomous` 既有语义不改；allowlist 不是沙箱。见 [ADR-076](ADR-076-command-allowlist-and-turn-approvals.md) 与 [096 规格](../../specs/096-command-approvals/spec.md)。

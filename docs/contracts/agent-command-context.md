@@ -12,7 +12,9 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 `run_command` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd` 和 `timeoutMs`。env、项目 ID、执行身份、策略和锁由后端决定。现有审批、秘密参数检查、项目锁、fencing、命令幂等、预算、取消和有界脱敏输出继续执行。退出码非零的命令返回工具失败，PM2 命令成功还需要核对实际服务状态。常见别名 `program` / `arguments` / `workdir` / `timeout` 在 schema 校验前归一；未知字段仍拒绝。
 
-`run_shell` 输入为 `command`、根内相对 `cwd` 和 `timeoutMs`。POSIX 使用 `/bin/sh -c`，不带 `-l`；Windows 优先 `pwsh`，其次 Windows PowerShell 5.1，最后 `cmd /d /s /c`。不假设 bash，不自动翻译平台语法；结果返回实际 `shell`、`exitCode`、`stdout`、`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`run_shell` 默认 L2。交互式 TUI 命令被拒绝，返回 `INTERACTIVE_COMMAND`。稳定错误码包括 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`SPAWN_FAILED`、`NONZERO_EXIT`、`TIMED_OUT`。
+`run_shell` 输入为 `command`、根内相对 `cwd` 和 `timeoutMs`。POSIX 使用 `/bin/sh -c`，不带 `-l`；Windows 优先 `pwsh`，其次 Windows PowerShell 5.1，最后 `cmd /d /s /c`。不假设 bash，不自动翻译平台语法；结果返回实际 `shell`、`exitCode`、`stdout`、`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`run_shell` 默认 L2，allowlisted 简单命令为 L1。交互式 TUI 命令被拒绝，返回 `INTERACTIVE_COMMAND`。稳定错误码包括 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`SPAWN_FAILED`、`NONZERO_EXIT`、`TIMED_OUT`。
+
+096 起，标准策略下常见只读/验证命令按保守 allowlist 降为 L1 自动放行：`git status|diff|log|show|rev-parse|ls-files`、受限 `git branch`、`pnpm/npm/yarn` 的 `test|check|typecheck|lint|build|verify` 脚本、`rg/ls/pwd`、`node --version`；`run_shell` 仅限无元字符/引号/绝对或 `..` 路径的简单命令。`--prefix`/`--dir`/`-C`/`--global`、`exec`/`dlx`/`add`/`install`/`remove`/`publish`/`deploy`、`git --output/--no-index`、`rg --pre` 仍在 L2；L3 在 standard/strict 仍 deny。用户批准一次后，同一 Turn 内相同 `toolName + hashApprovalParams` 的调用不再请求审批；不跨 Turn、不持久化。allowlist 只是审批分类，不是沙箱。
 
 `start_process` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd`、可选 `name`、`port` 与 `healthPath`；返回稳定 `processId`、`cwd`、port 与输出游标。`read_process_output` 用 `after` / `limit` 读取有界新输出，`nextCursor` 为下一次游标，`resyncRequired` 表示旧块已淘汰；`stop_process` 幂等停止整个进程组/进程树。后台进程不长期持有项目写锁（否则 dev server 会阻塞所有源码写），启动时仍执行授权、路径、秘密和交互命令检查；停止失败返回 `STOP_UNCONFIRMED`。进程输出使用 1 MiB 环形缓冲并脱敏，不进入审计或原始事件。
 
@@ -76,7 +78,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 ## 作用域与结果
 
-项目 ID 来自真实会话。PM2 名称标记服务归属，后端 API 独立验证关联。通用 Shell/命令具有宿主机账户权限，不能从名称约定推出 OS 级隔离。命令按现有风险规则处理，无法可靠判定只读的 PM2 命令采用 L2，readonly 依靠已核验的系统摘要读取状态。
+项目 ID 来自真实会话。PM2 名称标记服务归属，后端 API 独立验证关联。通用 Shell/命令具有宿主机账户权限，不能从名称约定推出 OS 级隔离。命令按现有风险规则处理：096 的 allowlist 只覆盖保守的只读/验证命令，无法可靠判定只读的 PM2 命令仍采用 L2，readonly 依靠已核验的系统摘要读取状态。
 
 命令取消或超时后先观察实际 PM2 状态。PM2 已托管的应用在命令进程退出和 TUI 关闭后继续运行。`online` 代表进程状态，业务健康需要额外访问证据。运维视图中 CLI 服务的健康时间为空时显示未核验。
 

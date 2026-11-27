@@ -422,6 +422,7 @@ export class TurnRunner {
     let steps = 0;
     let toolCalls = 0;
     let planNudged = false;
+    const approvedApprovalKeys = new Set<string>();
     let finalized = false;
     const timing = {
       assembleMs: 0,
@@ -599,6 +600,7 @@ export class TurnRunner {
             ? {}
             : { ignore: projectIgnore }),
           signal: controller.signal,
+          approvedParams: approvedApprovalKeys,
           clientSessionId: snapshot?.clientSessionId,
           policySnapshotId: snapshot?.policySnapshotId,
           ...(approvalId ? { approvalId } : {}),
@@ -2178,6 +2180,9 @@ export class TurnRunner {
 
             if (decision === "approved") {
               approvalId = outcome.approval.id;
+              approvedApprovalKeys.add(
+                `${outcome.approval.toolName}:${outcome.approval.paramsHash}`,
+              );
             } else {
               this.#transition(turn, session, "RUNNING");
             }

@@ -622,6 +622,16 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | SM-4 | [Composer 移除 Profile 切换](095-single-agent-mode/tasks.md#sm-4-composer-移除-profile-切换) | SM-3 | `done`（2026-11-27） |
 | SM-5 | [全量验证、文档与收口](095-single-agent-mode/tasks.md#sm-5-全量验证文档与收口) | SM-4 | `done`（2026-11-27） |
 
+### 8.22 发布后：命令 allowlist 与本轮审批复用（096，done）
+
+标准审批下常见只读/验证命令逐条询问；同一 Turn 重复命令也重复批准。本切片把 `git status/diff/log`、`pnpm test/check/typecheck`、`rg/ls/pwd` 等保守 allowlist 降为 L1，并让同一 Turn 内相同工具+参数的调用复用一次批准；L3 仍 deny，默认仍 standard。决策见 [ADR-076](../docs/adr/ADR-076-command-allowlist-and-turn-approvals.md)，规格见 [096](096-command-approvals/spec.md)，方案见 [plan](096-command-approvals/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| CA-1 | [allowlist 分类与测试](096-command-approvals/tasks.md#ca-1-allowlist-分类与测试) | 095 | `done`（2026-11-27） |
+| CA-2 | [本 Turn 审批复用](096-command-approvals/tasks.md#ca-2-本-turn-审批复用) | CA-1 | `done`（2026-11-27） |
+| CA-3 | [契约/描述、全量验证与收口](096-command-approvals/tasks.md#ca-3-契约描述全量验证与收口) | CA-2 | `done`（2026-11-27） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

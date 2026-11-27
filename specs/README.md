@@ -92,6 +92,7 @@
 - [093 工具面与结果预算](093-tool-interface/spec.md)（done）
 - [094 跨 Turn 操作日志](094-operation-log/spec.md)（done）
 - [095 单一 Agent 模式：plan 常驻与项目指令层级](095-single-agent-mode/spec.md)（done）
+- [096 命令 allowlist 与本轮审批复用](096-command-approvals/spec.md)（done）
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 
