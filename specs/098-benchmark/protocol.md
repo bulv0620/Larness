@@ -135,7 +135,7 @@ git clean -fd
 - 墙钟：原始总耗时 Larness 少 23%；opencode 每次 `run` 含约 3–5 秒独立 server 启动，粗略扣除后两边总耗时接近（约 75s）。
 - `multi-turn-fix` 口径不完全对等：Larness 第一轮把 a、b 都修了，第二轮只复核；opencode 第一轮只修 a，第二轮修 b。这放大了 Larness 第一轮的调用/token，缩小了第二轮。
 - 结论：这批小任务上，Larness 的完成度、步骤和速度与 opencode 同级，未复现“明显更笨/更慢”；剩余差距主要在 long-file 类任务的探索效率（Larness 8 次调用 vs opencode 5 次）和上下文组织，而不是工具失败或权限停等。
-- 100 切片后（2026-11-27）long-file 单次复测：5 步/5 调用/23,048 tokens/10.0s，verify=0；见 [100 tasks](../100-exploration-efficiency/tasks.md#验收记录)。
+- 100 切片后（2026-11-27）long-file 两次复测均为 5 步/5 调用，tokens 22,620–23,048，耗时 10.0–10.1s，verify=0；旧值 7 步/8 调用/35,269 tokens/13.3s。见 [100 tasks](../100-exploration-efficiency/tasks.md#验收记录)。
 
 ## 6. 请求级对比
 
