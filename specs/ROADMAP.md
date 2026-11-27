@@ -667,6 +667,14 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 |---|---|---|---|
 | EX-1 | [搜索上下文、窄读提示与探索约束](100-exploration-efficiency/tasks.md#ex-1-搜索上下文窄读提示与探索约束) | 098 | `done`（2026-11-27；long-file 5/4；cross 5/11、multi 10/14/2 复测为方差） |
 
+### 8.27 发布后：更大仓库基准任务（101，done）
+
+现有 5 个 fixture 都是 4–8 个文件，无法验证跨 3–4 层 import 的定位与多文件编辑。本切片新增约 30 文件的 `checkout-discount`：测试只指向 `quote`，根因分布在 `discount.js` 和 `quote.js`，单点修复不够。规格见 [101](101-deep-repo-benchmark/spec.md)，方案见 [plan](101-deep-repo-benchmark/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| DRB-1 | [checkout-discount fixture 与测试](101-deep-repo-benchmark/tasks.md#drb-1-checkout-discount-fixture-与测试) | 098、100 | `done`（2026-11-27；live A/B 待用户 Key） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

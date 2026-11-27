@@ -40,6 +40,40 @@ function searchModules(): BenchmarkFile[] {
   });
 }
 
+function checkoutModules(): BenchmarkFile[] {
+  const modules = [
+    "catalog/product",
+    "catalog/repository",
+    "catalog/seed",
+    "orders/model",
+    "orders/repository",
+    "orders/service",
+    "orders/status",
+    "users/model",
+    "users/repository",
+    "users/service",
+    "notifications/email",
+    "notifications/templates",
+    "notifications/service",
+    "analytics/events",
+    "analytics/reporter",
+    "inventory/model",
+    "inventory/repository",
+    "inventory/service",
+    "payments/model",
+    "payments/gateway",
+    "payments/service",
+    "shipping/carriers",
+    "shipping/labels",
+    "shipping/tracking",
+  ];
+
+  return modules.map((moduleName) => ({
+    path: `src/${moduleName}.js`,
+    content: `export const moduleName = "${moduleName}";\nexport function describeModule() {\n  return moduleName;\n}\n`,
+  }));
+}
+
 export const TASKS: BenchmarkTask[] = [
   {
     id: "single-file-fix",
@@ -134,6 +168,70 @@ export const TASKS: BenchmarkTask[] = [
           "",
         ].join("\n"),
       },
+    ],
+    verify: ["node", "--test"],
+  },
+  {
+    id: "checkout-discount",
+    title: "跨模块折扣修复",
+    prompts: [
+      "The checkout quote tests are failing. Find the cause, fix it, and run `node --test`.",
+    ],
+    files: [
+      { path: "package.json", content: PACKAGE },
+      { path: "AGENTS.md", content: AGENTS },
+      {
+        path: "src/pricing/subtotal.js",
+        content:
+          "export function subtotal(items) {\n  return items.reduce((total, item) => total + item.price * item.quantity, 0);\n}\n",
+      },
+      {
+        path: "src/pricing/discount.js",
+        content:
+          "export function applyDiscount(amount, rate) {\n  if (rate <= 0) return amount;\n  return amount * rate;\n}\n",
+      },
+      {
+        path: "src/checkout/shipping.js",
+        content:
+          "const RATES = { US: 5, CA: 7, DE: 9 };\n\nexport function shippingFor(country) {\n  return RATES[country] ?? 8;\n}\n",
+      },
+      {
+        path: "src/checkout/quote.js",
+        content: [
+          'import { subtotal } from "../pricing/subtotal.js";',
+          'import { applyDiscount } from "../pricing/discount.js";',
+          'import { shippingFor } from "./shipping.js";',
+          "",
+          'export function quote({ items, discountRate = 0, country = "US" }) {',
+          "  const itemsTotal = subtotal(items);",
+          "  const shipping = shippingFor(country);",
+          "  return applyDiscount(itemsTotal + shipping, discountRate);",
+          "}",
+          "",
+        ].join("\n"),
+      },
+      {
+        path: "test/quote.test.js",
+        content: [
+          'import test from "node:test";',
+          'import assert from "node:assert/strict";',
+          'import { quote } from "../src/checkout/quote.js";',
+          "",
+          'test("applies discount to items and adds shipping", () => {',
+          '  assert.equal(quote({ items: [{ price: 20, quantity: 2 }], discountRate: 0.1, country: "US" }), 41);',
+          "});",
+          "",
+          'test("keeps the total when there is no discount", () => {',
+          '  assert.equal(quote({ items: [{ price: 10, quantity: 1 }], country: "US" }), 15);',
+          "});",
+          "",
+          'test("uses the country shipping rate", () => {',
+          '  assert.equal(quote({ items: [{ price: 10, quantity: 1 }], country: "CA" }), 17);',
+          "});",
+          "",
+        ].join("\n"),
+      },
+      ...checkoutModules(),
     ],
     verify: ["node", "--test"],
   },

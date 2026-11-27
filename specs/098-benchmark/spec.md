@@ -89,7 +89,7 @@ And 不发起网络请求
 
 | ID | 级别 | 需求 |
 |---|---|---|
-| R-1 | MUST | 5 个任务定义含 prompts/files/verify，fixture 可离线生成。 |
+| R-1 | MUST | 5 个任务定义含 prompts/files/verify，fixture 可离线生成；101 起增加第 6 个 `checkout-discount`。 |
 | R-2 | MUST | runner 用临时 DB/数据目录，不读写用户 Larness 数据。 |
 | R-3 | MUST | 指标来自事件：`tool.requested`/`tool.failed`/`model.usage`/`turn.completed`。 |
 | R-4 | MUST | 最终 verify 独立执行，记录退出码、stdout/stderr 尾部。 |
