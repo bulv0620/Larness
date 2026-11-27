@@ -730,6 +730,219 @@ export interface CreateTextFileResult {
   created: true;
 }
 
+export interface WriteTextFileOptions {
+  path: string;
+  content: string;
+  /** When present, the on-disk version must still match or the write fails. */
+  expectedVersion?: string;
+}
+
+export interface WriteTextFileResult {
+  path: string;
+  version: string;
+  previousVersion?: string;
+  bytes: number;
+  lines: number;
+  created: boolean;
+}
+
+/**
+ * Create or replace a text file. Unlike `createTextFile`, an existing file is
+ * overwritten. Passing `expectedVersion` narrows the window for a concurrent
+ * editor; without it the replacement is deliberate and unconditional.
+ */
+export async function writeTextFile(
+  rootReal: string,
+  options: WriteTextFileOptions,
+): Promise<WriteTextFileResult> {
+  if (options.content.includes("\0")) {
+    throw new FileError("VALIDATION_ERROR", "content must be text");
+  }
+
+  const bytes = Buffer.byteLength(options.content, "utf8");
+
+  if (bytes > MAX_WRITE_BYTES) {
+    throw new FileError("TOO_LARGE", `content exceeds ${MAX_WRITE_BYTES} bytes`, { bytes });
+  }
+
+  if (
+    options.expectedVersion !== undefined &&
+    !/^[a-f0-9]{64}$/.test(options.expectedVersion)
+  ) {
+    throw new FileError("VALIDATION_ERROR", "expectedVersion must be a sha256 hex");
+  }
+
+  const target = await resolveInput(rootReal, options.path);
+  let existing: Buffer | null = null;
+
+  try {
+    existing = await readFileOrThrow(target);
+  } catch (error) {
+    if (!(error instanceof FileError) || error.code !== "NOT_FOUND") {
+      throw error;
+    }
+  }
+
+  let previousVersion: string | undefined;
+
+  if (existing !== null) {
+    assertNotBinary(existing, options.path);
+    previousVersion = hashContent(existing);
+
+    if (options.expectedVersion !== undefined && options.expectedVersion !== previousVersion) {
+      throw new FileError("VERSION_CONFLICT", "file version does not match", {
+        currentVersion: previousVersion,
+      });
+    }
+  } else if (options.expectedVersion !== undefined) {
+    throw new FileError("VERSION_CONFLICT", "file does not exist", { currentVersion: null });
+  }
+
+  await mkdir(path.dirname(target), { recursive: true });
+
+  if (existing !== null && options.expectedVersion !== undefined) {
+    const current = await readFileOrThrow(target);
+
+    if (hashContent(current) !== options.expectedVersion) {
+      throw new FileError("VERSION_CONFLICT", "file changed while writing", {
+        currentVersion: hashContent(current),
+      });
+    }
+  }
+
+  await writeFileOrThrow(target, options.content);
+  const buffer = await readFileOrThrow(target);
+
+  return {
+    path: toPosix(path.relative(rootReal, target)),
+    version: hashContent(buffer),
+    ...(previousVersion === undefined ? {} : { previousVersion }),
+    bytes,
+    lines: options.content.split("\n").length,
+    created: existing === null,
+  };
+}
+
+export interface EditTextFileOptions {
+  path: string;
+  oldString: string;
+  newString: string;
+  replaceAll?: boolean;
+}
+
+export interface EditTextFileResult {
+  path: string;
+  version: string;
+  previousVersion: string;
+  replacements: number;
+  additions: number;
+  deletions: number;
+}
+
+function occurrenceIndexes(haystack: string, needle: string): number[] {
+  const indexes: number[] = [];
+  let offset = 0;
+
+  while (offset <= haystack.length) {
+    const index = haystack.indexOf(needle, offset);
+
+    if (index === -1) {
+      break;
+    }
+
+    indexes.push(index);
+    offset = index + needle.length;
+  }
+
+  return indexes;
+}
+
+/**
+ * Replace literal text in an existing text file. The match is exact; when the
+ * file uses CRLF, LF-only `oldString`/`newString` are converted to CRLF so a
+ * model does not have to guess the line ending.
+ */
+export async function editTextFile(
+  rootReal: string,
+  options: EditTextFileOptions,
+): Promise<EditTextFileResult> {
+  if (options.oldString.length === 0) {
+    throw new FileError("VALIDATION_ERROR", "oldString must not be empty");
+  }
+
+  if (options.oldString === options.newString) {
+    throw new FileError("VALIDATION_ERROR", "oldString and newString must differ");
+  }
+
+  const target = await resolveInput(rootReal, options.path);
+  const info = await statOrThrow(target);
+
+  if (!info.isFile()) {
+    throw new FileError("VALIDATION_ERROR", "path is not a file");
+  }
+
+  const originalBuffer = await readFileOrThrow(target);
+  assertNotBinary(originalBuffer, options.path);
+  const original = originalBuffer.toString("utf8");
+  const previousVersion = hashContent(originalBuffer);
+  let oldString = options.oldString;
+  let newString = options.newString;
+  let indexes = occurrenceIndexes(original, oldString);
+
+  if (indexes.length === 0 && original.includes("\r\n") && !oldString.includes("\r\n")) {
+    oldString = oldString.replace(/\r?\n/g, "\r\n");
+    newString = newString.replace(/\r?\n/g, "\r\n");
+    indexes = occurrenceIndexes(original, oldString);
+  }
+
+  if (indexes.length === 0) {
+    throw new FileError("INVALID_PATCH", "oldString was not found");
+  }
+
+  if (indexes.length > 1 && options.replaceAll !== true) {
+    throw new FileError(
+      "INVALID_PATCH",
+      `oldString matches ${indexes.length} times; include more context or set replaceAll`,
+    );
+  }
+
+  const updated =
+    options.replaceAll === true
+      ? original.split(oldString).join(newString)
+      : `${original.slice(0, indexes[0])}${newString}${original.slice(indexes[0] + oldString.length)}`;
+
+  const currentBuffer = await readFileOrThrow(target);
+
+  if (hashContent(currentBuffer) !== previousVersion) {
+    throw new FileError("VERSION_CONFLICT", "file changed while editing", {
+      currentVersion: hashContent(currentBuffer),
+    });
+  }
+
+  await writeFileOrThrow(target, updated);
+
+  const changes = diffLines(original, updated, { newlineIsToken: false });
+  let additions = 0;
+  let deletions = 0;
+
+  for (const change of changes) {
+    if (change.added === true) {
+      additions += change.count ?? 0;
+    } else if (change.removed === true) {
+      deletions += change.count ?? 0;
+    }
+  }
+
+  return {
+    path: toPosix(path.relative(rootReal, target)),
+    version: hashContent(Buffer.from(updated, "utf8")),
+    previousVersion,
+    replacements: indexes.length,
+    additions,
+    deletions,
+  };
+}
+
 export async function createTextFile(
   rootReal: string,
   options: { path: string; content: string },

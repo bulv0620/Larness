@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- 无。
+- **093 工具面与结果预算（TI-1～TI-4）**：分支 `task/093-tool-interface`，开始 2026-11-27。计划：资源层 `writeTextFile`/`editTextFile`；`ToolResult.modelText` 与 read 行号/50KB；`edit` 工具与 `write_file` 覆盖；命令输出 32KB；结果/批预算联动；`core.write` Pack 与契约测试。跨 Turn L1 日志、单 Profile/计划、审批 allowlist、流式执行不在本切片。
 
 ## 阻塞与待确认
 

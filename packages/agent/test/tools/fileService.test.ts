@@ -1,13 +1,15 @@
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   applyPatch,
   createTextFile,
+  editTextFile,
   hashContent,
   listFiles,
   readTextFile,
   searchCode,
+  writeTextFile,
 } from "@larness/resources";
 import { createPatch } from "diff";
 import { describe, expect, it } from "vitest";
@@ -425,6 +427,113 @@ describe("file service", () => {
       await expect(
         createTextFile(dir, { path: "binary.ts", content: "a\0b" }),
       ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    });
+  });
+
+  it("writes a new file or replaces an existing one with an optional version", async () => {
+    await withTempDir(async (dir) => {
+      const created = await writeTextFile(dir, {
+        path: "src/new.txt",
+        content: "hello\n",
+      });
+      expect(created).toMatchObject({ path: "src/new.txt", created: true, lines: 2 });
+      expect(created.version).toBe(hashContent(Buffer.from("hello\n", "utf8")));
+
+      const replaced = await writeTextFile(dir, {
+        path: "src/new.txt",
+        content: "world\n",
+      });
+      expect(replaced).toMatchObject({
+        path: "src/new.txt",
+        created: false,
+        previousVersion: created.version,
+        lines: 2,
+      });
+      expect(replaced.version).toBe(hashContent(Buffer.from("world\n", "utf8")));
+      expect((await readTextFile(dir, { path: "src/new.txt" })).content).toBe("world\n");
+
+      await expect(
+        writeTextFile(dir, {
+          path: "src/new.txt",
+          content: "stale\n",
+          expectedVersion: "0".repeat(64),
+        }),
+      ).rejects.toMatchObject({
+        code: "VERSION_CONFLICT",
+        details: { currentVersion: replaced.version },
+      });
+
+      const matched = await writeTextFile(dir, {
+        path: "src/new.txt",
+        content: "matched\n",
+        expectedVersion: replaced.version,
+      });
+      expect(matched.created).toBe(false);
+      expect((await readTextFile(dir, { path: "src/new.txt" })).content).toBe("matched\n");
+
+      await expect(
+        writeTextFile(dir, { path: "../escape.txt", content: "x" }),
+      ).rejects.toMatchObject({ code: "PATH_OUTSIDE_PROJECT" });
+    });
+  });
+
+  it("edits exact text once or everywhere and keeps CRLF endings", async () => {
+    await withTempDir(async (dir) => {
+      await writeFile(path.join(dir, "unique.txt"), "needle\n");
+      const unique = await editTextFile(dir, {
+        path: "unique.txt",
+        oldString: "needle",
+        newString: "pin",
+      });
+      expect(unique).toMatchObject({ path: "unique.txt", replacements: 1 });
+      expect(unique.version).toMatch(/^[a-f0-9]{64}$/);
+      expect((await readTextFile(dir, { path: "unique.txt" })).content).toBe("pin\n");
+
+      await writeFile(path.join(dir, "multi.txt"), "alpha needle beta needle\n");
+      await expect(
+        editTextFile(dir, {
+          path: "multi.txt",
+          oldString: "needle",
+          newString: "pin",
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_PATCH" });
+
+      const all = await editTextFile(dir, {
+        path: "multi.txt",
+        oldString: "needle",
+        newString: "pin",
+        replaceAll: true,
+      });
+      expect(all.replacements).toBe(2);
+      expect((await readTextFile(dir, { path: "multi.txt" })).content).toBe(
+        "alpha pin beta pin\n",
+      );
+
+      await writeFile(path.join(dir, "crlf.txt"), "one\r\ntwo\r\n");
+      const crlf = await editTextFile(dir, {
+        path: "crlf.txt",
+        oldString: "one\ntwo",
+        newString: "ONE\nTWO",
+      });
+      expect(crlf.replacements).toBe(1);
+      expect(await readFile(path.join(dir, "crlf.txt"), "utf8")).toBe("ONE\r\nTWO\r\n");
+
+      await expect(
+        editTextFile(dir, {
+          path: "unique.txt",
+          oldString: "missing",
+          newString: "pin",
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_PATCH" });
+
+      await writeFile(path.join(dir, "binary.bin"), Buffer.from([0, 1, 2]));
+      await expect(
+        editTextFile(dir, { path: "binary.bin", oldString: "a", newString: "b" }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+
+      await expect(
+        editTextFile(dir, { path: "../escape.txt", oldString: "a", newString: "b" }),
+      ).rejects.toMatchObject({ code: "PATH_OUTSIDE_PROJECT" });
     });
   });
 

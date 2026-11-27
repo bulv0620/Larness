@@ -588,6 +588,17 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 |---|---|---|---|
 | SI-1 | [默认忽略与回归测试](092-search-ignore/tasks.md#si-1-默认忽略与回归测试) | 051、082 | `done`（2026-11-27） |
 
+### 8.19 发布后：工具面与结果预算（093，active）
+
+模型工具面与 coding 习惯不一致：read 无行号且只有 12k 字符、没有 `edit`、`write_file` 只能新建、命令输出约 6k、结果统一 JSON 且 16k 字符上限会把放大后的页面再次截断。本切片把 read 行号/50KB、`edit`、`write_file` 覆盖、命令 32KB、`modelText` 纯文本结果与结果/批预算一起改到位。规格见 [093](093-tool-interface/spec.md)，方案见 [plan](093-tool-interface/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| TI-1 | [资源层 write/edit 与测试](093-tool-interface/tasks.md#ti-1-资源层-writeedit-与测试) | 092 | `in_progress` |
+| TI-2 | [modelText、预算与 read/search/command](093-tool-interface/tasks.md#ti-2-modeltext预算与-readsearchcommand) | TI-1 | `todo` |
+| TI-3 | [edit 工具、write 覆盖、Profile/契约](093-tool-interface/tasks.md#ti-3-edit-工具write-覆盖profile契约) | TI-2 | `todo` |
+| TI-4 | [turnRunner 事件、验证与收口](093-tool-interface/tasks.md#ti-4-turnrunner-事件验证与收口) | TI-3 | `todo` |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo
