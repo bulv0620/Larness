@@ -110,15 +110,18 @@ ACTIVE → REVOKED
 |---|---|---|---|
 | L0 阅读 | 项目内读文件、Git status/diff、查看服务状态 | 默认允许 | 无需 |
 | L1 常规开发 | 项目内文件编辑、测试、构建、安装项目依赖、启动受控开发服务 | 默认允许，但有超时 / 输出上限 / 审计摘要 | 仅可信项目策略 |
-| L2 高权限 | 项目外路径、Git push、服务新增 / 重启 / 部署、环境变量修改、暴露网络服务 | 逐次审批；可授予窄作用域、限时的本会话 / 本项目权限 | 可选、可撤销、有有效期 |
+| L2 高权限 | 项目外路径写入、Git push、服务新增 / 重启 / 部署、环境变量修改、暴露网络服务 | 逐次审批；可授予窄作用域、限时的本会话 / 本项目权限 | 可选、可撤销、有有效期 |
 | L3 极高风险 | 系统账户 / 权限、防火墙、敏感凭据、删除关键数据、OS 特权命令 | 默认拒绝；需本机侧再次确认 + 受限 helper | 不可永久记忆 |
 
 审批记录必须绑定：能力、资源范围、参数摘要、作用域、过期时间、审批人（客户端会话）、Turn / ToolCall。执行前把最终参数与审批参数做规范化比对；不一致则拒绝并审计。
 
 ## 4. 路径与文件授权
 
-- 项目根路径在登记时解析为 `realpath` 并保存；所有文件工具对目标做 `realpath` 后校验 `target === root || target.startsWith(root + sep)`。
-- 拒绝 `..`、NUL、Windows 保留名、ADS、UNC 越界；符号链接指向根外一律拒绝；对 TOCTOU 采用“打开后校验 fd / 再校验 realpath”策略。
+- 项目根路径在登记时解析为 `realpath` 并保存。
+- 读取类 Agent 文件工具（`read_file`、`list_files`、`search_code`）接受项目内相对路径，也接受项目外 canonical 绝对路径；相对路径仍校验 `target === root || target.startsWith(root + sep)`，绝对路径按 `realpath` 判定 `rootScope=primary|external`。
+- 读取硬闸不按文件类型或凭据目录名设置，只有两类不可配置目标：`<dataDir>`（数据库、主密钥、日志）与 POSIX 伪文件系统（`/proc`、`/sys`、`/dev`）；文件系统根、用户主目录本身、盘符根 / UNC 共享根返回 `INVALID_PATH`，要求指定具体子目录。项目指令与项目内容不能扩大或缩小硬闸。
+- 写入类工具（`write_file`、`edit`、`apply_patch`）与 `run_command.cwd` 仍只接受当前项目根相对路径；项目外写入不在当前能力内。
+- 拒绝 `..`、NUL、Windows 保留名、ADS；符号链接按 `realpath` 解析后再判断，指向硬闸即拒绝；对 TOCTOU 采用“打开后校验 fd / 再校验 realpath”策略。
 - 独立会话的 workspace 在 `<dataDir>/sessions/<id>/workspace`，同样按根目录授权。
 - 文件写入携带 `expectedVersion`（内容 SHA-256 或版本号）；不匹配返回 `VERSION_CONFLICT` 与 Diff，不静默覆盖。
 - 删除项目只删元数据；不提供“删除磁盘目录”的普通接口。

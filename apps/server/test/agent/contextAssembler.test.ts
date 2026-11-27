@@ -11,6 +11,7 @@ import { createCommandTool, createShellTool } from "../../src/modules/agent/comm
 import {
   type AssembledContext,
   assembleContext,
+  HISTORY_TRIM_LOW_WATER_RATIO,
   PROMPT_VERSION,
 } from "../../src/modules/agent/contextAssembler.js";
 import { appendAgentEvent } from "../../src/modules/agent/events.js";
@@ -736,8 +737,23 @@ describe("context assembler", () => {
         expect(full.truncatedHistory).toBe(false);
 
         // A window that makes this exact request exceed the 0.8 assembly budget.
-        const window = Math.floor(full.estimatedTokens / 0.8) - 1;
-        const trimmed = assemble(window);
+        // The anchor after a trim is rounded up to a block of messages, so the
+        // stability check below only holds when the first trim leaves enough
+        // headroom under the low watermark for two appended messages. Prompt and
+        // tool sizes shift that boundary over time, so probe windows instead of
+        // relying on one hard-coded alignment.
+        const baseWindow = Math.floor(full.estimatedTokens / 0.8) - 1;
+        let window = baseWindow;
+        let trimmed = assemble(window);
+        for (let candidate = baseWindow; candidate > 1_024; candidate -= 37) {
+          const attempt = assemble(candidate);
+          const lowWater = Math.max(1_024, Math.floor(candidate * HISTORY_TRIM_LOW_WATER_RATIO));
+          if (attempt.historyTrimmed && lowWater - attempt.estimatedTokens >= 300) {
+            window = candidate;
+            trimmed = attempt;
+            break;
+          }
+        }
         expect(trimmed.historyTrimmed).toBe(true);
         expect(trimmed.firstHistorySeq).toBeGreaterThan(full.firstHistorySeq ?? 0);
         expect(trimmed.estimatedTokens).toBeLessThanOrEqual(Math.floor(window * 0.65));

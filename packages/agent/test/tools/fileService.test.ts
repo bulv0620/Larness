@@ -611,6 +611,73 @@ describe("file service", () => {
     });
   });
 
+  it("reads, lists and searches outside the root when access allows it", async () => {
+    await withTempDir(async (dir) => {
+      const root = path.join(dir, "project");
+      const outside = path.join(dir, "reference");
+      const dataDir = path.join(dir, "data");
+      await mkdir(root, { recursive: true });
+      await mkdir(path.join(outside, "docs"), { recursive: true });
+      await mkdir(dataDir, { recursive: true });
+      await writeFile(path.join(root, "api.md"), "inside\n");
+      await writeFile(path.join(outside, "api.md"), "# api\nneedle\n");
+      await writeFile(path.join(outside, "docs", "notes.md"), "notes\n");
+      const outsideReal = await realpath(outside);
+      const dataReal = await realpath(dataDir);
+      const access = { allowExternal: true, protectedRoots: [dataReal] };
+
+      const read = await readTextFile(root, { path: path.join(outside, "api.md"), access });
+      expect(read).toMatchObject({
+        path: path.join(outsideReal, "api.md").split(path.sep).join("/"),
+        rootScope: "external",
+        content: "# api\nneedle\n",
+      });
+
+      const inside = await readTextFile(root, { path: "api.md", access });
+      expect(inside.rootScope).toBe("primary");
+
+      const listed = await listFiles(root, { path: outsideReal, access });
+      expect(listed.rootScope).toBe("external");
+      expect(listed.files.map((entry) => entry.path)).toEqual(
+        expect.arrayContaining([
+          path.join(outsideReal, "api.md").split(path.sep).join("/"),
+          path.join(outsideReal, "docs").split(path.sep).join("/"),
+        ]),
+      );
+
+      const searched = await searchCode(root, {
+        query: "needle",
+        path: outsideReal,
+        access,
+        contextLines: 0,
+      });
+      expect(searched.matches).toEqual([
+        {
+          path: path.join(outsideReal, "api.md").split(path.sep).join("/"),
+          line: 2,
+          preview: "needle",
+        },
+      ]);
+
+      await expect(
+        readTextFile(root, { path: path.join(dataReal, "db.sqlite"), access }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    });
+  });
+
+  it("keeps external paths rejected without an access policy", async () => {
+    await withTempDir(async (dir) => {
+      const root = path.join(dir, "project");
+      const outside = path.join(dir, "outside.txt");
+      await mkdir(root, { recursive: true });
+      await writeFile(outside, "secret\n");
+
+      await expect(readTextFile(root, { path: path.join(outside) })).rejects.toMatchObject({
+        code: "PATH_OUTSIDE_PROJECT",
+      });
+    });
+  });
+
   it("rejects traversal and symlink escapes", async () => {
     await withTempDir(async (dir) => {
       const root = path.join(dir, "root");

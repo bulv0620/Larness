@@ -726,6 +726,16 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 
 **2026-11-27 基准阶段收口**：不再新增合成 benchmark 切片（含外部仓库多轮 108）。6 个 fixture 的完成度、步骤/调用与速度已接近 opencode；保留 `bench:agent` / `bench:rounds` 作为回归工具，后续由真实项目中的具体痛点驱动。真实仓库单轮仍有差距，但继续扩基准的收益已低于真实使用反馈。
 
+### 8.34 发布后：文件工具作用域：放开项目外读取（109，done）
+
+读取类 Agent 文件工具接受项目外 canonical 绝对路径，写入仍限当前项目根；只保留 `<dataDir>` 与 POSIX 伪文件系统硬闸，不按文件类型或凭据目录名拒绝。规格见 [109](109-external-read-scope/spec.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| ER-1 | [路径解析与读类工具放开外部路径](109-external-read-scope/tasks.md#er-1-路径解析与读类工具放开外部路径) | 020 / 082 | `done` |
+| ER-2 | [服务端 readScope 注入与工具描述](109-external-read-scope/tasks.md#er-2-服务端-readscope-注入与工具描述) | ER-1 | `done` |
+| ER-3 | [契约、安全文档与整仓验证](109-external-read-scope/tasks.md#er-3-契约安全文档与整仓验证) | ER-2 | `done` |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

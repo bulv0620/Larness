@@ -247,7 +247,7 @@ export function createFileTools() {
     defineTool({
       name: "list_files",
       description:
-        "List files and directories inside the authorized project root. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` to inspect one explicitly.",
+        "List files and directories inside the authorized project root, or under an absolute path outside it. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` to inspect one explicitly. Larness runtime data is not readable.",
       riskLevel: "L0",
       requiresProjectLock: false,
       prefetchable: true,
@@ -260,6 +260,7 @@ export function createFileTools() {
             ...(args.depth === undefined ? {} : { depth: args.depth }),
             ...(args.limit === undefined ? {} : { limit: args.limit }),
             ...(context.ignore === undefined ? {} : { ignore: context.ignore }),
+            access: context.readScope,
           });
 
           return {
@@ -276,7 +277,7 @@ export function createFileTools() {
     defineTool({
       name: "read_file",
       description:
-        "Read a UTF-8 text file inside the project. Each text line is prefixed by its 1-based line number as `<line>: <content>`; the prefix is for reference only and is not part of the file content. Returns a contiguous page of up to 50 KB or 2000 lines, the full sha256 `version` for later patches, and `nextOffset` when more lines remain.",
+        "Read a UTF-8 text file inside the project, or an absolute path outside it. Each text line is prefixed by its 1-based line number as `<line>: <content>`; the prefix is for reference only and is not part of the file content. Returns a contiguous page of up to 50 KB or 2000 lines, the full sha256 `version` for later patches, and `nextOffset` when more lines remain. Larness runtime data is not readable.",
       riskLevel: "L0",
       requiresProjectLock: false,
       prefetchable: true,
@@ -289,6 +290,7 @@ export function createFileTools() {
             maxChars: READ_PAGE_CHARS,
             ...(args.offset === undefined ? {} : { offset: args.offset }),
             ...(args.limit === undefined ? {} : { limit: args.limit }),
+            access: context.readScope,
           });
           const page = result.truncated
             ? `; lines ${result.offset}–${Math.max(result.offset, result.nextOffset - 1)} of ${result.totalLines}, next offset=${result.nextOffset}`
@@ -309,7 +311,7 @@ export function createFileTools() {
     defineTool({
       name: "search_code",
       description:
-        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Each match includes one line of context by default; set contextLines (0-5) for more, or 0 to disable. A glob without `/` such as `*.ts` matches recursively; use `src/*.ts` for one level. When a match identifies the target, read a narrow window around its line instead of a large page, and do not repeat the same search. Truncated results include top directories; pass path to narrow.",
+        "Search for a literal string in project text files, or under an absolute path outside the project. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Each match includes one line of context by default; set contextLines (0-5) for more, or 0 to disable. A glob without `/` such as `*.ts` matches recursively; use `src/*.ts` for one level. When a match identifies the target, read a narrow window around its line instead of a large page, and do not repeat the same search. Truncated results include top directories; pass path to narrow. Larness runtime data is not readable.",
       riskLevel: "L0",
       requiresProjectLock: false,
       prefetchable: true,
@@ -326,6 +328,7 @@ export function createFileTools() {
             ...(args.glob === undefined ? {} : { glob: args.glob }),
             ...(args.maxFiles === undefined ? {} : { maxFiles: args.maxFiles }),
             ...(context.ignore === undefined ? {} : { ignore: context.ignore }),
+            access: context.readScope,
           });
 
           return {

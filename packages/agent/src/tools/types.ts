@@ -16,6 +16,14 @@ export interface EncryptedSecretRef {
 export interface ToolContext {
   projectRoot: string;
   ignore?: string[];
+  /**
+   * Read scope for the file tools. Absent means "primary root only"; external
+   * absolute reads require `allowExternal` plus a `<dataDir>` hard gate.
+   */
+  readScope?: {
+    allowExternal: boolean;
+    protectedRoots: string[];
+  };
   /** Current session, set by the runner for session-scoped tools. */
   sessionId?: string;
   attachments?: {

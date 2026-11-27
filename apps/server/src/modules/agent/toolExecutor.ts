@@ -34,6 +34,8 @@ export interface ExecuteToolInput {
   policy: ApprovalPolicy;
   projectRoot: string;
   ignore?: string[];
+  /** File-tool read scope; absent means "primary root only". */
+  readScope?: NonNullable<ToolContext["readScope"]>;
   approvalId?: string;
   /** Same-Turn approvals keyed by `toolName:hashApprovalParams`. */
   approvedParams?: ReadonlySet<string>;
@@ -493,6 +495,7 @@ export async function executeTool(
       : {}),
     projectRoot: input.projectRoot,
     ...(input.ignore === undefined ? {} : { ignore: input.ignore }),
+    ...(input.readScope === undefined ? {} : { readScope: input.readScope }),
   };
   const result = await options.registry.execute(input.toolName, params, context);
 

@@ -381,6 +381,15 @@ export class TurnRunner {
     const project =
       session.projectId === null ? null : getProjectById(this.#options.db, session.projectId);
     let projectRoot = project?.realPath ?? session.workspacePath;
+    // External reads are enabled only when the hard gate can be enforced.
+    const protectedDataDir =
+      this.#options.dataDir === undefined
+        ? undefined
+        : await realpath(this.#options.dataDir).catch(() => undefined);
+    const readScope =
+      protectedDataDir === undefined
+        ? undefined
+        : { allowExternal: true, protectedRoots: [protectedDataDir] };
     // Project-configured ignore patterns apply to list/search for the whole Turn.
     const projectIgnore =
       project === null ? undefined : parseProjectSettings(project.settingsJson).ignore;
@@ -593,6 +602,7 @@ export class TurnRunner {
           args: request.args,
           policy,
           projectRoot,
+          ...(readScope === undefined ? {} : { readScope }),
           ...(this.#options.attachments === undefined
             ? {}
             : { attachments: createAttachmentToolBridge(this.#options.attachments, session.id) }),

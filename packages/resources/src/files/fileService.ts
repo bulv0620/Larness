@@ -3,7 +3,13 @@ import type { Dirent, Stats } from "node:fs";
 import { mkdir, readdir, readFile as readFileAsync, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { applyPatch as applyTextPatch, diffLines, parsePatch } from "diff";
-import { PathGuardError, resolveInsideRoot } from "./pathGuard.js";
+import {
+  PathGuardError,
+  type ResolvedReadPath,
+  type RootScope,
+  resolveInsideRoot,
+  resolveReadPath,
+} from "./pathGuard.js";
 
 export const MAX_TOOL_OUTPUT_BYTES = 1_048_576;
 export const MAX_TOOL_OUTPUT_LINES = 2_000;
@@ -36,6 +42,7 @@ export type FileErrorCode =
   | "VALIDATION_ERROR"
   | "NOT_FOUND"
   | "PATH_OUTSIDE_PROJECT"
+  | "FORBIDDEN"
   | "VERSION_CONFLICT"
   | "TOO_LARGE"
   | "INVALID_PATCH"
@@ -51,6 +58,13 @@ export class FileError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+/** Read-side scope: optionally allow absolute paths outside the primary root. */
+export interface ReadAccess {
+  allowExternal?: boolean;
+  /** Canonical roots that are always rejected, such as `<dataDir>`. */
+  protectedRoots?: readonly string[];
 }
 
 function toPosix(relative: string): string {
@@ -98,6 +112,10 @@ function mapPathError(error: unknown): never {
 
     if (error.code === "PATH_OUTSIDE_PROJECT") {
       throw new FileError("PATH_OUTSIDE_PROJECT", error.message);
+    }
+
+    if (error.code === "FORBIDDEN") {
+      throw new FileError("FORBIDDEN", error.message);
     }
 
     throw new FileError("VALIDATION_ERROR", error.message);
@@ -160,6 +178,30 @@ async function resolveInput(rootReal: string, input: string): Promise<string> {
   }
 }
 
+async function resolveReadInput(
+  rootReal: string,
+  input: string,
+  access?: ReadAccess,
+): Promise<ResolvedReadPath> {
+  try {
+    return await resolveReadPath(
+      {
+        root: rootReal,
+        ...(access?.allowExternal === undefined ? {} : { allowExternal: access.allowExternal }),
+        ...(access?.protectedRoots === undefined ? {} : { protectedRoots: access.protectedRoots }),
+      },
+      fromPosix(input),
+    );
+  } catch (error) {
+    mapPathError(error);
+  }
+}
+
+/** Display the target relative to the primary root, or absolute when external. */
+function displayPath(rootReal: string, target: string, rootScope: RootScope): string {
+  return rootScope === "external" ? toPosix(target) : toPosix(path.relative(rootReal, target));
+}
+
 export interface FileEntry {
   path: string;
   name: string;
@@ -172,18 +214,23 @@ export interface ListFilesOptions {
   depth?: number;
   limit?: number;
   ignore?: string[];
+  /** Allow project-external absolute paths, minus `protectedRoots`. */
+  access?: ReadAccess;
 }
 
 export interface ListFilesResult {
   files: FileEntry[];
   truncated: boolean;
+  /** `external` means entry paths are absolute. */
+  rootScope: RootScope;
 }
 
 export async function listFiles(
   rootReal: string,
   options: ListFilesOptions = {},
 ): Promise<ListFilesResult> {
-  const base = await resolveInput(rootReal, options.path ?? ".");
+  const resolved = await resolveReadInput(rootReal, options.path ?? ".", options.access);
+  const base = resolved.absolutePath;
   const baseInfo = await statOrThrow(base);
 
   if (!baseInfo.isDirectory()) {
@@ -210,7 +257,7 @@ export async function listFiles(
       }
 
       const absolute = path.join(dir, entry.name);
-      const relativePath = toPosix(path.relative(rootReal, absolute));
+      const relativePath = displayPath(rootReal, absolute, resolved.rootScope);
 
       if (isIgnoredFile(relativePath, entry.name, ignore) || entry.isSymbolicLink()) {
         continue;
@@ -251,7 +298,7 @@ export async function listFiles(
     truncated = true;
   }
 
-  return { files, truncated };
+  return { files, truncated, rootScope: resolved.rootScope };
 }
 
 export interface ReadFileOptions {
@@ -263,6 +310,8 @@ export interface ReadFileOptions {
    * returned even when it alone exceeds the budget, so the caller can advance.
    */
   maxChars?: number;
+  /** Allow project-external absolute paths, minus `protectedRoots`. */
+  access?: ReadAccess;
 }
 
 export interface ReadFileResult {
@@ -275,6 +324,8 @@ export interface ReadFileResult {
   offset: number;
   /** Line to pass as the next `offset`; equal to `offset` when nothing follows. */
   nextOffset: number;
+  /** `external` means `path` is absolute and outside the primary root. */
+  rootScope: RootScope;
 }
 
 export function hashContent(buffer: Buffer): string {
@@ -285,7 +336,8 @@ export async function readTextFile(
   rootReal: string,
   options: ReadFileOptions,
 ): Promise<ReadFileResult> {
-  const target = await resolveInput(rootReal, options.path);
+  const resolved = await resolveReadInput(rootReal, options.path, options.access);
+  const target = resolved.absolutePath;
   const info = await statOrThrow(target);
 
   if (!info.isFile()) {
@@ -320,7 +372,7 @@ export async function readTextFile(
     fitted.clipped || offset - 1 + kept.length < lines.length || byteLength > MAX_TOOL_OUTPUT_BYTES;
 
   return {
-    path: toPosix(path.relative(rootReal, target)),
+    path: displayPath(rootReal, target, resolved.rootScope),
     version,
     content:
       byteLength > MAX_TOOL_OUTPUT_BYTES
@@ -329,6 +381,7 @@ export async function readTextFile(
     truncated,
     totalLines: lines.length,
     offset,
+    rootScope: resolved.rootScope,
     // Line-based so a caller can always continue; a byte-truncated final line
     // still counts as consumed.
     nextOffset: Math.min(lines.length + 1, offset + kept.length),
@@ -381,6 +434,8 @@ export interface SearchCodeOptions {
   glob?: string;
   /** Stop after this many files; a scanning budget for large repositories. */
   maxFiles?: number;
+  /** Allow project-external absolute paths, minus `protectedRoots`. */
+  access?: ReadAccess;
 }
 
 export interface SearchMatch {
@@ -406,6 +461,8 @@ export interface SearchCodeResult {
   scanBudgetExhausted: boolean;
   /** Match counts grouped by workspace package/directory. */
   directories: SearchDirectoryCount[];
+  /** `external` means match paths are absolute. */
+  rootScope: RootScope;
 }
 
 function searchDirectory(relativePath: string): string {
@@ -467,7 +524,8 @@ export async function searchCode(
     throw new FileError("VALIDATION_ERROR", "query must be 1-500 characters");
   }
 
-  const base = await resolveInput(rootReal, options.path ?? ".");
+  const resolved = await resolveReadInput(rootReal, options.path ?? ".", options.access);
+  const base = resolved.absolutePath;
   const limit = Math.min(Math.max(Math.trunc(options.limit ?? 100), 1), 500);
   const ignore = options.ignore ?? [];
   const needle = options.caseSensitive === true ? query : query.toLowerCase();
@@ -498,9 +556,11 @@ export async function searchCode(
       return;
     }
 
-    const relativePath = toPosix(path.relative(rootReal, file));
+    const displayPathForFile = displayPath(rootReal, file, resolved.rootScope);
+    const relativeToBase = toPosix(path.relative(base, file));
+    const globPath = resolved.rootScope === "external" ? relativeToBase : displayPathForFile;
 
-    if (globPattern !== undefined && !globPattern.test(relativePath)) {
+    if (globPattern !== undefined && !globPattern.test(globPath)) {
       return;
     }
 
@@ -520,7 +580,7 @@ export async function searchCode(
         continue;
       }
 
-      const directory = searchDirectory(relativePath);
+      const directory = searchDirectory(globPath);
       directoryCounts.set(directory, (directoryCounts.get(directory) ?? 0) + 1);
 
       if (matches.length >= limit) {
@@ -538,7 +598,7 @@ export async function searchCode(
               .slice(0, 2_000);
 
       matches.push({
-        path: relativePath,
+        path: displayPathForFile,
         line: index + 1,
         preview: line.trim().slice(0, 240),
         ...(context === undefined ? {} : { context, contextStart: contextStartIndex + 1 }),
@@ -557,6 +617,7 @@ export async function searchCode(
       scannedFiles,
       scanBudgetExhausted,
       directories: sortedDirectories(directoryCounts),
+      rootScope: resolved.rootScope,
     };
   }
 
@@ -574,7 +635,7 @@ export async function searchCode(
       }
 
       const absolute = path.join(dir, entry.name);
-      const relativePath = toPosix(path.relative(rootReal, absolute));
+      const relativePath = displayPath(rootReal, absolute, resolved.rootScope);
 
       if (isIgnoredFile(relativePath, entry.name, ignore) || entry.isSymbolicLink()) {
         continue;
@@ -596,6 +657,7 @@ export async function searchCode(
     scannedFiles,
     scanBudgetExhausted,
     directories: sortedDirectories(directoryCounts),
+    rootScope: resolved.rootScope,
   };
 }
 

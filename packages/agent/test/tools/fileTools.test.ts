@@ -376,6 +376,75 @@ describe("file tools", () => {
     });
   });
 
+  it("reads external paths only when readScope allows them", async () => {
+    await withTempDir(async (dir) => {
+      const root = path.join(dir, "project");
+      const outside = path.join(dir, "reference");
+      const dataDir = path.join(dir, "data");
+      await mkdir(root, { recursive: true });
+      await mkdir(outside, { recursive: true });
+      await mkdir(dataDir, { recursive: true });
+      await writeFile(path.join(outside, "api.md"), "# api\nneedle\n");
+      const outsideReal = await realpath(outside);
+      const dataReal = await realpath(dataDir);
+      const registry = createFileToolRegistry();
+      const readScope = { allowExternal: true, protectedRoots: [dataReal] };
+
+      const denied = await registry.execute(
+        "read_file",
+        { path: path.join(outside, "api.md") },
+        { projectRoot: root },
+      );
+      expect(denied).toMatchObject({ ok: false, errorCode: "PATH_OUTSIDE_PROJECT" });
+
+      const read = await registry.execute(
+        "read_file",
+        { path: path.join(outside, "api.md") },
+        { projectRoot: root, readScope },
+      );
+      expect(read).toMatchObject({
+        ok: true,
+        data: {
+          rootScope: "external",
+          path: path.join(outsideReal, "api.md").split(path.sep).join("/"),
+          content: "# api\nneedle\n",
+        },
+      });
+      expect(read.summary).toContain(path.join(outsideReal, "api.md"));
+
+      const searched = await registry.execute(
+        "search_code",
+        { query: "needle", path: outsideReal },
+        { projectRoot: root, readScope },
+      );
+      expect(searched).toMatchObject({ ok: true });
+      expect(
+        (searched.data as { matches: { path: string }[] }).matches.map((match) => match.path),
+      ).toEqual([path.join(outsideReal, "api.md").split(path.sep).join("/")]);
+
+      const listed = await registry.execute(
+        "list_files",
+        { path: outsideReal },
+        { projectRoot: root, readScope },
+      );
+      expect(listed).toMatchObject({ ok: true, data: { rootScope: "external" } });
+
+      const written = await registry.execute(
+        "write_file",
+        { path: path.join(outside, "api.md"), content: "overwritten\n" },
+        { projectRoot: root, readScope },
+      );
+      expect(written).toMatchObject({ ok: false, errorCode: "PATH_OUTSIDE_PROJECT" });
+
+      const protectedRead = await registry.execute(
+        "read_file",
+        { path: path.join(dataReal, "db.sqlite") },
+        { projectRoot: root, readScope },
+      );
+      expect(protectedRead).toMatchObject({ ok: false, errorCode: "FORBIDDEN" });
+    });
+  });
+
   it("rejects schema violations and path escapes", async () => {
     await withTempDir(async (dir) => {
       const registry = createFileToolRegistry();
