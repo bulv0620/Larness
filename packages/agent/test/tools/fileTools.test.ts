@@ -34,6 +34,12 @@ describe("file tools", () => {
       const listTool = registry.get("list_files");
       expect(listTool?.summarize?.({})).toBe("list .");
       expect(listTool?.summarize?.({ path: "src" })).toBe("list src");
+      expect(registry.get("list_files")?.requiresProjectLock).toBe(false);
+      expect(registry.get("read_file")?.requiresProjectLock).toBe(false);
+      expect(registry.get("search_code")?.requiresProjectLock).toBe(false);
+      expect(registry.get("list_files")?.prefetchable).toBe(true);
+      expect(registry.get("read_file")?.prefetchable).toBe(true);
+      expect(registry.get("search_code")?.prefetchable).toBe(true);
 
       const list = await registry.execute("list_files", { path: "." }, { projectRoot: dir });
       expect(list).toMatchObject({ ok: true, truncated: false });

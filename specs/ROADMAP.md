@@ -632,6 +632,15 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | CA-2 | [本 Turn 审批复用](096-command-approvals/tasks.md#ca-2-本-turn-审批复用) | CA-1 | `done`（2026-11-27） |
 | CA-3 | [契约/描述、全量验证与收口](096-command-approvals/tasks.md#ca-3-契约描述全量验证与收口) | CA-2 | `done`（2026-11-27） |
 
+### 8.23 发布后：流式启动 L0 只读工具（097，done）
+
+当前 step 结束后才执行工具；081 的纯读并发也在结束后。本切片把 L0、无锁、策略 allow 的调用在 `tool-call` 事件到达时启动，最多 8 个，结果仍按 call 顺序消费；写/锁/审批与混合批次中的非 L0 调用保持串行。三个 L0 文件工具显式 `requiresProjectLock:false`。规格见 [097](097-streaming-reads/spec.md)，方案见 [plan](097-streaming-reads/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| SR-1 | [流内预取与 L0 元数据](097-streaming-reads/tasks.md#sr-1-流内预取与-l0-元数据) | 096 | `done`（2026-11-27） |
+| SR-2 | [验证、081 修订与收口](097-streaming-reads/tasks.md#sr-2-验证081-修订与收口) | SR-1 | `done`（2026-11-27） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

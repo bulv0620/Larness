@@ -74,6 +74,11 @@ export interface ToolDefinition {
   readonly requiresProject?: boolean;
   /** Source writes need the shared project lock; read/process tools can opt out. */
   readonly requiresProjectLock?: boolean;
+  /**
+   * Side-effect-free and safe to start while the provider stream is still open.
+   * `update_plan` and `remember` are L0 metadata writes and must stay false.
+   */
+  readonly prefetchable?: boolean;
   execute(rawArgs: unknown, context: ToolContext): Promise<ToolResult>;
 }
 
@@ -85,6 +90,7 @@ export interface ToolDefinitionInput<Schema extends z.ZodType> {
   summarize?: (args: z.infer<Schema>) => string;
   requiresProject?: boolean;
   requiresProjectLock?: boolean;
+  prefetchable?: boolean;
   /**
    * Normalize known model aliases (for example a status word or a field alias)
    * before schema validation. The repaired value must still satisfy `schema`;
@@ -105,6 +111,7 @@ export function defineTool<Schema extends z.ZodType>(
     ...(input.repairArgs === undefined ? {} : { repairArgs: input.repairArgs }),
     requiresProject: input.requiresProject ?? false,
     requiresProjectLock: input.requiresProjectLock ?? true,
+    prefetchable: input.prefetchable ?? false,
     ...(input.summarize === undefined
       ? {}
       : {

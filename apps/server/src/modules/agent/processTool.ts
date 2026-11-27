@@ -98,6 +98,7 @@ export function createProcessTools(options: { secretStore?: SecretStore }): Tool
       riskLevel: "L0",
       requiresProject: true,
       requiresProjectLock: false,
+      prefetchable: true,
       schema: ListSchema,
       summarize: () => "列出项目后台任务",
       handler: async (args, context) =>
@@ -112,6 +113,7 @@ export function createProcessTools(options: { secretStore?: SecretStore }): Tool
       riskLevel: "L0",
       requiresProject: true,
       requiresProjectLock: false,
+      prefetchable: true,
       schema: ReadOutputSchema,
       summarize: (args) => `读取进程输出 ${args.processId.slice(-6)}`,
       handler: async (args, context) =>

@@ -14,6 +14,8 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 `run_shell` 输入为 `command`、根内相对 `cwd` 和 `timeoutMs`。POSIX 使用 `/bin/sh -c`，不带 `-l`；Windows 优先 `pwsh`，其次 Windows PowerShell 5.1，最后 `cmd /d /s /c`。不假设 bash，不自动翻译平台语法；结果返回实际 `shell`、`exitCode`、`stdout`、`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`run_shell` 默认 L2，allowlisted 简单命令为 L1。交互式 TUI 命令被拒绝，返回 `INTERACTIVE_COMMAND`。稳定错误码包括 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`SPAWN_FAILED`、`NONZERO_EXIT`、`TIMED_OUT`。
 
+097 起，L0、`requiresProjectLock:false`、策略 allow 的工具调用在模型 `tool-call` 事件到达时即启动（每 step 最多 8 个），结果仍按 call 顺序消费；写工具、需锁/审批工具与混合批次中的非 L0 调用保持串行。三个 L0 文件工具显式 `requiresProjectLock:false`。
+
 096 起，标准策略下常见只读/验证命令按保守 allowlist 降为 L1 自动放行：`git status|diff|log|show|rev-parse|ls-files`、受限 `git branch`、`pnpm/npm/yarn` 的 `test|check|typecheck|lint|build|verify` 脚本、`rg/ls/pwd`、`node --version`；`run_shell` 仅限无元字符/引号/绝对或 `..` 路径的简单命令。`--prefix`/`--dir`/`-C`/`--global`、`exec`/`dlx`/`add`/`install`/`remove`/`publish`/`deploy`、`git --output/--no-index`、`rg --pre` 仍在 L2；L3 在 standard/strict 仍 deny。用户批准一次后，同一 Turn 内相同 `toolName + hashApprovalParams` 的调用不再请求审批；不跨 Turn、不持久化。allowlist 只是审批分类，不是沙箱。
 
 `start_process` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd`、可选 `name`、`port` 与 `healthPath`；返回稳定 `processId`、`cwd`、port 与输出游标。`read_process_output` 用 `after` / `limit` 读取有界新输出，`nextCursor` 为下一次游标，`resyncRequired` 表示旧块已淘汰；`stop_process` 幂等停止整个进程组/进程树。后台进程不长期持有项目写锁（否则 dev server 会阻塞所有源码写），启动时仍执行授权、路径、秘密和交互命令检查；停止失败返回 `STOP_UNCONFIRMED`。进程输出使用 1 MiB 环形缓冲并脱敏，不进入审计或原始事件。

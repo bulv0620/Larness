@@ -1466,6 +1466,36 @@ export class TurnRunner {
         let text = "";
         let reasoning = "";
         const toolRequests: ToolCallRequest[] = [];
+        const prefetched = new Map<string, Promise<ToolExecutionOutcome>>();
+        const prefetchRead = (request: ToolCallRequest): void => {
+          if (
+            prefetched.size >= READ_PREFETCH_LIMIT ||
+            prefetched.has(request.id) ||
+            checkBudget() !== "ok" ||
+            disabledTools.has(request.name)
+          ) {
+            return;
+          }
+
+          const definition = this.#options.registry.get(request.name);
+
+          if (definition === undefined) {
+            return;
+          }
+
+          const risk = definition.classifyRisk?.(request.args) ?? definition.riskLevel;
+
+          if (
+            risk !== "L0" ||
+            definition.prefetchable !== true ||
+            definition.requiresProjectLock !== false ||
+            decideToolAccess(policy, risk) !== "allow"
+          ) {
+            return;
+          }
+
+          prefetched.set(request.id, execute(request));
+        };
         let finishReason: ProviderFinishReason = "other";
         let stepUsage: ProviderUsage | undefined;
         let providerError: ProviderStepFailure | null = null;
@@ -1759,6 +1789,7 @@ export class TurnRunner {
 
             if (chunk.type === "tool-call") {
               toolRequests.push(chunk.toolCall);
+              prefetchRead(chunk.toolCall);
               continue;
             }
 
@@ -2010,46 +2041,7 @@ export class TurnRunner {
           ...(reasoning.length === 0 ? {} : { reasoning }),
         });
 
-        // A batch that is nothing but pure reads (L0, lock-free, allowed by the
-        // policy) has no ordering constraint, so it runs concurrently: several
-        // git reads or searches then cost one round trip instead of their sum.
-        // The serial loop below still emits events, checks the budget and
-        // appends messages in the original order, and consumes the prefetched
-        // outcome instead of executing the call twice.
-        const prefetched = new Map<string, ToolExecutionOutcome>();
-
         const batchToolIndexes: number[] = [];
-
-        if (
-          toolRequests.length >= 2 &&
-          toolRequests.length <= READ_PREFETCH_LIMIT &&
-          checkBudget() === "ok" &&
-          toolRequests.every((request) => {
-            if (disabledTools.has(request.name)) return false;
-            const definition = this.#options.registry.get(request.name);
-            if (definition === undefined) return false;
-            const risk = definition.classifyRisk?.(request.args) ?? definition.riskLevel;
-            return (
-              risk === "L0" &&
-              definition.requiresProjectLock === false &&
-              decideToolAccess(policy, risk) === "allow"
-            );
-          })
-        ) {
-          const prefetchStarted = this.#now();
-          await Promise.all(
-            toolRequests.map(async (request) => {
-              try {
-                prefetched.set(request.id, await execute(request));
-              } catch {
-                // Leaving it out makes the serial loop run it again and report
-                // the failure through the normal tool path.
-              }
-            }),
-          );
-          timing.toolMs += this.#now() - prefetchStarted;
-        }
-
         const repeatedFailureNudges: string[] = [];
 
         for (const request of toolRequests) {
@@ -2134,8 +2126,21 @@ export class TurnRunner {
           });
 
           const toolStartedAt = this.#now();
-          const outcome: ToolExecutionOutcome =
-            prefetched.get(request.id) ?? (await execute(request));
+          const pending = prefetched.get(request.id);
+          let outcome: ToolExecutionOutcome;
+
+          if (pending === undefined) {
+            outcome = await execute(request);
+          } else {
+            try {
+              outcome = await pending;
+            } catch {
+              // A prefetched read is idempotent; fall back to the serial path
+              // so the failure is reported through the normal tool outcome.
+              outcome = await execute(request);
+            }
+          }
+
           timing.toolMs += this.#now() - toolStartedAt;
 
           if (outcome.status === "approval_required") {

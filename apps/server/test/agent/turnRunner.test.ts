@@ -6,6 +6,7 @@ import {
   createFakeProvider,
   createFileToolRegistry,
   defineTool,
+  type ProviderAdapter,
   type ProviderChunk,
   ProviderError,
 } from "@larness/agent";
@@ -71,6 +72,14 @@ function patchFor(original: string, next: string): string {
   const before = original.replace(/\n$/, "");
   const after = next.replace(/\n$/, "");
   return `--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-${before}\n+${after}\n`;
+}
+
+function deferred<T = void>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 async function waitFor(predicate: () => boolean, timeoutMs = 2_000): Promise<void> {
@@ -2891,6 +2900,106 @@ it("does not nudge for a plan left open in a previous turn", async () => {
             String(message.content).includes("The plan still has open steps"),
         ),
       ).toBe(false);
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("starts eligible read tools before the provider stream finishes and keeps writes serial", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "stream reads" });
+      const started = deferred();
+      const releaseTool = deferred();
+      const streamGate = deferred();
+      const writeStarted = { value: false };
+      const slowRead = defineTool({
+        name: "slow_read",
+        description: "slow read",
+        riskLevel: "L0",
+        requiresProjectLock: false,
+        prefetchable: true,
+        schema: z.object({}).strict(),
+        handler: async () => {
+          started.resolve();
+          await releaseTool.promise;
+          return { ok: true, summary: "slow read done" };
+        },
+      });
+      const slowWrite = defineTool({
+        name: "slow_write",
+        description: "slow write",
+        riskLevel: "L1",
+        requiresProjectLock: false,
+        schema: z.object({}).strict(),
+        handler: async () => {
+          writeStarted.value = true;
+          return { ok: true, summary: "slow write done" };
+        },
+      });
+      const registry = createFileToolRegistry();
+      registry.register(slowRead);
+      registry.register(slowWrite);
+      let providerCalls = 0;
+      const adapter: ProviderAdapter = {
+        id: "fake",
+        capabilities: {
+          streaming: true,
+          toolCalls: true,
+          vision: false,
+          reasoning: false,
+          maxContextTokens: 128_000,
+        },
+        async *streamStep() {
+          providerCalls += 1;
+
+          if (providerCalls === 1) {
+            yield {
+              type: "tool-call",
+              toolCall: { id: "call_read", name: "slow_read", args: {} },
+            };
+            yield {
+              type: "tool-call",
+              toolCall: { id: "call_write", name: "slow_write", args: {} },
+            };
+            await streamGate.promise;
+            yield { type: "finish", finishReason: "tool-calls" };
+            return;
+          }
+
+          yield { type: "text-delta", text: "done" };
+          yield { type: "finish", finishReason: "stop" };
+        },
+      };
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry,
+        resolveProvider: () => ({ adapter, model: "fake" }),
+      });
+      const running = runner.run(turn.turnId);
+
+      await Promise.race([
+        started.promise,
+        new Promise((_, reject) => {
+          setTimeout(
+            () => reject(new Error("read tool did not start before the stream finished")),
+            1_000,
+          );
+        }),
+      ]);
+      expect(writeStarted.value).toBe(false);
+
+      streamGate.resolve();
+      releaseTool.resolve();
+
+      expect((await running).status).toBe("COMPLETED");
+      expect(providerCalls).toBe(2);
+      expect(writeStarted.value).toBe(true);
     } finally {
       opened.close();
     }

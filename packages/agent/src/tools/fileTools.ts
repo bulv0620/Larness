@@ -202,6 +202,8 @@ export function createFileTools() {
       description:
         "List files and directories inside the authorized project root. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` to inspect one explicitly.",
       riskLevel: "L0",
+      requiresProjectLock: false,
+      prefetchable: true,
       schema: ListFilesSchema,
       summarize: (args) => `list ${args.path ?? "."}`,
       async handler(args, context) {
@@ -229,6 +231,8 @@ export function createFileTools() {
       description:
         "Read a UTF-8 text file inside the project. Each text line is prefixed by its 1-based line number as `<line>: <content>`; the prefix is for reference only and is not part of the file content. Returns a contiguous page of up to 50 KB or 2000 lines, the full sha256 `version` for later patches, and `nextOffset` when more lines remain.",
       riskLevel: "L0",
+      requiresProjectLock: false,
+      prefetchable: true,
       schema: ReadFileSchema,
       summarize: (args) => `read ${args.path}`,
       async handler(args, context) {
@@ -260,6 +264,8 @@ export function createFileTools() {
       description:
         "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Narrow the scan with path, glob and maxFiles, and ask for contextLines to see the surrounding code instead of repeated reads.",
       riskLevel: "L0",
+      requiresProjectLock: false,
+      prefetchable: true,
       schema: SearchCodeSchema,
       summarize: (args) => `search ${args.query}`,
       async handler(args, context) {
