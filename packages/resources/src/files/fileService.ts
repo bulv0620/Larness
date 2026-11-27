@@ -393,15 +393,45 @@ export interface SearchMatch {
   contextStart?: number;
 }
 
+export interface SearchDirectoryCount {
+  path: string;
+  matches: number;
+}
+
 export interface SearchCodeResult {
   matches: SearchMatch[];
   truncated: boolean;
   scannedFiles: number;
   /** True when the file budget stopped the scan before the tree was exhausted. */
   scanBudgetExhausted: boolean;
+  /** Match counts grouped by workspace package/directory. */
+  directories: SearchDirectoryCount[];
+}
+
+function searchDirectory(relativePath: string): string {
+  const segments = relativePath.split("/");
+
+  if (segments.length <= 1) {
+    return "(root)";
+  }
+
+  const top = segments[0] ?? "";
+
+  if ((top === "apps" || top === "packages") && segments.length > 2) {
+    return `${top}/${segments[1]}`;
+  }
+
+  return top;
+}
+
+function sortedDirectories(counts: Map<string, number>): SearchDirectoryCount[] {
+  return [...counts.entries()]
+    .map(([directory, matches]) => ({ path: directory, matches }))
+    .sort((left, right) => right.matches - left.matches || left.path.localeCompare(right.path));
 }
 
 function globToRegExp(glob: string): RegExp {
+  const recursive = !glob.includes("/");
   let pattern = "";
 
   for (let index = 0; index < glob.length; index += 1) {
@@ -424,7 +454,7 @@ function globToRegExp(glob: string): RegExp {
     }
   }
 
-  return new RegExp(`^${pattern}$`);
+  return new RegExp(`^${recursive ? "(?:.*/)?" : ""}${pattern}$`);
 }
 
 export async function searchCode(
@@ -446,12 +476,13 @@ export async function searchCode(
   const globPattern: RegExp | undefined =
     options.glob === undefined ? undefined : globToRegExp(options.glob);
   const matches: SearchMatch[] = [];
+  const directoryCounts = new Map<string, number>();
   let scannedFiles = 0;
   let truncated = false;
   let scanBudgetExhausted = false;
 
   const searchFile = async (file: string): Promise<void> => {
-    if (truncated || scanBudgetExhausted) {
+    if (scanBudgetExhausted) {
       return;
     }
 
@@ -489,6 +520,14 @@ export async function searchCode(
         continue;
       }
 
+      const directory = searchDirectory(relativePath);
+      directoryCounts.set(directory, (directoryCounts.get(directory) ?? 0) + 1);
+
+      if (matches.length >= limit) {
+        truncated = true;
+        continue;
+      }
+
       const contextStartIndex = Math.max(0, index - contextLines);
       const context =
         contextLines === 0
@@ -504,11 +543,6 @@ export async function searchCode(
         preview: line.trim().slice(0, 240),
         ...(context === undefined ? {} : { context, contextStart: contextStartIndex + 1 }),
       });
-
-      if (matches.length > limit) {
-        truncated = true;
-        return;
-      }
     }
   };
 
@@ -517,16 +551,17 @@ export async function searchCode(
   if (baseInfo.isFile()) {
     await searchFile(base);
 
-    if (matches.length > limit) {
-      matches.pop();
-      truncated = true;
-    }
-
-    return { matches, truncated, scannedFiles, scanBudgetExhausted };
+    return {
+      matches,
+      truncated,
+      scannedFiles,
+      scanBudgetExhausted,
+      directories: sortedDirectories(directoryCounts),
+    };
   }
 
   const walk = async (dir: string): Promise<void> => {
-    if (truncated) {
+    if (scanBudgetExhausted) {
       return;
     }
 
@@ -534,7 +569,7 @@ export async function searchCode(
     entries.sort((left, right) => left.name.localeCompare(right.name));
 
     for (const entry of entries) {
-      if (truncated) {
+      if (scanBudgetExhausted) {
         return;
       }
 
@@ -555,12 +590,13 @@ export async function searchCode(
 
   await walk(base);
 
-  if (matches.length > limit) {
-    matches.pop();
-    truncated = true;
-  }
-
-  return { matches, truncated, scannedFiles, scanBudgetExhausted };
+  return {
+    matches,
+    truncated,
+    scannedFiles,
+    scanBudgetExhausted,
+    directories: sortedDirectories(directoryCounts),
+  };
 }
 
 export interface ApplyPatchOptions {

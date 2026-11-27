@@ -100,6 +100,7 @@
 - [101 更大仓库基准任务](101-deep-repo-benchmark/spec.md)（done）
 - [102 外部真实仓库 A/B](102-real-repo-ab/spec.md)（done）
 - [103 真实仓库探索：精确标识符优先](103-exact-identifier-search/spec.md)（dropped）
+- [104 宽搜索目录摘要](104-search-directory-summary/spec.md)（active）
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 

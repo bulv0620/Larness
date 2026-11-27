@@ -128,19 +128,49 @@ describe("file service", () => {
       expect(insensitive.matches).toHaveLength(1);
       expect(insensitive.truncated).toBe(true);
       expect(insensitive.scannedFiles).toBe(2);
+      expect(insensitive.directories).toEqual([{ path: "(root)", matches: 2 }]);
+    });
+  });
+
+  it("counts matches by workspace directory after the result limit", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "apps", "server", "test"), { recursive: true });
+      await mkdir(path.join(dir, "packages", "agent", "src"), { recursive: true });
+      await mkdir(path.join(dir, "docs"), { recursive: true });
+      await writeFile(path.join(dir, "apps", "server", "test", "a.ts"), "needle\n");
+      await writeFile(path.join(dir, "packages", "agent", "src", "b.ts"), "needle\n");
+      await writeFile(path.join(dir, "docs", "guide.md"), "needle\n");
+
+      const result = await searchCode(dir, { query: "needle", limit: 1 });
+      expect(result.matches).toHaveLength(1);
+      expect(result.truncated).toBe(true);
+      expect(result.scannedFiles).toBe(3);
+      expect(result.directories).toEqual([
+        { path: "apps/server", matches: 1 },
+        { path: "docs", matches: 1 },
+        { path: "packages/agent", matches: 1 },
+      ]);
     });
   });
 
   it("narrows the scan with glob and budget and can return context lines", async () => {
     await withTempDir(async (dir) => {
-      await mkdir(path.join(dir, "src"), { recursive: true });
+      await mkdir(path.join(dir, "src", "nested"), { recursive: true });
       await mkdir(path.join(dir, "docs"), { recursive: true });
       await writeFile(path.join(dir, "src", "one.ts"), "before\ntarget here\nafter\n");
       await writeFile(path.join(dir, "src", "two.ts"), "target again\n");
+      await writeFile(path.join(dir, "src", "nested", "three.ts"), "target nested\n");
       await writeFile(path.join(dir, "docs", "guide.md"), "target in docs\n");
 
       const scoped = await searchCode(dir, { query: "target", glob: "src/*.ts" });
       expect(scoped.matches.map((match) => match.path).sort()).toEqual([
+        "src/one.ts",
+        "src/two.ts",
+      ]);
+
+      const bare = await searchCode(dir, { query: "target", glob: "*.ts" });
+      expect(bare.matches.map((match) => match.path).sort()).toEqual([
+        "src/nested/three.ts",
         "src/one.ts",
         "src/two.ts",
       ]);

@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- 无。
+- **104 宽搜索目录摘要（SDS-1）**：实现与测试、`pnpm check`/`build` 已完成；`search_code` 达到 limit 后继续统计目录并在截断时给 Top dirs + `path=`；裸 `*.ts` 改为递归。真实仓库探针：`expectedVersion` + `*.ts` 从 0 命中/3 文件变为 50 命中/625 文件，Top dirs 含 `packages/agent (23)`。**待用户 Key 复测真实 099 任务**，命令见 [104](specs/104-search-directory-summary/tasks.md)。
 
 ## 阻塞与待确认
 

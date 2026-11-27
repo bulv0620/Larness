@@ -77,6 +77,18 @@ function searchModelText(result: SearchResult): string {
       }),
     ];
   });
+  const topDirectories =
+    (result.truncated || result.scannedFiles > 200) && result.directories.length > 0
+      ? [
+          `Top dirs: ${result.directories
+            .slice(0, 5)
+            .map((entry) => `${entry.path} (${entry.matches})`)
+            .join(
+              ", ",
+            )}${result.directories.length > 5 ? ` (+${result.directories.length - 5} more)` : ""}`,
+          "Use path=<dir> to narrow the search.",
+        ]
+      : [];
   const hint =
     result.matches.length === 0
       ? []
@@ -84,9 +96,12 @@ function searchModelText(result: SearchResult): string {
           "Hint: read a narrow window around a match instead of a large page; do not repeat the same search for a case variant.",
         ];
 
-  return [`${header}${notes.length === 0 ? "" : ` ${notes.join(" ")}`}`, ...lines, ...hint].join(
-    "\n",
-  );
+  return [
+    `${header}${notes.length === 0 ? "" : ` ${notes.join(" ")}`}`,
+    ...topDirectories,
+    ...lines,
+    ...hint,
+  ].join("\n");
 }
 
 const ListFilesSchema = z
@@ -294,7 +309,7 @@ export function createFileTools() {
     defineTool({
       name: "search_code",
       description:
-        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Each match includes one line of context by default; set contextLines (0-5) for more, or 0 to disable. When a match identifies the target, read a narrow window around its line instead of a large page, and do not repeat the same search.",
+        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Each match includes one line of context by default; set contextLines (0-5) for more, or 0 to disable. A glob without `/` such as `*.ts` matches recursively; use `src/*.ts` for one level. When a match identifies the target, read a narrow window around its line instead of a large page, and do not repeat the same search. Truncated results include top directories; pass path to narrow.",
       riskLevel: "L0",
       requiresProjectLock: false,
       prefetchable: true,

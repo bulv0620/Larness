@@ -76,6 +76,7 @@ describe("file tools", () => {
       expect(search.modelText).toMatch(/^1 matches in \d+ files/);
       expect(search.modelText).toContain("b.txt:1: needle");
       expect(search.modelText).not.toContain('"matches"');
+      expect(search.modelText).not.toContain("Top dirs:");
 
       const created = await registry.execute(
         "write_file",
@@ -323,6 +324,33 @@ describe("file tools", () => {
       expect(match).toMatchObject({ context: "needle\nnext", contextStart: 1 });
       expect(String(search.modelText)).toContain("  2: next");
       expect(String(search.modelText)).not.toContain("  0:");
+    });
+  });
+
+  it("summarizes truncated search results by directory", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "apps", "server", "test"), { recursive: true });
+      await mkdir(path.join(dir, "packages", "agent", "src"), { recursive: true });
+      await writeFile(path.join(dir, "apps", "server", "test", "a.ts"), "needle\n");
+      await writeFile(path.join(dir, "packages", "agent", "src", "b.ts"), "needle\n");
+
+      const registry = createFileToolRegistry();
+      const search = await registry.execute(
+        "search_code",
+        { query: "needle", limit: 1 },
+        { projectRoot: dir },
+      );
+      const modelText = String(search.modelText);
+      expect(modelText).toContain("Top dirs:");
+      expect(modelText).toContain("apps/server");
+      expect(modelText).toContain("packages/agent");
+      expect(modelText).toContain("Use path=");
+      expect(
+        (search.data as { directories: { path: string; matches: number }[] }).directories,
+      ).toEqual([
+        { path: "apps/server", matches: 1 },
+        { path: "packages/agent", matches: 1 },
+      ]);
     });
   });
 
