@@ -52,3 +52,7 @@
 - 用户首跑 5 个任务均 `COMPLETED`、verify=0，但每个任务有 3–5 次工具失败；逐事件检查发现 `run_command`/`run_shell` 全部 `FORBIDDEN`。根因是 runner 的临时 DB 没有登记 active browser client，`CommandManager` 按产品语义失败关闭，不是 Agent 行为。
 - 修复：runner 在迁移后写入一个 benchmark 专用 `browser_sessions` 行（`kind=once`、24h 过期），fake adapter 改为“跑测试→edit→再跑测试”以覆盖命令链路；fake smoke 现在 steps=4、toolCalls=3、failures=1（首次测试预取失败）、verify=0。
 - 该批 live 结果的命令/步骤/失败指标不能用于判断 Agent 工具能力；文件与 verify 结果仍有效。需要用修复后的 runner 重跑 live A/B。
+
+### 2026-11-27 benchmark 输出隔离
+
+- benchmark fixture 自带 `test/*.test.js`；`pnpm check` 从 `apps/server/tmp` 递归发现了这些文件。`apps/server/vitest.config.ts` 增加 `exclude: [...configDefaults.exclude, "tmp/**"]`，并同时修正 runner 默认输出到 pnpm 的 `INIT_CWD/tmp`，避免以后把 fixture 混入仓库测试。
