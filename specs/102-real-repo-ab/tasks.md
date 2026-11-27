@@ -8,7 +8,7 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | RRA-1 | [外部仓库模式与测试](tasks.md#rra-1-外部仓库模式与测试) | 098、101 | `done` |
-| RRA-2 | [Larness 099 样例任务与文档](tasks.md#rra-2-larness-099-样例任务与文档) | RRA-1 | `in_progress` |
+| RRA-2 | [Larness 099 样例任务与文档](tasks.md#rra-2-larness-099-样例任务与文档) | RRA-1 | `done` |
 
 ## 任务卡
 
@@ -37,7 +37,7 @@
 
 ### RRA-2 Larness 099 样例任务与文档
 
-- 状态：`in_progress`
+- 状态：`done`
 - 依赖：RRA-1
 - 目标：用真实 Larness 副本回退 099 的参数容错，保留测试，形成可解的真实任务。
 - 交付物：
@@ -68,5 +68,8 @@ RRA-2：
 - 真实副本 `/private/tmp/larness-real-task` 已准备：rsync 排除 `.git/.larness/tmp`，保留 `node_modules`；用 `git diff 40c15c9^ 40c15c9 -- packages/agent/src/tools/fileTools.ts | git apply -R` 只回退 099 源改动，保留测试/spec。
 - 基线 `pnpm --filter @larness/agent test test/tools/fileTools.test.ts` 失败（1 failed / 8 passed），失败点为 `expectedVersion`/`version` 被 strict schema 拒绝。
 - opencode 在同一副本（`/private/tmp/larness-real-task-oc`，git baseline）上完成：8 steps、10 toolCalls、0 toolFailures、input 19,936 + cache 137,216、output 882 + reasoning 570、43.1s、verify 0、diff 仅 `packages/agent/src/tools/fileTools.ts`（+10/-1）。
-- Larness 实跑：**待用户 Key**。命令见 [example.md](example.md#2-larness-运行)；这是 RRA-2 唯一未完成项。
-- 未运行：Larness 真实仓库实跑、opencode 第二次重复、全量 E2E。
+- Larness 外部模式实跑（2026-11-27，同模型/max）：13 steps、23 toolCalls、2 failures、input 296,177 + output 3,541（cache 265,600）、59.5s、verify 0、diff 仅 `packages/agent/src/tools/fileTools.ts`（+12/-1）。
+- 两次失败：`pnpm --filter @larness/agent vitest run ...` 缺少 `exec`（`ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`），以及修改前跑目标测试的预期失败；不是产品错误。
+- 对比：opencode 10 调用 / 157k prompt / 43.1s；Larness 23 调用 / 300k tokens / 59.5s。两边最终都只改 `fileTools.ts`，测试 9/9 通过。Larness 的主要开销是 4 次搜索（其中 `VERSION_CONFLICT` 扫 875 文件、`EditFileSchema`/`repairEditArgs` 扫 1232 文件）、280 行文件读取、合同/spec/tasks/test/package 全读，以及一次错误命令。
+- 结论：真实仓库暴露了探索效率差距；下一步应做“精确标识符优先 + 宽搜索收窄提示”，而不是继续加 fixture。
+- 未运行：opencode 第二次重复、全量 E2E。

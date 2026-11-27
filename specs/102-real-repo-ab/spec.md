@@ -2,7 +2,7 @@
 id: 102-real-repo-ab
 title: 外部真实仓库 A/B 模式
 milestone: 发布后
-status: active
+status: done
 depends_on: [098-benchmark, 101-deep-repo-benchmark]
 owners: []
 created: 2026-11-27
@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 外部真实仓库 A/B 模式
 
-> 状态：`active`（2026-11-27；外部模式与测试、`pnpm check`/`build` 已通过；真实样例基线已失败，opencode 已完成，Larness 实跑待用户 Key）。6 个合成 fixture 已证明工具面与探索效率同级；下一步需要在真实仓库上跑一个真实任务，而不是继续加小 fixture。
+> 状态：`done`（2026-11-27；外部模式、fake smoke、`pnpm check`/`build` 通过；Larness 13 步/23 调用/59.5s vs opencode 8 步/10 调用/43.1s，双方 verify 0、同 diff；差距定位为真实仓库探索开销）。6 个合成 fixture 已证明工具面与探索效率同级；下一步需要在真实仓库上跑一个真实任务，而不是继续加小 fixture。
 
 ## 1. 背景与问题
 
@@ -169,4 +169,4 @@ And verify 命令为目标测试
 - [x] A1–A5 通过；
 - [x] 样例 A6 文档与基线准备命令可用；
 - [x] `pnpm check`、`pnpm build` 通过；
-- [ ] 真实 A/B 记录（opencode 已完成；Larness 待用户 Key 实跑）。
+- [x] 真实 A/B 记录（Larness 13/23/59.5s vs opencode 8/10/43.1s；同 diff；差距在探索效率）。

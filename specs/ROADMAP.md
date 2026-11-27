@@ -675,14 +675,14 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 |---|---|---|---|
 | DRB-1 | [checkout-discount fixture 与测试](101-deep-repo-benchmark/tasks.md#drb-1-checkout-discount-fixture-与测试) | 098、100 | `done`（2026-11-27；Larness 6/12/38,698 与 opencode 8/12/75,253 同级，同 diff） |
 
-### 8.28 发布后：外部真实仓库 A/B（102，active）
+### 8.28 发布后：外部真实仓库 A/B（102，done）
 
 合成 fixture 已证明工具面同级；本切片给 runner 增加 `--repo` 模式，复制本地真实仓库、可选 setup、以副本为 baseline 运行 prompt，并复用现有指标；样例用 Larness 副本回退 099 的 `edit` 参数容错。规格见 [102](102-real-repo-ab/spec.md)，方案见 [plan](102-real-repo-ab/plan.md)。
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
 | RRA-1 | [外部仓库模式与测试](102-real-repo-ab/tasks.md#rra-1-外部仓库模式与测试) | 098、101 | `done`（2026-11-27） |
-| RRA-2 | [Larness 099 样例任务与文档](102-real-repo-ab/tasks.md#rra-2-larness-099-样例任务与文档) | RRA-1 | `in_progress`（opencode 已完成，Larness 待 Key） |
+| RRA-2 | [Larness 099 样例任务与文档](102-real-repo-ab/tasks.md#rra-2-larness-099-样例任务与文档) | RRA-1 | `done`（2026-11-27；Larness 13/23/59.5s vs opencode 8/10/43.1s） |
 
 ## 9. 门禁
 

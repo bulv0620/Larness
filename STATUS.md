@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- **102 外部真实仓库 A/B（RRA-2）**：RRA-1 已完成（`--repo`/`--prompt`/`--verify`/`--setup`、fake smoke、`pnpm check`/build）。真实样例 `/private/tmp/larness-real-task` 基线已失败，opencode 已完成（8 步/10 调用/43.1s，verify 0，仅改 `fileTools.ts`）；**待用户 Key 跑 Larness**，命令见 [example](specs/102-real-repo-ab/example.md#2-larness-运行)。
+- 无。
 
 ## 阻塞与待确认
 
@@ -19,6 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-27 | 102 外部真实仓库 A/B（RRA-1/RRA-2） | benchmark runner 新增 `--repo`/`--prompt`/`--verify`/`--setup`：复制本地仓库（排除 `.git/.larness/tmp`）、可选 setup、baseline、复用指标；fake smoke verify=0、源仓库不变、参数/setup 失败关闭；真实 Larness 099 任务：Larness 13 步/23 调用/2 失败/299,718 tokens/59.5s，opencode 8 步/10 调用/157,152 prompt tokens/43.1s，双方 verify 0、同 diff；差距定位为宽搜索、整文件读取和错误 pnpm 命令；`pnpm check` 退出码 0（server 1006+14 跳过）、`pnpm build` 通过 | [102](specs/102-real-repo-ab/tasks.md) |
 | 2026-11-27 | 101 更大仓库基准任务（DRB-1） | 新增 `checkout-discount` fixture：31 文件，测试只能定位到 `quote`，根因在 `discount.js`（返回折扣额）与 `quote.js`（运费进入折扣基数），两文件同修才通过；补基线/可解性/单点失败测试；`tasks.test.ts` 10 项、`pnpm check` 退出码 0（web 322、agent 75+1 跳过、server 1002+14 跳过）、`pnpm build` 通过；live A/B（n=1）Larness 6 步/12 调用/38,698 tokens/18.8s，opencode 8 步/12 调用/75,253 prompt tokens/18.7s，双方 verify 0、同 diff | [101](specs/101-deep-repo-benchmark/tasks.md) |
 | 2026-11-27 | 100 探索效率（EX-1） | `search_code` 默认每条命中带前后各 1 行上下文（`contextLines` 0–5，0 关闭），模型文本按真实行号显示相邻行、不重复命中行并追加窄读提示；system prompt 增加“点名文件直接读 / 路径未知才 list_files / package.json 只在相关时读”，`PROMPT_VERSION=100-1`；`fileTools`/`fileService` 32 项、contextAssembler 15 项、`pnpm check` 退出码 0（web 322、agent 75+1 跳过、server 997+14 跳过）、`pnpm build` 通过；live long-file 两次复测均 5 步/5 调用，tokens 22,620–23,048（旧 7/8/35,269），耗时 10.0–10.1s（旧 13.3s），verify=0；全任务 n=1 的 cross/multi 回退经定向复测为方差（cross 5/11、multi 10/14/2），不是稳定回归 | [100](specs/100-exploration-efficiency/tasks.md) |
 | 2026-11-27 | 099 edit 参数容错（EA-1） | live benchmark 发现 `edit` 收到 `expectedVersion`/`version` 时 strict schema 返回 VALIDATION_ERROR；`repairEditArgs` 丢弃这两个跨工具混淆字段，其他未知字段仍拒绝；edit 的版本冲突/路径/CRLF/replaceAll 不变。`fileTools.test.ts` 6 项、`pnpm check` 退出码 0（web 322、agent 72+1 跳过、server 997+14 跳过）、`pnpm build` 通过；live 重跑待做 | [099](specs/099-edit-arg-repair/tasks.md) |
@@ -28,7 +29,6 @@
 | 2026-11-27 | 095 单一 Agent 模式（SM-1～SM-5） | 移除 Composer 的 coding/plan 切换，保留一个通用模式；`update_plan` 常驻、始终注入计划策略（3+ 步提示），`PROMPT_VERSION=095-1`；旧 `plan` 作为行为一致的兼容别名，不删 `agent_profile` 列；最近计划注入 tail，当前 Turn 计划仍有 pending/running 却纯文本停止时 nudge 一次，旧计划不触发；项目指令改为“可遵循的约定，但不能授权/批准/覆盖安全”，允许项目指令提高验证门禁。ADR-075 accepted；定向 91 项 + web 22 项、`pnpm check` 退出码 0（web 322、agent 72+1 跳过、server 987+14 跳过）、`pnpm build` 通过；E2E 与真实 Provider 未跑 | [095](specs/095-single-agent-mode/tasks.md) |
 | 2026-11-27 | 094 跨 Turn 操作日志（OL-1～OL-4） | 新增内部 `tool.operation`：L1+ 命令保留 exitCode+800 字符尾部，edit/patch/write 保留 path/version/changeType/增删或替换统计，失败保留 errorCode/summary；落盘前 redaction。`contextAssembler` 读取 `coveredUpToSeq` 之后、当前 Turn 之前的最多 40 条，按 2,500 token 预算注入当前 user 消息 tail；`tool.operation` 不广播、公开事件过滤。定向 operationLog/contextAssembler/events/turnRunner 等 117 项、`pnpm check` 退出码 0（web 323、agent 72+1 跳过、server 982+14 跳过）、`pnpm build` 通过；E2E 与真实 Provider 未跑 | [094](specs/094-operation-log/tasks.md) |
 | 2026-11-27 | 093 工具面与结果预算（TI-1～TI-4） | `read_file` 带 1-based 行号、完整 sha256 version、50KB/2000 行页；新增 `edit`（old/new/replaceAll、CRLF、唯一匹配、L1+项目锁）；`write_file` 支持覆盖与可选 `expectedVersion`；`read_file`/`search_code`/`run_command` 使用 `modelText` 纯文本结果，JSON `data` 保留；命令输出 32KB 且不重复 stdout/stderr；结果上限 80k 字符、批预算 24k token；`edit` 加入 `core.write`。定向资源/工具/契约/命令测试通过，`pnpm check` 退出码 0（web 323、agent 72+1 跳过、server 975+14 跳过）；E2E、真实 Provider 未跑；`pnpm build` 通过 | [093](specs/093-tool-interface/tasks.md) |
-| 2026-11-27 | 092 搜索与目录列表默认忽略（SI-1） | `.pnpm-store`/`dist`/`build`/`coverage`/`test-results`/`tmp`/`.turbo`/`.vite` 加入默认忽略；`list_files`/`search_code` 共用 `isIgnoredFile`，显式 `path` 仍可进入；工具描述与契约文档同步。定向 25 项、`pnpm check` 退出码 0（web 323、agent 68+1 跳过、server 969+14 跳过）；真实仓库根搜索从 0 命中恢复到 357 文件扫描并命中 `contextAssembler.ts`；E2E 与真实 Provider 未跑 | [092](specs/092-search-ignore/tasks.md) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 
