@@ -96,6 +96,7 @@
 - [097 流式启动 L0 只读工具](097-streaming-reads/spec.md)（done）
 - [098 Agent 基准任务与请求级 A/B](098-benchmark/spec.md)（done）
 - [099 edit 参数容错](099-edit-arg-repair/spec.md)（done）
+- [100 探索效率](100-exploration-efficiency/spec.md)（done）
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 

@@ -218,6 +218,7 @@ describe("file tools", () => {
       const registry = createFileToolRegistry();
       expect(registry.get("list_files")?.description).toContain("Common build/output directories");
       expect(registry.get("search_code")?.description).toContain("pass `path` explicitly");
+      expect(registry.get("search_code")?.description).toContain("one line of context");
 
       const listed = await registry.execute(
         "list_files",
@@ -237,6 +238,91 @@ describe("file tools", () => {
       expect(
         (searched.data as { matches: { path: string }[] }).matches.map((match) => match.path),
       ).toEqual(["src/needle.ts"]);
+    });
+  });
+
+  it("returns one line of search context by default and a narrow-read hint", async () => {
+    await withTempDir(async (dir) => {
+      await writeFile(path.join(dir, "a.txt"), "before\nneedle\nafter\n");
+
+      const registry = createFileToolRegistry();
+      const search = await registry.execute(
+        "search_code",
+        { query: "needle" },
+        { projectRoot: dir },
+      );
+
+      expect(search).toMatchObject({ ok: true });
+      const matches = (
+        search.data as {
+          matches: {
+            path: string;
+            line: number;
+            preview: string;
+            context?: string;
+            contextStart?: number;
+          }[];
+        }
+      ).matches;
+      expect(matches[0]).toMatchObject({
+        path: "a.txt",
+        line: 2,
+        preview: "needle",
+        context: "before\nneedle\nafter",
+        contextStart: 1,
+      });
+      const modelText = String(search.modelText);
+      expect(modelText).toContain("a.txt:2: needle");
+      expect(modelText).toContain("  1: before");
+      expect(modelText).toContain("  3: after");
+      expect(modelText.match(/needle/g)).toHaveLength(1);
+      expect(modelText).toContain("narrow window");
+      expect(modelText).toContain("do not repeat");
+    });
+  });
+
+  it("lets callers disable search context", async () => {
+    await withTempDir(async (dir) => {
+      await writeFile(path.join(dir, "a.txt"), "before\nneedle\nafter\n");
+
+      const registry = createFileToolRegistry();
+      const search = await registry.execute(
+        "search_code",
+        { query: "needle", contextLines: 0 },
+        { projectRoot: dir },
+      );
+      const match = (
+        search.data as {
+          matches: { context?: string; contextStart?: number }[];
+        }
+      ).matches[0];
+
+      expect(match?.context).toBeUndefined();
+      expect(match?.contextStart).toBeUndefined();
+      expect(String(search.modelText)).not.toContain("  1: before");
+      expect(String(search.modelText)).not.toContain("  3: after");
+    });
+  });
+
+  it("clamps default search context at file boundaries", async () => {
+    await withTempDir(async (dir) => {
+      await writeFile(path.join(dir, "a.txt"), "needle\nnext\n");
+
+      const registry = createFileToolRegistry();
+      const search = await registry.execute(
+        "search_code",
+        { query: "needle" },
+        { projectRoot: dir },
+      );
+      const match = (
+        search.data as {
+          matches: { context?: string; contextStart?: number }[];
+        }
+      ).matches[0];
+
+      expect(match).toMatchObject({ context: "needle\nnext", contextStart: 1 });
+      expect(String(search.modelText)).toContain("  2: next");
+      expect(String(search.modelText)).not.toContain("  0:");
     });
   });
 

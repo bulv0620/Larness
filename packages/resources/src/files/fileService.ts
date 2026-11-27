@@ -389,6 +389,8 @@ export interface SearchMatch {
   preview: string;
   /** Context window around the match, joined with newlines, when requested. */
   context?: string;
+  /** 1-based line number of the first line in `context`, when present. */
+  contextStart?: number;
 }
 
 export interface SearchCodeResult {
@@ -487,11 +489,12 @@ export async function searchCode(
         continue;
       }
 
+      const contextStartIndex = Math.max(0, index - contextLines);
       const context =
         contextLines === 0
           ? undefined
           : lines
-              .slice(Math.max(0, index - contextLines), index + contextLines + 1)
+              .slice(contextStartIndex, index + contextLines + 1)
               .join("\n")
               .slice(0, 2_000);
 
@@ -499,7 +502,7 @@ export async function searchCode(
         path: relativePath,
         line: index + 1,
         preview: line.trim().slice(0, 240),
-        ...(context === undefined ? {} : { context }),
+        ...(context === undefined ? {} : { context, contextStart: contextStartIndex + 1 }),
       });
 
       if (matches.length > limit) {

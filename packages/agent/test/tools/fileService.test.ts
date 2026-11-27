@@ -151,6 +151,15 @@ describe("file service", () => {
         contextLines: 1,
       });
       expect(withContext.matches[0]?.context).toBe("before\ntarget here\nafter");
+      expect(withContext.matches[0]?.contextStart).toBe(1);
+
+      const atStart = await searchCode(dir, {
+        query: "target",
+        path: "src/two.ts",
+        contextLines: 1,
+      });
+      expect(atStart.matches[0]).toMatchObject({ contextStart: 1 });
+      expect(atStart.matches[0]?.context?.trimEnd()).toBe("target again");
 
       const budgeted = await searchCode(dir, { query: "target", maxFiles: 1 });
       expect(budgeted.scannedFiles).toBe(1);

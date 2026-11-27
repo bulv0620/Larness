@@ -659,6 +659,14 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 |---|---|---|---|
 | EA-1 | [删除 expectedVersion/version 并补测试](099-edit-arg-repair/tasks.md#ea-1-删除-expectedversionversion-并补测试) | 098 | `done`（2026-11-27） |
 
+### 8.26 发布后：探索效率（100，done）
+
+098 实机 A/B 显示 Larness 与 opencode 完成度同级，但 long-file 任务 Larness 8 次工具调用 vs opencode 5 次。本切片把 `search_code` 默认上下文改为 1 行、上下文带行号且不重复命中行，并追加窄读提示；system prompt 明确“点名文件直接读、路径未知才 list_files、package.json 只在相关时读”。规格见 [100](100-exploration-efficiency/spec.md)，方案见 [plan](100-exploration-efficiency/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| EX-1 | [搜索上下文、窄读提示与探索约束](100-exploration-efficiency/tasks.md#ex-1-搜索上下文窄读提示与探索约束) | 098 | `done`（2026-11-27） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

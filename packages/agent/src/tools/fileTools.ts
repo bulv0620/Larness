@@ -62,10 +62,31 @@ function searchModelText(result: SearchResult): string {
       return [base];
     }
 
-    return [base, ...match.context.split("\n").map((line) => `  ${line}`)];
-  });
+    const context = match.context.split("\n");
+    const contextStart = match.contextStart;
 
-  return [`${header}${notes.length === 0 ? "" : ` ${notes.join(" ")}`}`, ...lines].join("\n");
+    if (contextStart === undefined) {
+      return [base, ...context.map((line) => `  ${line}`)];
+    }
+
+    return [
+      base,
+      ...context.flatMap((line, index) => {
+        const lineNumber = contextStart + index;
+        return lineNumber === match.line ? [] : [`  ${lineNumber}: ${line}`];
+      }),
+    ];
+  });
+  const hint =
+    result.matches.length === 0
+      ? []
+      : [
+          "Hint: read a narrow window around a match instead of a large page; do not repeat the same search for a case variant.",
+        ];
+
+  return [`${header}${notes.length === 0 ? "" : ` ${notes.join(" ")}`}`, ...lines, ...hint].join(
+    "\n",
+  );
 }
 
 const ListFilesSchema = z
@@ -90,7 +111,7 @@ const SearchCodeSchema = z
     path: PathSchema.optional(),
     limit: z.number().int().min(1).max(500).optional(),
     caseSensitive: z.boolean().optional(),
-    contextLines: z.number().int().min(0).max(5).optional(),
+    contextLines: z.number().int().min(0).max(5).default(1),
     glob: z.string().min(1).max(200).optional(),
     maxFiles: z.number().int().min(1).max(20_000).optional(),
   })
@@ -273,7 +294,7 @@ export function createFileTools() {
     defineTool({
       name: "search_code",
       description:
-        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Narrow the scan with path, glob and maxFiles, and ask for contextLines to see the surrounding code instead of repeated reads.",
+        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Each match includes one line of context by default; set contextLines (0-5) for more, or 0 to disable. When a match identifies the target, read a narrow window around its line instead of a large page, and do not repeat the same search.",
       riskLevel: "L0",
       requiresProjectLock: false,
       prefetchable: true,
