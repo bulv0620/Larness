@@ -20,6 +20,7 @@ import { createProject } from "../../src/modules/projects/service.js";
 import { ResourceEventBus } from "../../src/modules/resources/events.js";
 import { createSession, updateSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
+import { copyExternalRepo, createExternalTask } from "./externalRepo.js";
 import { type BenchmarkTask, seedTask, TASKS, taskById } from "./tasks.js";
 
 const DEFAULT_MODEL = "deepseek-v4.1-flash";
@@ -41,6 +42,12 @@ interface Options {
   outDir: string;
   dump: boolean;
   print: boolean;
+  repo?: string;
+  prompt?: string;
+  verify?: string;
+  setup?: string;
+  id?: string;
+  title?: string;
 }
 
 function parseArgs(argv: string[]): Options {
@@ -48,6 +55,12 @@ function parseArgs(argv: string[]): Options {
   let outDir = "";
   let dump = false;
   let print = false;
+  let repo: string | undefined;
+  let prompt: string | undefined;
+  let verify: string | undefined;
+  let setup: string | undefined;
+  let id: string | undefined;
+  let title: string | undefined;
 
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
@@ -57,6 +70,24 @@ function parseArgs(argv: string[]): Options {
       index += 1;
     } else if (value === "--out") {
       outDir = argv[index + 1] ?? "";
+      index += 1;
+    } else if (value === "--repo") {
+      repo = argv[index + 1] ?? "";
+      index += 1;
+    } else if (value === "--prompt") {
+      prompt = argv[index + 1] ?? "";
+      index += 1;
+    } else if (value === "--verify") {
+      verify = argv[index + 1] ?? "";
+      index += 1;
+    } else if (value === "--setup") {
+      setup = argv[index + 1] ?? "";
+      index += 1;
+    } else if (value === "--id") {
+      id = argv[index + 1] ?? "";
+      index += 1;
+    } else if (value === "--title") {
+      title = argv[index + 1] ?? "";
       index += 1;
     } else if (value === "--dump") {
       dump = true;
@@ -72,6 +103,12 @@ function parseArgs(argv: string[]): Options {
     outDir: path.resolve(outDir || path.join(root, "tmp", "agent-benchmark", stamp)),
     dump,
     print,
+    ...(repo === undefined ? {} : { repo }),
+    ...(prompt === undefined ? {} : { prompt }),
+    ...(verify === undefined ? {} : { verify }),
+    ...(setup === undefined ? {} : { setup }),
+    ...(id === undefined ? {} : { id }),
+    ...(title === undefined ? {} : { title }),
   };
 }
 
@@ -176,6 +213,27 @@ function run(
     cwd,
     encoding: "utf8",
     timeout: 120_000,
+  });
+  return {
+    exitCode: result.status ?? 1,
+    stdout: tail(result.stdout ?? "", 4_000),
+    stderr: tail(result.stderr ?? "", 4_000),
+  };
+}
+
+function runShell(
+  cwd: string,
+  command: string,
+): {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+} {
+  const result = spawnSync(command, {
+    cwd,
+    shell: true,
+    encoding: "utf8",
+    timeout: 600_000,
   });
   return {
     exitCode: result.status ?? 1,
@@ -293,9 +351,27 @@ async function runTask(
   const dataDir = path.join(taskDir, "data");
   await mkdir(projectDir, { recursive: true });
   await mkdir(dataDir, { recursive: true });
-  await seedTask(task, projectDir);
+
+  if (task.repo === undefined) {
+    await seedTask(task, projectDir);
+  } else {
+    await copyExternalRepo(task.repo, projectDir);
+
+    if (options.setup !== undefined && options.setup.trim().length > 0) {
+      const setup = runShell(projectDir, options.setup);
+
+      if (setup.exitCode !== 0) {
+        throw new Error(`setup failed (exit ${setup.exitCode}): ${setup.stderr || setup.stdout}`);
+      }
+    }
+  }
 
   git(projectDir, ["init", "-q"]);
+  await writeFile(
+    path.join(projectDir, ".git", "info", "exclude"),
+    "node_modules/\n.larness/\ntmp/\ndist/\nbuild/\ncoverage/\n",
+    "utf8",
+  );
   git(projectDir, ["add", "-A"]);
   git(projectDir, [
     "-c",
@@ -447,18 +523,39 @@ async function runTask(
   }
 }
 
+function externalTask(options: Options): BenchmarkTask {
+  return createExternalTask({
+    repo: options.repo ?? "",
+    prompt: options.prompt ?? "",
+    verify: options.verify ?? "",
+    ...(options.id === undefined ? {} : { id: options.id }),
+    ...(options.title === undefined ? {} : { title: options.title }),
+  });
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
 
   if (options.print) {
+    let manifest: BenchmarkTask[];
+
+    try {
+      manifest = options.repo === undefined ? TASKS : [externalTask(options)];
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+      return;
+    }
+
     console.log(
       JSON.stringify(
-        TASKS.map((task) => ({
+        manifest.map((task) => ({
           id: task.id,
           title: task.title,
           prompts: task.prompts,
           verify: task.verify,
           files: task.files.map((file) => file.path),
+          ...(task.repo === undefined ? {} : { repo: task.repo }),
         })),
         null,
         2,
@@ -475,6 +572,7 @@ async function main(): Promise<void> {
       [
         "LARNESS_BENCH_API_KEY is required.",
         "Optional: LARNESS_BENCH_MODEL, LARNESS_BENCH_ENDPOINT, LARNESS_BENCH_EFFORT.",
+        'External repo: --repo <path> --prompt <text> --verify "<command>" [--setup "<command>"] [--id name] [--title text].',
         "Use --print to inspect the task manifest without a key.",
         "Use LARNESS_BENCH_FAKE=1 for an offline wiring smoke test (single-file-fix only).",
       ].join("\n"),
@@ -486,10 +584,22 @@ async function main(): Promise<void> {
   const model = process.env.LARNESS_BENCH_MODEL ?? DEFAULT_MODEL;
   const endpoint = process.env.LARNESS_BENCH_ENDPOINT ?? DEFAULT_ENDPOINT;
   const effort = effortFromEnv();
-  const selected =
-    options.taskId === "all"
-      ? TASKS
-      : [taskById(options.taskId)].filter((task): task is BenchmarkTask => task !== undefined);
+  let selected: BenchmarkTask[];
+
+  if (options.repo !== undefined) {
+    try {
+      selected = [externalTask(options)];
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+      return;
+    }
+  } else {
+    selected =
+      options.taskId === "all"
+        ? TASKS
+        : [taskById(options.taskId)].filter((task): task is BenchmarkTask => task !== undefined);
+  }
 
   if (selected.length === 0) {
     console.error(

@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- 无。
+- **102 外部真实仓库 A/B（RRA-2）**：RRA-1 已完成（`--repo`/`--prompt`/`--verify`/`--setup`、fake smoke、`pnpm check`/build）。真实样例 `/private/tmp/larness-real-task` 基线已失败，opencode 已完成（8 步/10 调用/43.1s，verify 0，仅改 `fileTools.ts`）；**待用户 Key 跑 Larness**，命令见 [example](specs/102-real-repo-ab/example.md#2-larness-运行)。
 
 ## 阻塞与待确认
 

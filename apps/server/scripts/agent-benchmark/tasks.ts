@@ -12,6 +12,8 @@ export interface BenchmarkTask {
   prompts: string[];
   files: BenchmarkFile[];
   verify: string[];
+  /** External local repository copied into the task project; files is empty. */
+  repo?: string;
 }
 
 const AGENTS = [

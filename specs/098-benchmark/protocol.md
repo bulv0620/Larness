@@ -104,6 +104,26 @@ git clean -fd
 - `part.state.status == "error"` = tool failure；
 - `part.tokens.input` **不含** cache；总 prompt = `input + tokens.cache.read`，`tokens.output` / `reasoning` 另计。
 
+### 4.2 外部真实仓库（102）
+
+runner 支持不进入 `tasks.ts` 的本地仓库模式：
+
+```bash
+pnpm bench:agent -- \
+  --repo /path/to/prepared/repo \
+  --prompt "..." \
+  --verify "pnpm --filter @larness/agent test test/tools/fileTools.test.ts" \
+  --id real-task \
+  --dump
+```
+
+- 复制仓库到输出目录，排除顶层 `.git`、`.larness`、`tmp`；保留其它文件（包括 `node_modules`）。
+- 可选 `--setup "<command>"` 在副本中、baseline 前执行；失败停止，不运行 Agent。
+- 复制后用 `git init`/commit/tag `baseline`；源仓库只读。
+- `--verify` 是简单 argv 字符串，不支持引号/管道；需要 shell 语法时用 `--setup` 并在 verify 中调用脚本。
+- `--print` 同样支持 `--repo`，不要求 Key。
+- 样例（Larness 099 回归）见 [102 example](../102-real-repo-ab/example.md)。
+
 ## 5. 对比表
 
 | 指标 | Larness | opencode | 备注 |
