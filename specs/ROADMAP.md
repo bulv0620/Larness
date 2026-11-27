@@ -692,13 +692,13 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 |---|---|---|---|
 | EIS-1 | [精确标识符 prompt 与宽扫提示](103-exact-identifier-search/tasks.md#eis-1-精确标识符-prompt-与宽扫提示) | 100、102 | `dropped`（实机回退，代码已撤销） |
 
-### 8.30 发布后：宽搜索目录摘要（104，active）
+### 8.30 发布后：宽搜索目录摘要（104，done）
 
 103 的 prompt 方案实机回退；本切片改为工具结果给出按 `apps/<name>` / `packages/<name>` 的命中分布，让模型自己选择 `path` 收窄。规格见 [104](104-search-directory-summary/spec.md)，方案见 [plan](104-search-directory-summary/plan.md)。
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
-| SDS-1 | [目录统计与 Top dirs 提示](104-search-directory-summary/tasks.md#sds-1-目录统计与-top-dirs-提示) | 100、102 | `in_progress` |
+| SDS-1 | [目录统计与 Top dirs 提示](104-search-directory-summary/tasks.md#sds-1-目录统计与-top-dirs-提示) | 100、102 | `done`（2026-11-27；12/17/248,490/53.5s，verify 0） |
 
 ## 9. 门禁
 

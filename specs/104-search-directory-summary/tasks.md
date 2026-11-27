@@ -41,5 +41,7 @@
 - `fileService.test.ts` + `fileTools.test.ts` 共 34 项通过：三目录限制/统计、Top dirs、小搜索不提示、裸 glob 递归、`src/*.ts` 层级不变。
 - 真实仓库探针：`expectedVersion` + `glob:"*.ts"` 从 103 的 **0 命中/3 文件** 变为 **50 命中（截断）/625 文件**；Top dirs 为 `apps/server (80), packages/agent (23), packages/resources (14), packages/shared (3), apps/web (2)`。`packages/agent` 已出现在摘要中。
 - `pnpm check` 退出码 0（web 322、agent 77+1 跳过、server 1006+14 跳过）；`pnpm build` 通过。
-- A5 真实任务复测：**待用户 Key**。用 102 基线重跑 `larness-edit-arg-repair-104`，与 13 步/23 调用/296,177 input/59.5s 对比。
-- 未运行：真实复测、E2E。
+- A5 真实任务复测（2026-11-27，同模型/max，n=1）：**改善**。Larness 12 步 / 17 调用 / 1 失败 / input 248,490 / 53.5s；102 基线 13/23/296,177/59.5s，103 为 22/29/546,390/94.4s；opencode 8/10/157,152/43.1s。verify 0，diff 仅 `packages/agent/src/tools/fileTools.ts`。
+- 新序列：`search_code(expectedVersion)`（Top dirs 含 packages/agent）→ `list_files(depth=1)` → `list_files(packages/agent)` → `search_code(apply_patch, path=packages/agent/src)` → 读 fileTools/test/package/types → plan → 目标测试（预期失败）→ 2 次 edit → plan → 目标测试 → typecheck → biome → plan。
+- 结果：没有再探索 `apps/server`；搜索调用从 4 次宽搜降到 2 次定向搜索；调用 23→17、tokens 296k→248k、耗时 59.5→53.5s。剩余开销主要是 2 次 list_files、3 次 plan、以及整文件/测试/types/package 读取。
+- 未运行：E2E、重复次数。

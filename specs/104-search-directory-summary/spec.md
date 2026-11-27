@@ -2,7 +2,7 @@
 id: 104-search-directory-summary
 title: 宽搜索目录摘要
 milestone: 发布后
-status: active
+status: done
 depends_on: [100-exploration-efficiency, 102-real-repo-ab]
 owners: []
 created: 2026-11-27
@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 宽搜索目录摘要
 
-> 状态：`active`（2026-11-27；目录统计、裸 glob 递归、测试、`pnpm check`/`build` 通过；真实 099 任务复测待用户 Key）。103 的“精确标识符优先” prompt 实机回退；本切片改为工具结果给出**按目录的命中分布**，让模型自己选 `path`，不再猜搜索词或包路径。
+> 状态：`done`（2026-11-27；目录统计、裸 glob 递归、测试、`pnpm check`/`build` 通过；真实 099 任务从 23 调用/296k 降到 17 调用/248k，verify 0）。103 的“精确标识符优先” prompt 实机回退；本切片改为工具结果给出**按目录的命中分布**，让模型自己选 `path`，不再猜搜索词或包路径。
 
 ## 1. 背景与问题
 
@@ -165,6 +165,6 @@ And glob="src/*.ts" 仍只匹配 src 一层
 ## 14. 完成定义
 
 - [x] A1–A4、A6 通过；
-- [ ] A5 记录（真实复测待用户 Key；102 基线已写入 tasks）；
+- [x] A5 记录（12 步/17 调用/248,490 input/53.5s；verify 0）；
 - [x] `pnpm check`、`pnpm build` 通过；
 - [x] 契约/文档/STATUS/ROADMAP/README 更新。
