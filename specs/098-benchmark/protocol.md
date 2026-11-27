@@ -71,6 +71,38 @@ git status --short
 
 opencode 的 steps/tool calls/tokens 从它的会话 UI 或日志读取；请求内容使用它的日志/session 导出。Larness 的对应请求在 `requests.jsonl`。
 
+### 4.1 opencode CLI（macOS 实机）
+
+macOS 桌面版自带 CLI：`/Applications/OpenCode.app/Contents/Resources/opencode-cli`。非交互运行：
+
+```bash
+OC="/Applications/OpenCode.app/Contents/Resources/opencode-cli"
+FIXTURE="/path/to/<task>/project"
+
+cd "$FIXTURE"
+git reset --hard baseline
+git clean -fd
+
+"$OC" --standalone run --auto --archived --format json \
+  --model "opencode-go/deepseek-v4.1-flash#max" \
+  "The test suite is failing. Find the cause, fix it, and run \`node --test\`." \
+  > out.jsonl
+```
+
+两个必须注意的坑（2026-11-27 实机踩过）：
+
+1. **`--standalone` 必须放在 `run` 之前**。放在后面会被忽略，CLI 会连到桌面 App 的后台 server；该 server 的项目根是 App 当前 workspace（通常是 Larness 仓库），不是 fixture。表现为工具去搜 `/Users/.../Larness`，甚至改到旧 fixture。
+2. **脚本启动时必须设置 `PWD`**。opencode 用环境变量 `PWD` 决定项目目录和工具 cwd；只改子进程真实 cwd 不够。`cd` 会同时设置两者，所以手动跑通常没事。Python/Node 脚本里要显式 `env["PWD"] = fixture`。
+
+多轮任务：从第一轮任一 JSON 事件的 `sessionID` 取会话 ID，第二轮追加 `--session <id>`。每个 `run` 都是独立进程；`--standalone` 会重新启动私有 server，因此原始耗时包含约 3–5 秒启动开销。
+
+解析 JSONL：
+
+- `step_finish` 数 = steps；
+- `tool_use`（按 `part.id` 去重）= tool calls；
+- `part.state.status == "error"` = tool failure；
+- `part.tokens.input` **不含** cache；总 prompt = `input + tokens.cache.read`，`tokens.output` / `reasoning` 另计。
+
 ## 5. 对比表
 
 | 指标 | Larness | opencode | 备注 |
@@ -83,6 +115,26 @@ opencode 的 steps/tool calls/tokens 从它的会话 UI 或日志读取；请求
 | input tokens | | | |
 | output tokens | | | |
 | diff 行数 | | | 过大/过小都值得看 |
+
+### 5.1 2026-11-27 实机 A/B
+
+条件：opencode-go `deepseek-v4.1-flash` + `max`；Larness 标准策略（命令 allowlist 生效）；opencode `--standalone --auto`；同一 fixture 的 `baseline`；每任务 1 次（n=1，仅作方向性结论）。
+
+| 任务 | Larness steps/calls/fail | opencode steps/calls/fail | Larness 墙钟 | opencode 墙钟 | Larness prompt tokens（其中 cache） | opencode prompt tokens（其中 cache） | verify |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| single-file-fix | 5/7/1 | 6/8/0 | 11.2s | 19.8s | 23,260（21,504） | 44,910（39,552） | 0/0 |
+| cross-file-refactor | 5/12/0 | 5/11/0 | 12.2s | 23.4s | 25,378（22,784） | 38,756（32,768） | 0/0 |
+| long-file-edit | 7/8/0 | 5/5/0 | 13.3s | 12.7s | 35,269（32,640） | 35,811（30,976） | 0/0 |
+| multi-turn-fix | 10/14/2 | 10/11/0 | 30.5s | 27.0s | 55,483（49,280） | 83,022（76,032） | 0/0 |
+| search-symbol | 5/6/0 | 5/6/0 | 8.7s | 15.3s | 21,557（20,224） | 35,462（30,592） | 0/0 |
+| **合计** | **32/47/3** | **31/41/0** | **75.8s** | **98.3s** | **160,947（146,432）** | **237,961（209,920）** | **5/5** |
+
+- 完成度：两边都 5/5、verify 全 0；opencode 0 次工具失败，Larness 3 次失败全部是“修改前先跑测试”的预期非零退出，不是工具错误。
+- 步骤基本持平（32 vs 31）；工具调用 Larness 多 15%（47 vs 41），主要来自每个任务先 `list_files`、long-file 重复 `search_code`、以及 multi-turn 第一轮顺手修了第二个失败。
+- 上下文：Larness prompt tokens 少 32%，非缓存输入少 48%（14,515 vs 28,041）；输出 token 多约 20%。
+- 墙钟：原始总耗时 Larness 少 23%；opencode 每次 `run` 含约 3–5 秒独立 server 启动，粗略扣除后两边总耗时接近（约 75s）。
+- `multi-turn-fix` 口径不完全对等：Larness 第一轮把 a、b 都修了，第二轮只复核；opencode 第一轮只修 a，第二轮修 b。这放大了 Larness 第一轮的调用/token，缩小了第二轮。
+- 结论：这批小任务上，Larness 的完成度、步骤和速度与 opencode 同级，未复现“明显更笨/更慢”；剩余差距主要在 long-file 类任务的探索效率（Larness 8 次调用 vs opencode 5 次）和上下文组织，而不是工具失败或权限停等。
 
 ## 6. 请求级对比
 

@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # Agent 基准任务与请求级 A/B
 
-> 状态：`done`（2026-11-27；fixture、fake runner smoke、`pnpm check` 与 `pnpm build` 通过；真实 Provider A/B 与 opencode 侧未运行，需用户 Key）。
+> 状态：`done`（2026-11-27；fixture、fake runner smoke、`pnpm check` 与 `pnpm build` 通过；Larness 与 opencode 实机 A/B 已完成，5/5 verify 全 0，结果与复跑命令见 [protocol](protocol.md#51-2026-11-27-实机-ab)）。
 
 ## 1. 背景与问题
 

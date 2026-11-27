@@ -1,6 +1,6 @@
 # 任务：Agent 基准任务与请求级 A/B
 
-> 状态：`in_progress`。一个任务一个提交。
+> 状态：`done`。一个任务一个提交。
 > 开始前在 `STATUS.md` 的「当前进行中」登记；完成后勾选本表、更新 `ROADMAP.md`，并把该任务移入「最近收口」。
 
 ## 状态总表
@@ -56,3 +56,11 @@
 ### 2026-11-27 benchmark 输出隔离
 
 - benchmark fixture 自带 `test/*.test.js`；`pnpm check` 从 `apps/server/tmp` 递归发现了这些文件。`apps/server/vitest.config.ts` 增加 `exclude: [...configDefaults.exclude, "tmp/**"]`，并同时修正 runner 默认输出到 pnpm 的 `INIT_CWD/tmp`，避免以后把 fixture 混入仓库测试。
+
+### 2026-11-27 实机 A/B（opencode CLI）
+
+- Larness 干净跑：5/5 `COMPLETED`、verify 全 0；steps 32、toolCalls 47、toolFailures 3（均为修改前跑测试的预期非零退出）；prompt tokens 160,947（cache 146,432），output 4,698；总墙钟 75.8s。
+- opencode 干净跑（`--standalone --auto`，同模型/max）：5/5 verify 全 0；steps 31、toolCalls 41、toolFailures 0；prompt tokens 237,961（cache 209,920），output 3,496 + reasoning 435；总墙钟 98.3s（每次 `run` 含约 3–5s 独立 server 启动）。
+- 结论：完成度与步骤同级；Larness 墙钟更短、上下文更省，工具调用略多；long-file 的探索效率是当前最明确的差距。n=1，方向性结论，协议要求 3 次取中位数尚未执行。
+- 实机踩坑与可复跑命令已写入 [protocol](protocol.md#41-opencode-climacos-实机)：`--standalone` 必须在 `run` 之前；脚本启动必须把环境变量 `PWD` 设到 fixture。
+- 未运行：3 次重复、opencode 桌面 App 交互路径、真实大仓库任务。
