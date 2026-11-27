@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -11,6 +11,7 @@ import {
 import type { ServerEvent } from "@larness/shared";
 import { openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
+import { browserSessions } from "../../src/db/schema.js";
 import { createCommandTool, createShellTool } from "../../src/modules/agent/commandTool.js";
 import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import { TurnRunner } from "../../src/modules/agent/turnRunner.js";
@@ -65,9 +66,10 @@ function parseArgs(argv: string[]): Options {
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const root = process.env.INIT_CWD ?? process.cwd();
   return {
     taskId,
-    outDir: path.resolve(outDir || path.join("tmp", "agent-benchmark", stamp)),
+    outDir: path.resolve(outDir || path.join(root, "tmp", "agent-benchmark", stamp)),
     dump,
     print,
   };
@@ -92,6 +94,23 @@ function fakeAdapter(): ProviderAdapter {
         yield {
           type: "tool-call",
           toolCall: {
+            id: "bench_test_before",
+            name: "run_command",
+            args: { executable: "node", args: ["--test"], cwd: "." },
+          },
+        };
+        yield {
+          type: "finish",
+          finishReason: "tool-calls",
+          usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+        };
+        return;
+      }
+
+      if (calls === 2) {
+        yield {
+          type: "tool-call",
+          toolCall: {
             id: "bench_edit",
             name: "edit",
             args: {
@@ -101,12 +120,37 @@ function fakeAdapter(): ProviderAdapter {
             },
           },
         };
-        yield { type: "finish", finishReason: "tool-calls" };
+        yield {
+          type: "finish",
+          finishReason: "tool-calls",
+          usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+        };
+        return;
+      }
+
+      if (calls === 3) {
+        yield {
+          type: "tool-call",
+          toolCall: {
+            id: "bench_test_after",
+            name: "run_command",
+            args: { executable: "node", args: ["--test"], cwd: "." },
+          },
+        };
+        yield {
+          type: "finish",
+          finishReason: "tool-calls",
+          usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+        };
         return;
       }
 
       yield { type: "text-delta", text: "done" };
-      yield { type: "finish", finishReason: "stop" };
+      yield {
+        type: "finish",
+        finishReason: "stop",
+        usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+      };
     },
   };
 }
@@ -204,6 +248,19 @@ async function dumpRequest(
   );
 }
 
+function seedBenchmarkClient(db: ReturnType<typeof openDatabase>["db"], now: number): void {
+  db.insert(browserSessions)
+    .values({
+      id: "benchmark-client",
+      tokenHash: `bench-${randomUUID()}`,
+      kind: "once",
+      createdAt: now,
+      lastSeenAt: now,
+      expiresAt: now + 24 * 60 * 60_000,
+    })
+    .run();
+}
+
 async function runTask(
   task: BenchmarkTask,
   options: Options,
@@ -258,6 +315,7 @@ async function runTask(
 
   try {
     runMigrations(opened.db);
+    seedBenchmarkClient(opened.db, Date.now());
     const project = await createProject(
       { db: opened.db, detectGit: async () => true },
       { rootPath: projectDir },

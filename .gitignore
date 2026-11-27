@@ -43,3 +43,6 @@ blob-report/
 Thumbs.db
 .idea/
 .vscode/
+
+# benchmark scratch (pnpm --filter cwd)
+apps/server/tmp/

@@ -46,3 +46,9 @@
 - 整仓：`pnpm check` 退出码 0（web 55 文件 / 322 项、agent 72 项 + 1 跳过、server 185 文件 / 997 项 + 14 跳过）；`pnpm build` 退出码 0。
 - 未运行：真实 Provider A/B（无 Key）、opencode 侧手动运行。协议见 [protocol](protocol.md)。
 - 偏差：runner 的 `steps/tokens` 来自 `model.usage`；fake adapter 不产生 usage，因此 smoke 中为 0。真实运行会记录。
+
+### 2026-11-27 实机首跑后的 runner 修复
+
+- 用户首跑 5 个任务均 `COMPLETED`、verify=0，但每个任务有 3–5 次工具失败；逐事件检查发现 `run_command`/`run_shell` 全部 `FORBIDDEN`。根因是 runner 的临时 DB 没有登记 active browser client，`CommandManager` 按产品语义失败关闭，不是 Agent 行为。
+- 修复：runner 在迁移后写入一个 benchmark 专用 `browser_sessions` 行（`kind=once`、24h 过期），fake adapter 改为“跑测试→edit→再跑测试”以覆盖命令链路；fake smoke 现在 steps=4、toolCalls=3、failures=1（首次测试预取失败）、verify=0。
+- 该批 live 结果的命令/步骤/失败指标不能用于判断 Agent 工具能力；文件与 verify 结果仍有效。需要用修复后的 runner 重跑 live A/B。
