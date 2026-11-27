@@ -50,6 +50,23 @@ pnpm bench:agent -- --print
 LARNESS_BENCH_FAKE=1 pnpm bench:agent -- --task single-file-fix --out /tmp/larness-bench-smoke
 ```
 
+### 3.1 多轮采集脚本（107）
+
+```bash
+# 只跑 Larness，3 轮
+pnpm bench:rounds -- --rounds 3 --task all
+
+# 同时自动跑 opencode 同一 fixture
+pnpm bench:rounds -- --rounds 3 --task all --opencode
+```
+
+- 输出：`tmp/agent-benchmark/rounds-<timestamp>/`；`round-01/.../larness`、`round-01/.../opencode`、`rounds.json`、`summary.json`、`summary.md`、`summary.csv`。
+- `summary` 按轮次取中位数；`verifyPass` 记录 verify=0 的轮数。
+- `--task` 可限定单个任务；`--rounds` 默认 3、上限 20；`--out` 可指定目录。
+- `--opencode` 需要 opencode CLI（默认 macOS 桌面版路径），可传 `--opencode-bin` / `--opencode-model`。
+- opencode 自动复制 Larness 的 baseline fixture，使用 `--standalone`（在 `run` 前）、设置 `PWD`、多 prompt 用 `--session`；每次 `run` 的启动时间计入 duration。
+- API Key 只从环境继承，不打印/落盘；fake smoke 用 `LARNESS_BENCH_FAKE=1`（仅 `single-file-fix`）。
+
 ## 4. opencode 侧
 
 runner 的结果目录里保留了 baseline。对每个任务：

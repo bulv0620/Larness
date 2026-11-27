@@ -716,6 +716,14 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 |---|---|---|---|
 | STF-1 | [文件计数与 Top files 提示](106-search-top-files/tasks.md#stf-1-文件计数与-top-files-提示) | 104 | `dropped`（实机读取/调用回退；已回退） |
 
+### 8.33 发布后：多轮基准采集脚本（107，done）
+
+单轮 A/B 方差大，手动重复容易漏步骤。本切片新增 `bench:rounds`：按 N 轮跑 Larness，可选自动跑 opencode 同一 fixture，输出逐轮 `rounds.json` 与中位数 `summary.json/md/csv`。规格见 [107](107-benchmark-rounds/spec.md)，方案见 [plan](107-benchmark-rounds/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| BR-1 | [多轮采集脚本与汇总](107-benchmark-rounds/tasks.md#br-1-多轮采集脚本与汇总) | 098 | `done`（2026-11-27；`pnpm bench:rounds`，单测/smoke 通过，真实 3 轮待 Key） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

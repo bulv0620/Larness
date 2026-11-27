@@ -103,6 +103,7 @@
 - [104 宽搜索目录摘要](104-search-directory-summary/spec.md)（done）
 - [105 简单单文件任务不创建计划](105-simple-task-plan/spec.md)（dropped）
 - [106 宽搜索 Top files 摘要](106-search-top-files/spec.md)（dropped）
+- [107 多轮基准采集脚本](107-benchmark-rounds/spec.md)（done）
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 
