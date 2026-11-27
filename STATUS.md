@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- 无。
+- **106 宽搜索 Top files 摘要（STF-1）**：实现/测试、`pnpm check`/`build` 已完成；Top files 每个主要目录优先 `src`/非测试文件。真实探针 Top files 含 `packages/agent/src/tools/fileTools.ts (7)`。**待用户 Key 复测真实 099 任务**，对比 104 的 12 步/17 调用/4 次读/248,490 input/53.5s。规格见 [106](specs/106-search-top-files/spec.md)。
 
 ## 阻塞与待确认
 

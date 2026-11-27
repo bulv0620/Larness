@@ -708,6 +708,14 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 |---|---|---|---|
 | STP-1 | [收窄计划策略与文案](105-simple-task-plan/tasks.md#stp-1-收窄计划策略与文案) | 095、104 | `dropped`（计划降为 0，但 tokens/耗时回退；已回退） |
 
+### 8.32 发布后：宽搜索 Top files 摘要（106，active）
+
+104 已让模型看到 `packages/agent`，但模型仍读整 `fileTools.ts`/整测试。本切片在 Top dirs 后按主要目录给出命中最多的代表文件（≤3），让模型直接读命中文件的小窗口；不改 prompt。规格见 [106](106-search-top-files/spec.md)，方案见 [plan](106-search-top-files/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| STF-1 | [文件计数与 Top files 提示](106-search-top-files/tasks.md#stf-1-文件计数与-top-files-提示) | 104 | `in_progress` |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

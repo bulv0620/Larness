@@ -77,6 +77,7 @@ describe("file tools", () => {
       expect(search.modelText).toContain("b.txt:1: needle");
       expect(search.modelText).not.toContain('"matches"');
       expect(search.modelText).not.toContain("Top dirs:");
+      expect(search.modelText).not.toContain("Top files:");
 
       const created = await registry.execute(
         "write_file",
@@ -351,6 +352,53 @@ describe("file tools", () => {
         { path: "apps/server", matches: 1 },
         { path: "packages/agent", matches: 1 },
       ]);
+    });
+  });
+
+  it("shows representative files in truncated search results", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "apps", "server", "test"), { recursive: true });
+      await mkdir(path.join(dir, "packages", "agent", "src"), { recursive: true });
+      await writeFile(path.join(dir, "apps", "server", "test", "a.ts"), "needle\nneedle\n");
+      await writeFile(path.join(dir, "packages", "agent", "src", "b.ts"), "needle\n");
+
+      const registry = createFileToolRegistry();
+      const search = await registry.execute(
+        "search_code",
+        { query: "needle", limit: 1 },
+        { projectRoot: dir },
+      );
+      const modelText = String(search.modelText);
+      expect(modelText).toContain("Top files:");
+      expect(modelText).toContain("apps/server/test/a.ts (2)");
+      expect(modelText).toContain("packages/agent/src/b.ts (1)");
+      expect(modelText).toContain("read the matching file window");
+      expect((search.data as { files: { path: string; matches: number }[] }).files).toEqual([
+        { path: "apps/server/test/a.ts", matches: 2 },
+        { path: "packages/agent/src/b.ts", matches: 1 },
+      ]);
+    });
+  });
+
+  it("prefers source files when picking representative search hits", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "apps", "server", "test"), { recursive: true });
+      await mkdir(path.join(dir, "apps", "server", "src"), { recursive: true });
+      await mkdir(path.join(dir, "packages", "agent", "src"), { recursive: true });
+      await writeFile(path.join(dir, "apps", "server", "test", "a.ts"), "needle\nneedle\n");
+      await writeFile(path.join(dir, "apps", "server", "src", "c.ts"), "needle\n");
+      await writeFile(path.join(dir, "packages", "agent", "src", "b.ts"), "needle\n");
+
+      const registry = createFileToolRegistry();
+      const search = await registry.execute(
+        "search_code",
+        { query: "needle", limit: 1 },
+        { projectRoot: dir },
+      );
+      const modelText = String(search.modelText);
+      expect(modelText).toContain("apps/server/src/c.ts (1)");
+      expect(modelText).not.toContain("apps/server/test/a.ts (2)");
+      expect(modelText).toContain("packages/agent/src/b.ts (1)");
     });
   });
 

@@ -150,6 +150,11 @@ describe("file service", () => {
         { path: "docs", matches: 1 },
         { path: "packages/agent", matches: 1 },
       ]);
+      expect(result.files).toEqual([
+        { path: "apps/server/test/a.ts", matches: 1 },
+        { path: "docs/guide.md", matches: 1 },
+        { path: "packages/agent/src/b.ts", matches: 1 },
+      ]);
     });
   });
 
