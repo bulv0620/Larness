@@ -54,6 +54,12 @@ it("persists each real plan update before publishing and replays the same turn p
             { type: "finish", finishReason: "stop" },
           ],
         },
+        {
+          chunks: [
+            { type: "text-delta", text: "done" },
+            { type: "finish", finishReason: "stop" },
+          ],
+        },
       ]);
       const published: ServerEvent[] = [];
       const runner = new TurnRunner({

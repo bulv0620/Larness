@@ -81,6 +81,7 @@ import {
   MAX_COMMAND_TAIL_CHARS,
   redactOperationText,
 } from "./turn/operationLog.js";
+import { openPlanSteps } from "./turn/planState.js";
 import {
   classifyPrefixBreak,
   type PrefixBreak,
@@ -420,6 +421,7 @@ export class TurnRunner {
     let missingUsageSteps = 0;
     let steps = 0;
     let toolCalls = 0;
+    let planNudged = false;
     let finalized = false;
     const timing = {
       assembleMs: 0,
@@ -1957,6 +1959,42 @@ export class TurnRunner {
         }
 
         if (toolRequests.length === 0) {
+          if (!planNudged) {
+            const openSteps = openPlanSteps(this.#options.db, session.id, turn.id);
+
+            if (openSteps.length > 0) {
+              planNudged = true;
+
+              if (text.length > 0 || reasoning.length > 0) {
+                messages.push({
+                  role: "assistant",
+                  content: text,
+                  ...(reasoning.length === 0 ? {} : { reasoning }),
+                });
+              }
+
+              messages.push({
+                role: "user",
+                content: `The plan still has open steps: ${openSteps
+                  .map((step) => step.title)
+                  .join(
+                    "; ",
+                  )}. Continue working, or update the plan to mark them done or cancelled if the task is complete. Do not stop with an outdated plan.`,
+              });
+              this.#options.logger?.info(
+                {
+                  turnId,
+                  sessionId: session.id,
+                  step: steps,
+                  openSteps: openSteps.length,
+                },
+                "plan nudge",
+              );
+              markProgress();
+              continue;
+            }
+          }
+
           return await finalize("COMPLETED", {
             eventType: "turn.completed",
             finishReason,

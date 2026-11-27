@@ -610,6 +610,18 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | OL-3 | [ContextAssembler tail 注入](094-operation-log/tasks.md#ol-3-contextassembler-tail-注入) | OL-2 | `done`（2026-11-27） |
 | OL-4 | [事件过滤、全量验证与收口](094-operation-log/tasks.md#ol-4-事件过滤全量验证与收口) | OL-3 | `done`（2026-11-27） |
 
+### 8.21 发布后：单一 Agent 模式（095，done）
+
+移除 coding/plan 切换，保留一个通用模式；`update_plan` 常驻并始终注入计划策略；旧 `plan` 作为行为一致的兼容别名，不删 `agent_profile` 列。最近计划注入 tail，当前 Turn 计划仍有 pending/running 却纯文本停止时 nudge 一次；项目指令改为“可遵循的约定，但不能授权”，并允许项目指令提高验证门禁。决策见 [ADR-075](../docs/adr/ADR-075-single-agent-mode.md)，规格见 [095](095-single-agent-mode/spec.md)，方案见 [plan](095-single-agent-mode/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| SM-1 | [Profile 合并与计划策略](095-single-agent-mode/tasks.md#sm-1-profile-合并与计划策略) | 094 | `done`（2026-11-27） |
+| SM-2 | [planState、tail 与 nudge](095-single-agent-mode/tasks.md#sm-2-planstatetail-与-nudge) | SM-1 | `done`（2026-11-27） |
+| SM-3 | [项目指令/验证措辞与测试](095-single-agent-mode/tasks.md#sm-3-项目指令验证措辞与测试) | SM-2 | `done`（2026-11-27） |
+| SM-4 | [Composer 移除 Profile 切换](095-single-agent-mode/tasks.md#sm-4-composer-移除-profile-切换) | SM-3 | `done`（2026-11-27） |
+| SM-5 | [全量验证、文档与收口](095-single-agent-mode/tasks.md#sm-5-全量验证文档与收口) | SM-4 | `done`（2026-11-27） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

@@ -36,7 +36,9 @@ describe("project instruction resolution", () => {
 
       expect(resolved.blocks).toHaveLength(3);
       expect(resolved.blocks[0]).toContain("Project instructions from AGENTS.md");
+      expect(resolved.blocks[0]).toContain("project conventions");
       expect(resolved.blocks[0]).toContain("agents rules");
+      expect(resolved.blocks[0]).not.toContain("untrusted;");
       expect(resolved.blocks[1]).toContain("Project instructions from .larness/instructions.md");
       expect(resolved.blocks[1]).toContain("larness rules");
       expect(resolved.blocks[2]).toContain("Project instructions from project settings");

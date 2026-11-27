@@ -60,8 +60,11 @@ export const TOOL_PACK_CATALOG: ToolPackCatalog = {
       "memory",
       "web",
       "attachments",
+      "plan",
     ]),
-    plan: profile("plan", "Plan", [
+    // Legacy alias kept so old sessions keep working; it is behaviorally
+    // identical to coding and is no longer selectable in the UI (ADR-075).
+    plan: profile("plan", "Plan (legacy)", [
       "core.read",
       "core.write",
       "core.command",

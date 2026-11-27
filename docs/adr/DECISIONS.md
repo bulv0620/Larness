@@ -210,3 +210,7 @@ accepted，2026-11-20 人类确认 087 决策：默认关闭、会话级地球�
 ## ADR-074 · 文档与图片附件：适配器抽取、能力路由与按需读取（2026-11-23）
 
 accepted，2026-11-23 人类确认 088 方案、气泡外附件布局与 Q-071～Q-076 全部推荐默认：格式矩阵 PDF/DOCX/PPTX/XLSX/HTML/CSV/TXT/MD/PNG/JPEG/WebP；`auto-local` 只使用本机 OCR，云端视觉默认关闭；20 MiB/文件、8 个/轮、200 个/会话、400 页、单文件 8k token、附件总预算 15%；v1 用 JSON Base64 上传；纯 JS 解析依赖，不引入原生 canvas；扫描 PDF 首版不渲染。统一 `AttachmentArtifact` 契约；文档走本地可插拔抽取器，图片按模型能力原图透传或 OCR/视觉降级；大文档只注入目录并用 `read_attachment` / `search_attachment` / `list_attachments` 按需读取；附件正文为不可信数据；新文件落盘，旧截图行兼容；附件区位于消息气泡之外。`doc-extract` 黑盒只作为适配器，不作为唯一实现。见 [ADR-074](ADR-074-document-attachments.md) 与 [088 规格](../../specs/088-document-attachments/spec.md)。
+
+## ADR-075 · 单一 Agent 模式、plan 常驻与项目指令层级（2026-11-27）
+
+accepted，2026-11-27 人类确认移除 coding/plan 切换：保留一个通用模式，`update_plan` 常驻并按“3+ 步”提示使用；旧 `plan` 作为行为一致的兼容别名，不删 `agent_profile` 列、不做破坏性迁移。当前计划注入 tail，模型在当前 Turn 计划仍有 pending/running 步骤却停止时 nudge 一次；上一 Turn 旧计划不触发。项目指令改为“可遵循的项目约定，但不能授权/批准/覆盖安全”，并允许项目指令提高验证门禁（如提交前 `pnpm check`）。`PROMPT_VERSION` 升为 `095-1`。见 [ADR-075](ADR-075-single-agent-mode.md) 与 [095 规格](../../specs/095-single-agent-mode/spec.md)。

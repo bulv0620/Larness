@@ -49,7 +49,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 `run_command` 的 PATH 由执行器加入已核验 PM2 的 bin 目录，PM2_HOME 固定为实例数据目录的 `pm2` 子目录。后端不把整个环境交给模型。显式使用给定 Node/PM2 绝对入口可避免 PATH 歧义。全局安装位置与 PM2 实例目录是两项运行信息。[PM2 多实例说明](https://pm2.keymetrics.io/docs/usage/specifics/)
 
-稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。`coding` 与 `plan` 都注入项目后台任务契约和持久 PM2 契约；`plan` 额外注入计划策略。计划工具与计划提示只属于 `plan` Profile；`coding` 不注册 `update_plan`。Profile 只有 `coding` / `plan`，新会话与存量会话默认 `coding`，原 `service-ops` 会话由迁移 `0034` 归一为 `coding`；Profile 在 Turn 开始时固定。执行层同时拒绝 catalog 内未启用的内置工具（返回 `TOOL_NOT_FOUND`，审计 `disabled_tool`），不只依赖 schema 过滤。Agent 不再拥有终端租约、终端输入或终端观察协议。Git 不再作为模型工具面或 system 段落出现；Agent 需要 Git 时通过 `run_command` 执行 `git`，人类 Git 面板继续使用独立 REST/WS 与 ProjectLease。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5、[ADR-068](../adr/ADR-068-agent-kernel.md)、[ADR-070](../adr/ADR-070-agent-profiles-and-usage.md)）。
+稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。095 起只有一个可见的通用模式，始终注入项目后台任务契约、持久 PM2 契约与计划策略；`update_plan` 常驻，并在任务有 3+ 个不同步骤时提示使用。旧 `agent_profile='plan'` 仅作为行为一致的兼容别名保留，不删列、不迁移；新会话默认 `coding`，原 `service-ops` 会话由迁移 `0034` 归一为 `coding`。最近计划注入当前 user 消息 tail；当前 Turn 计划仍有 pending/running 步骤却纯文本停止时 nudge 一次。执行层同时拒绝 catalog 内未启用的内置工具（返回 `TOOL_NOT_FOUND`，审计 `disabled_tool`），不只依赖 schema 过滤。Agent 不再拥有终端租约、终端输入或终端观察协议。Git 不再作为模型工具面或 system 段落出现；Agent 需要 Git 时通过 `run_command` 执行 `git`，人类 Git 面板继续使用独立 REST/WS 与 ProjectLease。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5、[ADR-068](../adr/ADR-068-agent-kernel.md)、[ADR-070](../adr/ADR-070-agent-profiles-and-usage.md)）。
 
 ## 命令示例
 
@@ -82,7 +82,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 ## 系统固定的服务生命周期契约（083）
 
-此规则按 Profile / Pack 注入：`coding` 与 `plan` 都有 process Pack 和 serviceOps Pack，分别注入项目后台任务契约与持久 PM2 契约；`plan` 额外有 plan Pack。规则不要求用户复制提示词，不以聊天或窗口位置判断服务类型。
+此规则由通用模式的 Pack 注入：process Pack 与 serviceOps Pack 分别注入项目后台任务契约与持久 PM2 契约；plan Pack 常驻并注入计划策略。旧 `plan` 兼容值与通用模式一致。规则不要求用户复制提示词，不以聊天或窗口位置判断服务类型。
 
 | 项目 | project_background_task | persistent_pm2 |
 |---|---|---|
@@ -95,6 +95,6 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 | 停止 | stop_process 停止进程组 | control_service_ops 按 targetId 停止 |
 | 退出管理面 | 临时进程不跨 Larness 重启恢复 | PM2 服务继续运行 |
 
-`coding` / `plan` 都可以检查和运维已存在的 PM2 服务，也可以先用项目工具创建部署 target、构建产物和编辑项目文件；Service Ops 的人类弹窗、REST、锁与审计保持不变。
+通用模式（含旧 `plan` 兼容值）可以检查和运维已存在的 PM2 服务，也可以先用项目工具创建部署 target、构建产物和编辑项目文件；Service Ops 的人类弹窗、REST、锁与审计保持不变。
 
 不再存在手动登记 temporary service、`POST /api/services` 或 `register_temporary_service` / `resolve_service_preview` 工具；旧 `services` 记录只保留历史查询、显式停止/删除与日志读取。项目服务窗口直接使用 `/api/processes?projectId=`，关闭窗口不停止任务。`POST /api/previews/resolve` 在用户点击时按 `processId` + `projectId` 校验项目归属、进程存活与端口监听。PM2 服务即使 `namespace=default`，只要名称符合 `larness:<projectId>:<serviceKey>` 仍按项目关联并标注偏差。后端继续独立校验项目、进程、targetId/pm2Name、租约与日志脱敏。

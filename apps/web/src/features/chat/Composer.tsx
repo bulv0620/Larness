@@ -14,17 +14,7 @@ import {
   Toast,
 } from "@larness/ui";
 import { useIsMutating, useMutation } from "@tanstack/react-query";
-import {
-  ArrowUp,
-  Code2,
-  Globe,
-  ListChecks,
-  Paperclip,
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-  Square,
-} from "lucide-react";
+import { ArrowUp, Globe, Paperclip, Shield, ShieldAlert, ShieldCheck, Square } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
@@ -80,12 +70,6 @@ const policies = [
     icon: ShieldAlert,
     tone: "text-danger",
   },
-] as const;
-
-type AgentProfileId = "coding" | "plan";
-const agentProfiles = [
-  { id: "coding", label: "Coding", detail: "快速完成编程任务", icon: Code2 },
-  { id: "plan", label: "Plan", detail: "按需创建任务计划完成", icon: ListChecks },
 ] as const;
 
 function defaultThinkingFor(model: {
@@ -149,10 +133,6 @@ export function Composer({
     sessionId: string;
     value: ApiSession["approvalPolicyId"];
   }>();
-  const [draftProfile, setDraftProfile] = useState<{
-    sessionId: string;
-    value: AgentProfileId;
-  }>();
   const [switchNotice, setSwitchNotice] = useState<{ sessionId: string; message: string } | null>(
     null,
   );
@@ -177,9 +157,6 @@ export function Composer({
   const policy =
     sessionDetail?.approvalPolicyId ??
     (draftPolicy?.sessionId === sessionId ? draftPolicy.value : standardPolicy.id);
-  const profile =
-    sessionDetail?.agentProfile ??
-    (draftProfile?.sessionId === sessionId ? draftProfile.value : "coding");
   const savingSettings =
     useIsMutating({ mutationKey: saveSessionSettingsKey(sessionId) }, queryClient) > 0;
   const settingsDisabled =
@@ -439,8 +416,6 @@ export function Composer({
   };
   const currentPolicy = policies.find((item) => item.id === policy) ?? standardPolicy;
   const PolicyIcon = currentPolicy.icon;
-  const currentProfile = agentProfiles.find((item) => item.id === profile) ?? agentProfiles[0];
-  const ProfileIcon = currentProfile.icon;
   const modelUsage = useTimelineStore((state) => state.modelUsage);
   const usage = model ? modelUsage[model.id] : undefined;
   const sessionUsage = useSessionUsage(hasSession && !isDraftSession ? sessionId : null);
@@ -532,23 +507,6 @@ export function Composer({
     );
   };
 
-  const selectProfile = async (value: AgentProfileId) => {
-    if (settingsDisabled || value === profile) return;
-    setSaveError(null);
-    if (USE_MOCKS || isDraftSession) {
-      setDraftProfile({ sessionId, value });
-      return;
-    }
-    try {
-      await saveSettings.mutateAsync({ id: sessionId, patch: { agentProfile: value } });
-    } catch (error) {
-      setSaveError({
-        sessionId,
-        message: operationError(error, "Agent Profile 保存失败，请重试。"),
-      });
-    }
-  };
-
   const selectPolicy = async (value: ApiSession["approvalPolicyId"]) => {
     if (settingsDisabled || value === policy) return;
     setSaveError(null);
@@ -604,7 +562,7 @@ export function Composer({
     onSubmit?.();
     const selection = { model: model.id, credentialProfileId, thinking };
     const initialPolicy = isDraftSession ? policy : undefined;
-    const initialProfile = isDraftSession ? profile : undefined;
+    const initialProfile = undefined;
     const initialWebSearch =
       isDraftSession && webSearchEnabled && webSearchConfigured ? true : undefined;
     if (USE_MOCKS) void send(value);
@@ -779,35 +737,6 @@ export function Composer({
               }
             }}
           />
-
-          <DropdownMenu key={`profile-${sessionId}`}>
-            <DropdownMenuTrigger asChild>
-              <IconButton
-                disabled={settingsDisabled}
-                label={`Agent Profile：${currentProfile.label}`}
-                title={`${currentProfile.label} · ${currentProfile.detail}`}
-                className="h-7 w-7"
-              >
-                <ProfileIcon size={15} className="text-accent" aria-hidden="true" />
-              </IconButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[230px]">
-              <DropdownMenuLabel>Agent Profile</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={profile}
-                onValueChange={(value) => void selectProfile(value as AgentProfileId)}
-              >
-                {agentProfiles.map((item) => (
-                  <DropdownMenuRadioItem key={item.id} value={item.id} className="items-start py-2">
-                    <span className="flex flex-col">
-                      <span className="text-[11.5px] font-medium text-ink">{item.label}</span>
-                      <span className="text-[10px] text-ink-3">{item.detail}</span>
-                    </span>
-                  </DropdownMenuRadioItem>
-                ))}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
 
           <DropdownMenu key={`policy-${sessionId}`}>
             <DropdownMenuTrigger asChild>

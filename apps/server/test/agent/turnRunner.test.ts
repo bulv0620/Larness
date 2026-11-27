@@ -19,8 +19,9 @@ import { z } from "zod";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
-import { listSessionEvents } from "../../src/modules/agent/events.js";
+import { appendAgentEvent, listSessionEvents } from "../../src/modules/agent/events.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
+import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import {
   boundedCommandOutput,
   commandModelText,
@@ -2790,6 +2791,106 @@ it("marks a shutdown-aborted turn as interrupted so it can be resumed", async ()
         (event) => event.type === "turn.interrupted",
       );
       expect(terminal?.payload).toMatchObject({ reason: "shutdown" });
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("nudges once when the model stops with open plan steps", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "plan nudge" });
+      const registry = createFileToolRegistry();
+      registry.register(createPlanTool({ db: opened.db }));
+      const provider = createFakeProvider([
+        toolStep({
+          id: "call_plan",
+          name: "update_plan",
+          args: {
+            title: "修复问题",
+            steps: [
+              { id: "inspect", title: "检查", status: "running" },
+              { id: "verify", title: "验证", status: "pending" },
+            ],
+          },
+        }),
+        textStep("I stopped early"),
+        textStep("done"),
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry,
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+      expect(provider.calls).toHaveLength(3);
+      const nudges = provider.calls
+        .flatMap((call) => call.messages)
+        .filter(
+          (message) =>
+            message.role === "user" &&
+            String(message.content).includes("The plan still has open steps"),
+        );
+      expect(nudges).toHaveLength(1);
+      expect(String(nudges[0]?.content)).toContain("检查");
+      expect(String(nudges[0]?.content)).toContain("验证");
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("does not nudge for a plan left open in a previous turn", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const previous = createTurn(sessionOptions, { sessionId: session.id, text: "first" });
+      appendAgentEvent(opened.db, {
+        sessionId: session.id,
+        turnId: previous.turnId,
+        type: "plan.updated",
+        payload: {
+          turnId: previous.turnId,
+          plan: {
+            id: `plan_${previous.turnId}`,
+            kind: "plan",
+            turnId: previous.turnId,
+            createdAt: 1,
+            title: "old plan",
+            steps: [{ id: "old", title: "旧步骤", status: "pending" }],
+          },
+        },
+        now: 1,
+      });
+      opened.sqlite
+        .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+        .run(previous.turnId);
+      const current = createTurn(sessionOptions, { sessionId: session.id, text: "second" });
+      const provider = createFakeProvider([textStep("done")]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry: createFileToolRegistry(),
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(current.turnId)).status).toBe("COMPLETED");
+      expect(provider.calls).toHaveLength(1);
+      expect(
+        provider.calls[0]?.messages.some(
+          (message) =>
+            message.role === "user" &&
+            String(message.content).includes("The plan still has open steps"),
+        ),
+      ).toBe(false);
     } finally {
       opened.close();
     }

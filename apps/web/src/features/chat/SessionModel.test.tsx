@@ -264,31 +264,10 @@ it("keeps the session token row visible in a real session", async () => {
   expect(await screen.findByText("1.2k tokens")).toBeVisible();
 });
 
-it("saves the agent profile without sending and restores it after a reload", async () => {
-  const user = userEvent.setup();
-  const view = renderComposer();
-  await user.click(await screen.findByRole("button", { name: "Agent Profile：Coding" }));
-  await user.click(screen.getByRole("menuitemradio", { name: /Plan/ }));
-  await waitFor(() =>
-    expect(api.updateSession).toHaveBeenCalledWith("ses_a", { agentProfile: "plan" }),
-  );
-  expect(api.createTurn).not.toHaveBeenCalled();
-  view.unmount();
-  queryClient.clear();
-
+it("does not show an Agent Profile switch in the composer", async () => {
   renderComposer();
-  expect(await screen.findByRole("button", { name: "Agent Profile：Plan" })).toBeVisible();
-  act(() => useNavigationStore.getState().selectSession("ses_b", null));
-  expect(await screen.findByRole("button", { name: "Agent Profile：Coding" })).toBeVisible();
-});
-
-it("describes what each agent profile does in the menu", async () => {
-  const user = userEvent.setup();
-  renderComposer();
-  await user.click(await screen.findByRole("button", { name: "Agent Profile：Coding" }));
-  const menu = await screen.findByRole("menu");
-  expect(within(menu).getByText("快速完成编程任务")).toBeVisible();
-  expect(within(menu).getByText("按需创建任务计划完成")).toBeVisible();
+  await screen.findByRole("button", { name: "发送消息" });
+  expect(screen.queryByRole("button", { name: /Agent Profile/ })).toBeNull();
 });
 
 it("uses the session's stored approval policy when sending", async () => {
