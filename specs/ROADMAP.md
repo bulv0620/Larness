@@ -599,6 +599,17 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | TI-3 | [edit 工具、write 覆盖、Profile/契约](093-tool-interface/tasks.md#ti-3-edit-工具write-覆盖profile契约) | TI-2 | `done`（2026-11-27） |
 | TI-4 | [turnRunner 事件、验证与收口](093-tool-interface/tasks.md#ti-4-turnrunner-事件验证与收口) | TI-3 | `done`（2026-11-27） |
 
+### 8.20 发布后：跨 Turn 操作日志（094，done）
+
+091 只回放 L0 只读结果，L1+ 命令/文件操作仍不进入下一轮。本切片用内部 `tool.operation` 记录有界的命令 exit+尾部、文件路径/版本/统计与失败摘要，并通过当前 user 消息 tail 注入下一 Turn；不改变 system/history，不广播内部事件。规格见 [094](094-operation-log/spec.md)，方案见 [plan](094-operation-log/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| OL-1 | [operationLog 模块与单测](094-operation-log/tasks.md#ol-1-operationlog-模块与单测) | 093 | `done`（2026-11-27） |
+| OL-2 | [TurnRunner 写入 `tool.operation`](094-operation-log/tasks.md#ol-2-turnrunner-写入-tooloperation) | OL-1 | `done`（2026-11-27） |
+| OL-3 | [ContextAssembler tail 注入](094-operation-log/tasks.md#ol-3-contextassembler-tail-注入) | OL-2 | `done`（2026-11-27） |
+| OL-4 | [事件过滤、全量验证与收口](094-operation-log/tasks.md#ol-4-事件过滤全量验证与收口) | OL-3 | `done`（2026-11-27） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

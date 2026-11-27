@@ -165,14 +165,14 @@ describe("agent events", () => {
     });
   });
 
-  it("hides internal replay events from the public event list", async () => {
+  it("hides internal replay and operation events from the public event list", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);
 
       try {
         const session = await createSession({ db: opened.db, dataDir: dir }, {});
 
-        for (const type of ["user.message", "tool.replay", "assistant.message"]) {
+        for (const type of ["user.message", "tool.replay", "tool.operation", "assistant.message"]) {
           immediateTransaction(opened.db, (tx) =>
             appendAgentEvent(tx, {
               sessionId: session.id,
@@ -185,9 +185,9 @@ describe("agent events", () => {
 
         const page = listSessionEvents(opened.db, session.id, { after: 0, limit: 2 });
         expect(page.items.map((item) => item.type)).toEqual(["user.message", "assistant.message"]);
-        expect(page.items.map((item) => item.sequence)).toEqual([1, 3]);
+        expect(page.items.map((item) => item.sequence)).toEqual([1, 4]);
         expect(page.hasMore).toBe(false);
-        expect(page.nextSeq).toBe(3);
+        expect(page.nextSeq).toBe(4);
       } finally {
         opened.close();
       }

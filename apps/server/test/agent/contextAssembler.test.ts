@@ -14,6 +14,7 @@ import {
 } from "../../src/modules/agent/contextAssembler.js";
 import { appendAgentEvent } from "../../src/modules/agent/events.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
+import { buildToolOperation } from "../../src/modules/agent/turn/operationLog.js";
 import { createWebTools } from "../../src/modules/agent/webTool.js";
 import { MemoryService } from "../../src/modules/memory/service.js";
 import { createProject, updateProject } from "../../src/modules/projects/service.js";
@@ -903,6 +904,102 @@ describe("context assembler", () => {
         expect(toolContents.some((content) => content.includes('"folded":true'))).toBe(true);
         expect(toolContents.at(-1)).toContain("x".repeat(100));
         expect(lastUserContent(context)).toContain("were pruned");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("injects previous operations into the tail without touching the system prefix", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const previous = createTurn(sessionOptions, { sessionId: session.id, text: "first" });
+
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: previous.turnId,
+          type: "tool.operation",
+          payload: buildToolOperation({
+            toolCallId: "call_cmd",
+            toolName: "run_command",
+            ok: false,
+            summary: "Command FAILED; exit code 1",
+            argsSummary: "pnpm check",
+            errorCode: "NONZERO_EXIT",
+            command: {
+              display: "pnpm check",
+              exitCode: 1,
+              outputTail: "FAIL src/a.test.ts\nTests 1 failed",
+            },
+          }),
+          now: 10,
+        });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: previous.turnId,
+          type: "tool.operation",
+          payload: buildToolOperation({
+            toolCallId: "call_edit",
+            toolName: "edit",
+            ok: true,
+            summary: "edited src/a.ts",
+            argsSummary: "src/a.ts",
+            file: {
+              path: "src/a.ts",
+              version: "a".repeat(64),
+              changeType: "modified",
+              additions: 2,
+              deletions: 1,
+              replacements: 1,
+            },
+          }),
+          now: 11,
+        });
+
+        opened.sqlite
+          .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+          .run(previous.turnId);
+        const current = createTurn(sessionOptions, { sessionId: session.id, text: "second" });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: current.turnId,
+          type: "tool.operation",
+          payload: buildToolOperation({
+            toolCallId: "call_current",
+            toolName: "run_command",
+            ok: true,
+            summary: "current",
+            argsSummary: "current-only",
+          }),
+          now: 12,
+        });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, current.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+          },
+          sessionRow,
+          turn,
+        );
+        const tail = lastUserContent(context);
+
+        expect(tail).toContain("Previous turn operations");
+        expect(tail).toContain("run_command: pnpm check");
+        expect(tail).toContain("Tests 1 failed");
+        expect(tail).toContain("edit: src/a.ts");
+        expect(tail).toContain("version aaaaaaaaaaaa");
+        expect(tail).not.toContain("current-only");
+        expect(context.messages[0]?.content).not.toContain("Previous turn operations");
       } finally {
         opened.close();
       }

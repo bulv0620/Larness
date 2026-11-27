@@ -1540,6 +1540,73 @@ describe("TurnRunner", () => {
     });
   });
 
+  it("records bounded internal operations for edits and failures", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        await writeFile(path.join(session.workspacePath, "a.txt"), "one\ntwo\n");
+        const failTool = defineTool({
+          name: "fail_tool",
+          description: "always fails",
+          riskLevel: "L1",
+          schema: z.object({}).strict(),
+          handler: async () => ({ ok: false, errorCode: "BOOM", summary: "boom" }),
+        });
+        const registry = createFileToolRegistry();
+        registry.register(failTool);
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "operations" });
+        const provider = createFakeProvider([
+          toolStep({
+            id: "call_edit",
+            name: "edit",
+            args: { path: "a.txt", oldString: "two", newString: "TWO" },
+          }),
+          toolStep({ id: "call_fail", name: "fail_tool", args: {} }),
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry,
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const rows = opened.sqlite
+          .prepare(
+            "SELECT payload_json FROM agent_events WHERE session_id = ? AND type = 'tool.operation' ORDER BY seq",
+          )
+          .all(session.id) as Array<{ payload_json: string }>;
+        const operations = rows.map(
+          (row) => JSON.parse(row.payload_json) as Record<string, unknown>,
+        );
+
+        expect(operations).toEqual([
+          expect.objectContaining({
+            toolName: "edit",
+            ok: true,
+            file: expect.objectContaining({ path: "a.txt", changeType: "modified" }),
+          }),
+          expect.objectContaining({
+            toolName: "fail_tool",
+            ok: false,
+            errorCode: "BOOM",
+          }),
+        ]);
+        expect(
+          listSessionEvents(opened.db, session.id).items.some(
+            (event) => event.type === "tool.operation",
+          ),
+        ).toBe(false);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("records a created file for write_file", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

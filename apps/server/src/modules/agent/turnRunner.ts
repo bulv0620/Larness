@@ -77,6 +77,11 @@ import {
 import { carriedSpendTokens } from "./turn/chain.js";
 import { foldOldToolResults, lastCompleteToolBatch } from "./turn/compaction.js";
 import {
+  buildToolOperation,
+  MAX_COMMAND_TAIL_CHARS,
+  redactOperationText,
+} from "./turn/operationLog.js";
+import {
   classifyPrefixBreak,
   type PrefixBreak,
   type PrefixSnapshot,
@@ -2304,6 +2309,108 @@ export class TurnRunner {
               ...(issues === undefined ? {} : { issues }),
               ...(repeatCount > 1 ? { repeatCount } : {}),
             });
+          }
+
+          if (risk !== "L0") {
+            const redact = (text: string) =>
+              redactOperationText(text, loadSecrets(), this.#options.secretStore);
+            const commandData =
+              (request.name === "run_command" || request.name === "run_shell") &&
+              result.result.data !== undefined
+                ? (result.result.data as {
+                    exitCode?: unknown;
+                    output?: unknown;
+                    truncated?: unknown;
+                  })
+                : undefined;
+            const display = commandData === undefined ? undefined : commandDisplay(request.args);
+            const displayText =
+              display === undefined
+                ? undefined
+                : "command" in display
+                  ? `${display.cwd}$ ${display.command}`
+                  : `${display.cwd}$ ${[display.executable, ...display.args].join(" ")}`;
+            const safeDisplay = displayText === undefined ? undefined : redact(displayText);
+            const outputTail =
+              typeof commandData?.output === "string"
+                ? commandData.output.slice(-MAX_COMMAND_TAIL_CHARS)
+                : undefined;
+            const safeTail = outputTail === undefined ? undefined : redact(outputTail);
+            const operationCommand =
+              commandData === undefined
+                ? undefined
+                : {
+                    display: safeDisplay ?? "[redacted]",
+                    exitCode:
+                      typeof commandData.exitCode === "number" ? commandData.exitCode : null,
+                    ...(safeTail === null || safeTail === undefined
+                      ? {}
+                      : { outputTail: safeTail }),
+                    ...(commandData.truncated === true ? { truncated: true } : {}),
+                  };
+            const fileData =
+              result.result.ok &&
+              (request.name === "write_file" ||
+                request.name === "edit" ||
+                request.name === "apply_patch")
+                ? (result.result.data as
+                    | {
+                        path?: unknown;
+                        version?: unknown;
+                        created?: unknown;
+                        additions?: unknown;
+                        deletions?: unknown;
+                        replacements?: unknown;
+                      }
+                    | undefined)
+                : undefined;
+            const operationFile =
+              typeof fileData?.path === "string" &&
+              typeof fileData.version === "string" &&
+              /^[a-f0-9]{64}$/.test(fileData.version)
+                ? {
+                    path: fileData.path,
+                    version: fileData.version,
+                    changeType:
+                      request.name === "write_file" && fileData.created === true
+                        ? ("created" as const)
+                        : ("modified" as const),
+                    ...(typeof fileData.additions === "number"
+                      ? { additions: fileData.additions }
+                      : {}),
+                    ...(typeof fileData.deletions === "number"
+                      ? { deletions: fileData.deletions }
+                      : {}),
+                    ...(typeof fileData.replacements === "number"
+                      ? { replacements: fileData.replacements }
+                      : {}),
+                  }
+                : undefined;
+            const safeSummary = redact(result.result.summary);
+            const safeArgsSummary =
+              operationCommand?.display ??
+              (argsSummary.length === 0 ? undefined : (redact(argsSummary) ?? undefined));
+            const operation = buildToolOperation({
+              toolCallId: request.id,
+              toolName: request.name,
+              ok: result.result.ok,
+              summary: safeSummary ?? "[redacted]",
+              ...(safeArgsSummary === undefined ? {} : { argsSummary: safeArgsSummary }),
+              ...(result.result.errorCode === undefined
+                ? {}
+                : { errorCode: result.result.errorCode }),
+              ...(operationCommand === undefined ? {} : { command: operationCommand }),
+              ...(operationFile === undefined ? {} : { file: operationFile }),
+            });
+
+            try {
+              this.#record(turn, "tool.operation", operation as unknown as Record<string, unknown>);
+            } catch (error) {
+              this.#options.logger?.warn(
+                { err: error, turnId, toolCallId: request.id },
+                "tool operation record failed",
+              );
+            }
           }
 
           batchToolIndexes.push(messages.length);
