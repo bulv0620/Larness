@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 探索效率：search_code 上下文与窄读提示
 
-> 状态：`done`（2026-11-27；工具层、prompt 与整仓检查通过；A6 long-file 两次 live 复测均为 5 步/5 调用，tokens 22,620–23,048（中位数 22,834），verify=0；旧值 7 步/8 调用/35,269 tokens）。基于 098 实机 A/B：long-file 任务 Larness 8 次工具调用，opencode 5 次；Larness 多出 `list_files`、重复 `search_code` 和 60 行大窗口读取。
+> 状态：`done`（2026-11-27；工具层、prompt 与整仓检查通过；A6 long-file 两次 live 复测均为 5 步/5 调用，tokens 22,620–23,048（中位数 22,834），verify=0；旧值 7 步/8 调用/35,269 tokens）。全任务 n=1 复测显示 long-file 改善、single/search 持平、cross/multi 回退（计划/最终校验与延迟离群），待定向复核。基于 098 实机 A/B：long-file 任务 Larness 8 次工具调用，opencode 5 次；Larness 多出 `list_files`、重复 `search_code` 和 60 行大窗口读取。
 
 ## 1. 背景与问题
 
