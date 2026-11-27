@@ -2,7 +2,7 @@
 id: 106-search-top-files
 title: 宽搜索 Top files 摘要
 milestone: 发布后
-status: active
+status: dropped
 depends_on: [104-search-directory-summary]
 owners: []
 created: 2026-11-27
@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 宽搜索 Top files 摘要
 
-> 状态：`active`（2026-11-27；Top files、src 优先、测试、`pnpm check`/`build` 通过；真实 099 任务复测待用户 Key）。104 把真实仓库从 23 调用降到 17，但模型仍读整 `fileTools.ts`/整测试；Top dirs 只告诉它包，没告诉它文件。
+> 状态：`dropped`（2026-11-27；实机 13 步/19 调用/269,324 input/61.6s，较 104 的 12/17/248,490/53.5s 回退；已回退 `files`/Top files 文本）。104 把真实仓库从 23 调用降到 17，但模型仍读整 `fileTools.ts`/整测试；Top dirs 只告诉它包，没告诉它文件。
 
 ## 1. 背景与问题
 
@@ -144,7 +144,7 @@ And verify=0、diff 仅 fileTools.ts
 
 ## 14. 完成定义
 
-- [x] A1–A4 通过；
-- [ ] A5 记录（真实复测待用户 Key；104 基线已写入 tasks）；
-- [x] `pnpm check`、`pnpm build` 通过；
-- [x] 契约/文档/STATUS/ROADMAP/README 更新。
+- [ ] A1–A4 通过（实现后已回退）；
+- [ ] A5 记录（实机 13/19/269,324/61.6s，较 104 回退）；
+- [x] `pnpm check`、`pnpm build` 通过（实现阶段）；
+- [ ] 代码保留（已回退，任务 `dropped`）。

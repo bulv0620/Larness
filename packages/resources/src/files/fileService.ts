@@ -398,11 +398,6 @@ export interface SearchDirectoryCount {
   matches: number;
 }
 
-export interface SearchFileCount {
-  path: string;
-  matches: number;
-}
-
 export interface SearchCodeResult {
   matches: SearchMatch[];
   truncated: boolean;
@@ -411,8 +406,6 @@ export interface SearchCodeResult {
   scanBudgetExhausted: boolean;
   /** Match counts grouped by workspace package/directory. */
   directories: SearchDirectoryCount[];
-  /** Match counts grouped by file. */
-  files: SearchFileCount[];
 }
 
 function searchDirectory(relativePath: string): string {
@@ -434,12 +427,6 @@ function searchDirectory(relativePath: string): string {
 function sortedDirectories(counts: Map<string, number>): SearchDirectoryCount[] {
   return [...counts.entries()]
     .map(([directory, matches]) => ({ path: directory, matches }))
-    .sort((left, right) => right.matches - left.matches || left.path.localeCompare(right.path));
-}
-
-function sortedFiles(counts: Map<string, number>): SearchFileCount[] {
-  return [...counts.entries()]
-    .map(([file, matches]) => ({ path: file, matches }))
     .sort((left, right) => right.matches - left.matches || left.path.localeCompare(right.path));
 }
 
@@ -490,7 +477,6 @@ export async function searchCode(
     options.glob === undefined ? undefined : globToRegExp(options.glob);
   const matches: SearchMatch[] = [];
   const directoryCounts = new Map<string, number>();
-  const fileCounts = new Map<string, number>();
   let scannedFiles = 0;
   let truncated = false;
   let scanBudgetExhausted = false;
@@ -536,7 +522,6 @@ export async function searchCode(
 
       const directory = searchDirectory(relativePath);
       directoryCounts.set(directory, (directoryCounts.get(directory) ?? 0) + 1);
-      fileCounts.set(relativePath, (fileCounts.get(relativePath) ?? 0) + 1);
 
       if (matches.length >= limit) {
         truncated = true;
@@ -572,7 +557,6 @@ export async function searchCode(
       scannedFiles,
       scanBudgetExhausted,
       directories: sortedDirectories(directoryCounts),
-      files: sortedFiles(fileCounts),
     };
   }
 
@@ -612,7 +596,6 @@ export async function searchCode(
     scannedFiles,
     scanBudgetExhausted,
     directories: sortedDirectories(directoryCounts),
-    files: sortedFiles(fileCounts),
   };
 }
 

@@ -77,38 +77,18 @@ function searchModelText(result: SearchResult): string {
       }),
     ];
   });
-  const topDirectories: string[] = [];
-
-  if ((result.truncated || result.scannedFiles > 200) && result.directories.length > 0) {
-    topDirectories.push(
-      `Top dirs: ${result.directories
-        .slice(0, 5)
-        .map((entry) => `${entry.path} (${entry.matches})`)
-        .join(
-          ", ",
-        )}${result.directories.length > 5 ? ` (+${result.directories.length - 5} more)` : ""}`,
-    );
-
-    const topFiles = result.directories
-      .slice(0, 3)
-      .flatMap((directory) => {
-        const candidates = result.files.filter((entry) =>
-          directory.path === "(root)"
-            ? !entry.path.includes("/")
-            : entry.path.startsWith(`${directory.path}/`),
-        );
-        const source = candidates.filter((entry) => entry.path.includes("/src/"));
-        const file = source[0] ?? candidates[0];
-        return file === undefined ? [] : [`${file.path} (${file.matches})`];
-      })
-      .filter((file, index, files) => files.indexOf(file) === index);
-
-    if (topFiles.length > 0) {
-      topDirectories.push(`Top files: ${topFiles.join(", ")}`);
-    }
-
-    topDirectories.push("Use path=<dir> or read the matching file window to narrow the search.");
-  }
+  const topDirectories =
+    (result.truncated || result.scannedFiles > 200) && result.directories.length > 0
+      ? [
+          `Top dirs: ${result.directories
+            .slice(0, 5)
+            .map((entry) => `${entry.path} (${entry.matches})`)
+            .join(
+              ", ",
+            )}${result.directories.length > 5 ? ` (+${result.directories.length - 5} more)` : ""}`,
+          "Use path=<dir> to narrow the search.",
+        ]
+      : [];
   const hint =
     result.matches.length === 0
       ? []
@@ -329,7 +309,7 @@ export function createFileTools() {
     defineTool({
       name: "search_code",
       description:
-        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Each match includes one line of context by default; set contextLines (0-5) for more, or 0 to disable. A glob without `/` such as `*.ts` matches recursively; use `src/*.ts` for one level. When a match identifies the target, read a narrow window around its line instead of a large page, and do not repeat the same search. Truncated results include top directories and representative source files; pass path or read the matched file window to narrow.",
+        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Each match includes one line of context by default; set contextLines (0-5) for more, or 0 to disable. A glob without `/` such as `*.ts` matches recursively; use `src/*.ts` for one level. When a match identifies the target, read a narrow window around its line instead of a large page, and do not repeat the same search. Truncated results include top directories; pass path to narrow.",
       riskLevel: "L0",
       requiresProjectLock: false,
       prefetchable: true,
