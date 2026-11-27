@@ -42,6 +42,17 @@
 - 定向：`packages/agent/test/tools/fileTools.test.ts` 与 `fileService.test.ts` 共 32 项通过；`apps/server/test/agent/contextAssembler.test.ts` 15 项通过。
 - 整仓：`pnpm check` 退出码 0（web 322、agent 75+1 跳过、server 997+14 跳过）；`pnpm build` 退出码 0。
 - 离线 smoke：`LARNESS_BENCH_FAKE=1 pnpm bench:agent -- --task single-file-fix --out /private/tmp/larness-bench-100-smoke` 得到 steps=4、toolCalls=3、toolFailures=1、verify=0；仅验证接线，不覆盖搜索上下文行为。
-- A6 live benchmark：**未运行**。当前会话没有 `LARNESS_BENCH_API_KEY`，不读取用户秘密；需在同模型/max 下运行 `pnpm bench:agent -- --task long-file-edit --dump`，与旧值 steps=7、toolCalls=8、toolFailures=0、prompt tokens=35,269 对比。
-- 偏差：默认上下文采用 1 行（保守值）；若 live 显示 tokens 上升且调用未下降，按 plan 回退默认值，保留窄读提示。
-- 未运行：真实 Provider A/B、3 次重复、E2E。结论只能写“已实现”，不能写“已证明更快”。
+- A6 live 复测（2026-11-27，同模型/max，n=1）：**改善**。
+
+| 指标 | 100 前 | 100 后 |
+|---|---:|---:|
+| steps | 7 | **5** |
+| toolCalls | 8 | **5** |
+| toolFailures | 0 | 0 |
+| prompt tokens | 35,269 | **23,048** |
+| durationMs | 13,267 | **10,008** |
+| verify | 0 | 0 |
+
+- 新序列：`search_code`（3 命中，带 299/301 上下文）→ `read_file` 290–309（20 行）→ `read_file` test → `edit` → `run_command`。旧序列中的 `list_files`、重复 `search_code`、`package.json` 读取和 60 行读取都没有再出现。
+- 说明：单次复测，改善与目标机制一致（少 2 步/3 调用，tokens -35%，耗时 -25%）；仍需 3 次重复确认方差。
+- 未运行：全任务复测、3 次重复、E2E。
