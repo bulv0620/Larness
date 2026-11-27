@@ -76,6 +76,7 @@ describe("file tools", () => {
       expect(search.modelText).toMatch(/^1 matches in \d+ files/);
       expect(search.modelText).toContain("b.txt:1: needle");
       expect(search.modelText).not.toContain('"matches"');
+      expect(search.modelText).not.toContain("Broad scan");
 
       const created = await registry.execute(
         "write_file",
@@ -219,6 +220,7 @@ describe("file tools", () => {
       expect(registry.get("list_files")?.description).toContain("Common build/output directories");
       expect(registry.get("search_code")?.description).toContain("pass `path` explicitly");
       expect(registry.get("search_code")?.description).toContain("one line of context");
+      expect(registry.get("search_code")?.description).toContain("Very large scans");
 
       const listed = await registry.execute(
         "list_files",
@@ -323,6 +325,27 @@ describe("file tools", () => {
       expect(match).toMatchObject({ context: "needle\nnext", contextStart: 1 });
       expect(String(search.modelText)).toContain("  2: next");
       expect(String(search.modelText)).not.toContain("  0:");
+    });
+  });
+
+  it("nudges the model to narrow broad searches", async () => {
+    await withTempDir(async (dir) => {
+      await Promise.all(
+        Array.from({ length: 201 }, (_, index) =>
+          writeFile(path.join(dir, `file-${index}.txt`), "needle\n"),
+        ),
+      );
+
+      const registry = createFileToolRegistry();
+      const search = await registry.execute(
+        "search_code",
+        { query: "needle", limit: 300 },
+        { projectRoot: dir },
+      );
+      const modelText = String(search.modelText);
+      expect(modelText).toContain("Broad scan: 201 files scanned");
+      expect(modelText).toContain("path/glob");
+      expect(modelText).toContain("exact identifier");
     });
   });
 
