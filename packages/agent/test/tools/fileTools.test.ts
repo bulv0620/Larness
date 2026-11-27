@@ -124,6 +124,26 @@ describe("file tools", () => {
       );
       expect(repaired).toMatchObject({ ok: true, data: { replacements: 1 } });
 
+      const withVersion = await registry.execute(
+        "edit",
+        {
+          path: "a.txt",
+          oldString: "two",
+          newString: "TWO",
+          expectedVersion: "0".repeat(64),
+          version: "also-ignored",
+        },
+        { projectRoot: dir },
+      );
+      expect(withVersion).toMatchObject({ ok: true, data: { replacements: 1 } });
+
+      const unknown = await registry.execute(
+        "edit",
+        { path: "a.txt", oldString: "TWO", newString: "two", unknownField: true },
+        { projectRoot: dir },
+      );
+      expect(unknown).toMatchObject({ ok: false, errorCode: "VALIDATION_ERROR" });
+
       await writeFile(path.join(dir, "multi.txt"), "x\nx\n");
       const ambiguous = await registry.execute(
         "edit",

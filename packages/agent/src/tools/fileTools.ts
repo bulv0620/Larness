@@ -175,7 +175,18 @@ function repairEditArgs(raw: unknown): unknown {
     repaired.replaceAll = repaired.replace_all;
   }
 
-  for (const key of ["file_path", "file", "filename", "old_string", "new_string", "replace_all"]) {
+  for (const key of [
+    "file_path",
+    "file",
+    "filename",
+    "old_string",
+    "new_string",
+    "replace_all",
+    // Models sometimes confuse edit with apply_patch/write_file. edit checks
+    // the version internally, so these fields are safe to ignore.
+    "expectedVersion",
+    "version",
+  ]) {
     delete repaired[key];
   }
 

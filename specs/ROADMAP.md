@@ -651,6 +651,14 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | BM-2 | [Larness runner、指标与 request dump](098-benchmark/tasks.md#bm-2-larness-runner指标与-request-dump) | BM-1 | `done`（2026-11-27） |
 | BM-3 | [A/B 协议、验证与收口](098-benchmark/tasks.md#bm-3-ab-协议验证与收口) | BM-2 | `done`（2026-11-27） |
 
+### 8.25 发布后：edit 参数容错（099，done）
+
+live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema 返回 VALIDATION_ERROR。本切片只在 `repairEditArgs` 丢弃 `expectedVersion`/`version`，其他未知字段仍拒绝；`edit` 的版本冲突、路径、CRLF 与 replaceAll 行为不变。规格见 [099](099-edit-arg-repair/spec.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| EA-1 | [删除 expectedVersion/version 并补测试](099-edit-arg-repair/tasks.md#ea-1-删除-expectedversionversion-并补测试) | 098 | `done`（2026-11-27） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo
