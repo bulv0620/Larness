@@ -45,5 +45,20 @@
 - 多轮续接 smoke：`multi-turn-fix` + `--opencode` 生成 prompt-1/2；opencode 两轮 verify=0（10 steps/12 calls），证明 `--session` 续接与解析生效。
 - 错误边界：缺 `LARNESS_BENCH_API_KEY` 退出 1 并提示；`--opencode` 指向不存在 CLI 退出 1 并提示；无 stack trace。
 - `pnpm check` 退出码 0（web 322、agent 77+1 跳过、server 1011+14 跳过）；`pnpm build` 通过。
-- 真实 3 轮：**未运行**，需用户 Key；命令见 [protocol](specs/098-benchmark/protocol.md#31-多轮采集脚本107)。
-- 未运行：真实 3 轮、E2E。
+- 真实 3 轮（2026-11-27，6 任务，两边各 18 次运行）：全部 verify 3/3。
+
+| 指标（6 任务中位数之和） | Larness | opencode |
+|---|---:|---:|
+| steps | 38 | 37 |
+| toolCalls | 55 | 57 |
+| toolFailures | 4（修改前测试） | 0（shell 非零不计 error） |
+| prompt tokens | 202,232 | 416,106 |
+| 非缓存输入 | 20,052 | 56,232 |
+| output tokens | 6,011 | 6,451 |
+| duration | 106.9s | 114.2s |
+
+- 完成度：两边 18/18 轮 verify=0；Larness 的 4 次失败是单文件/checkout/multi-turn 的修改前测试，不是工具错误。
+- 上下文：Larness prompt 为 opencode 的 48.6%，非缓存输入为 35.7%。
+- 速度：总中位数快 6.5%；6 个任务中 4 个更快（single/long/checkout/search），cross +1.6s、multi +4.8s。
+- 结论：这组合成任务上 Larness 已达到“完成度同级、步骤/调用同级、速度略快、上下文约一半”；不再是“明显更笨/更慢”。真实仓库仍是下一步验证对象。
+- 未运行：外部真实仓库多轮（107 只支持 fixture）、E2E。

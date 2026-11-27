@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 多轮基准采集脚本
 
-> 状态：`done`（2026-11-27；脚本、单测、Larness/opencode smoke、多轮 session、错误边界、`pnpm check`/`build` 通过；真实 3 轮待用户 Key）。目标是让“同一任务跑 3 轮、两边取中位数”变成一条命令，而不是手动重复 benchmark/opencode。
+> 状态：`done`（2026-11-27；脚本、单测、Larness/opencode smoke、多轮 session、错误边界、`pnpm check`/`build` 通过；真实 3 轮已完成：Larness 202,232 prompt/106.9s vs opencode 416,106/114.2s，双方 18/18 verify=0）。目标是让“同一任务跑 3 轮、两边取中位数”变成一条命令，而不是手动重复 benchmark/opencode。
 
 ## 1. 背景与问题
 

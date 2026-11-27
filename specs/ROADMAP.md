@@ -722,7 +722,7 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
-| BR-1 | [多轮采集脚本与汇总](107-benchmark-rounds/tasks.md#br-1-多轮采集脚本与汇总) | 098 | `done`（2026-11-27；`pnpm bench:rounds`，单测/smoke 通过，真实 3 轮待 Key） |
+| BR-1 | [多轮采集脚本与汇总](107-benchmark-rounds/tasks.md#br-1-多轮采集脚本与汇总) | 098 | `done`（2026-11-27；真实 3 轮：Larness 202,232 prompt/106.9s vs opencode 416,106/114.2s，18/18 verify=0） |
 
 ## 9. 门禁
 

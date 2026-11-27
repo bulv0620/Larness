@@ -144,6 +144,7 @@ pnpm bench:agent -- \
 - 104 后同任务（n=1）：Larness 12 步/17 调用/1 失败/248,490 input/53.5s，verify 0；首次搜索的 Top dirs 直接指向 `packages/agent`，不再探索 `apps/server`。
 - 105（计划豁免，已回退）：`update_plan` 降为 0、steps 10、toolCalls 15，但 tokens 272,813、60.8s，较 104 回退；原因是没有计划后改用 5 次搜索、分段读文件/整测试。
 - 106（Top files，已回退）：探针能显示 `packages/agent/src/tools/fileTools.ts (7)`，但真实任务 13 步/19 调用/269,324 input/61.6s，较 104 回退；模型仍分段读整文件并多读 registry/types/package.json。
+- 107 三轮中位数（6 任务，双方各 18 次）：全部 verify 3/3；Larness 38 步/55 调用/202,232 prompt/106.9s，opencode 37/57/416,106/114.2s；Larness prompt 为 48.6%、非缓存 35.7%，总耗时快 6.5%。cross/multi 仍略慢。
 
 ## 5. 对比表
 
