@@ -125,6 +125,7 @@ pnpm bench:agent -- \
 - 样例（Larness 099 回归）见 [102 example](../102-real-repo-ab/example.md)。
 - 首个真实样例结果（2026-11-27，n=1）：Larness 13 步/23 调用/2 失败/299,718 tokens/59.5s；opencode 8 步/10 调用/157,152 prompt tokens/43.1s；双方 verify 0、同 diff。差距定位为宽搜索、整文件读取和一次错误 pnpm 命令。
 - 104 后同任务（n=1）：Larness 12 步/17 调用/1 失败/248,490 input/53.5s，verify 0；首次搜索的 Top dirs 直接指向 `packages/agent`，不再探索 `apps/server`。
+- 105（计划豁免，已回退）：`update_plan` 降为 0、steps 10、toolCalls 15，但 tokens 272,813、60.8s，较 104 回退；原因是没有计划后改用 5 次搜索、分段读文件/整测试。
 
 ## 5. 对比表
 

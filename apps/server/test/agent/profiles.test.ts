@@ -117,10 +117,7 @@ describe("agent profile assembly", () => {
         expect(coding.agentProfile).toBe("coding");
         expect(coding.tools.map((tool) => tool.name)).toEqual(codingTools);
         expect(codingSystem).toContain("update_plan");
-        expect(codingSystem).toContain("For tasks with 3 or more distinct work items");
-        expect(codingSystem).toContain(
-          "A single-file fix with one targeted verification command is one work item",
-        );
+        expect(codingSystem).toContain("For tasks with 3 or more distinct steps");
         expect(codingSystem).toContain("Project background task contract");
         expect(codingSystem).toContain("Persistent PM2 service contract");
         expect(codingSystem).toContain("isolated PM2_HOME");
@@ -129,10 +126,7 @@ describe("agent profile assembly", () => {
 
         expect(plan.tools.map((tool) => tool.name)).toEqual(codingTools);
         expect(planSystem).toContain("update_plan");
-        expect(planSystem).toContain("For tasks with 3 or more distinct work items");
-        expect(planSystem).toContain(
-          "A single-file fix with one targeted verification command is one work item",
-        );
+        expect(planSystem).toContain("For tasks with 3 or more distinct steps");
         expect(planSystem).toContain("Project instructions may set a stricter verification gate");
 
         expect([...toolNamesForProfile("coding")]).toHaveLength(23);

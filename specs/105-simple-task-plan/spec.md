@@ -2,7 +2,7 @@
 id: 105-simple-task-plan
 title: 简单单文件任务不创建计划
 milestone: 发布后
-status: active
+status: dropped
 depends_on: [095-single-agent-mode, 104-search-directory-summary]
 owners: []
 created: 2026-11-27
@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 简单单文件任务不创建计划
 
-> 状态：`active`（2026-11-27；计划策略/工具描述与测试、`pnpm check`/`build` 通过；真实 099 任务复测待用户 Key）。104 的真实 099 任务用了 3 次 `update_plan`；同一任务 opencode 不建计划。单文件一行修复 + 一个目标测试不需要计划。
+> 状态：`dropped`（2026-11-27；`update_plan` 降为 0，但 tokens/耗时回退：104 248,490/53.5s → 105 272,813/60.8s；已回退策略与 `PROMPT_VERSION=100-1`）。104 的真实 099 任务用了 3 次 `update_plan`；同一任务 opencode 不建计划。单文件一行修复 + 一个目标测试不需要计划。
 
 ## 1. 背景与问题
 
@@ -147,7 +147,7 @@ Then 通过
 
 ## 14. 完成定义
 
-- [x] A1–A3 通过；
-- [ ] A4 记录（真实复测待用户 Key；104 基线已写入 tasks）；
-- [x] A5 通过；
-- [x] 契约/文档/STATUS/ROADMAP/README 更新。
+- [ ] A1–A3 通过（实现后已回退）；
+- [ ] A4 记录（实机 10 步/15 调用/0 计划/272,813 input/60.8s，tokens 回退）；
+- [x] A5 通过（实现阶段）；
+- [ ] 代码保留（已回退，任务 `dropped`）。

@@ -12,23 +12,6 @@ import { createSession } from "../../src/modules/sessions/service.js";
 import { createTurn } from "../../src/modules/sessions/turns.js";
 import { withTempDir } from "../helpers.js";
 
-it("tells the model not to plan a single-file fix", async () => {
-  await withTempDir(async (dir) => {
-    const opened = openDatabase(path.join(dir, "test.db"));
-    runMigrations(opened.db);
-    try {
-      const tool = createPlanTool({ db: opened.db });
-      expect(tool.description).toContain("3 or more distinct work items");
-      expect(tool.description).toContain(
-        "A single-file fix with one targeted verification command is one work item",
-      );
-      expect(tool.description).toContain("do not create a plan for it");
-    } finally {
-      opened.close();
-    }
-  });
-});
-
 it("persists each real plan update before publishing and replays the same turn plan", async () => {
   await withTempDir(async (dir) => {
     const opened = openDatabase(path.join(dir, "test.db"));
