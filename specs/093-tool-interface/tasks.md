@@ -8,9 +8,9 @@
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
 | TI-1 | 资源层 write/edit 与测试 | 092 | `done` |
-| TI-2 | modelText、预算与 read/search/command | TI-1 | `in_progress` |
-| TI-3 | edit 工具、write 覆盖、Profile/契约 | TI-2 | `todo` |
-| TI-4 | turnRunner 事件、验证与收口 | TI-3 | `todo` |
+| TI-2 | modelText、预算与 read/search/command | TI-1 | `done` |
+| TI-3 | edit 工具、write 覆盖、Profile/契约 | TI-2 | `done` |
+| TI-4 | turnRunner 事件、验证与收口 | TI-3 | `done` |
 
 ## 任务卡
 
@@ -33,7 +33,7 @@
 
 ### TI-2 modelText、预算与 read/search/command
 
-- 状态：`todo`
+- 状态：`done`
 - 依赖：TI-1
 - 目标：`ToolResult.modelText`、`toolMessageContent` 优先纯文本、read 行号/50KB、search/command 文本输出、结果/批预算联动。
 - 交付物：
@@ -47,7 +47,7 @@
 
 ### TI-3 edit 工具、write 覆盖、Profile/契约
 
-- 状态：`todo`
+- 状态：`done`
 - 依赖：TI-2
 - 目标：注册 `edit`、`write_file` 覆盖、`core.write` Pack、工具契约矩阵与描述。
 - 交付物：
@@ -60,7 +60,7 @@
 
 ### TI-4 turnRunner 事件、验证与收口
 
-- 状态：`todo`
+- 状态：`done`
 - 依赖：TI-3
 - 目标：edit/覆盖写入的 `file.changed`、命令输出测试、全量验证、文档与状态。
 - 交付物：
@@ -77,3 +77,11 @@
 
 - `pnpm --filter @larness/agent test test/tools/fileService.test.ts`：23 项通过。
 - 覆盖 `writeTextFile` 新建/覆盖/版本冲突/越界，`editTextFile` 唯一/多处/`replaceAll`/CRLF/未找到/二进制/越界。
+
+### 2026-11-27（macOS arm64）
+
+- 定向：`packages/agent/test/tools/fileService.test.ts` 23 项、`fileTools.test.ts` 6 项；`apps/server/test/agent/turnRunner.test.ts` 59 项、`toolContract.test.ts`、`profiles.test.ts`、`compaction.test.ts`、`toolReplay.test.ts`、`contextAssembler.test.ts`、`toolExecutor.test.ts`、`commands.test.ts` 均通过。
+- 整仓：`pnpm check` 退出码 0；web 55 文件 / 323 项、agent 8 文件 / 72 项（1 跳过）、server 181 文件 / 975 项（14 跳过）；typecheck 6 个包通过。
+- 覆盖：read 行号/50KB/完整 version；`edit` 唯一/多处/`replaceAll`/CRLF/别名；`write_file` 新建/覆盖/`expectedVersion`/冲突；命令 32KB 与 `modelText` 不重复 stdout/stderr；纯文本折叠；`edit` 加入 `core.write`；`file.changed` 覆盖为 `modified`。
+- 未运行：E2E、真实 Provider 会话。`pnpm build` 已通过（root build，exit 0）。本切片是工具/资源层行为，定向与整仓测试覆盖；真实模型行为由后续基准切片验证。
+- 偏差：工具数组/描述变化会让升级后首次请求的 `toolsetHash` 变化，`prefixBreak=tools`；这是预期的一次性成本，未改 `PROMPT_VERSION`。

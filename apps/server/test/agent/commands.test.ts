@@ -319,7 +319,7 @@ it("expires approval at the Turn deadline without starting a command", async () 
   });
 });
 
-it("keeps escaped output summaries within model budget as valid JSON and marks truncation", async () => {
+it("keeps escaped output summaries within model budget and marks truncation", async () => {
   await withTempDir(async (dir) => {
     const f = await fixture(dir, "process.stdout.write(String.fromCharCode(1).repeat(100000))");
     try {
@@ -331,8 +331,10 @@ it("keeps escaped output summaries within model budget as valid JSON and marks t
       );
       await running;
       const message = f.provider.calls.at(-1)?.messages.find((message) => message.role === "tool");
-      expect(message?.content.length).toBeLessThan(20000);
-      expect(JSON.parse(String(message?.content))).toMatchObject({ truncated: true });
+      const content = String(message?.content);
+      expect(content.length).toBeLessThan(80_000);
+      expect(content).toContain("Command COMPLETED; exit code 0");
+      expect(content).toContain("output truncated");
     } finally {
       await stopAuthorizedServer(f.started);
     }
@@ -431,7 +433,7 @@ it("rejects known credential literals including quotes before creating approval 
     }
   });
 });
-it("runs run_shell through the platform shell and returns separated streams", async () => {
+it("runs run_shell through the platform shell and returns combined output", async () => {
   const windows = process.platform === "win32";
   // PowerShell invokes a quoted path through the call operator; POSIX sh
   // accepts the bare quoted command line.
@@ -452,18 +454,12 @@ it("runs run_shell through the platform shell and returns separated streams", as
       );
       await running;
       const message = f.provider.calls.at(-1)?.messages.find((entry) => entry.role === "tool");
-      const payload = JSON.parse(String(message?.content)) as {
-        status?: string;
-        exitCode?: number;
-        stdout?: string;
-        stderr?: string;
-        shell?: string;
-      };
-      expect(payload).toMatchObject({ status: "COMPLETED", exitCode: 0 });
-      if (windows) expect(["pwsh", "powershell"]).toContain(payload.shell);
-      else expect(payload.shell).toBe("sh");
-      expect(payload.stdout).toContain("shell-out");
-      expect(payload.stderr).toContain("shell-err");
+      const content = String(message?.content);
+      expect(content).toContain("Command COMPLETED; exit code 0");
+      if (windows) expect(content).toMatch(/shell (pwsh|powershell)/);
+      else expect(content).toContain("shell sh");
+      expect(content).toContain("shell-out");
+      expect(content).toContain("shell-err");
     } finally {
       await stopAuthorizedServer(f.started);
     }

@@ -94,6 +94,7 @@ import { stableArgsKey, turnInputText } from "./turn/text.js";
 import { buildToolReplay } from "./turn/toolReplay.js";
 import {
   boundedCommandOutput,
+  commandModelText,
   foldBatchToolResults,
   MAX_BATCH_TOOL_RESULT_TOKENS,
   toolFailureIssues,
@@ -658,20 +659,20 @@ export class TurnRunner {
               const output = await this.#options.commands.output(row.id, 0, 500);
               const completeText = output.chunks.map((chunk) => chunk.data).join("");
               // Keep the tail: test summaries and exit diagnostics live there.
-              const bounded = boundedCommandOutput(completeText, 6_000);
+              const bounded = boundedCommandOutput(completeText, 32_000);
               const stdout = boundedCommandOutput(
                 output.chunks
                   .filter((chunk) => chunk.channel === "stdout")
                   .map((chunk) => chunk.data)
                   .join(""),
-                6_000,
+                32_000,
               );
               const stderr = boundedCommandOutput(
                 output.chunks
                   .filter((chunk) => chunk.channel === "stderr")
                   .map((chunk) => chunk.data)
                   .join(""),
-                3_000,
+                16_000,
               );
               let shellName: string | undefined;
               if (parsedRequest.success && parsedRequest.data.mode === "shell") {
@@ -704,6 +705,13 @@ export class TurnRunner {
                   ...(shellName === undefined ? {} : { shell: shellName }),
                   truncated,
                 },
+                modelText: commandModelText({
+                  status: row.status,
+                  exitCode: row.exitCode,
+                  ...(shellName === undefined ? {} : { shell: shellName }),
+                  output: bounded.text,
+                  truncated,
+                }),
               };
             } catch (error) {
               return {
@@ -2173,7 +2181,9 @@ export class TurnRunner {
 
           if (result.result.ok) {
             const fileResult =
-              request.name === "apply_patch" || request.name === "write_file"
+              request.name === "apply_patch" ||
+              request.name === "write_file" ||
+              request.name === "edit"
                 ? (result.result.data as { path?: unknown; version?: unknown } | undefined)
                 : undefined;
             const fileTarget = FileResultTargetSchema.safeParse({
@@ -2251,22 +2261,30 @@ export class TurnRunner {
               });
             }
 
-            if (request.name === "apply_patch" || request.name === "write_file") {
+            if (
+              request.name === "apply_patch" ||
+              request.name === "write_file" ||
+              request.name === "edit"
+            ) {
               const changed = result.result.data as
-                | { path?: unknown; version?: unknown }
+                | { path?: unknown; version?: unknown; created?: unknown }
                 | undefined;
 
               if (typeof changed?.path === "string" && typeof changed.version === "string") {
+                const changeType =
+                  request.name === "write_file" && changed.created === true
+                    ? "created"
+                    : "modified";
                 facts.recordFile(changed.path, changed.version);
                 fileChanges.set(changed.path, {
                   path: changed.path,
-                  changeType: request.name === "write_file" ? "created" : "modified",
+                  changeType,
                   version: changed.version,
                 });
                 this.#emit(turn, session, "file.changed", {
                   turnId: turn.id,
                   path: changed.path,
-                  changeType: request.name === "write_file" ? "created" : "modified",
+                  changeType,
                   version: changed.version,
                 });
               }

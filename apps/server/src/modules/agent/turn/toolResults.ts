@@ -1,8 +1,8 @@
 import type { ModelMessage } from "@larness/agent";
 import { estimateTextTokens } from "../tokenEstimator.js";
 
-const MAX_TOOL_MESSAGE_CHARS = 20_000;
-const MAX_TOOL_MESSAGE_LINES = 1_000;
+export const MAX_TOOL_MESSAGE_CHARS = 80_000;
+export const MAX_TOOL_MESSAGE_LINES = 4_000;
 
 export interface ToolIssue {
   path: string;
@@ -47,6 +47,29 @@ export interface ToolResultLike {
   summary: string;
   data?: unknown;
   errorCode?: string;
+  modelText?: string;
+}
+
+/**
+ * A finite command's model-facing text: one status line plus the combined
+ * output. stdout/stderr stay in `data` for the UI instead of being sent twice.
+ */
+export function commandModelText(input: {
+  status: string;
+  exitCode: number | null;
+  shell?: string;
+  output: string;
+  truncated?: boolean;
+}): string {
+  const header = [
+    `Command ${input.status}; exit code ${input.exitCode ?? "—"}`,
+    input.shell === undefined ? undefined : `shell ${input.shell}`,
+    input.truncated === true ? "output truncated" : undefined,
+  ]
+    .filter((part): part is string => part !== undefined)
+    .join("; ");
+
+  return input.output.length === 0 ? header : `${header}\n${input.output}`;
 }
 
 export function truncateToolMessage(text: string): string {
@@ -95,7 +118,7 @@ export function boundedCommandOutput(
   return { text: `${text.slice(0, headChars)}${marker}${tail}`, truncated: true };
 }
 
-const MAX_TOOL_RESULT_CHARS = 16_000;
+export const MAX_TOOL_RESULT_CHARS = 80_000;
 /** Leave room for the envelope; one large field may use most of the budget. */
 const INITIAL_FIELD_BUDGET = MAX_TOOL_RESULT_CHARS - 2_000;
 const MAX_TOOL_ARRAY_ITEMS = 50;
@@ -158,12 +181,31 @@ function withPage(value: unknown, omittedChars: number): unknown {
  * Tool results must stay parseable: shrink content values first, then
  * serialize. A character cut of already-serialized JSON is never acceptable.
  */
+function boundedModelText(text: string): string {
+  if (text.length <= MAX_TOOL_RESULT_CHARS) {
+    return text;
+  }
+
+  return `${text.slice(0, MAX_TOOL_RESULT_CHARS)}...[truncated]`;
+}
+
 export function toolMessageContent(result: {
   ok: boolean;
   summary: string;
   data?: unknown;
   errorCode?: string;
+  modelText?: string;
 }): string {
+  if (result.modelText !== undefined) {
+    const text = boundedModelText(result.modelText);
+
+    if (result.ok) {
+      return text;
+    }
+
+    return `${result.errorCode ?? "TOOL_ERROR"}: ${result.summary}\n${text}`;
+  }
+
   const data = result.ok ? (result.data ?? { summary: result.summary }) : result.data;
   let budget = INITIAL_FIELD_BUDGET;
 
@@ -195,6 +237,8 @@ export function toolMessageContent(result: {
 
 /** Folded strings stay short enough to read as an identifier, not as content. */
 const FOLD_STRING_CHARS = 160;
+/** Plain-text model results keep their header (path/version/status) when folded. */
+const FOLD_TEXT_CHARS = 400;
 const FOLD_MAX_DEPTH = 3;
 
 function foldValue(value: unknown, depth: number): unknown {
@@ -238,7 +282,7 @@ export function foldToolResultContent(content: string): string {
   try {
     parsed = JSON.parse(content) as unknown;
   } catch {
-    return content.slice(0, FOLD_STRING_CHARS);
+    return JSON.stringify({ text: content.slice(0, FOLD_TEXT_CHARS), folded: true });
   }
 
   const base = isPlainRecord(parsed)
@@ -257,7 +301,7 @@ export function foldToolResultContent(content: string): string {
  * the one the next step is most likely to act on. Folding is reversible: the
  * full results stay in `agent_events`.
  */
-export const MAX_BATCH_TOOL_RESULT_TOKENS = 12_000;
+export const MAX_BATCH_TOOL_RESULT_TOKENS = 24_000;
 
 export function foldBatchToolResults(
   messages: ModelMessage[],

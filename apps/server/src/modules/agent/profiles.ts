@@ -27,7 +27,7 @@ const profile = (
 export const TOOL_PACK_CATALOG: ToolPackCatalog = {
   packs: {
     "core.read": pack("core.read", "核心读取", ["list_files", "read_file", "search_code"]),
-    "core.write": pack("core.write", "核心写入", ["write_file", "apply_patch"]),
+    "core.write": pack("core.write", "核心写入", ["write_file", "edit", "apply_patch"]),
     "core.command": pack("core.command", "核心命令", ["run_command", "run_shell"]),
     plan: pack("plan", "计划", ["update_plan"]),
     process: pack("process", "后台进程", [

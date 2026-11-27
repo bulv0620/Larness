@@ -194,6 +194,11 @@ const FILE_TOOLS: Array<{ name: string; args: unknown; invalid: unknown }> = [
     args: { path: "created/new.txt", content: "hi\n" },
     invalid: { content: "x" },
   },
+  {
+    name: "edit",
+    args: { path: "b.txt", oldString: "beta", newString: "gamma" },
+    invalid: { path: "b.txt", oldString: "", newString: "x" },
+  },
 ];
 
 describe("tool contract matrix", () => {
@@ -312,6 +317,7 @@ describe("tool contract matrix", () => {
       const projectRoot = path.join(dir, "project");
       await mkdir(projectRoot);
       await writeFile(path.join(projectRoot, "a.txt"), "one\nneedle\n");
+      await writeFile(path.join(projectRoot, "b.txt"), "beta\n");
       const realRoot = await realpath(projectRoot);
       const options = { db: opened.db, dataDir: dir, now: () => 1_000 };
 

@@ -31,6 +31,7 @@ function openWorkspace(dir: string): OpenedDatabase {
 const codingTools = [
   "apply_patch",
   "control_service_ops",
+  "edit",
   "list_files",
   "list_processes",
   "list_service_ops",
@@ -127,8 +128,8 @@ describe("agent profile assembly", () => {
         expect(planSystem).toContain("For complex multi-step tasks");
         expect(planSystem).toContain("Match verification to the change");
 
-        expect([...toolNamesForProfile("coding")]).toHaveLength(21);
-        expect([...toolNamesForProfile("plan")]).toHaveLength(22);
+        expect([...toolNamesForProfile("coding")]).toHaveLength(22);
+        expect([...toolNamesForProfile("plan")]).toHaveLength(23);
         expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([...fullPacks]);
         expect(TOOL_PACK_CATALOG.profiles.plan.packs).toEqual([...fullPacks, "plan"]);
         expect(Object.keys(TOOL_PACK_CATALOG.profiles).sort()).toEqual(["coding", "plan"]);

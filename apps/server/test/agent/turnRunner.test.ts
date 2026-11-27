@@ -23,6 +23,8 @@ import { listSessionEvents } from "../../src/modules/agent/events.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
 import {
   boundedCommandOutput,
+  commandModelText,
+  MAX_TOOL_RESULT_CHARS,
   toolFailureIssues,
   toolMessageContent,
 } from "../../src/modules/agent/turn/toolResults.js";
@@ -123,7 +125,7 @@ describe("tool result serialization", () => {
       },
     });
 
-    expect(text.length).toBeLessThanOrEqual(16_000);
+    expect(text.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_CHARS);
 
     const parsed = JSON.parse(text) as {
       path: string;
@@ -146,16 +148,69 @@ describe("tool result serialization", () => {
       data: { path: "big.txt", content: "x".repeat(200_000) },
     });
 
-    expect(text.length).toBeLessThanOrEqual(16_000);
+    expect(text.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_CHARS);
 
     const parsed = JSON.parse(text) as {
       content: string;
       page: { truncated: boolean; omittedChars: number };
     };
 
-    expect(parsed.content.length).toBeGreaterThanOrEqual(12_000);
+    expect(parsed.content.length).toBeGreaterThanOrEqual(60_000);
     expect(parsed.page.truncated).toBe(true);
     expect(parsed.page.omittedChars).toBeGreaterThan(0);
+  });
+
+  it("prefers model text over the JSON envelope", () => {
+    const text = toolMessageContent({
+      ok: true,
+      summary: "read a.txt",
+      data: { path: "a.txt", content: "one\ntwo\n" },
+      modelText: "a.txt\nversion: abc\n1: one\n2: two",
+    });
+
+    expect(text).toBe("a.txt\nversion: abc\n1: one\n2: two");
+  });
+
+  it("prefixes the error code when model text is present", () => {
+    const text = toolMessageContent({
+      ok: false,
+      summary: "command failed",
+      errorCode: "COMMAND_FAILED",
+      modelText: "line 1\nline 2",
+    });
+
+    expect(text).toBe("COMMAND_FAILED: command failed\nline 1\nline 2");
+  });
+
+  it("bounds oversized model text as a last line of defence", () => {
+    const text = toolMessageContent({
+      ok: true,
+      summary: "read big.txt",
+      modelText: "z".repeat(MAX_TOOL_RESULT_CHARS + 1_000),
+    });
+
+    expect(text.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_CHARS + 20);
+    expect(text).toContain("[truncated]");
+  });
+
+  it("formats command status and keeps the output in model text", () => {
+    expect(
+      commandModelText({
+        status: "COMPLETED",
+        exitCode: 0,
+        output: "ok\n",
+      }),
+    ).toBe("Command COMPLETED; exit code 0\nok\n");
+
+    expect(
+      commandModelText({
+        status: "FAILED",
+        exitCode: 1,
+        shell: "zsh",
+        output: "Tests 1 failed\n",
+        truncated: true,
+      }),
+    ).toBe("Command FAILED; exit code 1; shell zsh; output truncated\nTests 1 failed\n");
   });
 
   it("keeps the tail of a long command output", () => {
@@ -343,6 +398,7 @@ describe("TurnRunner", () => {
         // Sorted by name so the tool array stays byte-identical across steps.
         expect(provider.calls[0]?.tools.map((tool) => tool.name)).toEqual([
           "apply_patch",
+          "edit",
           "list_files",
           "read_file",
           "search_code",
@@ -1434,6 +1490,50 @@ describe("TurnRunner", () => {
         expect(
           provider.calls.flatMap((call) => call.messages.filter((message) => wrapUp(message))),
         ).toHaveLength(0);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("records an edited file and a modified overwrite", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        await writeFile(path.join(session.workspacePath, "a.txt"), "one\ntwo\n");
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "edit file" });
+        const provider = createFakeProvider([
+          toolStep({
+            id: "call_edit",
+            name: "edit",
+            args: { path: "a.txt", oldString: "two", newString: "TWO" },
+          }),
+          toolStep({
+            id: "call_write",
+            name: "write_file",
+            args: { path: "a.txt", content: "final\n" },
+          }),
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const changed = listSessionEvents(opened.db, session.id).items.filter(
+          (event) => event.type === "file.changed",
+        );
+        expect(changed.map((event) => event.payload)).toEqual([
+          expect.objectContaining({ path: "a.txt", changeType: "modified" }),
+          expect.objectContaining({ path: "a.txt", changeType: "modified" }),
+        ]);
+        expect(await readFile(path.join(session.workspacePath, "a.txt"), "utf8")).toBe("final\n");
       } finally {
         opened.close();
       }

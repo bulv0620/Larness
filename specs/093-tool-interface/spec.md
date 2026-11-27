@@ -2,7 +2,7 @@
 id: 093-tool-interface
 title: 工具面与结果预算：行号读取、edit、覆盖写入与命令输出
 milestone: 发布后
-status: active
+status: done
 depends_on: [051-agent-tool-contract, 072-agent-error-budget, 073-context-budget, 082-agent-kernel, 091-cross-turn-tool-replay, 092-search-ignore]
 owners: []
 created: 2026-11-27
@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 工具面与结果预算：行号读取、edit、覆盖写入与命令输出
 
-> 状态：`active`（2026-11-27 用户确认按“完整耦合方案”实施）。
+> 状态：`done`（2026-11-27；自动验证与 `pnpm build` 通过，E2E 与真实 Provider 会话未运行）。
 > 本切片只改工具面与结果预算；跨 Turn L1 操作日志、单 Profile/计划、审批 allowlist、流式执行另开切片。
 
 ## 1. 背景与问题
@@ -209,8 +209,8 @@ And 原有审批、项目锁、路径校验与秘密检查不变
 
 ## 14. 完成定义
 
-- [ ] A1–A8 自动化通过；
-- [ ] `pnpm check` 通过；
-- [ ] 工具描述、契约文档、`tasks.md`、`STATUS.md`、`ROADMAP.md` 已更新；
-- [ ] 没有新增 UI 行内提示；
-- [ ] 人类确认默认预算与覆盖语义可接受。
+- [x] A1–A8 自动化通过；
+- [x] `pnpm check` 通过（退出码 0）；
+- [x] 工具描述、契约文档、`tasks.md`、`STATUS.md`、`ROADMAP.md` 已更新；
+- [x] 没有新增 UI 行内提示；
+- [x] 按 2026-11-27 用户确认的“完整耦合方案”实施。

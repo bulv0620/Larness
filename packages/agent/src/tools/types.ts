@@ -54,6 +54,11 @@ export interface ToolResult {
   data?: unknown;
   errorCode?: string;
   truncated?: boolean;
+  /**
+   * Model-facing text. When present, it replaces the JSON envelope for the
+   * provider request while `data` stays available to the UI and later tools.
+   */
+  modelText?: string;
 }
 
 export interface ToolDefinition {

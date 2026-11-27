@@ -6,6 +6,8 @@
 
 Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、测试和有限命令；需要管道、重定向、通配符或平台 shell 语法时使用 `run_shell`。`list_files` / `search_code` 默认跳过 `.git`、`node_modules`、`.larness`、`.pnpm-store`、`dist`、`build`、`coverage`、`test-results`、`tmp`、`.turbo`、`.vite`；显式 `path` 仍可进入被跳过目录。完整 `.gitignore` 语义与 ripgrep 尚未接入。长任务使用 `start_process` / `read_process_output` / `stop_process` / `list_processes`；声明 `port` 后项目服务窗口可手动预览。`coding` 与 `plan` 都使用 `list_service_ops` / `read_service_ops_logs` / `control_service_ops` 管理 Larness 隔离 PM2。交互终端只面向人类。
 
+文件工具的结果分两层：`modelText` 是模型看到的纯文本，JSON `data` 保留给 UI 与后续工具。`read_file` 每页最多 50KB/2000 行，文本带 1-based 行号和完整 sha256 `version`；行号只用于引用，不进入 patch/edit 的上下文。`edit` 用 `oldString`/`newString`/`replaceAll` 做字面量替换（唯一匹配、CRLF 容错，L1 + 项目锁）；`write_file` 可新建或整体覆盖，`expectedVersion` 可选，过期返回 `VERSION_CONFLICT`；`apply_patch` 继续用于 unified diff。`search_code` / `run_command` 也使用 `modelText`；命令输出上限 32KB，模型文本只保留合并输出，不重复 stdout/stderr。
+
 `run_command` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd` 和 `timeoutMs`。env、项目 ID、执行身份、策略和锁由后端决定。现有审批、秘密参数检查、项目锁、fencing、命令幂等、预算、取消和有界脱敏输出继续执行。退出码非零的命令返回工具失败，PM2 命令成功还需要核对实际服务状态。常见别名 `program` / `arguments` / `workdir` / `timeout` 在 schema 校验前归一；未知字段仍拒绝。
 
 `run_shell` 输入为 `command`、根内相对 `cwd` 和 `timeoutMs`。POSIX 使用 `/bin/sh -c`，不带 `-l`；Windows 优先 `pwsh`，其次 Windows PowerShell 5.1，最后 `cmd /d /s /c`。不假设 bash，不自动翻译平台语法；结果返回实际 `shell`、`exitCode`、`stdout`、`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`run_shell` 默认 L2。交互式 TUI 命令被拒绝，返回 `INTERACTIVE_COMMAND`。稳定错误码包括 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`SPAWN_FAILED`、`NONZERO_EXIT`、`TIMED_OUT`。

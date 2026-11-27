@@ -1,18 +1,72 @@
 import {
   applyPatch as applyFilePatch,
-  createTextFile,
+  editTextFile,
   FileError,
   listFiles,
   readTextFile,
   searchCode,
+  writeTextFile,
 } from "@larness/resources";
 import { z } from "zod";
 import { ToolRegistry } from "./registry.js";
 import { defineTool, type ToolResult } from "./types.js";
 
 const PathSchema = z.string().min(1).max(4_096);
-/** Keep a read page below the tool-result budget so it is never re-truncated. */
-const READ_PAGE_CHARS = 12_000;
+/** One page fits the raised tool-result budget without being re-truncated. */
+const READ_PAGE_CHARS = 50_000;
+
+type ReadPage = Awaited<ReturnType<typeof readTextFile>>;
+type SearchResult = Awaited<ReturnType<typeof searchCode>>;
+
+/** 1-based line numbers are for reference; they are not part of the file. */
+function numberedPage(content: string, offset: number): string {
+  const lines = content.split("\n");
+
+  if (lines.at(-1) === "") {
+    lines.pop();
+  }
+
+  if (lines.length === 0) {
+    return "";
+  }
+
+  const width = String(offset + lines.length - 1).length;
+
+  return lines
+    .map((line, index) => `${String(offset + index).padStart(width, " ")}: ${line}`)
+    .join("\n");
+}
+
+function readModelText(result: ReadPage): string {
+  const page = result.truncated
+    ? `\n[lines ${result.offset}–${Math.max(result.offset, result.nextOffset - 1)} of ${result.totalLines}; next offset=${result.nextOffset}]`
+    : "";
+  const body = numberedPage(result.content, result.offset);
+
+  return `${result.path}\nversion: ${result.version}${body.length === 0 ? "" : `\n${body}`}${page}`;
+}
+
+function searchModelText(result: SearchResult): string {
+  const header =
+    result.matches.length === 0
+      ? `No matches in ${result.scannedFiles} files`
+      : `${result.matches.length} matches in ${result.scannedFiles} files`;
+  const notes = [
+    result.scanBudgetExhausted ? "(scan budget reached; results may be incomplete)" : "",
+    result.truncated ? "(truncated)" : "",
+  ].filter((note) => note.length > 0);
+  const lines = result.matches.flatMap((match) => {
+    const base = `${match.path}:${match.line}: ${match.preview}`;
+
+    if (match.context === undefined) {
+      return [base];
+    }
+
+    return [base, ...match.context.split("\n").map((line) => `  ${line}`)];
+  });
+
+  return [`${header}${notes.length === 0 ? "" : ` ${notes.join(" ")}`}`, ...lines].join("\n");
+}
 
 const ListFilesSchema = z
   .object({
@@ -46,6 +100,19 @@ const WriteFileSchema = z
   .object({
     path: PathSchema,
     content: z.string().max(1_048_576),
+    expectedVersion: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/, "expectedVersion must be a sha256 hex")
+      .optional(),
+  })
+  .strict();
+
+const EditFileSchema = z
+  .object({
+    path: PathSchema,
+    oldString: z.string().min(1).max(1_048_576),
+    newString: z.string().max(1_048_576),
+    replaceAll: z.boolean().optional(),
   })
   .strict();
 
@@ -80,6 +147,37 @@ function repairPatchArgs(raw: unknown): unknown {
   }
 
   for (const key of ["file_path", "file", "filename", "diff"]) delete repaired[key];
+
+  return repaired;
+}
+
+function repairEditArgs(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+
+  const repaired: Record<string, unknown> = { ...(raw as Record<string, unknown>) };
+
+  if (typeof repaired.path !== "string") {
+    for (const key of ["file_path", "file", "filename"] as const) {
+      if (typeof repaired[key] === "string") {
+        repaired.path = repaired[key];
+        break;
+      }
+    }
+  }
+
+  if (typeof repaired.oldString !== "string" && typeof repaired.old_string === "string") {
+    repaired.oldString = repaired.old_string;
+  }
+  if (typeof repaired.newString !== "string" && typeof repaired.new_string === "string") {
+    repaired.newString = repaired.new_string;
+  }
+  if (typeof repaired.replaceAll !== "boolean" && typeof repaired.replace_all === "boolean") {
+    repaired.replaceAll = repaired.replace_all;
+  }
+
+  for (const key of ["file_path", "file", "filename", "old_string", "new_string", "replace_all"]) {
+    delete repaired[key];
+  }
 
   return repaired;
 }
@@ -129,7 +227,7 @@ export function createFileTools() {
     defineTool({
       name: "read_file",
       description:
-        "Read a UTF-8 text file inside the project. Returns a contiguous page (long files are paged; continue with `nextOffset`) and a sha256 version for later patches.",
+        "Read a UTF-8 text file inside the project. Each text line is prefixed by its 1-based line number as `<line>: <content>`; the prefix is for reference only and is not part of the file content. Returns a contiguous page of up to 50 KB or 2000 lines, the full sha256 `version` for later patches, and `nextOffset` when more lines remain.",
       riskLevel: "L0",
       schema: ReadFileSchema,
       summarize: (args) => `read ${args.path}`,
@@ -150,6 +248,7 @@ export function createFileTools() {
             summary: `read ${result.path} (${result.totalLines} lines, version ${result.version.slice(0, 12)})${page}`,
             data: result,
             truncated: result.truncated,
+            modelText: readModelText(result),
           };
         } catch (error) {
           return fileFailure(error);
@@ -183,6 +282,7 @@ export function createFileTools() {
             }${result.truncated ? " (truncated)" : ""}`,
             data: result,
             truncated: result.truncated,
+            modelText: searchModelText(result),
           };
         } catch (error) {
           return fileFailure(error);
@@ -192,20 +292,50 @@ export function createFileTools() {
     defineTool({
       name: "write_file",
       description:
-        "Create a NEW text file inside the project; parent directories are created. Fails with VERSION_CONFLICT when the file already exists — read it and use apply_patch instead. Path is project-relative and content is limited to 1 MiB. Put scratch files (probes, scripts) under tmp/ and delete them before the Turn ends: temporary and generated paths are folded into process files, not results.",
+        "Create or completely replace a text file inside the project; parent directories are created. Path is project-relative and content is limited to 1 MiB. For a targeted change to an existing file, prefer edit. If the file exists and you pass `expectedVersion` from read_file, the write fails with VERSION_CONFLICT when it changed; without it, the file is replaced. Put scratch files (probes, scripts) under tmp/ and delete them before the Turn ends: temporary and generated paths are folded into process files, not results.",
       riskLevel: "L1",
       schema: WriteFileSchema,
-      summarize: (args) => `create ${args.path}`,
+      summarize: (args) => `write ${args.path}`,
       async handler(args, context) {
         try {
-          const result = await createTextFile(context.projectRoot, {
+          const result = await writeTextFile(context.projectRoot, {
             path: args.path,
             content: args.content,
+            ...(args.expectedVersion === undefined
+              ? {}
+              : { expectedVersion: args.expectedVersion }),
           });
 
           return {
             ok: true,
-            summary: `created ${result.path} (${result.lines} lines, version ${result.version.slice(0, 12)})`,
+            summary: `${result.created ? "created" : "wrote"} ${result.path} (${result.lines} lines, version ${result.version.slice(0, 12)})`,
+            data: result,
+          };
+        } catch (error) {
+          return fileFailure(error);
+        }
+      },
+    }),
+    defineTool({
+      name: "edit",
+      description:
+        "Replace exact text in an existing text file. `oldString` must match exactly once unless `replaceAll` is true; include more surrounding context to make it unique. The values must differ. Line numbers shown by read_file are for reference only and must not be included in `oldString`. CRLF files accept LF-only input. Returns the new sha256 version; a concurrent change fails with VERSION_CONFLICT.",
+      riskLevel: "L1",
+      schema: EditFileSchema,
+      repairArgs: repairEditArgs,
+      summarize: (args) => `edit ${args.path}`,
+      async handler(args, context) {
+        try {
+          const result = await editTextFile(context.projectRoot, {
+            path: args.path,
+            oldString: args.oldString,
+            newString: args.newString,
+            ...(args.replaceAll === undefined ? {} : { replaceAll: args.replaceAll }),
+          });
+
+          return {
+            ok: true,
+            summary: `edited ${result.path} (${result.replacements} replacement${result.replacements === 1 ? "" : "s"}, version ${result.version.slice(0, 12)})`,
             data: result,
           };
         } catch (error) {
@@ -216,7 +346,7 @@ export function createFileTools() {
     defineTool({
       name: "apply_patch",
       description:
-        "Apply a unified diff to an existing file. Requires the sha256 version returned by read_file. Send real newlines inside the `patch` string (JSON `\\n` escapes are decoded for you) and keep the diff minimal: at least one `@@ -start,count +start,count @@` hunk with exact context lines. `--- a/<path>` / `+++ b/<path>` headers are optional; code fences, prose and CRLF are tolerated. Context must match the current file exactly — a stale version fails with VERSION_CONFLICT.",
+        "Apply a unified diff to an existing file. Prefer edit for a targeted change. Requires the full sha256 version returned by read_file. Send real newlines inside the `patch` string (JSON `\\n` escapes are decoded for you) and keep the diff minimal: at least one `@@ -start,count +start,count @@` hunk with exact context lines. Line numbers shown by read_file are for reference only; do not include them in the patch. `--- a/<path>` / `+++ b/<path>` headers are optional; code fences, prose and CRLF are tolerated. Context must match the current file exactly — a stale version fails with VERSION_CONFLICT.",
       riskLevel: "L1",
       schema: ApplyPatchSchema,
       repairArgs: repairPatchArgs,
