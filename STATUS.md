@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- 无。
+- **105 简单单文件任务不创建计划（STP-1）**：计划策略/工具描述、测试、`pnpm check`/`build` 已完成；`PROMPT_VERSION=105-1`。**待用户 Key 复测真实 099 任务**，对比 104 的 12 步/17 调用/3 次 `update_plan`/248,490 input/53.5s；目标计划调用明显减少且 verify 0。规格见 [105](specs/105-simple-task-plan/spec.md)。
 
 ## 阻塞与待确认
 

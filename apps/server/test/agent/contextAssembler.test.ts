@@ -86,8 +86,12 @@ describe("context assembler", () => {
               `Larness prompt version: ${PROMPT_VERSION}.`,
             );
             expect(context.messages[0]?.content).toContain(
-              "For tasks with 3 or more distinct steps",
+              "For tasks with 3 or more distinct work items",
             );
+            expect(context.messages[0]?.content).toContain(
+              "A single-file fix with one targeted verification command is one work item",
+            );
+            expect(context.messages[0]?.content).toContain("do not create a plan for it");
             expect(context.messages[0]?.content).toContain(
               "Project instructions may set a stricter verification gate",
             );
@@ -736,7 +740,9 @@ describe("context assembler", () => {
         expect(full.truncatedHistory).toBe(false);
 
         // A window that makes this exact request exceed the 0.8 assembly budget.
-        const window = Math.floor(full.estimatedTokens / 0.8) - 1;
+        // Keep some room above the low-water trim so two appended messages do
+        // not immediately cross the budget again as the prompt core grows.
+        const window = Math.ceil(full.estimatedTokens);
         const trimmed = assemble(window);
         expect(trimmed.historyTrimmed).toBe(true);
         expect(trimmed.firstHistorySeq).toBeGreaterThan(full.firstHistorySeq ?? 0);

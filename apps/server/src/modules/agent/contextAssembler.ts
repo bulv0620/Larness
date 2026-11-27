@@ -58,7 +58,7 @@ const MEMORY_POLICY = [
 ].join("\n");
 
 const PLAN_POLICY =
-  "For tasks with 3 or more distinct steps, create a concise plan with update_plan before the first action and keep it current while you work: keep stable step IDs and at most one running step, and after a step finishes call update_plan in the same batch as your next action (mark that step done, set the next one running) instead of updating the plan once at the end. Simple questions need no plan. Never mark a step done before it is actually finished and verified, and never tick a cancelled or failed step as done.";
+  "For tasks with 3 or more distinct work items, or changes spanning multiple files/components with unknown scope, create a concise plan with update_plan before the first action and keep it current while you work: keep stable step IDs and at most one running step, and after a step finishes call update_plan in the same batch as your next action (mark that step done, set the next one running) instead of updating the plan once at the end. A single-file fix with one targeted verification command is one work item; do not create a plan for it. Simple questions need no plan. Never mark a step done before it is actually finished and verified, and never tick a cancelled or failed step as done.";
 
 const PROCESS_LIFECYCLE_POLICY = [
   "Project background task contract (system-defined, applies regardless of user wording):",
@@ -81,7 +81,7 @@ const SERVICE_OPS_LIFECYCLE_POLICY = [
  * Bump when the stable system core changes; it makes prompt-cache invalidation
  * explainable instead of silent.
  */
-export const PROMPT_VERSION = "100-1";
+export const PROMPT_VERSION = "105-1";
 
 /**
  * Marks the per-Turn context block carried by the current user message. The

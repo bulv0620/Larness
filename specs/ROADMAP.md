@@ -700,6 +700,14 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 |---|---|---|---|
 | SDS-1 | [目录统计与 Top dirs 提示](104-search-directory-summary/tasks.md#sds-1-目录统计与-top-dirs-提示) | 100、102 | `done`（2026-11-27；12/17/248,490/53.5s，verify 0） |
 
+### 8.31 发布后：简单单文件任务不创建计划（105，active）
+
+104 的真实 099 任务仍用了 3 次 `update_plan`；单文件一行修复 + 一个目标测试不该建计划。本切片把策略从“3+ steps”收窄为“3+ 工作项/多文件/未知范围”，明确单文件 + 一个验证是一个工作项，`update_plan` 描述同步；复杂任务计划与状态机不变。规格见 [105](105-simple-task-plan/spec.md)，方案见 [plan](105-simple-task-plan/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| STP-1 | [收窄计划策略与文案](105-simple-task-plan/tasks.md#stp-1-收窄计划策略与文案) | 095、104 | `in_progress` |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

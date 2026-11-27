@@ -61,7 +61,7 @@ export function createPlanTool(options: {
   return defineTool({
     name: "update_plan",
     description:
-      "Create or replace this turn's task plan and advance it while you work. Use it for tasks with 3 or more distinct steps. Keep stable step IDs and at most one running step. When a step finishes, call this again in the same batch as your next tool call: mark it done, set the next one running, and re-scope or add steps that appeared — do not defer status changes to the end of the Turn. The status is a report of progress, so never mark a step done before it is verified, and never tick a cancelled or failed step as done. Simple questions need no plan. Metadata only: it authorizes nothing.",
+      "Create or replace this turn's task plan and advance it while you work. Use it for tasks with 3 or more distinct work items, or changes spanning multiple files/components with unknown scope. A single-file fix with one targeted verification command is one work item; do not create a plan for it. Keep stable step IDs and at most one running step. When a step finishes, call this again in the same batch as your next tool call: mark it done, set the next one running, and re-scope or add steps that appeared — do not defer status changes to the end of the Turn. The status is a report of progress, so never mark a step done before it is verified, and never tick a cancelled or failed step as done. Simple questions need no plan. Metadata only: it authorizes nothing.",
     riskLevel: "L0",
     requiresProjectLock: false,
     schema: PlanParamsSchema,
