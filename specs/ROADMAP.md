@@ -641,6 +641,16 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | SR-1 | [流内预取与 L0 元数据](097-streaming-reads/tasks.md#sr-1-流内预取与-l0-元数据) | 096 | `done`（2026-11-27） |
 | SR-2 | [验证、081 修订与收口](097-streaming-reads/tasks.md#sr-2-验证081-修订与收口) | SR-1 | `done`（2026-11-27） |
 
+### 8.24 发布后：Agent 基准任务与请求级 A/B（098，done）
+
+092–097 后缺少可重复任务基线。本切片增加 5 个离线 fixture、Larness runner 指标与可选 request dump，并提供 opencode 手动 A/B 协议；真实模型运行需要用户 Key，不进入 CI。规格见 [098](098-benchmark/spec.md)，方案见 [plan](098-benchmark/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| BM-1 | [5 个任务 fixture 与基线测试](098-benchmark/tasks.md#bm-1-5-个任务-fixture-与基线测试) | 097 | `done`（2026-11-27） |
+| BM-2 | [Larness runner、指标与 request dump](098-benchmark/tasks.md#bm-2-larness-runner指标与-request-dump) | BM-1 | `done`（2026-11-27） |
+| BM-3 | [A/B 协议、验证与收口](098-benchmark/tasks.md#bm-3-ab-协议验证与收口) | BM-2 | `done`（2026-11-27） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

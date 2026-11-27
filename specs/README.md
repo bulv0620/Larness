@@ -94,6 +94,7 @@
 - [095 单一 Agent 模式：plan 常驻与项目指令层级](095-single-agent-mode/spec.md)（done）
 - [096 命令 allowlist 与本轮审批复用](096-command-approvals/spec.md)（done）
 - [097 流式启动 L0 只读工具](097-streaming-reads/spec.md)（done）
+- [098 Agent 基准任务与请求级 A/B](098-benchmark/spec.md)（done）
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 
