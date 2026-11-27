@@ -765,10 +765,7 @@ export async function writeTextFile(
     throw new FileError("TOO_LARGE", `content exceeds ${MAX_WRITE_BYTES} bytes`, { bytes });
   }
 
-  if (
-    options.expectedVersion !== undefined &&
-    !/^[a-f0-9]{64}$/.test(options.expectedVersion)
-  ) {
+  if (options.expectedVersion !== undefined && !/^[a-f0-9]{64}$/.test(options.expectedVersion)) {
     throw new FileError("VALIDATION_ERROR", "expectedVersion must be a sha256 hex");
   }
 

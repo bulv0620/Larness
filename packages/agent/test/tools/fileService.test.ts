@@ -505,9 +505,7 @@ describe("file service", () => {
         replaceAll: true,
       });
       expect(all.replacements).toBe(2);
-      expect((await readTextFile(dir, { path: "multi.txt" })).content).toBe(
-        "alpha pin beta pin\n",
-      );
+      expect((await readTextFile(dir, { path: "multi.txt" })).content).toBe("alpha pin beta pin\n");
 
       await writeFile(path.join(dir, "crlf.txt"), "one\r\ntwo\r\n");
       const crlf = await editTextFile(dir, {
