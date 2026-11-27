@@ -138,7 +138,7 @@ git clean -fd
 - 结论：这批小任务上，Larness 的完成度、步骤和速度与 opencode 同级，未复现“明显更笨/更慢”；剩余差距主要在 long-file 类任务的探索效率（Larness 8 次调用 vs opencode 5 次）和上下文组织，而不是工具失败或权限停等。
 - 100 切片后（2026-11-27）long-file 两次复测均为 5 步/5 调用，tokens 22,620–23,048，耗时 10.0–10.1s，verify=0；旧值 7 步/8 调用/35,269 tokens/13.3s。
 - 100 后全任务 n=1：long-file 5/4，single/search 基本持平，cross/multi 单次回退；定向复测 cross 回到 5/11、multi 回到 10/14/2，确认回退是计划选择与延迟离群导致的方差。见 [100 tasks](../100-exploration-efficiency/tasks.md#2026-11-27-全任务复测与定向复核)。
-- 101 新增第 6 个任务 `checkout-discount`（31 文件，两文件修复）；live A/B 尚未运行。
+- 101 新增第 6 个任务 `checkout-discount`（31 文件，两文件修复）；live A/B（n=1）：Larness 6 步/12 调用/38,698 tokens/18.8s，opencode 8 步/12 调用/75,253 prompt tokens/18.7s，双方 verify 0、同 diff。
 
 ## 6. 请求级对比
 

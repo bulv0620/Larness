@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 更大仓库基准任务：跨模块折扣修复
 
-> 状态：`done`（2026-11-27；fixture、基线与可解性测试、`pnpm check`、`pnpm build` 通过；live A/B 未运行，需用户 Key）。现有 5 个 fixture 都是 4–8 个文件的小任务；100 已把 long-file 拉到 opencode 同级，下一步需要一个更接近真实项目的跨模块任务来暴露剩余差距。
+> 状态：`done`（2026-11-27；fixture、基线与可解性测试、`pnpm check`、`pnpm build` 通过；live A/B：Larness 6 步/12 调用/38,698 tokens/18.8s，opencode 8 步/12 调用/75,253 prompt tokens/18.7s，双方 verify 0、同 diff，n=1）。现有 5 个 fixture 都是 4–8 个文件的小任务；100 已把 long-file 拉到 opencode 同级，下一步需要一个更接近真实项目的跨模块任务来暴露剩余差距。
 
 ## 1. 背景与问题
 
@@ -146,4 +146,4 @@ And 现有工具/服务测试不受影响
 - [x] A1–A5 通过；
 - [x] `pnpm check`、`pnpm build` 通过；
 - [x] 098 协议与 STATUS/ROADMAP/README 更新；
-- [x] live A/B 已记录未运行原因（当前会话无 Key；命令已写入 tasks）。
+- [x] live A/B 已记录（Larness/opencode 同级，n=1；重复未跑）。

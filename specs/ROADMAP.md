@@ -673,7 +673,7 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
-| DRB-1 | [checkout-discount fixture 与测试](101-deep-repo-benchmark/tasks.md#drb-1-checkout-discount-fixture-与测试) | 098、100 | `done`（2026-11-27；live A/B 待用户 Key） |
+| DRB-1 | [checkout-discount fixture 与测试](101-deep-repo-benchmark/tasks.md#drb-1-checkout-discount-fixture-与测试) | 098、100 | `done`（2026-11-27；Larness 6/12/38,698 与 opencode 8/12/75,253 同级，同 diff） |
 
 ## 9. 门禁
 
