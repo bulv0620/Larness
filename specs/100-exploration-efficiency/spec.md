@@ -11,7 +11,7 @@ updated: 2026-11-27
 
 # 探索效率：search_code 上下文与窄读提示
 
-> 状态：`done`（2026-11-27；工具层、prompt 与整仓检查通过；A6 long-file 两次 live 复测均为 5 步/5 调用，tokens 22,620–23,048（中位数 22,834），verify=0；旧值 7 步/8 调用/35,269 tokens）。全任务 n=1 复测显示 long-file 改善、single/search 持平、cross/multi 回退（计划/最终校验与延迟离群），待定向复核。基于 098 实机 A/B：long-file 任务 Larness 8 次工具调用，opencode 5 次；Larness 多出 `list_files`、重复 `search_code` 和 60 行大窗口读取。
+> 状态：`done`（2026-11-27；工具层、prompt 与整仓检查通过；A6 long-file 两次 live 复测均为 5 步/5 调用，tokens 22,620–23,048（中位数 22,834），verify=0；旧值 7 步/8 调用/35,269 tokens）。全任务 n=1 的 cross/multi 回退经定向复测确认是方差（cross 回到 5/11，multi 回到 10/14/2），不是稳定回归。基于 098 实机 A/B：long-file 任务 Larness 8 次工具调用，opencode 5 次；Larness 多出 `list_files`、重复 `search_code` 和 60 行大窗口读取。
 
 ## 1. 背景与问题
 
@@ -170,5 +170,5 @@ And 与旧值 7/8/0/35,269 对比；若未改善，记录原因并决定回退�
 - [x] 验收场景 A1–A5 通过；
 - [x] `pnpm check`、`pnpm build` 通过；
 - [x] 契约 / 文档 / STATUS 已更新；
-- [x] A6 已记录（2026-11-27 long-file 两次 live 复测均 5 步/5 调用，tokens 22,620–23,048，verify=0；全任务与第 3 次未跑）；
+- [x] A6 已记录（long-file 两次 5 步/5 调用；全任务 cross/multi 回退经定向复测为方差；第 3 次 long-file 未跑）；
 - [x] 没有新增行内提示条或 UI 变更。

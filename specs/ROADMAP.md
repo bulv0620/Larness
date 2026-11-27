@@ -665,7 +665,7 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
-| EX-1 | [搜索上下文、窄读提示与探索约束](100-exploration-efficiency/tasks.md#ex-1-搜索上下文窄读提示与探索约束) | 098 | `done`（2026-11-27；long-file 5/4；全任务 cross/multi 待复核） |
+| EX-1 | [搜索上下文、窄读提示与探索约束](100-exploration-efficiency/tasks.md#ex-1-搜索上下文窄读提示与探索约束) | 098 | `done`（2026-11-27；long-file 5/4；cross 5/11、multi 10/14/2 复测为方差） |
 
 ## 9. 门禁
 
