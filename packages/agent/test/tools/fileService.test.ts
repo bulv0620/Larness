@@ -156,6 +156,77 @@ describe("file service", () => {
     });
   });
 
+  it("skips common build and package-store directories by default", async () => {
+    await withTempDir(async (dir) => {
+      const ignored = [
+        ".pnpm-store",
+        "dist",
+        "build",
+        "coverage",
+        "test-results",
+        "tmp",
+        ".turbo",
+        ".vite",
+      ];
+
+      for (const name of ignored) {
+        await mkdir(path.join(dir, name, "nested"), { recursive: true });
+        await writeFile(path.join(dir, name, "nested", "target.ts"), "target\n");
+      }
+
+      await mkdir(path.join(dir, "src"), { recursive: true });
+      await writeFile(path.join(dir, "src", "target.ts"), "target\n");
+
+      const searched = await searchCode(dir, { query: "target" });
+      expect(searched.matches.map((match) => match.path)).toEqual(["src/target.ts"]);
+      expect(searched.scanBudgetExhausted).toBe(false);
+
+      const listed = await listFiles(dir, { depth: 3 });
+      const paths = listed.files.map((entry) => entry.path);
+
+      for (const name of ignored) {
+        expect(paths.some((entry) => entry === name || entry.startsWith(`${name}/`))).toBe(false);
+      }
+      expect(paths).toEqual(expect.arrayContaining(["src", "src/target.ts"]));
+    });
+  });
+
+  it("does not spend the scan budget on ignored directories", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, ".pnpm-store"), { recursive: true });
+      await writeFile(path.join(dir, ".pnpm-store", "a.ts"), "target\n");
+      await writeFile(path.join(dir, ".pnpm-store", "b.ts"), "target\n");
+      await mkdir(path.join(dir, "src"), { recursive: true });
+      await writeFile(path.join(dir, "src", "target.ts"), "target\n");
+
+      const result = await searchCode(dir, { query: "target", maxFiles: 2 });
+      expect(result.matches.map((match) => match.path)).toEqual(["src/target.ts"]);
+      expect(result.scanBudgetExhausted).toBe(false);
+    });
+  });
+
+  it("still searches an explicitly selected ignored directory", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "dist"), { recursive: true });
+      await writeFile(path.join(dir, "dist", "bundle.ts"), "target\n");
+
+      const result = await searchCode(dir, { query: "target", path: "dist" });
+      expect(result.matches.map((match) => match.path)).toEqual(["dist/bundle.ts"]);
+    });
+  });
+
+  it("does not ignore a source file whose name contains an ignored directory name", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "generated"), { recursive: true });
+      await mkdir(path.join(dir, "src"), { recursive: true });
+      await writeFile(path.join(dir, "generated", "out.ts"), "target\n");
+      await writeFile(path.join(dir, "src", "build.ts"), "target\n");
+
+      const result = await searchCode(dir, { query: "target", ignore: ["generated"] });
+      expect(result.matches.map((match) => match.path)).toEqual(["src/build.ts"]);
+    });
+  });
+
   it("repairs common model patch shapes before applying", async () => {
     await withTempDir(async (dir) => {
       const original = "const re = /\\d+/;\nvalue = 1;\n";

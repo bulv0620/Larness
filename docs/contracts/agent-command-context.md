@@ -4,7 +4,7 @@
 
 ## 工具
 
-Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、测试和有限命令；需要管道、重定向、通配符或平台 shell 语法时使用 `run_shell`。长任务使用 `start_process` / `read_process_output` / `stop_process` / `list_processes`；声明 `port` 后项目服务窗口可手动预览。`coding` 与 `plan` 都使用 `list_service_ops` / `read_service_ops_logs` / `control_service_ops` 管理 Larness 隔离 PM2。交互终端只面向人类。
+Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、测试和有限命令；需要管道、重定向、通配符或平台 shell 语法时使用 `run_shell`。`list_files` / `search_code` 默认跳过 `.git`、`node_modules`、`.larness`、`.pnpm-store`、`dist`、`build`、`coverage`、`test-results`、`tmp`、`.turbo`、`.vite`；显式 `path` 仍可进入被跳过目录。完整 `.gitignore` 语义与 ripgrep 尚未接入。长任务使用 `start_process` / `read_process_output` / `stop_process` / `list_processes`；声明 `port` 后项目服务窗口可手动预览。`coding` 与 `plan` 都使用 `list_service_ops` / `read_service_ops_logs` / `control_service_ops` 管理 Larness 隔离 PM2。交互终端只面向人类。
 
 `run_command` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd` 和 `timeoutMs`。env、项目 ID、执行身份、策略和锁由后端决定。现有审批、秘密参数检查、项目锁、fencing、命令幂等、预算、取消和有界脱敏输出继续执行。退出码非零的命令返回工具失败，PM2 命令成功还需要核对实际服务状态。常见别名 `program` / `arguments` / `workdir` / `timeout` 在 schema 校验前归一；未知字段仍拒绝。
 

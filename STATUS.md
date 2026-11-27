@@ -1,6 +1,6 @@
 # STATUS
 
-> 最后更新：2026-11-25
+> 最后更新：2026-11-27
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
@@ -19,6 +19,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-27 | 092 搜索与目录列表默认忽略（SI-1） | `.pnpm-store`/`dist`/`build`/`coverage`/`test-results`/`tmp`/`.turbo`/`.vite` 加入默认忽略；`list_files`/`search_code` 共用 `isIgnoredFile`，显式 `path` 仍可进入；工具描述与契约文档同步。定向 25 项、`pnpm check` 退出码 0（web 323、agent 68+1 跳过、server 969+14 跳过）；真实仓库根搜索从 0 命中恢复到 357 文件扫描并命中 `contextAssembler.ts`；E2E 与真实 Provider 未跑 | [092](specs/092-search-ignore/tasks.md) |
 | 2026-11-25 | 内核正常使用缺陷修复（用户直接要求） | 修复会影响正常使用的路径：自动续轮复用父 Turn 的 `clientSessionId`（否则命令/进程工具全被 `FORBIDDEN`）；上下文预算在未发生模型调用时不再无进展续轮；关闭 TUI 把运行中 Turn 标为 `INTERRUPTED` 并关闭 `ProcessManager`（不再遗留后台进程、可恢复）；finalize 不再覆盖并发 `CANCELLING`；Job 取消/超时会直接 abort runner；进程 spawn 超时会终止并有界失败；`executeTool` 在严格 schema 前执行 `repairArgs`，且重复失败提示改为整批 tool 结果之后追加；WS 背压改用 `1013`/`1011`，客户端只在认证原因时停止重连；Web 加载历史时核对终态、`resumeTurn`/`stop`/补拉失败按原会话归属，`useSessionDetail` 增加有限重试。新增 shutdown/进程/参数别名/多工具 nudge/加载竞态等回归测试；server 181 文件 / 969 项（14 跳过）、web 55 文件 / 320 项、agent 63 项（1 跳过）、全 workspace `typecheck`、`biome ci`、`pnpm build` 通过；E2E 未跑 | [071](specs/071-turn-recovery/tasks.md)、[083](specs/083-service-model/spec.md)、[072](specs/072-agent-error-budget/tasks.md) |
 | 2026-11-25 | 091 回归：生成结束仍显示 generating（用户反馈） | 根因是 `tool.replay` 内部事件占用 `sequence` 但不返回客户端，前端把序号跳号当成丢事件；补拉返回的 `turn.completed` 仍被 `sequence === lastSeq + 1` 检查丢弃，界面停在 generating，切换会话全量重载才恢复。补拉路径改为允许跨过内部行并按事件序号推进 `lastSeq`，实时跳号仍触发补拉，补拉进行中再次触发会排队重跑。新增 3 项回归测试（前 2 项修复前失败）；web 55 文件 / 318 项、`typecheck`、改动文件 `biome check` 通过；E2E 未跑 | [091 tasks](specs/091-cross-turn-tool-replay/tasks.md) |
 | 2026-11-25 | 084 右下角不重复会话累计（用户直接要求） | 圆环右侧只保留 `本轮 32k / 128k · 25%`，去掉会话累计输入（左侧总量已显示）；`contextUsageInfo` / `ContextUsage` / `SessionUsageLine` 删除 `sessionTokens`，Hint 与 `aria-valuetext` 只给「本轮请求输入」，左侧总量与「输入 / 输出 / 缓存命中」Hint 不变。`SessionUsageLine` 12 项、`Composer` 9 项、`SessionModel` 14 项、web 54 文件 / 315 项、`typecheck`、改动文件 biome 通过；E2E 与浏览器验收未跑 | [084 tasks](specs/084-agent-profiles-and-usage/tasks.md) |
@@ -28,7 +29,6 @@
 | 2026-11-25 | 074 成果区修订（用户直接要求） | 成果区文件卡片最多直接显示 3 张（`RESULT_FILE_LIMIT`），其余收进无边框「展开全部 / 收起」文本按钮；预览 / 终端入口不计入上限；删除 `ProcessFilesRow`，不再显示「过程文件 N 个 · 已清理 N 个」计数行，过程文件仍可在展开的「执行过程」查看。服务端 `fileResults` 分类、200 条上限与「另有 N 个文件未列出」提示不变。`Timeline.test.tsx` 29 项、`pnpm --filter @larness/web typecheck`、`biome check` 改动文件通过；E2E 与浏览器视觉验收未跑 | [074 tasks](specs/074-result-presentation/tasks.md#修订成果区只留关键几个取消过程文件行2026-11-25用户直接要求) |
 | 2026-11-24 | 090 Provider 失败重试、诊断与标题超时（PR-1～PR-4） | 步骤级重试：模型步骤在**零产出**时对 `PROVIDER_UNAVAILABLE` / `PROVIDER_RATE_LIMITED` / 5xx 或无状态码的 `PROVIDER_UNKNOWN` 重试最多 2 次（1s/2s 退避，单次 >60s 或剩余预算不足不重试），有 text/reasoning/tool-call 一律不重试；主回合 `maxRetries` 1→2；`ProviderError.statusCode` 进 `provider step retry` / `provider step failed` warn；标题超时 20s→60s、`maxRetries: 0` 并记录 timeout / provider_error / empty_text（含 `finishReason`、`sawReasoning`）；压缩显式 `maxRetries: 1`。`pnpm check`（2 workers）server 175 文件 / 935 项通过、31 跳过；`pnpm build`、E2E 与真实 Provider 抖动未运行 | [090 tasks](specs/090-provider-retry/tasks.md#验收记录2026-11-24macos) |
 | 2026-11-24 | 089 会话级前缀缓存（PA-1～PA-7） | 易变上下文（日期、联网策略、记忆索引、会话摘要、附件声明）移出 system，合并进当前 user 消息，system 只留 `PROMPT_VERSION=089-1` + 策略 + 项目指令；`model.usage` 增 `promptVersion`/`systemHash`/`instructionsHash`/`toolsetHash`/`prefixBreak`/`prefixBreakAt`/`prefixKeptTokens`/`firstHistorySeq`，REST `cache.breaks` 按原因分组；会话压缩阈值 0.7（低于装配预算 0.8，修掉不可达死代码），裁剪改为 0.8 触发 / 0.6 低水位并按 4 条一块取整，`HISTORY_SCAN_LIMIT` 截断置位；附件三件套常驻、联网工具只由显式开关决定。`pnpm check`（2 workers）server 173 文件 / 923 项 + `pnpm build` 通过；A9 真实 Provider 基线与 E2E 未运行，见 acceptance | [089 acceptance](specs/089-session-prefix-cache/acceptance.md) |
-| 2026-11-24 | 088 附件多视图与验收（DA-10/DA-11/DA-13） | `text`/`source` 双视图落地：`@larness/shared/attachments.ts` 统一白名单与凭据拒绝（Composer `accept` 与服务端嗅探共用）；`source` 视图按行分页、`line:N`/`offset:N`、超长单行退化字符窗口；`read_attachment` 增加 `view`/`line`/`nextAnchor`，`search_attachment` 支持跨附件与 `scope`，`list_attachments` 返回 `views`；文本类附件默认按原文注入/检索，超预算只注入大纲；HTML 保留 `<style>`、id/class 大纲与表格；预览增加“解析视图 / 原文”切换。`pnpm check` 通过（server 172 文件 / 899 项、31 跳过；web 54 文件 / 306 项）；**2026-11-24 人类实机验收通过**（原文预览与端到端附件链路），spec 转 `done`；未跑 `pnpm build`，逐项未验证内容见 acceptance §4 | [088 acceptance](specs/088-document-attachments/acceptance.md) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 

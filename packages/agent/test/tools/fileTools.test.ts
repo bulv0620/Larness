@@ -1,4 +1,4 @@
-import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createPatch } from "diff";
@@ -83,6 +83,40 @@ describe("file tools", () => {
 
       const updated = await registry.execute("read_file", { path: "a.txt" }, { projectRoot: dir });
       expect((updated.data as { content: string }).content).toBe("one\nTWO\n");
+    });
+  });
+
+  it("hides common build directories from the model by default", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, ".pnpm-store", "v11"), { recursive: true });
+      await mkdir(path.join(dir, "dist"), { recursive: true });
+      await mkdir(path.join(dir, "src"), { recursive: true });
+      await writeFile(path.join(dir, ".pnpm-store", "v11", "needle.ts"), "needle\n");
+      await writeFile(path.join(dir, "dist", "needle.js"), "needle\n");
+      await writeFile(path.join(dir, "src", "needle.ts"), "needle\n");
+
+      const registry = createFileToolRegistry();
+      expect(registry.get("list_files")?.description).toContain("Common build/output directories");
+      expect(registry.get("search_code")?.description).toContain("pass `path` explicitly");
+
+      const listed = await registry.execute(
+        "list_files",
+        { path: ".", depth: 3 },
+        { projectRoot: dir },
+      );
+      const paths = (listed.data as { files: { path: string }[] }).files.map((entry) => entry.path);
+      expect(paths).toEqual(expect.arrayContaining(["src", "src/needle.ts"]));
+      expect(paths.some((entry) => entry.startsWith(".pnpm-store"))).toBe(false);
+      expect(paths.some((entry) => entry.startsWith("dist"))).toBe(false);
+
+      const searched = await registry.execute(
+        "search_code",
+        { query: "needle" },
+        { projectRoot: dir },
+      );
+      expect(
+        (searched.data as { matches: { path: string }[] }).matches.map((match) => match.path),
+      ).toEqual(["src/needle.ts"]);
     });
   });
 

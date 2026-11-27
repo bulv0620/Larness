@@ -88,6 +88,7 @@
 - [088 文档与图片附件解析、能力路由与会话外呈现](088-document-attachments/spec.md)（done）
 - [089 会话级前缀缓存：静态前缀分层、断裂归因与压缩可达](089-session-prefix-cache/spec.md)（done）
 - [090 Provider 失败重试、诊断与标题超时](090-provider-retry/spec.md)（done）
+- [092 搜索与目录列表默认忽略构建产物](092-search-ignore/spec.md)（done）
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 

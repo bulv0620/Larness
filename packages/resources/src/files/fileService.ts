@@ -11,7 +11,26 @@ export const MAX_READ_BYTES = 1_048_576;
 export const MAX_WRITE_BYTES = 1_048_576;
 export const MAX_SEARCH_FILE_BYTES = 262_144;
 
-export const DEFAULT_IGNORED = new Set([".git", "node_modules", ".larness"]);
+/**
+ * Names skipped while walking a project by default. These are package stores
+ * and build outputs, not source. The ignore applies to entries discovered
+ * during a walk; an explicit `path` start is not filtered, so a caller can
+ * still inspect one deliberately. Full `.gitignore` semantics are not parsed
+ * here (see specs/092-search-ignore).
+ */
+export const DEFAULT_IGNORED = new Set([
+  ".git",
+  "node_modules",
+  ".larness",
+  ".pnpm-store",
+  "dist",
+  "build",
+  "coverage",
+  "test-results",
+  "tmp",
+  ".turbo",
+  ".vite",
+]);
 
 export type FileErrorCode =
   | "VALIDATION_ERROR"

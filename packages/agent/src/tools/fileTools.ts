@@ -101,7 +101,8 @@ export function createFileTools() {
   return [
     defineTool({
       name: "list_files",
-      description: "List files and directories inside the authorized project root.",
+      description:
+        "List files and directories inside the authorized project root. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` to inspect one explicitly.",
       riskLevel: "L0",
       schema: ListFilesSchema,
       summarize: (args) => `list ${args.path ?? "."}`,
@@ -158,7 +159,7 @@ export function createFileTools() {
     defineTool({
       name: "search_code",
       description:
-        "Search for a literal string in project text files. Narrow the scan with path, glob and maxFiles, and ask for contextLines to see the surrounding code instead of repeated reads.",
+        "Search for a literal string in project text files. Common build/output directories (`.git`, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `tmp`, `.turbo`, `.vite`, `.pnpm-store`) are skipped; pass `path` explicitly to search inside one. Narrow the scan with path, glob and maxFiles, and ask for contextLines to see the surrounding code instead of repeated reads.",
       riskLevel: "L0",
       schema: SearchCodeSchema,
       summarize: (args) => `search ${args.query}`,
