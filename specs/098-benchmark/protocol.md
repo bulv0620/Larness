@@ -199,3 +199,11 @@ pnpm bench:agent -- \
 - `requests.jsonl` 可能包含 fixture 内容；只在本地 `tmp/` 保留，不提交。
 - runner 不读取用户 Larness 数据目录；使用临时 DB。
 - 结果不进入 CI；真实模型调用由操作者显式执行。
+
+## 8. 基准阶段收口（2026-11-27）
+
+- 6 个 fixture ×3 轮，Larness/opencode 各 18 次运行，双方 **18/18 verify=0**。
+- 中位数：Larness steps/toolCalls 38/55、prompt 202,232、106.9s；opencode 37/57、prompt 416,106、114.2s。Larness 上下文约为一半，总耗时快 6.5%。
+- 结论：这套合成任务的完成度、工具执行与速度已接近 opencode；不宣称所有真实项目体验等同。
+- **停止新增合成 benchmark**（含外部仓库多轮 108）。保留 `pnpm bench:agent` / `pnpm bench:rounds` 作为回归工具；后续由真实项目中的具体痛点驱动。
+- 真实仓库 099 单轮仍有差距；104 最佳为 12 步/17 调用/248,490 input/53.5s，opencode 8/10/157,152/43.1s。继续扩基准的收益已低于真实使用反馈。

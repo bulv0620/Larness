@@ -724,6 +724,8 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 |---|---|---|---|
 | BR-1 | [多轮采集脚本与汇总](107-benchmark-rounds/tasks.md#br-1-多轮采集脚本与汇总) | 098 | `done`（2026-11-27；真实 3 轮：Larness 202,232 prompt/106.9s vs opencode 416,106/114.2s，18/18 verify=0） |
 
+**2026-11-27 基准阶段收口**：不再新增合成 benchmark 切片（含外部仓库多轮 108）。6 个 fixture 的完成度、步骤/调用与速度已接近 opencode；保留 `bench:agent` / `bench:rounds` 作为回归工具，后续由真实项目中的具体痛点驱动。真实仓库单轮仍有差距，但继续扩基准的收益已低于真实使用反馈。
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo
