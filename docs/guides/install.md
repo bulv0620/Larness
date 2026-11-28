@@ -15,16 +15,30 @@
 
 ```bash
 npm install -g larness
-larness
+larness start
+larness tui
 ```
 
-`larness` 启动 TUI、Server 与 Web，和 `node app.js` 的受管入口一致。首次运行按初始化向导配置，随后在 TUI 配对浏览器。
+`larness start` 在后台启动管理面（Server；打包模式由 Server 提供已构建 Web），就绪后返回，关闭终端不会停止服务。首次运行初始化仍在 TUI 完成：执行 `larness tui` 按向导配置，然后在面板配对浏览器。
+
+常用命令：
+
+```bash
+larness status             # 是否在运行、PID、地址、日志与数据目录
+larness logs --lines 50    # 最近日志；--daemon 看后台输出；-f 跟随
+larness tui                # 打开控制面板；退出面板不会停止服务
+larness stop               # 停止管理面；PM2 正式服务继续运行
+larness restart            # 配置修改需要重启时使用
+```
+
+`larness` / `node app.js` 不带参数时只打印帮助，不再直接启动服务。`pnpm dev` 仍是前台开发入口：Vite + 源码 Server + TUI 绑定在同一终端，退出即停止；`larness start` 只运行构建产物。
 
 Windows 原生（PowerShell / cmd）直接运行同一命令。不要用 WSL 结果替代 Windows 原生验证：
 
 ```powershell
 npm install -g larness
-larness
+larness start
+larness tui
 ```
 
 Windows Terminal 或系统自带的 conhost 均可；建议使用 Windows Terminal 获得更好的 Unicode 与缩放体验。
@@ -33,23 +47,25 @@ Larness 内新开的 Windows 交互终端依次尝试 PowerShell 7、Windows Pow
 
 ```bash
 larness --version   # 当前版本
-larness status      # 只读状态快照
+larness status      # 状态摘要；--json 供脚本
 larness doctor      # 本机诊断
 ```
 
 ## 升级
 
-Larness **不会自动更新**。TUI 启动时和每日检查公共 npm 并提示新版本。等待 Agent Turn、部署和数据库写入完成后，正常退出 TUI，再安装新版本。
+Larness **不会自动更新**。TUI 启动时和每日检查公共 npm 并提示新版本。等待 Agent Turn、部署和数据库写入完成后，先停止管理面，再安装新版本；后台运行不会因为关终端而结束。
 
 ```bash
+larness stop
 npm install -g larness@latest
+larness start
 ```
 
-升级后重启 `larness`。新版本首次启动会在数据库迁移前自动备份到数据目录的 `backups/`；备份失败会拒绝迁移并退出。
+升级后无需重新打开 TUI；`larness tui` 可随时附加。新版本首次启动会在数据库迁移前自动备份到数据目录的 `backups/`；备份失败会拒绝迁移并退出。
 
 ## 降级
 
-先等待在途作业完成并正常退出 TUI，再安装旧版本。
+先执行 `larness stop` 等待在途作业结束，再安装旧版本。
 
 ```bash
 npm install -g larness@<version>

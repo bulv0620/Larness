@@ -234,3 +234,7 @@ accepted，2026-11-27 人类确认移除 coding/plan 切换：保留一个通用
 ## ADR-076 · 命令 allowlist 与本轮审批复用（2026-11-27）
 
 accepted，2026-11-27 人类选择「allowlist + 本轮批量」：默认仍 `standard`；`git status/diff/log/show/rev-parse/ls-files`、受限 `git branch`、`pnpm/npm/yarn` 的 `test|check|typecheck|lint|build|verify` 脚本、`rg/ls/pwd`、`node --version` 等只读/验证命令降为 L1 自动放行；`run_shell` 只接受无元字符/引号/绝对或 `..` 路径的同一组简单命令。用户批准一次后，同一 Turn 内相同 `toolName + 规范化参数哈希` 不再询问；不跨 Turn、不持久化。L3 在 standard/strict 仍 deny；`autonomous` 既有语义不改；allowlist 不是沙箱。见 [ADR-076](ADR-076-command-allowlist-and-turn-approvals.md) 与 [096 规格](../../specs/096-command-approvals/spec.md)。
+
+## ADR-077 · 服务生命周期命令与 TUI 附加模式（2026-11-28）
+
+accepted，2026-11-28 用户确认恢复「服务与 TUI 分离」：`start` 以 detached 子进程后台启动打包管理面并写 `daemon.log`；`stop` 经 IPC `server.shutdown` 优雅关闭并等待锁 / 端口 / IPC 释放，未运行幂等成功；`tui` 只附加，`q` / Ctrl+C 只退出面板；`status` 默认人读、`--json` 保留；`logs` 只读当前数据目录的 `larness.log` / `daemon.log`，支持 `--lines 1–1000`、`--daemon`、`--follow`；新增 `restart`，对 dev 实例拒绝；裸 `larness` 只打印帮助。`pnpm dev` 保持前台受管（Vite + 源码 Server，退出即停止），`start` 只运行构建产物。替代 ADR-023 的前台单入口 / 退出停全部条款，补充 ADR-028 / ADR-046；PM2 守护与正式服务不被 `stop` 触碰。见 [ADR-077](ADR-077-service-lifecycle-commands.md) 与 [112 spec](../../specs/112-lifecycle-commands/spec.md)。

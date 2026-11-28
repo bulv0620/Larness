@@ -5,6 +5,8 @@ export interface LockRecord {
   pid: number;
   startedAt: number;
   version: string;
+  mode?: "foreground" | "background";
+  dev?: boolean;
 }
 
 export interface InstanceLock extends LockRecord {
@@ -58,7 +60,13 @@ function parseRecord(text: string): LockRecord | null {
       return null;
     }
 
-    const { pid, startedAt, version } = value;
+    const { pid, startedAt, version, mode, dev } = value as {
+      pid: unknown;
+      startedAt: unknown;
+      version: unknown;
+      mode?: unknown;
+      dev?: unknown;
+    };
 
     if (
       typeof pid !== "number" ||
@@ -70,7 +78,17 @@ function parseRecord(text: string): LockRecord | null {
       return null;
     }
 
-    return { pid, startedAt, version };
+    const record: LockRecord = { pid, startedAt, version };
+
+    if (mode === "foreground" || mode === "background") {
+      record.mode = mode;
+    }
+
+    if (typeof dev === "boolean") {
+      record.dev = dev;
+    }
+
+    return record;
   } catch {
     return null;
   }
@@ -124,6 +142,8 @@ export interface AcquireLockOptions {
   version: string;
   pid?: number;
   now?: () => number;
+  mode?: "foreground" | "background";
+  dev?: boolean;
 }
 
 export async function acquireInstanceLock(
@@ -135,6 +155,8 @@ export async function acquireInstanceLock(
     pid: options.pid ?? process.pid,
     startedAt: (options.now ?? Date.now)(),
     version: options.version,
+    ...(options.mode === undefined ? {} : { mode: options.mode }),
+    ...(options.dev === undefined ? {} : { dev: options.dev }),
   };
 
   for (let attempt = 0; attempt < 2; attempt += 1) {

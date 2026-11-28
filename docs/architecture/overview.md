@@ -38,22 +38,22 @@ Local Browser ────┘                                  │
                           │                  │              │
                     Local OS / PM2 ◄─────────┘       127.0.0.1:<port>
                           │
-Local Terminal ── protected local IPC (UDS / named pipe) ── Control TUI
-TUI Supervisor ── manages ── Server + Web
+Local Terminal ── protected local IPC (UDS / named pipe) ── Control TUI (attach)
+Larness CLI ── detached Server + Web (larness start)
 ```
 
 ## 3. 进程与职责边界
 
 | 进程 | 职责 | 明确不负责 |
 |---|---|---|
-| 入口（`app.js`） | 启动受管 TUI，分派 `status`、`doctor` 和版本查询 | 业务逻辑、数据库访问 |
+| 入口（`app.js`） | 分派 `start`、`stop`、`tui`、`status`、`logs`、`doctor` 和版本查询；裸命令只打印帮助 | 业务逻辑、数据库访问 |
 | Server | Fastify、WS、SQLite、Agent Runtime、资源管理、代理、调度 | 覆盖正在运行的自身二进制 |
-| TUI Client | 初始化、设备审批 / 撤销、状态、日志、doctor、关闭 | 绕过 Server 直接操作业务数据 |
+| TUI Client | 初始化、设备审批 / 撤销、状态、日志、doctor、停止服务 | 绕过 Server 直接操作业务数据 |
 | Web Client | 视图、窗口、输入、事件订阅 | 直接操控进程 / 文件 / 端口 |
 | User Services | Agent 后台开发进程（083）、PM2 持久进程（M4） | 管理端鉴权；正式服务在 TUI 退出后继续运行（ADR-046） |
 | npm CLI | 用户手动安装、升级或降级发布包 | 管理运行中的任务或恢复数据库 |
 
-`node app.js` 以 TUI 为受管前台入口，启动 Server + Web，关闭 TUI 时停止管理面与临时开发资源，已运行正式服务按 ADR-046 保留；`status` / `doctor` 仍为只读子命令。
+`larness start` 以 detached 进程启动管理面；`larness tui` 只附加控制面板，退出面板不停止服务；`larness stop` 经 IPC 优雅停止。`pnpm dev` 仍是前台受管入口（Vite + 源码 Server + TUI，退出即停止）。正式服务按 ADR-046 保留；`status` / `doctor` / `logs` 为只读子命令。
 
 ## 4. 服务端模块
 
@@ -81,15 +81,18 @@ TUI Supervisor ── manages ── Server + Web
 ### 5.1 启动与初始化
 
 ```text
-node app.js / node app.js tui
-  → 启动受管 TUI，读取数据目录与配置
-  → 启动 Server；开发模式另启动受管 Vite
+larness start
+  → 后台启动打包 Server，读取数据目录与配置
   → 如需迁移已有数据库，先备份；打开业务库并执行迁移
   → 启动 Fastify（默认 127.0.0.1:3210）和本机 IPC
-  → TUI 连接 IPC；未初始化时走本机向导
-  → 首次沿用有效网络配置，可在高级设置修改监听地址和公网 URL
-  → 日常查看状态、审批配对、撤销设备、查看日志、关闭服务
+  → 等待 health / IPC / 锁就绪后返回
+larness tui
+  → 连接 IPC；未初始化时走本机向导
+  → 日常查看状态、审批配对、撤销设备、查看日志、停止服务
+  → 退出面板时服务继续运行
 ```
+
+`pnpm dev`（或受管 `--managed`）仍是前台 supervisor：启动源码 Server，另启动受管 Vite，退出即停止。
 
 未初始化时禁止通过 Web 创建管理员；初始化只能来自本机受 OS 权限保护的通道。
 
@@ -180,7 +183,7 @@ coding Chat ──start_process──► ProcessManager ──► 项目服务�
 ```text
 <install>/                      # 发布物，可整体替换
 ├── app.js                      # 稳定入口
-├── apps/server/dist/           # Server、TUI、status、doctor
+├── apps/server/dist/           # Server、CLI、TUI、status、doctor
 ├── apps/server/drizzle/        # SQLite 迁移
 ├── apps/web/dist/              # Web 静态资源
 └── node_modules/               # npm 安装的依赖

@@ -26,6 +26,15 @@ const status: StatusReport = {
     reason: null,
   },
   warnings: [],
+  dataDir: "/tmp/larness",
+  mode: "foreground",
+  dev: false,
+  logPath: "/tmp/larness/logs/larness.log",
+  daemonLogPath: null,
+  formalServices: {
+    managedSeparately: true,
+    note: "PM2 services run separately; larness stop does not stop or restart them",
+  },
 };
 
 function prompts(overrides: Partial<InitPrompts> = {}): InitPrompts {

@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- 无。
+- **112 服务生命周期命令（LC-1～LC-7 完成，LC-8 待实机）**：`start` / `stop` / `restart` / `tui` / `status` / `logs` 与 TUI 附加模式已实现；`pnpm check` / `pnpm build` 通过，`pnpm test:e2e`（Mock）25/25 通过。复跑中发现并修复旧管理面不返回新字段时 `status` 人读摘要崩溃（改按字段回退本地快照，新增 4 项测试）。剩余 Windows 原生实机（detached 关终端、stop、无 POSIX 信号）未验证，`test:e2e:prod` 因 `e2e-auth` 过期用例 8 项失败（Q-096）。见 [tasks](specs/112-lifecycle-commands/tasks.md)。
 
 ## 阻塞与待确认
 
@@ -15,6 +15,8 @@
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
+- **112 生命周期命令的 Windows 验证**：macOS 已完成 start / status / tui / stop / restart、`pnpm dev` 被 CLI 停止、`logs --follow`；Windows 11 / 10 的 detached 关闭终端存活与无 POSIX 信号路径尚未实机验证，未标通过。见 [tasks](specs/112-lifecycle-commands/tasks.md)。
+- **`test:e2e:prod` 套件过期（Q-096）**：真实 Server + Chromium 20 项中 8 项失败，全部是 `e2e-auth` 仍在断言已移除 / 已改名的 UI（Agent Profile 切换、设置与模型、Toast `position: fixed`）。未修改或放宽断言；重写前不把 prod E2E 作为发布门禁。
 
 ## 最近收口（滚动保留最近 10 项）
 

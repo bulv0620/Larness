@@ -67,7 +67,12 @@ export const AuditTailParamsSchema = z
   .object({ limit: z.int().min(1).max(200).optional() })
   .strict();
 
-export const ShutdownParamsSchema = z.object({ confirm: z.literal(true) }).strict();
+export const ShutdownParamsSchema = z
+  .object({
+    confirm: z.literal(true),
+    source: z.enum(["cli", "tui"]).optional(),
+  })
+  .strict();
 
 export const PairingListParamsSchema = z
   .object({

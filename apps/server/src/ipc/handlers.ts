@@ -298,8 +298,16 @@ export function createIpcHandler(deps: IpcHandlerDeps): IpcHandler {
       }
 
       case "server.shutdown": {
-        parseParams(ShutdownParamsSchema, request.params);
-        setTimeout(() => deps.requestShutdown("ipc"), 100).unref();
+        const params = parseParams(ShutdownParamsSchema, request.params);
+        const source = params.source ?? "tui";
+        appendAudit(deps.db, {
+          action: "server.shutdown",
+          decision: "allow",
+          resourceType: "server",
+          resourceId: source,
+          now: now(),
+        });
+        setTimeout(() => deps.requestShutdown(`ipc:${source}`), 100).unref();
         return { ok: true };
       }
 

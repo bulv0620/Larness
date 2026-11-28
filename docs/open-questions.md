@@ -47,6 +47,17 @@
 | Q-078 | `attachments.ocr.mode=vision` 已进入配置 schema，但 bootstrap 未把 `visionConnectionId` 解析成可调用的转写器，视觉模式仍失败关闭。 | 默认 `auto-local` 只走本地 OCR；视觉连接接线前不得声称云端视觉可用。需要时按模型连接服务解析密钥并复用 provider，失败不回退。 | A3 视觉分支、外发隐私 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
 | Q-080 | 是否提供“把附件导入项目目录”的写盘通道（`import_attachment`，L2）？ | 2026-11-28 用户确认不做，DA-12 标 `dropped`；上传只服务于会话读取，不写项目目录 | 修改真实页面/运行附件仓库的工作流 | [088 spec §7.7](../specs/088-document-attachments/spec.md#77-视图契约与格式矩阵) |
 | Q-084 | 089 的真实 Provider 缓存基线（A9）尚未取得：本环境无 DeepSeek 凭据，`LARNESS_DEEPSEEK_SMOKE=1` 未运行，改造前后 `cacheReadTokens` 对比缺失。 | 2026-11-28 用户确认按「降级」处理并关闭：不补跑基线，089/070/071 的发布结论只覆盖合成与 Mock 验证，070/089 的验收记录与 ROADMAP 门禁同步注明；日后有凭据环境时再作独立观测，不阻塞发布 | 发布结论的可观测证据 | [089 acceptance](../specs/089-session-prefix-cache/acceptance.md) |
+| Q-086 | 112 的 `larness stop` 是否同时停止 PM2 正式服务？ | 默认只停管理面（Server + 临时开发资源）；PM2 守护与正式服务继续运行，输出明确说明 | 已确认 2026-11-28 | [112 spec](../specs/112-lifecycle-commands/spec.md#13-开放问题) |
+| Q-087 | 112 的 TUI `q` / Ctrl+C 语义？ | 附加模式只退出面板，新增独立“停止服务”菜单；`pnpm dev` 前台模式保持退出即停止 | 已确认 2026-11-28 | [112 spec](../specs/112-lifecycle-commands/spec.md#13-开放问题) |
+| Q-088 | 112 是否为源码 / dev 模式提供后台 `start`？ | v1 不支持；`pnpm dev` 保持前台受管 TUI，只有打包模式支持后台 | 已确认 2026-11-28 | [112 spec](../specs/112-lifecycle-commands/spec.md#13-开放问题) |
+| Q-089 | 112 是否新增 `larness restart`？ | 新增；初始化修改监听地址/端口与升级后都需要，避免要求用户手动 stop + start | 已确认 2026-11-28 | [112 spec](../specs/112-lifecycle-commands/spec.md#13-开放问题) |
+| Q-090 | 112 的裸 `larness` / `node app.js` 行为？ | 2026-11-28 用户确认改为只打印命令帮助；不启动、不创建数据目录、不连接 IPC；`node app.js start` 改为后台启动语义 | 已确认 2026-11-28 | [112 spec](../specs/112-lifecycle-commands/spec.md#13-开放问题) |
+| Q-091 | 112 的 `status` 默认格式与退出码？ | 人读摘要 + `--json`；运行 0、未运行 3、读取失败 1 | 已确认 2026-11-28 | [112 spec](../specs/112-lifecycle-commands/spec.md#13-开放问题) |
+| Q-092 | 112 的 `stop` 在 IPC 不可达时是否提供 `--force`？ | v1 不提供；只报告 PID 与手动终止命令，避免 PID 复用误杀 | 已确认 2026-11-28 | [112 spec](../specs/112-lifecycle-commands/spec.md#13-开放问题) |
+| Q-093 | 112 是否做开机自启或崩溃自动重启？ | 都不做；主机重启后需手动 `start`，PM2 正式服务按既有能力 | 已确认 2026-11-28 | [112 spec](../specs/112-lifecycle-commands/spec.md#13-开放问题) |
+| Q-094 | 112 的 dev（`pnpm dev`）实例与生命周期命令边界？ | `pnpm dev` 保持前台受管；`start` 只运行打包产物；`tui` / `stop` 可作用于 dev 实例；`restart` 对 dev 拒绝并提示在 `pnpm dev` 终端重启 | 已确认 2026-11-28 | [112 spec §7.7](../specs/112-lifecycle-commands/spec.md#77-开发模式dev行为) |
+| Q-095 | 112 的 `larness logs` 形态？ | 2026-11-28 用户确认要做但保持简单，并增加 `--follow`：`logs [--lines 1–1000] [--daemon] [--follow]`，默认主日志 200 行、最新在后、人读格式化；无过滤 / 上传；无文件退出 3 | 已确认 2026-11-28 | [112 spec](../specs/112-lifecycle-commands/spec.md#13-开放问题) |
+| Q-096 | 112 复跑发现 `pnpm test:e2e:prod` 的 `e2e-auth` 套件落后于已发布行为：期望的 “Agent Profile” 切换已由 094 移除、“设置与模型” 已改名 “模型与凭据”、Toast 改为固定层后对 alert 断言 `position: fixed` 失效。20 项中 12 通过、8 失败，全部集中在这些过期期望。 | 本切片不改测试、不放宽断言；`test:e2e`（Mock）25/25 通过仍作为回归项。需单开任务按当前 UI 重写 / 删除过期用例，之后才能把 prod E2E 作为发布门禁。 | prod E2E 门禁可信度、发布清单 | [112 tasks LC-8](../specs/112-lifecycle-commands/tasks.md#lc-8-契约安装文档与整仓验证) |
 
 ## 已解决
 - Q-085（2026-11-27）：文件工具按 T2 拆读不拆写——`read_file` / `list_files` / `search_code` 接受项目外 canonical 绝对路径，写入类工具与 `run_command.cwd` 仍限当前项目根；只保留 `<dataDir>` 与伪文件系统硬闸，不按文件类型或凭据目录名拒绝。见 [109](../specs/109-external-read-scope/spec.md)。

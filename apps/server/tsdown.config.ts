@@ -3,6 +3,7 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    cli: "src/cli/main.ts",
     status: "src/cli/status.ts",
     doctor: "src/cli/doctor.ts",
     tui: "src/tui/main.ts",

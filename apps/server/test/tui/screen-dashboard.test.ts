@@ -1,6 +1,7 @@
 import { PassThrough } from "node:stream";
 import type { ReadStream, WriteStream } from "node:tty";
 import { describe, expect, it, vi } from "vitest";
+import { ServiceStopped } from "../../src/tui/page-error.js";
 import { runScreenDashboard } from "../../src/tui/screen-dashboard.js";
 import { TerminalSession } from "../../src/tui/terminal.js";
 
@@ -71,6 +72,52 @@ describe("screen dashboard", () => {
       f.stdin.write("\x1b[B");
       f.stdin.write("\r");
       await run;
+    } finally {
+      f.terminal.close();
+    }
+  });
+
+  it("labels attached mode and exits without stopping the service", async () => {
+    const f = fixture();
+    const request = vi.fn(async () => status);
+    const run = runScreenDashboard({ terminal: f.terminal, client: { request }, attached: true });
+    try {
+      await vi.waitFor(() => expect(f.latest()).toContain("附加模式：退出面板后服务继续运行"));
+      expect(f.latest()).toContain("退出面板（服务继续运行）");
+      f.stdin.write("q");
+      await vi.waitFor(() => expect(f.latest()).toContain("退出面板不会停止服务"));
+      f.stdin.write("\x1b[B");
+      f.stdin.write("\r");
+      await run;
+      expect(request).not.toHaveBeenCalledWith(
+        "server.shutdown",
+        expect.anything(),
+        expect.anything(),
+      );
+    } finally {
+      f.terminal.close();
+    }
+  });
+
+  it("confirms an attached-mode stop and sends the TUI source", async () => {
+    const f = fixture();
+    const request = vi.fn(async (method: string) =>
+      method === "server.shutdown" ? { ok: true } : status,
+    );
+    const run = runScreenDashboard({ terminal: f.terminal, client: { request }, attached: true });
+    try {
+      await vi.waitFor(() => expect(f.latest()).toContain("附加模式"));
+      for (let index = 0; index < 4; index += 1) f.stdin.write("\x1b[B");
+      f.stdin.write("\r");
+      await vi.waitFor(() => expect(f.latest()).toContain("停止服务确认"));
+      f.stdin.write("\x1b[B");
+      f.stdin.write("\r");
+      await expect(run).rejects.toBeInstanceOf(ServiceStopped);
+      expect(request).toHaveBeenCalledWith(
+        "server.shutdown",
+        { confirm: true, source: "tui" },
+        5_000,
+      );
     } finally {
       f.terminal.close();
     }

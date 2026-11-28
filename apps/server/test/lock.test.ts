@@ -101,4 +101,47 @@ describe("instance lock", () => {
       );
     });
   });
+
+  it("writes optional lifecycle mode and dev fields", async () => {
+    await withTempDir(async (dir) => {
+      const lock = await acquireInstanceLock(dir, {
+        version: "test",
+        mode: "foreground",
+        dev: true,
+      });
+      const inspected = await inspectInstanceLock(dir);
+      expect(inspected?.record).toMatchObject({ mode: "foreground", dev: true });
+      await releaseInstanceLock(lock);
+    });
+  });
+
+  it("reads old records without lifecycle fields", async () => {
+    await withTempDir(async (dir) => {
+      await writeFile(
+        lockFilePath(dir),
+        `${JSON.stringify({ pid: process.pid, startedAt: 1, version: "old" })}\n`,
+        { mode: 0o600 },
+      );
+      const inspected = await inspectInstanceLock(dir);
+      expect(inspected?.record).toEqual({ pid: process.pid, startedAt: 1, version: "old" });
+    });
+  });
+
+  it("ignores invalid lifecycle field values instead of rejecting the record", async () => {
+    await withTempDir(async (dir) => {
+      await writeFile(
+        lockFilePath(dir),
+        `${JSON.stringify({
+          pid: process.pid,
+          startedAt: 1,
+          version: "old",
+          mode: "daemon",
+          dev: "yes",
+        })}\n`,
+        { mode: 0o600 },
+      );
+      const inspected = await inspectInstanceLock(dir);
+      expect(inspected?.record).toEqual({ pid: process.pid, startedAt: 1, version: "old" });
+    });
+  });
 });

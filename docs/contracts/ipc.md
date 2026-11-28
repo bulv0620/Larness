@@ -143,11 +143,18 @@
 - `pairing.approve` 返回 `{ code, expiresAt }`（`code` 为未格式化的一次性码，仅此一次返回）；`pairing.deny` 返回 `{ ok: true }`。
 - `devices.list` 返回 `{ devices[] }`，每项含 `id / label / createdAt / lastSeenAt / revokedAt / credentials[]`；`devices.revoke` 返回 `{ ok, revokedCredentials, revokedSessions }`。
 - `sessions.list` 返回 `{ sessions[] }`；`sessions.revoke` 返回 `{ ok }` 并在 1 秒内关闭对应 WebSocket。
-- `server.shutdown` 需 `confirm: true`；响应返回后延迟触发关闭，以便客户端收到确认。
+- `server.shutdown` 需 `confirm: true`；可选 `source: "cli" | "tui"`（缺省按旧客户端视为 `tui`），服务端写 `server.shutdown` 审计并以 `ipc:<source>` 触发关闭；响应返回后延迟触发关闭，以便客户端收到确认。
 - M0 尚未通过 IPC 推送 `pairing.*` / `device.*` 事件，TUI 通过轮询 `pairing.list` / `devices.list` 获取状态；会话与设备撤销会通过 `session.revoked` / `device.revoked` 内部事件关闭 WebSocket。
-- M0-9 / ADR-023：TUI 是受管前台入口；由 supervisor 启动 Server（开发时另起 Vite），TUI 仍通过本契约连接。TUI 正常退出会经 `server.shutdown` 停止 Server 并终止 Web，不再承诺退出后后台存活。
+- M0-9 / ADR-023：TUI 是受管前台入口；由 supervisor 启动 Server（开发时另起 Vite），TUI 仍通过本契约连接。该条的前台单入口与退出停全部语义已由 [ADR-077](../adr/ADR-077-service-lifecycle-commands.md) 替代：`larness tui` 只附加，退出面板不再发送 `server.shutdown`；显式停止由 `larness stop` 或面板“停止服务”发起。
 - `system.ping` 为 TUI 保活方法，返回 `{ ok: true, now }`；TUI 每 5 分钟调用一次，避免 30 分钟 IPC 空闲断开。IPC 意外断开时 TUI 最多重连 2 次。
 - 配对 / WebAuthn 的业务错误在 IPC 层映射为 `FORBIDDEN`、`VALIDATION_ERROR`、`NOT_FOUND`、`CONFLICT`、`RATE_LIMITED`，不暴露库内部错误文本。
+
+### 生命周期命令（112 / ADR-077）
+
+- `larness stop` 与面板“停止服务”都经 `server.shutdown`，分别使用 `source=cli` / `source=tui`；旧客户端缺省按 `tui` 处理。
+- 允许多个 TUI 客户端同时附加；写操作仍由服务端状态和现有授权决定，不引入客户端间锁。
+- TUI 附加模式退出只关闭本连接，不发送 `server.shutdown`。服务端关闭时客户端通过 socket close 感知；为实现及时退出，`IpcClient` 提供只读 `onClose` 订阅。
+- `logs` 不新增 IPC 方法，直接读取当前数据目录的日志文件；`logs.tail` 保持既有 TUI 语义。
 
 ### 初始化发布恢复（I0-2）
 

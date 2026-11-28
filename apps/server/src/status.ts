@@ -3,6 +3,7 @@ import type { WebAuthnRuntime } from "@larness/shared";
 import { loadConfig } from "./bootstrap/config.js";
 import { inspectInstanceLock } from "./bootstrap/lock.js";
 import { inspectDatabase } from "./db/inspect.js";
+import { findMainLogFile } from "./log-files.js";
 import { resolveDataDir } from "./platform/paths.js";
 import { SERVER_VERSION } from "./version.js";
 
@@ -24,7 +25,16 @@ export interface StatusReport {
     reason: WebAuthnRuntime["reason"];
   };
   warnings: string[];
+  dataDir: string;
+  mode: "foreground" | "background" | "unknown" | null;
+  dev: boolean;
+  logPath: string | null;
+  daemonLogPath: string | null;
+  formalServices: { managedSeparately: true; note: string };
 }
+
+const FORMAL_SERVICES_NOTE =
+  "PM2 services run separately; larness stop does not stop or restart them";
 
 export interface CollectStatusOptions {
   dataDir?: string;
@@ -39,6 +49,7 @@ export async function collectStatus(options: CollectStatusOptions = {}): Promise
   const loaded = await loadConfig({ dataDir, env });
   const lock = await inspectInstanceLock(dataDir);
   const database = inspectDatabase(path.join(dataDir, "larness.db"));
+  const mainLog = await findMainLogFile(dataDir);
   const running = lock?.alive === true;
   const record = lock?.record ?? null;
   const warnings: string[] = [];
@@ -86,5 +97,12 @@ export async function collectStatus(options: CollectStatusOptions = {}): Promise
       reason: loaded.webAuthn.reason,
     },
     warnings,
+    dataDir,
+    mode: running ? (record?.mode ?? "unknown") : null,
+    dev: running && record?.dev === true,
+    logPath: mainLog,
+    daemonLogPath:
+      running && record?.mode === "background" ? path.join(dataDir, "logs", "daemon.log") : null,
+    formalServices: { managedSeparately: true, note: FORMAL_SERVICES_NOTE },
   };
 }

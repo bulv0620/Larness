@@ -145,13 +145,20 @@ describe("IPC init integration", () => {
       const env = { LARNESS_DATA_DIR: dir, LARNESS_PORT: String(port) };
       const running = await startServer({ env, logDestination: createLogSink().stream });
       const client = await connectIpc({ dataDir: dir, client: "tui" });
+      let closedNotified = false;
+      client.onClose(() => {
+        closedNotified = true;
+      });
 
       try {
         await expect(client.request("server.shutdown", {})).rejects.toMatchObject({
           code: "VALIDATION_ERROR",
         });
-        await client.request("server.shutdown", { confirm: true }).catch(() => undefined);
+        await client
+          .request("server.shutdown", { confirm: true, source: "cli" })
+          .catch(() => undefined);
         await waitUntil(async () => (await inspectInstanceLock(dir)) === null);
+        await waitUntil(async () => closedNotified);
 
         await expect(stat(ipcTokenPath(dir))).rejects.toThrow();
         await expect(stat(path.join(dir, "ipc", "larness.sock"))).rejects.toThrow();

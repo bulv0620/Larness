@@ -305,7 +305,17 @@ export async function startServer(options: StartServerOptions = {}): Promise<Run
   let preUpgradeBackupPath: string | null = null;
 
   try {
-    lock = await acquireInstanceLock(dataDir, { version });
+    const lifecycleMode =
+      env.LARNESS_LIFECYCLE_MODE === "background"
+        ? "background"
+        : env.LARNESS_LIFECYCLE_MODE === "foreground"
+          ? "foreground"
+          : undefined;
+    lock = await acquireInstanceLock(dataDir, {
+      version,
+      ...(lifecycleMode === undefined ? {} : { mode: lifecycleMode }),
+      ...(env.LARNESS_RUNTIME_DEV === "1" ? { dev: true } : {}),
+    });
 
     const dbPath = path.join(dataDir, "larness.db");
     const opened = openDatabase(dbPath);

@@ -5,6 +5,7 @@ import {
   IpcError,
   type IpcResponse,
   PROTOCOL_VERSION,
+  ShutdownParamsSchema,
 } from "../../src/ipc/protocol.js";
 
 describe("IPC protocol", () => {
@@ -47,6 +48,15 @@ describe("IPC protocol", () => {
     expect(InitApplyParamsSchema.safeParse({ publicUrl: "https://example.com/path" }).success).toBe(
       false,
     );
+  });
+
+  it("accepts an optional shutdown source", () => {
+    expect(ShutdownParamsSchema.safeParse({ confirm: true }).success).toBe(true);
+    expect(ShutdownParamsSchema.safeParse({ confirm: true, source: "cli" }).success).toBe(true);
+    expect(ShutdownParamsSchema.safeParse({ confirm: true, source: "tui" }).success).toBe(true);
+    expect(ShutdownParamsSchema.safeParse({ confirm: true, source: "api" }).success).toBe(false);
+    expect(ShutdownParamsSchema.safeParse({ confirm: false }).success).toBe(false);
+    expect(ShutdownParamsSchema.safeParse({ confirm: true, extra: 1 }).success).toBe(false);
   });
 
   it("maps IpcError and unexpected errors into stable responses", () => {

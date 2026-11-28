@@ -348,6 +348,8 @@ export async function startManagedRuntime(
         ...process.env,
         LARNESS_LOG_STDERR: "0",
         LARNESS_TUI_CHILD: "1",
+        LARNESS_LIFECYCLE_MODE: "foreground",
+        LARNESS_RUNTIME_DEV: options.dev ? "1" : "0",
         LARNESS_PM2_AUTO_INSTALL: process.env.LARNESS_PM2_AUTO_INSTALL ?? "1",
         ...(options.dev ? { LARNESS_SERVE_WEB: "0" } : {}),
       },

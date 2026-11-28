@@ -10,3 +10,10 @@ export function displayError(error: unknown): string {
 export function disconnected(error: unknown): boolean {
   return error instanceof IpcClientError && error.code === "CONNECTION_CLOSED";
 }
+
+export class ServiceStopped extends Error {
+  constructor() {
+    super("service stopped");
+    this.name = "ServiceStopped";
+  }
+}

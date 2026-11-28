@@ -16,6 +16,7 @@ export class IpcClientError extends Error {
 export interface IpcClient {
   request(method: string, params?: unknown, timeoutMs?: number): Promise<unknown>;
   close(): void;
+  onClose(handler: () => void): () => void;
 }
 
 export interface ConnectIpcOptions {
@@ -60,9 +61,24 @@ export async function connectIpc(options: ConnectIpcOptions): Promise<IpcClient>
   const address = resolveIpcAddress(options.dataDir, options.platform);
   const socket = await connectSocket(address.path, timeoutMs);
   const pending = new Map<string, PendingRequest>();
+  const closeHandlers = new Set<() => void>();
   let buffer = "";
   let nextId = 1;
   let closed = false;
+  let closedNotified = false;
+
+  const notifyClosed = (): void => {
+    if (closedNotified) return;
+    closedNotified = true;
+    for (const handler of closeHandlers) {
+      try {
+        handler();
+      } catch {
+        // A watcher must not break IPC teardown.
+      }
+    }
+    closeHandlers.clear();
+  };
 
   const rejectAll = (error: Error): void => {
     for (const request of pending.values()) {
@@ -118,6 +134,7 @@ export async function connectIpc(options: ConnectIpcOptions): Promise<IpcClient>
   socket.on("close", () => {
     closed = true;
     rejectAll(new IpcClientError("CONNECTION_CLOSED", "IPC connection closed"));
+    notifyClosed();
   });
 
   const send = (method: string, params: unknown, requestTimeoutMs: number): Promise<unknown> => {
@@ -165,6 +182,14 @@ export async function connectIpc(options: ConnectIpcOptions): Promise<IpcClient>
   return {
     request: (method, params, requestTimeoutMs = timeoutMs) =>
       send(method, params ?? {}, requestTimeoutMs),
+    onClose: (handler) => {
+      if (closedNotified || closed) {
+        handler();
+        return () => undefined;
+      }
+      closeHandlers.add(handler);
+      return () => closeHandlers.delete(handler);
+    },
     close: () => {
       closed = true;
 
@@ -173,6 +198,7 @@ export async function connectIpc(options: ConnectIpcOptions): Promise<IpcClient>
       }
 
       socket.destroy();
+      notifyClosed();
     },
   };
 }

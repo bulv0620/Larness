@@ -62,5 +62,40 @@
 
 Vite 退出/控制通道中断使 dev 运行环境失败；supervisor 停止本次 Server 与剩余子进程，不影响其他数据目录实例。HTTP 连接短暂失败先按上节返回，若进程已退出则走整体清理。公开端口冲突不自动跳号，内部端口由 OS 分配不持久化。正常退出、重复信号、初始化重启、启动失败均释放转发连接、监听、锁、IPC 和 TUI 原始模式；Vite wrapper 被 SIGKILL 后，仍存活的 supervisor 清理已验证同代临时缓存；supervisor 自身被 SIGKILL 的限制沿用 ADR-023。
 
+## 生命周期命令（112 / ADR-077，2026-11-28）
+
+| 命令 | 行为 | 退出码 |
+|---|---|---|
+| `larness` / `node app.js` | 只打印帮助，不启动、不创建数据目录、不连接 IPC | 0 |
+| `larness start` | 以 detached 子进程启动 `apps/server/dist/index.js`；stdin 关闭，stdout/stderr 写入 `<dataDir>/logs/daemon.log`（0600）；等待 `/api/health`、IPC token 与锁记录 pid 就绪后返回。已有健康实例时报告 PID/地址，不启动第二个 | 0 / 1 / 2 |
+| `larness stop` | 经 IPC `server.shutdown`（`confirm: true`、`source: "cli"`）优雅关闭，等待锁 / IPC / 端口释放。未运行幂等成功；IPC 不可达时不发信号、不删锁 | 0 / 1 / 2 |
+| `larness restart` | 先 stop 再 start；停止失败不启动；`mode=foreground` 或 `dev=true` 的实例拒绝 | 0 / 1 / 2 |
+| `larness tui` | 只附加到运行中的实例；`q` / Ctrl+C 退出面板，服务继续运行 | 0 / 1 / 2 / 3 |
+| `larness status` | 默认人读摘要；`--json` 输出 `StatusReport` | 0 / 1 / 2 / 3 |
+| `larness logs` | 读当前数据目录的最近日志；`--lines 1–1000`、`--daemon`、`--follow` | 0 / 1 / 2 / 3 |
+| `larness doctor` | 保持既有本机诊断 | 0 / 1 / 2 |
+
+- 后台启动继承现有 `LARNESS_*` 覆盖，并注入 `LARNESS_LIFECYCLE_MODE=background`、`LARNESS_LOG_STDERR=0`、`LARNESS_PM2_AUTO_INSTALL`（用户值优先，默认 `1`）。不经过 shell，不接受用户脚本路径。
+- 就绪失败时只尝试 IPC 优雅关闭本次 pid，不发送 SIGKILL；错误输出包含 PID 与 `daemon.log` 路径。超过 5 MiB 的 `daemon.log` 在下次 `start` 时轮换为 `daemon.log.1`。
+- `stop` 只停管理面与临时开发资源，不停止 PM2 守护或正式服务（ADR-046）。审计记录 `server.shutdown` 与 `source=cli|tui`。
+- 主机重启不自动恢复管理面；不提供开机自启或崩溃自动重启。
+
+### 开发模式边界
+
+`pnpm dev` 仍是前台受管入口：`tsx src/tui/main.ts --managed --dev` 启动 Vite + 源码 Server + TUI，退出即停止。`start` 只运行构建产物，不启动 Vite、不加载 `src`；缺少 `apps/server/dist/index.js` 或 `apps/web/dist/index.html` 时拒绝并提示 `pnpm build` / `pnpm dev`。
+
+| 能力 | `pnpm dev` | `larness start` |
+|---|---|---|
+| Server | `src` + tsx | `dist/index.js` |
+| Web | Vite + HMR，经 Server 转发 | 已构建 `apps/web/dist` |
+| 进程 | 前台 supervisor，与 TUI 同终端 | detached，无 TUI |
+| 关闭终端 / 退出 TUI | 停止 Server 与 Vite | 不影响 |
+| `stop` | 支持；supervisor 清理 Vite | 支持 |
+| `restart` | 拒绝 | 支持 |
+| `tui` | 可附加，服务端锁 `mode=foreground`、`dev=true` | 可附加 |
+| 日志 | `larness.log` + TUI 环形缓冲 | `larness.log` + `daemon.log` |
+
+前台 dev 实例被 CLI `stop` 后，TUI 经由 IPC 断开感知，清理 Vite 与终端并显示“服务已停止”，不把连接中断当作启动失败。初始化修改监听地址或端口需要重启时，附加模式只提示执行 `larness restart`，不静默停服。
+
 ## 正式服务运行边界（ADR-042，2026-11-05）
 M4-3 已在 TUI 受管 Server 启动时检查全局 PM2，缺失时安装 `pm2@7.1.2`；使用每实例私有 `PM2_HOME=<dataDir>/pm2` 和命名空间 `larness`。TUI 正常退出或管理进程异常退出时只停止管理面/临时开发资源，**不停止 PM2 守护和正式服务**；重开由 `reconcile` 核对实际实例、服务、版本、配置与健康。初始化失败只限制正式服务管理，不阻塞开发。`LARNESS_PM2_AUTO_INSTALL` / `LARNESS_PM2_PREFIX` 仅用于受管入口与测试注入，不进入 Web 配置；`startServer` 的 `pm2`/`pm2Global` 选项供测试注入。详见 [部署契约](deployment.md#32-m4-3-冻结2026-11-06) 与 [M4-3 技术冻结](../../specs/050-deploy/m4-3-design.md)。
