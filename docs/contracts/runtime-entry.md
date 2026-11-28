@@ -46,8 +46,8 @@
 - HTTP 请求剥离 Cookie、Authorization、Proxy-Authorization、x-csrf-token、Forwarded、X-Forwarded-*、hop-by-hop 头；HMR 先由 Server 校验会话，再以受控 Upgrade/Connection 建立上游握手。上游 Host 固定为已登记内部目标，不采用浏览器输入；Vite allowedHosts 保持明确列表，Origin 保留已校验值。
 - 响应丢弃 Set-Cookie、hop-by-hop 头和上游 CSP/CORS；CSP/跨源策略由管理入口统一设置。禁止将内部目标的 Location 发给浏览器，不跟随上游重定向。外部重定向也不得成为可选代理目标。
 - dev HTML/模块 no-store；HTTP 采用流式背压，单响应上限 32 MiB，不完整缓冲任意响应；转发端连接/响应首部超时 5 秒、响应传输空闲超时 30 秒。浏览器断开即销毁上游流，停机销毁全部代理流。启动探测须覆盖冷启动资源转换，依赖扫描与首轮预构建在就绪前完成。大于 1 MiB 的第三方模块省略 Vite 的兜底内联 source map，避免 Monaco TypeScript 服务被重复嵌入后超限；不改变源码内容或 32 MiB 上限。
-- 新拟议错误 `DEV_WEB_UNAVAILABLE`，HTTP 503，使用既有错误结构，消息为“开发页面暂不可用，请查看本机 TUI”；仅在响应未开始时返回，已发部分内容则中断连接。不返回内部地址/路径、原始异常/堆栈或认证材料，不把 Vite 不可用伪装成静态 dist 成功。
-- 现有业务错误仍由原处理器返回。U0-1 已同步 shared 错误 schema 和 REST 错误表；默认产品接线属于 U0-2。
+- 新错误 `DEV_WEB_UNAVAILABLE`，HTTP 503，使用既有错误结构，消息为“开发页面暂不可用，请查看本机 TUI”；仅在响应未开始时返回，已发部分内容则中断连接。不返回内部地址/路径、原始异常/堆栈或认证材料，不把 Vite 不可用伪装成静态 dist 成功。
+- 现有业务错误仍由原处理器返回。U0-1 已同步 shared 错误 schema 和 REST 错误表，U0-2 已接线到默认产品入口。
 
 ## 5. HMR 与安全头
 

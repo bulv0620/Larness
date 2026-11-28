@@ -2,11 +2,11 @@
 id: 077-model-connections
 title: 模型连接、能力目录与平台接入
 milestone: 发布后
-status: active
+status: done
 depends_on: [061-deepseek-integration, 063-multi-provider, 068-ui-fixes]
 owners: [human]
 created: 2026-11-14
-updated: 2026-11-15
+updated: 2026-11-28
 ---
 
 # 模型连接、能力目录与平台接入

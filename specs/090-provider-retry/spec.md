@@ -13,7 +13,7 @@ updated: 2026-11-24
 
 > 状态：`done`（2026-11-24 实施并验证；未运行项见 [tasks](tasks.md#验收记录2026-11-24macos)）。2026-11-24 用户直接要求“开个任务完成修改”，批准第 13 节 D1–D4 的推荐方案，不再单独评审。
 > 行号按 2026-11-24 工作树标注，实施前复核。
-> 关联：[ADR-057](../../docs/adr/ADR-057-runtime-efficiency.md) 第 4 条（`timeoutMs` / `maxOutputTokens` / `maxRetries` 必须显式下发）、[051 工具执行契约](051-agent-tool-contract/spec.md)、[rest-api 错误码](../../docs/contracts/rest-api.md)。
+> 关联：[ADR-057](../../docs/adr/ADR-057-runtime-efficiency.md) 第 4 条（`timeoutMs` / `maxOutputTokens` / `maxRetries` 必须显式下发）、[051 工具执行契约](../051-agent-tool-contract/spec.md)、[rest-api 错误码](../../docs/contracts/rest-api.md)。
 
 ## 1. 背景与问题
 

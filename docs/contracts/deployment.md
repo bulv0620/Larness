@@ -132,7 +132,7 @@ GET 服务列表新增可选兼容字段 pm2Home，生产响应总是提供实�
 
 ## M4-R3 服务类型由系统说明
 
-普通会话每次模型请求固定注入 development_preview/persistent_pm2 契约与分组观察。PM2 仍由通用命令管理，不使用临时登记/开发预览 API；临时登记不转换或守护进程。资源类型由后端真实 owner、ID、项目和监听/PM2 身份确认，不以名字、脚本或聊天判定。详见 [Agent 命令契约](agent-command-context.md#系统固定的服务生命周期契约m4-r3)。这项补充澄清已有 ADR-046/ADR-048/ADR-050 的边界，不改变授权或生命周期。
+普通会话每次模型请求固定注入 development_preview/persistent_pm2 契约与分组观察。PM2 仍由通用命令管理，不使用临时登记/开发预览 API；临时登记不转换或守护进程。资源类型由后端真实 owner、ID、项目和监听/PM2 身份确认，不以名字、脚本或聊天判定。详见 [Agent 命令契约](agent-command-context.md#系统固定的服务生命周期契约083)。这项补充澄清已有 ADR-046/ADR-048/ADR-050 的边界，不改变授权或生命周期。
 
 ## M4-R4 当前列表与删除
 

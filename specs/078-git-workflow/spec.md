@@ -1,8 +1,9 @@
 ---
 id: 078-git-workflow
 title: Git 日常操作体验
-status: active
+status: done
 created: 2026-11-15
+updated: 2026-11-28
 ---
 
 # Git 日常操作体验

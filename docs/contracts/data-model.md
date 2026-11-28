@@ -1,6 +1,6 @@
 # 数据模型与迁移
 
-> 当前迁移版本为 36。表格为索引，完整字段以对应的迁移和下文实施条款为准。
+> 当前迁移版本为 38。表格为索引，完整字段以对应的迁移和下文实施条款为准。
 > 实现：SQLite + Drizzle ORM；迁移由 drizzle-kit 生成，启动时执行。
 
 ## 1. 约定
@@ -408,6 +408,16 @@ CREATE INDEX idx_sessions_origin ON sessions(origin, updated_at);
 - `memory_suppressions`：忘记/拒绝后的 key、正文哈希与 90 天过期时间，防止重新学习。
 
 索引：active key 唯一（scope + project_key + key，partial）、`(scope, project_id, status)`、`expires_at`、revision 唯一、suppression key 唯一。项目删除级联删除三张表的数据。迁移只新增表与索引，不改现有列；回滚时删除三张新表。
+
+
+### 0037 · 联网搜索连接与会话开关（087）
+
+`schemaVersion 36 → 37`。新增：
+
+- `web_search_connections`：`id`、`provider`（`deepseek` | `glm`）、`label`、`region`（`cn` | `global`，可空）、`endpoint`、`secret_ref`（外键到 `secrets`，级联删除）、`created_at`；索引 `idx_web_search_connections_provider`。
+- `sessions.web_search_enabled`、`turns.web_search_enabled`：integer not null default 0，Turn 创建时快照，会话开关改动不影响已创建 Turn。
+
+搜索凭据与模型凭据完全隔离，不复用 `credential_profiles`。回滚时删除该表与两列。
 
 
 ### 0038 · 文档与图片附件（088）

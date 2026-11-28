@@ -1,6 +1,6 @@
 # REST API 契约
 
-> 现行 REST 契约覆盖 M0–M5。按阶段追加的条款与兼容入口在对应章节注明。
+> 现行 REST 契约覆盖 M0–M5 与 M6 之后的发布后切片。按阶段追加的条款与兼容入口在对应章节注明。
 > Base URL：默认监听 `127.0.0.1:3210`；dev/打包浏览器 canonical origin 均为 `http://localhost:3210`（Passkey 需要）或配置的 HTTPS 域名。Vite 是 dev 的内部受管前端，不改变 API 来源；见 [入口契约](runtime-entry.md)。所有业务接口前缀 `/api`。
 
 ## 1. 通用约定

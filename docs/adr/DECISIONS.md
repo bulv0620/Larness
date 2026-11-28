@@ -116,7 +116,11 @@
 
 - [ADR-042 开发运行/正式发布边界与策略化部署授权](ADR-042-service-deploy-boundary.md)：accepted（2026-11-05用户明确决定）；M3开发预览、M4全部PM2/持久发布；自主含部署完全免人工，旧005/030/040原文由此补充，不代表G-Spec/实现通过。
 
-- [ADR-043 开发预览来源、票据与服务执行身份](ADR-043-development-preview-authorization.md)：proposed（2026-11-05 M3技术规格评审）；独立来源、凭据交换、执行身份/失效和PoC门禁待人类确认，未实现。
+- [ADR-043 开发预览来源、票据与服务执行身份](ADR-043-development-preview-authorization.md)：accepted（2026-11-05 人类按 M3 评审包推荐批准，仅先做 M3-0）；独立来源、凭据交换、执行身份/失效和 PoC 门禁。第 5 条的通配监听限制由 [ADR-044](ADR-044-preview-binding-simplification.md) 修订；远程 HTTPS 实测仍未完成。
+
+- [ADR-044 服务登记不再限制绑定地址，预览按已核验本地地址拨号](ADR-044-preview-binding-simplification.md)：accepted（2026-11-05 人类要求简化）；修订 ADR-043 第 5 条，身份/票据/隔离约束继续有效。
+
+- [ADR-045 临时服务可独立停止或删除](ADR-045-independent-service-stop-delete.md)：accepted（2026-11-05 人类要求“服务本身可以被终止删除”）；服务停止保留 Shell，删除退登卡片，见 ADR-030。
 
 - [ADR-046 PM2 交付与正式服务退出边界](ADR-046-pm2-delivery-and-lifecycle.md)：accepted（2026-11-06）。TUI 检查全局 PM2 并在缺失时补装；管理进程异常退出或正常退出 TUI 时正式服务继续运行，重开后对账并展示实际状态。补充 ADR-023，安装与接入细节待 M4-0。
 
@@ -159,6 +163,10 @@ accepted，2026-11-11 人类直接确认 D1–D7 全部采用推荐方案。syst
 
 accepted，2026-11-12 人类直接确认 D1–D4 全部采用推荐方案。恢复通过新建 Turn 接手、旧 Turn 不可变且不自动续跑（避免重复副作用）；清理默认 dry-run 不删数据，开启后按会话整段删除并要求先备份与审计。见 [ADR-058](ADR-058-turn-recovery-retention.md) 与 [071 spec](../../specs/071-turn-recovery/spec.md)。
 
+## ADR-059 · 长任务的分片预算与自动接续（2026-11-12）
+
+accepted，用户在三档中明确选择激进档：任务级 token 预算、自动接续与接续深度上限。**任务级默认值部分已由 [ADR-071](ADR-071-long-task-continuity.md)（2026-11-19）取代**：默认不再设任务级 token 上限，改为 24h / 1000 步紧急兜底与 85% 上下文换页；接续事件、检查点、usage 与安全约束保留。见 [ADR-059](ADR-059-long-task-budget-and-continuation.md)。
+
 ## ADR-060 · 本机预览默认开启（2026-11-13）
 
 accepted，用户直接确认。`preview.enabled` 缺省为 `true`，显式关闭继续生效。见 [ADR-060](ADR-060-local-preview-default.md)。
@@ -193,15 +201,23 @@ accepted，用户要求「把应该优化的都一步步优化」。运行时观
 
 ## ADR-068 · Agent 内核与人类操作面分离（2026-11-18）
 
+accepted，2026-11-18 人类确认 082 spec、本 ADR 与 Q-042～Q-050 全部推荐默认；内测允许破坏性重构，存量会话不保留旧能力。单循环、无 subagent；新增 coding/plan/workspace Profile；模型移除 Git 与交互终端工具，Git/终端/PM2/预览保留为人类操作面；Agent 使用后台进程与命名服务；计划降级为 plan Profile；锁域收敛为 ProjectLease + ServiceLease；审计分级为安全关键/资源操作/调试；命令采用 run_command 结构化 + run_shell 平台 shell 双路径。替代 ADR-030 的 Agent 终端服务模型与 ADR-038 的 Agent 终端交互规则；ADR-048/059/060 不替代。见 [ADR-068](ADR-068-agent-kernel.md)、[K-1 基线](../../specs/082-agent-kernel/baseline.md) 与 [082 规格](../../specs/082-agent-kernel/spec.md)。
+
 ## ADR-069 · 项目开发服务与全局 PM2 运维分离（2026-11-18）
 
 accepted，人类明确要求 coding 直接启动项目后台开发服务、项目服务显示这些任务、预览手动点击才注册、终端纯人类、workspace 改为服务运维并管理 Larness 隔离 PM2。见 [ADR-069](ADR-069-project-services-and-service-ops.md) 与 [083 规格](../../specs/083-service-model/spec.md)。
 
-accepted，2026-11-18 人类确认 082 spec、本 ADR 与 Q-042～Q-050 全部推荐默认；内测允许破坏性重构，存量会话不保留旧能力。单循环、无 subagent；新增 coding/plan/workspace Profile；模型移除 Git 与交互终端工具，Git/终端/PM2/预览保留为人类操作面；Agent 使用后台进程与命名服务；计划降级为 plan Profile；锁域收敛为 ProjectLease + ServiceLease；审计分级为安全关键/资源操作/调试；命令采用 run_command 结构化 + run_shell 平台 shell 双路径。替代 ADR-030 的 Agent 终端服务模型与 ADR-038 的 Agent 终端交互规则；ADR-048/059/060 不替代。见 [ADR-068](ADR-068-agent-kernel.md)、[K-1 基线](../../specs/082-agent-kernel/baseline.md) 与 [082 规格](../../specs/082-agent-kernel/spec.md)。
+## ADR-070 · Agent Profile 收敛与会话用量统计（2026-11-18）
+
+accepted，2026-11-18 人类审核通过 084 spec 并指示开始实施。Profile 只保留 `coding` / `plan`（旧 `service-ops` 迁移为 `coding`），两者共享完整工具面，`plan` 仅额外拥有 `update_plan` 与计划提示；输入框下方给出会话累计 Token 与最后一步实测输出速度。前端呈现措辞由文末 2026-11-24 修订收窄，聚合与接口语义不变。见 [ADR-070](ADR-070-agent-profiles-and-usage.md) 与 [084 规格](../../specs/084-agent-profiles-and-usage/spec.md)。
 
 ## ADR-071 · 长任务连续执行（2026-11-19）
 
 accepted，2026-11-19 人类确认 085 全部推荐默认：默认关闭任务级 token 上限，紧急兜底改为 24h / 1000 步；输入窗口 85% 触发上下文换页，新增 `terminalReason=continued`；无工具事实时使用最近消息 + 摘要承接；单次请求、命令、锁与审批超时保留；无进展 10 分钟暂停。取代 ADR-059 的任务级默认值，保留接续事件、检查点、usage 统计与安全约束。见 [ADR-071](ADR-071-long-task-continuity.md) 与 [085 规格](../../specs/085-long-task-continuity/spec.md)。
+
+## ADR-072 · 项目记忆与用户偏好（2026-11-20）
+
+accepted，2026-11-20 人类确认按 086 推荐默认实施：只加载 `AGENTS.md` + `.larness/instructions.md`；项目 fact/command/gotcha 证据有效且置信度 ≥0.6 自动 active，decision 默认 review，全局 preference 仅用户明确表达且 ≥0.9 自动 active；硬字节预算、评分淘汰与保留期；记忆作为不可信事实注入，不参与授权。见 [ADR-072](ADR-072-project-memory.md) 与 [086 规格](../../specs/086-project-memory/spec.md)。
 
 ## ADR-073 · 联网搜索：普通 Agent 工具、独立搜索连接与默认关闭（2026-11-20）
 

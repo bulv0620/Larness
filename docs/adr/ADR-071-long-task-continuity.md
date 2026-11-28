@@ -1,7 +1,7 @@
 # ADR-071 长任务连续执行：取消任务级预算与上下文换页
 
 - 状态：accepted（2026-11-19，人类确认按 085 默认值实施）。
-- 关联：[085 spec](../specs/085-long-task-continuity/spec.md)、[ADR-057](ADR-057-runtime-efficiency.md)、[ADR-059](ADR-059-long-task-budget-and-continuation.md)。
+- 关联：[085 spec](../../specs/085-long-task-continuity/spec.md)、[ADR-057](ADR-057-runtime-efficiency.md)、[ADR-059](ADR-059-long-task-budget-and-continuation.md)。
 - 取代范围：本 ADR 取代 ADR-059 中“任务级 token 上限、180 分钟 Turn 总墙钟、固定接续深度 3、80% 收尾提示”的默认行为；保留 ADR-059 的接续事件、检查点、跨切片花费统计与安全约束。
 
 ## 背景

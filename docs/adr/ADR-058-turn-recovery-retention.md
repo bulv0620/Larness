@@ -2,7 +2,7 @@
 
 - 状态 accepted（2026-11-12，人类直接确认 D1–D4 全部采用推荐方案）。
 - 关联：[071 spec](../../specs/071-turn-recovery/spec.md)、[070 运行时效率](../../specs/070-runtime-efficiency/spec.md)、[ADR-055](ADR-055-npm-update-security.md)（升级前备份）、[ADR-054](ADR-054-scheduler-execution.md)（自动化执行边界）、[工程宪法](../../CONSTITUTION.md) 第三条（失败关闭）、第六条（秘密不进入模型与前端）。
-- 实施状态：未实施。规格 `draft`；TR-4（删除）必须在 D2、D3 确认且 TR-1 体积报告完成后才可开工。
+- 实施状态：已实施（TR-0～TR-4 于 2026-11-12 收口，见 [tasks](../../specs/071-turn-recovery/tasks.md)）。清理默认关闭且 `maxBytes` 未启用强制淘汰，删除粒度与保留期仍待用户复核，见 [遗留问题](../open-questions.md) Q-033 / Q-034。真实 Provider 侧观测同 070，2026-11-28 按 Q-084 降级为「仅合成与 Mock 验证」。
 
 ## 背景
 

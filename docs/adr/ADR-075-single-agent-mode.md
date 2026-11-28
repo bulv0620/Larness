@@ -28,7 +28,7 @@
 
 - 取代 [ADR-070](ADR-070-agent-profiles-and-usage.md) 第 1～3 条关于 `coding` 无计划、`plan` 独立执行模式的决策；084 的用量统计、阶段状态与 UI 收敛继续有效。
 - 保留 [ADR-068](ADR-068-agent-kernel.md) 的单循环、工具面与人类操作面分离；不引入 subagent。
-- 不改变 [091](../091-cross-turn-tool-replay/spec.md) 的 L0 回放与 [094](../094-operation-log/spec.md) 的 L1 操作日志。
+- 不改变 [091](../../specs/091-cross-turn-tool-replay/spec.md) 的 L0 回放与 [094](../../specs/094-operation-log/spec.md) 的 L1 操作日志。
 
 ## 备选方案
 

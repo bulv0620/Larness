@@ -76,7 +76,7 @@
 - `pnpm build` 成功；
 - 本报告的 10 任务确定性功能 A/B。
 
-真实模型 A/B 作为遗留验证项记录在 [STATUS](../../STATUS.md) 与 [tasks](tasks.md#k-102026-11-18macos)，需要人类提供 Key 与预算后补跑；不得以脚本 A/B 冒充模型成功率。
+真实模型 A/B 作为遗留验证项记录在 [STATUS](../../STATUS.md) 与 [tasks](tasks.md)，需要人类提供 Key 与预算后补跑；不得以脚本 A/B 冒充模型成功率。
 
 ## 5. 结论
 

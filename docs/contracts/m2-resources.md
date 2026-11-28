@@ -2,6 +2,8 @@
 
 > 当前状态：2026-11-05 M2与全部纠错通过人类整体验收，见[最终收尾](../../specs/030-dev-resources/closure.md)。下文逐日期描述为实施历史，后续修订条款优先；M3服务/预览契约仍为规划，不视为已实现。
 
+> 082（2026-11-18）修订：本文描述的 7 个 Agent 终端工具（`start_project_terminal`、`read_terminal_output`、`stop_project_terminal`、`acquire_terminal_control`、`send_terminal_input`、`interrupt_terminal`、`release_terminal_control`）与 10 个 Agent Git 工具（`git_status` 等）已从所有 Profile 移除，终端与 Git 只保留人类 REST / WS / UI 操作面。人类侧的资源接口、输入租约、resize、接管与断开清理继续有效。现行 Agent 工具面见 [命令上下文契约](agent-command-context.md) 与 [051 工具执行契约](../../specs/051-agent-tool-contract/spec.md)。
+
 
 > 2026-11-02 人类要求开始 M2，并明确按最新 spec；[030 spec](../../specs/030-dev-resources/spec.md) / [ADR-029](../adr/ADR-029-development-resource-execution.md) 已通过 G-Spec-M2，含 §10 完整 AI 交互。以下接口按任务逐步实施，不代表服务器已有能力。2026-11-03 G-PoC-M2 已确认，M2-1 文件 / 目录接口与迁移已实施，详见 §11；M2-1b 文件监听 / 订阅 / 补拉已实施，详见 §12；M2-2 文件编辑与结果卡片已实施，详见 §13；M2-3 命令执行后端已实施，详见 §14；M2-3b Agent 命令与实时卡片已实施，详见 §15；M2-4 PTY 与输入租约后端已实施，详见 §16；后续接口仍按任务逐步落地。
 

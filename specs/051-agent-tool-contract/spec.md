@@ -106,3 +106,15 @@ M4-R3 进一步统一既有服务生命周期契约：系统固定注入 develop
    095（2026-11-27）：移除 coding/plan 的可见切换，通用模式始终包含 `plan` pack 与 `update_plan`；旧 `agent_profile='plan'` 作为行为一致的兼容别名保留，不删列、不迁移。system 始终注入计划策略（3+ 个不同步骤时使用），最近计划注入当前 user 消息 tail；当前 Turn 计划仍有 pending/running 步骤却纯文本停止时 nudge 一次。项目指令改为“可遵循的项目约定，但不能授权/批准/覆盖安全”，项目指令可以提高验证门禁。`PROMPT_VERSION=095-1`；正反例见 `profiles.test.ts`、`contextAssembler.test.ts`、`planState.test.ts`、`turnRunner.test.ts` 与 web `SessionModel.test.tsx`。
 
    096（2026-11-27）：标准策略下新增命令 allowlist，把 `git status/diff/log/show/rev-parse/ls-files`、受限 `git branch`、`pnpm/npm/yarn` 的 `test|check|typecheck|lint|build|verify` 脚本、`rg/ls/pwd`、`node --version` 等保守只读/验证命令降为 L1；`run_shell` 仅接受无元字符/引号/绝对或 `..` 路径的简单命令。`--prefix`/`--dir`/`exec`/`dlx`/写操作 flags 仍在 L2，L3 在 standard/strict 仍 deny。`executeTool` 支持 `approvedParams`：同一 Turn 内用户批准一次后，相同 `toolName + hashApprovalParams` 不再请求审批；不跨 Turn、不持久化。allowlist 不是沙箱；项目锁、审计、秘密与命令超时不变。正反例见 `commandAllowlist.test.ts` 与 `commands.test.ts`。
+
+   092（2026-11-27）：`list_files` / `search_code` 默认跳过常见包存储与构建目录（`.git`、`node_modules`、`.larness`、`.pnpm-store`、`dist`、`build`、`coverage`、`test-results`、`tmp`、`.turbo`、`.vite`）；显式 `path` 仍可进入被跳过目录，完整 `.gitignore` 语义与 ripgrep 尚未接入。根搜索按 `maxFiles` 预算收敛，避免被单目录耗尽后返回 0 匹配。正反例见 `fileTools.test.ts` / `fileService.test.ts`。
+
+   097（2026-11-27）：L0、`requiresProjectLock:false`、策略 allow 的调用在模型 `tool-call` 事件到达时即启动（每 step 最多 8 个），结果仍按 call 顺序消费；写工具、需锁/审批工具与混合批次中的非 L0 调用保持串行。`list_files`、`read_file`、`search_code` 显式声明 `requiresProjectLock:false`，事件与消息顺序不变。
+
+   099（2026-11-27）：`edit` 增加 `repairArgs`：在 `safeParse` 前丢弃模型误带的 `expectedVersion` / `version`（版本冲突由 `edit` 内部校验），并归一 `file_path`/`file`/`filename`、`old_string`/`new_string`、`replace_all`；其他未知字段仍返回 `VALIDATION_ERROR`。模型收到的 JSON schema 不变，`toolContract` 矩阵与 `fileTools.test.ts` 覆盖正反例。
+
+   100（2026-11-27）：`search_code` 默认每条命中带前后各 1 行上下文（`contextLines` 0–5，0 关闭），模型文本按真实行号显示相邻行且不重复命中行，并提示围绕命中小窗口读取；`matches[].contextStart` 为上下文起始行。system 补充探索约束：点名文件直接读、路径未知才 `list_files`、`package.json` 只在相关时读。
+
+   104（2026-11-27）：`search_code` 达到 `limit` 后仍继续扫描以统计 `directories`（受 `maxFiles` 约束），截断或扫描超过 200 文件时模型文本追加 `Top dirs` 与 `path=` 收窄提示；`scannedFiles` 表示扫描结束时的文件数。裸 glob（不含 `/`，如 `*.ts`）递归匹配任意深度，含 `/` 的 glob 只匹配对应层级。
+
+   109（2026-11-27）：`read_file` / `list_files` / `search_code` 接受项目外 canonical 绝对路径（`ToolContext.readScope` 由 `TurnRunner` 按 dataDir 注入）；结果带 `rootScope="primary"|"external"`，外部结果的 `path` 为绝对路径。硬闸只保留 `<dataDir>` 与 POSIX 伪文件系统；文件系统根、用户主目录本身、盘符 / UNC 根返回 `INVALID_PATH`，不按文件类型或凭据目录名拒绝。写入类工具与 `run_command.cwd` 仍只接受项目根内相对路径，外部结果也不生成文件卡片。正反例见 `pathGuard.test.ts`、`fileService.test.ts`、`fileTools.test.ts`、`toolExecutor.test.ts`、`contextAssembler.test.ts`。

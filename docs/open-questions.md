@@ -36,7 +36,7 @@
 | Q-013 | 公网访问是否内置 TLS / 隧道？ | 不内置；文档要求用户使用 HTTPS 反代或受保护隧道 | 部署、文档 | 未排期 |
 | Q-016 | 所有 Passkey 丢失 / TUI 不可用时如何恢复？ | V1 不提供 Web 恢复；TUI 撤销后重新配对；离线恢复码仍为 P1 | 恢复流程、支持成本 | 未排期 |
 | Q-029 | 正式服务如何接收 `secretRef`，避免 PM2 将明文写入元数据、dump 或日志？ | M4-3 已验证守护/应用不继承 `LARNESS_*` 合成秘密，dump/pm2.log/服务日志无标记；正式 secretRef 注入与所有落盘路径仍需在产品注入前专项验证 | PM2 正式服务注入与脱敏 | M4-3b 产品秘密注入前 |
-| Q-032 | 缓存命中率的发布门槛怎么定？ | 已确认先只观测、不设门槛；真实数值与门槛在 HX-1 基线后按 Provider 设定（官方也说明缓存是尽力而为，不保证 100% 命中） | 发布门槛、性能验收口径 | [070 spec](../specs/070-runtime-efficiency/spec.md) D6 |
+| Q-032 | 缓存命中率的发布门槛怎么定？ | 2026-11-28 用户确认：仍只观测、不设门槛；**因为始终没有真实 Provider 基线，070/071 的发布结论降级为「仅合成与 Mock 验证」**，不宣称真实命中率 | 发布结论口径、性能验收 | [070 spec](../specs/070-runtime-efficiency/spec.md) D6、Q-084 |
 | Q-033 | `agent_events` / `turns` / `session_context_summaries` 的保留期与体积上限默认值？ | 建议 events 90 天、turns 180 天、摘要 90 天，另有 `maxBytes`；先由 TR-1 体积报告支撑再定；清理默认关闭、只 dry-run | 数据保留、备份体积、历史可追溯性 | [071 spec](../specs/071-turn-recovery/spec.md) D2、[ADR-058](adr/ADR-058-turn-recovery-retention.md) |
 | Q-035 | TypeScript 7.0.2 对 JSDoc 中的某些文本会产生假诊断（例如注释里写 `**/test/*.ts` 会报 `TS7008 Member 'test' implicitly has an 'any' type`）。 | 已观测：改写注释即可消除；暂不改注释规范，遇到时按误报处理并记录 | 开发体验、误导性报错 | [HX-8 记录](../specs/070-runtime-efficiency/tasks.md) |
 | Q-034 | 开启清理前是否强制备份，备份保留几份？ | 建议强制备份一次并复用 ADR-055 的备份路径；份数与周期沿用 Q-010 | 删除不可逆风险 | [071 spec](../specs/071-turn-recovery/spec.md) TR-4、Q-010 |
@@ -45,8 +45,8 @@
 | Q-041 | 是否继续压缩 `@larness/shared` 的 schema 字段描述（`update_plan`、`start_project_terminal`、`run_command`）？081 把重复的生命周期文案合到一处后，字段描述成为剩余固定开销的最大单项（工具 schema 仍约 4.4k token）。 | 暂不动：改 `.describe()` 属执行契约变更，需要重跑工具契约矩阵并更新 `051` 契约，单开一轮评估 | 固定开销、模型调用正确率 | [081 spec](../specs/081-agent-lean/spec.md#13-开放问题) |
 | Q-077 | 088 的解析器仍在主进程执行，只有硬超时，没有 worker/内存隔离；大 PDF 或恶意 Office 文件可能阻塞事件循环。 | 当前按「进程内 + 硬超时 + 解压前置限额」交付，未宣称沙箱；下一步评估独立 worker 入口与打包（tsdown 第五入口），或改用子进程并保留超时/终止。 | 解析安全、事件循环阻塞、DA-3 验收缺口 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
 | Q-078 | `attachments.ocr.mode=vision` 已进入配置 schema，但 bootstrap 未把 `visionConnectionId` 解析成可调用的转写器，视觉模式仍失败关闭。 | 默认 `auto-local` 只走本地 OCR；视觉连接接线前不得声称云端视觉可用。需要时按模型连接服务解析密钥并复用 provider，失败不回退。 | A3 视觉分支、外发隐私 | [088 acceptance](../specs/088-document-attachments/acceptance.md) |
-| Q-080 | 是否提供“把附件导入项目目录”的写盘通道（`import_attachment`，L2）？ | 首版不做：上传即落盘会引入路径审批、覆盖冲突与项目锁扩张。需要时按“默认写 `tmp/attachments/<attachmentId>/`、显式 `targetPath` 才写项目、项目锁 + 审计”设计并单独评审。 | 修改真实页面/运行附件仓库的工作流 | [088 spec §7.7](../specs/088-document-attachments/spec.md#77-视图契约与格式矩阵) |
-| Q-084 | 089 的真实 Provider 缓存基线（A9）尚未取得：本环境无 DeepSeek 凭据，`LARNESS_DEEPSEEK_SMOKE=1` 未运行，改造前后 `cacheReadTokens` 对比缺失。 | 发布前在配置了凭据的环境跑固定两轮任务，记录每轮 `cacheReadTokens`、未命中与 `prefixBreak` 分布；命中率仍只观测、不作代码门禁（Q-032）。 | 发布结论的可观测证据 | [089 acceptance](../specs/089-session-prefix-cache/acceptance.md) |
+| Q-080 | 是否提供“把附件导入项目目录”的写盘通道（`import_attachment`，L2）？ | 2026-11-28 用户确认不做，DA-12 标 `dropped`；上传只服务于会话读取，不写项目目录 | 修改真实页面/运行附件仓库的工作流 | [088 spec §7.7](../specs/088-document-attachments/spec.md#77-视图契约与格式矩阵) |
+| Q-084 | 089 的真实 Provider 缓存基线（A9）尚未取得：本环境无 DeepSeek 凭据，`LARNESS_DEEPSEEK_SMOKE=1` 未运行，改造前后 `cacheReadTokens` 对比缺失。 | 2026-11-28 用户确认按「降级」处理并关闭：不补跑基线，089/070/071 的发布结论只覆盖合成与 Mock 验证，070/089 的验收记录与 ROADMAP 门禁同步注明；日后有凭据环境时再作独立观测，不阻塞发布 | 发布结论的可观测证据 | [089 acceptance](../specs/089-session-prefix-cache/acceptance.md) |
 
 ## 已解决
 - Q-085（2026-11-27）：文件工具按 T2 拆读不拆写——`read_file` / `list_files` / `search_code` 接受项目外 canonical 绝对路径，写入类工具与 `run_command.cwd` 仍限当前项目根；只保留 `<dataDir>` 与伪文件系统硬闸，不按文件类型或凭据目录名拒绝。见 [109](../specs/109-external-read-scope/spec.md)。

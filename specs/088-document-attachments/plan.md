@@ -264,6 +264,6 @@ pnpm test:e2e
 - Q-071～Q-076 已于 2026-11-23 关闭，结论见 spec §13。
 - Q-077（解析 worker 隔离）与 Q-078（云端视觉转写接线）仍未闭合，见 `docs/open-questions.md`。
 - Q-079（多视图）已于 2026-11-24 关闭；结论见 spec §7.7 与 §13。
-- Q-080（附件导入项目目录、写盘与审批）未排期。
+- Q-080（附件导入项目目录、写盘与审批）于 2026-11-28 用户确认不做，DA-12 转 `dropped`。
 
 确认后更新 [ADR-074](../../docs/adr/ADR-074-document-attachments.md) 为 accepted，并把 spec 改为 `ready`。

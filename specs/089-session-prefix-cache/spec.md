@@ -13,7 +13,7 @@ updated: 2026-11-24
 
 > 状态：`done`（2026-11-24 实施并验收；A9 未运行，见 [acceptance](acceptance.md)）。第 13 节 D1–D5 已按推荐方案一次确认。
 > 行号按 2026-11-24 工作树标注，实施前需复核。
-> 前序：[070 运行时效率](070-runtime-efficiency/spec.md) 的 HX-1～HX-12 已全部收口，本切片只处理**跨 Turn** 的剩余漏损，不重做 Turn 内前缀稳定性。
+> 前序：[070 运行时效率](../070-runtime-efficiency/spec.md) 的 HX-1～HX-12 已全部收口，本切片只处理**跨 Turn** 的剩余漏损，不重做 Turn 内前缀稳定性。
 
 ## 1. 背景与问题
 

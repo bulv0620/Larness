@@ -2,7 +2,7 @@
 
 - 状态 accepted（2026-11-07，用户直接指定方向：旧模型档案全部忽略，做完整的 DeepSeek 接入，支持选择模型与思考程度，界面仿 Codex 效果）。
 - 关联 [ADR-021](ADR-021-passkey-v1.md)（无关）之外的：[M1 模型 Profile](../../specs/020-workspace-agent/spec.md)、[M5-1 spec](../../specs/061-deepseek-integration/spec.md)、[工程宪法](../../CONSTITUTION.md) 第六 / 第十条。
-- 实施状态：规格 `ready`，按 M5-1a → M5-1b / M5-1c 落地；未实施前不得宣称已支持官方目录或思考档位。
+- 实施状态：已实施（M5-1a → M5-1b / M5-1c，2026-11-07 人类验收；后续多 Provider 见 [063](../../specs/063-multi-provider/spec.md)、连接目录见 [077](../../specs/077-model-connections/spec.md)）。
 
 ## 背景
 

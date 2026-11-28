@@ -31,7 +31,7 @@
 | A6 断点归因正确 | 通过 | `prefixCache.test.ts` 11 个分类用例 + `TurnRunner` 两轮集成：`cold → none`，版本/指令/工具/裁剪/压缩/模型切换/驱逐各自命中枚举 |
 | A7 归因不含敏感内容 | 通过 | 同上集成用例断言事件序列化后不含回复文本与 system 正文，哈希为 12 位十六进制；日志只有枚举与计数 |
 | A8 缺字段/Provider 驱逐降级 | 通过 | `usageSource=unknown` 时 `cacheReadTokens` 缺省且不进分母（`session-usage.test.ts`）；`provider_eviction` 需同时满足 >2,000 token 与 >5%，且不改变行为 |
-| A9 真实 Provider 观测 | **未运行** | 本环境无 DeepSeek 凭据，未跑 `LARNESS_DEEPSEEK_SMOKE=1`；命中率本来也不是代码门禁（Q-032） |
+| A9 真实 Provider 观测 | **未运行（已按降级关闭）** | 本环境无 DeepSeek 凭据，未跑 `LARNESS_DEEPSEEK_SMOKE=1`；命中率本来也不是代码门禁（Q-032）。2026-11-28 用户确认按 Q-084 降级：089 的发布结论只覆盖合成与 Mock 验证，不补跑真实基线 |
 
 ## 3. 行为要点（便于人工复核）
 

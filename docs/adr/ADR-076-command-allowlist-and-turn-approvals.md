@@ -2,7 +2,7 @@
 
 - 状态：**accepted（2026-11-27）**
 - 批准记录：2026-11-27 人类选择「allowlist + 本轮批量」方案，要求 L3 保持 ask/deny、默认仍为 standard。
-- 关联：[096 spec](../../specs/096-command-approvals/spec.md)、[051](../051-agent-tool-contract/spec.md)、[072](../072-agent-error-budget/spec.md)、[095](../095-single-agent-mode/spec.md)。
+- 关联：[096 spec](../../specs/096-command-approvals/spec.md)、[051](../../specs/051-agent-tool-contract/spec.md)、[072](../../specs/072-agent-error-budget/spec.md)、[095](../../specs/095-single-agent-mode/spec.md)。
 
 ## 背景
 

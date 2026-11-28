@@ -1,6 +1,6 @@
 # STATUS
 
-> 最后更新：2026-11-27
+> 最后更新：2026-11-28
 > 规格入口见 [规格与工程入口](specs/README.md)。待决事项和未验证范围见 [遗留问题](docs/open-questions.md)。
 > **本文件只记录当前状态**（进行中、阻塞、当前有效基线）。已收口任务的明细不进这里，见 [历史状态日志](docs/log/2026-11.md) 与各切片的 `tasks.md` / `acceptance.md`。
 
@@ -11,6 +11,7 @@
 ## 阻塞与待确认
 
 - **实机验收证据边界（082/083）**：082 已按限定范围验收通过，但真实 Provider A/B、Windows 实机与 083 用户现有 PM2/旧命令数据未在本次环境复跑；不得据此声称这些场景已验证。
+- **真实 Provider 缓存基线（Q-084，已按降级关闭）**：070/071/089 无真实命中率数据，发布结论只覆盖合成与 Mock 验证；命中率仍只观测、不设门槛（Q-032）。
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
@@ -19,7 +20,7 @@
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
-| 2026-11-27 | 111 手动停止按失败效果呈现（MS-1～MS-5） | `turn.cancelled` 现在按失败读：摘要 `Failed`、提示用失败边框并保留「重试」、被截断的 `running` 计划步骤显示「已中断」；失败回合不再平铺失败工具行，明细留在可展开的执行过程里；服务端 `CANCELLED`、事件、审计、Job 与恢复条件零改动，取消仍不提供继续入口。`Timeline.test.tsx` 先红后 32/32，web 全量 326 项、`pnpm check` 退出码 0（server 188 文件 / 1018 项通过 / 15 跳过）、`pnpm build` 通过 | [111](specs/111-manual-stop-failure/tasks.md) |
+| 2026-11-27 / 11-28 | 111 手动停止按失败效果呈现（MS-1～MS-5） | `turn.cancelled` 现在按失败读：摘要 `Failed`、提示用失败边框并保留「重试」、被截断的 `running` 计划步骤显示「已中断」；失败回合不再平铺失败工具行，明细留在可展开的执行过程里；服务端 `CANCELLED`、事件、审计、Job 与恢复条件零改动，取消仍不提供继续入口。`Timeline.test.tsx` 先红后 32/32，web 全量 326 项、`pnpm check` 退出码 0（server 188 文件 / 1018 项通过 / 15 跳过）、`pnpm build` 通过 | [111](specs/111-manual-stop-failure/tasks.md) |
 | 2026-11-27 | 110 新会话继承最近选择的审批策略（AD-1～AD-3） | 项目 `settings.defaultApprovalPolicyId` 与默认工作区 `app_meta` 分别记住最后一次用户修改的策略；`POST /api/sessions` 创建时继承，`PATCH /api/sessions/:id` 改策略时在同一事务更新默认，旧会话不回写；Web 草稿显示项目默认，未主动改选时不回传策略；`sessions/service` 9 项、`sessions/api` 1 项、`projects/api` 3 项、web `SessionModel` 14 项 / `Composer` 9 项 / `timelineSendScroll` 3 项通过；`pnpm check` 退出码 0（server 188 文件、1018 项通过 / 15 跳过）、`pnpm build` 通过；无 DB 列/迁移 | [110](specs/110-session-approval-default/tasks.md) |
 | 2026-11-27 | 109 文件工具作用域：放开项目外读取（ER-1～ER-3） | `read_file` / `list_files` / `search_code` 接受项目外 canonical 绝对路径（`ToolContext.readScope`），结果带 `rootScope=primary|external`，外部 `path` 为绝对路径；写入类工具与 `run_command.cwd` 仍限项目根；硬闸只保留 `<dataDir>` 与 `/proc`、`/sys`、`/dev`，文件系统根 / 主目录本身 / 盘符根返回 `INVALID_PATH`，不按文件类型或凭据目录名拒绝；`TurnRunner` 按 dataDir realpath 注入，dataDir 缺失则失败关闭；`PROMPT_VERSION=109-1`。`pathGuard` 7+1 跳过、`fileService`/`fileTools` 37 项、`toolExecutor` 5 项、`contextAssembler` 15 项、新增 `externalRead` 1 项通过；`pnpm check` 退出码 0（web 322、agent 37、server 1016+15 跳过）、`pnpm build` 通过；P4 `run_command.cwd` 未开始 | [109](specs/109-external-read-scope/tasks.md) |
 | 2026-11-27 | 107 多轮基准采集脚本（BR-1） | 新增 `pnpm bench:rounds`：N 轮 Larness、可选 `--opencode` 自动跑同一 fixture、每轮独立目录与 request dump、opencode JSONL 解析/多轮 session、`rounds.json` + `summary.json/md/csv` 中位数/verifyPass；`roundsLib.test.ts` 5 项、Larness 2 轮 smoke、opencode 单轮与 multi-turn session smoke、错误边界通过；`pnpm check` 0（server 1011+14）、`pnpm build` 通过；真实 3 轮完成：双方 18/18 verify=0，Larness 202,232 prompt/106.9s vs opencode 416,106/114.2s（快 6.5%，上下文 48.6%） | [107](specs/107-benchmark-rounds/tasks.md) |
@@ -54,6 +55,8 @@
 - **依赖维护**：DEPS-1～DEPS-7 于 2026-11-09 完成（工具链升级、16 个直接依赖、pnpm 固定 10.34.9、Node 22 / 24 双线验证）。明细见归档。
 - **文档整理**：DOCS-1～DOCS-4 于 2026-11-08～09 完成（规格导航、Node 支持口径、文档对齐、npm 更新安全）。明细见归档。
 
+> 2026-11-28 的规格与文档对齐复核（070/071 状态、ROADMAP 漏登任务与门禁文案、091 索引、ADR 索引与实施状态、`architecture/overview.md` 工具表、`051` 契约条目、`data-model.md` 0037、`known-limitations.md` 图片输入、`m2-resources.md` / `services-preview.md` 修订段、README 终端描述、文档相对链接）只改文档，不新增任务 ID，明细见 [历史状态日志](docs/log/2026-11.md)。
+
 ## 里程碑
 
 | 阶段 | 名称 | 状态 | 说明 |
@@ -66,4 +69,4 @@
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | `done` | M5-1a–e / M5-2 / M5-3 / M5-4 / M5-5 `done`；G5 条件通过（2026-11-08） |
 | M6 | 运行时效率与 Turn 恢复 | `done` | 070（HX）与 071（TR）于 2026-11-12 收口；HX-12b 于 2026-11-18 按用户决定废弃 |
-| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 / 084 / 088 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核重构、项目服务与 service-ops、Agent Profile 收敛与用量、文档与图片附件 |
+| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 / 084 / 088 / 089 / 090 / 091 / 092 / 093 / 094 / 095 / 096 / 097 / 098 / 099 / 100 / 101 / 102 / 104 / 107 / 109 / 110 / 111 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核、项目服务与 service-ops、Profile 收敛与用量、文档与图片附件、前缀缓存、Provider 重试、工具结果回放、搜索忽略、工具面、操作日志、单一模式、命令审批、流式读取、基准系列、项目外读取、审批默认、停止呈现；103 / 105 / 106 为 `dropped`（实机回退，代码已撤销） |

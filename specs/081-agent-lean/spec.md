@@ -15,7 +15,7 @@ updated: 2026-11-16
 
 ## 1. 背景与问题
 
-[070](070-runtime-efficiency/spec.md)（HX）已经让 **Turn 内** 的续步请求成为上一次的严格超集，system 在 Turn 内逐字节稳定。但按「轻、快、省」重新测量内核后，仍有四处与之直接冲突的问题。
+[070](../070-runtime-efficiency/spec.md)（HX）已经让 **Turn 内** 的续步请求成为上一次的严格超集，system 在 Turn 内逐字节稳定。但按「轻、快、省」重新测量内核后，仍有四处与之直接冲突的问题。
 
 **固定开销（每个请求都发）**。同一份 28 工具注册表实测：
 
@@ -31,7 +31,7 @@ updated: 2026-11-16
 
 **批内串行**。`turnRunner` 的工具批次是 `for … await` 串行执行，一批 5 个 `read_file` 或若干次 `search_code` 的墙钟时间是它们之和，而它们之间没有任何顺序约束。
 
-**单步可吞掉整个窗口**。单条工具结果上限 16k 字符（约 4–5k token），一批六个结果约 24k token，一步就跨过折叠水位；[070 HX-4](070-runtime-efficiency/tasks.md) 遗留的批次级预算一直未做。
+**单步可吞掉整个窗口**。单条工具结果上限 16k 字符（约 4–5k token），一批六个结果约 24k token，一步就跨过折叠水位；[070 HX-4](../070-runtime-efficiency/tasks.md) 遗留的批次级预算一直未做。
 
 **回复篇幅没有约束**。`SYSTEM_POLICY` 只要求「改动要小、要说明改了什么」，长度、复述代码、客套话完全依赖模型自觉。
 
@@ -45,7 +45,7 @@ updated: 2026-11-16
 
 ## 3. 非目标
 
-- NG-1：不拆 `turnRunner` 循环体（[070 HX-12b](070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) 于 2026-11-18 按用户决定废弃，本切片仍不拆循环体）。
+- NG-1：不拆 `turnRunner` 循环体（[070 HX-12b](../070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) 于 2026-11-18 按用户决定废弃，本切片仍不拆循环体）。
 - NG-2：不合并工具（git 10 个仍为 10 个、终端 7 个仍为 7 个）。工具粒度直接决定调用正确率，见 ADR-067「备选方案」。
 - NG-3：不改 `@larness/shared` 的字段 `.describe()`。schema 字段描述已是当前最大单项成本，但属执行契约变更，另行评估。
 - NG-4：不并发任何写工具、需要项目锁的工具或需要审批的工具。

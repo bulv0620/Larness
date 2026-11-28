@@ -2,7 +2,7 @@
 
 - 状态 accepted（2026-11-11，人类直接确认 D1–D7 全部采用推荐方案）；第 1、6 条的前缀分层与断点归因口径由文末「修订（2026-11-24，用户直接要求）」细化，方向不变。
 - 关联：[070 spec](../../specs/070-runtime-efficiency/spec.md)、[063 多 Provider 与压缩](../../specs/063-multi-provider/spec.md)、[064 调度器](../../specs/064-scheduler/spec.md)、[051 工具执行契约](../../specs/051-agent-tool-contract/spec.md)、[ADR-050](ADR-050-pm2-cli-deployment.md)、[ADR-053](ADR-053-model-catalog-thinking.md)、[工程宪法](../../CONSTITUTION.md) 第三 / 六 / 十条。
-- 实施状态：规格 `ready`，按 HX-1 → HX-8 落地（见 [tasks](../../specs/070-runtime-efficiency/tasks.md)）。未实施前不得宣称已获得缓存收益或已修好停止语义。
+- 实施状态：已实施（070 HX-0～HX-12 于 2026-11-12 收口，HX-12b 于 2026-11-18 废弃；任务与验收见 [tasks](../../specs/070-runtime-efficiency/tasks.md)）。真实 Provider 缓存命中率仍只观测、不设门槛（Q-032 / Q-084）；因始终没有真实基线，2026-11-28 用户确认发布结论降级为「仅合成与 Mock 验证」。
 
 ## 背景
 

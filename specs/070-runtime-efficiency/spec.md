@@ -2,17 +2,18 @@
 id: 070-runtime-efficiency
 title: 运行时效率：前缀缓存、上下文预算与停止语义
 milestone: M6
-status: ready
+status: done
 depends_on: [063-multi-provider, 064-scheduler, 050-deploy]
 owners: [human]
 created: 2026-11-11
-updated: 2026-11-11
+updated: 2026-11-27
 approved: 2026-11-11
 ---
 
 # 运行时效率：前缀缓存、上下文预算与停止语义（M6）
 
-> 状态：`ready`（2026-11-11 人类确认第 13 节 D1–D7 全部采用推荐方案，[ADR-057](../../docs/adr/ADR-057-runtime-efficiency.md) accepted）。来源为仓库外的方案稿《Larness Harness 核心优化方案》（2026-11-11，未入库），本切片把它收敛为可验收任务。
+> 状态：`done`（2026-11-11 人类确认第 13 节 D1–D7 全部采用推荐方案，[ADR-057](../../docs/adr/ADR-057-runtime-efficiency.md) accepted；HX-0～HX-12 于 2026-11-12 收口，HX-12b 于 2026-11-18 废弃）。来源为仓库外的方案稿《Larness Harness 核心优化方案》（2026-11-11，未入库），本切片把它收敛为可验收任务。
+> 发布结论范围：真实 Provider 缓存基线始终未取得，2026-11-28 用户按 Q-084 确认降级——本切片的验收结论只覆盖合成与 Mock 验证，不宣称真实命中率；命中率仍只观测、不设代码门槛（Q-032）。
 > 架构结论基于 `9fc26d7`；起草时已复核到 `aadfc99`，下列「现状证据」均按当前代码行号标注。
 
 ## 1. 背景与问题
@@ -303,6 +304,6 @@ And 拆分提交不含任何行为改动
 - [ ] 第 6 节 R-1～R-20 落地或明确记录偏差；
 - [ ] `docs/contracts/*` 与受影响的 spec（051、063、064）同步；
 - [ ] 迁移 `0023` 通过升级与回滚验证；
-- [ ] `pnpm check`、`pnpm build`、相关 E2E 通过，真实 Provider 基线矩阵有记录；
+- [x] `pnpm check`、`pnpm build`、相关 E2E 通过；真实 Provider 基线矩阵**未取得**，按 Q-084 降级为「仅合成与 Mock 验证」（2026-11-28 用户确认）；
 - [ ] `STATUS.md`、`ROADMAP.md`、`tasks.md` 更新；
 - [ ] 人类评审通过（D1、D2、D5–D10 已确认）。

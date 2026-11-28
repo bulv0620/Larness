@@ -1,6 +1,6 @@
 # 系统架构总览
 
-> 当前实现总览，2026-11-09。G4 已通过，G5 已按 macOS 范围条件通过。PM2 部署按 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)，M5 已交付多模型、调度和 npm 分发。更新安全规范见 [ADR-055](../adr/ADR-055-npm-update-security.md)。
+> 当前实现总览，2026-11-28。G4 已通过，G5 已按 macOS 范围条件通过。PM2 部署按 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)，M5 已交付多模型、调度和 npm 分发，M6（070 / 071）已收口。更新安全规范见 [ADR-055](../adr/ADR-055-npm-update-security.md)。
 
 ## 1. 定位
 
@@ -151,7 +151,7 @@ coding Chat ──start_process──► ProcessManager ──► 项目服务�
 
 - 关闭 / 最小化窗口只隐藏视图；主动关闭终端 Tab 经后端 `terminate` 终止资源，失败保留 Tab；文件 / Browser Tab 关闭不影响源资源。服务窗口无服务Tab，采用当前项目卡片/详情（ADR-031/042）。
 - 同一 Terminal 可被多个客户端观看，交互输入需租约。
-- 开发服务绑定终端执行，按项目或工作区核验。正式服务可由普通项目会话中的 PM2 命令建立，服务名含稳定项目 ID，正式进程的生命周期由守护进程管理。
+- 开发服务是 `coding` 会话通过 `start_process` 启动的后台任务，按项目核验；正式服务可由普通项目会话中的 PM2 命令建立，服务名含稳定项目 ID，正式进程的生命周期由守护进程管理。
 - Tab 身份、来源、项目筛选、分组与去重规则见 [resource-views.md](../contracts/resource-views.md)。
 
 ### 5.5 项目开发服务、持久服务与结果入口
@@ -160,7 +160,7 @@ coding Chat ──start_process──► ProcessManager ──► 项目服务�
 
 `coding` 与 `plan` 都可管理 Larness 私有 PM2 中的持久服务：`list_service_ops`、`read_service_ops_logs`、`control_service_ops`。PM2 服务按完整 `larness:<projectId>:<serviceKey>` 名称关联项目；`namespace=default` 但名称合法的应用仍显示并标注偏差。控制前复核 targetId、pm2Name、项目/服务锁与授权，日志有界脱敏。默认不注入 Turn 起点 PM2 快照，模型按需读取。见 [ADR-050](../adr/ADR-050-pm2-cli-deployment.md)、[ADR-069](../adr/ADR-069-project-services-and-service-ops.md)、[ADR-070](../adr/ADR-070-agent-profiles-and-usage.md)。
 
-文件工具结果附 scope / path 卡片，点击打开文件 Tab；可预览服务结果附 serviceId / 相对页面路径卡片，点击解析当前授权后打开 Browser Tab。卡片只打开视图，不重新执行工具、启动资源或自动开放端口。详细契约见 [services-preview.md](../contracts/services-preview.md)。
+写入类文件工具（`write_file` / `edit` / `apply_patch`）结果附 scope / path 卡片，点击打开文件 Tab；项目外读取结果只给绝对路径文本，不生成卡片。可预览服务结果附 processId / 相对页面路径卡片，点击解析当前授权后打开 Browser Tab。卡片只打开视图，不重新执行工具、启动资源或自动开放端口。详细契约见 [services-preview.md](../contracts/services-preview.md)。
 
 ### 5.6 预览
 
@@ -241,25 +241,28 @@ app.js          # 稳定入口（M0-9 创建）
 
 ## 当前 Agent 执行结构
 
-生产入口在 bootstrap 注册工具，注册表只向模型提供当前会话适用的工具。`coding` 暴露 14 个工具（读取、写入、命令、后台进程、Service Ops），`plan` 在同一面上增加 `update_plan`；终端与 Git 不在模型面。`refresh_observations` 保留实现但不属于任何 Profile。
+生产入口在 bootstrap 注册工具，注册表只向模型提供当前会话适用的工具。按 [ADR-075](../adr/ADR-075-single-agent-mode.md) 已移除 coding / plan 的可见切换：`coding` 是唯一模式，工具面固定包含 `plan` pack；旧 `agent_profile='plan'` 仅作行为一致的兼容别名保留。终端与 Git 不在模型面（082 K-4 / K-5），`refresh_observations` 保留实现但不属于任何 Profile。
 
-服务运维的人工启动/停止/重启按 [ADR-051](../adr/ADR-051-human-pm2-service-control.md) 经独立 REST 调用 ServiceOpsRuntime，在项目→服务锁内复核身份并控制已有 PM2 应用，使用资源操作表持久化幂等意图。该入口不依赖当前聊天；`coding` 与 `plan` 两个 Profile 都提供受控的 list/logs/control 模型工具，按需读取 PM2 状态。
+`coding` 注册 23 个工具：`core.read`（`list_files`、`read_file`、`search_code`）、`core.write`（`write_file`、`edit`、`apply_patch`）、`core.command`（`run_command`、`run_shell`）、`plan`（`update_plan`）、`process`（`start_process`、`list_processes`、`read_process_output`、`stop_process`）、`serviceOps`（`list_service_ops`、`read_service_ops_logs`、`control_service_ops`）、`memory`（`remember`、`read_memory`）、`web`（`web_search`、`fetch_url`）、`attachments`（`read_attachment`、`search_attachment`、`list_attachments`）。其中 `web` 仅在会话开启联网且搜索连接可用时注入，`attachments` 仅在当前会话存在 ready 附件时注入；catalog 之外的未启用工具在执行层返回 `TOOL_NOT_FOUND`。工具名与 pack 归属以 [profiles.ts](../../apps/server/src/modules/agent/profiles.ts) 为准，注册见 `apps/server/src/bootstrap/start.ts`。
 
-TurnQueue 默认最多同时执行两个不同会话，同一会话保持单个活跃 Turn。TurnRunner 组装系统约束、会话历史、项目指令与工具 schema，调用 Provider，再把工具调用交给 ToolExecutor 和各资源 Manager。PM2 / 后台进程状态由模型按需通过工具读取，不在 Turn 起点注入快照。工具结果回填模型，直到返回答复、失败、取消或紧急兜底。ADR-071 后默认不设任务级 token 上限，24h / 1000 步仅作 bug 兜底；单次模型请求、单条命令、锁与审批保留独立超时。上下文分三级处理：达到窗口 55% 先把旧工具结果折叠为标识（可逆，正文仍在 `agent_events`），约 80% 触发摘要压缩/检查点，输入窗口达到 85% 时以 `terminalReason=continued` 创建接续 Turn；检查点保留当前需求原文、结构化事实与最近一个完整工具批次。
+`start_process` 声明 `port` / `healthPath` 后，项目服务窗口可在用户点击时按需生成预览；服务运维的人工启动/停止/重启按 [ADR-051](../adr/ADR-051-human-pm2-service-control.md) 经独立 REST 调用 ServiceOpsRuntime，在项目→服务锁内复核身份并控制已有 PM2 应用，使用资源操作表持久化幂等意图。该入口不依赖当前聊天；模型侧通过 `serviceOps` 三个工具按需读取与控制，不在 Turn 起点注入 PM2 快照。
+
+TurnQueue 默认最多同时执行两个不同会话，同一会话保持单个活跃 Turn。TurnRunner 组装系统约束、会话历史、项目指令与工具 schema，调用 Provider，再把工具调用交给 ToolExecutor 和各资源 Manager。L0、无锁、策略允许的工具调用在流式 `tool-call` 到达时即预取（097），结果仍按调用顺序消费。工具结果回填模型，直到返回答复、失败、取消或紧急兜底。ADR-071 后默认不设任务级 token 上限，24h / 1000 步仅作 bug 兜底；单次模型请求、单条命令、锁与审批保留独立超时。上下文分三级处理：达到窗口 55% 先把旧工具结果折叠为标识（可逆，正文仍在 `agent_events`），约 80% 触发摘要压缩/检查点，输入窗口达到 85% 时以 `terminalReason=continued` 创建接续 Turn；检查点保留当前需求原文、结构化事实与最近一个完整工具批次。跨 Turn 只回放 L0 只读工具结果（091）与有界的 `tool.operation` 操作摘要（094），其余历史仍只重放用户 / 助手文本。
 
 模型请求和流式协议经 ProviderAdapter 适配，生产 resolver 接入 DeepSeek、GLM 和 OpenAI 兼容端点，测试使用 FakeProvider。上下文构建支持摘要压缩，模型和凭据在 Turn 创建时固定。
 
-关键状态和事件在 SQLite 中持久化后通过 WebSocket 通知。浏览器负责服务端查询与窗口、导航、草稿等视图状态。命令按主机账户执行，文件工具的项目路径检查和命令策略不会构成 OS 沙箱。秘密由 SecretStore 管理并在受控执行层按需使用。
+关键状态和事件在 SQLite 中持久化后通过 WebSocket 通知。浏览器负责服务端查询与窗口、导航、草稿等视图状态。命令按主机账户执行，文件工具的项目路径检查和命令策略不会构成 OS 沙箱；读取类文件工具允许项目外 canonical 绝对路径，写入类工具与 `run_command.cwd` 仍限当前项目根（109，见 [security.md](security.md)）。秘密由 SecretStore 管理并在受控执行层按需使用。
 
-| 类别 | 模型工具 |
+| Pack | 模型工具 |
 |---|---|
-| 文件 | list_files、read_file、search_code、apply_patch |
+| 文件读取 | list_files、read_file、search_code |
+| 文件写入 | write_file、edit、apply_patch |
+| 通用命令 | run_command、run_shell |
 | 任务计划 | update_plan |
-| 通用命令 | run_command |
-| 终端生命周期 | start_project_terminal、read_terminal_output、stop_project_terminal |
-| 终端控制 | acquire_terminal_control、send_terminal_input、interrupt_terminal、release_terminal_control |
-| Git 读取 | git_status、git_diff、git_log、git_branches |
-| Git 修改 | git_add、git_commit、git_create_branch、git_switch_branch、git_pull、git_push |
-| 项目开发服务与预览 | start_process、list_processes、read_process_output、stop_process；预览由用户点击按需生成 |
+| 后台进程 | start_process、list_processes、read_process_output、stop_process |
+| 服务运维（PM2） | list_service_ops、read_service_ops_logs、control_service_ops |
+| 项目记忆 | remember、read_memory |
+| 联网搜索（会话开关） | web_search、fetch_url |
+| 附件读取（有 ready 附件时） | read_attachment、search_attachment、list_attachments |
 
-实际注册以 `apps/server/src/bootstrap/start.ts` 为准。命令与 PM2 的具体字段见 [命令上下文契约](../contracts/agent-command-context.md)，当前验证范围见 [M4-R0 验收](../../specs/050-deploy/acceptance-cli.md)。
+字段与结果口径见 [命令上下文契约](../contracts/agent-command-context.md) 与 [051 工具执行契约](../../specs/051-agent-tool-contract/spec.md)，当前验证范围见 [M4-R0 验收](../../specs/050-deploy/acceptance-cli.md)。

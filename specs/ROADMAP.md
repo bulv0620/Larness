@@ -15,7 +15,7 @@
 | M3 | 开发服务与隔离预览 | [040](040-services-preview/spec.md) | `done` | G3 人类验收通过（2026-11-05）；M3-0～M3-6 全部 done；远程 HTTPS 延后并标未验证 |
 | M4 | 持久运行与版本发布 | [050](050-deploy/spec.md) | `done` | G4 于 2026-11-07 通过人类验收，见 [M4 收尾](050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | [060](060-extension/spec.md) | `done` | G5 条件通过（2026-11-08） |
-| M6 | 运行时效率与上下文预算 | [070](070-runtime-efficiency/spec.md) | `ready` | G-Spec-M6 通过（2026-11-11，D1–D7 确认、ADR-057 accepted）；G-M6 待实现验收 |
+| M6 | 运行时效率与上下文预算 | [070](070-runtime-efficiency/spec.md) | `done` | G-Spec-M6 通过（2026-11-11，D1–D7 确认、ADR-057 accepted）；070（HX）与 071（TR）于 2026-11-12 收口，HX-12b 于 2026-11-18 废弃，见 [STATUS](../STATUS.md#里程碑) |
 
 关键路径：
 
@@ -103,6 +103,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | T0-2 | 配对与设备页面统一 | T0-1 | `done` |
 | T0-3 | 日志/审计阅读页与整体验收 | T0-2 | `done`（2026-11-02 人类验收通过） |
 | T0-4 | 初始化页文案清理（人类直接指定） | T0-3 | `done` |
+| T0-5 | 概览「活跃会话」口径与命名修正（用户反馈） | T0-4 | `done` |
 
 ## 4.3 统一开发/打包入口（已验收）
 
@@ -304,11 +305,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 [061 DeepSeek 官方接入、模型与思考档位](061-deepseek-integration/spec.md) 于 2026-11-07 按用户确认的三项决策（旧档案忽略、思考默认开启、推理数据先实测）由 `draft` 转 `ready`，[ADR-053](../docs/adr/ADR-053-model-catalog-thinking.md) accepted。M5-1a 已交付：目录同步与缓存、模型 / 档位选择与 Turn 快照、Provider 参数、Composer 浮层与设置页；后续工具续跑与单次圆环分别由 M5-1b / M5-1c 交付。GLM、通用兼容端点、上下文压缩与跨模型迁移见 [063 规格](063-multi-provider/spec.md)（`done`，2026-11-07 人类验收）。Scheduler 见 [064 规格](064-scheduler/spec.md)（`done`，2026-11-08 当前范围验收）。
 
-## 8.1 M6 运行时效率（ready，未开工）
+## 8.1 M6 运行时效率（070，done）
 
 目标：让普通续步的请求体成为上一次的严格超集（由 Provider 前缀缓存承担重复成本），让长 Turn 在预算内完成或**诚实停止**。来源为仓库外的方案稿，已按当前代码复核并收敛为 [070 规格](070-runtime-efficiency/spec.md)；行为与契约变更见 [ADR-057](../docs/adr/ADR-057-runtime-efficiency.md)（`accepted`，2026-11-11）。
 
-门禁：G-Spec-M6 于 2026-11-11 通过（D1–D7 全部采用推荐方案）。HX-5 改变资源观察语义、HX-8 的只读并发默认不做，两者仍各自需要实现验收。G-M6 = A1–A8 通过且真实 Provider 基线有记录。
+门禁：G-Spec-M6 于 2026-11-11 通过（D1–D7 全部采用推荐方案）。HX-5 改变资源观察语义、HX-8 的只读并发默认不做，两者仍各自需要实现验收。G-M6 原定 = A1–A8 通过且真实 Provider 基线有记录；**HX-0～HX-12 于 2026-11-12 全部收口（HX-12b 于 2026-11-18 废弃），但真实 Provider 基线始终未取得。2026-11-28 用户确认按 Q-084 降级：070/071 的发布结论只覆盖合成与 Mock 验证，不计真实命中率；命中率仍只观测、不设代码门槛（Q-032）。**
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
@@ -327,11 +328,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | HX-12 | [turnRunner 机械拆分](070-runtime-efficiency/tasks.md#hx-12-turnrunner-机械拆分前置工程动作) | HX-0 | `done`（纯函数层；循环体见 HX-12b） |
 | HX-12b | [turnRunner 循环体拆分](070-runtime-efficiency/tasks.md#hx-12b-turnrunner-循环体拆分) | HX-12 | `dropped`（2026-11-18 用户决定；082/083 后维持单循环，不再机械拆分） |
 
-### 8.2 M6 后续：Turn 恢复与数据保留（071，ready）
+### 8.2 M6 后续：Turn 恢复与数据保留（071，done）
 
-目标：让被中断的长 Turn 由新 Turn 接手（复用 070 HX-7 的事实），并给事件、Turn、摘要明确寿命。行为与破坏性操作见 [ADR-058](../docs/adr/ADR-058-turn-recovery-retention.md)（`proposed`）。清理默认关闭，只做 dry-run。
+目标：让被中断的长 Turn 由新 Turn 接手（复用 070 HX-7 的事实），并给事件、Turn、摘要明确寿命。行为与破坏性操作见 [ADR-058](../docs/adr/ADR-058-turn-recovery-retention.md)（`accepted`，2026-11-12）。清理默认关闭，只做 dry-run。
 
-门禁：G-Spec-M6-R = 071 的 D1–D4 确认且 ADR-058 accepted；TR-4（删除）还需 TR-1 体积报告完成。
+门禁：G-Spec-M6-R 已通过——071 的 D1–D4 于 2026-11-12 确认、ADR-058 accepted、TR-1 体积报告完成；TR-4 交付为「默认关闭 + 未启用 `maxBytes` 强制淘汰」，偏差见 Q-033 / Q-034 与 [071 tasks](071-turn-recovery/tasks.md#tr-4-保留策略与清理执行)。真实 Provider 侧的恢复与缓存观测同 070：2026-11-28 按 Q-084 降级为「仅合成与 Mock 验证」。
 
 | ID | 任务 | 依赖 | 状态 |
 |---|---|---|---|
@@ -368,11 +369,11 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | RB-3 | [命令输出头尾保留](073-context-budget/tasks.md) | — | `done` |
 | RB-4 | [审查与状态回填](073-context-budget/tasks.md) | RB-1～RB-3 | `done` |
 
-### 8.5 发布后：模型连接与平台接入（077，active）
+### 8.5 发布后：模型连接与平台接入（077，done）
 
 目标：以连接预设和独立能力目录支撑模型选择，接入 OpenCode Go、百炼、Kimi、MiniMax。验收按 [077 规格](077-model-connections/spec.md) 与 [任务卡](077-model-connections/tasks.md)。
 
-首批平台接入已交付。真实账号验收与全套浏览器回归见[验收记录](077-model-connections/acceptance.md)。
+MC-0～MC-14 已完成，spec 于 2026-11-28 转 `done`（用户确认）。真实账号验收与全套浏览器回归范围仍记录在[验收记录](077-model-connections/acceptance.md)，属已知未验证项，不是门禁。
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
@@ -392,7 +393,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | MC-13 | 模型行内操作与隐藏样式 | MC-12、ADR-065 accepted | `done` |
 | MC-14 | 管理 Key 弹窗布局 | MC-13 | `done`（用户自行验收） |
 
-### 8.6 发布后 Git 日常操作（078）
+### 8.6 发布后 Git 日常操作（078，done）
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
@@ -400,6 +401,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | GX-2 | [目录行批量暂存和取消暂存](078-git-workflow/tasks.md) | GX-1 | `done` |
 | GX-3 | [差异树缩进对齐](078-git-workflow/tasks.md) | GX-2 | `done` |
 | GX-4 | [提交输入框图标按钮](078-git-workflow/tasks.md) | GX-3 | `done` |
+| GX-5 | [子目录项目 Git 路径基准](078-git-workflow/tasks.md#gx-5-修复记录) | GX-2 | `done` |
+| GX-6 | [未跟踪差异与 Git 失败原因](078-git-workflow/tasks.md#gx-6-修复记录) | GX-5 | `done` |
 
 ### 8.7 发布后：Agent 内核轻量化（081，done）
 
@@ -444,13 +447,13 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
-| S-1 | [合同、ADR、Profile 与迁移](083-service-model/tasks.md#s-1) | — | `done`（2026-11-18） |
-| S-2 | [后台进程模型与 coding 工具面](083-service-model/tasks.md#s-2) | S-1 | `done`（2026-11-18） |
-| S-3 | [项目服务窗口与侧栏计数](083-service-model/tasks.md#s-3) | S-2 | `done`（2026-11-18） |
-| S-4 | [按需预览](083-service-model/tasks.md#s-4) | S-2 | `done`（2026-11-18） |
-| S-5 | [服务运维 Profile 与 PM2 投影](083-service-model/tasks.md#s-5) | S-1、S-4 | `done`（2026-11-18） |
-| S-6 | [旧命令锁恢复](083-service-model/tasks.md#s-6) | S-2 | `done`（2026-11-18） |
-| S-7 | [全量验证与收口](083-service-model/tasks.md#s-7) | S-1～S-6 | `done`（2026-11-18） |
+| S-1 | [合同、ADR、Profile 与迁移](083-service-model/tasks.md) | — | `done`（2026-11-18） |
+| S-2 | [后台进程模型与 coding 工具面](083-service-model/tasks.md) | S-1 | `done`（2026-11-18） |
+| S-3 | [项目服务窗口与侧栏计数](083-service-model/tasks.md) | S-2 | `done`（2026-11-18） |
+| S-4 | [按需预览](083-service-model/tasks.md) | S-2 | `done`（2026-11-18） |
+| S-5 | [服务运维 Profile 与 PM2 投影](083-service-model/tasks.md) | S-1、S-4 | `done`（2026-11-18） |
+| S-6 | [旧命令锁恢复](083-service-model/tasks.md) | S-2 | `done`（2026-11-18） |
+| S-7 | [全量验证与收口](083-service-model/tasks.md) | S-1～S-6 | `done`（2026-11-18） |
 
 ### 8.10 Agent Profile 收敛与会话 Token 统计（084，done）
 
@@ -520,6 +523,8 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | WS-4 | [设置弹窗、侧栏入口与地球按钮](087-web-search/tasks.md#ws-4-设置弹窗侧栏入口与地球按钮) | WS-2、WS-3 | `done`（2026-11-20） |
 | WS-5 | [契约、E2E、真实 Key 验证与收口](087-web-search/tasks.md#ws-5-契约e2e真实-key-验证与收口) | WS-1～WS-4 | `done`（2026-11-20，人类验收通过） |
 | WS-6 | [交互收敛：地球禁用、列表弹窗与统一命名](087-web-search/tasks.md#ws-6-交互收敛地球禁用列表弹窗与统一命名用户反馈) | WS-4 | `done`（2026-11-20） |
+| WS-7 | [设置弹窗视觉收敛：窄版卡片列表与顶部 toast](087-web-search/tasks.md) | WS-6 | `done`（2026-11-20） |
+| WS-8 | [全局消息反馈统一：Toast 组件与规范](087-web-search/tasks.md#ws-8-全局消息反馈统一toast-组件与规范用户反馈) | WS-7 | `done`（2026-11-20） |
 
 ### 8.14 发布后：文档与图片附件解析、能力路由与会话外呈现（088，done）
 
@@ -533,7 +538,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | DA-1 | [数据模型、存储与迁移 0038](088-document-attachments/tasks.md#da-1-数据模型存储与迁移-0038) | DA-0 | `done`（2026-11-23） |
 | DA-2 | [上传、状态事件与删除](088-document-attachments/tasks.md#da-2-上传状态事件与删除) | DA-1 | `done`（2026-11-23） |
 | DA-3 | [抽取内核与文本类格式](088-document-attachments/tasks.md#da-3-抽取内核与文本类格式) | DA-1 | `done`（2026-11-23，worker 隔离见 Q-077） |
-| DA-4 | [PDF、DOCX、PPTX、XLSX 抽取](088-document-attachments/tasks.md#da-4-pdfdocxpptx-xlsx-抽取) | DA-3 | `done`（2026-11-23） |
+| DA-4 | [PDF、DOCX、PPTX、XLSX 抽取](088-document-attachments/tasks.md) | DA-3 | `done`（2026-11-23） |
 | DA-5 | [图片能力路由与 OCR/视觉降级](088-document-attachments/tasks.md#da-5-图片能力路由与-ocr视觉降级) | DA-2、DA-3 | `done`（2026-11-23，视觉接线见 Q-078） |
 | DA-6 | [上下文预算与附件工具](088-document-attachments/tasks.md#da-6-上下文预算与附件工具) | DA-2、DA-3 | `done`（2026-11-23） |
 | DA-7 | [气泡外附件、草稿托盘与预览](088-document-attachments/tasks.md#da-7-气泡外附件草稿托盘与预览) | DA-2、DA-6 | `done`（2026-11-23） |
@@ -542,7 +547,7 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | DA-10 | [多视图：source 视图、文本矩阵与跨附件检索](088-document-attachments/tasks.md#da-10-多视图source-视图文本矩阵与跨附件检索2026-11-24) | DA-9 | `done`（2026-11-24） |
 | DA-11 | [HTML 结构化](088-document-attachments/tasks.md#da-11-html-结构化2026-11-24) | DA-10 | `done`（2026-11-24） |
 | DA-13 | [预览解析/原文视图切换](088-document-attachments/tasks.md#da-13-预览解析原文视图切换2026-11-24) | DA-10 | `done`（2026-11-24） |
-| DA-12 | 附件导入项目目录 | DA-10 | `todo`（Q-080 未批准） |
+| DA-12 | 附件导入项目目录 | DA-10 | `dropped`（2026-11-28 用户确认不做，Q-080 关闭） |
 
 ### 8.15 发布后：会话级前缀缓存与压缩可达（089，done）
 
@@ -579,6 +584,19 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 跨 Turn 历史此前只重放 user/assistant 文本，上一轮工具结果不进入下一轮，上下文占用因此呈锯齿。用户 2026-11-25 直接要求实施「① 保留最近 N token 工具结果原文 + ② 旧结果按预算 prune + ③ 用量口径」。规格见 [091](091-cross-turn-tool-replay/spec.md)。
 
 门禁：只回放 L0 只读结果；内部 `tool.replay` 不广播；预算 `clamp(window×0.05, 2k, 32k)`；超预算先折叠再省略并显式提示；089 的 NG-3/R-4 已加日期修订段。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| 091-TR-1 | `toolReplay` 模块：构造 / 解析 / redact / 预算常量 | — | `done`（2026-11-25） |
+| 091-TR-2 | `turnRunner` 对 L0 成功结果写内部 `tool.replay`，不广播 | 091-TR-1 | `done`（2026-11-25） |
+| 091-TR-3 | `contextAssembler` 回放：预算内原文、超预算折叠、摘要边界、裁剪配对保护 | 091-TR-2 | `done`（2026-11-25） |
+| 091-TR-4 | `listSessionEvents` 过滤 `tool.replay` | 091-TR-3 | `done`（2026-11-25） |
+| 091-TR-5 | 服务端单测（replay / assembler / events / turnRunner） | 091-TR-4 | `done`（2026-11-25） |
+| 091-TR-6 | ③ 用量口径修订（084）：`本轮` + `会话累计` | 091-TR-5 | `done`（2026-11-25） |
+| 091-TR-7 | 文档：089 修订段、ws-events 说明、STATUS | 091-TR-6 | `done`（2026-11-25） |
+| 091-TR-8 | 回归修复：公开事件序号跳号时客户端补拉不得丢弃后续事件 | 091-TR-7 | `done`（2026-11-25） |
+
+> 编号说明：本切片任务带切片号前缀（`091-TR-*`），与 [071 Turn 恢复](071-turn-recovery/tasks.md) 的 `TR-0`～`TR-4` 不重名。
 
 ### 8.18 发布后：搜索与目录列表默认忽略构建产物（092，done）
 
@@ -859,6 +877,12 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 | UI-F20 | [新会话圆形背景](068-ui-fixes/spec.md#ui-f20-新会话圆形背景) | UI-F19、UI-F9 done；用户要求 | `done` |
 | UI-F21 | [新会话动效调整](068-ui-fixes/spec.md#ui-f21-新会话动效调整) | UI-F20、M2-18 done；用户验收 | `done` |
 | UI-F22 | [添加项目目录选择](068-ui-fixes/spec.md#ui-f22-添加项目目录选择) | M1-9 done；用户要求 | `done` |
+| UI-F23 | [文件树打开](068-ui-fixes/tasks.md) | UI-F22 | `done` |
+| UI-F24 | [新建后列表无感](068-ui-fixes/tasks.md) | UI-F23 | `done` |
+| UI-F25 | [目录右键新建](068-ui-fixes/tasks.md) | UI-F24 | `done` |
+| UI-F26 | [定位居中](068-ui-fixes/tasks.md) | UI-F25 | `done` |
+| UI-F27 | [项目条目标识](068-ui-fixes/tasks.md) | UI-F26 | `done` |
+| UI-F28 | [发送后回到底部](068-ui-fixes/tasks.md) | UI-F27 | `done`（2026-11-17） |
 
 ### 2026-11-14 资源恢复回归
 
@@ -929,6 +953,7 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 | MS-2 | [摘要、提示与计划步骤按失败呈现](111-manual-stop-failure/tasks.md#ms-2-摘要提示与计划步骤按失败呈现) | MS-1 | `done` |
 | MS-3 | [验证](111-manual-stop-failure/tasks.md#ms-3-验证) | MS-2 | `done` |
 | MS-4 | [文档、状态回填与提交](111-manual-stop-failure/tasks.md#ms-4-文档状态回填与提交) | MS-3 | `done` |
+| MS-5 | [失败回合折叠失败工具行](111-manual-stop-failure/tasks.md#ms-5-失败回合折叠失败工具行) | MS-4 | `done`（2026-11-28） |
 
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 的「当前进行中」登记。
 - 完成：更新 `tasks.md` 与本节状态，把该任务移入 `STATUS.md` 的「最近收口」，提交。

@@ -38,7 +38,7 @@
 - [045 M2-23—M2-26 工作区体验收敛](045-workspace-polish/spec.md)
 - [046 M2-27 Git 文件行补充动作](046-git-file-actions/spec.md)
 - [047 M2-28 Git 空态与刷新提示收敛](047-git-feedback/spec.md)
-- [078 Git 日常操作体验](078-git-workflow/spec.md)
+- [078 Git 日常操作体验](078-git-workflow/spec.md)（done）
 
 ### M3
 
@@ -63,7 +63,7 @@
 - [067 安全复核、发布清单与文档定稿](067-release-hardening/spec.md)
 - [068 发布后界面与输出纠错](068-ui-fixes/spec.md)
 
-### M6（草案）
+### M6
 
 - [070 运行时效率：前缀缓存、上下文预算与停止语义](070-runtime-efficiency/spec.md)
 - [071 Turn 恢复与数据保留](071-turn-recovery/spec.md)
@@ -75,7 +75,7 @@
 - [074 成果展示与临时文件折叠](074-result-presentation/spec.md)
 - [075 Windows 交互终端自动选择 Shell](075-windows-terminal-shell/spec.md)
 - [076 项目资源文件管理器](076-file-explorer/spec.md)
-- [077 模型连接、能力目录与平台接入](077-model-connections/spec.md)
+- [077 模型连接、能力目录与平台接入](077-model-connections/spec.md)（done）
 - [079 计划步骤即时更新](079-plan-progress/spec.md)
 - [080 计划终态呈现](080-plan-terminal-state/spec.md)
 - [081 Agent 内核轻量化](081-agent-lean/spec.md)
@@ -83,11 +83,12 @@
 - [083 项目开发服务与全局 PM2 运维](083-service-model/spec.md)
 - [084 Agent Profile 收敛与会话 Token 统计](084-agent-profiles-and-usage/spec.md)
 - [085 长任务连续执行：取消任务级预算并改为上下文换页](085-long-task-continuity/spec.md)
-- [086 项目指令、项目记忆与用户偏好](086-project-memory/spec.md)（ready）
-- [087 联网搜索工具与独立搜索连接](087-web-search/spec.md)（ready）
+- [086 项目指令、项目记忆与用户偏好](086-project-memory/spec.md)（done）
+- [087 联网搜索工具与独立搜索连接](087-web-search/spec.md)（done）
 - [088 文档与图片附件解析、能力路由与会话外呈现](088-document-attachments/spec.md)（done）
 - [089 会话级前缀缓存：静态前缀分层、断裂归因与压缩可达](089-session-prefix-cache/spec.md)（done）
 - [090 Provider 失败重试、诊断与标题超时](090-provider-retry/spec.md)（done）
+- [091 跨 Turn 工具结果回放](091-cross-turn-tool-replay/spec.md)（done）
 - [092 搜索与目录列表默认忽略构建产物](092-search-ignore/spec.md)（done）
 - [093 工具面与结果预算](093-tool-interface/spec.md)（done）
 - [094 跨 Turn 操作日志](094-operation-log/spec.md)（done）
@@ -131,6 +132,7 @@ depends_on: [010-foundation]
 | `active` | 有任务进行中 |
 | `done` | 全部任务完成且门禁通过 |
 | `blocked` | 存在未决边界或外部依赖 |
+| `dropped` | 经人类确认不再执行，保留切片路径、任务 ID 与原因 |
 
 `ROADMAP.md` 是进度总表；`STATUS.md` 是**当前状态快照**（进行中 / 阻塞 / 最近收口），已收口明细在 [历史状态日志](../docs/log/2026-11.md) 与各切片 `tasks.md` / `acceptance.md`。三者冲突时以 `ROADMAP.md` 的任务状态为准，并立即修正其他两处。
 

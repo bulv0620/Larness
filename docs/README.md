@@ -8,10 +8,17 @@
 | [architecture/stack.md](architecture/stack.md) | 冻结技术栈、workspace 结构、依赖升级规则 | 选型、加依赖、搭脚手架 |
 | [architecture/security.md](architecture/security.md) | 信任模型、审批分级、认证、秘密、预览隔离、失败关闭矩阵 | 涉及认证 / 工具 / 代理 / 审批 |
 | [architecture/ui-feedback.md](architecture/ui-feedback.md) | 统一消息反馈：Toast 的用法、位置、例外与检查清单 | 新增任何成功 / 失败 / 状态提示 |
-| [contracts/rest-api.md](contracts/rest-api.md) | REST 约定、错误码、M0–M5 接口契约 | 写 API 或前端请求 |
+| [contracts/rest-api.md](contracts/rest-api.md) | REST 约定、错误码、M0–M5 与发布后切片接口契约 | 写 API 或前端请求 |
 | [contracts/ws-events.md](contracts/ws-events.md) | 事件包络、序号、重放、主题与事件类型 | 写实时链路 |
 | [contracts/ipc.md](contracts/ipc.md) | 本机 TUI ↔ Server 的 NDJSON 协议、方法与事件 | 写 TUI / IPC |
+| [contracts/tui.md](contracts/tui.md) | TUI 页面、按键与受管入口行为 | 改 TUI 界面或交互 |
+| [contracts/runtime-entry.md](contracts/runtime-entry.md) | 开发 / 打包统一入口、canonical origin 与端口 | 改启动方式或来源校验 |
 | [contracts/services-preview.md](contracts/services-preview.md) | 临时服务、Terminal 绑定、隔离预览与结果卡片 | 写服务 / 预览 / AI 结果入口 |
+| [contracts/m3-preview.md](contracts/m3-preview.md) | M3 服务登记与预览技术契约（历史条款，顶部有 083 修订） | 追溯预览票据 / 执行身份细节 |
+| [contracts/m2-resources.md](contracts/m2-resources.md) | M2 文件、终端、命令与 Git 资源契约 | 写资源 Manager 或迁移其规则 |
+| [contracts/deployment.md](contracts/deployment.md) | 正式 PM2 服务的部署、版本、健康与对账 | 改部署或服务运维 |
+| [contracts/agent-command-context.md](contracts/agent-command-context.md) | 命令工具、项目锁与 PM2 系统上下文、工具结果口径 | 改命令 / 文件工具或系统提示 |
+| [contracts/model-connections-draft.md](contracts/model-connections-draft.md) | 模型连接、能力目录与预设草案 | 改模型连接或能力来源 |
 | [contracts/resource-views.md](contracts/resource-views.md) | 全局资源、窗口、Tab 归属、项目筛选与去重 | 写窗口 / Tab / 终端 / 服务 |
 | [contracts/data-model.md](contracts/data-model.md) | SQLite 表、索引、迁移、保留与备份 | 写 migration / repository |
 | [adr/DECISIONS.md](adr/DECISIONS.md) | 已冻结 ADR 与新增 ADR 流程 | 需要偏离现有决策 |
