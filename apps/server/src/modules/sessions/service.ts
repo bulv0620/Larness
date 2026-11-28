@@ -7,6 +7,10 @@ import { immediateTransaction } from "../../db/transaction.js";
 import { getModelDefaultSelection, resolveCatalogSelection } from "../models/catalog.js";
 import { ModelError } from "../models/service.js";
 import { getProjectById } from "../projects/repository.js";
+import {
+  rememberDefaultApprovalPolicy,
+  resolveDefaultApprovalPolicy,
+} from "../projects/service.js";
 import { ensureDefaultWorkspace, isDefaultWorkspace } from "../workspaces/default.js";
 import { SessionError } from "./errors.js";
 import {
@@ -219,7 +223,7 @@ function insertSession(
       model: input.model ?? null,
       thinking: input.thinking ?? null,
       agentProfile: normalizeAgentProfile(input.agentProfile),
-      approvalPolicyId: "standard",
+      approvalPolicyId: resolveDefaultApprovalPolicy(tx, input.projectId),
       now: input.now,
     });
     appendAudit(tx, {
@@ -348,6 +352,10 @@ export function updateSession(
 
     if (updated === null) {
       throw new SessionError("NOT_FOUND", "session not found");
+    }
+
+    if (approvalPolicyId !== undefined && approvalPolicyId !== current.approvalPolicyId) {
+      rememberDefaultApprovalPolicy(tx, current.projectId, approvalPolicyId, now);
     }
 
     if (modelProfileId !== undefined && modelProfileId !== current.modelProfileId) {

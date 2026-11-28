@@ -736,6 +736,16 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 | ER-2 | [服务端 readScope 注入与工具描述](109-external-read-scope/tasks.md#er-2-服务端-readscope-注入与工具描述) | ER-1 | `done` |
 | ER-3 | [契约、安全文档与整仓验证](109-external-read-scope/tasks.md#er-3-契约安全文档与整仓验证) | ER-2 | `done` |
 
+### 8.35 发布后：新会话继承最近选择的审批策略（110，done）
+
+用户在项目/默认工作区修改会话审批策略后，该作用域记住最后一次选择；之后新建会话按此策略创建，已有会话保持各自策略。规格见 [110](110-session-approval-default/spec.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| AD-1 | [服务端持久化项目默认审批策略](110-session-approval-default/tasks.md#ad-1-服务端持久化项目默认审批策略) | 020 | `done`（2026-11-27） |
+| AD-2 | [Web 草稿继承显示与不回写](110-session-approval-default/tasks.md#ad-2-web-草稿继承显示与不回写) | AD-1 | `done`（2026-11-27） |
+| AD-3 | [契约、文档与整仓验证](110-session-approval-default/tasks.md#ad-3-契约文档与整仓验证) | AD-2 | `done`（2026-11-27；`pnpm check` / `pnpm build` 通过） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo

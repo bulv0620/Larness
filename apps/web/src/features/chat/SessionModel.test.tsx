@@ -12,6 +12,7 @@ import { Composer } from "./Composer";
 
 const api = vi.hoisted(() => ({
   getSession: vi.fn(),
+  getProject: vi.fn(),
   getSessionUsage: vi.fn(),
   updateSession: vi.fn(),
   createSession: vi.fn(),
@@ -86,6 +87,24 @@ beforeEach(() => {
     ...deepseekGroup,
     groups: [deepseekGroup, glmGroup],
     defaultSelection: glm,
+  });
+  api.getProject.mockResolvedValue({
+    id: "prj_default",
+    kind: "default",
+    name: "默认工作区",
+    rootPath: "/workspace",
+    realPath: "/workspace",
+    settings: {
+      defaultModelProfileId: null,
+      defaultApprovalPolicyId: "standard",
+      instructions: "",
+      ignore: [],
+      memory: { enabled: true, globalEnabled: true },
+    },
+    gitDetected: false,
+    sortOrder: 0,
+    createdAt: 0,
+    updatedAt: 0,
   });
   api.getSession.mockImplementation(async (id: string) => sessions.get(id) ?? session(id));
   api.getSessionUsage.mockResolvedValue({
@@ -171,6 +190,49 @@ it("uses the global default for a draft and for its first turn", async () => {
       expect.any(String),
     ),
   );
+  expect(api.updateSession).toHaveBeenCalledWith("ses_new", {
+    ...glm,
+    approvalPolicyId: undefined,
+  });
+});
+
+it("shows the project's remembered policy on a draft without sending an implicit override", async () => {
+  const user = userEvent.setup();
+  api.getProject.mockResolvedValue({
+    id: "prj_policy",
+    name: "policy",
+    rootPath: "/workspace/policy",
+    realPath: "/workspace/policy",
+    settings: {
+      defaultModelProfileId: null,
+      defaultApprovalPolicyId: "readonly",
+      instructions: "",
+      ignore: [],
+      memory: { enabled: true, globalEnabled: true },
+    },
+    gitDetected: false,
+    sortOrder: 1,
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  useNavigationStore.getState().startDraft("prj_policy");
+  useTimelineStore.setState({ sessionId: useNavigationStore.getState().sessionId });
+  api.createSession.mockResolvedValue({
+    ...session("ses_new"),
+    projectId: "prj_policy",
+    ...glm,
+  });
+  api.createTurn.mockResolvedValue({ turnId: "turn_1" });
+  renderComposer();
+
+  expect(await screen.findByRole("button", { name: "审批策略：只读" })).toBeVisible();
+  await user.type(screen.getByRole("textbox", { name: "对话输入" }), "第一条消息");
+  await user.click(screen.getByRole("button", { name: "发送消息" }));
+  await waitFor(() => expect(api.createTurn).toHaveBeenCalled());
+  expect(api.updateSession).toHaveBeenCalledWith("ses_new", {
+    ...glm,
+    approvalPolicyId: undefined,
+  });
 });
 
 it("uses the draft model and approval overrides for the first turn", async () => {

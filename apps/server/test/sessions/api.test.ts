@@ -251,10 +251,43 @@ describe("sessions API", () => {
           headers: auth,
           payload: { projectId: project.id },
         });
-        expect(projectSession.json()).toMatchObject({
+        const projectSessionBody = projectSession.json() as { id: string };
+        expect(projectSessionBody).toMatchObject({
           projectId: project.id,
           workspacePath: project.realPath,
         });
+
+        const policyChanged = await started.running.app.inject({
+          method: "PATCH",
+          url: `/api/sessions/${projectSessionBody.id}`,
+          headers: auth,
+          payload: { approvalPolicyId: "readonly" },
+        });
+        expect(policyChanged.json()).toMatchObject({ approvalPolicyId: "readonly" });
+
+        const projectDetail = await started.running.app.inject({
+          method: "GET",
+          url: `/api/projects/${project.id}`,
+          headers: { cookie: started.cookie },
+        });
+        expect(projectDetail.json()).toMatchObject({
+          settings: { defaultApprovalPolicyId: "readonly" },
+        });
+
+        const inheritedSession = await started.running.app.inject({
+          method: "POST",
+          url: "/api/sessions",
+          headers: auth,
+          payload: { projectId: project.id },
+        });
+        expect(inheritedSession.json()).toMatchObject({ approvalPolicyId: "readonly" });
+
+        const oldSession = await started.running.app.inject({
+          method: "GET",
+          url: `/api/sessions/${projectSessionBody.id}`,
+          headers: { cookie: started.cookie },
+        });
+        expect(oldSession.json()).toMatchObject({ approvalPolicyId: "readonly" });
 
         const unauthenticated = await started.running.app.inject({
           method: "GET",

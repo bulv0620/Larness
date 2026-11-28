@@ -19,6 +19,7 @@ import {
   modelUsageFromEvents,
 } from "@/lib/eventReducer";
 import {
+  projectApprovalPolicyKeyPrefix,
   queryClient,
   saveSessionSettingsKey,
   sessionDetailKey,
@@ -727,6 +728,9 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
           approvalPolicyId: draftPolicy,
           ...(draftWebSearch === undefined ? {} : { webSearchEnabled: draftWebSearch }),
         });
+        if (draftPolicy !== undefined) {
+          void queryClient.invalidateQueries({ queryKey: projectApprovalPolicyKeyPrefix });
+        }
         const attachmentIds = await prepareAttachments(real.id, screenshots, acceptsImages);
         await createTurn(
           real.id,

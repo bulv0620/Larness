@@ -1,10 +1,11 @@
-import type { GatewaySnapshot } from "@larness/shared";
+import { DEFAULT_PROJECT_ID, type GatewaySnapshot } from "@larness/shared";
 import { QueryClient, useQuery } from "@tanstack/react-query";
 import { USE_MOCKS } from "@/lib/env";
 import {
   type ApiModelCatalog,
   type ApiSessionUsage,
   type ApiWebSearchSettings,
+  getProject,
   getSession,
   getSessionUsage,
   getWebSearchSettings,
@@ -141,6 +142,28 @@ export function useModelCatalog(): ModelCatalogResult {
 export const sessionDetailKey = (sessionId: string | null) => ["session-detail", sessionId];
 export const sessionUsageKey = (sessionId: string | null) => ["session-usage", sessionId];
 export const saveSessionSettingsKey = (sessionId: string) => ["save-session-settings", sessionId];
+export const projectApprovalPolicyKeyPrefix = ["project-approval-policy"] as const;
+export const projectApprovalPolicyKey = (projectId: string | null | undefined) => [
+  ...projectApprovalPolicyKeyPrefix,
+  projectId ?? DEFAULT_PROJECT_ID,
+];
+
+/**
+ * Default approval policy for a project (or the shared default workspace).
+ * Pass `undefined` outside a draft so the query stays disabled.
+ */
+export function useProjectDefaultApprovalPolicy(
+  projectId: string | null | undefined,
+): "standard" | "strict" | "readonly" | "autonomous" {
+  const query = useQuery({
+    queryKey: projectApprovalPolicyKey(projectId),
+    queryFn: () => getProject(projectId ?? DEFAULT_PROJECT_ID),
+    enabled: !USE_MOCKS && projectId !== undefined,
+    staleTime: 0,
+  });
+
+  return query.data?.settings.defaultApprovalPolicyId ?? "standard";
+}
 
 export function useSessionUsage(sessionId: string | null): ApiSessionUsage | null {
   const query = useQuery({

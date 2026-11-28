@@ -4,8 +4,9 @@ import path from "node:path";
 import { canonicalDirectory, PathGuardError } from "@larness/resources";
 import { DEFAULT_PROJECT_ID, type ErrorCode } from "@larness/shared";
 import { z } from "zod";
-import type { Database } from "../../db/client.js";
+import type { Database, DbExecutor } from "../../db/client.js";
 import { appendAudit } from "../../db/repositories/audit.js";
+import { getMeta, setMeta } from "../../db/repositories/meta.js";
 import type { ProjectRow } from "../../db/schema.js";
 import { immediateTransaction } from "../../db/transaction.js";
 import { rootHasWriter } from "../locks/repository.js";
@@ -27,6 +28,9 @@ import {
 export const ProjectSettingsSchema = z
   .object({
     defaultModelProfileId: z.string().min(1).max(128).nullable().default(null),
+    defaultApprovalPolicyId: z
+      .enum(["standard", "strict", "readonly", "autonomous"])
+      .default("standard"),
     instructions: z.string().max(20_000).default(""),
     ignore: z.array(z.string().min(1).max(512)).max(500).default([]),
     memory: z
@@ -40,6 +44,11 @@ export const ProjectSettingsSchema = z
   .strict();
 
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
+
+export type ApprovalPolicyId = ProjectSettings["defaultApprovalPolicyId"];
+
+/** Instance metadata key for the shared default workspace (projectId = null). */
+export const DEFAULT_WORKSPACE_APPROVAL_POLICY_KEY = "default_workspace.approval_policy";
 
 export interface ProjectDto {
   kind?: "project" | "default";
@@ -77,10 +86,67 @@ export interface ProjectServiceOptions {
 
 const EMPTY_SETTINGS: ProjectSettings = {
   defaultModelProfileId: null,
+  defaultApprovalPolicyId: "standard",
   instructions: "",
   ignore: [],
   memory: { enabled: true, globalEnabled: true },
 };
+
+const APPROVAL_POLICY_IDS = new Set<string>(["standard", "strict", "readonly", "autonomous"]);
+
+function isApprovalPolicyId(value: string | null): value is ApprovalPolicyId {
+  return value !== null && APPROVAL_POLICY_IDS.has(value);
+}
+
+/**
+ * Resolves the approval policy for a newly created session. Existing sessions
+ * keep their own stored value; only their scope's default is remembered.
+ */
+export function resolveDefaultApprovalPolicy(
+  db: DbExecutor,
+  projectId: string | null,
+): ApprovalPolicyId {
+  if (projectId === null) {
+    const stored = getMeta(db, DEFAULT_WORKSPACE_APPROVAL_POLICY_KEY);
+    return isApprovalPolicyId(stored) ? stored : "standard";
+  }
+
+  const project = getProjectById(db, projectId);
+  return project === null
+    ? "standard"
+    : parseProjectSettings(project.settingsJson).defaultApprovalPolicyId;
+}
+
+/**
+ * Remembers a user-selected policy as the default for that project (or the
+ * shared default workspace). Never rewrites other sessions.
+ */
+export function rememberDefaultApprovalPolicy(
+  db: DbExecutor,
+  projectId: string | null,
+  policy: ApprovalPolicyId,
+  now: number,
+): void {
+  if (projectId === null) {
+    setMeta(db, DEFAULT_WORKSPACE_APPROVAL_POLICY_KEY, policy, now);
+    return;
+  }
+
+  const project = getProjectById(db, projectId);
+  if (project === null) {
+    return;
+  }
+
+  const settings = parseProjectSettings(project.settingsJson);
+  if (settings.defaultApprovalPolicyId === policy) {
+    return;
+  }
+
+  updateProjectRow(db, projectId, {
+    settingsJson: JSON.stringify({ ...settings, defaultApprovalPolicyId: policy }),
+    updatedAt: now,
+  });
+}
 
 export function defaultProjectSettings(): ProjectSettings {
   return structuredClone(EMPTY_SETTINGS);
@@ -109,7 +175,7 @@ function rowToDto(row: ProjectRow): ProjectDto {
   };
 }
 
-export async function getDefaultProjectDto(dataDir: string): Promise<ProjectDto> {
+export async function getDefaultProjectDto(db: Database, dataDir: string): Promise<ProjectDto> {
   const root = await realpath(await ensureDefaultWorkspace(dataDir));
   return {
     id: DEFAULT_PROJECT_ID,
@@ -117,7 +183,10 @@ export async function getDefaultProjectDto(dataDir: string): Promise<ProjectDto>
     name: "默认工作区",
     rootPath: root,
     realPath: root,
-    settings: defaultProjectSettings(),
+    settings: {
+      ...defaultProjectSettings(),
+      defaultApprovalPolicyId: resolveDefaultApprovalPolicy(db, null),
+    },
     gitDetected: false,
     sortOrder: 0,
     createdAt: 0,
@@ -196,7 +265,10 @@ export async function createProject(
     mapPathError(error);
   }
 
-  if (options.dataDir && realPath === (await getDefaultProjectDto(options.dataDir)).realPath)
+  if (
+    options.dataDir &&
+    realPath === (await getDefaultProjectDto(options.db, options.dataDir)).realPath
+  )
     throw new ProjectError("CONFLICT", "Default project is already registered");
   if (findProjectByRealPath(options.db, realPath) !== null) {
     throw new ProjectError("CONFLICT", "project directory is already registered");

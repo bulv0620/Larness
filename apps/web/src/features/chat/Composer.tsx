@@ -20,10 +20,12 @@ import { ApiError, operationError } from "@/lib/api";
 import { USE_MOCKS } from "@/lib/env";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import {
+  projectApprovalPolicyKeyPrefix,
   queryClient,
   saveSessionSettingsKey,
   sessionDetailKey,
   useModelCatalog,
+  useProjectDefaultApprovalPolicy,
   useSessionDetail,
   useSessionUsage,
   useWebSearchSettings,
@@ -154,9 +156,14 @@ export function Composer({
   const isDraftSession = draftSession?.id === sessionId;
   const sessionDetail = useSessionDetail(hasSession && !isDraftSession ? sessionId : null);
   const sessionReady = USE_MOCKS || isDraftSession || sessionDetail?.id === sessionId;
+  const selectedDraftPolicy = draftPolicy?.sessionId === sessionId ? draftPolicy.value : undefined;
+  const projectDefaultPolicy = useProjectDefaultApprovalPolicy(
+    draftSession?.id === sessionId ? draftSession.projectId : undefined,
+  );
   const policy =
     sessionDetail?.approvalPolicyId ??
-    (draftPolicy?.sessionId === sessionId ? draftPolicy.value : standardPolicy.id);
+    selectedDraftPolicy ??
+    (isDraftSession ? projectDefaultPolicy : standardPolicy.id);
   const savingSettings =
     useIsMutating({ mutationKey: saveSessionSettingsKey(sessionId) }, queryClient) > 0;
   const settingsDisabled =
@@ -517,6 +524,7 @@ export function Composer({
 
     try {
       await saveSettings.mutateAsync({ id: sessionId, patch: { approvalPolicyId: value } });
+      await queryClient.invalidateQueries({ queryKey: projectApprovalPolicyKeyPrefix });
     } catch (error) {
       setSaveError({ sessionId, message: operationError(error, "审批策略保存失败，请重试。") });
     }
@@ -561,7 +569,9 @@ export function Composer({
     if (!value && files.length === 0) return;
     onSubmit?.();
     const selection = { model: model.id, credentialProfileId, thinking };
-    const initialPolicy = isDraftSession ? policy : undefined;
+    // Only an explicit draft selection overrides the server-side project
+    // default; otherwise the session is created without touching the policy.
+    const initialPolicy = isDraftSession ? selectedDraftPolicy : undefined;
     const initialProfile = undefined;
     const initialWebSearch =
       isDraftSession && webSearchEnabled && webSearchConfigured ? true : undefined;

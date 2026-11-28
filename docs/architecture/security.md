@@ -230,6 +230,8 @@ Windows 按 [ADR-061](../adr/ADR-061-windows-terminal-shell.md) 从 Larness 进�
 ## M2-25 完全自主策略（ADR-040）
 现有 Session PATCH approvalPolicyId 与 Turn executionContext.policy 枚举增加 autonomous；新 Turn 持久化选择时的快照，运行中更改只影响下一轮。明确选择该策略时已登记 Agent 工具 L0–L3 均无需人工逐次审批，执行仍校验参数、客户端/资源范围、锁/fencing/幂等/预算/取消/租约/秘密保护，仍有审计与持久事件。其他策略与人工 Git 资源审批保持。客户端选择前风险弹窗确认，取消不更改，危险色盾牌持续可见；这不是沙箱，不扩大工具能力或授权管理接口。未鉴权/非法枚举拒绝，无 DB列/迁移/新 REST路径。
 
+项目/默认工作区保存最后一次用户修改的策略，作为**新会话**初始值；已有 Session 行与 Turn 快照不被回写。默认值缺失或损坏回落 `standard`，不能把非法值提升为 autonomous；草稿界面未主动改选时不回传策略，由服务端在创建事务内解析，避免客户端陈旧值覆盖默认。策略变更仍走原认证、Origin/CSRF 和客户端会话校验，不新增授权入口。
+
 ## Git 文件放弃（ADR-041 / M2-27）
 放弃仅为用户确认的单文件动作，confirmed:true、字面路径、逐级非symlink普通文件检查、目标内容哈希与仓库状态重验，沿用CSRF/鉴权/锁/审计/幂等。tracked恢复index版本，untracked仅删除明确普通文件；无递归/全仓reset，取消暂存只写index不动worktree，未向Agent注册新能力。外部编辑并非OS隔离，不能保证跨进程原子性。
 

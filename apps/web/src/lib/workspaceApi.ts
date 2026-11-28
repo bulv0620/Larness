@@ -39,6 +39,7 @@ export interface ApiProject {
   realPath: string;
   settings: {
     defaultModelProfileId: string | null;
+    defaultApprovalPolicyId: "standard" | "strict" | "readonly" | "autonomous";
     instructions: string;
     ignore: string[];
     memory: { enabled: boolean; globalEnabled: boolean };

@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { listRecentAudit } from "../../src/db/repositories/audit.js";
-import { createProject, deleteProject } from "../../src/modules/projects/service.js";
+import {
+  createProject,
+  deleteProject,
+  getDefaultProjectDto,
+  getProjectDto,
+} from "../../src/modules/projects/service.js";
 import { SessionError } from "../../src/modules/sessions/errors.js";
 import {
   archiveSession,
@@ -175,6 +180,69 @@ describe("session service", () => {
         expect(JSON.parse(modelAudit?.detailsJson ?? "{}")).toMatchObject({
           to: "mdl_deepseek",
         });
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("inherits the project's last user-selected approval policy only for new sessions", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const project = await addProject(opened.db, dir, "policy");
+        const other = await addProject(opened.db, dir, "other");
+        let clock = 1_000;
+        const options = { db: opened.db, dataDir: dir, now: () => clock++ };
+
+        const first = await createSession(options, { projectId: project.id });
+        expect(first.approvalPolicyId).toBe("standard");
+
+        updateSession(options, { id: first.id, approvalPolicyId: "strict" });
+        expect(getProjectDto(opened.db, project.id).settings.defaultApprovalPolicyId).toBe(
+          "strict",
+        );
+
+        const second = await createSession(options, { projectId: project.id });
+        expect(second.approvalPolicyId).toBe("strict");
+
+        updateSession(options, { id: second.id, approvalPolicyId: "autonomous" });
+        const third = await createSession(options, { projectId: project.id });
+        expect(third.approvalPolicyId).toBe("autonomous");
+        expect(getSessionDetail(options, first.id).approvalPolicyId).toBe("strict");
+        expect(getSessionDetail(options, second.id).approvalPolicyId).toBe("autonomous");
+
+        const otherSession = await createSession(options, { projectId: other.id });
+        expect(otherSession.approvalPolicyId).toBe("standard");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("remembers the default workspace approval policy separately", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const project = await addProject(opened.db, dir, "policy");
+        let clock = 1_000;
+        const options = { db: opened.db, dataDir: dir, now: () => clock++ };
+
+        const first = await createSession(options, {});
+        const older = await createSession(options, {});
+        updateSession(options, { id: first.id, approvalPolicyId: "readonly" });
+        expect((await getDefaultProjectDto(opened.db, dir)).settings.defaultApprovalPolicyId).toBe(
+          "readonly",
+        );
+
+        const second = await createSession(options, {});
+        expect(second.approvalPolicyId).toBe("readonly");
+        expect(getSessionDetail(options, older.id).approvalPolicyId).toBe("standard");
+
+        const projectSession = await createSession(options, { projectId: project.id });
+        expect(projectSession.approvalPolicyId).toBe("standard");
       } finally {
         opened.close();
       }
