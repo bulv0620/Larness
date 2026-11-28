@@ -38,6 +38,7 @@ export function createMemoryTools(): ToolDefinition[] {
       riskLevel: "L0",
       requiresProject: true,
       requiresProjectLock: false,
+      prefetchable: true,
       schema: ReadMemoryInputSchema,
       summarize: (args) =>
         args.keys === undefined

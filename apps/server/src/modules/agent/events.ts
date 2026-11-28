@@ -23,6 +23,8 @@ export type AgentEventType =
   | "tool.failed"
   /** Internal replay material for the next Turn; never broadcast. */
   | "tool.replay"
+  /** Internal operation log for the next Turn; never broadcast. */
+  | "tool.operation"
   | "file.changed"
   | "plan.updated";
 
@@ -112,9 +114,11 @@ export function listSessionEvents(
       and(
         eq(agentEvents.sessionId, sessionId),
         gt(agentEvents.seq, after),
-        // Replay bodies are context material, not timeline events: filtering in
-        // SQL keeps paging and hasMore honest instead of returning empty pages.
+        // Replay bodies and operation logs are context material, not timeline
+        // events: filtering in SQL keeps paging and hasMore honest instead of
+        // returning empty pages.
         ne(agentEvents.type, "tool.replay"),
+        ne(agentEvents.type, "tool.operation"),
       ),
     )
     .orderBy(asc(agentEvents.seq))

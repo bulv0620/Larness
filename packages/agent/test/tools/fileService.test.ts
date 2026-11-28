@@ -1,13 +1,15 @@
-import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   applyPatch,
   createTextFile,
+  editTextFile,
   hashContent,
   listFiles,
   readTextFile,
   searchCode,
+  writeTextFile,
 } from "@larness/resources";
 import { createPatch } from "diff";
 import { describe, expect, it } from "vitest";
@@ -126,19 +128,49 @@ describe("file service", () => {
       expect(insensitive.matches).toHaveLength(1);
       expect(insensitive.truncated).toBe(true);
       expect(insensitive.scannedFiles).toBe(2);
+      expect(insensitive.directories).toEqual([{ path: "(root)", matches: 2 }]);
+    });
+  });
+
+  it("counts matches by workspace directory after the result limit", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "apps", "server", "test"), { recursive: true });
+      await mkdir(path.join(dir, "packages", "agent", "src"), { recursive: true });
+      await mkdir(path.join(dir, "docs"), { recursive: true });
+      await writeFile(path.join(dir, "apps", "server", "test", "a.ts"), "needle\n");
+      await writeFile(path.join(dir, "packages", "agent", "src", "b.ts"), "needle\n");
+      await writeFile(path.join(dir, "docs", "guide.md"), "needle\n");
+
+      const result = await searchCode(dir, { query: "needle", limit: 1 });
+      expect(result.matches).toHaveLength(1);
+      expect(result.truncated).toBe(true);
+      expect(result.scannedFiles).toBe(3);
+      expect(result.directories).toEqual([
+        { path: "apps/server", matches: 1 },
+        { path: "docs", matches: 1 },
+        { path: "packages/agent", matches: 1 },
+      ]);
     });
   });
 
   it("narrows the scan with glob and budget and can return context lines", async () => {
     await withTempDir(async (dir) => {
-      await mkdir(path.join(dir, "src"), { recursive: true });
+      await mkdir(path.join(dir, "src", "nested"), { recursive: true });
       await mkdir(path.join(dir, "docs"), { recursive: true });
       await writeFile(path.join(dir, "src", "one.ts"), "before\ntarget here\nafter\n");
       await writeFile(path.join(dir, "src", "two.ts"), "target again\n");
+      await writeFile(path.join(dir, "src", "nested", "three.ts"), "target nested\n");
       await writeFile(path.join(dir, "docs", "guide.md"), "target in docs\n");
 
       const scoped = await searchCode(dir, { query: "target", glob: "src/*.ts" });
       expect(scoped.matches.map((match) => match.path).sort()).toEqual([
+        "src/one.ts",
+        "src/two.ts",
+      ]);
+
+      const bare = await searchCode(dir, { query: "target", glob: "*.ts" });
+      expect(bare.matches.map((match) => match.path).sort()).toEqual([
+        "src/nested/three.ts",
         "src/one.ts",
         "src/two.ts",
       ]);
@@ -149,10 +181,90 @@ describe("file service", () => {
         contextLines: 1,
       });
       expect(withContext.matches[0]?.context).toBe("before\ntarget here\nafter");
+      expect(withContext.matches[0]?.contextStart).toBe(1);
+
+      const atStart = await searchCode(dir, {
+        query: "target",
+        path: "src/two.ts",
+        contextLines: 1,
+      });
+      expect(atStart.matches[0]).toMatchObject({ contextStart: 1 });
+      expect(atStart.matches[0]?.context?.trimEnd()).toBe("target again");
 
       const budgeted = await searchCode(dir, { query: "target", maxFiles: 1 });
       expect(budgeted.scannedFiles).toBe(1);
       expect(budgeted.scanBudgetExhausted).toBe(true);
+    });
+  });
+
+  it("skips common build and package-store directories by default", async () => {
+    await withTempDir(async (dir) => {
+      const ignored = [
+        ".pnpm-store",
+        "dist",
+        "build",
+        "coverage",
+        "test-results",
+        "tmp",
+        ".turbo",
+        ".vite",
+      ];
+
+      for (const name of ignored) {
+        await mkdir(path.join(dir, name, "nested"), { recursive: true });
+        await writeFile(path.join(dir, name, "nested", "target.ts"), "target\n");
+      }
+
+      await mkdir(path.join(dir, "src"), { recursive: true });
+      await writeFile(path.join(dir, "src", "target.ts"), "target\n");
+
+      const searched = await searchCode(dir, { query: "target" });
+      expect(searched.matches.map((match) => match.path)).toEqual(["src/target.ts"]);
+      expect(searched.scanBudgetExhausted).toBe(false);
+
+      const listed = await listFiles(dir, { depth: 3 });
+      const paths = listed.files.map((entry) => entry.path);
+
+      for (const name of ignored) {
+        expect(paths.some((entry) => entry === name || entry.startsWith(`${name}/`))).toBe(false);
+      }
+      expect(paths).toEqual(expect.arrayContaining(["src", "src/target.ts"]));
+    });
+  });
+
+  it("does not spend the scan budget on ignored directories", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, ".pnpm-store"), { recursive: true });
+      await writeFile(path.join(dir, ".pnpm-store", "a.ts"), "target\n");
+      await writeFile(path.join(dir, ".pnpm-store", "b.ts"), "target\n");
+      await mkdir(path.join(dir, "src"), { recursive: true });
+      await writeFile(path.join(dir, "src", "target.ts"), "target\n");
+
+      const result = await searchCode(dir, { query: "target", maxFiles: 2 });
+      expect(result.matches.map((match) => match.path)).toEqual(["src/target.ts"]);
+      expect(result.scanBudgetExhausted).toBe(false);
+    });
+  });
+
+  it("still searches an explicitly selected ignored directory", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "dist"), { recursive: true });
+      await writeFile(path.join(dir, "dist", "bundle.ts"), "target\n");
+
+      const result = await searchCode(dir, { query: "target", path: "dist" });
+      expect(result.matches.map((match) => match.path)).toEqual(["dist/bundle.ts"]);
+    });
+  });
+
+  it("does not ignore a source file whose name contains an ignored directory name", async () => {
+    await withTempDir(async (dir) => {
+      await mkdir(path.join(dir, "generated"), { recursive: true });
+      await mkdir(path.join(dir, "src"), { recursive: true });
+      await writeFile(path.join(dir, "generated", "out.ts"), "target\n");
+      await writeFile(path.join(dir, "src", "build.ts"), "target\n");
+
+      const result = await searchCode(dir, { query: "target", ignore: ["generated"] });
+      expect(result.matches.map((match) => match.path)).toEqual(["src/build.ts"]);
     });
   });
 
@@ -357,6 +469,111 @@ describe("file service", () => {
     });
   });
 
+  it("writes a new file or replaces an existing one with an optional version", async () => {
+    await withTempDir(async (dir) => {
+      const created = await writeTextFile(dir, {
+        path: "src/new.txt",
+        content: "hello\n",
+      });
+      expect(created).toMatchObject({ path: "src/new.txt", created: true, lines: 2 });
+      expect(created.version).toBe(hashContent(Buffer.from("hello\n", "utf8")));
+
+      const replaced = await writeTextFile(dir, {
+        path: "src/new.txt",
+        content: "world\n",
+      });
+      expect(replaced).toMatchObject({
+        path: "src/new.txt",
+        created: false,
+        previousVersion: created.version,
+        lines: 2,
+      });
+      expect(replaced.version).toBe(hashContent(Buffer.from("world\n", "utf8")));
+      expect((await readTextFile(dir, { path: "src/new.txt" })).content).toBe("world\n");
+
+      await expect(
+        writeTextFile(dir, {
+          path: "src/new.txt",
+          content: "stale\n",
+          expectedVersion: "0".repeat(64),
+        }),
+      ).rejects.toMatchObject({
+        code: "VERSION_CONFLICT",
+        details: { currentVersion: replaced.version },
+      });
+
+      const matched = await writeTextFile(dir, {
+        path: "src/new.txt",
+        content: "matched\n",
+        expectedVersion: replaced.version,
+      });
+      expect(matched.created).toBe(false);
+      expect((await readTextFile(dir, { path: "src/new.txt" })).content).toBe("matched\n");
+
+      await expect(
+        writeTextFile(dir, { path: "../escape.txt", content: "x" }),
+      ).rejects.toMatchObject({ code: "PATH_OUTSIDE_PROJECT" });
+    });
+  });
+
+  it("edits exact text once or everywhere and keeps CRLF endings", async () => {
+    await withTempDir(async (dir) => {
+      await writeFile(path.join(dir, "unique.txt"), "needle\n");
+      const unique = await editTextFile(dir, {
+        path: "unique.txt",
+        oldString: "needle",
+        newString: "pin",
+      });
+      expect(unique).toMatchObject({ path: "unique.txt", replacements: 1 });
+      expect(unique.version).toMatch(/^[a-f0-9]{64}$/);
+      expect((await readTextFile(dir, { path: "unique.txt" })).content).toBe("pin\n");
+
+      await writeFile(path.join(dir, "multi.txt"), "alpha needle beta needle\n");
+      await expect(
+        editTextFile(dir, {
+          path: "multi.txt",
+          oldString: "needle",
+          newString: "pin",
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_PATCH" });
+
+      const all = await editTextFile(dir, {
+        path: "multi.txt",
+        oldString: "needle",
+        newString: "pin",
+        replaceAll: true,
+      });
+      expect(all.replacements).toBe(2);
+      expect((await readTextFile(dir, { path: "multi.txt" })).content).toBe("alpha pin beta pin\n");
+
+      await writeFile(path.join(dir, "crlf.txt"), "one\r\ntwo\r\n");
+      const crlf = await editTextFile(dir, {
+        path: "crlf.txt",
+        oldString: "one\ntwo",
+        newString: "ONE\nTWO",
+      });
+      expect(crlf.replacements).toBe(1);
+      expect(await readFile(path.join(dir, "crlf.txt"), "utf8")).toBe("ONE\r\nTWO\r\n");
+
+      await expect(
+        editTextFile(dir, {
+          path: "unique.txt",
+          oldString: "missing",
+          newString: "pin",
+        }),
+      ).rejects.toMatchObject({ code: "INVALID_PATCH" });
+
+      await writeFile(path.join(dir, "binary.bin"), Buffer.from([0, 1, 2]));
+      await expect(
+        editTextFile(dir, { path: "binary.bin", oldString: "a", newString: "b" }),
+      ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+
+      await expect(
+        editTextFile(dir, { path: "../escape.txt", oldString: "a", newString: "b" }),
+      ).rejects.toMatchObject({ code: "PATH_OUTSIDE_PROJECT" });
+    });
+  });
+
   it("applies a patch only for the expected version", async () => {
     await withTempDir(async (dir) => {
       const original = "one\ntwo\n";
@@ -391,6 +608,73 @@ describe("file service", () => {
           patch: "not a patch",
         }),
       ).rejects.toMatchObject({ code: "INVALID_PATCH" });
+    });
+  });
+
+  it("reads, lists and searches outside the root when access allows it", async () => {
+    await withTempDir(async (dir) => {
+      const root = path.join(dir, "project");
+      const outside = path.join(dir, "reference");
+      const dataDir = path.join(dir, "data");
+      await mkdir(root, { recursive: true });
+      await mkdir(path.join(outside, "docs"), { recursive: true });
+      await mkdir(dataDir, { recursive: true });
+      await writeFile(path.join(root, "api.md"), "inside\n");
+      await writeFile(path.join(outside, "api.md"), "# api\nneedle\n");
+      await writeFile(path.join(outside, "docs", "notes.md"), "notes\n");
+      const outsideReal = await realpath(outside);
+      const dataReal = await realpath(dataDir);
+      const access = { allowExternal: true, protectedRoots: [dataReal] };
+
+      const read = await readTextFile(root, { path: path.join(outside, "api.md"), access });
+      expect(read).toMatchObject({
+        path: path.join(outsideReal, "api.md").split(path.sep).join("/"),
+        rootScope: "external",
+        content: "# api\nneedle\n",
+      });
+
+      const inside = await readTextFile(root, { path: "api.md", access });
+      expect(inside.rootScope).toBe("primary");
+
+      const listed = await listFiles(root, { path: outsideReal, access });
+      expect(listed.rootScope).toBe("external");
+      expect(listed.files.map((entry) => entry.path)).toEqual(
+        expect.arrayContaining([
+          path.join(outsideReal, "api.md").split(path.sep).join("/"),
+          path.join(outsideReal, "docs").split(path.sep).join("/"),
+        ]),
+      );
+
+      const searched = await searchCode(root, {
+        query: "needle",
+        path: outsideReal,
+        access,
+        contextLines: 0,
+      });
+      expect(searched.matches).toEqual([
+        {
+          path: path.join(outsideReal, "api.md").split(path.sep).join("/"),
+          line: 2,
+          preview: "needle",
+        },
+      ]);
+
+      await expect(
+        readTextFile(root, { path: path.join(dataReal, "db.sqlite"), access }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    });
+  });
+
+  it("keeps external paths rejected without an access policy", async () => {
+    await withTempDir(async (dir) => {
+      const root = path.join(dir, "project");
+      const outside = path.join(dir, "outside.txt");
+      await mkdir(root, { recursive: true });
+      await writeFile(outside, "secret\n");
+
+      await expect(readTextFile(root, { path: path.join(outside) })).rejects.toMatchObject({
+        code: "PATH_OUTSIDE_PROJECT",
+      });
     });
   });
 

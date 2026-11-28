@@ -7,7 +7,7 @@ import { queryClient, useSessionDetail, useWebSearchSettings } from "@/lib/queri
 import { updateSession } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { turnState, useTimelineStore } from "@/stores/timelineStore";
 import { Composer } from "./Composer";
 
 vi.mock("@/lib/env", () => ({ USE_MOCKS: true }));
@@ -111,7 +111,7 @@ beforeEach(() => {
   useNavigationStore.setState({ sessionId: "test" });
   useTimelineStore.setState({
     items: [],
-    isStreaming: false,
+    turn: turnState(),
     modelUsage: {
       "deepseek-flash": { inputTokens: 32_000, contextWindow: 128_000, updatedAt: 1 },
     },
@@ -163,7 +163,7 @@ it("puts context usage in the row under the composer and the attachment button b
       modelUsage: {
         "deepseek-flash": { inputTokens: 256_000, contextWindow: 128_000, updatedAt: 2 },
       },
-      isStreaming: true,
+      turn: turnState("running", "turn_composer", 1),
     }),
   );
   expect(ring).toHaveAttribute("aria-valuenow", "100");

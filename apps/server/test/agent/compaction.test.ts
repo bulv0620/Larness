@@ -52,6 +52,17 @@ describe("tool result folding", () => {
 
     expect(JSON.parse(folded)).toMatchObject({ path: "a.ts", version: "v1", folded: true });
   });
+
+  it("folds plain-text model results with a visible marker", () => {
+    const folded = foldToolResultContent(
+      ["src/a.ts", "version: v1", "1: one", "2: two", "x".repeat(5_000)].join("\n"),
+    );
+
+    expect(folded).toContain('"folded":true');
+    expect(folded).toContain("src/a.ts");
+    expect(folded.length).toBeLessThan(600);
+    expect(() => JSON.parse(folded)).not.toThrow();
+  });
 });
 
 describe("history folding", () => {

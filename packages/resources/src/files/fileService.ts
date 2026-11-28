@@ -3,7 +3,13 @@ import type { Dirent, Stats } from "node:fs";
 import { mkdir, readdir, readFile as readFileAsync, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { applyPatch as applyTextPatch, diffLines, parsePatch } from "diff";
-import { PathGuardError, resolveInsideRoot } from "./pathGuard.js";
+import {
+  PathGuardError,
+  type ResolvedReadPath,
+  type RootScope,
+  resolveInsideRoot,
+  resolveReadPath,
+} from "./pathGuard.js";
 
 export const MAX_TOOL_OUTPUT_BYTES = 1_048_576;
 export const MAX_TOOL_OUTPUT_LINES = 2_000;
@@ -11,12 +17,32 @@ export const MAX_READ_BYTES = 1_048_576;
 export const MAX_WRITE_BYTES = 1_048_576;
 export const MAX_SEARCH_FILE_BYTES = 262_144;
 
-export const DEFAULT_IGNORED = new Set([".git", "node_modules", ".larness"]);
+/**
+ * Names skipped while walking a project by default. These are package stores
+ * and build outputs, not source. The ignore applies to entries discovered
+ * during a walk; an explicit `path` start is not filtered, so a caller can
+ * still inspect one deliberately. Full `.gitignore` semantics are not parsed
+ * here (see specs/092-search-ignore).
+ */
+export const DEFAULT_IGNORED = new Set([
+  ".git",
+  "node_modules",
+  ".larness",
+  ".pnpm-store",
+  "dist",
+  "build",
+  "coverage",
+  "test-results",
+  "tmp",
+  ".turbo",
+  ".vite",
+]);
 
 export type FileErrorCode =
   | "VALIDATION_ERROR"
   | "NOT_FOUND"
   | "PATH_OUTSIDE_PROJECT"
+  | "FORBIDDEN"
   | "VERSION_CONFLICT"
   | "TOO_LARGE"
   | "INVALID_PATCH"
@@ -32,6 +58,13 @@ export class FileError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+/** Read-side scope: optionally allow absolute paths outside the primary root. */
+export interface ReadAccess {
+  allowExternal?: boolean;
+  /** Canonical roots that are always rejected, such as `<dataDir>`. */
+  protectedRoots?: readonly string[];
 }
 
 function toPosix(relative: string): string {
@@ -79,6 +112,10 @@ function mapPathError(error: unknown): never {
 
     if (error.code === "PATH_OUTSIDE_PROJECT") {
       throw new FileError("PATH_OUTSIDE_PROJECT", error.message);
+    }
+
+    if (error.code === "FORBIDDEN") {
+      throw new FileError("FORBIDDEN", error.message);
     }
 
     throw new FileError("VALIDATION_ERROR", error.message);
@@ -141,6 +178,30 @@ async function resolveInput(rootReal: string, input: string): Promise<string> {
   }
 }
 
+async function resolveReadInput(
+  rootReal: string,
+  input: string,
+  access?: ReadAccess,
+): Promise<ResolvedReadPath> {
+  try {
+    return await resolveReadPath(
+      {
+        root: rootReal,
+        ...(access?.allowExternal === undefined ? {} : { allowExternal: access.allowExternal }),
+        ...(access?.protectedRoots === undefined ? {} : { protectedRoots: access.protectedRoots }),
+      },
+      fromPosix(input),
+    );
+  } catch (error) {
+    mapPathError(error);
+  }
+}
+
+/** Display the target relative to the primary root, or absolute when external. */
+function displayPath(rootReal: string, target: string, rootScope: RootScope): string {
+  return rootScope === "external" ? toPosix(target) : toPosix(path.relative(rootReal, target));
+}
+
 export interface FileEntry {
   path: string;
   name: string;
@@ -153,18 +214,23 @@ export interface ListFilesOptions {
   depth?: number;
   limit?: number;
   ignore?: string[];
+  /** Allow project-external absolute paths, minus `protectedRoots`. */
+  access?: ReadAccess;
 }
 
 export interface ListFilesResult {
   files: FileEntry[];
   truncated: boolean;
+  /** `external` means entry paths are absolute. */
+  rootScope: RootScope;
 }
 
 export async function listFiles(
   rootReal: string,
   options: ListFilesOptions = {},
 ): Promise<ListFilesResult> {
-  const base = await resolveInput(rootReal, options.path ?? ".");
+  const resolved = await resolveReadInput(rootReal, options.path ?? ".", options.access);
+  const base = resolved.absolutePath;
   const baseInfo = await statOrThrow(base);
 
   if (!baseInfo.isDirectory()) {
@@ -191,7 +257,7 @@ export async function listFiles(
       }
 
       const absolute = path.join(dir, entry.name);
-      const relativePath = toPosix(path.relative(rootReal, absolute));
+      const relativePath = displayPath(rootReal, absolute, resolved.rootScope);
 
       if (isIgnoredFile(relativePath, entry.name, ignore) || entry.isSymbolicLink()) {
         continue;
@@ -232,7 +298,7 @@ export async function listFiles(
     truncated = true;
   }
 
-  return { files, truncated };
+  return { files, truncated, rootScope: resolved.rootScope };
 }
 
 export interface ReadFileOptions {
@@ -244,6 +310,8 @@ export interface ReadFileOptions {
    * returned even when it alone exceeds the budget, so the caller can advance.
    */
   maxChars?: number;
+  /** Allow project-external absolute paths, minus `protectedRoots`. */
+  access?: ReadAccess;
 }
 
 export interface ReadFileResult {
@@ -256,6 +324,8 @@ export interface ReadFileResult {
   offset: number;
   /** Line to pass as the next `offset`; equal to `offset` when nothing follows. */
   nextOffset: number;
+  /** `external` means `path` is absolute and outside the primary root. */
+  rootScope: RootScope;
 }
 
 export function hashContent(buffer: Buffer): string {
@@ -266,7 +336,8 @@ export async function readTextFile(
   rootReal: string,
   options: ReadFileOptions,
 ): Promise<ReadFileResult> {
-  const target = await resolveInput(rootReal, options.path);
+  const resolved = await resolveReadInput(rootReal, options.path, options.access);
+  const target = resolved.absolutePath;
   const info = await statOrThrow(target);
 
   if (!info.isFile()) {
@@ -301,7 +372,7 @@ export async function readTextFile(
     fitted.clipped || offset - 1 + kept.length < lines.length || byteLength > MAX_TOOL_OUTPUT_BYTES;
 
   return {
-    path: toPosix(path.relative(rootReal, target)),
+    path: displayPath(rootReal, target, resolved.rootScope),
     version,
     content:
       byteLength > MAX_TOOL_OUTPUT_BYTES
@@ -310,6 +381,7 @@ export async function readTextFile(
     truncated,
     totalLines: lines.length,
     offset,
+    rootScope: resolved.rootScope,
     // Line-based so a caller can always continue; a byte-truncated final line
     // still counts as consumed.
     nextOffset: Math.min(lines.length + 1, offset + kept.length),
@@ -362,6 +434,8 @@ export interface SearchCodeOptions {
   glob?: string;
   /** Stop after this many files; a scanning budget for large repositories. */
   maxFiles?: number;
+  /** Allow project-external absolute paths, minus `protectedRoots`. */
+  access?: ReadAccess;
 }
 
 export interface SearchMatch {
@@ -370,6 +444,13 @@ export interface SearchMatch {
   preview: string;
   /** Context window around the match, joined with newlines, when requested. */
   context?: string;
+  /** 1-based line number of the first line in `context`, when present. */
+  contextStart?: number;
+}
+
+export interface SearchDirectoryCount {
+  path: string;
+  matches: number;
 }
 
 export interface SearchCodeResult {
@@ -378,9 +459,36 @@ export interface SearchCodeResult {
   scannedFiles: number;
   /** True when the file budget stopped the scan before the tree was exhausted. */
   scanBudgetExhausted: boolean;
+  /** Match counts grouped by workspace package/directory. */
+  directories: SearchDirectoryCount[];
+  /** `external` means match paths are absolute. */
+  rootScope: RootScope;
+}
+
+function searchDirectory(relativePath: string): string {
+  const segments = relativePath.split("/");
+
+  if (segments.length <= 1) {
+    return "(root)";
+  }
+
+  const top = segments[0] ?? "";
+
+  if ((top === "apps" || top === "packages") && segments.length > 2) {
+    return `${top}/${segments[1]}`;
+  }
+
+  return top;
+}
+
+function sortedDirectories(counts: Map<string, number>): SearchDirectoryCount[] {
+  return [...counts.entries()]
+    .map(([directory, matches]) => ({ path: directory, matches }))
+    .sort((left, right) => right.matches - left.matches || left.path.localeCompare(right.path));
 }
 
 function globToRegExp(glob: string): RegExp {
+  const recursive = !glob.includes("/");
   let pattern = "";
 
   for (let index = 0; index < glob.length; index += 1) {
@@ -403,7 +511,7 @@ function globToRegExp(glob: string): RegExp {
     }
   }
 
-  return new RegExp(`^${pattern}$`);
+  return new RegExp(`^${recursive ? "(?:.*/)?" : ""}${pattern}$`);
 }
 
 export async function searchCode(
@@ -416,7 +524,8 @@ export async function searchCode(
     throw new FileError("VALIDATION_ERROR", "query must be 1-500 characters");
   }
 
-  const base = await resolveInput(rootReal, options.path ?? ".");
+  const resolved = await resolveReadInput(rootReal, options.path ?? ".", options.access);
+  const base = resolved.absolutePath;
   const limit = Math.min(Math.max(Math.trunc(options.limit ?? 100), 1), 500);
   const ignore = options.ignore ?? [];
   const needle = options.caseSensitive === true ? query : query.toLowerCase();
@@ -425,12 +534,13 @@ export async function searchCode(
   const globPattern: RegExp | undefined =
     options.glob === undefined ? undefined : globToRegExp(options.glob);
   const matches: SearchMatch[] = [];
+  const directoryCounts = new Map<string, number>();
   let scannedFiles = 0;
   let truncated = false;
   let scanBudgetExhausted = false;
 
   const searchFile = async (file: string): Promise<void> => {
-    if (truncated || scanBudgetExhausted) {
+    if (scanBudgetExhausted) {
       return;
     }
 
@@ -446,9 +556,11 @@ export async function searchCode(
       return;
     }
 
-    const relativePath = toPosix(path.relative(rootReal, file));
+    const displayPathForFile = displayPath(rootReal, file, resolved.rootScope);
+    const relativeToBase = toPosix(path.relative(base, file));
+    const globPath = resolved.rootScope === "external" ? relativeToBase : displayPathForFile;
 
-    if (globPattern !== undefined && !globPattern.test(relativePath)) {
+    if (globPattern !== undefined && !globPattern.test(globPath)) {
       return;
     }
 
@@ -468,25 +580,29 @@ export async function searchCode(
         continue;
       }
 
+      const directory = searchDirectory(globPath);
+      directoryCounts.set(directory, (directoryCounts.get(directory) ?? 0) + 1);
+
+      if (matches.length >= limit) {
+        truncated = true;
+        continue;
+      }
+
+      const contextStartIndex = Math.max(0, index - contextLines);
       const context =
         contextLines === 0
           ? undefined
           : lines
-              .slice(Math.max(0, index - contextLines), index + contextLines + 1)
+              .slice(contextStartIndex, index + contextLines + 1)
               .join("\n")
               .slice(0, 2_000);
 
       matches.push({
-        path: relativePath,
+        path: displayPathForFile,
         line: index + 1,
         preview: line.trim().slice(0, 240),
-        ...(context === undefined ? {} : { context }),
+        ...(context === undefined ? {} : { context, contextStart: contextStartIndex + 1 }),
       });
-
-      if (matches.length > limit) {
-        truncated = true;
-        return;
-      }
     }
   };
 
@@ -495,16 +611,18 @@ export async function searchCode(
   if (baseInfo.isFile()) {
     await searchFile(base);
 
-    if (matches.length > limit) {
-      matches.pop();
-      truncated = true;
-    }
-
-    return { matches, truncated, scannedFiles, scanBudgetExhausted };
+    return {
+      matches,
+      truncated,
+      scannedFiles,
+      scanBudgetExhausted,
+      directories: sortedDirectories(directoryCounts),
+      rootScope: resolved.rootScope,
+    };
   }
 
   const walk = async (dir: string): Promise<void> => {
-    if (truncated) {
+    if (scanBudgetExhausted) {
       return;
     }
 
@@ -512,12 +630,12 @@ export async function searchCode(
     entries.sort((left, right) => left.name.localeCompare(right.name));
 
     for (const entry of entries) {
-      if (truncated) {
+      if (scanBudgetExhausted) {
         return;
       }
 
       const absolute = path.join(dir, entry.name);
-      const relativePath = toPosix(path.relative(rootReal, absolute));
+      const relativePath = displayPath(rootReal, absolute, resolved.rootScope);
 
       if (isIgnoredFile(relativePath, entry.name, ignore) || entry.isSymbolicLink()) {
         continue;
@@ -533,12 +651,14 @@ export async function searchCode(
 
   await walk(base);
 
-  if (matches.length > limit) {
-    matches.pop();
-    truncated = true;
-  }
-
-  return { matches, truncated, scannedFiles, scanBudgetExhausted };
+  return {
+    matches,
+    truncated,
+    scannedFiles,
+    scanBudgetExhausted,
+    directories: sortedDirectories(directoryCounts),
+    rootScope: resolved.rootScope,
+  };
 }
 
 export interface ApplyPatchOptions {
@@ -709,6 +829,216 @@ export interface CreateTextFileResult {
   bytes: number;
   lines: number;
   created: true;
+}
+
+export interface WriteTextFileOptions {
+  path: string;
+  content: string;
+  /** When present, the on-disk version must still match or the write fails. */
+  expectedVersion?: string;
+}
+
+export interface WriteTextFileResult {
+  path: string;
+  version: string;
+  previousVersion?: string;
+  bytes: number;
+  lines: number;
+  created: boolean;
+}
+
+/**
+ * Create or replace a text file. Unlike `createTextFile`, an existing file is
+ * overwritten. Passing `expectedVersion` narrows the window for a concurrent
+ * editor; without it the replacement is deliberate and unconditional.
+ */
+export async function writeTextFile(
+  rootReal: string,
+  options: WriteTextFileOptions,
+): Promise<WriteTextFileResult> {
+  if (options.content.includes("\0")) {
+    throw new FileError("VALIDATION_ERROR", "content must be text");
+  }
+
+  const bytes = Buffer.byteLength(options.content, "utf8");
+
+  if (bytes > MAX_WRITE_BYTES) {
+    throw new FileError("TOO_LARGE", `content exceeds ${MAX_WRITE_BYTES} bytes`, { bytes });
+  }
+
+  if (options.expectedVersion !== undefined && !/^[a-f0-9]{64}$/.test(options.expectedVersion)) {
+    throw new FileError("VALIDATION_ERROR", "expectedVersion must be a sha256 hex");
+  }
+
+  const target = await resolveInput(rootReal, options.path);
+  let existing: Buffer | null = null;
+
+  try {
+    existing = await readFileOrThrow(target);
+  } catch (error) {
+    if (!(error instanceof FileError) || error.code !== "NOT_FOUND") {
+      throw error;
+    }
+  }
+
+  let previousVersion: string | undefined;
+
+  if (existing !== null) {
+    assertNotBinary(existing, options.path);
+    previousVersion = hashContent(existing);
+
+    if (options.expectedVersion !== undefined && options.expectedVersion !== previousVersion) {
+      throw new FileError("VERSION_CONFLICT", "file version does not match", {
+        currentVersion: previousVersion,
+      });
+    }
+  } else if (options.expectedVersion !== undefined) {
+    throw new FileError("VERSION_CONFLICT", "file does not exist", { currentVersion: null });
+  }
+
+  await mkdir(path.dirname(target), { recursive: true });
+
+  if (existing !== null && options.expectedVersion !== undefined) {
+    const current = await readFileOrThrow(target);
+
+    if (hashContent(current) !== options.expectedVersion) {
+      throw new FileError("VERSION_CONFLICT", "file changed while writing", {
+        currentVersion: hashContent(current),
+      });
+    }
+  }
+
+  await writeFileOrThrow(target, options.content);
+  const buffer = await readFileOrThrow(target);
+
+  return {
+    path: toPosix(path.relative(rootReal, target)),
+    version: hashContent(buffer),
+    ...(previousVersion === undefined ? {} : { previousVersion }),
+    bytes,
+    lines: options.content.split("\n").length,
+    created: existing === null,
+  };
+}
+
+export interface EditTextFileOptions {
+  path: string;
+  oldString: string;
+  newString: string;
+  replaceAll?: boolean;
+}
+
+export interface EditTextFileResult {
+  path: string;
+  version: string;
+  previousVersion: string;
+  replacements: number;
+  additions: number;
+  deletions: number;
+}
+
+function occurrenceIndexes(haystack: string, needle: string): number[] {
+  const indexes: number[] = [];
+  let offset = 0;
+
+  while (offset <= haystack.length) {
+    const index = haystack.indexOf(needle, offset);
+
+    if (index === -1) {
+      break;
+    }
+
+    indexes.push(index);
+    offset = index + needle.length;
+  }
+
+  return indexes;
+}
+
+/**
+ * Replace literal text in an existing text file. The match is exact; when the
+ * file uses CRLF, LF-only `oldString`/`newString` are converted to CRLF so a
+ * model does not have to guess the line ending.
+ */
+export async function editTextFile(
+  rootReal: string,
+  options: EditTextFileOptions,
+): Promise<EditTextFileResult> {
+  if (options.oldString.length === 0) {
+    throw new FileError("VALIDATION_ERROR", "oldString must not be empty");
+  }
+
+  if (options.oldString === options.newString) {
+    throw new FileError("VALIDATION_ERROR", "oldString and newString must differ");
+  }
+
+  const target = await resolveInput(rootReal, options.path);
+  const info = await statOrThrow(target);
+
+  if (!info.isFile()) {
+    throw new FileError("VALIDATION_ERROR", "path is not a file");
+  }
+
+  const originalBuffer = await readFileOrThrow(target);
+  assertNotBinary(originalBuffer, options.path);
+  const original = originalBuffer.toString("utf8");
+  const previousVersion = hashContent(originalBuffer);
+  let oldString = options.oldString;
+  let newString = options.newString;
+  let indexes = occurrenceIndexes(original, oldString);
+
+  if (indexes.length === 0 && original.includes("\r\n") && !oldString.includes("\r\n")) {
+    oldString = oldString.replace(/\r?\n/g, "\r\n");
+    newString = newString.replace(/\r?\n/g, "\r\n");
+    indexes = occurrenceIndexes(original, oldString);
+  }
+
+  if (indexes.length === 0) {
+    throw new FileError("INVALID_PATCH", "oldString was not found");
+  }
+
+  if (indexes.length > 1 && options.replaceAll !== true) {
+    throw new FileError(
+      "INVALID_PATCH",
+      `oldString matches ${indexes.length} times; include more context or set replaceAll`,
+    );
+  }
+
+  const updated =
+    options.replaceAll === true
+      ? original.split(oldString).join(newString)
+      : `${original.slice(0, indexes[0])}${newString}${original.slice(indexes[0] + oldString.length)}`;
+
+  const currentBuffer = await readFileOrThrow(target);
+
+  if (hashContent(currentBuffer) !== previousVersion) {
+    throw new FileError("VERSION_CONFLICT", "file changed while editing", {
+      currentVersion: hashContent(currentBuffer),
+    });
+  }
+
+  await writeFileOrThrow(target, updated);
+
+  const changes = diffLines(original, updated, { newlineIsToken: false });
+  let additions = 0;
+  let deletions = 0;
+
+  for (const change of changes) {
+    if (change.added === true) {
+      additions += change.count ?? 0;
+    } else if (change.removed === true) {
+      deletions += change.count ?? 0;
+    }
+  }
+
+  return {
+    path: toPosix(path.relative(rootReal, target)),
+    version: hashContent(Buffer.from(updated, "utf8")),
+    previousVersion,
+    replacements: indexes.length,
+    additions,
+    deletions,
+  };
 }
 
 export async function createTextFile(

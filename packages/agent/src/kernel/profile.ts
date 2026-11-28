@@ -6,6 +6,7 @@
  * database and secret dependencies. Keeping the types here prevents the
  * kernel from importing server storage or adapters.
  */
+/** `plan` is a legacy compatibility alias with the same tools as `coding` (ADR-075). */
 export type AgentProfileId = "coding" | "plan";
 
 export type ToolPackId =

@@ -6,12 +6,13 @@ status: done
 depends_on: [036-conversation-experience, 079-plan-progress]
 owners: []
 created: 2026-11-16
-updated: 2026-11-16
+updated: 2026-11-27
 ---
 
 # 080 计划终态呈现
 
 > 状态：`done`（2026-11-16）。用户确认「Turn 终态如何处理未完成的计划步骤」单开切片后实现；验收记录见 [tasks](tasks.md#验收记录)。
+> 2026-11-27 修订：用户要求手动停止也按失败效果呈现，`turn.cancelled` 的「已停止」读法由 [111](../111-manual-stop-failure/spec.md) 取代；步骤状态与数据语义不变。
 
 ## 1. 背景与问题
 
@@ -52,6 +53,8 @@ When 回合以 turn.cancelled 结束
 Then 该步骤显示「已停止」与中性标记
 And 不使用失败红叉，也不计入失败
 ```
+
+> 2026-11-27：用户改判为手动停止按失败呈现；本场景的「已停止」由 [111](../111-manual-stop-failure/spec.md) A3 取代（显示「已中断」），步骤状态仍不改写。
 
 ### A2 中断或失败的回合
 

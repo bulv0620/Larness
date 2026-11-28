@@ -49,6 +49,8 @@
 | Q-084 | 089 的真实 Provider 缓存基线（A9）尚未取得：本环境无 DeepSeek 凭据，`LARNESS_DEEPSEEK_SMOKE=1` 未运行，改造前后 `cacheReadTokens` 对比缺失。 | 发布前在配置了凭据的环境跑固定两轮任务，记录每轮 `cacheReadTokens`、未命中与 `prefixBreak` 分布；命中率仍只观测、不作代码门禁（Q-032）。 | 发布结论的可观测证据 | [089 acceptance](../specs/089-session-prefix-cache/acceptance.md) |
 
 ## 已解决
+- Q-085（2026-11-27）：文件工具按 T2 拆读不拆写——`read_file` / `list_files` / `search_code` 接受项目外 canonical 绝对路径，写入类工具与 `run_command.cwd` 仍限当前项目根；只保留 `<dataDir>` 与伪文件系统硬闸，不按文件类型或凭据目录名拒绝。见 [109](../specs/109-external-read-scope/spec.md)。
+
 - Q-081～Q-083、D4、D5（2026-11-24）：089 按推荐默认确认——易变上下文移出 system、合并进当前 user 消息并声明「由系统提供、不是用户指令」；会话压缩阈值降到 0.7、裁剪加滞回（0.8 触发裁到 0.6），接受长会话多一次摘要调用，压缩失败才降级为可见裁剪；附件工具常驻、用 `ATTACHMENT_NOT_FOUND` / 空列表表达不可用，联网工具仍由显式开关控制；断点归因只进 `model.usage` 与 `cache.breaks`，`turn.completed.usage` 口径不变；不实现 `prompt_cache_key` / 显式缓存断点。命中率仍只观测、不设门槛（Q-032）。见 [089 spec §13](../specs/089-session-prefix-cache/spec.md#13-开放问题) 与 [ADR-057](adr/ADR-057-runtime-efficiency.md)。
 
 - Q-079（2026-11-24）：采用“多视图”而非单一 markdown——`read_attachment` 增加 `view="source"`（原文按行分页，仍包在 `<attachment>` 内、只当数据处理），文本类附件默认按原文注入与跨附件检索；HTML 解析补回 `<style>`、id/class 大纲与表格；不提供写盘导入，另立 Q-080。见 [088 spec §7.7](../specs/088-document-attachments/spec.md#77-视图契约与格式矩阵)。

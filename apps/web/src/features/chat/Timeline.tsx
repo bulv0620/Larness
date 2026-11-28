@@ -14,7 +14,12 @@ import { PreviewResultCard } from "@/features/services/PreviewResultCard";
 import { TerminalResultCard } from "@/features/terminals/TerminalResultCard";
 import { pendingApprovals } from "@/lib/pendingApprovals";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import {
+  selectActiveTurnId,
+  selectIsStreaming,
+  selectTurnStartedAt,
+  useTimelineStore,
+} from "@/stores/timelineStore";
 import { MessageBubble, TimelineItemView } from "./TimelineItemView";
 
 /**
@@ -118,7 +123,7 @@ function budgetStopLabel(cause: TurnBudgetCause | undefined): string {
 }
 
 function useElapsedSeconds(active: boolean): number | null {
-  const startedAt = useTimelineStore((state) => state.turnStartedAt);
+  const startedAt = useTimelineStore(selectTurnStartedAt);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -226,8 +231,8 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         (item.kind === "tool" && item.name !== "update_plan")),
   );
   const interrupted = stateUser?.turnOutcome === "interrupted";
-  const failed = stateUser?.turnOutcome === "failed";
-  const stopped = stateUser?.turnOutcome === "cancelled";
+  // A manual stop takes the failure treatment instead of a neutral "Stopped".
+  const failed = stateUser?.turnOutcome === "failed" || stateUser?.turnOutcome === "cancelled";
   const continuing = stateUser?.terminalReason === "continued";
   // The resume banner states the interruption and offers the way forward, so
   // the generic notice underneath would only repeat it and add a weaker second
@@ -269,13 +274,11 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   } else {
     status = continuing
       ? "Continuing..."
-      : stopped
-        ? "Stopped"
-        : interrupted
-          ? "Interrupted"
-          : failed
-            ? "Failed"
-            : "Completed";
+      : interrupted
+        ? "Interrupted"
+        : failed
+          ? "Failed"
+          : "Completed";
   }
   const autoContinued = Math.max(0, group.users.length - 1);
   const elapsedLabel =
@@ -301,11 +304,13 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const summary = ["执行过程", status, secondary, stepLabel].filter(Boolean).join(" · ");
   // While the turn is running, failures stay inside the collapsible record; the
   // summary count keeps surfacing them without interrupting the flow. After the
-  // turn ends they stay collapsed when there is an answer, and surface without
-  // one, because then they explain the stop.
+  // turn ends they stay collapsed when there is an answer. A failed turn is
+  // explained by its outcome and stop notice, so it does not surface every
+  // failed attempt again; the record stays one click away. A completed turn
+  // without an answer still shows them, because nothing else explains the stop.
   const visibleProcess = expanded
     ? process
-    : !turnActive && answer === undefined
+    : !turnActive && answer === undefined && !failed
       ? process.filter((item) => item.kind === "tool" && item.status === "error")
       : [];
   const targets = new Map<string, NonNullable<ToolItem["resourceTarget"]>>();
@@ -522,9 +527,9 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
 export function Timeline() {
   const items = useTimelineStore((state) => state.items);
   const loading = useTimelineStore((state) => state.loading);
-  const isStreaming = useTimelineStore((state) => state.isStreaming);
+  const isStreaming = useTimelineStore(selectIsStreaming);
   const contextNotice = useTimelineStore((state) => state.contextNotice);
-  const activeTurnId = useTimelineStore((state) => state.activeTurnId);
+  const activeTurnId = useTimelineStore(selectActiveTurnId);
   const scrollToLatestNonce = useTimelineStore((state) => state.scrollToLatestNonce);
   const sessionId = useNavigationStore((state) => state.sessionId);
   const scrollRef = useRef<HTMLDivElement>(null);

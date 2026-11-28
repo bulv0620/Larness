@@ -31,6 +31,7 @@ function openWorkspace(dir: string): OpenedDatabase {
 const codingTools = [
   "apply_patch",
   "control_service_ops",
+  "edit",
   "list_files",
   "list_processes",
   "list_service_ops",
@@ -44,6 +45,7 @@ const codingTools = [
   "search_code",
   "start_process",
   "stop_process",
+  "update_plan",
   "write_file",
 ];
 
@@ -56,10 +58,11 @@ const fullPacks = [
   "memory",
   "web",
   "attachments",
+  "plan",
 ] as const;
 
 describe("agent profile assembly", () => {
-  it("gives coding and plan the full tool surface and only plan the plan tool", async () => {
+  it("gives coding and the legacy plan alias the same full tool surface", async () => {
     await withTempDir(async (dir) => {
       const opened = openWorkspace(dir);
       try {
@@ -113,24 +116,23 @@ describe("agent profile assembly", () => {
 
         expect(coding.agentProfile).toBe("coding");
         expect(coding.tools.map((tool) => tool.name)).toEqual(codingTools);
-        expect(codingSystem).not.toContain("update_plan");
+        expect(codingSystem).toContain("update_plan");
+        expect(codingSystem).toContain("For tasks with 3 or more distinct steps");
         expect(codingSystem).toContain("Project background task contract");
         expect(codingSystem).toContain("Persistent PM2 service contract");
         expect(codingSystem).toContain("isolated PM2_HOME");
-        expect(codingSystem).toContain("Match verification to the change");
+        expect(codingSystem).toContain("Project instructions may set a stricter verification gate");
         expect(codingSystem).not.toContain("PM2 runtime");
 
-        expect(plan.tools.map((tool) => tool.name)).toEqual(
-          [...codingTools, "update_plan"].sort((left, right) => left.localeCompare(right)),
-        );
+        expect(plan.tools.map((tool) => tool.name)).toEqual(codingTools);
         expect(planSystem).toContain("update_plan");
-        expect(planSystem).toContain("For complex multi-step tasks");
-        expect(planSystem).toContain("Match verification to the change");
+        expect(planSystem).toContain("For tasks with 3 or more distinct steps");
+        expect(planSystem).toContain("Project instructions may set a stricter verification gate");
 
-        expect([...toolNamesForProfile("coding")]).toHaveLength(21);
-        expect([...toolNamesForProfile("plan")]).toHaveLength(22);
+        expect([...toolNamesForProfile("coding")]).toHaveLength(23);
+        expect([...toolNamesForProfile("plan")]).toHaveLength(23);
         expect(TOOL_PACK_CATALOG.profiles.coding.packs).toEqual([...fullPacks]);
-        expect(TOOL_PACK_CATALOG.profiles.plan.packs).toEqual([...fullPacks, "plan"]);
+        expect(TOOL_PACK_CATALOG.profiles.plan.packs).toEqual([...fullPacks]);
         expect(Object.keys(TOOL_PACK_CATALOG.profiles).sort()).toEqual(["coding", "plan"]);
       } finally {
         opened.close();

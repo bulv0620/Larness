@@ -580,6 +580,172 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 
 门禁：只回放 L0 只读结果；内部 `tool.replay` 不广播；预算 `clamp(window×0.05, 2k, 32k)`；超预算先折叠再省略并显式提示；089 的 NG-3/R-4 已加日期修订段。
 
+### 8.18 发布后：搜索与目录列表默认忽略构建产物（092，done）
+
+根目录 `search_code` 在含 `.pnpm-store` / 构建产物的仓库中会被 `maxFiles` 预算耗尽并返回 0 匹配；`list_files` 也会把构建目录暴露给模型。本切片把常见包存储与构建目录加入默认忽略，补根搜索预算与显式路径回归；完整 `.gitignore` / ripgrep 另开切片。规格见 [092](092-search-ignore/spec.md)，方案见 [plan](092-search-ignore/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| SI-1 | [默认忽略与回归测试](092-search-ignore/tasks.md#si-1-默认忽略与回归测试) | 051、082 | `done`（2026-11-27） |
+
+### 8.19 发布后：工具面与结果预算（093，done）
+
+模型工具面与 coding 习惯不一致：read 无行号且只有 12k 字符、没有 `edit`、`write_file` 只能新建、命令输出约 6k、结果统一 JSON 且 16k 字符上限会把放大后的页面再次截断。本切片把 read 行号/50KB、`edit`、`write_file` 覆盖、命令 32KB、`modelText` 纯文本结果与结果/批预算一起改到位。规格见 [093](093-tool-interface/spec.md)，方案见 [plan](093-tool-interface/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| TI-1 | [资源层 write/edit 与测试](093-tool-interface/tasks.md#ti-1-资源层-writeedit-与测试) | 092 | `done`（2026-11-27） |
+| TI-2 | [modelText、预算与 read/search/command](093-tool-interface/tasks.md#ti-2-modeltext预算与-readsearchcommand) | TI-1 | `done`（2026-11-27） |
+| TI-3 | [edit 工具、write 覆盖、Profile/契约](093-tool-interface/tasks.md#ti-3-edit-工具write-覆盖profile契约) | TI-2 | `done`（2026-11-27） |
+| TI-4 | [turnRunner 事件、验证与收口](093-tool-interface/tasks.md#ti-4-turnrunner-事件验证与收口) | TI-3 | `done`（2026-11-27） |
+
+### 8.20 发布后：跨 Turn 操作日志（094，done）
+
+091 只回放 L0 只读结果，L1+ 命令/文件操作仍不进入下一轮。本切片用内部 `tool.operation` 记录有界的命令 exit+尾部、文件路径/版本/统计与失败摘要，并通过当前 user 消息 tail 注入下一 Turn；不改变 system/history，不广播内部事件。规格见 [094](094-operation-log/spec.md)，方案见 [plan](094-operation-log/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| OL-1 | [operationLog 模块与单测](094-operation-log/tasks.md#ol-1-operationlog-模块与单测) | 093 | `done`（2026-11-27） |
+| OL-2 | [TurnRunner 写入 `tool.operation`](094-operation-log/tasks.md#ol-2-turnrunner-写入-tooloperation) | OL-1 | `done`（2026-11-27） |
+| OL-3 | [ContextAssembler tail 注入](094-operation-log/tasks.md#ol-3-contextassembler-tail-注入) | OL-2 | `done`（2026-11-27） |
+| OL-4 | [事件过滤、全量验证与收口](094-operation-log/tasks.md#ol-4-事件过滤全量验证与收口) | OL-3 | `done`（2026-11-27） |
+
+### 8.21 发布后：单一 Agent 模式（095，done）
+
+移除 coding/plan 切换，保留一个通用模式；`update_plan` 常驻并始终注入计划策略；旧 `plan` 作为行为一致的兼容别名，不删 `agent_profile` 列。最近计划注入 tail，当前 Turn 计划仍有 pending/running 却纯文本停止时 nudge 一次；项目指令改为“可遵循的约定，但不能授权”，并允许项目指令提高验证门禁。决策见 [ADR-075](../docs/adr/ADR-075-single-agent-mode.md)，规格见 [095](095-single-agent-mode/spec.md)，方案见 [plan](095-single-agent-mode/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| SM-1 | [Profile 合并与计划策略](095-single-agent-mode/tasks.md#sm-1-profile-合并与计划策略) | 094 | `done`（2026-11-27） |
+| SM-2 | [planState、tail 与 nudge](095-single-agent-mode/tasks.md#sm-2-planstatetail-与-nudge) | SM-1 | `done`（2026-11-27） |
+| SM-3 | [项目指令/验证措辞与测试](095-single-agent-mode/tasks.md#sm-3-项目指令验证措辞与测试) | SM-2 | `done`（2026-11-27） |
+| SM-4 | [Composer 移除 Profile 切换](095-single-agent-mode/tasks.md#sm-4-composer-移除-profile-切换) | SM-3 | `done`（2026-11-27） |
+| SM-5 | [全量验证、文档与收口](095-single-agent-mode/tasks.md#sm-5-全量验证文档与收口) | SM-4 | `done`（2026-11-27） |
+
+### 8.22 发布后：命令 allowlist 与本轮审批复用（096，done）
+
+标准审批下常见只读/验证命令逐条询问；同一 Turn 重复命令也重复批准。本切片把 `git status/diff/log`、`pnpm test/check/typecheck`、`rg/ls/pwd` 等保守 allowlist 降为 L1，并让同一 Turn 内相同工具+参数的调用复用一次批准；L3 仍 deny，默认仍 standard。决策见 [ADR-076](../docs/adr/ADR-076-command-allowlist-and-turn-approvals.md)，规格见 [096](096-command-approvals/spec.md)，方案见 [plan](096-command-approvals/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| CA-1 | [allowlist 分类与测试](096-command-approvals/tasks.md#ca-1-allowlist-分类与测试) | 095 | `done`（2026-11-27） |
+| CA-2 | [本 Turn 审批复用](096-command-approvals/tasks.md#ca-2-本-turn-审批复用) | CA-1 | `done`（2026-11-27） |
+| CA-3 | [契约/描述、全量验证与收口](096-command-approvals/tasks.md#ca-3-契约描述全量验证与收口) | CA-2 | `done`（2026-11-27） |
+
+### 8.23 发布后：流式启动 L0 只读工具（097，done）
+
+当前 step 结束后才执行工具；081 的纯读并发也在结束后。本切片把 L0、无锁、策略 allow 的调用在 `tool-call` 事件到达时启动，最多 8 个，结果仍按 call 顺序消费；写/锁/审批与混合批次中的非 L0 调用保持串行。三个 L0 文件工具显式 `requiresProjectLock:false`。规格见 [097](097-streaming-reads/spec.md)，方案见 [plan](097-streaming-reads/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| SR-1 | [流内预取与 L0 元数据](097-streaming-reads/tasks.md#sr-1-流内预取与-l0-元数据) | 096 | `done`（2026-11-27） |
+| SR-2 | [验证、081 修订与收口](097-streaming-reads/tasks.md#sr-2-验证081-修订与收口) | SR-1 | `done`（2026-11-27） |
+
+### 8.24 发布后：Agent 基准任务与请求级 A/B（098，done）
+
+092–097 后缺少可重复任务基线。本切片增加 5 个离线 fixture、Larness runner 指标与可选 request dump，并提供 opencode 手动 A/B 协议；真实模型运行需要用户 Key，不进入 CI。规格见 [098](098-benchmark/spec.md)，方案见 [plan](098-benchmark/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| BM-1 | [5 个任务 fixture 与基线测试](098-benchmark/tasks.md#bm-1-5-个任务-fixture-与基线测试) | 097 | `done`（2026-11-27） |
+| BM-2 | [Larness runner、指标与 request dump](098-benchmark/tasks.md#bm-2-larness-runner指标与-request-dump) | BM-1 | `done`（2026-11-27） |
+| BM-3 | [A/B 协议、验证与收口](098-benchmark/tasks.md#bm-3-ab-协议验证与收口) | BM-2 | `done`（2026-11-27） |
+
+### 8.25 发布后：edit 参数容错（099，done）
+
+live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema 返回 VALIDATION_ERROR。本切片只在 `repairEditArgs` 丢弃 `expectedVersion`/`version`，其他未知字段仍拒绝；`edit` 的版本冲突、路径、CRLF 与 replaceAll 行为不变。规格见 [099](099-edit-arg-repair/spec.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| EA-1 | [删除 expectedVersion/version 并补测试](099-edit-arg-repair/tasks.md#ea-1-删除-expectedversionversion-并补测试) | 098 | `done`（2026-11-27） |
+
+### 8.26 发布后：探索效率（100，done）
+
+098 实机 A/B 显示 Larness 与 opencode 完成度同级，但 long-file 任务 Larness 8 次工具调用 vs opencode 5 次。本切片把 `search_code` 默认上下文改为 1 行、上下文带行号且不重复命中行，并追加窄读提示；system prompt 明确“点名文件直接读、路径未知才 list_files、package.json 只在相关时读”。规格见 [100](100-exploration-efficiency/spec.md)，方案见 [plan](100-exploration-efficiency/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| EX-1 | [搜索上下文、窄读提示与探索约束](100-exploration-efficiency/tasks.md#ex-1-搜索上下文窄读提示与探索约束) | 098 | `done`（2026-11-27；long-file 5/4；cross 5/11、multi 10/14/2 复测为方差） |
+
+### 8.27 发布后：更大仓库基准任务（101，done）
+
+现有 5 个 fixture 都是 4–8 个文件，无法验证跨 3–4 层 import 的定位与多文件编辑。本切片新增约 30 文件的 `checkout-discount`：测试只指向 `quote`，根因分布在 `discount.js` 和 `quote.js`，单点修复不够。规格见 [101](101-deep-repo-benchmark/spec.md)，方案见 [plan](101-deep-repo-benchmark/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| DRB-1 | [checkout-discount fixture 与测试](101-deep-repo-benchmark/tasks.md#drb-1-checkout-discount-fixture-与测试) | 098、100 | `done`（2026-11-27；Larness 6/12/38,698 与 opencode 8/12/75,253 同级，同 diff） |
+
+### 8.28 发布后：外部真实仓库 A/B（102，done）
+
+合成 fixture 已证明工具面同级；本切片给 runner 增加 `--repo` 模式，复制本地真实仓库、可选 setup、以副本为 baseline 运行 prompt，并复用现有指标；样例用 Larness 副本回退 099 的 `edit` 参数容错。规格见 [102](102-real-repo-ab/spec.md)，方案见 [plan](102-real-repo-ab/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| RRA-1 | [外部仓库模式与测试](102-real-repo-ab/tasks.md#rra-1-外部仓库模式与测试) | 098、101 | `done`（2026-11-27） |
+| RRA-2 | [Larness 099 样例任务与文档](102-real-repo-ab/tasks.md#rra-2-larness-099-样例任务与文档) | RRA-1 | `done`（2026-11-27；Larness 13/23/59.5s vs opencode 8/10/43.1s） |
+
+### 8.29 发布后：真实仓库探索：精确标识符优先（103，dropped）
+
+102 的真实 Larness 099 任务显示：Larness 23 次调用/299,718 tokens，opencode 10 次/157,152 prompt tokens；差距在 Larness 先搜错误码、宽扫 875/1232 文件，再读整文件。本切片要求先搜请求里的精确字段/函数/文件，并在 `search_code` 扫描 >200 文件时提示用 path/glob 收窄。规格见 [103](103-exact-identifier-search/spec.md)，方案见 [plan](103-exact-identifier-search/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| EIS-1 | [精确标识符 prompt 与宽扫提示](103-exact-identifier-search/tasks.md#eis-1-精确标识符-prompt-与宽扫提示) | 100、102 | `dropped`（实机回退，代码已撤销） |
+
+### 8.30 发布后：宽搜索目录摘要（104，done）
+
+103 的 prompt 方案实机回退；本切片改为工具结果给出按 `apps/<name>` / `packages/<name>` 的命中分布，让模型自己选择 `path` 收窄。规格见 [104](104-search-directory-summary/spec.md)，方案见 [plan](104-search-directory-summary/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| SDS-1 | [目录统计与 Top dirs 提示](104-search-directory-summary/tasks.md#sds-1-目录统计与-top-dirs-提示) | 100、102 | `done`（2026-11-27；12/17/248,490/53.5s，verify 0） |
+
+### 8.31 发布后：简单单文件任务不创建计划（105，dropped）
+
+104 的真实 099 任务仍用了 3 次 `update_plan`；单文件一行修复 + 一个目标测试不该建计划。本切片把策略从“3+ steps”收窄为“3+ 工作项/多文件/未知范围”，明确单文件 + 一个验证是一个工作项，`update_plan` 描述同步；复杂任务计划与状态机不变。规格见 [105](105-simple-task-plan/spec.md)，方案见 [plan](105-simple-task-plan/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| STP-1 | [收窄计划策略与文案](105-simple-task-plan/tasks.md#stp-1-收窄计划策略与文案) | 095、104 | `dropped`（计划降为 0，但 tokens/耗时回退；已回退） |
+
+### 8.32 发布后：宽搜索 Top files 摘要（106，dropped）
+
+104 已让模型看到 `packages/agent`，但模型仍读整 `fileTools.ts`/整测试。本切片在 Top dirs 后按主要目录给出命中最多的代表文件（≤3），让模型直接读命中文件的小窗口；不改 prompt。规格见 [106](106-search-top-files/spec.md)，方案见 [plan](106-search-top-files/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| STF-1 | [文件计数与 Top files 提示](106-search-top-files/tasks.md#stf-1-文件计数与-top-files-提示) | 104 | `dropped`（实机读取/调用回退；已回退） |
+
+### 8.33 发布后：多轮基准采集脚本（107，done）
+
+单轮 A/B 方差大，手动重复容易漏步骤。本切片新增 `bench:rounds`：按 N 轮跑 Larness，可选自动跑 opencode 同一 fixture，输出逐轮 `rounds.json` 与中位数 `summary.json/md/csv`。规格见 [107](107-benchmark-rounds/spec.md)，方案见 [plan](107-benchmark-rounds/plan.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| BR-1 | [多轮采集脚本与汇总](107-benchmark-rounds/tasks.md#br-1-多轮采集脚本与汇总) | 098 | `done`（2026-11-27；真实 3 轮：Larness 202,232 prompt/106.9s vs opencode 416,106/114.2s，18/18 verify=0） |
+
+**2026-11-27 基准阶段收口**：不再新增合成 benchmark 切片（含外部仓库多轮 108）。6 个 fixture 的完成度、步骤/调用与速度已接近 opencode；保留 `bench:agent` / `bench:rounds` 作为回归工具，后续由真实项目中的具体痛点驱动。真实仓库单轮仍有差距，但继续扩基准的收益已低于真实使用反馈。
+
+### 8.34 发布后：文件工具作用域：放开项目外读取（109，done）
+
+读取类 Agent 文件工具接受项目外 canonical 绝对路径，写入仍限当前项目根；只保留 `<dataDir>` 与 POSIX 伪文件系统硬闸，不按文件类型或凭据目录名拒绝。规格见 [109](109-external-read-scope/spec.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| ER-1 | [路径解析与读类工具放开外部路径](109-external-read-scope/tasks.md#er-1-路径解析与读类工具放开外部路径) | 020 / 082 | `done` |
+| ER-2 | [服务端 readScope 注入与工具描述](109-external-read-scope/tasks.md#er-2-服务端-readscope-注入与工具描述) | ER-1 | `done` |
+| ER-3 | [契约、安全文档与整仓验证](109-external-read-scope/tasks.md#er-3-契约安全文档与整仓验证) | ER-2 | `done` |
+
+### 8.35 发布后：新会话继承最近选择的审批策略（110，done）
+
+用户在项目/默认工作区修改会话审批策略后，该作用域记住最后一次选择；之后新建会话按此策略创建，已有会话保持各自策略。规格见 [110](110-session-approval-default/spec.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| AD-1 | [服务端持久化项目默认审批策略](110-session-approval-default/tasks.md#ad-1-服务端持久化项目默认审批策略) | 020 | `done`（2026-11-27） |
+| AD-2 | [Web 草稿继承显示与不回写](110-session-approval-default/tasks.md#ad-2-web-草稿继承显示与不回写) | AD-1 | `done`（2026-11-27） |
+| AD-3 | [契约、文档与整仓验证](110-session-approval-default/tasks.md#ad-3-契约文档与整仓验证) | AD-2 | `done`（2026-11-27；`pnpm check` / `pnpm build` 通过） |
+
 ## 9. 门禁
 
 ### G-S0 视觉 Demo
@@ -752,6 +918,17 @@ D0-1 → … → D0-9 → M0-1 → … → M0-9 → M1-1 → … → M1-15
 | PT-2 | [计划终态派生与摘要](080-plan-terminal-state/spec.md#6-功能需求) | PT-1 | `done` |
 | PT-3 | [验证](080-plan-terminal-state/tasks.md#pt-3-验证) | PT-2 | `done` |
 | PT-4 | [文档与状态回填](080-plan-terminal-state/tasks.md#验收记录) | PT-3 | `done` |
+
+### 2026-11-27 手动停止按失败效果呈现（111，done）
+
+用户直接要求「手动中断现在也按失败的效果吧」。只改 Web 读法：`turn.cancelled` 摘要显示 `Failed`、终态提示使用失败边框并保留「重试」、截断的 `running` 计划步骤显示「已中断」；服务端状态、事件、审计、Job 与恢复条件不变，取消的回合仍不提供继续入口。规格见 [111](111-manual-stop-failure/spec.md)，任务见 [tasks](111-manual-stop-failure/tasks.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| MS-1 | [手动停止呈现红测试](111-manual-stop-failure/tasks.md#ms-1-手动停止呈现红测试) | 080 done | `done` |
+| MS-2 | [摘要、提示与计划步骤按失败呈现](111-manual-stop-failure/tasks.md#ms-2-摘要提示与计划步骤按失败呈现) | MS-1 | `done` |
+| MS-3 | [验证](111-manual-stop-failure/tasks.md#ms-3-验证) | MS-2 | `done` |
+| MS-4 | [文档、状态回填与提交](111-manual-stop-failure/tasks.md#ms-4-文档状态回填与提交) | MS-3 | `done` |
 
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 的「当前进行中」登记。
 - 完成：更新 `tasks.md` 与本节状态，把该任务移入 `STATUS.md` 的「最近收口」，提交。

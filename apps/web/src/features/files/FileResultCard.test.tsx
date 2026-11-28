@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 import { Timeline } from "@/features/chat/Timeline";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { turnState, useTimelineStore } from "@/stores/timelineStore";
 
 it.each([1, 2])("shows file targets with %i tools without expanding tool details", (count) => {
   const tool: ToolItem = {
@@ -20,7 +20,7 @@ it.each([1, 2])("shows file targets with %i tools without expanding tool details
   useTimelineStore.setState({
     items: [tool, ...(count === 2 ? [{ ...tool, id: "tool-2", resourceTarget: undefined }] : [])],
     loading: false,
-    isStreaming: false,
+    turn: turnState(),
   });
   render(<Timeline />);
   expect(screen.getByRole("button", { name: "查看文件 · note.txt" })).toBeVisible();

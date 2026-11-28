@@ -99,7 +99,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
   app.get("/api/projects", async () => {
     return {
       projects: withProjectsActivity(deps.db, [
-        await getDefaultProjectDto(deps.dataDir),
+        await getDefaultProjectDto(deps.db, deps.dataDir),
         ...listProjectDtos(deps.db),
       ]),
     };
@@ -151,7 +151,7 @@ export function registerProjectRoutes(app: FastifyInstance, deps: ProjectApiDeps
       return withProjectActivity(
         deps.db,
         id === DEFAULT_PROJECT_ID
-          ? await getDefaultProjectDto(deps.dataDir)
+          ? await getDefaultProjectDto(deps.db, deps.dataDir)
           : getProjectDto(deps.db, id),
       );
     } catch (error) {

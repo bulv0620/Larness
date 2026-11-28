@@ -77,6 +77,12 @@ import {
 import { carriedSpendTokens } from "./turn/chain.js";
 import { foldOldToolResults, lastCompleteToolBatch } from "./turn/compaction.js";
 import {
+  buildToolOperation,
+  MAX_COMMAND_TAIL_CHARS,
+  redactOperationText,
+} from "./turn/operationLog.js";
+import { openPlanSteps } from "./turn/planState.js";
+import {
   classifyPrefixBreak,
   type PrefixBreak,
   type PrefixSnapshot,
@@ -94,6 +100,7 @@ import { stableArgsKey, turnInputText } from "./turn/text.js";
 import { buildToolReplay } from "./turn/toolReplay.js";
 import {
   boundedCommandOutput,
+  commandModelText,
   foldBatchToolResults,
   MAX_BATCH_TOOL_RESULT_TOKENS,
   toolFailureIssues,
@@ -374,6 +381,15 @@ export class TurnRunner {
     const project =
       session.projectId === null ? null : getProjectById(this.#options.db, session.projectId);
     let projectRoot = project?.realPath ?? session.workspacePath;
+    // External reads are enabled only when the hard gate can be enforced.
+    const protectedDataDir =
+      this.#options.dataDir === undefined
+        ? undefined
+        : await realpath(this.#options.dataDir).catch(() => undefined);
+    const readScope =
+      protectedDataDir === undefined
+        ? undefined
+        : { allowExternal: true, protectedRoots: [protectedDataDir] };
     // Project-configured ignore patterns apply to list/search for the whole Turn.
     const projectIgnore =
       project === null ? undefined : parseProjectSettings(project.settingsJson).ignore;
@@ -414,6 +430,8 @@ export class TurnRunner {
     let missingUsageSteps = 0;
     let steps = 0;
     let toolCalls = 0;
+    let planNudged = false;
+    const approvedApprovalKeys = new Set<string>();
     let finalized = false;
     const timing = {
       assembleMs: 0,
@@ -584,6 +602,7 @@ export class TurnRunner {
           args: request.args,
           policy,
           projectRoot,
+          ...(readScope === undefined ? {} : { readScope }),
           ...(this.#options.attachments === undefined
             ? {}
             : { attachments: createAttachmentToolBridge(this.#options.attachments, session.id) }),
@@ -591,6 +610,7 @@ export class TurnRunner {
             ? {}
             : { ignore: projectIgnore }),
           signal: controller.signal,
+          approvedParams: approvedApprovalKeys,
           clientSessionId: snapshot?.clientSessionId,
           policySnapshotId: snapshot?.policySnapshotId,
           ...(approvalId ? { approvalId } : {}),
@@ -658,20 +678,20 @@ export class TurnRunner {
               const output = await this.#options.commands.output(row.id, 0, 500);
               const completeText = output.chunks.map((chunk) => chunk.data).join("");
               // Keep the tail: test summaries and exit diagnostics live there.
-              const bounded = boundedCommandOutput(completeText, 6_000);
+              const bounded = boundedCommandOutput(completeText, 32_000);
               const stdout = boundedCommandOutput(
                 output.chunks
                   .filter((chunk) => chunk.channel === "stdout")
                   .map((chunk) => chunk.data)
                   .join(""),
-                6_000,
+                32_000,
               );
               const stderr = boundedCommandOutput(
                 output.chunks
                   .filter((chunk) => chunk.channel === "stderr")
                   .map((chunk) => chunk.data)
                   .join(""),
-                3_000,
+                16_000,
               );
               let shellName: string | undefined;
               if (parsedRequest.success && parsedRequest.data.mode === "shell") {
@@ -704,6 +724,13 @@ export class TurnRunner {
                   ...(shellName === undefined ? {} : { shell: shellName }),
                   truncated,
                 },
+                modelText: commandModelText({
+                  status: row.status,
+                  exitCode: row.exitCode,
+                  ...(shellName === undefined ? {} : { shell: shellName }),
+                  output: bounded.text,
+                  truncated,
+                }),
               };
             } catch (error) {
               return {
@@ -1449,6 +1476,36 @@ export class TurnRunner {
         let text = "";
         let reasoning = "";
         const toolRequests: ToolCallRequest[] = [];
+        const prefetched = new Map<string, Promise<ToolExecutionOutcome>>();
+        const prefetchRead = (request: ToolCallRequest): void => {
+          if (
+            prefetched.size >= READ_PREFETCH_LIMIT ||
+            prefetched.has(request.id) ||
+            checkBudget() !== "ok" ||
+            disabledTools.has(request.name)
+          ) {
+            return;
+          }
+
+          const definition = this.#options.registry.get(request.name);
+
+          if (definition === undefined) {
+            return;
+          }
+
+          const risk = definition.classifyRisk?.(request.args) ?? definition.riskLevel;
+
+          if (
+            risk !== "L0" ||
+            definition.prefetchable !== true ||
+            definition.requiresProjectLock !== false ||
+            decideToolAccess(policy, risk) !== "allow"
+          ) {
+            return;
+          }
+
+          prefetched.set(request.id, execute(request));
+        };
         let finishReason: ProviderFinishReason = "other";
         let stepUsage: ProviderUsage | undefined;
         let providerError: ProviderStepFailure | null = null;
@@ -1742,6 +1799,7 @@ export class TurnRunner {
 
             if (chunk.type === "tool-call") {
               toolRequests.push(chunk.toolCall);
+              prefetchRead(chunk.toolCall);
               continue;
             }
 
@@ -1944,6 +2002,42 @@ export class TurnRunner {
         }
 
         if (toolRequests.length === 0) {
+          if (!planNudged) {
+            const openSteps = openPlanSteps(this.#options.db, session.id, turn.id);
+
+            if (openSteps.length > 0) {
+              planNudged = true;
+
+              if (text.length > 0 || reasoning.length > 0) {
+                messages.push({
+                  role: "assistant",
+                  content: text,
+                  ...(reasoning.length === 0 ? {} : { reasoning }),
+                });
+              }
+
+              messages.push({
+                role: "user",
+                content: `The plan still has open steps: ${openSteps
+                  .map((step) => step.title)
+                  .join(
+                    "; ",
+                  )}. Continue working, or update the plan to mark them done or cancelled if the task is complete. Do not stop with an outdated plan.`,
+              });
+              this.#options.logger?.info(
+                {
+                  turnId,
+                  sessionId: session.id,
+                  step: steps,
+                  openSteps: openSteps.length,
+                },
+                "plan nudge",
+              );
+              markProgress();
+              continue;
+            }
+          }
+
           return await finalize("COMPLETED", {
             eventType: "turn.completed",
             finishReason,
@@ -1957,46 +2051,7 @@ export class TurnRunner {
           ...(reasoning.length === 0 ? {} : { reasoning }),
         });
 
-        // A batch that is nothing but pure reads (L0, lock-free, allowed by the
-        // policy) has no ordering constraint, so it runs concurrently: several
-        // git reads or searches then cost one round trip instead of their sum.
-        // The serial loop below still emits events, checks the budget and
-        // appends messages in the original order, and consumes the prefetched
-        // outcome instead of executing the call twice.
-        const prefetched = new Map<string, ToolExecutionOutcome>();
-
         const batchToolIndexes: number[] = [];
-
-        if (
-          toolRequests.length >= 2 &&
-          toolRequests.length <= READ_PREFETCH_LIMIT &&
-          checkBudget() === "ok" &&
-          toolRequests.every((request) => {
-            if (disabledTools.has(request.name)) return false;
-            const definition = this.#options.registry.get(request.name);
-            if (definition === undefined) return false;
-            const risk = definition.classifyRisk?.(request.args) ?? definition.riskLevel;
-            return (
-              risk === "L0" &&
-              definition.requiresProjectLock === false &&
-              decideToolAccess(policy, risk) === "allow"
-            );
-          })
-        ) {
-          const prefetchStarted = this.#now();
-          await Promise.all(
-            toolRequests.map(async (request) => {
-              try {
-                prefetched.set(request.id, await execute(request));
-              } catch {
-                // Leaving it out makes the serial loop run it again and report
-                // the failure through the normal tool path.
-              }
-            }),
-          );
-          timing.toolMs += this.#now() - prefetchStarted;
-        }
-
         const repeatedFailureNudges: string[] = [];
 
         for (const request of toolRequests) {
@@ -2081,8 +2136,21 @@ export class TurnRunner {
           });
 
           const toolStartedAt = this.#now();
-          const outcome: ToolExecutionOutcome =
-            prefetched.get(request.id) ?? (await execute(request));
+          const pending = prefetched.get(request.id);
+          let outcome: ToolExecutionOutcome;
+
+          if (pending === undefined) {
+            outcome = await execute(request);
+          } else {
+            try {
+              outcome = await pending;
+            } catch {
+              // A prefetched read is idempotent; fall back to the serial path
+              // so the failure is reported through the normal tool outcome.
+              outcome = await execute(request);
+            }
+          }
+
           timing.toolMs += this.#now() - toolStartedAt;
 
           if (outcome.status === "approval_required") {
@@ -2127,6 +2195,9 @@ export class TurnRunner {
 
             if (decision === "approved") {
               approvalId = outcome.approval.id;
+              approvedApprovalKeys.add(
+                `${outcome.approval.toolName}:${outcome.approval.paramsHash}`,
+              );
             } else {
               this.#transition(turn, session, "RUNNING");
             }
@@ -2173,7 +2244,9 @@ export class TurnRunner {
 
           if (result.result.ok) {
             const fileResult =
-              request.name === "apply_patch" || request.name === "write_file"
+              request.name === "apply_patch" ||
+              request.name === "write_file" ||
+              request.name === "edit"
                 ? (result.result.data as { path?: unknown; version?: unknown } | undefined)
                 : undefined;
             const fileTarget = FileResultTargetSchema.safeParse({
@@ -2251,22 +2324,30 @@ export class TurnRunner {
               });
             }
 
-            if (request.name === "apply_patch" || request.name === "write_file") {
+            if (
+              request.name === "apply_patch" ||
+              request.name === "write_file" ||
+              request.name === "edit"
+            ) {
               const changed = result.result.data as
-                | { path?: unknown; version?: unknown }
+                | { path?: unknown; version?: unknown; created?: unknown }
                 | undefined;
 
               if (typeof changed?.path === "string" && typeof changed.version === "string") {
+                const changeType =
+                  request.name === "write_file" && changed.created === true
+                    ? "created"
+                    : "modified";
                 facts.recordFile(changed.path, changed.version);
                 fileChanges.set(changed.path, {
                   path: changed.path,
-                  changeType: request.name === "write_file" ? "created" : "modified",
+                  changeType,
                   version: changed.version,
                 });
                 this.#emit(turn, session, "file.changed", {
                   turnId: turn.id,
                   path: changed.path,
-                  changeType: request.name === "write_file" ? "created" : "modified",
+                  changeType,
                   version: changed.version,
                 });
               }
@@ -2286,6 +2367,108 @@ export class TurnRunner {
               ...(issues === undefined ? {} : { issues }),
               ...(repeatCount > 1 ? { repeatCount } : {}),
             });
+          }
+
+          if (risk !== "L0") {
+            const redact = (text: string) =>
+              redactOperationText(text, loadSecrets(), this.#options.secretStore);
+            const commandData =
+              (request.name === "run_command" || request.name === "run_shell") &&
+              result.result.data !== undefined
+                ? (result.result.data as {
+                    exitCode?: unknown;
+                    output?: unknown;
+                    truncated?: unknown;
+                  })
+                : undefined;
+            const display = commandData === undefined ? undefined : commandDisplay(request.args);
+            const displayText =
+              display === undefined
+                ? undefined
+                : "command" in display
+                  ? `${display.cwd}$ ${display.command}`
+                  : `${display.cwd}$ ${[display.executable, ...display.args].join(" ")}`;
+            const safeDisplay = displayText === undefined ? undefined : redact(displayText);
+            const outputTail =
+              typeof commandData?.output === "string"
+                ? commandData.output.slice(-MAX_COMMAND_TAIL_CHARS)
+                : undefined;
+            const safeTail = outputTail === undefined ? undefined : redact(outputTail);
+            const operationCommand =
+              commandData === undefined
+                ? undefined
+                : {
+                    display: safeDisplay ?? "[redacted]",
+                    exitCode:
+                      typeof commandData.exitCode === "number" ? commandData.exitCode : null,
+                    ...(safeTail === null || safeTail === undefined
+                      ? {}
+                      : { outputTail: safeTail }),
+                    ...(commandData.truncated === true ? { truncated: true } : {}),
+                  };
+            const fileData =
+              result.result.ok &&
+              (request.name === "write_file" ||
+                request.name === "edit" ||
+                request.name === "apply_patch")
+                ? (result.result.data as
+                    | {
+                        path?: unknown;
+                        version?: unknown;
+                        created?: unknown;
+                        additions?: unknown;
+                        deletions?: unknown;
+                        replacements?: unknown;
+                      }
+                    | undefined)
+                : undefined;
+            const operationFile =
+              typeof fileData?.path === "string" &&
+              typeof fileData.version === "string" &&
+              /^[a-f0-9]{64}$/.test(fileData.version)
+                ? {
+                    path: fileData.path,
+                    version: fileData.version,
+                    changeType:
+                      request.name === "write_file" && fileData.created === true
+                        ? ("created" as const)
+                        : ("modified" as const),
+                    ...(typeof fileData.additions === "number"
+                      ? { additions: fileData.additions }
+                      : {}),
+                    ...(typeof fileData.deletions === "number"
+                      ? { deletions: fileData.deletions }
+                      : {}),
+                    ...(typeof fileData.replacements === "number"
+                      ? { replacements: fileData.replacements }
+                      : {}),
+                  }
+                : undefined;
+            const safeSummary = redact(result.result.summary);
+            const safeArgsSummary =
+              operationCommand?.display ??
+              (argsSummary.length === 0 ? undefined : (redact(argsSummary) ?? undefined));
+            const operation = buildToolOperation({
+              toolCallId: request.id,
+              toolName: request.name,
+              ok: result.result.ok,
+              summary: safeSummary ?? "[redacted]",
+              ...(safeArgsSummary === undefined ? {} : { argsSummary: safeArgsSummary }),
+              ...(result.result.errorCode === undefined
+                ? {}
+                : { errorCode: result.result.errorCode }),
+              ...(operationCommand === undefined ? {} : { command: operationCommand }),
+              ...(operationFile === undefined ? {} : { file: operationFile }),
+            });
+
+            try {
+              this.#record(turn, "tool.operation", operation as unknown as Record<string, unknown>);
+            } catch (error) {
+              this.#options.logger?.warn(
+                { err: error, turnId, toolCallId: request.id },
+                "tool operation record failed",
+              );
+            }
           }
 
           batchToolIndexes.push(messages.length);

@@ -266,6 +266,83 @@ describe("tool executor", () => {
     });
   });
 
+  it("reads external files only with a readScope and gates the data directory", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+      const projectRoot = path.join(dir, "project");
+      const reference = path.join(dir, "reference");
+      const dataDir = path.join(dir, "data");
+      await mkdir(projectRoot);
+      await mkdir(reference);
+      await mkdir(dataDir);
+      await writeFile(path.join(reference, "api.md"), "# api\n");
+      await writeFile(path.join(dataDir, "master.key"), "k");
+      const realRoot = await realpath(projectRoot);
+      const realReference = await realpath(reference);
+      const realDataDir = await realpath(dataDir);
+      const options = { db: opened.db, dataDir };
+      const session = await createSession(options, {});
+      const turn = createTurn(options, { sessionId: session.id, text: "read outside" });
+      const executor = { db: opened.db, registry: createFileToolRegistry() };
+      const readScope = { allowExternal: true, protectedRoots: [realDataDir] };
+
+      try {
+        const external = await executeTool(executor, {
+          sessionId: session.id,
+          turnId: turn.turnId,
+          toolCallId: "call_external",
+          toolName: "read_file",
+          args: { path: path.join(realReference, "api.md") },
+          policy: "standard",
+          projectRoot: realRoot,
+          readScope,
+        });
+        expect(external.status).toBe("completed");
+        if (external.status === "completed") {
+          expect(external.result).toMatchObject({
+            ok: true,
+            data: { rootScope: "external", content: "# api\n" },
+          });
+        }
+
+        const gated = await executeTool(executor, {
+          sessionId: session.id,
+          turnId: turn.turnId,
+          toolCallId: "call_data_dir",
+          toolName: "read_file",
+          args: { path: path.join(realDataDir, "master.key") },
+          policy: "standard",
+          projectRoot: realRoot,
+          readScope,
+        });
+        expect(gated.status).toBe("completed");
+        if (gated.status === "completed") {
+          expect(gated.result).toMatchObject({ ok: false, errorCode: "FORBIDDEN" });
+        }
+        expect(listRecentAudit(opened.db).map((row) => row.action)).toContain("tool.denied");
+
+        const withoutScope = await executeTool(executor, {
+          sessionId: session.id,
+          turnId: turn.turnId,
+          toolCallId: "call_no_scope",
+          toolName: "read_file",
+          args: { path: path.join(realReference, "api.md") },
+          policy: "standard",
+          projectRoot: realRoot,
+        });
+        expect(withoutScope.status).toBe("completed");
+        if (withoutScope.status === "completed") {
+          expect(withoutScope.result).toMatchObject({
+            ok: false,
+            errorCode: "PATH_OUTSIDE_PROJECT",
+          });
+        }
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
   it("rejects a registered tool that the session profile does not advertise", async () => {
     await withTempDir(async (dir) => {
       const opened = await openWorkspace(dir);

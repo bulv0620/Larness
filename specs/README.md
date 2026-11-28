@@ -88,6 +88,25 @@
 - [088 文档与图片附件解析、能力路由与会话外呈现](088-document-attachments/spec.md)（done）
 - [089 会话级前缀缓存：静态前缀分层、断裂归因与压缩可达](089-session-prefix-cache/spec.md)（done）
 - [090 Provider 失败重试、诊断与标题超时](090-provider-retry/spec.md)（done）
+- [092 搜索与目录列表默认忽略构建产物](092-search-ignore/spec.md)（done）
+- [093 工具面与结果预算](093-tool-interface/spec.md)（done）
+- [094 跨 Turn 操作日志](094-operation-log/spec.md)（done）
+- [095 单一 Agent 模式：plan 常驻与项目指令层级](095-single-agent-mode/spec.md)（done）
+- [096 命令 allowlist 与本轮审批复用](096-command-approvals/spec.md)（done）
+- [097 流式启动 L0 只读工具](097-streaming-reads/spec.md)（done）
+- [098 Agent 基准任务与请求级 A/B](098-benchmark/spec.md)（done）
+- [099 edit 参数容错](099-edit-arg-repair/spec.md)（done）
+- [100 探索效率](100-exploration-efficiency/spec.md)（done）
+- [101 更大仓库基准任务](101-deep-repo-benchmark/spec.md)（done）
+- [102 外部真实仓库 A/B](102-real-repo-ab/spec.md)（done）
+- [103 真实仓库探索：精确标识符优先](103-exact-identifier-search/spec.md)（dropped）
+- [104 宽搜索目录摘要](104-search-directory-summary/spec.md)（done）
+- [105 简单单文件任务不创建计划](105-simple-task-plan/spec.md)（dropped）
+- [106 宽搜索 Top files 摘要](106-search-top-files/spec.md)（dropped）
+- [107 多轮基准采集脚本](107-benchmark-rounds/spec.md)（done）
+- [109 文件工具作用域：放开项目外读取](109-external-read-scope/spec.md)（done）
+- [110 新会话继承最近选择的审批策略](110-session-approval-default/spec.md)（done）
+- [111 手动停止按失败效果呈现](111-manual-stop-failure/spec.md)（done）
 
 各切片保留稳定编号与路径。详细任务状态及验收门以路线图为准；`acceptance.md`、`closure.md`、`poc.md` 和 `review.md` 记录当时的验证与决策。切片历史中的计划或待办按其记录日期阅读。
 

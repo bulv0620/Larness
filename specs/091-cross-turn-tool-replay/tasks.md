@@ -24,7 +24,8 @@
 
 ### 2026-11-26 生成态粘滞残余修复（用户反馈仍偶然出现）
 
-- 迟到 `assistant.delta` / 旧 WebSocket 帧在终态之后到达时，不再把 `isStreaming` 重新设为 true；已记录终态的 turnId 直接忽略后续增量。
+- `isStreaming` 不再作为可写字段存在；客户端改成单一 `turn: { id, phase, startedAt }` 状态机，组件通过 `selectIsStreaming` / `selectActiveTurnId` / `selectTurnStartedAt` 派生。只有持久 Turn 生命周期事件与显式开始/取消操作能推进 phase。
+- `assistant.delta` / 推理 delta 只追加文本，不能开始或结束 Turn；终态后、其他 Turn 的迟到增量、旧 socket 帧均被忽略。
 - 事件补拉失败最多自动重试 2 次（500ms / 1s）；`fetchAllEvents` 每页 15 秒超时，避免一次挂起的补拉长期占用全局 `syncing`。
 - WebSocket `message` 处理器增加当前 socket 身份校验，旧连接排队帧不能写入当前时间线。
-- 回归测试：`timelineSequenceGap.test.ts` 7 项（新增迟到增量、补拉重试、加载终态竞态、跨会话 resume 守卫）；web 322 项全通过。
+- 回归测试：`timelineSequenceGap.test.ts` 8 项（新增孤立 delta、迟到增量、补拉重试、加载终态竞态、跨会话 resume 守卫）；web 323 项全通过。

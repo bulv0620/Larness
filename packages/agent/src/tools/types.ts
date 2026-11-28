@@ -16,6 +16,14 @@ export interface EncryptedSecretRef {
 export interface ToolContext {
   projectRoot: string;
   ignore?: string[];
+  /**
+   * Read scope for the file tools. Absent means "primary root only"; external
+   * absolute reads require `allowExternal` plus a `<dataDir>` hard gate.
+   */
+  readScope?: {
+    allowExternal: boolean;
+    protectedRoots: string[];
+  };
   /** Current session, set by the runner for session-scoped tools. */
   sessionId?: string;
   attachments?: {
@@ -54,6 +62,11 @@ export interface ToolResult {
   data?: unknown;
   errorCode?: string;
   truncated?: boolean;
+  /**
+   * Model-facing text. When present, it replaces the JSON envelope for the
+   * provider request while `data` stays available to the UI and later tools.
+   */
+  modelText?: string;
 }
 
 export interface ToolDefinition {
@@ -69,6 +82,11 @@ export interface ToolDefinition {
   readonly requiresProject?: boolean;
   /** Source writes need the shared project lock; read/process tools can opt out. */
   readonly requiresProjectLock?: boolean;
+  /**
+   * Side-effect-free and safe to start while the provider stream is still open.
+   * `update_plan` and `remember` are L0 metadata writes and must stay false.
+   */
+  readonly prefetchable?: boolean;
   execute(rawArgs: unknown, context: ToolContext): Promise<ToolResult>;
 }
 
@@ -80,6 +98,7 @@ export interface ToolDefinitionInput<Schema extends z.ZodType> {
   summarize?: (args: z.infer<Schema>) => string;
   requiresProject?: boolean;
   requiresProjectLock?: boolean;
+  prefetchable?: boolean;
   /**
    * Normalize known model aliases (for example a status word or a field alias)
    * before schema validation. The repaired value must still satisfy `schema`;
@@ -100,6 +119,7 @@ export function defineTool<Schema extends z.ZodType>(
     ...(input.repairArgs === undefined ? {} : { repairArgs: input.repairArgs }),
     requiresProject: input.requiresProject ?? false,
     requiresProjectLock: input.requiresProjectLock ?? true,
+    prefetchable: input.prefetchable ?? false,
     ...(input.summarize === undefined
       ? {}
       : {

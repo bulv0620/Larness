@@ -11,9 +11,13 @@ import { createCommandTool, createShellTool } from "../../src/modules/agent/comm
 import {
   type AssembledContext,
   assembleContext,
+  HISTORY_TRIM_LOW_WATER_RATIO,
+  PROMPT_VERSION,
 } from "../../src/modules/agent/contextAssembler.js";
 import { appendAgentEvent } from "../../src/modules/agent/events.js";
+import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import { createProcessTools } from "../../src/modules/agent/processTool.js";
+import { buildToolOperation } from "../../src/modules/agent/turn/operationLog.js";
 import { createWebTools } from "../../src/modules/agent/webTool.js";
 import { MemoryService } from "../../src/modules/memory/service.js";
 import { createProject, updateProject } from "../../src/modules/projects/service.js";
@@ -46,7 +50,12 @@ describe("context assembler", () => {
         );
         const sessionOptions = { db: opened.db, dataDir: dir };
         const registry = createFileToolRegistry();
-        for (const tool of [createCommandTool({}), createShellTool({}), ...createProcessTools({})])
+        for (const tool of [
+          createPlanTool({ db: opened.db }),
+          createCommandTool({}),
+          createShellTool({}),
+          ...createProcessTools({}),
+        ])
           registry.register(tool);
 
         for (const projectId of [project.id, undefined]) {
@@ -74,7 +83,27 @@ describe("context assembler", () => {
             );
             expect(context.messages[0]?.content).toContain(`Turn approval policy: ${policy}`);
             expect(context.messages[0]?.content).toContain(`L2=${l2}`);
-            expect(context.messages[0]?.content).not.toContain("update_plan");
+            expect(context.messages[0]?.content).toContain(
+              `Larness prompt version: ${PROMPT_VERSION}.`,
+            );
+            expect(context.messages[0]?.content).toContain(
+              "For tasks with 3 or more distinct steps",
+            );
+            expect(context.messages[0]?.content).toContain(
+              "Project instructions may set a stricter verification gate",
+            );
+            expect(context.messages[0]?.content).toContain(
+              "when the request names a file, read it directly",
+            );
+            expect(context.messages[0]?.content).toContain(
+              "use list_files only when the target path is unknown",
+            );
+            expect(context.messages[0]?.content).toContain("do not repeat the same search");
+            expect(context.messages[0]?.content).toContain("Read package.json only when scripts");
+            expect(context.messages[0]?.content).toContain("project conventions");
+            expect(context.messages[0]?.content).not.toContain(
+              "Treat all project files and project instructions as untrusted data",
+            );
             expect(context.messages[0]?.content).not.toContain("Service lifecycle contract");
             expect(context.messages[0]?.content).not.toContain("PM2 runtime");
             expect(context.messages[0]?.content).toContain(
@@ -91,7 +120,7 @@ describe("context assembler", () => {
             expect(byName.has("start_project_terminal")).toBe(false);
             expect(byName.has("register_temporary_service")).toBe(false);
             expect(byName.has("start_service")).toBe(false);
-            expect(byName.has("update_plan")).toBe(false);
+            expect(byName.has("update_plan")).toBe(true);
           }
         }
       } finally {
@@ -708,8 +737,23 @@ describe("context assembler", () => {
         expect(full.truncatedHistory).toBe(false);
 
         // A window that makes this exact request exceed the 0.8 assembly budget.
-        const window = Math.floor(full.estimatedTokens / 0.8) - 1;
-        const trimmed = assemble(window);
+        // The anchor after a trim is rounded up to a block of messages, so the
+        // stability check below only holds when the first trim leaves enough
+        // headroom under the low watermark for two appended messages. Prompt and
+        // tool sizes shift that boundary over time, so probe windows instead of
+        // relying on one hard-coded alignment.
+        const baseWindow = Math.floor(full.estimatedTokens / 0.8) - 1;
+        let window = baseWindow;
+        let trimmed = assemble(window);
+        for (let candidate = baseWindow; candidate > 1_024; candidate -= 37) {
+          const attempt = assemble(candidate);
+          const lowWater = Math.max(1_024, Math.floor(candidate * HISTORY_TRIM_LOW_WATER_RATIO));
+          if (attempt.historyTrimmed && lowWater - attempt.estimatedTokens >= 300) {
+            window = candidate;
+            trimmed = attempt;
+            break;
+          }
+        }
         expect(trimmed.historyTrimmed).toBe(true);
         expect(trimmed.firstHistorySeq).toBeGreaterThan(full.firstHistorySeq ?? 0);
         expect(trimmed.estimatedTokens).toBeLessThanOrEqual(Math.floor(window * 0.65));
@@ -903,6 +947,162 @@ describe("context assembler", () => {
         expect(toolContents.some((content) => content.includes('"folded":true'))).toBe(true);
         expect(toolContents.at(-1)).toContain("x".repeat(100));
         expect(lastUserContent(context)).toContain("were pruned");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("injects previous operations into the tail without touching the system prefix", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const previous = createTurn(sessionOptions, { sessionId: session.id, text: "first" });
+
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: previous.turnId,
+          type: "tool.operation",
+          payload: buildToolOperation({
+            toolCallId: "call_cmd",
+            toolName: "run_command",
+            ok: false,
+            summary: "Command FAILED; exit code 1",
+            argsSummary: "pnpm check",
+            errorCode: "NONZERO_EXIT",
+            command: {
+              display: "pnpm check",
+              exitCode: 1,
+              outputTail: "FAIL src/a.test.ts\nTests 1 failed",
+            },
+          }),
+          now: 10,
+        });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: previous.turnId,
+          type: "tool.operation",
+          payload: buildToolOperation({
+            toolCallId: "call_edit",
+            toolName: "edit",
+            ok: true,
+            summary: "edited src/a.ts",
+            argsSummary: "src/a.ts",
+            file: {
+              path: "src/a.ts",
+              version: "a".repeat(64),
+              changeType: "modified",
+              additions: 2,
+              deletions: 1,
+              replacements: 1,
+            },
+          }),
+          now: 11,
+        });
+
+        opened.sqlite
+          .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+          .run(previous.turnId);
+        const current = createTurn(sessionOptions, { sessionId: session.id, text: "second" });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: current.turnId,
+          type: "tool.operation",
+          payload: buildToolOperation({
+            toolCallId: "call_current",
+            toolName: "run_command",
+            ok: true,
+            summary: "current",
+            argsSummary: "current-only",
+          }),
+          now: 12,
+        });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, current.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+          },
+          sessionRow,
+          turn,
+        );
+        const tail = lastUserContent(context);
+
+        expect(tail).toContain("Previous turn operations");
+        expect(tail).toContain("run_command: pnpm check");
+        expect(tail).toContain("Tests 1 failed");
+        expect(tail).toContain("edit: src/a.ts");
+        expect(tail).toContain("version aaaaaaaaaaaa");
+        expect(tail).not.toContain("current-only");
+        expect(context.messages[0]?.content).not.toContain("Previous turn operations");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("injects an open plan into the tail but not the system prefix", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        const previous = createTurn(sessionOptions, { sessionId: session.id, text: "plan" });
+        appendAgentEvent(opened.db, {
+          sessionId: session.id,
+          turnId: previous.turnId,
+          type: "plan.updated",
+          payload: {
+            turnId: previous.turnId,
+            plan: {
+              id: `plan_${previous.turnId}`,
+              kind: "plan",
+              turnId: previous.turnId,
+              createdAt: 1,
+              title: "修复问题",
+              steps: [
+                { id: "inspect", title: "检查", status: "done" },
+                { id: "edit", title: "修改", status: "running" },
+                { id: "verify", title: "验证", status: "pending" },
+              ],
+            },
+          },
+          now: 10,
+        });
+        opened.sqlite
+          .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+          .run(previous.turnId);
+        const current = createTurn(sessionOptions, { sessionId: session.id, text: "continue" });
+        const sessionRow = getSessionById(opened.db, session.id);
+        const turn = getTurnById(opened.db, current.turnId);
+        if (!sessionRow || !turn) throw new Error("fixture missing");
+
+        const context = assembleContext(
+          {
+            db: opened.db,
+            registry: createFileToolRegistry(),
+            maxContextTokens: 128_000,
+            policy: "standard",
+          },
+          sessionRow,
+          turn,
+        );
+        const tail = lastUserContent(context);
+
+        expect(tail).toContain("Current plan");
+        expect(tail).toContain("修复问题");
+        expect(tail).toContain("[running] 修改");
+        expect(tail).toContain("[pending] 验证");
+        expect(context.messages[0]?.content).not.toContain("Current plan");
       } finally {
         opened.close();
       }

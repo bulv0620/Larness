@@ -34,7 +34,11 @@ export interface ExecuteToolInput {
   policy: ApprovalPolicy;
   projectRoot: string;
   ignore?: string[];
+  /** File-tool read scope; absent means "primary root only". */
+  readScope?: NonNullable<ToolContext["readScope"]>;
   approvalId?: string;
+  /** Same-Turn approvals keyed by `toolName:hashApprovalParams`. */
+  approvedParams?: ReadonlySet<string>;
   clientSessionId?: string;
   approvalTtlMs?: number;
   signal?: AbortSignal;
@@ -181,9 +185,14 @@ export async function executeTool(
         projectRoot: input.projectRoot,
       }
     : params;
+  const approvalKey =
+    access === "require_approval"
+      ? `${input.toolName}:${hashApprovalParams(approvalParams)}`
+      : null;
+  const preapproved = approvalKey !== null && input.approvedParams?.has(approvalKey) === true;
   const assertAuthorized = () => {
     if (input.signal?.aborted) throw new ApprovalError("APPROVAL_INVALID", "Execution cancelled");
-    if (access === "require_approval" && input.approvalId === undefined)
+    if (access === "require_approval" && input.approvalId === undefined && !preapproved)
       throw new ApprovalError("APPROVAL_INVALID", "Approval required");
     if (input.approvalId) {
       const row = assertApprovalMatches(
@@ -198,7 +207,7 @@ export async function executeTool(
         throw new ApprovalError("APPROVAL_INVALID", "Approval identity mismatch");
     }
   };
-  if (access === "require_approval" && input.approvalId === undefined) {
+  if (access === "require_approval" && input.approvalId === undefined && !preapproved) {
     const approval = requestApproval(
       { db: options.db, now: () => now },
       {
@@ -486,6 +495,7 @@ export async function executeTool(
       : {}),
     projectRoot: input.projectRoot,
     ...(input.ignore === undefined ? {} : { ignore: input.ignore }),
+    ...(input.readScope === undefined ? {} : { readScope: input.readScope }),
   };
   const result = await options.registry.execute(input.toolName, params, context);
 

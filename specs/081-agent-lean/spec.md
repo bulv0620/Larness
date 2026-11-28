@@ -214,3 +214,10 @@ And 服务工具只写各自机制与参数约束，终端工具只写用途去�
 - [x] 测试与检查通过（`test/agent` 179、类型 6 包、biome 退出码 0）；
 - [x] 契约 / ADR / 文档 / STATUS 已更新；
 - [x] 用户已确认方向（「建立一个任务把应该优化的都一步步优化」）。
+
+## 日期修订
+
+### 2026-11-27 流式启动 L0（097）
+
+- 本切片 R-4 的纯读并发从“step 结束后整批预取”扩展为“`tool-call` 事件到达即启动”：仍限 L0、`requiresProjectLock === false`、策略 allow、每 step 最多 8 个；结果仍按 call 顺序消费，写/锁/审批与混合批次中的非 L0 调用保持串行。
+- `list_files` / `read_file` / `search_code` 显式 `requiresProjectLock: false`，使只读预取条件真正命中。见 [097](../097-streaming-reads/spec.md)。

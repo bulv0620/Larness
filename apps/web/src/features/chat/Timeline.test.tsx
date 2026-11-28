@@ -2,7 +2,7 @@ import type { PlanItem, ServerEvent, ToolItem } from "@larness/shared";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { applyServerEvent, eventsToTimeline } from "@/lib/eventReducer";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { turnState, useTimelineStore } from "@/stores/timelineStore";
 import { Timeline } from "./Timeline";
 
 const resumeTurn = vi.fn(async () => ({
@@ -29,8 +29,7 @@ beforeEach(() => {
   useTimelineStore.setState({
     items: [],
     loading: false,
-    isStreaming: false,
-    activeTurnId: null,
+    turn: turnState(),
     scrollToLatestNonce: 0,
   });
 });
@@ -127,8 +126,7 @@ it("grows the streamed reply as commentary and promotes it to the answer at comp
   } as const;
   useTimelineStore.setState({
     items: [user, reply],
-    activeTurnId: user.turnId,
-    isStreaming: true,
+    turn: turnState("running", user.turnId),
   });
   render(<Timeline />);
   // While the turn streams, the reply stays a commentary bubble: one stable
@@ -150,8 +148,7 @@ it("grows the streamed reply as commentary and promotes it to the answer at comp
         { ...user, turnOutcome: "completed" },
         { ...reply, text: "项目文件已列出。", streaming: false },
       ],
-      activeTurnId: null,
-      isStreaming: false,
+      turn: turnState(),
     });
   });
   // Completion promotes the finished text into the answer bubble exactly once.
@@ -183,8 +180,7 @@ it("shows a pulsing icon and a short category instead of the full command", () =
         turnId: "turn-running",
       },
     ],
-    activeTurnId: "turn-running",
-    isStreaming: true,
+    turn: turnState("running", "turn-running"),
   });
   render(<Timeline />);
   const header = screen.getByRole("button", { name: /执行过程 · Running\.\.\. · 命令/ });
@@ -203,7 +199,7 @@ it("shows a pulsing icon and a short category instead of the full command", () =
 it("reports a pending approval on the turn header", () => {
   useTimelineStore.setState({
     items: [{ id: "approval", kind: "approval", status: "pending", createdAt: 1 }],
-    isStreaming: true,
+    turn: turnState("running"),
   });
   render(<Timeline />);
   expect(
@@ -326,8 +322,7 @@ it("marks an automatically continued turn without dumping the checkpoint", () =>
 
 it("wraps each step's commentary in the same bubble as the answer", () => {
   useTimelineStore.setState({
-    isStreaming: true,
-    activeTurnId: "t1",
+    turn: turnState("running", "t1"),
     items: [
       {
         id: "u",
@@ -417,6 +412,49 @@ it("folds failed steps into the record once the turn has an answer", () => {
   expect(screen.getByRole("button", { name: /运行命令.*失败/ })).toBeTruthy();
 });
 
+it.each(["failed", "cancelled"] as const)(
+  "keeps failed steps inside the record when a turn is %s",
+  (outcome) => {
+    const failedTool = (id: string): ToolItem => ({
+      id,
+      kind: "tool",
+      name: "run_command",
+      summary: "运行命令（本机账户权限）",
+      commandId: `command-${id}`,
+      args: "",
+      status: "error",
+      createdAt: 2,
+      turnId: "t1",
+    });
+    useTimelineStore.setState({
+      items: [
+        {
+          id: "u",
+          kind: "message",
+          role: "user",
+          text: "跑测试",
+          createdAt: 1,
+          turnId: "t1",
+          turnOutcome: outcome,
+        },
+        failedTool("t1"),
+        failedTool("t2"),
+      ],
+    });
+
+    render(<Timeline />);
+
+    // The outcome already says the turn failed; a list of every failed attempt
+    // would repeat it. The count-free record stays one click away.
+    const summary = screen.getByRole("button", { name: /执行过程 · Failed/ });
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryAllByRole("button", { name: /运行命令.*失败/ })).toHaveLength(0);
+
+    fireEvent.click(summary);
+    expect(screen.getAllByRole("button", { name: /运行命令.*失败/ })).toHaveLength(2);
+  },
+);
+
 it("does not surface failure counts in the outer header", () => {
   const failure = (id: string, retried?: boolean): ToolItem => ({
     id,
@@ -470,8 +508,7 @@ it.each(["completed", "cancelled"] as const)(
     const turnId = "turn-results";
     const fileButton = { name: "查看文件 · note.txt" };
     useTimelineStore.setState({
-      isStreaming: true,
-      activeTurnId: turnId,
+      turn: turnState("running", turnId),
       items: [
         { id: "user", kind: "message", role: "user", text: "更新文档", createdAt: 1, turnId },
         {
@@ -511,8 +548,7 @@ it.each(["completed", "cancelled"] as const)(
 
     act(() => {
       useTimelineStore.setState((state) => ({
-        isStreaming: false,
-        activeTurnId: null,
+        turn: turnState(),
         items: state.items.map((item) =>
           item.id === "user" && item.kind === "message" ? { ...item, turnOutcome: outcome } : item,
         ),
@@ -529,13 +565,13 @@ it.each(["completed", "cancelled"] as const)(
     expect(results.compareDocumentPosition(copy)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(artifact.compareDocumentPosition(time)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
-    act(() => useTimelineStore.setState({ isStreaming: true, activeTurnId: "turn-next" }));
+    act(() => useTimelineStore.setState({ turn: turnState("running", "turn-next") }));
     expect(within(results).getByRole("button", fileButton)).toBeVisible();
   },
 );
 
 // A settled turn keeps the model's last report. A step still running was cut
-// off, not failed, so it names the reason instead of borrowing the failure mark.
+// off; a manual stop reads like a failed turn instead of a neutral "stopped".
 const settledTerminals = [
   "turn.interrupted",
   "turn.cancelled",
@@ -544,7 +580,7 @@ const settledTerminals = [
 ] as const;
 const settledPlanLabel = {
   "turn.interrupted": "已中断",
-  "turn.cancelled": "已停止",
+  "turn.cancelled": "已中断",
   "turn.failed": "已中断",
   "turn.completed": "未标记完成",
 } as const;
@@ -598,8 +634,7 @@ it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (te
   };
   useTimelineStore.setState({
     items: eventsToTimeline(start),
-    isStreaming: true,
-    activeTurnId: turnId,
+    turn: turnState("running", turnId),
   });
   const view = render(<Timeline />);
   // Steps are always visible: no click, no progress bar.
@@ -621,8 +656,7 @@ it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (te
   act(() => {
     useTimelineStore.setState((state) => ({
       items: applyServerEvent(state.items, terminal),
-      isStreaming: false,
-      activeTurnId: null,
+      turn: turnState(),
     }));
   });
   // The settled summary reports how many steps stayed open, and the reason is
@@ -640,8 +674,7 @@ it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (te
   view.unmount();
   useTimelineStore.setState({
     items: eventsToTimeline([...start, terminal]),
-    isStreaming: true,
-    activeTurnId: "turn-next",
+    turn: turnState("running", "turn-next"),
   });
   render(<Timeline />);
   const replayedPlan = screen.getByRole("list", { name: /^计划 · 1\/3 · 样式调整/ });
@@ -652,8 +685,7 @@ it.each(settledTerminals)("keeps a settled plan honest on %s and on replay", (te
 
 it("counts only open steps in the summary and keeps a failure a failure", () => {
   useTimelineStore.setState({
-    isStreaming: false,
-    activeTurnId: null,
+    turn: turnState(),
     items: [
       {
         id: "user",
@@ -694,8 +726,7 @@ it("counts only open steps in the summary and keeps a failure a failure", () => 
 
 it("adds no open counter when every step is settled", () => {
   useTimelineStore.setState({
-    isStreaming: false,
-    activeTurnId: null,
+    turn: turnState(),
     items: [
       {
         id: "user",
@@ -729,8 +760,7 @@ it("adds no open counter when every step is settled", () => {
 
 it("reads a turn that never settled as unmarked rather than failed", () => {
   useTimelineStore.setState({
-    isStreaming: false,
-    activeTurnId: null,
+    turn: turnState(),
     items: [
       {
         id: "user",
@@ -794,8 +824,7 @@ it("shows Thinking... without rendering reasoning text", () => {
 
   useTimelineStore.setState({
     items: [user, reasoning, tool],
-    isStreaming: true,
-    activeTurnId: "t1",
+    turn: turnState("running", "t1"),
   });
   render(<Timeline />);
 
@@ -811,8 +840,7 @@ it("shows Thinking... without rendering reasoning text", () => {
         tool,
         { id: "a", kind: "message", role: "assistant", text: "完成", createdAt: 4, turnId: "t1" },
       ],
-      isStreaming: false,
-      activeTurnId: null,
+      turn: turnState(),
     });
   });
 
@@ -873,6 +901,48 @@ it("does not offer resume for a cancelled turn", () => {
   render(<Timeline />);
 
   expect(screen.queryByRole("button", { name: "继续这个任务" })).toBeNull();
+});
+
+it("presents a manually stopped turn with the failure effect", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "跑完测试",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "cancelled",
+      },
+      {
+        id: "tool-1",
+        kind: "tool",
+        name: "read_file",
+        summary: "读取配置",
+        args: "",
+        status: "done",
+        turnId: "turn-1",
+        createdAt: 2,
+      },
+      {
+        id: "cancelled_turn-1",
+        kind: "error",
+        turnId: "turn-1",
+        message: "已停止当前执行。",
+        createdAt: 3,
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  // The settled summary says Failed, exactly like a failed turn.
+  expect(screen.getByRole("button", { name: /执行过程 · Failed/ })).toBeTruthy();
+  // The stop notice keeps its wording but uses the failure treatment.
+  const notice = screen.getByText("已停止当前执行。");
+  expect(notice.closest('[role="status"]')?.className).toContain("border-danger/50");
+  expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
 });
 
 it("leaves only the resume entry on an interrupted turn", () => {

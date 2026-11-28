@@ -354,9 +354,9 @@
 | PATCH | `/api/projects/:id` | `{ name?, settings? }`；settings 局部合并 |
 | DELETE | `/api/projects/:id` | `{ ok: true }`；仅删数据库行，不删目录 |
 | GET | `/api/sessions?projectId=&limit=` | 会话列表 / 最近会话；`limit` 1–100（默认 50），默认不含已归档；列表项包含 `hasActiveTurn` |
-| POST | `/api/sessions` | `{ projectId?, title? }`；省略项目或选择内建默认项目时使用共享默认工作区；201 |
+| POST | `/api/sessions` | `{ projectId?, title? }`；省略项目或选择内建默认项目时使用共享默认工作区；新会话的 `approvalPolicyId` 取目标项目（或默认工作区）最近一次用户选择的默认值，缺省 `standard`；201 |
 | GET | `/api/sessions/:id` | 会话详情 + 活跃 Turn |
-| PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, credentialProfileId?, modelProfileId?, agentProfile?, approvalPolicyId?, webSearchEnabled? }`；模型 / 档位 / 凭据 / 策略 / 联网开关只影响下一 Turn；输入框改选策略后保存到当前会话，刷新后恢复；`agentProfile` 仅 `coding` / `plan`；`webSearchEnabled=true` 需要已配置活动搜索连接，否则 400 |
+| PATCH | `/api/sessions/:id` | `{ title?, model?, thinking?, credentialProfileId?, modelProfileId?, agentProfile?, approvalPolicyId?, webSearchEnabled? }`；模型 / 档位 / 凭据 / 策略 / 联网开关只影响下一 Turn；输入框改选策略后保存到当前会话，刷新后恢复；`approvalPolicyId` 变化时同时记为所属项目（默认工作区记实例级）的新会话默认，已有会话不被改写；`agentProfile` 仅 `coding` / `plan`；`webSearchEnabled=true` 需要已配置活动搜索连接，否则 400 |
 | DELETE | `/api/sessions/:id` | 归档会话（`status=archived`，不删 workspace / 源码）；活跃 Turn 返回 409 |
 | POST | `/api/sessions/:id/turns` | `{ input, model?, thinking?, credentialProfileId?, modelProfileId? }` + `Idempotency-Key`（可选）；409 `TURN_IN_PROGRESS` |
 | POST | `/api/turns/:id/cancel` | 活跃 Turn 置 `CANCELLING`；无活跃 Turn 返回 409 |
@@ -399,7 +399,12 @@
   "name": "demo",
   "rootPath": "/Users/me/demo",
   "realPath": "/Users/me/demo",
-  "settings": { "defaultModelProfileId": null, "instructions": "", "ignore": [] },
+  "settings": {
+    "defaultModelProfileId": null,
+    "defaultApprovalPolicyId": "standard",
+    "instructions": "",
+    "ignore": []
+  },
   "gitDetected": true,
   "runningTerminals": 1,
   "sortOrder": 0,
@@ -845,3 +850,12 @@ type JobInput = {
 - 所有写操作需认证、Origin 与 `x-csrf-token`；PATCH/DELETE 使用 `expectedUpdatedAt`，不匹配返回 `VERSION_CONFLICT`。
 - 记忆关闭时读写返回 `MEMORY_DISABLED`；秘密内容返回 `MEMORY_SECRET_REJECTED`，错误详情不回显正文。
 - 审计动作：`memory.learned/updated/reviewed/forgotten/evicted/restored/purged`；日志与审计只记录 id、scope、kind、状态与字节数，不记录正文。
+
+## 110 新会话默认审批策略（2026-11-27）
+
+`projects.settings.defaultApprovalPolicyId`（`standard | strict | readonly | autonomous`，缺省 `standard`）记录该作用域最后一次由用户修改的审批策略，仅用于之后的新会话。默认工作区没有项目行，默认值存于实例元数据（键 `default_workspace.approval_policy`），并通过 `GET /api/projects/prj_default` 的 `settings.defaultApprovalPolicyId` 返回。
+
+- `PATCH /api/sessions/:id` 的 `approvalPolicyId` 与当前值不同时，在同一事务更新所属项目/默认工作区的默认值；只改该会话与作用域默认，不批量改写历史会话。
+- `POST /api/sessions` 不提供显式策略参数；创建时按目标项目/默认工作区解析默认值。非法或损坏的设置按 `standard` 失败关闭。
+- 项目设置 PATCH 仍可局部合并该字段；默认项目不可写，写入返回 `FORBIDDEN`。
+- 无新 REST 路径、DB 列或迁移。

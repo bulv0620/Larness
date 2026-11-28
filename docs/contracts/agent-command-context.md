@@ -4,11 +4,19 @@
 
 ## 工具
 
-Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、测试和有限命令；需要管道、重定向、通配符或平台 shell 语法时使用 `run_shell`。长任务使用 `start_process` / `read_process_output` / `stop_process` / `list_processes`；声明 `port` 后项目服务窗口可手动预览。`coding` 与 `plan` 都使用 `list_service_ops` / `read_service_ops_logs` / `control_service_ops` 管理 Larness 隔离 PM2。交互终端只面向人类。
+Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行构建、测试和有限命令；需要管道、重定向、通配符或平台 shell 语法时使用 `run_shell`。`list_files` / `search_code` 默认跳过 `.git`、`node_modules`、`.larness`、`.pnpm-store`、`dist`、`build`、`coverage`、`test-results`、`tmp`、`.turbo`、`.vite`；显式 `path` 仍可进入被跳过目录。完整 `.gitignore` 语义与 ripgrep 尚未接入。长任务使用 `start_process` / `read_process_output` / `stop_process` / `list_processes`；声明 `port` 后项目服务窗口可手动预览。`coding` 与 `plan` 都使用 `list_service_ops` / `read_service_ops_logs` / `control_service_ops` 管理 Larness 隔离 PM2。交互终端只面向人类。
+
+文件工具的结果分两层：`modelText` 是模型看到的纯文本，JSON `data` 保留给 UI 与后续工具。`read_file` 每页最多 50KB/2000 行，文本带 1-based 行号和完整 sha256 `version`；行号只用于引用，不进入 patch/edit 的上下文。109 起 `read_file` / `list_files` / `search_code` 还接受项目外 canonical 绝对路径（`ToolContext.readScope.allowExternal`），结果带 `rootScope="primary"|"external"`，外部结果的 `path` 为绝对路径；`<dataDir>` 与 POSIX 伪文件系统返回 `FORBIDDEN`，文件系统根、主目录本身、盘符根返回 `INVALID_PATH`。写入类工具与 `run_command.cwd` 仍只接受项目根相对路径。`edit` 用 `oldString`/`newString`/`replaceAll` 做字面量替换（唯一匹配、CRLF 容错，L1 + 项目锁）；`write_file` 可新建或整体覆盖，`expectedVersion` 可选，过期返回 `VERSION_CONFLICT`；`apply_patch` 继续用于 unified diff。`search_code` / `run_command` 也使用 `modelText`；命令输出上限 32KB，模型文本只保留合并输出，不重复 stdout/stderr。100 起 `search_code` 默认每条命中带前后各 1 行上下文（`contextLines` 0–5，0 关闭），模型文本按真实行号显示相邻行且不重复命中行，并提示围绕命中小窗口读取；`matches[].contextStart` 是上下文起始行。104 起达到 `limit` 后仍继续扫描以统计 `directories`（最多受 `maxFiles` 约束），截断或扫描超过 200 文件时模型文本追加 `Top dirs` 与 `path=` 收窄提示；`scannedFiles` 因此表示扫描结束时的文件数。裸 glob（不含 `/`，如 `*.ts`）递归匹配任意深度；含 `/` 的 glob（如 `src/*.ts`）仍只匹配对应层级。
+
+094 起，L1+ 工具完成后写内部 `tool.operation`：命令保留退出码与 800 字符尾部，文件工具保留路径/版本/增删或替换统计，失败保留 errorCode/summary；不存完整输出或 diff。下一 Turn 装配时读取 `coveredUpToSeq` 之后、当前 Turn 之前的最多 40 条，按 2,500 token 预算放进当前 user 消息 tail，超出保留最新并显示省略数量。该事件不广播、不进公开事件；命中已知秘密时省略尾部/参数。
 
 `run_command` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd` 和 `timeoutMs`。env、项目 ID、执行身份、策略和锁由后端决定。现有审批、秘密参数检查、项目锁、fencing、命令幂等、预算、取消和有界脱敏输出继续执行。退出码非零的命令返回工具失败，PM2 命令成功还需要核对实际服务状态。常见别名 `program` / `arguments` / `workdir` / `timeout` 在 schema 校验前归一；未知字段仍拒绝。
 
-`run_shell` 输入为 `command`、根内相对 `cwd` 和 `timeoutMs`。POSIX 使用 `/bin/sh -c`，不带 `-l`；Windows 优先 `pwsh`，其次 Windows PowerShell 5.1，最后 `cmd /d /s /c`。不假设 bash，不自动翻译平台语法；结果返回实际 `shell`、`exitCode`、`stdout`、`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`run_shell` 默认 L2。交互式 TUI 命令被拒绝，返回 `INTERACTIVE_COMMAND`。稳定错误码包括 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`SPAWN_FAILED`、`NONZERO_EXIT`、`TIMED_OUT`。
+`run_shell` 输入为 `command`、根内相对 `cwd` 和 `timeoutMs`。POSIX 使用 `/bin/sh -c`，不带 `-l`；Windows 优先 `pwsh`，其次 Windows PowerShell 5.1，最后 `cmd /d /s /c`。不假设 bash，不自动翻译平台语法；结果返回实际 `shell`、`exitCode`、`stdout`、`stderr`、`reasonCode` 与 `truncated`。两种命令共用超时、进程组/进程树停止、输出上限、秘密脱敏与项目锁；`run_shell` 默认 L2，allowlisted 简单命令为 L1。交互式 TUI 命令被拒绝，返回 `INTERACTIVE_COMMAND`。稳定错误码包括 `COMMAND_NOT_FOUND`、`INVALID_CWD`、`SHELL_UNAVAILABLE`、`SPAWN_FAILED`、`NONZERO_EXIT`、`TIMED_OUT`。
+
+097 起，L0、`requiresProjectLock:false`、策略 allow 的工具调用在模型 `tool-call` 事件到达时即启动（每 step 最多 8 个），结果仍按 call 顺序消费；写工具、需锁/审批工具与混合批次中的非 L0 调用保持串行。三个 L0 文件工具显式 `requiresProjectLock:false`。
+
+096 起，标准策略下常见只读/验证命令按保守 allowlist 降为 L1 自动放行：`git status|diff|log|show|rev-parse|ls-files`、受限 `git branch`、`pnpm/npm/yarn` 的 `test|check|typecheck|lint|build|verify` 脚本、`rg/ls/pwd`、`node --version`；`run_shell` 仅限无元字符/引号/绝对或 `..` 路径的简单命令。`--prefix`/`--dir`/`-C`/`--global`、`exec`/`dlx`/`add`/`install`/`remove`/`publish`/`deploy`、`git --output/--no-index`、`rg --pre` 仍在 L2；L3 在 standard/strict 仍 deny。用户批准一次后，同一 Turn 内相同 `toolName + hashApprovalParams` 的调用不再请求审批；不跨 Turn、不持久化。allowlist 只是审批分类，不是沙箱。
 
 `start_process` 输入为 `executable`、`args`（默认 `[]`）、根内相对 `cwd`、可选 `name`、`port` 与 `healthPath`；返回稳定 `processId`、`cwd`、port 与输出游标。`read_process_output` 用 `after` / `limit` 读取有界新输出，`nextCursor` 为下一次游标，`resyncRequired` 表示旧块已淘汰；`stop_process` 幂等停止整个进程组/进程树。后台进程不长期持有项目写锁（否则 dev server 会阻塞所有源码写），启动时仍执行授权、路径、秘密和交互命令检查；停止失败返回 `STOP_UNCONFIRMED`。进程输出使用 1 MiB 环形缓冲并脱敏，不进入审计或原始事件。
 
@@ -45,7 +53,7 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 `run_command` 的 PATH 由执行器加入已核验 PM2 的 bin 目录，PM2_HOME 固定为实例数据目录的 `pm2` 子目录。后端不把整个环境交给模型。显式使用给定 Node/PM2 绝对入口可避免 PATH 歧义。全局安装位置与 PM2 实例目录是两项运行信息。[PM2 多实例说明](https://pm2.keymetrics.io/docs/usage/specifics/)
 
-稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。`coding` 与 `plan` 都注入项目后台任务契约和持久 PM2 契约；`plan` 额外注入计划策略。计划工具与计划提示只属于 `plan` Profile；`coding` 不注册 `update_plan`。Profile 只有 `coding` / `plan`，新会话与存量会话默认 `coding`，原 `service-ops` 会话由迁移 `0034` 归一为 `coding`；Profile 在 Turn 开始时固定。执行层同时拒绝 catalog 内未启用的内置工具（返回 `TOOL_NOT_FOUND`，审计 `disabled_tool`），不只依赖 schema 过滤。Agent 不再拥有终端租约、终端输入或终端观察协议。Git 不再作为模型工具面或 system 段落出现；Agent 需要 Git 时通过 `run_command` 执行 `git`，人类 Git 面板继续使用独立 REST/WS 与 ProjectLease。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5、[ADR-068](../adr/ADR-068-agent-kernel.md)、[ADR-070](../adr/ADR-070-agent-profiles-and-usage.md)）。
+稳定的 system 核心只保留不随运行时变化的内容：prompt 版本、安全与工具使用策略、审批策略行、项目指令、跨轮摘要与「历史被裁剪」提示。095 起只有一个可见的通用模式，始终注入项目后台任务契约、持久 PM2 契约与计划策略；`update_plan` 常驻，并在任务有 3+ 个不同步骤时提示使用。旧 `agent_profile='plan'` 仅作为行为一致的兼容别名保留，不删列、不迁移；新会话默认 `coding`，原 `service-ops` 会话由迁移 `0034` 归一为 `coding`。最近计划注入当前 user 消息 tail；当前 Turn 计划仍有 pending/running 步骤却纯文本停止时 nudge 一次。执行层同时拒绝 catalog 内未启用的内置工具（返回 `TOOL_NOT_FOUND`，审计 `disabled_tool`），不只依赖 schema 过滤。Agent 不再拥有终端租约、终端输入或终端观察协议。Git 不再作为模型工具面或 system 段落出现；Agent 需要 Git 时通过 `run_command` 执行 `git`，人类 Git 面板继续使用独立 REST/WS 与 ProjectLease。服务生命周期文案在 system、工具说明与 PM2 段落之间只保留一份完整表述，其余位置只写该工具自己的机制（[ADR-067](../adr/ADR-067-lean-agent-context.md) D5、[ADR-068](../adr/ADR-068-agent-kernel.md)、[ADR-070](../adr/ADR-070-agent-profiles-and-usage.md)）。100 起稳定核心还要求：任务点名文件时直接读取，路径未知才 `list_files`；`search_code` 命中已定位时围绕行号窄读且不重复同一搜索；`package.json` 只在脚本、依赖或 module type 影响任务时读取。
 
 ## 命令示例
 
@@ -72,13 +80,13 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 
 ## 作用域与结果
 
-项目 ID 来自真实会话。PM2 名称标记服务归属，后端 API 独立验证关联。通用 Shell/命令具有宿主机账户权限，不能从名称约定推出 OS 级隔离。命令按现有风险规则处理，无法可靠判定只读的 PM2 命令采用 L2，readonly 依靠已核验的系统摘要读取状态。
+项目 ID 来自真实会话。PM2 名称标记服务归属，后端 API 独立验证关联。通用 Shell/命令具有宿主机账户权限，不能从名称约定推出 OS 级隔离。命令按现有风险规则处理：096 的 allowlist 只覆盖保守的只读/验证命令，无法可靠判定只读的 PM2 命令仍采用 L2，readonly 依靠已核验的系统摘要读取状态。
 
 命令取消或超时后先观察实际 PM2 状态。PM2 已托管的应用在命令进程退出和 TUI 关闭后继续运行。`online` 代表进程状态，业务健康需要额外访问证据。运维视图中 CLI 服务的健康时间为空时显示未核验。
 
 ## 系统固定的服务生命周期契约（083）
 
-此规则按 Profile / Pack 注入：`coding` 与 `plan` 都有 process Pack 和 serviceOps Pack，分别注入项目后台任务契约与持久 PM2 契约；`plan` 额外有 plan Pack。规则不要求用户复制提示词，不以聊天或窗口位置判断服务类型。
+此规则由通用模式的 Pack 注入：process Pack 与 serviceOps Pack 分别注入项目后台任务契约与持久 PM2 契约；plan Pack 常驻并注入计划策略。旧 `plan` 兼容值与通用模式一致。规则不要求用户复制提示词，不以聊天或窗口位置判断服务类型。
 
 | 项目 | project_background_task | persistent_pm2 |
 |---|---|---|
@@ -91,6 +99,6 @@ Agent 使用现有文件工具读取项目脚本，使用 `run_command` 执行�
 | 停止 | stop_process 停止进程组 | control_service_ops 按 targetId 停止 |
 | 退出管理面 | 临时进程不跨 Larness 重启恢复 | PM2 服务继续运行 |
 
-`coding` / `plan` 都可以检查和运维已存在的 PM2 服务，也可以先用项目工具创建部署 target、构建产物和编辑项目文件；Service Ops 的人类弹窗、REST、锁与审计保持不变。
+通用模式（含旧 `plan` 兼容值）可以检查和运维已存在的 PM2 服务，也可以先用项目工具创建部署 target、构建产物和编辑项目文件；Service Ops 的人类弹窗、REST、锁与审计保持不变。
 
 不再存在手动登记 temporary service、`POST /api/services` 或 `register_temporary_service` / `resolve_service_preview` 工具；旧 `services` 记录只保留历史查询、显式停止/删除与日志读取。项目服务窗口直接使用 `/api/processes?projectId=`，关闭窗口不停止任务。`POST /api/previews/resolve` 在用户点击时按 `processId` + `projectId` 校验项目归属、进程存活与端口监听。PM2 服务即使 `namespace=default`，只要名称符合 `larness:<projectId>:<serviceKey>` 仍按项目关联并标注偏差。后端继续独立校验项目、进程、targetId/pm2Name、租约与日志脱敏。

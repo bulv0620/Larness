@@ -37,6 +37,8 @@ async function fixture(
     budget?: { maxDurationMs: number };
     toolName?: "run_command" | "run_shell";
     toolArgs?: unknown;
+    calls?: Array<{ id: string; name?: "run_command" | "run_shell"; args: unknown }>;
+    approvalTtlMs?: number;
   } = {},
 ) {
   const started = await startAuthorizedServer(path.join(dir, "data"));
@@ -63,20 +65,21 @@ async function fixture(
     timeoutMs,
   };
   const toolName = options.toolName ?? "run_command";
+  const calls = options.calls ?? [{ id: "cmd_call", name: toolName, args: params }];
   const provider = createFakeProvider([
-    {
+    ...calls.map((call) => ({
       chunks: [
         {
-          type: "tool-call",
+          type: "tool-call" as const,
           toolCall: {
-            id: "cmd_call",
-            name: toolName,
-            args: params,
+            id: call.id,
+            name: call.name ?? toolName,
+            args: call.args,
           },
         },
-        { type: "finish", finishReason: "tool-calls" },
+        { type: "finish" as const, finishReason: "tool-calls" as const },
       ],
-    },
+    })),
     {
       chunks: [
         { type: "text-delta", text: "done" },
@@ -140,6 +143,39 @@ it("requires approval for arbitrary scripts, runs a real command and returns bou
     }
   });
 });
+it("reuses an approval for identical commands within the same turn", async () => {
+  await withTempDir(async (dir) => {
+    const command = {
+      executable: process.execPath,
+      args: ["-e", "console.log('batch')"],
+      timeoutMs: 2_000,
+    };
+    const f = await fixture(dir, "unused", 2_000, {
+      toolArgs: command,
+      calls: [
+        { id: "call_batch_1", args: command },
+        { id: "call_batch_2", args: command },
+      ],
+      approvalTtlMs: 500,
+    });
+    try {
+      const running = f.runner.run(f.turn.turnId);
+      await until(() => f.approvals().length === 1);
+      decideApproval(
+        { db: f.started.running.db },
+        { id: f.approvals()[0].id, decision: "approve", decidedBy: "test-operator" },
+      );
+      expect((await running).status).toBe("COMPLETED");
+      expect(f.approvals()).toHaveLength(1);
+      const toolMessages =
+        f.provider.calls.at(-1)?.messages.filter((message) => message.role === "tool") ?? [];
+      expect(toolMessages).toHaveLength(2);
+    } finally {
+      await stopAuthorizedServer(f.started);
+    }
+  });
+});
+
 it("cancels while awaiting approval without starting a process or a later provider step", async () => {
   await withTempDir(async (dir) => {
     const f = await fixture(dir, "require('node:fs').writeFileSync('forbidden','bad')");
@@ -257,7 +293,7 @@ it.each(["heartbeat", "budget"])(
     });
   },
 );
-it("classifies only exact development scripts as L1; arbitrary arguments and shells require L2, privileged programs L3", async () => {
+it("classifies common verification commands as L1; scope-expanding commands require L2; privileged programs L3", async () => {
   const { commandRisk } = await import("../../src/modules/agent/commandTool.js");
   const { decideToolAccess } = await import("@larness/agent");
   for (const executable of ["npm", "pnpm", "yarn"]) {
@@ -319,7 +355,7 @@ it("expires approval at the Turn deadline without starting a command", async () 
   });
 });
 
-it("keeps escaped output summaries within model budget as valid JSON and marks truncation", async () => {
+it("keeps escaped output summaries within model budget and marks truncation", async () => {
   await withTempDir(async (dir) => {
     const f = await fixture(dir, "process.stdout.write(String.fromCharCode(1).repeat(100000))");
     try {
@@ -331,8 +367,10 @@ it("keeps escaped output summaries within model budget as valid JSON and marks t
       );
       await running;
       const message = f.provider.calls.at(-1)?.messages.find((message) => message.role === "tool");
-      expect(message?.content.length).toBeLessThan(20000);
-      expect(JSON.parse(String(message?.content))).toMatchObject({ truncated: true });
+      const content = String(message?.content);
+      expect(content.length).toBeLessThan(80_000);
+      expect(content).toContain("Command COMPLETED; exit code 0");
+      expect(content).toContain("output truncated");
     } finally {
       await stopAuthorizedServer(f.started);
     }
@@ -431,7 +469,7 @@ it("rejects known credential literals including quotes before creating approval 
     }
   });
 });
-it("runs run_shell through the platform shell and returns separated streams", async () => {
+it("runs run_shell through the platform shell and returns combined output", async () => {
   const windows = process.platform === "win32";
   // PowerShell invokes a quoted path through the call operator; POSIX sh
   // accepts the bare quoted command line.
@@ -452,18 +490,12 @@ it("runs run_shell through the platform shell and returns separated streams", as
       );
       await running;
       const message = f.provider.calls.at(-1)?.messages.find((entry) => entry.role === "tool");
-      const payload = JSON.parse(String(message?.content)) as {
-        status?: string;
-        exitCode?: number;
-        stdout?: string;
-        stderr?: string;
-        shell?: string;
-      };
-      expect(payload).toMatchObject({ status: "COMPLETED", exitCode: 0 });
-      if (windows) expect(["pwsh", "powershell"]).toContain(payload.shell);
-      else expect(payload.shell).toBe("sh");
-      expect(payload.stdout).toContain("shell-out");
-      expect(payload.stderr).toContain("shell-err");
+      const content = String(message?.content);
+      expect(content).toContain("Command COMPLETED; exit code 0");
+      if (windows) expect(content).toMatch(/shell (pwsh|powershell)/);
+      else expect(content).toContain("shell sh");
+      expect(content).toContain("shell-out");
+      expect(content).toContain("shell-err");
     } finally {
       await stopAuthorizedServer(f.started);
     }

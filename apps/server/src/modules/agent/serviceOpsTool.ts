@@ -20,6 +20,7 @@ export function createServiceOpsTools(): ToolDefinition[] {
       riskLevel: "L0",
       requiresProject: false,
       requiresProjectLock: false,
+      prefetchable: true,
       schema: ListSchema,
       summarize: () => "列出全局 PM2 服务",
       handler: async (_args, context) =>
@@ -38,6 +39,7 @@ export function createServiceOpsTools(): ToolDefinition[] {
       riskLevel: "L0",
       requiresProject: false,
       requiresProjectLock: false,
+      prefetchable: true,
       schema: LogsSchema,
       summarize: (args) => `读取 PM2 服务日志 ${args.targetId.slice(-6)}`,
       handler: async (args, context) =>

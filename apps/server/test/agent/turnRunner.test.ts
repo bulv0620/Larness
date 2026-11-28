@@ -6,6 +6,7 @@ import {
   createFakeProvider,
   createFileToolRegistry,
   defineTool,
+  type ProviderAdapter,
   type ProviderChunk,
   ProviderError,
 } from "@larness/agent";
@@ -19,10 +20,13 @@ import { z } from "zod";
 import { type OpenedDatabase, openDatabase } from "../../src/db/client.js";
 import { runMigrations } from "../../src/db/migrate.js";
 import { decideApproval } from "../../src/modules/agent/approvalService.js";
-import { listSessionEvents } from "../../src/modules/agent/events.js";
+import { appendAgentEvent, listSessionEvents } from "../../src/modules/agent/events.js";
 import { createObservationTool } from "../../src/modules/agent/observationTool.js";
+import { createPlanTool } from "../../src/modules/agent/planTool.js";
 import {
   boundedCommandOutput,
+  commandModelText,
+  MAX_TOOL_RESULT_CHARS,
   toolFailureIssues,
   toolMessageContent,
 } from "../../src/modules/agent/turn/toolResults.js";
@@ -68,6 +72,14 @@ function patchFor(original: string, next: string): string {
   const before = original.replace(/\n$/, "");
   const after = next.replace(/\n$/, "");
   return `--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-${before}\n+${after}\n`;
+}
+
+function deferred<T = void>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 async function waitFor(predicate: () => boolean, timeoutMs = 2_000): Promise<void> {
@@ -123,7 +135,7 @@ describe("tool result serialization", () => {
       },
     });
 
-    expect(text.length).toBeLessThanOrEqual(16_000);
+    expect(text.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_CHARS);
 
     const parsed = JSON.parse(text) as {
       path: string;
@@ -146,16 +158,69 @@ describe("tool result serialization", () => {
       data: { path: "big.txt", content: "x".repeat(200_000) },
     });
 
-    expect(text.length).toBeLessThanOrEqual(16_000);
+    expect(text.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_CHARS);
 
     const parsed = JSON.parse(text) as {
       content: string;
       page: { truncated: boolean; omittedChars: number };
     };
 
-    expect(parsed.content.length).toBeGreaterThanOrEqual(12_000);
+    expect(parsed.content.length).toBeGreaterThanOrEqual(60_000);
     expect(parsed.page.truncated).toBe(true);
     expect(parsed.page.omittedChars).toBeGreaterThan(0);
+  });
+
+  it("prefers model text over the JSON envelope", () => {
+    const text = toolMessageContent({
+      ok: true,
+      summary: "read a.txt",
+      data: { path: "a.txt", content: "one\ntwo\n" },
+      modelText: "a.txt\nversion: abc\n1: one\n2: two",
+    });
+
+    expect(text).toBe("a.txt\nversion: abc\n1: one\n2: two");
+  });
+
+  it("prefixes the error code when model text is present", () => {
+    const text = toolMessageContent({
+      ok: false,
+      summary: "command failed",
+      errorCode: "COMMAND_FAILED",
+      modelText: "line 1\nline 2",
+    });
+
+    expect(text).toBe("COMMAND_FAILED: command failed\nline 1\nline 2");
+  });
+
+  it("bounds oversized model text as a last line of defence", () => {
+    const text = toolMessageContent({
+      ok: true,
+      summary: "read big.txt",
+      modelText: "z".repeat(MAX_TOOL_RESULT_CHARS + 1_000),
+    });
+
+    expect(text.length).toBeLessThanOrEqual(MAX_TOOL_RESULT_CHARS + 20);
+    expect(text).toContain("[truncated]");
+  });
+
+  it("formats command status and keeps the output in model text", () => {
+    expect(
+      commandModelText({
+        status: "COMPLETED",
+        exitCode: 0,
+        output: "ok\n",
+      }),
+    ).toBe("Command COMPLETED; exit code 0\nok\n");
+
+    expect(
+      commandModelText({
+        status: "FAILED",
+        exitCode: 1,
+        shell: "zsh",
+        output: "Tests 1 failed\n",
+        truncated: true,
+      }),
+    ).toBe("Command FAILED; exit code 1; shell zsh; output truncated\nTests 1 failed\n");
   });
 
   it("keeps the tail of a long command output", () => {
@@ -343,6 +408,7 @@ describe("TurnRunner", () => {
         // Sorted by name so the tool array stays byte-identical across steps.
         expect(provider.calls[0]?.tools.map((tool) => tool.name)).toEqual([
           "apply_patch",
+          "edit",
           "list_files",
           "read_file",
           "search_code",
@@ -1434,6 +1500,117 @@ describe("TurnRunner", () => {
         expect(
           provider.calls.flatMap((call) => call.messages.filter((message) => wrapUp(message))),
         ).toHaveLength(0);
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("records an edited file and a modified overwrite", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        await writeFile(path.join(session.workspacePath, "a.txt"), "one\ntwo\n");
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "edit file" });
+        const provider = createFakeProvider([
+          toolStep({
+            id: "call_edit",
+            name: "edit",
+            args: { path: "a.txt", oldString: "two", newString: "TWO" },
+          }),
+          toolStep({
+            id: "call_write",
+            name: "write_file",
+            args: { path: "a.txt", content: "final\n" },
+          }),
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry: createFileToolRegistry(),
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const changed = listSessionEvents(opened.db, session.id).items.filter(
+          (event) => event.type === "file.changed",
+        );
+        expect(changed.map((event) => event.payload)).toEqual([
+          expect.objectContaining({ path: "a.txt", changeType: "modified" }),
+          expect.objectContaining({ path: "a.txt", changeType: "modified" }),
+        ]);
+        expect(await readFile(path.join(session.workspacePath, "a.txt"), "utf8")).toBe("final\n");
+      } finally {
+        opened.close();
+      }
+    });
+  });
+
+  it("records bounded internal operations for edits and failures", async () => {
+    await withTempDir(async (dir) => {
+      const opened = await openWorkspace(dir);
+
+      try {
+        const sessionOptions = { db: opened.db, dataDir: dir };
+        const session = await createSession(sessionOptions, {});
+        await writeFile(path.join(session.workspacePath, "a.txt"), "one\ntwo\n");
+        const failTool = defineTool({
+          name: "fail_tool",
+          description: "always fails",
+          riskLevel: "L1",
+          schema: z.object({}).strict(),
+          handler: async () => ({ ok: false, errorCode: "BOOM", summary: "boom" }),
+        });
+        const registry = createFileToolRegistry();
+        registry.register(failTool);
+        const turn = createTurn(sessionOptions, { sessionId: session.id, text: "operations" });
+        const provider = createFakeProvider([
+          toolStep({
+            id: "call_edit",
+            name: "edit",
+            args: { path: "a.txt", oldString: "two", newString: "TWO" },
+          }),
+          toolStep({ id: "call_fail", name: "fail_tool", args: {} }),
+          textStep("done"),
+        ]);
+        const runner = new TurnRunner({
+          db: opened.db,
+          registry,
+          resolveProvider: () => ({ adapter: provider, model: "fake" }),
+        });
+
+        expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+
+        const rows = opened.sqlite
+          .prepare(
+            "SELECT payload_json FROM agent_events WHERE session_id = ? AND type = 'tool.operation' ORDER BY seq",
+          )
+          .all(session.id) as Array<{ payload_json: string }>;
+        const operations = rows.map(
+          (row) => JSON.parse(row.payload_json) as Record<string, unknown>,
+        );
+
+        expect(operations).toEqual([
+          expect.objectContaining({
+            toolName: "edit",
+            ok: true,
+            file: expect.objectContaining({ path: "a.txt", changeType: "modified" }),
+          }),
+          expect.objectContaining({
+            toolName: "fail_tool",
+            ok: false,
+            errorCode: "BOOM",
+          }),
+        ]);
+        expect(
+          listSessionEvents(opened.db, session.id).items.some(
+            (event) => event.type === "tool.operation",
+          ),
+        ).toBe(false);
       } finally {
         opened.close();
       }
@@ -2623,6 +2800,206 @@ it("marks a shutdown-aborted turn as interrupted so it can be resumed", async ()
         (event) => event.type === "turn.interrupted",
       );
       expect(terminal?.payload).toMatchObject({ reason: "shutdown" });
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("nudges once when the model stops with open plan steps", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "plan nudge" });
+      const registry = createFileToolRegistry();
+      registry.register(createPlanTool({ db: opened.db }));
+      const provider = createFakeProvider([
+        toolStep({
+          id: "call_plan",
+          name: "update_plan",
+          args: {
+            title: "修复问题",
+            steps: [
+              { id: "inspect", title: "检查", status: "running" },
+              { id: "verify", title: "验证", status: "pending" },
+            ],
+          },
+        }),
+        textStep("I stopped early"),
+        textStep("done"),
+      ]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry,
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(turn.turnId)).status).toBe("COMPLETED");
+      expect(provider.calls).toHaveLength(3);
+      const nudges = provider.calls
+        .flatMap((call) => call.messages)
+        .filter(
+          (message) =>
+            message.role === "user" &&
+            String(message.content).includes("The plan still has open steps"),
+        );
+      expect(nudges).toHaveLength(1);
+      expect(String(nudges[0]?.content)).toContain("检查");
+      expect(String(nudges[0]?.content)).toContain("验证");
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("does not nudge for a plan left open in a previous turn", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const previous = createTurn(sessionOptions, { sessionId: session.id, text: "first" });
+      appendAgentEvent(opened.db, {
+        sessionId: session.id,
+        turnId: previous.turnId,
+        type: "plan.updated",
+        payload: {
+          turnId: previous.turnId,
+          plan: {
+            id: `plan_${previous.turnId}`,
+            kind: "plan",
+            turnId: previous.turnId,
+            createdAt: 1,
+            title: "old plan",
+            steps: [{ id: "old", title: "旧步骤", status: "pending" }],
+          },
+        },
+        now: 1,
+      });
+      opened.sqlite
+        .prepare("UPDATE turns SET status = 'COMPLETED' WHERE id = ?")
+        .run(previous.turnId);
+      const current = createTurn(sessionOptions, { sessionId: session.id, text: "second" });
+      const provider = createFakeProvider([textStep("done")]);
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry: createFileToolRegistry(),
+        resolveProvider: () => ({ adapter: provider, model: "fake" }),
+      });
+
+      expect((await runner.run(current.turnId)).status).toBe("COMPLETED");
+      expect(provider.calls).toHaveLength(1);
+      expect(
+        provider.calls[0]?.messages.some(
+          (message) =>
+            message.role === "user" &&
+            String(message.content).includes("The plan still has open steps"),
+        ),
+      ).toBe(false);
+    } finally {
+      opened.close();
+    }
+  });
+});
+
+it("starts eligible read tools before the provider stream finishes and keeps writes serial", async () => {
+  await withTempDir(async (dir) => {
+    const opened = await openWorkspace(dir);
+
+    try {
+      const sessionOptions = { db: opened.db, dataDir: dir };
+      const session = await createSession(sessionOptions, {});
+      const turn = createTurn(sessionOptions, { sessionId: session.id, text: "stream reads" });
+      const started = deferred();
+      const releaseTool = deferred();
+      const streamGate = deferred();
+      const writeStarted = { value: false };
+      const slowRead = defineTool({
+        name: "slow_read",
+        description: "slow read",
+        riskLevel: "L0",
+        requiresProjectLock: false,
+        prefetchable: true,
+        schema: z.object({}).strict(),
+        handler: async () => {
+          started.resolve();
+          await releaseTool.promise;
+          return { ok: true, summary: "slow read done" };
+        },
+      });
+      const slowWrite = defineTool({
+        name: "slow_write",
+        description: "slow write",
+        riskLevel: "L1",
+        requiresProjectLock: false,
+        schema: z.object({}).strict(),
+        handler: async () => {
+          writeStarted.value = true;
+          return { ok: true, summary: "slow write done" };
+        },
+      });
+      const registry = createFileToolRegistry();
+      registry.register(slowRead);
+      registry.register(slowWrite);
+      let providerCalls = 0;
+      const adapter: ProviderAdapter = {
+        id: "fake",
+        capabilities: {
+          streaming: true,
+          toolCalls: true,
+          vision: false,
+          reasoning: false,
+          maxContextTokens: 128_000,
+        },
+        async *streamStep() {
+          providerCalls += 1;
+
+          if (providerCalls === 1) {
+            yield {
+              type: "tool-call",
+              toolCall: { id: "call_read", name: "slow_read", args: {} },
+            };
+            yield {
+              type: "tool-call",
+              toolCall: { id: "call_write", name: "slow_write", args: {} },
+            };
+            await streamGate.promise;
+            yield { type: "finish", finishReason: "tool-calls" };
+            return;
+          }
+
+          yield { type: "text-delta", text: "done" };
+          yield { type: "finish", finishReason: "stop" };
+        },
+      };
+      const runner = new TurnRunner({
+        db: opened.db,
+        registry,
+        resolveProvider: () => ({ adapter, model: "fake" }),
+      });
+      const running = runner.run(turn.turnId);
+
+      await Promise.race([
+        started.promise,
+        new Promise((_, reject) => {
+          setTimeout(
+            () => reject(new Error("read tool did not start before the stream finished")),
+            1_000,
+          );
+        }),
+      ]);
+      expect(writeStarted.value).toBe(false);
+
+      streamGate.resolve();
+      releaseTool.resolve();
+
+      expect((await running).status).toBe("COMPLETED");
+      expect(providerCalls).toBe(2);
+      expect(writeStarted.value).toBe(true);
     } finally {
       opened.close();
     }

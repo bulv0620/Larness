@@ -13,6 +13,7 @@ export function createObservationTool(): ToolDefinition {
       "Read the current runtime observations for this workspace: development previews, running terminals, the PM2 service snapshot and whether the project is now a Git repository. Read-only and safe to repeat. Use it before claiming that a service, deployment or terminal is in a particular state, or after another actor may have changed it; a RUNNING terminal or an online PM2 process still does not prove HTTP health.",
     riskLevel: "L0",
     requiresProjectLock: false,
+    prefetchable: true,
     schema: z.object({}).strict(),
     summarize: () => "refresh runtime observations",
     handler: async (_args, context) =>

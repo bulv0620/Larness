@@ -87,7 +87,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   } = useNavigationStore();
   const extra = useLocalSessionsStore((state) => state.extra);
   const mockRunningSessionId = useTimelineStore((state) =>
-    USE_MOCKS && state.isStreaming ? state.sessionId : null,
+    USE_MOCKS && state.turn.phase !== "idle" ? state.sessionId : null,
   );
   const newSession = useNewSession();
   const logout = useLogout();

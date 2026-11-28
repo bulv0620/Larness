@@ -7,11 +7,12 @@ import { queryClient } from "@/lib/queries";
 import type { ApiSessionDetail } from "@/lib/workspaceApi";
 import { useComposerStore } from "@/stores/composerStore";
 import { useNavigationStore } from "@/stores/navigationStore";
-import { useTimelineStore } from "@/stores/timelineStore";
+import { turnState, useTimelineStore } from "@/stores/timelineStore";
 import { Composer } from "./Composer";
 
 const api = vi.hoisted(() => ({
   getSession: vi.fn(),
+  getProject: vi.fn(),
   getSessionUsage: vi.fn(),
   updateSession: vi.fn(),
   createSession: vi.fn(),
@@ -80,13 +81,30 @@ beforeEach(() => {
   useTimelineStore.setState({
     sessionId: "ses_a",
     items: [],
-    isStreaming: false,
-    activeTurnId: null,
+    turn: turnState(),
   });
   api.listModelCatalog.mockResolvedValue({
     ...deepseekGroup,
     groups: [deepseekGroup, glmGroup],
     defaultSelection: glm,
+  });
+  api.getProject.mockResolvedValue({
+    id: "prj_default",
+    kind: "default",
+    name: "默认工作区",
+    rootPath: "/workspace",
+    realPath: "/workspace",
+    settings: {
+      defaultModelProfileId: null,
+      defaultApprovalPolicyId: "standard",
+      instructions: "",
+      ignore: [],
+      memory: { enabled: true, globalEnabled: true },
+    },
+    gitDetected: false,
+    sortOrder: 0,
+    createdAt: 0,
+    updatedAt: 0,
   });
   api.getSession.mockImplementation(async (id: string) => sessions.get(id) ?? session(id));
   api.getSessionUsage.mockResolvedValue({
@@ -172,6 +190,49 @@ it("uses the global default for a draft and for its first turn", async () => {
       expect.any(String),
     ),
   );
+  expect(api.updateSession).toHaveBeenCalledWith("ses_new", {
+    ...glm,
+    approvalPolicyId: undefined,
+  });
+});
+
+it("shows the project's remembered policy on a draft without sending an implicit override", async () => {
+  const user = userEvent.setup();
+  api.getProject.mockResolvedValue({
+    id: "prj_policy",
+    name: "policy",
+    rootPath: "/workspace/policy",
+    realPath: "/workspace/policy",
+    settings: {
+      defaultModelProfileId: null,
+      defaultApprovalPolicyId: "readonly",
+      instructions: "",
+      ignore: [],
+      memory: { enabled: true, globalEnabled: true },
+    },
+    gitDetected: false,
+    sortOrder: 1,
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  useNavigationStore.getState().startDraft("prj_policy");
+  useTimelineStore.setState({ sessionId: useNavigationStore.getState().sessionId });
+  api.createSession.mockResolvedValue({
+    ...session("ses_new"),
+    projectId: "prj_policy",
+    ...glm,
+  });
+  api.createTurn.mockResolvedValue({ turnId: "turn_1" });
+  renderComposer();
+
+  expect(await screen.findByRole("button", { name: "审批策略：只读" })).toBeVisible();
+  await user.type(screen.getByRole("textbox", { name: "对话输入" }), "第一条消息");
+  await user.click(screen.getByRole("button", { name: "发送消息" }));
+  await waitFor(() => expect(api.createTurn).toHaveBeenCalled());
+  expect(api.updateSession).toHaveBeenCalledWith("ses_new", {
+    ...glm,
+    approvalPolicyId: undefined,
+  });
 });
 
 it("uses the draft model and approval overrides for the first turn", async () => {
@@ -204,7 +265,7 @@ it("uses the draft model and approval overrides for the first turn", async () =>
 it("persists thinking during an active turn and waits for saving before another send", async () => {
   const user = userEvent.setup();
   sessions.set("ses_a", { ...session("ses_a"), ...glm });
-  useTimelineStore.setState({ isStreaming: true, activeTurnId: "turn_running" });
+  useTimelineStore.setState({ turn: turnState("running", "turn_running", 1) });
   let finishSave: (value: ApiSessionDetail) => void = () => {};
   api.updateSession.mockImplementationOnce(
     () =>
@@ -219,9 +280,9 @@ it("persists thinking during an active turn and waits for saving before another 
   await user.click(screen.getByRole("button", { name: "关闭" }));
   expect(api.updateSession).toHaveBeenCalledWith("ses_a", { ...glm, thinking: "off" });
   expect(api.createTurn).not.toHaveBeenCalled();
-  expect(useTimelineStore.getState().activeTurnId).toBe("turn_running");
+  expect(useTimelineStore.getState().turn.id).toBe("turn_running");
 
-  act(() => useTimelineStore.setState({ isStreaming: false, activeTurnId: null }));
+  act(() => useTimelineStore.setState({ turn: turnState() }));
   await user.type(screen.getByRole("textbox", { name: "对话输入" }), "下一轮");
   expect(screen.getByRole("button", { name: "发送消息" })).toBeDisabled();
   await act(async () => finishSave({ ...session("ses_a"), ...glm, thinking: "off" }));
@@ -265,31 +326,10 @@ it("keeps the session token row visible in a real session", async () => {
   expect(await screen.findByText("1.2k tokens")).toBeVisible();
 });
 
-it("saves the agent profile without sending and restores it after a reload", async () => {
-  const user = userEvent.setup();
-  const view = renderComposer();
-  await user.click(await screen.findByRole("button", { name: "Agent Profile：Coding" }));
-  await user.click(screen.getByRole("menuitemradio", { name: /Plan/ }));
-  await waitFor(() =>
-    expect(api.updateSession).toHaveBeenCalledWith("ses_a", { agentProfile: "plan" }),
-  );
-  expect(api.createTurn).not.toHaveBeenCalled();
-  view.unmount();
-  queryClient.clear();
-
+it("does not show an Agent Profile switch in the composer", async () => {
   renderComposer();
-  expect(await screen.findByRole("button", { name: "Agent Profile：Plan" })).toBeVisible();
-  act(() => useNavigationStore.getState().selectSession("ses_b", null));
-  expect(await screen.findByRole("button", { name: "Agent Profile：Coding" })).toBeVisible();
-});
-
-it("describes what each agent profile does in the menu", async () => {
-  const user = userEvent.setup();
-  renderComposer();
-  await user.click(await screen.findByRole("button", { name: "Agent Profile：Coding" }));
-  const menu = await screen.findByRole("menu");
-  expect(within(menu).getByText("快速完成编程任务")).toBeVisible();
-  expect(within(menu).getByText("按需创建任务计划完成")).toBeVisible();
+  await screen.findByRole("button", { name: "发送消息" });
+  expect(screen.queryByRole("button", { name: /Agent Profile/ })).toBeNull();
 });
 
 it("uses the session's stored approval policy when sending", async () => {
