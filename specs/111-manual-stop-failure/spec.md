@@ -6,7 +6,7 @@ status: done
 depends_on: [080-plan-terminal-state, 070-runtime-efficiency]
 owners: []
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 ---
 
 # 111 手动停止按失败效果呈现
@@ -85,6 +85,15 @@ Then 仍不提供「继续这个任务」入口
 And 真实 failed 回合的 Failed、失败提示与重试入口保持不变
 ```
 
+### A5 失败回合不平铺失败步骤
+
+```gherkin
+Given 一个以 turn.failed 或 turn.cancelled 结束且没有最终答复的回合，执行过程含 2 条失败工具调用
+When 时间线渲染该回合
+Then 只显示 Failed 摘要与终态提示，不直接列出失败工具行
+And 展开「执行过程」后可见这些失败行
+```
+
 ## 6. 功能需求
 
 | ID | 级别 | 需求 |
@@ -95,6 +104,7 @@ And 真实 failed 回合的 Failed、失败提示与重试入口保持不变
 | R-4 | MUST | 删除仅用于 `cancelled` 的 `stopped` 显示状态，避免两套停止呈现回流。 |
 | R-5 | MUST | 服务端、事件、审计、Job 状态、数据库与恢复条件零改动。 |
 | R-6 | SHOULD | 代码注释说明「手动停止按失败呈现」是有意行为，而不是借用失败标记。 |
+| R-7 | MUST | 失败回合（含 `cancelled`）不自动平铺失败工具行，失败明细保留在可展开的执行过程里；完成但无答复的回合保持原行为。 |
 
 ## 7. 接口与契约变更
 
@@ -122,6 +132,8 @@ And 真实 failed 回合的 Failed、失败提示与重试入口保持不变
 | 计划步骤自身为 `failed` | 保持红叉 +「失败：」 | 不因回合是 cancelled 而改写 |
 | 取消后重试 | 沿用既有重发入口 | 新 Turn 照常创建 |
 | 取消的回合 | 仍不提供继续入口 | 不出现「继续这个任务」 |
+| 失败 / 取消回合带失败工具调用 | 失败行折叠在「执行过程」内 | 摘要是 `Failed`，展开后可见失败行 |
+| 完成但无最终答复的回合 | 保持自动露出失败行 | 失败行解释这次没有答复 |
 
 ## 11. 可观测性
 
@@ -134,6 +146,7 @@ And 真实 failed 回合的 Failed、失败提示与重试入口保持不变
   - `turn.cancelled` 的计划步骤显示「已中断」；
   - 手动停止的摘要显示 `Failed`、提示使用失败边框并保留「重试」；
   - cancelled 仍不提供继续入口。
+  - `failed` / `cancelled` 回合的失败工具行默认折叠，展开后可见。
 - 回归：`@larness/web` 全量、`pnpm typecheck`、`pnpm exec biome ci .`、`pnpm build`。
 - E2E / 视觉：本次不新增浏览器断言；文案与样式由组件测试覆盖，视觉验收待用户按需确认。
 

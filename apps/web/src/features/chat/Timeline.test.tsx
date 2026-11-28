@@ -412,6 +412,49 @@ it("folds failed steps into the record once the turn has an answer", () => {
   expect(screen.getByRole("button", { name: /运行命令.*失败/ })).toBeTruthy();
 });
 
+it.each(["failed", "cancelled"] as const)(
+  "keeps failed steps inside the record when a turn is %s",
+  (outcome) => {
+    const failedTool = (id: string): ToolItem => ({
+      id,
+      kind: "tool",
+      name: "run_command",
+      summary: "运行命令（本机账户权限）",
+      commandId: `command-${id}`,
+      args: "",
+      status: "error",
+      createdAt: 2,
+      turnId: "t1",
+    });
+    useTimelineStore.setState({
+      items: [
+        {
+          id: "u",
+          kind: "message",
+          role: "user",
+          text: "跑测试",
+          createdAt: 1,
+          turnId: "t1",
+          turnOutcome: outcome,
+        },
+        failedTool("t1"),
+        failedTool("t2"),
+      ],
+    });
+
+    render(<Timeline />);
+
+    // The outcome already says the turn failed; a list of every failed attempt
+    // would repeat it. The count-free record stays one click away.
+    const summary = screen.getByRole("button", { name: /执行过程 · Failed/ });
+    expect(summary).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryAllByRole("button", { name: /运行命令.*失败/ })).toHaveLength(0);
+
+    fireEvent.click(summary);
+    expect(screen.getAllByRole("button", { name: /运行命令.*失败/ })).toHaveLength(2);
+  },
+);
+
 it("does not surface failure counts in the outer header", () => {
   const failure = (id: string, retried?: boolean): ToolItem => ({
     id,

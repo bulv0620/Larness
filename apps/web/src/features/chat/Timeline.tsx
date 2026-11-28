@@ -304,11 +304,13 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   const summary = ["执行过程", status, secondary, stepLabel].filter(Boolean).join(" · ");
   // While the turn is running, failures stay inside the collapsible record; the
   // summary count keeps surfacing them without interrupting the flow. After the
-  // turn ends they stay collapsed when there is an answer, and surface without
-  // one, because then they explain the stop.
+  // turn ends they stay collapsed when there is an answer. A failed turn is
+  // explained by its outcome and stop notice, so it does not surface every
+  // failed attempt again; the record stays one click away. A completed turn
+  // without an answer still shows them, because nothing else explains the stop.
   const visibleProcess = expanded
     ? process
-    : !turnActive && answer === undefined
+    : !turnActive && answer === undefined && !failed
       ? process.filter((item) => item.kind === "tool" && item.status === "error")
       : [];
   const targets = new Map<string, NonNullable<ToolItem["resourceTarget"]>>();

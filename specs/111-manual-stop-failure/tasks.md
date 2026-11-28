@@ -11,6 +11,7 @@
 | MS-2 | 摘要、提示与计划步骤按失败呈现 | MS-1 | `done` |
 | MS-3 | 验证（web 全量、类型、规范、构建） | MS-2 | `done` |
 | MS-4 | 文档、状态回填与提交 | MS-3 | `done` |
+| MS-5 | 失败回合折叠失败工具行 | MS-4 | `done` |
 
 ## 任务卡
 
@@ -55,6 +56,18 @@
 - 交付物：`specs/README.md`、`ROADMAP.md`、`STATUS.md`、`docs/log/2026-11.md`、`specs/080-plan-terminal-state/spec.md` 日期注记。
 - 验收：三处状态一致（`ROADMAP.md` 为准）。
 
+### MS-5 失败回合折叠失败工具行
+
+- 状态：`done`
+- 依赖：MS-4
+- 目标：用户补充「失败的情况下，不需要把所有失败步骤列出来」：失败回合不再自动平铺失败工具行。
+- 交付物：
+  - `Timeline.tsx`：`visibleProcess` 对 `failed`（含 `cancelled`）不再自动露出错误工具行，仍保留摘要状态、终态提示与一键展开。
+  - `Timeline.test.tsx`：新增 `failed` / `cancelled` 两个用例，断言失败行默认不可见、展开后可见。
+- 验收：`failed` / `cancelled` 回合的失败工具行默认折叠；完成但无答复的回合保持原行为；`turn.interrupted` 不受影响。
+- 测试：`pnpm --filter @larness/web test:file src/features/chat/Timeline.test.tsx`。
+- 涉及路径：`apps/web/src/features/chat/Timeline.tsx`、`apps/web/src/features/chat/Timeline.test.tsx`。
+
 ## 验收记录
 
 - 2026-11-27（macOS）：
@@ -64,3 +77,8 @@
 - `pnpm build`：server 四入口 + web 通过（仅既有大 chunk 警告）。
 - **未运行**：E2E（`pnpm test:e2e*`）与真实浏览器视觉截图；本次只改 Web 呈现，文案与样式由组件断言覆盖。
 - **数据边界**：`turns.status` 仍为 `CANCELLED`、`terminalReason=cancelled`，事件仍为 `turn.cancelled`；Job 运行状态与「取消的回合不提供继续入口」均未变。
+
+- 2026-11-28 补充（MS-5）：
+- **先红**：`Timeline.test.tsx` 新增的 `keeps failed steps inside the record when a turn is failed / cancelled` 2 项失败，失败原因是失败工具行直接出现在折叠区外。
+- 实现后 `Timeline.test.tsx` **32/32 通过**，`@larness/web` 全量 **55 文件 / 326 项通过**；`pnpm check` 退出码 0（server 188 文件 / 1018 项通过 / 15 跳过），改动文件 biome 与 `apps/web` typecheck 通过。
+- **未运行**：本轮未重跑 `pnpm build`；E2E 与浏览器视觉验收仍未跑。
