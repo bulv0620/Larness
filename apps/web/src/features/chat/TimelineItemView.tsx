@@ -43,10 +43,7 @@ export function TimelineItemView({
       return (
         <div
           role="status"
-          className={cn(
-            "border-l-2 pl-3 text-[12px] leading-5",
-            /已停止/.test(item.message) ? "border-line text-ink-3" : "border-danger/50 text-ink-2",
-          )}
+          className="border-l-2 border-danger/50 pl-3 text-[12px] leading-5 text-ink-2"
         >
           {item.message}
           {onRetry ? (
@@ -217,12 +214,12 @@ function LegacyScreenshot({ src }: { src: string }) {
 
 type PlanStepStatus = PlanItem["steps"][number]["status"];
 /** A settled step keeps the model's status or explains why it stayed open. */
-type PlanStepDisplay = PlanStepStatus | "stopped" | "interrupted" | "unmarked";
+type PlanStepDisplay = PlanStepStatus | "interrupted" | "unmarked";
 
 /**
  * A settled turn keeps the model's last report. A step still `running` then was
  * cut off, not failed, so it reads the reason from the turn's outcome instead of
- * borrowing the failure mark.
+ * borrowing the failure mark. A manual stop reads like a failed turn.
  */
 function displayStepStatus(
   status: PlanStepStatus,
@@ -232,7 +229,6 @@ function displayStepStatus(
   if (status !== "running" || turnActive) return status;
   switch (outcome) {
     case "cancelled":
-      return "stopped";
     case "failed":
     case "interrupted":
       return "interrupted";
@@ -246,13 +242,12 @@ const planStepLabels: Record<PlanStepDisplay, string> = {
   running: "进行中：",
   failed: "失败：",
   pending: "待做：",
-  stopped: "已停止",
   interrupted: "已中断",
   unmarked: "未标记完成",
 };
 
 /** Why a step is still open is stated in words, so it also reads out loud. */
-const planStepStated = new Set<PlanStepDisplay>(["stopped", "interrupted", "unmarked"]);
+const planStepStated = new Set<PlanStepDisplay>(["interrupted", "unmarked"]);
 
 function PlanCard({
   item,

@@ -919,6 +919,17 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 | PT-3 | [验证](080-plan-terminal-state/tasks.md#pt-3-验证) | PT-2 | `done` |
 | PT-4 | [文档与状态回填](080-plan-terminal-state/tasks.md#验收记录) | PT-3 | `done` |
 
+### 2026-11-27 手动停止按失败效果呈现（111，done）
+
+用户直接要求「手动中断现在也按失败的效果吧」。只改 Web 读法：`turn.cancelled` 摘要显示 `Failed`、终态提示使用失败边框并保留「重试」、截断的 `running` 计划步骤显示「已中断」；服务端状态、事件、审计、Job 与恢复条件不变，取消的回合仍不提供继续入口。规格见 [111](111-manual-stop-failure/spec.md)，任务见 [tasks](111-manual-stop-failure/tasks.md)。
+
+| ID | 交付 | 依赖 | 状态 |
+|---|---|---|---|
+| MS-1 | [手动停止呈现红测试](111-manual-stop-failure/tasks.md#ms-1-手动停止呈现红测试) | 080 done | `done` |
+| MS-2 | [摘要、提示与计划步骤按失败呈现](111-manual-stop-failure/tasks.md#ms-2-摘要提示与计划步骤按失败呈现) | MS-1 | `done` |
+| MS-3 | [验证](111-manual-stop-failure/tasks.md#ms-3-验证) | MS-2 | `done` |
+| MS-4 | [文档、状态回填与提交](111-manual-stop-failure/tasks.md#ms-4-文档状态回填与提交) | MS-3 | `done` |
+
 - 开始任务：`todo → in_progress`，在 `STATUS.md` 的「当前进行中」登记。
 - 完成：更新 `tasks.md` 与本节状态，把该任务移入 `STATUS.md` 的「最近收口」，提交。
 - 阻塞：`blocked` + 原因 + 需要谁决策；解除后回到 `todo`。

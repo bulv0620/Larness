@@ -231,8 +231,8 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
         (item.kind === "tool" && item.name !== "update_plan")),
   );
   const interrupted = stateUser?.turnOutcome === "interrupted";
-  const failed = stateUser?.turnOutcome === "failed";
-  const stopped = stateUser?.turnOutcome === "cancelled";
+  // A manual stop takes the failure treatment instead of a neutral "Stopped".
+  const failed = stateUser?.turnOutcome === "failed" || stateUser?.turnOutcome === "cancelled";
   const continuing = stateUser?.terminalReason === "continued";
   // The resume banner states the interruption and offers the way forward, so
   // the generic notice underneath would only repeat it and add a weaker second
@@ -274,13 +274,11 @@ function TurnView({ group, active }: { group: TurnGroup; active: boolean }) {
   } else {
     status = continuing
       ? "Continuing..."
-      : stopped
-        ? "Stopped"
-        : interrupted
-          ? "Interrupted"
-          : failed
-            ? "Failed"
-            : "Completed";
+      : interrupted
+        ? "Interrupted"
+        : failed
+          ? "Failed"
+          : "Completed";
   }
   const autoContinued = Math.max(0, group.users.length - 1);
   const elapsedLabel =

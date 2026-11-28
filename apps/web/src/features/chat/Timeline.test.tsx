@@ -528,7 +528,7 @@ it.each(["completed", "cancelled"] as const)(
 );
 
 // A settled turn keeps the model's last report. A step still running was cut
-// off, not failed, so it names the reason instead of borrowing the failure mark.
+// off; a manual stop reads like a failed turn instead of a neutral "stopped".
 const settledTerminals = [
   "turn.interrupted",
   "turn.cancelled",
@@ -537,7 +537,7 @@ const settledTerminals = [
 ] as const;
 const settledPlanLabel = {
   "turn.interrupted": "已中断",
-  "turn.cancelled": "已停止",
+  "turn.cancelled": "已中断",
   "turn.failed": "已中断",
   "turn.completed": "未标记完成",
 } as const;
@@ -858,6 +858,48 @@ it("does not offer resume for a cancelled turn", () => {
   render(<Timeline />);
 
   expect(screen.queryByRole("button", { name: "继续这个任务" })).toBeNull();
+});
+
+it("presents a manually stopped turn with the failure effect", () => {
+  useTimelineStore.setState({
+    items: [
+      {
+        id: "user",
+        kind: "message",
+        role: "user",
+        text: "跑完测试",
+        createdAt: 1,
+        turnId: "turn-1",
+        turnOutcome: "cancelled",
+      },
+      {
+        id: "tool-1",
+        kind: "tool",
+        name: "read_file",
+        summary: "读取配置",
+        args: "",
+        status: "done",
+        turnId: "turn-1",
+        createdAt: 2,
+      },
+      {
+        id: "cancelled_turn-1",
+        kind: "error",
+        turnId: "turn-1",
+        message: "已停止当前执行。",
+        createdAt: 3,
+      },
+    ],
+  });
+
+  render(<Timeline />);
+
+  // The settled summary says Failed, exactly like a failed turn.
+  expect(screen.getByRole("button", { name: /执行过程 · Failed/ })).toBeTruthy();
+  // The stop notice keeps its wording but uses the failure treatment.
+  const notice = screen.getByText("已停止当前执行。");
+  expect(notice.closest('[role="status"]')?.className).toContain("border-danger/50");
+  expect(screen.getByRole("button", { name: "重试" })).toBeTruthy();
 });
 
 it("leaves only the resume entry on an interrupted turn", () => {
