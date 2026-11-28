@@ -19,7 +19,7 @@ export async function runScreenDashboard(deps: {
   const { terminal, client } = deps;
   const attached = deps.attached === true;
   const menu = attached
-    ? ["配对", "设备", "日志", "审计", "停止服务", "退出面板（服务继续运行）"]
+    ? ["配对", "设备", "日志", "审计", "停止服务", "退出面板"]
     : ["配对", "设备", "日志", "审计", "退出并停止服务"];
   const exitIndex = menu.length - 1;
   let selected = 0;
@@ -41,13 +41,13 @@ export async function runScreenDashboard(deps: {
           ? [
               "退出面板不会停止服务，在途任务会继续运行。",
               "",
-              `${confirmExit ? "› " : "  "}取消`,
-              `${confirmExit ? "  " : "› "}退出面板（服务继续运行）`,
+              `${confirmExit ? "  " : "› "}取消`,
+              `${confirmExit ? "› " : "  "}退出面板`,
             ]
           : [
               "退出将停止 Server 与 Web。",
               "",
-              `${confirmExit ? "› " : "  "}取消`,
+              `${confirmExit ? "  " : "› "}取消`,
               `${confirmExit ? "› " : "  "}确认退出并停止服务`,
             ],
         footer: attached

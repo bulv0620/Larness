@@ -1,6 +1,6 @@
 # 112 任务清单
 
-> 状态：`ready`。一次只做一个任务；任务完成后勾选并在「备注」记录验证命令与未运行项。
+> 状态：`done`。一次只做一个任务；任务完成后勾选并在「备注」记录验证命令与未运行项。
 
 | ID | 交付 | 依赖 | 状态 |
 |---|---|---|---|
@@ -11,7 +11,7 @@
 | LC-5 | [stop / restart 与 IPC source](#lc-5-stop--restart-与-ipc-source) | LC-4 | `done` |
 | LC-6 | [TUI 附加模式、菜单与退出文案](#lc-6-tui-附加模式菜单与退出文案) | LC-2 | `done` |
 | LC-7 | [dev 边界与 supervisor 清理](#lc-7-dev-边界与-supervisor-清理) | LC-5 | `done` |
-| LC-8 | [契约、安装文档与整仓验证](#lc-8-契约安装文档与整仓验证) | LC-6, LC-7 | `in_progress` |
+| LC-8 | [契约、安装文档与整仓验证](#lc-8-契约安装文档与整仓验证) | LC-6, LC-7 | `done` |
 
 ## LC-1 CLI 参数、分派与裸命令帮助
 
@@ -106,7 +106,8 @@
 
 - `tui` 只附加；未运行退 3 并提示 `larness start`；无 TTY 退 1。
 - `q` / Ctrl+C 只退出面板，退 0，服务与在途 Turn 继续。
-- 菜单拆为“停止服务”（确认后 IPC shutdown）与“退出面板（服务继续运行）”；前台受管模式保持原语义。
+- 菜单拆为“停止服务”（确认后 IPC shutdown）与“退出面板”；前台受管模式保持原语义。
+- 退出确认默认选中“取消”，光标位置与 Enter 的实际动作一致（前台受管与附加模式均是）。
 - 服务被外部停止时明确提示，不打印异常堆栈。
 
 **测试**
@@ -116,6 +117,7 @@
 **备注**
 
 - 2026-11-28 完成。PTY 附加 → 菜单显示“停止服务 / 退出面板” → 退出面板后 status 仍 running；`onClose` 使服务被外部停止时及时退出。
+- 2026-11-28 用户实机发现退出确认的光标与动作相反（默认光标停在“退出面板”但 Enter 取消，移到“取消”后 Enter 才退出），前台受管模式的确认页还同时缺少光标。改为“取消/确认项”统一由 `confirmExit` 决定光标（默认取消），与停止服务确认页一致；同时去掉菜单与选项里的“（服务继续运行）”。新增 2 项回归测试（附加 / 前台各一项，先红后绿），`test/tui` 57 项通过。
 
 ## LC-7 dev 边界与 supervisor 清理
 
@@ -150,5 +152,5 @@
 - 2026-11-28 `pnpm test:e2e`（Mock Chromium）：25/25 通过。
 - 2026-11-28 `LARNESS_E2E_PORT=3310 pnpm test:e2e:prod`（真实 Server + 内置 FakeProvider）：12/20 通过，8 项失败**全部**是 `e2e-auth` 落后于已发布产品行为，与本切片无关：期望的 “Agent Profile” 切换已由 094 移除、“设置与模型” 已改名 “模型与凭据”、Toast 改为固定层后断言 `position: fixed` 失效；其余为同类过期或时序断言。记录为 [Q-096](../../docs/open-questions.md)，不修改测试、不宣称 prod E2E 通过。
 - 2026-11-28 复跑中发现并修复 `status` 混合版本缺陷：运行中的旧管理面不返回新增字段时，人读摘要读取 `formalServices.note` 抛错（`Cannot read properties of undefined`）。改为按字段回退到本地只读快照，`mode` 缺失显示 `unknown`；新增 `apps/server/test/cli/status.test.ts` 4 项（先红后绿），并用真实运行实例验证 `node app.js status` 退 0。
-- **未运行**：Windows 11 / 10 原生实机（detached 关闭终端、stop、无 POSIX 信号）。不得据此宣称 Windows 通过。
-- 待办：Windows 实机补验后才可把 LC-8 与本切片标 `done`。
+- 2026-11-28 用户在 Windows 实机验证通过（`start` / `stop` / `tui` / `status` / `logs` 及本次退出确认修复），Windows 阻塞项据此关闭；本文只记录用户确认的结果，不推断未测版本与路径。
+- E2E 范围：`test:e2e`（Mock）通过；`test:e2e:prod` 的 8 项失败按 [Q-096](../../docs/open-questions.md) 处理，未改测试、未宣称通过。

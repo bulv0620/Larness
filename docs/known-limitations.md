@@ -18,6 +18,7 @@
 - macOS Apple Silicon 实测 Node.js 22.23.4 和 24.22.2。后续 Node.js 主版本的原生模块兼容性待验证。
 - Windows 11 x64 于 2026-11-10 在 build 26200、Node.js 24.9.0、npm 11.6.0 实机验证：`pnpm check`、`pnpm build`、平台冒烟、`npm pack` 临时全局安装、TUI、ConPTY 终端、命令、临时服务/预览、真实 PM2 启停与回滚、定时脚本、文件/Git/路径。Node.js 22.23.0 另通过平台冒烟与命令/PTY 定向测试；未跑 Node 22 全量 check。
 - Windows 10 x64 于 2026-11-18 由用户实机确认通过；具体 build、Node / npm 版本与命令日志未回填。实现只使用 Windows 10 1809+ 自带能力（ConPTY、PowerShell 5.1、CIM、taskkill、Get-NetTCPConnection）。
+- 服务生命周期命令（`start` / `stop` / `tui` / `status` / `logs` / `restart`，112）于 2026-11-28 由用户实机确认在 Windows 通过，含 detached 启动与退出确认交互；具体 Windows 版本与逐项命令日志未回填。
 - Windows 使用 PowerShell/cmd 原生；WSL 结果不计作 Windows 原生。
 - Linux 的 `node-pty@1.1.0` 没有预编译，可能需要 `build-essential`、`python`、`make` 编译。
 - `better-sqlite3` 固定 `13.0.3`；Windows 10 / 11 与 macOS 已验证包内预编译文件。

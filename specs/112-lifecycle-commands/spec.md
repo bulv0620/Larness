@@ -2,7 +2,7 @@
 id: 112-lifecycle-commands
 title: 服务生命周期命令（start / stop / tui / status / logs）
 milestone: 发布后
-status: ready
+status: done
 depends_on: [017-unified-entry, 050-deploy]
 owners: [human]
 created: 2026-11-28
@@ -11,7 +11,7 @@ updated: 2026-11-28
 
 # 112 服务生命周期命令（start / stop / tui / status / logs）
 
-> 状态：`ready`（2026-11-28 用户确认 Q-086～Q-095 与 `logs --follow`，同日批准 ADR-077）。LC-1～LC-7 已实现并通过 `pnpm check` / `pnpm build`；LC-8 待 Windows 实机与 Playwright E2E 收口。
+> 状态：`done`（2026-11-28 用户确认 Q-086～Q-095 与 `logs --follow`，同日批准 ADR-077）。LC-1～LC-8 全部完成：`pnpm check` / `pnpm build` / `pnpm test:e2e` 通过，用户在 Windows 实机验证通过；`test:e2e:prod` 的既有过期断言另记 Q-096，不计入本切片验收。
 > 实现按 [tasks.md](tasks.md) 一次一个任务推进；[plan.md](plan.md) 记录拆分与验证门禁。
 > 冻结依据：[ADR-023](../../docs/adr/ADR-023-tui-as-managed-entry.md)、[ADR-028](../../docs/adr/ADR-028-unified-dev-entry.md)、[ADR-046](../../docs/adr/ADR-046-pm2-delivery-and-lifecycle.md)、[运行入口契约](../../docs/contracts/runtime-entry.md)、[TUI 契约](../../docs/contracts/tui.md)、[IPC 契约](../../docs/contracts/ipc.md)。
 
@@ -278,7 +278,7 @@ And restart 拒绝执行并以非 0 退出，提示在 pnpm dev 终端重启；�
 | R-17 | MUST | `tui` 必须要求 TTY；`start`、`stop`、`status` 必须可在非 TTY 环境运行。 |
 | R-18 | MUST | 裸 `larness` / `node app.js` 只打印命令帮助（等价 `--help`），以 0 退出；不启动 Server、不创建数据目录 / 数据库 / 日志、不启动子进程、不连接 IPC。 |
 | R-19 | MUST | dev 模式：`pnpm dev` 保持现有前台受管 TUI（Vite + 源码 Server，退出即停止）；`start` 只运行打包后的 Server 与已构建 Web，不启动 Vite、不加载 `src`，缺少构建产物时拒绝并提示 `pnpm build` 或 `pnpm dev`（见 §7.7）。 |
-| R-20 | MUST | TUI 菜单与快捷键按模式区分：附加模式提供“停止服务”和“退出面板（服务继续运行）”；前台受管模式保持“退出并停止服务”。 |
+| R-20 | MUST | TUI 菜单与快捷键按模式区分：附加模式提供“停止服务”和“退出面板”；前台受管模式保持“退出并停止服务”。退出确认默认选中“取消”，光标位置必须与 Enter 的实际动作一致（↑↓ 切换，Enter 执行光标所在项）。 |
 | R-21 | MUST | 附加模式下初始化保存后若需重启，只显示明确指引（`larness restart`），不得静默停止服务或假装新配置已生效。 |
 | R-22 | MUST | `server.shutdown` 审计必须能区分 CLI `stop` 与 TUI 退出/停止；审计不得包含秘密。 |
 | R-23 | MUST | Windows 原生行为必须实机验证：关闭终端后后台进程仍存活、`stop` 可优雅关闭、无 POSIX 信号时仍走 IPC。 |
@@ -460,7 +460,8 @@ And restart 拒绝执行并以非 0 退出，提示在 pnpm dev 终端重启；�
   - 实例锁 `mode` / `dev` 缺省、未知、新值兼容；
   - 就绪轮询的超时、子进程提前退出、并发 `start`；
   - `logs` 行数解析与上限、主 / 后台日志选择、截断提示、脱敏输出；
-  - TUI 模式判定与 footer / 菜单文案（附加 / dev 前台）。
+  - TUI 模式判定与 footer / 菜单文案（附加 / dev 前台）；
+  - 退出确认与停止服务确认：默认选中“取消”，光标位置与 Enter 实际动作一致（附加与前台各一项）。
 - **集成（真实子进程，临时数据目录）**：
   - 构建产物 `start` → `status` → `tui`（PTY）→ 退出 TUI → 服务仍健康 → `stop` → 端口/锁/IPC 释放；
   - 重复 `start` / 并发 `start` / 重复 `stop`；

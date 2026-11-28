@@ -83,7 +83,8 @@ describe("screen dashboard", () => {
     const run = runScreenDashboard({ terminal: f.terminal, client: { request }, attached: true });
     try {
       await vi.waitFor(() => expect(f.latest()).toContain("附加模式：退出面板后服务继续运行"));
-      expect(f.latest()).toContain("退出面板（服务继续运行）");
+      expect(f.latest()).toContain("退出面板");
+      expect(f.latest()).not.toContain("（服务继续运行）");
       f.stdin.write("q");
       await vi.waitFor(() => expect(f.latest()).toContain("退出面板不会停止服务"));
       f.stdin.write("\x1b[B");
@@ -94,6 +95,59 @@ describe("screen dashboard", () => {
         expect.anything(),
         expect.anything(),
       );
+    } finally {
+      f.terminal.close();
+    }
+  });
+
+  it("keeps the default exit choice on cancel so Enter returns to the panel", async () => {
+    const f = fixture();
+    const request = vi.fn(async () => status);
+    const run = runScreenDashboard({ terminal: f.terminal, client: { request }, attached: true });
+    try {
+      await vi.waitFor(() => expect(f.latest()).toContain("附加模式"));
+      f.stdin.write("q");
+      await vi.waitFor(() => expect(f.latest()).toContain("退出确认"));
+      expect(f.latest()).toContain("› 取消");
+      expect(f.latest()).not.toContain("› 退出面板");
+      f.stdin.write("\x1b[B");
+      await vi.waitFor(() => expect(f.latest()).toContain("› 退出面板"));
+      expect(f.latest()).not.toContain("› 取消");
+      f.stdin.write("\x1b[A");
+      await vi.waitFor(() => expect(f.latest()).toContain("› 取消"));
+      f.stdin.write("\r");
+      await vi.waitFor(() => expect(f.latest()).toContain("控制面板"));
+      f.stdin.write("q");
+      await vi.waitFor(() => expect(f.latest()).toContain("退出确认"));
+      f.stdin.write("\x1b[B");
+      f.stdin.write("\r");
+      await run;
+    } finally {
+      f.terminal.close();
+    }
+  });
+
+  it("marks exactly one exit choice in foreground mode", async () => {
+    const f = fixture();
+    const request = vi.fn(async () => status);
+    const run = runScreenDashboard({ terminal: f.terminal, client: { request } });
+    try {
+      await vi.waitFor(() => expect(f.latest()).toContain("活跃会话"));
+      f.stdin.write("q");
+      await vi.waitFor(() => expect(f.latest()).toContain("退出确认"));
+      expect(f.latest()).toContain("› 取消");
+      expect(f.latest()).not.toContain("› 确认退出并停止服务");
+      f.stdin.write("\x1b[B");
+      await vi.waitFor(() => expect(f.latest()).toContain("› 确认退出并停止服务"));
+      expect(f.latest()).not.toContain("› 取消");
+      f.stdin.write("\x1b[A");
+      f.stdin.write("\r");
+      await vi.waitFor(() => expect(f.latest()).toContain("控制面板"));
+      f.stdin.write("q");
+      await vi.waitFor(() => expect(f.latest()).toContain("退出确认"));
+      f.stdin.write("\x1b[B");
+      f.stdin.write("\r");
+      await run;
     } finally {
       f.terminal.close();
     }

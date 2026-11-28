@@ -12,7 +12,7 @@
 | `apps/server/src/status.ts` | 无数据目录 / 模式 / 日志路径 | 追加 `dataDir` / `mode` / `dev` / `logPath` / `daemonLogPath` / `formalServices` |
 | `apps/server/src/ipc/handlers.ts` | `server.shutdown` 只接受 `confirm` | 接受可选 `source`，写审计 |
 | `apps/server/src/tui/main.ts` | `--managed` 前台受管；否则直接附加但退出仍打印“已停止” | 增加 `--attach` 明确附加语义；退出文案按模式 |
-| `apps/server/src/tui/screen-dashboard.ts` | 菜单固定“退出并停止服务” | 附加模式改为“退出面板（服务继续运行）” + 独立“停止服务” |
+| `apps/server/src/tui/screen-dashboard.ts` | 菜单固定“退出并停止服务” | 附加模式改为“退出面板” + 独立“停止服务”；退出确认默认选中“取消”，光标与 Enter 动作一致 |
 | `apps/server/src/tui/supervisor.ts` | 注入 `LARNESS_TUI_CHILD` 等 | 追加 `LARNESS_LIFECYCLE_MODE=foreground` / `LARNESS_RUNTIME_DEV` |
 | `apps/server/src/index.ts` | 前台信号 / IPC shutdown | 后台模式标记；stdout/stderr 脱敏由 `start` 侧日志约束 |
 
@@ -44,7 +44,7 @@
 
 - `larness tui` 检查 TTY 后以 `--attach` 启动 `dist/tui.js`（或在已构建入口中导入）。
 - 附加模式不启动子进程、不发送 `server.shutdown`；`q` / Ctrl+C 只恢复终端并退出 0。
-- 概览显示“服务继续运行”；菜单项拆为“停止服务”（确认后 IPC shutdown）与“退出面板”。
+- 概览显示“服务继续运行”；菜单项拆为“停止服务”（确认后 IPC shutdown）与“退出面板”，退出确认默认选中“取消”。
 - 前台受管模式（`pnpm dev`、遗留 `--managed`）文案保持“退出并停止服务”。
 
 ## 3. 任务顺序与门禁

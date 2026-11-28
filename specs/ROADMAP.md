@@ -764,11 +764,11 @@ live benchmark 发现模型把 `expectedVersion` 带进 `edit`，strict schema �
 | AD-2 | [Web 草稿继承显示与不回写](110-session-approval-default/tasks.md#ad-2-web-草稿继承显示与不回写) | AD-1 | `done`（2026-11-27） |
 | AD-3 | [契约、文档与整仓验证](110-session-approval-default/tasks.md#ad-3-契约文档与整仓验证) | AD-2 | `done`（2026-11-27；`pnpm check` / `pnpm build` 通过） |
 
-### 8.36 发布后：服务生命周期命令（112，in_progress）
+### 8.36 发布后：服务生命周期命令（112，done）
 
 把前台受管 TUI 拆成显式的 `start` / `stop` / `tui` / `status` / `logs`：后台启动管理面、IPC 优雅停止、按需附加控制面板、状态与日志查询；裸命令只打印帮助；`pnpm dev` 保持前台受管并明确其命令边界。关闭 TUI 不再停止后台服务，在途 Turn 继续。规格见 [112](112-lifecycle-commands/spec.md)。
 
-**当前为 `in_progress`**：LC-1～LC-7 已完成，LC-8 文档与 `pnpm check` / `pnpm build` 通过；Windows 实机与 Playwright E2E 未运行，完成前不标 `done`。见 [tasks](112-lifecycle-commands/tasks.md)。
+**已收口（2026-11-28）**：LC-1～LC-8 完成，`pnpm check` / `pnpm build` / `pnpm test:e2e` 通过，用户在 Windows 实机验证通过；`test:e2e:prod` 的 8 项失败属既有过期断言（Q-096），不计入本切片。见 [tasks](112-lifecycle-commands/tasks.md)。
 
 ## 9. 门禁
 

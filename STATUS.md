@@ -6,7 +6,7 @@
 
 ## 当前进行中
 
-- **112 服务生命周期命令（LC-1～LC-7 完成，LC-8 待实机）**：`start` / `stop` / `restart` / `tui` / `status` / `logs` 与 TUI 附加模式已实现；`pnpm check` / `pnpm build` 通过，`pnpm test:e2e`（Mock）25/25 通过。复跑中发现并修复旧管理面不返回新字段时 `status` 人读摘要崩溃（改按字段回退本地快照，新增 4 项测试）。剩余 Windows 原生实机（detached 关终端、stop、无 POSIX 信号）未验证，`test:e2e:prod` 因 `e2e-auth` 过期用例 8 项失败（Q-096）。见 [tasks](specs/112-lifecycle-commands/tasks.md)。
+- 当前没有进行中任务。
 
 ## 阻塞与待确认
 
@@ -15,13 +15,13 @@
 - **M5-F2 Ubuntu 实机验证**：Ubuntu 22.04 / 24.04 尚未实机验证；完成后由 M5-F3 更新支持矩阵，未验证前不标支持。
 - **TR-3 恢复入口视觉**：已实现，待用户确认。
 - **TR-4 删除粒度**：默认保留 `sessions` 行，`deleteSessions=true` 才连会话行一起删；`maxBytes` 仅入配置、未强制淘汰。待用户复核。
-- **112 生命周期命令的 Windows 验证**：macOS 已完成 start / status / tui / stop / restart、`pnpm dev` 被 CLI 停止、`logs --follow`；Windows 11 / 10 的 detached 关闭终端存活与无 POSIX 信号路径尚未实机验证，未标通过。见 [tasks](specs/112-lifecycle-commands/tasks.md)。
 - **`test:e2e:prod` 套件过期（Q-096）**：真实 Server + Chromium 20 项中 8 项失败，全部是 `e2e-auth` 仍在断言已移除 / 已改名的 UI（Agent Profile 切换、设置与模型、Toast `position: fixed`）。未修改或放宽断言；重写前不把 prod E2E 作为发布门禁。
 
 ## 最近收口（滚动保留最近 10 项）
 
 | 日期 | 任务 | 结果 | 记录 |
 |---|---|---|---|
+| 2026-11-28 | 112 服务生命周期命令（LC-1～LC-8） | 拆出 `start` / `stop` / `tui` / `status` / `logs` / `restart`：后台 detached 启动并等待 IPC + `/api/health` 就绪、`stop` 走 IPC `server.shutdown` 且不动 PM2 正式服务、`tui` 只附加（`q` / Ctrl+C 只退面板）、`status` 默认人读 + `--json`、`logs` 尾部与 `--follow`、裸命令只打印帮助；`pnpm dev` 保持前台受管。收口前修两处实测缺陷：旧管理面缺新字段时 `status` 崩溃（按字段回退本地快照，4 项测试）、退出确认光标与 Enter 动作相反且前台模式无光标（默认取消，2 项回归）。`pnpm check` 退出码 0（server 193 文件 / 1069 通过 / 15 跳过）、`pnpm build` 通过、`pnpm test:e2e` 25/25，用户在 Windows 实机验证通过；`test:e2e:prod` 8 项失败属既有过期断言（Q-096） | [112](specs/112-lifecycle-commands/tasks.md) |
 | 2026-11-27 / 11-28 | 111 手动停止按失败效果呈现（MS-1～MS-5） | `turn.cancelled` 现在按失败读：摘要 `Failed`、提示用失败边框并保留「重试」、被截断的 `running` 计划步骤显示「已中断」；失败回合不再平铺失败工具行，明细留在可展开的执行过程里；服务端 `CANCELLED`、事件、审计、Job 与恢复条件零改动，取消仍不提供继续入口。`Timeline.test.tsx` 先红后 32/32，web 全量 326 项、`pnpm check` 退出码 0（server 188 文件 / 1018 项通过 / 15 跳过）、`pnpm build` 通过 | [111](specs/111-manual-stop-failure/tasks.md) |
 | 2026-11-27 | 110 新会话继承最近选择的审批策略（AD-1～AD-3） | 项目 `settings.defaultApprovalPolicyId` 与默认工作区 `app_meta` 分别记住最后一次用户修改的策略；`POST /api/sessions` 创建时继承，`PATCH /api/sessions/:id` 改策略时在同一事务更新默认，旧会话不回写；Web 草稿显示项目默认，未主动改选时不回传策略；`sessions/service` 9 项、`sessions/api` 1 项、`projects/api` 3 项、web `SessionModel` 14 项 / `Composer` 9 项 / `timelineSendScroll` 3 项通过；`pnpm check` 退出码 0（server 188 文件、1018 项通过 / 15 跳过）、`pnpm build` 通过；无 DB 列/迁移 | [110](specs/110-session-approval-default/tasks.md) |
 | 2026-11-27 | 109 文件工具作用域：放开项目外读取（ER-1～ER-3） | `read_file` / `list_files` / `search_code` 接受项目外 canonical 绝对路径（`ToolContext.readScope`），结果带 `rootScope=primary|external`，外部 `path` 为绝对路径；写入类工具与 `run_command.cwd` 仍限项目根；硬闸只保留 `<dataDir>` 与 `/proc`、`/sys`、`/dev`，文件系统根 / 主目录本身 / 盘符根返回 `INVALID_PATH`，不按文件类型或凭据目录名拒绝；`TurnRunner` 按 dataDir realpath 注入，dataDir 缺失则失败关闭；`PROMPT_VERSION=109-1`。`pathGuard` 7+1 跳过、`fileService`/`fileTools` 37 项、`toolExecutor` 5 项、`contextAssembler` 15 项、新增 `externalRead` 1 项通过；`pnpm check` 退出码 0（web 322、agent 37、server 1016+15 跳过）、`pnpm build` 通过；P4 `run_command.cwd` 未开始 | [109](specs/109-external-read-scope/tasks.md) |
@@ -31,7 +31,6 @@
 | 2026-11-27 | 104 宽搜索目录摘要（SDS-1） | `search_code` 达到 limit 后继续统计 `apps/<name>`/`packages/<name>` 命中数，截断时给 Top dirs + `path=`；裸 `*.ts` 改为递归。真实 099 任务：12 步/17 调用/1 失败/248,490 input/53.5s，verify 0（102 基线 13/23/296,177/59.5s，103 回退 22/29/546,390/94.4s）；首次搜索即到 `packages/agent`，不再探索 `apps/server`。剩余为 2 次 list、3 次 plan、整文件/测试/types 读取 | [104](specs/104-search-directory-summary/tasks.md) |
 | 2026-11-27 | 103 真实仓库探索：精确标识符优先（EIS-1） | 实现后实机复测明显回退：Larness 22 步/29 调用/546,390 input/94.4s（102 基线 13/23/296,177/59.5s）；模型先搜 `expectedVersion` 命中大量测试，错误探索 `apps/server`，宽扫提示未纠正。已回退 prompt/宽扫提示，恢复 `PROMPT_VERSION=100-1`；任务 `dropped`，后续改做仓库/包索引或搜索排序 | [103](specs/103-exact-identifier-search/tasks.md) |
 | 2026-11-27 | 102 外部真实仓库 A/B（RRA-1/RRA-2） | benchmark runner 新增 `--repo`/`--prompt`/`--verify`/`--setup`：复制本地仓库（排除 `.git/.larness/tmp`）、可选 setup、baseline、复用指标；fake smoke verify=0、源仓库不变、参数/setup 失败关闭；真实 Larness 099 任务：Larness 13 步/23 调用/2 失败/299,718 tokens/59.5s，opencode 8 步/10 调用/157,152 prompt tokens/43.1s，双方 verify 0、同 diff；差距定位为宽搜索、整文件读取和错误 pnpm 命令；`pnpm check` 退出码 0（server 1006+14 跳过）、`pnpm build` 通过 | [102](specs/102-real-repo-ab/tasks.md) |
-| 2026-11-27 | 101 更大仓库基准任务（DRB-1） | 新增 `checkout-discount` fixture：31 文件，测试只能定位到 `quote`，根因在 `discount.js`（返回折扣额）与 `quote.js`（运费进入折扣基数），两文件同修才通过；补基线/可解性/单点失败测试；`tasks.test.ts` 10 项、`pnpm check` 退出码 0（web 322、agent 75+1 跳过、server 1002+14 跳过）、`pnpm build` 通过；live A/B（n=1）Larness 6 步/12 调用/38,698 tokens/18.8s，opencode 8 步/12 调用/75,253 prompt tokens/18.7s，双方 verify 0、同 diff | [101](specs/101-deep-repo-benchmark/tasks.md) |
 
 > 更早的收口记录（含同日其余 K-5、K-4、MC-* 与 FR-* 任务）见 [历史状态日志](docs/log/2026-11.md)，按原文顺序保留。
 
@@ -71,4 +70,4 @@
 | M4 | 持久运行与版本发布 | `done` | 2026-11-07 用户验收 G4 与 M4-R0～R4，见 [M4 收尾](specs/050-deploy/closure.md) |
 | M5 | 多模型、自动化与更新 | `done` | M5-1a–e / M5-2 / M5-3 / M5-4 / M5-5 `done`；G5 条件通过（2026-11-08） |
 | M6 | 运行时效率与 Turn 恢复 | `done` | 070（HX）与 071（TR）于 2026-11-12 收口；HX-12b 于 2026-11-18 按用户决定废弃 |
-| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 / 084 / 088 / 089 / 090 / 091 / 092 / 093 / 094 / 095 / 096 / 097 / 098 / 099 / 100 / 101 / 102 / 104 / 107 / 109 / 110 / 111 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核、项目服务与 service-ops、Profile 收敛与用量、文档与图片附件、前缀缓存、Provider 重试、工具结果回放、搜索忽略、工具面、操作日志、单一模式、命令审批、流式读取、基准系列、项目外读取、审批默认、停止呈现；103 / 105 / 106 为 `dropped`（实机回退，代码已撤销） |
+| 切片 | 068 / 072 / 073 / 074 / 076 / 077 / 078 / 081 / 082 / 083 / 084 / 088 / 089 / 090 / 091 / 092 / 093 / 094 / 095 / 096 / 097 / 098 / 099 / 100 / 101 / 102 / 104 / 107 / 109 / 110 / 111 / 112 | `done` | UI 修复、错误预算、上下文预算、成果呈现、文件浏览、模型连接、Git 工作流、Agent 内核、项目服务与 service-ops、Profile 收敛与用量、文档与图片附件、前缀缓存、Provider 重试、工具结果回放、搜索忽略、工具面、操作日志、单一模式、命令审批、流式读取、基准系列、项目外读取、审批默认、停止呈现、服务生命周期命令；103 / 105 / 106 为 `dropped`（实机回退，代码已撤销） |
