@@ -50,6 +50,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useTimelineStore } from "@/stores/timelineStore";
 
 const PROJECT_SESSION_LIMIT = 5;
+const PROJECT_SESSION_PAGE = 5;
 
 interface ProjectDragState {
   id: string;
@@ -94,7 +95,7 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
   const queryClient = useQueryClient();
   const focusComposer = useNavigationStore((state) => state.focusComposer);
   const [query, setQuery] = useState("");
-  const [expandedSessionLists, setExpandedSessionLists] = useState<Record<string, boolean>>({});
+  const [expandedSessionPages, setExpandedSessionPages] = useState<Record<string, number>>({});
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const webSearchOpen = useSettingsStore((state) => state.webSearchOpen);
@@ -131,6 +132,19 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
       setJobsSeenFailures(jobsSummary.data.failedLast24h);
     }
   }, [jobsOpen, jobsSummary.data]);
+
+  // Collapsing a project resets its session list, even if it was fully expanded.
+  useEffect(() => {
+    setExpandedSessionPages((state) => {
+      const collapsed = Object.keys(expandedProjects).filter(
+        (id) => expandedProjects[id] === false,
+      );
+      if (!collapsed.some((id) => state[id] !== undefined)) return state;
+      const next = { ...state };
+      for (const id of collapsed) delete next[id];
+      return next;
+    });
+  }, [expandedProjects]);
 
   const [context, setContext] = useState<ContextTarget | null>(null);
   const [dialog, setDialog] = useState<SidebarDialog>(null);
@@ -444,13 +458,15 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
             const hasDraft = !normalized && draftSession?.projectId === navigationProjectId;
             const sessionLimit = PROJECT_SESSION_LIMIT - Number(hasDraft);
             const canExpandSessions = !normalized && project.sessions.length > sessionLimit;
-            const allSessionsShown = expandedSessionLists[project.id] ?? false;
+            const visibleSessionLimit =
+              sessionLimit + (expandedSessionPages[project.id] ?? 0) * PROJECT_SESSION_PAGE;
+            const allSessionsShown = visibleSessionLimit >= project.sessions.length;
             let visibleSessions = project.sessions;
             if (canExpandSessions && !allSessionsShown) {
               const preferred = new Set(
                 [...visibleSessions]
                   .sort((a, b) => sessionPriority(b) - sessionPriority(a))
-                  .slice(0, sessionLimit),
+                  .slice(0, visibleSessionLimit),
               );
               visibleSessions = visibleSessions.filter((session) => preferred.has(session));
             }
@@ -594,9 +610,9 @@ export function ProjectSidebar({ mobile = false }: { mobile?: boolean }) {
                         type="button"
                         aria-expanded={allSessionsShown}
                         onClick={() =>
-                          setExpandedSessionLists((state) => ({
+                          setExpandedSessionPages((state) => ({
                             ...state,
-                            [project.id]: !allSessionsShown,
+                            [project.id]: allSessionsShown ? 0 : (state[project.id] ?? 0) + 1,
                           }))
                         }
                         className="flex h-6 w-full items-center rounded-md pl-5 pr-2 text-left text-[10.5px] text-ink-3 hover:bg-black/[.035] hover:text-ink dark:hover:bg-white/[.05]"

@@ -1,4 +1,4 @@
-import type { GatewaySnapshot } from "@larness/shared";
+import type { GatewaySnapshot, SessionSummary } from "@larness/shared";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -90,6 +90,17 @@ function sidebarSnapshot(): GatewaySnapshot {
     terminals: [],
     gitChanges: [],
   };
+}
+
+function sidebarSessions(count: number): SessionSummary[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `ses_${index + 1}`,
+    projectId: null,
+    workspaceKind: "default",
+    title: `侧栏会话 ${index + 1}`,
+    status: "idle",
+    updatedAt: 1_000 + index,
+  }));
 }
 
 function renderSidebar() {
@@ -290,5 +301,45 @@ describe("ProjectSidebar project ordering", () => {
       name: "自动化任务，2 个失败任务",
     });
     expect(within(jobsEntry).getByText("2")).toBeInTheDocument();
+  });
+
+  it("reveals sessions one page at a time and collapses back to five", () => {
+    mocks.snapshot.sessions = sidebarSessions(12);
+    renderSidebar();
+    const list = document.querySelector("[data-project-list]");
+    if (!(list instanceof HTMLElement)) throw new Error("Expected project list");
+    const rows = () => within(list).queryAllByRole("button", { name: /^侧栏会话 / });
+
+    expect(rows()).toHaveLength(5);
+
+    fireEvent.click(within(list).getByRole("button", { name: "展开更多" }));
+    expect(rows()).toHaveLength(10);
+    expect(within(list).queryByRole("button", { name: "收起" })).toBeNull();
+
+    fireEvent.click(within(list).getByRole("button", { name: "展开更多" }));
+    expect(rows()).toHaveLength(12);
+
+    fireEvent.click(within(list).getByRole("button", { name: "收起" }));
+    expect(rows()).toHaveLength(5);
+    expect(within(list).getByRole("button", { name: "展开更多" })).toBeVisible();
+  });
+
+  it("resets the session page after collapsing and re-expanding a project", () => {
+    mocks.snapshot.sessions = sidebarSessions(12);
+    renderSidebar();
+    const list = document.querySelector("[data-project-list]");
+    if (!(list instanceof HTMLElement)) throw new Error("Expected project list");
+    const rows = () => within(list).queryAllByRole("button", { name: /^侧栏会话 / });
+    const project = screen.getByRole("button", { name: "默认工作区" });
+
+    fireEvent.click(within(list).getByRole("button", { name: "展开更多" }));
+    expect(rows()).toHaveLength(10);
+
+    fireEvent.click(project);
+    expect(rows()).toHaveLength(0);
+
+    fireEvent.click(project);
+    expect(rows()).toHaveLength(5);
+    expect(within(list).getByRole("button", { name: "展开更多" })).toBeVisible();
   });
 });
